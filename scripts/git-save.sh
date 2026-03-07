@@ -1,9 +1,11 @@
 #!/bin/bash
 # git-save.sh — commit everything and regenerate MEMORY.md
+# Usage: ./scripts/git-save.sh "subject" "body"
 
 set -e
 
-MESSAGE="${1:-update}"
+SUBJECT="${1:-update}"
+BODY="${2:-}"
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 cd "$PROJECT_DIR"
@@ -11,12 +13,20 @@ cd "$PROJECT_DIR"
 # Stage all changes
 git add -A
 
-# Commit
-git commit -m "$MESSAGE
+# Commit with subject + optional body
+if [ -n "$BODY" ]; then
+  git commit -m "$SUBJECT
+
+$BODY
 
 Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+else
+  git commit -m "$SUBJECT
 
-# Regenerate MEMORY.md from last 10 commits
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+fi
+
+# Regenerate MEMORY.md from last 8 commits
 MEMORY_FILE="$PROJECT_DIR/memory/MEMORY.md"
 
 cat > "$MEMORY_FILE" << 'HEADER'
@@ -25,7 +35,7 @@ cat > "$MEMORY_FILE" << 'HEADER'
 ## Recent Git Saves
 HEADER
 
-git log --oneline -10 --pretty=format:"- %ad — %s" --date=short >> "$MEMORY_FILE"
+git log --oneline -8 --pretty=format:"- %ad — %s" --date=short >> "$MEMORY_FILE"
 echo "" >> "$MEMORY_FILE"
 
 # Stage the updated MEMORY.md and amend
