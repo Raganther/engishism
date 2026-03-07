@@ -1,47 +1,72 @@
-# Active Plan — Engine Foundation
+# Active Plan — Simple Games (Proof of Concept)
 Started: 2026-03-07
 
 ## Goal
-Build a modular, composable ESL lesson engine. One engine, many pluggable activity types. Content (JSON) is always separate from logic (JS).
+Prove the modular framework works by building 3 simple games as activity modules.
+No engine changes. Each game = one file, one schema, plug in and go.
 
-## Architecture Contract
-- Lesson = ordered list of slides
-- Slide = type + content
-- Type = self-contained activity module (flashcard, quiz, fill-blank, etc.)
-- Engine = loads lesson, navigates slides, renders current type via registry
-- Registry = single file mapping type names to activity modules
+## Games to build (in order)
 
-## File Structure (target)
+### 1. True / False
+Simplest possible. Statement on screen. Students call it. Click to reveal.
+- No timer, no teams, no scoring
+- Proves: display + reveal pattern works for game content
+
+Schema:
+```js
+{ type: "true-false",
+  content: {
+    statement: "You use a gerund after 'enjoy'.",
+    answer: true,
+    explanation: "Enjoy + gerund: I enjoy reading."
+  }
+}
 ```
-index.html          — engine shell (never changes)
-engine/
-  engine.js         — load lesson, navigate, call registry
-  registry.js       — { 'flashcard': Flashcard, 'quiz': Quiz, ... }
-activities/
-  flashcard.js      — one file per activity type
-  quiz.js
-lessons/
-  [unit].json       — content only, no logic
-styles/
-  main.css          — TV-optimized base styles
+
+### 2. Hot Seat
+Big word on screen. One student faces away. Teammates describe. Timer counts down.
+- Needs: a countdown timer (self-contained inside the activity)
+- No scoring for MVP — teacher keeps score mentally
+- Proves: timer pattern works
+
+Schema:
+```js
+{ type: "hot-seat",
+  content: {
+    words: ["distracted", "segmented", "attribute", "filter down"],
+    time: 60
+  }
+}
+```
+
+### 3. Noughts & Crosses
+3×3 grid of questions. Teams take turns. Answer correctly to claim a square.
+- Teacher clicks a cell to reveal the question, clicks again to mark O or X
+- Needs: team labels (hardcoded Team A / Team B for now)
+- Proves: stateful grid interaction works
+
+Schema:
+```js
+{ type: "noughts-crosses",
+  content: {
+    teams: ["Team A", "Team B"],
+    cells: [
+      { question: "Use 'enjoy' + gerund in a sentence.", answer: "I enjoy reading." },
+      // × 9
+    ]
+  }
+}
 ```
 
 ## Steps
-1. [x] Get concrete lesson content from textbook (Unit 8A — Gerunds & Infinitives)
-2. [x] Design activity types from real content
-3. [x] Build engine shell — index.html + engine.js
-4. [x] Build 4 activity types: title-card, reveal-card, fill-blank, meaning-pair, sentence-complete
-5. [x] Write first lesson file from real content (lessons/unit-8a.js)
-6. [x] Test end-to-end: open index.html, navigate all 16 slides, check interactions
-7. [x] Fix any issues found during testing — none found, working well
-8. [ ] Add second lesson to prove the plug-in model works
-
-## Later (not MVP)
-- Kahoot-style student phone interaction (slide type gets `multiplayer` flag + backend)
-- Teacher-facing lesson builder UI
-- Claude integration: photo of textbook → auto-generate lesson JSON
+1. [ ] Build true-false.js + add to lessons/unit-8a.js to test
+2. [ ] Build hot-seat.js + add to lessons/unit-8a.js to test
+3. [ ] Build noughts-crosses.js + add to lessons/unit-8a.js to test
+4. [ ] Verify all three load, render, and interact correctly
+5. [ ] Git save
 
 ## Notes
-- Fully offline, fully static — no server, no build step
-- TV-optimized: large fonts, high contrast, readable at distance
-- Teacher controls everything via keyboard (spacebar/arrows)
+- Each game is one file in activities/
+- One line added to index.html to load it
+- Engine does not change
+- Keep UI minimal — this is proof of concept, not polish

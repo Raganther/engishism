@@ -30,7 +30,7 @@ Phase: Engine v1 working
 - Engine built and tested: index.html + engine/engine.js
 - 5 activity types: title-card, reveal-card, fill-blank, meaning-pair, sentence-complete
 - First lesson working: lessons/unit-8a.js (Unit 8A — Gerunds & Infinitives, 16 slides)
-- Next: add a second lesson to prove plug-in model, or expand activity types
+- Next: build 3 simple games (true-false, hot-seat, noughts-crosses) per active plan
 
 ## Constraints
 - Must work on a standard classroom TV/browser — no exotic dependencies
