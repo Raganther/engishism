@@ -16,7 +16,7 @@ window.Activities['hot-seat'] = {
     `;
   },
 
-  init(el, c) {
+  init(el, c, { onComplete }) {
     const wordEl   = el.querySelector('.hs-word');
     const timerEl  = el.querySelector('.hs-timer');
     const startBtn = el.querySelector('#hs-start');
@@ -41,6 +41,7 @@ window.Activities['hot-seat'] = {
       wordEl.style.color = 'var(--accent)';
       nextBtn.disabled   = true;
       startBtn.disabled  = true;
+      onComplete({ score: tally });
     }
 
     function tick() {

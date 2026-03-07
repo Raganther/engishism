@@ -37,7 +37,7 @@ window.Activities['noughts-crosses'] = {
     `;
   },
 
-  init(el, c) {
+  init(el, c, { onComplete }) {
     const teams      = c.teams || ['Team X', 'Team O'];
     const board      = new Array(9).fill(null);
     const cellEls    = el.querySelectorAll('.nc-cell');
@@ -109,8 +109,9 @@ window.Activities['noughts-crosses'] = {
 
         if (checkWin(team)) {
           highlightWin(team);
-          winEl.textContent    = `${teams[team]} wins!`;
-          winEl.style.display  = '';
+          winEl.textContent   = `${teams[team]} wins!`;
+          winEl.style.display = '';
+          onComplete({ winner: teams[team] });
         }
       });
     });

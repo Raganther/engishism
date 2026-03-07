@@ -18,5 +18,5 @@ window.Activities['reveal-card'] = {
       </div>
     `;
   },
-  init() {}
+  init(el, c, { onComplete }) {}
 };

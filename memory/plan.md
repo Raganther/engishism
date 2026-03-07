@@ -1,72 +1,45 @@
-# Active Plan — Simple Games (Proof of Concept)
+# Active Plan — Selector Mode + Composable Activity Interface
 Started: 2026-03-07
 
 ## Goal
-Prove the modular framework works by building 3 simple games as activity modules.
-No engine changes. Each game = one file, one schema, plug in and go.
+Two things that belong together:
+1. Add `onComplete` callback to the activity interface — makes every module truly composable
+2. Build selector mode — teacher picks a game from a menu instead of navigating a slideshow
 
-## Games to build (in order)
+## Architecture changes
 
-### 1. True / False
-Simplest possible. Statement on screen. Students call it. Click to reveal.
-- No timer, no teams, no scoring
-- Proves: display + reveal pattern works for game content
-
-Schema:
+### Activity interface (small, foundational)
+Every activity's `init()` gains a third argument:
 ```js
-{ type: "true-false",
-  content: {
-    statement: "You use a gerund after 'enjoy'.",
-    answer: true,
-    explanation: "Enjoy + gerund: I enjoy reading."
-  }
-}
+init(el, content, { onComplete })
 ```
+- Non-game activities (fill-blank, etc.) accept it but don't call it
+- Game activities call it when the game ends: `onComplete({ winner, score })`
+- The caller (engine) decides what happens next — return to menu, auto-advance, etc.
 
-### 2. Hot Seat
-Big word on screen. One student faces away. Teammates describe. Timer counts down.
-- Needs: a countdown timer (self-contained inside the activity)
-- No scoring for MVP — teacher keeps score mentally
-- Proves: timer pattern works
-
-Schema:
-```js
-{ type: "hot-seat",
-  content: {
-    words: ["distracted", "segmented", "attribute", "filter down"],
-    time: 60
-  }
-}
+### Engine: two modes
 ```
-
-### 3. Noughts & Crosses
-3×3 grid of questions. Teams take turns. Answer correctly to claim a square.
-- Teacher clicks a cell to reveal the question, clicks again to mark O or X
-- Needs: team labels (hardcoded Team A / Team B for now)
-- Proves: stateful grid interaction works
-
-Schema:
-```js
-{ type: "noughts-crosses",
-  content: {
-    teams: ["Team A", "Team B"],
-    cells: [
-      { question: "Use 'enjoy' + gerund in a sentence.", answer: "I enjoy reading." },
-      // × 9
-    ]
-  }
-}
+mode: "slideshow"  →  current behaviour (default if no mode set)
+mode: "selector"   →  grid menu of all activities, click to launch, ESC to return
 ```
+Lesson file sets: `window.LESSON = { mode: "selector", slides: [...] }`
+
+### Nav bar changes
+- Slideshow: prev / counter / next (unchanged)
+- Selector menu: hidden
+- Selector → game active: "← Menu" button only (ESC also works)
 
 ## Steps
-1. [x] Build true-false.js + add to lessons/unit-8a.js to test
-2. [x] Build hot-seat.js + add to lessons/unit-8a.js to test
-3. [x] Build noughts-crosses.js + add to lessons/unit-8a.js to test
-4. [ ] Verify all three load, render, and interact correctly
-5. [ ] Git save
+1. [x] Update plan
+2. [ ] Update index.html — add btn-menu
+3. [ ] Rewrite engine.js — slideshow + selector modes, pass onComplete
+4. [ ] Add selector CSS to main.css
+5. [ ] Update all activity files — add onComplete to init() signature
+6. [ ] true-false, hot-seat, noughts-crosses — call onComplete at game end
+7. [ ] Update lessons/unit-8a.js — set mode: "selector", add labels to slides
+8. [ ] Test — open index.html, verify selector renders, games launch and return
 
 ## Notes
-- Each game is one file in activities/
-- One line added to index.html to load it
-- Engine does not change
-- Keep UI minimal — this is proof of concept, not polish
+- No server needed — all files still load via script tags
+- autoLabel() in engine generates tile text from content if no label field set
+- Backward compatible: lessons with no mode field default to slideshow

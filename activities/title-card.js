@@ -10,5 +10,5 @@ window.Activities['title-card'] = {
       </div>
     `;
   },
-  init() {}
+  init(el, c, { onComplete }) {}
 };

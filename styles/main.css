@@ -1,5 +1,92 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ── multi-item (shared by fill-blank, meaning-pair, etc.) ── */
+.multi-item { display: none; }
+.multi-item.active { display: block; }
+
+.multi-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.multi-counter {
+  color: var(--muted);
+  font-size: 1rem;
+  min-width: 50px;
+  text-align: center;
+}
+
+.multi-next {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 1rem;
+  padding: 0.4rem 1.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.multi-next:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ── selector ─────────────────────────────────────────────── */
+.selector {
+  width: 100%;
+  max-width: 1200px;
+  text-align: center;
+}
+
+.sel-title {
+  font-size: clamp(1.4rem, 2.5vw, 2.2rem);
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 1.5rem;
+}
+
+.sel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.sel-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.sel-tile:hover {
+  border-color: var(--accent);
+  background: rgba(230, 172, 0, 0.05);
+}
+
+.sel-type {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--blue);
+  font-weight: 600;
+}
+
+.sel-label {
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.4;
+}
+
 /* ── true-false ───────────────────────────────────────────── */
 .true-false .tf-statement {
   font-size: clamp(1.6rem, 3.5vw, 3rem);
