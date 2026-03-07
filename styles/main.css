@@ -159,6 +159,13 @@
   border-color: var(--accent);
 }
 
+/* ── loading ──────────────────────────────────────────────── */
+.loading-msg {
+  font-size: 1.5rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
 /* ── selector ─────────────────────────────────────────────── */
 .selector {
   width: 100%;

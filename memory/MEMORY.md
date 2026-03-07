@@ -1,6 +1,8 @@
 # Engishism — Memory
 
 ## Recent Git Saves
+- 2026-03-07 — chore: module system confirmed working, update plan and status
+- 2026-03-07 — feat: composable module system — timer, scoreboard, teams
 - 2026-03-07 — plan: module system — timer, scoreboard, teams as composable add-ons
 - 2026-03-07 — chore: lesson generation pipeline proven, clear active plan
 - 2026-03-07 — feat: add Unit 6 Scandi Successes lesson (LEGO & IKEA)

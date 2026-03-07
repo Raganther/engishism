@@ -1,33 +1,23 @@
 (function () {
-  const lesson     = window.LESSON;
   const activities = window.Activities;
   const mods       = window.Modules || {};
-  const mode       = lesson.mode || 'slideshow';
 
-  const container = document.getElementById('slide-container');
-  const counter   = document.getElementById('slide-counter');
-  const btnPrev   = document.getElementById('btn-prev');
-  const btnNext   = document.getElementById('btn-next');
-  const btnMenu   = document.getElementById('btn-menu');
-  const barTop    = document.getElementById('module-bar-top');
-  const barBottom = document.getElementById('module-bar-bottom');
+  const container  = document.getElementById('slide-container');
+  const counter    = document.getElementById('slide-counter');
+  const btnLessons = document.getElementById('btn-lessons');
+  const btnPrev    = document.getElementById('btn-prev');
+  const btnNext    = document.getElementById('btn-next');
+  const btnMenu    = document.getElementById('btn-menu');
+  const barTop     = document.getElementById('module-bar-top');
+  const barBottom  = document.getElementById('module-bar-bottom');
 
-  // ── Shared state builder ───────────────────────────────────
-  function buildState(slide) {
-    const c      = slide.content || {};
-    const teams  = c.teams || ['Team A', 'Team B'];
-    const scores = {};
-    teams.forEach(t => scores[t] = 0);
-    return {
-      teams,
-      scores,
-      timeLeft:       c.time || 60,
-      currentTeam:    0,
-      hasTimerModule: !!(slide.modules && slide.modules.includes('timer')),
-    };
+  // ── Helpers ────────────────────────────────────────────────
+  function hideAll() {
+    [btnLessons, btnPrev, btnNext, btnMenu].forEach(b => b.style.display = 'none');
+    counter.textContent = '';
+    clearModuleBars();
   }
 
-  // ── Clear module bars ──────────────────────────────────────
   function clearModuleBars() {
     barTop.innerHTML    = '';
     barBottom.innerHTML = '';
@@ -35,7 +25,19 @@
     barBottom.classList.add('hidden');
   }
 
-  // ── Core render ────────────────────────────────────────────
+  function buildState(slide) {
+    const c     = slide.content || {};
+    const teams = c.teams || ['Team A', 'Team B'];
+    const scores = {};
+    teams.forEach(t => scores[t] = 0);
+    return {
+      teams, scores,
+      timeLeft:       c.time || 60,
+      currentTeam:    0,
+      hasTimerModule: !!(slide.modules && slide.modules.includes('timer')),
+    };
+  }
+
   function renderActivity(slide, onComplete) {
     clearModuleBars();
 
@@ -45,22 +47,17 @@
       return;
     }
 
-    // Fresh event bus + state for this activity
     const events = window.createEventBus();
     const state  = buildState(slide);
 
-    // Render activity HTML
     container.innerHTML = activity.render(slide.content);
 
-    // Load + init modules
     if (slide.modules && slide.modules.length) {
       slide.modules.forEach(name => {
         const mod = mods[name];
         if (!mod) { console.warn(`Module "${name}" not found`); return; }
-
         const bar = mod.zone === 'bottom' ? barBottom : barTop;
         bar.classList.remove('hidden');
-
         const wrapper = document.createElement('div');
         wrapper.className = `module module-${name}`;
         wrapper.innerHTML = mod.render(state);
@@ -69,20 +66,143 @@
       });
     }
 
-    // Init activity — passes state + events alongside onComplete
     activity.init(container, slide.content, {
       onComplete: onComplete || function () {},
-      state,
-      events,
+      state, events,
     });
   }
 
-  // ── SLIDESHOW MODE ─────────────────────────────────────────
-  if (mode !== 'selector') {
-    let current = 0;
-    btnMenu.style.display = 'none';
+  // ── Lesson picker ──────────────────────────────────────────
+  function showLessonPicker() {
+    hideAll();
+
+    const cards = (window.LESSON_INDEX || []).map(l => `
+      <button class="sel-tile" data-id="${l.id}">
+        ${l.tag ? `<span class="sel-type">${l.tag}</span>` : ''}
+        <span class="sel-label">${l.title}</span>
+      </button>
+    `).join('');
+
+    container.innerHTML = `
+      <div class="selector">
+        <h1 class="sel-title">Choose a lesson</h1>
+        <div class="sel-grid">${cards}</div>
+      </div>
+    `;
+
+    container.querySelectorAll('.sel-tile').forEach(tile => {
+      tile.addEventListener('click', () => loadLesson(tile.dataset.id));
+    });
+  }
+
+  function loadLesson(id) {
+    container.innerHTML = `<p class="loading-msg">Loading\u2026</p>`;
+
+    // Remove any previously injected lesson script
+    const old = document.querySelector('script[data-lesson]');
+    if (old) old.remove();
+    window.LESSON = null;
+
+    const script = document.createElement('script');
+    script.src          = `lessons/${id}.js`;
+    script.dataset.lesson = id;
+    script.onload  = () => startLesson();
+    script.onerror = () => {
+      container.innerHTML = `<p style="color:red;font-size:1.5rem">Could not load: ${id}</p>`;
+    };
+    document.head.appendChild(script);
+  }
+
+  // ── Start lesson ───────────────────────────────────────────
+  function startLesson() {
+    const lesson = window.LESSON;
+    if (!lesson) return;
+
+    // Show "← Lessons" only when a picker is available
+    if (window.LESSON_INDEX) {
+      btnLessons.style.display = '';
+    }
+
+    if ((lesson.mode || 'slideshow') === 'selector') {
+      startSelectorMode(lesson);
+    } else {
+      startSlideshowMode(lesson);
+    }
+  }
+
+  // ── Selector mode ──────────────────────────────────────────
+  function startSelectorMode(lesson) {
+    function formatType(t) { return t.replace(/-/g, ' '); }
+
+    function autoLabel(slide) {
+      const c = slide.content;
+      switch (slide.type) {
+        case 'title-card':        return c.heading;
+        case 'reveal-card':       return c.heading;
+        case 'fill-blank':        return `${c.questions.length} questions`;
+        case 'true-false':        return `${c.questions.length} statements`;
+        case 'hot-seat':          return `${c.words.length} words \u00b7 ${c.time}s`;
+        case 'noughts-crosses':   return `${c.cells.length} questions`;
+        case 'meaning-pair':      return `${c.pairs.length} pairs`;
+        case 'sentence-complete': return `${c.stems.length} sentences`;
+        default:                  return slide.type;
+      }
+    }
+
+    function escHandler(e) { if (e.key === 'Escape') showMenu(); }
+
+    function showMenu() {
+      document.removeEventListener('keydown', escHandler);
+      hideAll();
+      if (window.LESSON_INDEX) btnLessons.style.display = '';
+
+      const tiles = lesson.slides.map((slide, i) => {
+        const label   = slide.label || autoLabel(slide);
+        const hasMods = slide.modules && slide.modules.length;
+        return `
+          <button class="sel-tile${hasMods ? ' has-modules' : ''}" data-index="${i}">
+            <span class="sel-type">${formatType(slide.type)}</span>
+            <span class="sel-label">${label}</span>
+            ${hasMods ? `<span class="sel-mods">${slide.modules.join(' \u00b7 ')}</span>` : ''}
+          </button>
+        `;
+      }).join('');
+
+      container.innerHTML = `
+        <div class="selector">
+          <h1 class="sel-title">${lesson.title}</h1>
+          <div class="sel-grid">${tiles}</div>
+        </div>
+      `;
+
+      container.querySelectorAll('.sel-tile').forEach(tile => {
+        tile.addEventListener('click', () => launch(parseInt(tile.dataset.index)));
+      });
+    }
+
+    function launch(index) {
+      hideAll();
+      if (window.LESSON_INDEX) btnLessons.style.display = '';
+      btnMenu.style.display = '';
+      counter.textContent   = lesson.slides[index].label || formatType(lesson.slides[index].type);
+      document.addEventListener('keydown', escHandler);
+      renderActivity(lesson.slides[index], showMenu);
+    }
+
+    btnMenu.addEventListener('click', showMenu);
+    showMenu();
+  }
+
+  // ── Slideshow mode ─────────────────────────────────────────
+  function startSlideshowMode(lesson) {
+    let current  = 0;
+    let active   = true;
+
+    btnPrev.style.display = '';
+    btnNext.style.display = '';
 
     function go(dir) {
+      if (!active) return;
       const next = current + dir;
       if (next < 0 || next >= lesson.slides.length) return;
       current = next;
@@ -92,80 +212,31 @@
       btnNext.disabled    = current === lesson.slides.length - 1;
     }
 
-    btnPrev.addEventListener('click', () => go(-1));
-    btnNext.addEventListener('click', () => go(1));
-    document.addEventListener('keydown', e => {
+    function keyHandler(e) {
+      if (!active) { document.removeEventListener('keydown', keyHandler); return; }
       if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(1); }
       if (e.key === 'ArrowLeft')                   { e.preventDefault(); go(-1); }
-    });
+    }
+
+    btnPrev.addEventListener('click', () => go(-1));
+    btnNext.addEventListener('click', () => go(1));
+    document.addEventListener('keydown', keyHandler);
+
+    // Clean up when returning to picker
+    btnLessons.addEventListener('click', () => { active = false; }, { once: true });
 
     go(0);
-    return;
   }
 
-  // ── SELECTOR MODE ──────────────────────────────────────────
-  function formatType(type) { return type.replace(/-/g, ' '); }
+  // ── Entry point ────────────────────────────────────────────
+  btnLessons.addEventListener('click', showLessonPicker);
 
-  function autoLabel(slide) {
-    const c = slide.content;
-    switch (slide.type) {
-      case 'title-card':        return c.heading;
-      case 'reveal-card':       return c.heading;
-      case 'fill-blank':        return `${c.questions.length} questions`;
-      case 'true-false':        return `${c.questions.length} statements`;
-      case 'hot-seat':          return `${c.words.length} words \u00b7 ${c.time}s`;
-      case 'noughts-crosses':   return `${c.cells.length} questions`;
-      case 'meaning-pair':      return `${c.pairs.length} pairs`;
-      case 'sentence-complete': return `${c.stems.length} sentences`;
-      default:                  return slide.type;
-    }
+  if (window.LESSON_INDEX) {
+    showLessonPicker();
+  } else if (window.LESSON) {
+    startLesson();
+  } else {
+    container.innerHTML = `<p style="color:var(--muted);font-size:1.5rem">No lesson loaded.</p>`;
   }
 
-  function escHandler(e) { if (e.key === 'Escape') showMenu(); }
-
-  function showMenu() {
-    document.removeEventListener('keydown', escHandler);
-    clearModuleBars();
-    btnMenu.style.display = 'none';
-    btnPrev.style.display = 'none';
-    btnNext.style.display = 'none';
-    counter.textContent   = '';
-
-    const tiles = lesson.slides.map((slide, i) => {
-      const label   = slide.label || autoLabel(slide);
-      const hasMods = slide.modules && slide.modules.length;
-      return `
-        <button class="sel-tile${hasMods ? ' has-modules' : ''}" data-index="${i}">
-          <span class="sel-type">${formatType(slide.type)}</span>
-          <span class="sel-label">${label}</span>
-          ${hasMods ? `<span class="sel-mods">${slide.modules.join(' \u00b7 ')}</span>` : ''}
-        </button>
-      `;
-    }).join('');
-
-    container.innerHTML = `
-      <div class="selector">
-        <h1 class="sel-title">${lesson.title}</h1>
-        <div class="sel-grid">${tiles}</div>
-      </div>
-    `;
-
-    container.querySelectorAll('.sel-tile').forEach(tile => {
-      tile.addEventListener('click', () => launch(parseInt(tile.dataset.index)));
-    });
-  }
-
-  function launch(index) {
-    const slide = lesson.slides[index];
-    btnPrev.style.display = 'none';
-    btnNext.style.display = 'none';
-    btnMenu.style.display = '';
-    counter.textContent   = slide.label || formatType(slide.type);
-
-    document.addEventListener('keydown', escHandler);
-    renderActivity(slide, showMenu);
-  }
-
-  btnMenu.addEventListener('click', showMenu);
-  showMenu();
 })();
