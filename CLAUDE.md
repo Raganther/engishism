@@ -32,7 +32,10 @@ Phase: Selector mode working — composable architecture proven
 - All multi-item activities handle internal navigation (questions/pairs/stems arrays)
 - onComplete callback wired across all activities — true contract for composability
 - First lesson: lessons/unit-8a.js (Unit 8A — Gerunds & Infinitives, 8 selector cards)
-- Next: brainstorm and build more game types, or build second lesson to prove portability
+- Two lessons working: unit-8a.js and unit-6-scandi-successes.js
+- Lesson generation pipeline proven: photo → Claude + prompt template → lesson file
+- Prompt template at: docs/lesson-prompt.md
+- Next: lesson picker (load any lesson without editing index.html), or more activity types
 
 ## Constraints
 - Must work on a standard classroom TV/browser — no exotic dependencies
