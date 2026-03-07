@@ -1,5 +1,129 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ── module bars ──────────────────────────────────────────── */
+.module-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 0.6rem 2rem;
+  flex-shrink: 0;
+}
+
+.module-bar.hidden { display: none; }
+
+#module-bar-top    { background: var(--surface); border-bottom: 1px solid var(--border); }
+#module-bar-bottom { background: var(--surface); border-top: 1px solid var(--border); }
+
+/* ── timer module ─────────────────────────────────────────── */
+.mod-timer {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.mod-timer-display {
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--blue);
+  transition: color 0.3s;
+  min-width: 2ch;
+  text-align: right;
+}
+
+.mod-timer-display.urgent { color: #f85149; }
+
+.mod-timer-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ── scoreboard module ────────────────────────────────────── */
+.mod-scoreboard {
+  display: flex;
+  gap: 2rem;
+}
+
+.score-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.score-team {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.score-val {
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--text);
+  transition: transform 0.2s, color 0.2s;
+  line-height: 1;
+}
+
+.score-val.scored {
+  transform: scale(1.3);
+  color: var(--green);
+}
+
+.score-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.score-btn:hover { border-color: var(--green); color: var(--green); }
+
+/* ── teams module ─────────────────────────────────────────── */
+.mod-teams {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+.teams-current {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 160px;
+  text-align: center;
+}
+
+.teams-nav-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 0.3rem 0.9rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.teams-nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── selector: module badge ───────────────────────────────── */
+.sel-tile.has-modules { border-color: #2a3a2a; }
+.sel-mods {
+  font-size: 0.65rem;
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 0.1rem;
+}
+
 /* ── multi-item (shared by fill-blank, meaning-pair, etc.) ── */
 .multi-item { display: none; }
 .multi-item.active { display: block; }

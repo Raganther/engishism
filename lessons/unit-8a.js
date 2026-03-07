@@ -118,7 +118,7 @@ window.LESSON = {
       }
     },
 
-    // ── Hot Seat ───────────────────────────────────────────────
+    // ── Hot Seat (no modules) ──────────────────────────────────
     {
       label: "Hot Seat — Unit 8A Vocabulary",
       type: "hot-seat",
@@ -158,6 +158,22 @@ window.LESSON = {
           { question: "Use 'to have slept' in a sentence.",
             answer: "e.g. I'm glad to have slept for eight hours." }
         ]
+      }
+    },
+
+    // ── Module demo ────────────────────────────────────────────
+    {
+      label: "Hot Seat + Timer + Scoreboard + Teams",
+      type: "hot-seat",
+      modules: ["scoreboard", "timer", "teams"],
+      content: {
+        words: [
+          "distracted", "soothed", "irritated", "segmented",
+          "attribute", "dwindled", "ubiquitous", "insomnia",
+          "catastrophic", "conscious"
+        ],
+        time: 60,
+        teams: ["Team A", "Team B"]
       }
     }
 
