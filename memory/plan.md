@@ -53,26 +53,25 @@ Lesson slide opts in:
 ## Build order
 
 ### Step 1 — Foundations
-1. [ ] engine/events.js — simple emit/on event bus
-2. [ ] Add module-bar-top + module-bar-bottom zones to index.html
-3. [ ] Add module zone CSS to main.css
-4. [ ] Update engine.js — detect `modules` field, build shared state,
+1. [x] engine/events.js — simple emit/on event bus
+2. [x] Add module-bar-top + module-bar-bottom zones to index.html
+3. [x] Add module zone CSS to main.css
+4. [x] Update engine.js — detect `modules` field, build shared state,
         load + init each module, pass state+events to activity init()
 
 ### Step 2 — Modules
-5. [ ] modules/timer.js — countdown display, emits 'time-up', reads state.timeLeft
-6. [ ] modules/scoreboard.js — team scores display, listens for 'point' events
-7. [ ] modules/teams.js — which team's turn, prev/next team button, emits 'team-change'
+5. [x] modules/timer.js — countdown display, emits 'time-up', reads state.timeLeft
+6. [x] modules/scoreboard.js — team scores display, listens for 'point' events
+7. [x] modules/teams.js — which team's turn, prev/next team button, emits 'team-change'
 
 ### Step 3 — Wire up a demo
-8. [ ] Update hot-seat.js — emit 'point' on Next click (instead of internal tally only)
-9. [ ] Remove baked-in timer from hot-seat — let Timer module handle it
-10. [ ] Add a demo slide to unit-8a.js using all three modules
-11. [ ] Test: timer counts down, scoreboard updates, teams track
+8. [x] Update hot-seat.js — emit 'point' on Next click, defer to timer module
+9. [x] Add a demo slide to unit-8a.js using all three modules
+10. [x] Test: timer counts down, scoreboard updates, teams track
 
 ### Step 4 — Tidy
-12. [ ] Update docs/lesson-prompt.md — add modules field to schemas
-13. [ ] Git save
+11. [ ] Update docs/lesson-prompt.md — add modules field to schemas
+12. [ ] Git save
 
 ## Notes
 - Existing activities without `modules` field continue to work exactly as before
