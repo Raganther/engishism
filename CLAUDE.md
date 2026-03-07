@@ -1,0 +1,38 @@
+# Engishism — ESL Classroom Presentation App
+
+## What it is
+A web-based slideshow application for ESL teachers to present English lessons on a classroom TV. Built in HTML/CSS/JS, it delivers interactive games, grammar drills, and vocabulary activities designed to be teacher-driven and class-facing. Currently in the early exploration and design phase — no code written yet.
+
+## Session Start
+Read in order on every cold start:
+1. memory/MEMORY.md — recent changes
+2. memory/plan.md — current active plan
+
+Read on demand only:
+- docs/dev.md — ideas and backlog
+
+## Run Commands
+None yet — project not scaffolded.
+
+```bash
+# Git save
+./scripts/git-save.sh "message"
+```
+
+## Architecture
+- Stack: HTML, CSS, vanilla JS (no build step — keep it simple and TV-friendly)
+- Entry point: index.html — the main presenter view
+- Slides rendered in-browser, no server required (static files)
+- Module registry: TBD (likely a JS object mapping slide/game types to their renderers)
+
+## Current Status
+Phase: Planning — Engine Foundation
+- No code written yet
+- Architecture decided: engine + JSON lesson files + pluggable activity registry
+- Next: get real lesson content from Alistair, then build engine skeleton
+
+## Constraints
+- Must work on a standard classroom TV/browser — no exotic dependencies
+- No internet required during class (fully offline capable)
+- Teacher controls everything — students do not touch the device
+- Keep the UI readable at distance (large fonts, high contrast)
