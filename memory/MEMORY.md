@@ -1,6 +1,9 @@
 # Engishism — Memory
 
 ## Recent Git Saves
+- 2026-03-07 — chore: lesson generation pipeline proven, clear active plan
+- 2026-03-07 — feat: add Unit 6 Scandi Successes lesson (LEGO & IKEA)
+- 2026-03-07 — docs: add lesson generation prompt template
 - 2026-03-07 — chore: selector mode confirmed working, update plan and status
 - 2026-03-07 — refactor: group multi-item activities, selector shows one card per activity type
 - 2026-03-07 — feat: selector mode + onComplete composable interface
