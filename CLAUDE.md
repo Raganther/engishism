@@ -26,11 +26,13 @@ None yet — project not scaffolded.
 - Module registry: TBD (likely a JS object mapping slide/game types to their renderers)
 
 ## Current Status
-Phase: Engine v1 working
-- Engine built and tested: index.html + engine/engine.js
-- 5 activity types: title-card, reveal-card, fill-blank, meaning-pair, sentence-complete
-- First lesson working: lessons/unit-8a.js (Unit 8A — Gerunds & Infinitives, 16 slides)
-- Next: build 3 simple games (true-false, hot-seat, noughts-crosses) per active plan
+Phase: Selector mode working — composable architecture proven
+- Engine has two modes: slideshow and selector
+- 8 activity types: title-card, reveal-card, fill-blank, meaning-pair, sentence-complete, true-false, hot-seat, noughts-crosses
+- All multi-item activities handle internal navigation (questions/pairs/stems arrays)
+- onComplete callback wired across all activities — true contract for composability
+- First lesson: lessons/unit-8a.js (Unit 8A — Gerunds & Infinitives, 8 selector cards)
+- Next: brainstorm and build more game types, or build second lesson to prove portability
 
 ## Constraints
 - Must work on a standard classroom TV/browser — no exotic dependencies

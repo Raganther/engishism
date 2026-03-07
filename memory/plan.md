@@ -31,13 +31,14 @@ Lesson file sets: `window.LESSON = { mode: "selector", slides: [...] }`
 
 ## Steps
 1. [x] Update plan
-2. [ ] Update index.html — add btn-menu
-3. [ ] Rewrite engine.js — slideshow + selector modes, pass onComplete
-4. [ ] Add selector CSS to main.css
-5. [ ] Update all activity files — add onComplete to init() signature
-6. [ ] true-false, hot-seat, noughts-crosses — call onComplete at game end
-7. [ ] Update lessons/unit-8a.js — set mode: "selector", add labels to slides
-8. [ ] Test — open index.html, verify selector renders, games launch and return
+2. [x] Update index.html — add btn-menu
+3. [x] Rewrite engine.js — slideshow + selector modes, pass onComplete
+4. [x] Add selector CSS to main.css
+5. [x] Update all activity files — add onComplete to init() signature
+6. [x] true-false, hot-seat, noughts-crosses — call onComplete at game end
+7. [x] Update lessons/unit-8a.js — set mode: "selector", add labels to slides
+8. [x] Refactor: group multi-item activities (21 slides → 8 cards)
+9. [x] Test — selector renders 8 cards, games launch and return correctly
 
 ## Notes
 - No server needed — all files still load via script tags
