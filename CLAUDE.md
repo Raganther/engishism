@@ -38,7 +38,7 @@ Phase: Selector mode working — composable architecture proven
 - Module system working: timer, scoreboard, teams snap onto any activity via modules field
 - Event bus (engine/events.js) scopes events per activity session
 - Demo: hot-seat with all three modules active in unit-8a.js
-- Next: update lesson-prompt.md with modules field, then lesson picker or more activities
+- Next: pick from game backlog in docs/dev.md and build (anagram, call my bluff, jeopardy top candidates)
 
 ## Constraints
 - Must work on a standard classroom TV/browser — no exotic dependencies
