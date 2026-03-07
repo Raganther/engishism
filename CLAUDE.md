@@ -26,11 +26,11 @@ None yet — project not scaffolded.
 - Module registry: TBD (likely a JS object mapping slide/game types to their renderers)
 
 ## Current Status
-Phase: First build complete — needs testing
-- Engine built: index.html + engine/engine.js
-- 4 activity types: title-card, reveal-card, fill-blank, meaning-pair, sentence-complete
-- First lesson: lessons/unit-8a.js (Unit 8A — Gerunds & Infinitives, 16 slides)
-- Next: open index.html in browser and test all slides + interactions
+Phase: Engine v1 working
+- Engine built and tested: index.html + engine/engine.js
+- 5 activity types: title-card, reveal-card, fill-blank, meaning-pair, sentence-complete
+- First lesson working: lessons/unit-8a.js (Unit 8A — Gerunds & Infinitives, 16 slides)
+- Next: add a second lesson to prove plug-in model, or expand activity types
 
 ## Constraints
 - Must work on a standard classroom TV/browser — no exotic dependencies

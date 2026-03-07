@@ -32,8 +32,8 @@ styles/
 3. [x] Build engine shell — index.html + engine.js
 4. [x] Build 4 activity types: title-card, reveal-card, fill-blank, meaning-pair, sentence-complete
 5. [x] Write first lesson file from real content (lessons/unit-8a.js)
-6. [ ] Test end-to-end: open index.html, navigate all 16 slides, check interactions
-7. [ ] Fix any issues found during testing
+6. [x] Test end-to-end: open index.html, navigate all 16 slides, check interactions
+7. [x] Fix any issues found during testing — none found, working well
 8. [ ] Add second lesson to prove the plug-in model works
 
 ## Later (not MVP)
