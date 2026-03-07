@@ -59,9 +59,9 @@ Schema:
 ```
 
 ## Steps
-1. [ ] Build true-false.js + add to lessons/unit-8a.js to test
-2. [ ] Build hot-seat.js + add to lessons/unit-8a.js to test
-3. [ ] Build noughts-crosses.js + add to lessons/unit-8a.js to test
+1. [x] Build true-false.js + add to lessons/unit-8a.js to test
+2. [x] Build hot-seat.js + add to lessons/unit-8a.js to test
+3. [x] Build noughts-crosses.js + add to lessons/unit-8a.js to test
 4. [ ] Verify all three load, render, and interact correctly
 5. [ ] Git save
 

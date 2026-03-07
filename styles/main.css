@@ -1,5 +1,189 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ── true-false ───────────────────────────────────────────── */
+.true-false .tf-statement {
+  font-size: clamp(1.6rem, 3.5vw, 3rem);
+  line-height: 1.5;
+  margin-bottom: 2rem;
+}
+
+.true-false .tf-answer {
+  opacity: 0;
+  transition: opacity 0.35s;
+}
+
+.true-false .tf-answer.visible { opacity: 1; }
+
+.true-false .tf-verdict {
+  display: block;
+  font-size: clamp(3rem, 8vw, 6rem);
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+
+.true-false .tf-verdict.true  { color: var(--green); }
+.true-false .tf-verdict.false { color: #f85149; }
+
+.true-false .tf-explanation {
+  font-size: clamp(1rem, 1.8vw, 1.5rem);
+  color: var(--blue);
+  font-style: italic;
+}
+
+/* ── hot-seat ─────────────────────────────────────────────── */
+.hot-seat .hs-label {
+  font-size: 1rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.hot-seat .hs-word {
+  font-size: clamp(3rem, 10vw, 8rem);
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.1;
+  margin-bottom: 0.75rem;
+  min-height: 1.2em;
+}
+
+.hot-seat .hs-timer {
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  font-weight: 700;
+  color: var(--blue);
+  margin-bottom: 1rem;
+  transition: color 0.3s;
+}
+
+.hot-seat .hs-timer.urgent { color: #f85149; }
+
+.hot-seat .hs-controls {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.hs-btn {
+  background: none;
+  border: 2px solid var(--border);
+  color: var(--text);
+  font-size: 1.1rem;
+  padding: 0.5rem 2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.hs-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.hs-btn:disabled { opacity: 0.3; cursor: default; }
+
+.hot-seat .hs-tally {
+  font-size: 1.2rem;
+  color: var(--muted);
+}
+
+/* ── noughts-crosses ──────────────────────────────────────── */
+.noughts-crosses .nc-layout {
+  display: flex;
+  gap: 2.5rem;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.nc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 130px);
+  grid-template-rows: repeat(3, 110px);
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.nc-cell {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.nc-cell-inner {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.nc-cell:hover:not(.claimed-x):not(.claimed-o) { border-color: var(--accent); }
+.nc-cell.selected { border-color: var(--accent); background: rgba(230,172,0,0.08); }
+.nc-cell.claimed-x { border-color: var(--blue);  color: var(--blue);  cursor: default; }
+.nc-cell.claimed-o { border-color: #f85149;       color: #f85149;      cursor: default; }
+.nc-cell.win-cell  { background: rgba(86,211,100,0.12); border-color: var(--green); }
+
+.nc-panel {
+  flex: 1;
+  text-align: left;
+  min-width: 0;
+}
+
+.nc-prompt {
+  font-size: 1.2rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.nc-question {
+  font-size: clamp(1rem, 1.8vw, 1.5rem);
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.nc-answer {
+  font-size: clamp(0.9rem, 1.5vw, 1.2rem);
+  color: var(--green);
+  padding: 0.6rem 1rem;
+  background: var(--surface);
+  border-left: 4px solid var(--green);
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.nc-answer.visible { opacity: 1; }
+
+.nc-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.nc-claim {
+  background: none;
+  border: 2px solid var(--border);
+  color: var(--muted);
+  font-size: 0.95rem;
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.nc-claim[data-team="0"]:hover { border-color: var(--blue);  color: var(--blue); }
+.nc-claim[data-team="1"]:hover { border-color: #f85149;      color: #f85149; }
+
+.nc-win {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 900;
+  color: var(--accent);
+  margin-top: 1rem;
+  text-align: center;
+}
+
 :root {
   --bg:      #0d1117;
   --surface: #161b22;

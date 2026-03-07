@@ -141,6 +141,73 @@ window.LESSON = {
         hint: "+ gerund (-ing)",
         answer: "worrying about it / fighting it / getting frustrated"
       }
+    },
+
+    // ── Game: True / False ────────────────────────────────────
+    {
+      type: "true-false",
+      content: {
+        statement: "You use a gerund (verb + -ing) after 'enjoy'.",
+        answer: true,
+        explanation: "e.g. I enjoy reading. / She enjoys being soothed to sleep."
+      }
+    },
+    {
+      type: "true-false",
+      content: {
+        statement: "'I'd like to wake up' and 'I'd like to be woken up' mean the same thing.",
+        answer: false,
+        explanation: "The first is active. The second is passive — someone or something wakes you."
+      }
+    },
+    {
+      type: "true-false",
+      content: {
+        statement: "'He seems to have slept well' refers to a specific past occasion.",
+        answer: true,
+        explanation: "The perfect infinitive (to have + past participle) refers back to a completed action."
+      }
+    },
+
+    // ── Game: Hot Seat ────────────────────────────────────────
+    {
+      type: "hot-seat",
+      content: {
+        words: [
+          "distracted", "soothed", "irritated", "segmented",
+          "attribute", "dwindled", "ubiquitous", "insomnia",
+          "catastrophic", "conscious"
+        ],
+        time: 60
+      }
+    },
+
+    // ── Game: Noughts & Crosses ───────────────────────────────
+    {
+      type: "noughts-crosses",
+      content: {
+        teams: ["Team X", "Team O"],
+        cells: [
+          { question: "Give an example sentence using 'enjoy' + gerund.",
+            answer: "I enjoy being soothed to sleep by music." },
+          { question: "What form follows 'there's no point'?",
+            answer: "Gerund (-ing): There's no point going to bed early." },
+          { question: "What's the difference: 'He seems to sleep well' vs 'to have slept well'?",
+            answer: "First = general habit. Second = a specific past occasion." },
+          { question: "Make a sentence with 'without having'.",
+            answer: "e.g. I went to the exam without having studied." },
+          { question: "What form follows 'you'd better'?",
+            answer: "Infinitive without to: You'd better see a doctor." },
+          { question: "What's a passive gerund? Give an example.",
+            answer: "Verb + being + past participle: I enjoy being read to." },
+          { question: "Complete: 'It's no use ___' — what form?",
+            answer: "Gerund: It's no use worrying about it." },
+          { question: "What's the difference between 'I'd like to wake up' and 'I'd like to be woken up'?",
+            answer: "Active vs passive. Second = by alarm or another person." },
+          { question: "Use 'to have slept' in a sentence.",
+            answer: "e.g. I'm glad to have slept for eight hours." }
+        ]
+      }
     }
 
   ]
