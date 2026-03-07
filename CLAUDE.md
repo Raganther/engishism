@@ -26,10 +26,11 @@ None yet — project not scaffolded.
 - Module registry: TBD (likely a JS object mapping slide/game types to their renderers)
 
 ## Current Status
-Phase: Planning — Engine Foundation
-- No code written yet
-- Architecture decided: engine + JSON lesson files + pluggable activity registry
-- Next: get real lesson content from Alistair, then build engine skeleton
+Phase: First build complete — needs testing
+- Engine built: index.html + engine/engine.js
+- 4 activity types: title-card, reveal-card, fill-blank, meaning-pair, sentence-complete
+- First lesson: lessons/unit-8a.js (Unit 8A — Gerunds & Infinitives, 16 slides)
+- Next: open index.html in browser and test all slides + interactions
 
 ## Constraints
 - Must work on a standard classroom TV/browser — no exotic dependencies

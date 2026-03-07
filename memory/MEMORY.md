@@ -1,4 +1,4 @@
 # Engishism — Memory
 
 ## Recent Git Saves
-No commits yet — project just initialized.
+- 2026-03-07 — init: project framework and engine architecture plan

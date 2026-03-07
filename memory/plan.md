@@ -27,13 +27,14 @@ styles/
 ```
 
 ## Steps
-1. [ ] Get concrete lesson content from textbook (image or grammar point from Alistair)
-2. [ ] Design 2-3 activity types from that real content
-3. [ ] Build engine shell — index.html + engine.js + registry.js
-4. [ ] Build first activity type (flashcard or fill-blank)
-5. [ ] Write first lesson JSON file from real content
-6. [ ] Test end-to-end: open index.html, load lesson, navigate slides
-7. [ ] Add second activity type to prove the plug-in model works
+1. [x] Get concrete lesson content from textbook (Unit 8A — Gerunds & Infinitives)
+2. [x] Design activity types from real content
+3. [x] Build engine shell — index.html + engine.js
+4. [x] Build 4 activity types: title-card, reveal-card, fill-blank, meaning-pair, sentence-complete
+5. [x] Write first lesson file from real content (lessons/unit-8a.js)
+6. [ ] Test end-to-end: open index.html, navigate all 16 slides, check interactions
+7. [ ] Fix any issues found during testing
+8. [ ] Add second lesson to prove the plug-in model works
 
 ## Later (not MVP)
 - Kahoot-style student phone interaction (slide type gets `multiplayer` flag + backend)

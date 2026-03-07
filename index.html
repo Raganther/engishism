@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Engishism</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <div id="app">
+    <div id="slide-container"></div>
+    <nav id="nav-bar">
+      <button id="btn-prev">&#8592; Prev</button>
+      <span id="slide-counter"></span>
+      <button id="btn-next">Next &#8594;</button>
+    </nav>
+  </div>
+
+  <!-- Activity types — must load before engine -->
+  <script src="activities/title-card.js"></script>
+  <script src="activities/reveal-card.js"></script>
+  <script src="activities/fill-blank.js"></script>
+  <script src="activities/meaning-pair.js"></script>
+  <script src="activities/sentence-complete.js"></script>
+
+  <!-- Active lesson — swap this line to change lesson -->
+  <script src="lessons/unit-8a.js"></script>
+
+  <!-- Engine — must load last -->
+  <script src="engine/engine.js"></script>
+</body>
+</html>

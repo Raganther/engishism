@@ -1,0 +1,273 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #0d1117;
+  --surface: #161b22;
+  --border:  #30363d;
+  --text:    #e6edf3;
+  --muted:   #6e7681;
+  --accent:  #e6ac00;
+  --blue:    #79c0ff;
+  --green:   #56d364;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  width: 100%; height: 100%;
+}
+
+/* ── Slide area ───────────────────────────────────────────── */
+#slide-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5vh 8vw;
+  overflow: hidden;
+}
+
+.slide {
+  width: 100%;
+  max-width: 1100px;
+  text-align: center;
+}
+
+/* ── Nav bar ──────────────────────────────────────────────── */
+#nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 0.75rem 2rem;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+#nav-bar button {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 1rem;
+  padding: 0.4rem 1.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+#nav-bar button:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+#slide-counter {
+  color: var(--muted);
+  font-size: 1rem;
+  min-width: 70px;
+  text-align: center;
+}
+
+/* ── Reveal button (shared) ───────────────────────────────── */
+.reveal-btn {
+  display: inline-block;
+  background: none;
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  font-size: 1.1rem;
+  padding: 0.5rem 2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 1.5rem;
+  transition: background 0.15s, color 0.15s;
+}
+
+.reveal-btn:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* ── title-card ───────────────────────────────────────────── */
+.title-card .unit-label {
+  font-size: 1rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 1rem;
+}
+
+.title-card .heading {
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.2;
+  margin-bottom: 1rem;
+}
+
+.title-card .subheading {
+  font-size: clamp(1.2rem, 2.5vw, 2rem);
+  color: var(--blue);
+}
+
+/* ── reveal-card ──────────────────────────────────────────── */
+.reveal-card .card-heading {
+  font-size: clamp(1.4rem, 2.5vw, 2rem);
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 1.5rem;
+}
+
+.reveal-card .items {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.reveal-card .item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.9rem 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: clamp(1rem, 1.8vw, 1.5rem);
+}
+
+.reveal-card .item-label {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.reveal-card .item-example {
+  color: var(--blue);
+  font-style: italic;
+}
+
+/* ── fill-blank ───────────────────────────────────────────── */
+.fill-blank .form-note {
+  font-size: clamp(0.9rem, 1.4vw, 1.2rem);
+  color: var(--blue);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 1.5rem;
+}
+
+.fill-blank .sentence {
+  font-size: clamp(1.6rem, 3vw, 2.8rem);
+  line-height: 1.7;
+  margin-bottom: 1rem;
+}
+
+.blank {
+  display: inline-block;
+  min-width: 140px;
+  padding: 0 6px;
+  border-bottom: 3px solid var(--accent);
+  color: transparent;
+  cursor: pointer;
+  border-radius: 3px 3px 0 0;
+  transition: background 0.15s, color 0.2s, border-color 0.2s;
+  user-select: none;
+}
+
+.blank:hover {
+  background: rgba(230, 172, 0, 0.1);
+}
+
+.blank.revealed {
+  color: var(--green);
+  border-bottom-color: var(--green);
+  cursor: default;
+}
+
+.fill-blank .hint {
+  font-size: 1rem;
+  color: var(--muted);
+  font-style: italic;
+  transition: opacity 0.3s;
+}
+
+.fill-blank .hint.hidden { opacity: 0; }
+
+/* ── meaning-pair ─────────────────────────────────────────── */
+.meaning-pair .pair-prompt {
+  font-size: 1rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 1.2rem;
+}
+
+.meaning-pair .sentence {
+  font-size: clamp(1.2rem, 2.2vw, 2rem);
+  line-height: 1.5;
+  padding: 1rem 1.5rem;
+  background: var(--surface);
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  text-align: left;
+}
+
+.meaning-pair .sentence.a { border-left: 4px solid var(--blue); }
+
+.meaning-pair .sentence.b {
+  border-left: 4px solid var(--accent);
+  opacity: 0;
+  transition: opacity 0.35s;
+}
+
+.meaning-pair .sentence.b.visible { opacity: 1; }
+
+.meaning-pair .pair-note {
+  font-size: clamp(1rem, 1.6vw, 1.4rem);
+  color: var(--blue);
+  margin-top: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--surface);
+  border-radius: 8px;
+  border-left: 4px solid var(--green);
+  text-align: left;
+  opacity: 0;
+  transition: opacity 0.35s;
+}
+
+.meaning-pair .pair-note.visible { opacity: 1; }
+
+/* ── sentence-complete ────────────────────────────────────── */
+.sentence-complete .stem {
+  font-size: clamp(1.4rem, 2.5vw, 2.4rem);
+  line-height: 1.6;
+  margin-bottom: 0.75rem;
+}
+
+.sentence-complete .stem-hint {
+  font-size: clamp(0.9rem, 1.4vw, 1.2rem);
+  color: var(--muted);
+  font-style: italic;
+  margin-bottom: 1rem;
+}
+
+.sentence-complete .answer {
+  font-size: clamp(1.2rem, 2vw, 1.8rem);
+  color: var(--green);
+  padding: 1rem 1.5rem;
+  background: var(--surface);
+  border-radius: 8px;
+  border-left: 4px solid var(--green);
+  text-align: left;
+  opacity: 0;
+  transition: opacity 0.35s;
+  margin-top: 0.5rem;
+}
+
+.sentence-complete .answer.visible { opacity: 1; }
