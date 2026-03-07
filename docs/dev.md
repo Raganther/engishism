@@ -60,6 +60,42 @@ Highest ESL value vs build effort. Build these next.
 - Teacher-facing lesson builder UI
 - Claude integration: photo → lesson file auto-generation — DONE (docs/lesson-prompt.md)
 
+### Phone / Multiplayer Interaction (Kahoot-style)
+
+**How it works:**
+Teacher's laptop runs a tiny local Node.js server. Everyone connects over classroom WiFi.
+Server sits in the middle — pushes questions to the teacher's screen, receives answers from phones.
+Real-time two-way communication via WebSockets.
+
+**What's needed:**
+- `server.js` — ~100 lines of Node.js (Express + WebSocket). Teacher runs `node server.js` before class.
+- Student view — simple mobile-friendly page, just big answer buttons. Served by the same server.
+- QR code on teacher's screen — students scan to join (avoids typing IP addresses).
+
+**Protocol:**
+```
+Server → phones:   { type: "question", options: ["A","B","C","D"] }
+Phones → server:   { type: "answer", student: "name", choice: "B" }
+Server → teacher:  { type: "results", data: { A:2, B:5, C:1, D:0 } }
+```
+
+**How it fits the existing architecture:**
+One flag on a slide activates phone mode. Engine connects to server instead of running standalone.
+Activity receives answers via the existing event bus — doesn't know or care where they came from.
+```js
+{ type: "multiple-choice", multiplayer: true, modules: ["scoreboard"], content: { ... } }
+```
+
+**Practical concerns:**
+- School WiFi can be restrictive — may need hotspot fallback
+- Phones falling asleep mid-game
+- Student identity — name entry or anonymous?
+- Teacher needs to run a server command before class (low friction but a new step)
+
+**When to build:**
+After the core game library is solid (8-10 good games). Architecture is already designed for it.
+Estimated effort: one weekend for a basic working version.
+
 ## Completed Plans
 - Engine v1: slideshow mode, 5 activity types (2026-03-07)
 - Simple games proof of concept: true-false, hot-seat, noughts-crosses (2026-03-07)
