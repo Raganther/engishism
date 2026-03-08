@@ -26,19 +26,20 @@ None yet — project not scaffolded.
 - Module registry: TBD (likely a JS object mapping slide/game types to their renderers)
 
 ## Current Status
-Phase: Selector mode working — composable architecture proven
+Phase: Activity picker home screen + 12 activity types
 - Engine has two modes: slideshow and selector
-- 8 activity types: title-card, reveal-card, fill-blank, meaning-pair, sentence-complete, true-false, hot-seat, noughts-crosses
+- 12 activity types: title-card, reveal-card, fill-blank, meaning-pair, sentence-complete, true-false, hot-seat, noughts-crosses, anagram, call-my-bluff, odd-one-out, missing-vowels
+- Home screen shows all activity types as cards — click to see lessons for that type
+- LESSON_INDEX entries now include `types: []` array so the picker knows which lessons contain which activities
+- ACTIVITY_CATALOG defined in engine — single source of truth for all type names/descriptions
 - All multi-item activities handle internal navigation (questions/pairs/stems arrays)
 - onComplete callback wired across all activities — true contract for composability
-- First lesson: lessons/unit-8a.js (Unit 8A — Gerunds & Infinitives, 8 selector cards)
-- Two lessons working: unit-8a.js and unit-6-scandi-successes.js
+- 3 lessons: unit-8a.js, unit-6-scandi-successes.js, demo-games.js (demos all 4 new types)
 - Lesson generation pipeline proven: photo → Claude + prompt template → lesson file
 - Prompt template at: docs/lesson-prompt.md
 - Module system working: timer, scoreboard, teams snap onto any activity via modules field
 - Event bus (engine/events.js) scopes events per activity session
-- Demo: hot-seat with all three modules active in unit-8a.js
-- Next: pick from game backlog in docs/dev.md and build (anagram, call my bluff, jeopardy top candidates)
+- Next: jeopardy (medium effort, high value) or countdown letters
 
 ## Constraints
 - Must work on a standard classroom TV/browser — no exotic dependencies

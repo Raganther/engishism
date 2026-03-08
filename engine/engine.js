@@ -11,6 +11,21 @@
   const barTop     = document.getElementById('module-bar-top');
   const barBottom  = document.getElementById('module-bar-bottom');
 
+  const ACTIVITY_CATALOG = [
+    { type: 'title-card',        label: 'Title Card',        desc: 'Lesson title slide' },
+    { type: 'reveal-card',       label: 'Reveal Card',       desc: 'Reference list — labels with examples' },
+    { type: 'fill-blank',        label: 'Fill in the Blank', desc: 'Gap-fill sentences, click to reveal' },
+    { type: 'meaning-pair',      label: 'Meaning Pair',      desc: 'Compare two sentences — spot the difference' },
+    { type: 'sentence-complete', label: 'Sentence Complete', desc: 'Open-ended sentence stems, reveal a model answer' },
+    { type: 'true-false',        label: 'True / False',      desc: 'Statements to judge, reveal verdict + explanation' },
+    { type: 'hot-seat',          label: 'Hot Seat',          desc: 'Timed word-description game' },
+    { type: 'noughts-crosses',   label: 'Noughts & Crosses', desc: 'Q&A grid — teams claim squares' },
+    { type: 'anagram',           label: 'Anagram',           desc: 'Unscramble the letters to find the word' },
+    { type: 'call-my-bluff',     label: 'Call My Bluff',     desc: '3 definitions, one real — class votes' },
+    { type: 'odd-one-out',       label: 'Odd One Out',       desc: '4 words, one doesn\'t belong — reveal + reason' },
+    { type: 'missing-vowels',    label: 'Missing Vowels',    desc: 'Word with vowels removed — guess and reveal' },
+  ];
+
   // ── Helpers ────────────────────────────────────────────────
   function hideAll() {
     [btnLessons, btnPrev, btnNext, btnMenu].forEach(b => b.style.display = 'none');
@@ -72,11 +87,44 @@
     });
   }
 
-  // ── Lesson picker ──────────────────────────────────────────
-  function showLessonPicker() {
+  // ── Activity picker (home screen) ──────────────────────────
+  function showActivityPicker() {
     hideAll();
 
-    const cards = (window.LESSON_INDEX || []).map(l => `
+    const index = window.LESSON_INDEX || [];
+    const tiles = ACTIVITY_CATALOG.map(a => {
+      const count = index.filter(l => l.types && l.types.includes(a.type)).length;
+      const empty = count === 0;
+      return `
+        <button class="sel-tile act-tile${empty ? ' act-empty' : ''}" data-type="${a.type}">
+          <span class="act-label">${a.label}</span>
+          <span class="act-desc">${a.desc}</span>
+          <span class="act-count${empty ? ' none' : ''}">${empty ? 'No lessons yet' : count + ' lesson' + (count > 1 ? 's' : '')}</span>
+        </button>
+      `;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="selector">
+        <h1 class="sel-title">Activities</h1>
+        <div class="sel-grid">${tiles}</div>
+      </div>
+    `;
+
+    container.querySelectorAll('.act-tile:not(.act-empty)').forEach(tile => {
+      tile.addEventListener('click', () => showActivityLessons(tile.dataset.type));
+    });
+  }
+
+  function showActivityLessons(type) {
+    hideAll();
+    btnLessons.style.display = '';
+
+    const index    = window.LESSON_INDEX || [];
+    const activity = ACTIVITY_CATALOG.find(a => a.type === type);
+    const matched  = index.filter(l => l.types && l.types.includes(type));
+
+    const tiles = matched.map(l => `
       <button class="sel-tile" data-id="${l.id}">
         ${l.tag ? `<span class="sel-type">${l.tag}</span>` : ''}
         <span class="sel-label">${l.title}</span>
@@ -85,8 +133,9 @@
 
     container.innerHTML = `
       <div class="selector">
-        <h1 class="sel-title">Choose a lesson</h1>
-        <div class="sel-grid">${cards}</div>
+        <h1 class="sel-title">${activity.label}</h1>
+        <p class="sel-desc">${activity.desc}</p>
+        <div class="sel-grid">${tiles}</div>
       </div>
     `;
 
@@ -145,6 +194,10 @@
         case 'noughts-crosses':   return `${c.cells.length} questions`;
         case 'meaning-pair':      return `${c.pairs.length} pairs`;
         case 'sentence-complete': return `${c.stems.length} sentences`;
+        case 'anagram':           return `${c.words.length} words`;
+        case 'call-my-bluff':     return `${c.items.length} words`;
+        case 'odd-one-out':       return `${c.items.length} sets`;
+        case 'missing-vowels':    return `${c.items.length} words`;
         default:                  return slide.type;
       }
     }
@@ -229,10 +282,10 @@
   }
 
   // ── Entry point ────────────────────────────────────────────
-  btnLessons.addEventListener('click', showLessonPicker);
+  btnLessons.addEventListener('click', showActivityPicker);
 
   if (window.LESSON_INDEX) {
-    showLessonPicker();
+    showActivityPicker();
   } else if (window.LESSON) {
     startLesson();
   } else {

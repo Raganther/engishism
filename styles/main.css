@@ -159,6 +159,46 @@
   border-color: var(--accent);
 }
 
+/* ── activity picker ──────────────────────────────────────── */
+.act-tile.act-empty {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.act-tile.act-empty:hover {
+  border-color: var(--border);
+  background: transparent;
+}
+
+.act-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.act-desc {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.act-count {
+  font-size: 0.65rem;
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 0.1rem;
+}
+
+.act-count.none { color: var(--muted); }
+
+.sel-desc {
+  font-size: 1rem;
+  color: var(--muted);
+  font-style: italic;
+  margin-bottom: 1.5rem;
+}
+
 /* ── loading ──────────────────────────────────────────────── */
 .loading-msg {
   font-size: 1.5rem;
@@ -644,6 +684,188 @@ html, body {
 }
 
 .meaning-pair .pair-note.visible { opacity: 1; }
+
+/* ── anagram ──────────────────────────────────────────────── */
+.anagram .ana-label {
+  font-size: 1rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.anagram .ana-scrambled {
+  font-size: clamp(3rem, 10vw, 8rem);
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.15em;
+  line-height: 1.1;
+  margin-bottom: 1.5rem;
+}
+
+.anagram .ana-answer {
+  opacity: 0;
+  transition: opacity 0.35s;
+  margin-top: 1rem;
+}
+
+.anagram .ana-answer.visible { opacity: 1; }
+
+.anagram .ana-word {
+  font-size: clamp(2.5rem, 7vw, 6rem);
+  font-weight: 700;
+  color: var(--green);
+  letter-spacing: 0.1em;
+}
+
+.anagram .ana-hint {
+  font-size: clamp(1rem, 1.8vw, 1.5rem);
+  color: var(--blue);
+  font-style: italic;
+  margin-top: 0.5rem;
+}
+
+/* ── call-my-bluff ────────────────────────────────────────── */
+.call-my-bluff .cmb-word {
+  font-size: clamp(2rem, 5vw, 4.5rem);
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+  margin-bottom: 1.5rem;
+}
+
+.call-my-bluff .cmb-defs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.cmb-def {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.9rem 1.2rem;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  transition: border-color 0.3s, background 0.3s, opacity 0.3s;
+}
+
+.cmb-letter {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--blue);
+  min-width: 1.5rem;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+
+.cmb-text {
+  font-size: clamp(0.9rem, 1.6vw, 1.4rem);
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.cmb-def.correct {
+  border-color: var(--green);
+  background: rgba(86, 211, 100, 0.1);
+}
+
+.cmb-def.correct .cmb-letter { color: var(--green); }
+
+.cmb-def.wrong { opacity: 0.3; }
+
+/* ── odd-one-out ──────────────────────────────────────────── */
+.odd-one-out .ooo-prompt {
+  font-size: 1rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+}
+
+.ooo-grid {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.ooo-word {
+  font-size: clamp(1.4rem, 3vw, 2.8rem);
+  font-weight: 700;
+  padding: 0.6rem 1.5rem;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  transition: border-color 0.3s, opacity 0.3s, color 0.3s;
+}
+
+.ooo-word.odd {
+  border-color: #f85149;
+  color: #f85149;
+}
+
+.ooo-word.not-odd { opacity: 0.25; }
+
+.odd-one-out .ooo-reason {
+  font-size: clamp(1rem, 1.8vw, 1.5rem);
+  color: var(--blue);
+  font-style: italic;
+  padding: 0.75rem 1.5rem;
+  background: var(--surface);
+  border-radius: 8px;
+  border-left: 4px solid var(--blue);
+  text-align: left;
+  opacity: 0;
+  transition: opacity 0.35s;
+  margin-top: 0.5rem;
+}
+
+.odd-one-out .ooo-reason.visible { opacity: 1; }
+
+/* ── missing-vowels ───────────────────────────────────────── */
+.missing-vowels .mv-prompt {
+  font-size: 1rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+.missing-vowels .mv-display {
+  font-size: clamp(3rem, 10vw, 8rem);
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+  color: var(--accent);
+  letter-spacing: 0.3em;
+  margin-bottom: 1.5rem;
+}
+
+.missing-vowels .mv-answer {
+  opacity: 0;
+  transition: opacity 0.35s;
+  margin-top: 1rem;
+}
+
+.missing-vowels .mv-answer.visible { opacity: 1; }
+
+.missing-vowels .mv-word {
+  font-size: clamp(2.5rem, 7vw, 6rem);
+  font-weight: 700;
+  color: var(--green);
+  letter-spacing: 0.1em;
+}
+
+.missing-vowels .mv-hint {
+  font-size: clamp(1rem, 1.8vw, 1.5rem);
+  color: var(--blue);
+  font-style: italic;
+  margin-top: 0.5rem;
+}
 
 /* ── sentence-complete ────────────────────────────────────── */
 .sentence-complete .stem {
