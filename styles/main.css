@@ -192,6 +192,19 @@
 
 .act-count.none { color: var(--muted); }
 
+.act-icon {
+  width: 36px;
+  height: 36px;
+  color: var(--muted);
+  transition: color 0.15s;
+  margin-bottom: 0.3rem;
+  flex-shrink: 0;
+}
+
+.act-icon svg { width: 100%; height: 100%; }
+
+.act-tile:not(.act-empty):hover .act-icon { color: var(--accent); }
+
 .sel-desc {
   font-size: 1rem;
   color: var(--muted);

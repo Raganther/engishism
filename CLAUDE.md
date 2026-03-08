@@ -39,6 +39,8 @@ Phase: Activity picker home screen + 12 activity types
 - Prompt template at: docs/lesson-prompt.md
 - Module system working: timer, scoreboard, teams snap onto any activity via modules field
 - Event bus (engine/events.js) scopes events per activity session
+- Each activity card has a minimalist SVG icon (36×36, stroke-based, accent on hover)
+- Icons defined inline in ACTIVITY_CATALOG via icon() helper in engine.js
 - Next: jeopardy (medium effort, high value) or countdown letters
 
 ## Constraints

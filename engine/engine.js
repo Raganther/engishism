@@ -11,20 +11,61 @@
   const barTop     = document.getElementById('module-bar-top');
   const barBottom  = document.getElementById('module-bar-bottom');
 
-  const ACTIVITY_CATALOG = [
-    { type: 'title-card',        label: 'Title Card',        desc: 'Lesson title slide' },
-    { type: 'reveal-card',       label: 'Reveal Card',       desc: 'Reference list — labels with examples' },
-    { type: 'fill-blank',        label: 'Fill in the Blank', desc: 'Gap-fill sentences, click to reveal' },
-    { type: 'meaning-pair',      label: 'Meaning Pair',      desc: 'Compare two sentences — spot the difference' },
-    { type: 'sentence-complete', label: 'Sentence Complete', desc: 'Open-ended sentence stems, reveal a model answer' },
-    { type: 'true-false',        label: 'True / False',      desc: 'Statements to judge, reveal verdict + explanation' },
-    { type: 'hot-seat',          label: 'Hot Seat',          desc: 'Timed word-description game' },
-    { type: 'noughts-crosses',   label: 'Noughts & Crosses', desc: 'Q&A grid — teams claim squares' },
-    { type: 'anagram',           label: 'Anagram',           desc: 'Unscramble the letters to find the word' },
-    { type: 'call-my-bluff',     label: 'Call My Bluff',     desc: '3 definitions, one real — class votes' },
-    { type: 'odd-one-out',       label: 'Odd One Out',       desc: '4 words, one doesn\'t belong — reveal + reason' },
-    { type: 'missing-vowels',    label: 'Missing Vowels',    desc: 'Word with vowels removed — guess and reveal' },
-  ];
+  const ACTIVITY_CATALOG = (function () {
+    function icon(inner) {
+      return `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+    }
+    return [
+      {
+        type: 'title-card', label: 'Title Card', desc: 'Lesson title slide',
+        icon: icon('<rect x="6" y="5" width="28" height="30" rx="2"/><line x1="6" y1="14" x2="34" y2="14"/><line x1="11" y1="21" x2="29" y2="21"/><line x1="11" y1="27" x2="22" y2="27"/>')
+      },
+      {
+        type: 'reveal-card', label: 'Reveal Card', desc: 'Reference list — labels with examples',
+        icon: icon('<circle cx="10" cy="13" r="2" fill="currentColor" stroke="none"/><line x1="15" y1="13" x2="32" y2="13"/><circle cx="10" cy="21" r="2" fill="currentColor" stroke="none"/><line x1="15" y1="21" x2="32" y2="21"/><circle cx="10" cy="29" r="2" fill="currentColor" stroke="none"/><line x1="15" y1="29" x2="26" y2="29"/>')
+      },
+      {
+        type: 'fill-blank', label: 'Fill in the Blank', desc: 'Gap-fill sentences, click to reveal',
+        icon: icon('<line x1="3" y1="18" x2="13" y2="18"/><rect x="16" y="13" width="10" height="10" rx="1" stroke-dasharray="2,2"/><line x1="28" y1="18" x2="37" y2="18"/><line x1="3" y1="28" x2="20" y2="28"/>')
+      },
+      {
+        type: 'meaning-pair', label: 'Meaning Pair', desc: 'Compare two sentences — spot the difference',
+        icon: icon('<rect x="3" y="12" width="13" height="16" rx="2"/><rect x="24" y="12" width="13" height="16" rx="2"/><line x1="16" y1="20" x2="24" y2="20"/><polyline points="18,18 16,20 18,22"/><polyline points="22,18 24,20 22,22"/>')
+      },
+      {
+        type: 'sentence-complete', label: 'Sentence Complete', desc: 'Open-ended sentence stems, reveal a model answer',
+        icon: icon('<line x1="4" y1="15" x2="22" y2="15"/><line x1="4" y1="22" x2="16" y2="22"/><circle cx="22" cy="22" r="2" fill="currentColor" stroke="none"/><circle cx="28" cy="22" r="2" fill="currentColor" stroke="none"/><circle cx="34" cy="22" r="2" fill="currentColor" stroke="none"/>')
+      },
+      {
+        type: 'true-false', label: 'True / False', desc: 'Statements to judge, reveal verdict + explanation',
+        icon: icon('<line x1="20" y1="6" x2="20" y2="34" stroke-dasharray="2,3"/><polyline points="5,21 10,27 18,13"/><line x1="24" y1="13" x2="35" y2="27"/><line x1="35" y1="13" x2="24" y2="27"/>')
+      },
+      {
+        type: 'hot-seat', label: 'Hot Seat', desc: 'Timed word-description game',
+        icon: icon('<path d="M20 35 C11 35 8 26 13 20 C14 24 16 23 16 19 C16 13 18 9 20 4 C22 9 24 13 24 19 C24 23 26 24 27 20 C32 26 29 35 20 35 Z"/>')
+      },
+      {
+        type: 'noughts-crosses', label: 'Noughts & Crosses', desc: 'Q&A grid — teams claim squares',
+        icon: icon('<line x1="14" y1="5" x2="14" y2="35"/><line x1="26" y1="5" x2="26" y2="35"/><line x1="5" y1="14" x2="35" y2="14"/><line x1="5" y1="26" x2="35" y2="26"/><line x1="7" y1="7" x2="12" y2="12"/><line x1="12" y1="7" x2="7" y2="12"/><circle cx="20" cy="30" r="4"/>')
+      },
+      {
+        type: 'anagram', label: 'Anagram', desc: 'Unscramble the letters to find the word',
+        icon: icon('<path d="M8 13 C14 6 26 6 32 13"/><polyline points="28,8 32,13 27,16"/><path d="M32 27 C26 34 14 34 8 27"/><polyline points="12,32 8,27 13,24"/>')
+      },
+      {
+        type: 'call-my-bluff', label: 'Call My Bluff', desc: '3 definitions, one real — class votes',
+        icon: icon('<rect x="5" y="7" width="30" height="7" rx="2"/><rect x="5" y="17" width="30" height="7" rx="2"/><rect x="5" y="27" width="30" height="7" rx="2"/>')
+      },
+      {
+        type: 'odd-one-out', label: 'Odd One Out', desc: '4 words, one doesn\'t belong — reveal + reason',
+        icon: icon('<circle cx="7" cy="20" r="4"/><circle cx="17" cy="20" r="4"/><circle cx="27" cy="20" r="4"/><rect x="32" y="16" width="8" height="8" rx="1"/>')
+      },
+      {
+        type: 'missing-vowels', label: 'Missing Vowels', desc: 'Word with vowels removed — guess and reveal',
+        icon: icon('<rect x="3" y="14" width="7" height="12" rx="1"/><line x1="12" y1="26" x2="18" y2="26"/><rect x="20" y="14" width="7" height="12" rx="1"/><line x1="29" y1="26" x2="35" y2="26"/>')
+      },
+    ];
+  })();
 
   // ── Helpers ────────────────────────────────────────────────
   function hideAll() {
@@ -97,6 +138,7 @@
       const empty = count === 0;
       return `
         <button class="sel-tile act-tile${empty ? ' act-empty' : ''}" data-type="${a.type}">
+          <div class="act-icon">${a.icon}</div>
           <span class="act-label">${a.label}</span>
           <span class="act-desc">${a.desc}</span>
           <span class="act-count${empty ? ' none' : ''}">${empty ? 'No lessons yet' : count + ' lesson' + (count > 1 ? 's' : '')}</span>
