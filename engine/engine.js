@@ -49,6 +49,10 @@
         icon: icon('<line x1="14" y1="5" x2="14" y2="35"/><line x1="26" y1="5" x2="26" y2="35"/><line x1="5" y1="14" x2="35" y2="14"/><line x1="5" y1="26" x2="35" y2="26"/><line x1="7" y1="7" x2="12" y2="12"/><line x1="12" y1="7" x2="7" y2="12"/><circle cx="20" cy="30" r="4"/>')
       },
       {
+        type: 'jeopardy', label: 'Jeopardy', desc: 'Categories × point values — teams claim squares',
+        icon: icon('<rect x="3" y="4" width="10" height="10" rx="1"/><rect x="15" y="4" width="10" height="10" rx="1"/><rect x="27" y="4" width="10" height="10" rx="1"/><rect x="3" y="17" width="10" height="9" rx="1" fill="currentColor" stroke="none"/><rect x="15" y="17" width="10" height="9" rx="1"/><rect x="27" y="17" width="10" height="9" rx="1"/><rect x="3" y="29" width="10" height="9" rx="1"/><rect x="15" y="29" width="10" height="9" rx="1"/><rect x="27" y="29" width="10" height="9" rx="1" fill="currentColor" stroke="none"/>')
+      },
+      {
         type: 'anagram', label: 'Anagram', desc: 'Unscramble the letters to find the word',
         icon: icon('<path d="M8 13 C14 6 26 6 32 13"/><polyline points="28,8 32,13 27,16"/><path d="M32 27 C26 34 14 34 8 27"/><polyline points="12,32 8,27 13,24"/>')
       },
@@ -236,6 +240,7 @@
         case 'noughts-crosses':   return `${c.cells.length} questions`;
         case 'meaning-pair':      return `${c.pairs.length} pairs`;
         case 'sentence-complete': return `${c.stems.length} sentences`;
+        case 'jeopardy':          return `${c.categories.length} categories`;
         case 'anagram':           return `${c.words.length} words`;
         case 'call-my-bluff':     return `${c.items.length} words`;
         case 'odd-one-out':       return `${c.items.length} sets`;

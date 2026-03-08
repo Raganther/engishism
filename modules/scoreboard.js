@@ -19,10 +19,10 @@ window.Modules['scoreboard'] = {
   },
 
   init(el, state, events) {
-    function addPoint(team) {
+    function addPoint(team, value) {
       if (typeof team === 'number') team = state.teams[team];
       if (!state.scores[team] && state.scores[team] !== 0) return;
-      state.scores[team]++;
+      state.scores[team] += (value || 1);
       const val = el.querySelector(`.score-val[data-team="${team}"]`);
       if (val) {
         val.textContent = state.scores[team];
@@ -40,6 +40,6 @@ window.Modules['scoreboard'] = {
     });
 
     // Programmatic points from activities
-    events.on('point', ({ team }) => addPoint(team));
+    events.on('point', ({ team, value }) => addPoint(team, value));
   }
 };

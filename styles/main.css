@@ -698,6 +698,133 @@ html, body {
 
 .meaning-pair .pair-note.visible { opacity: 1; }
 
+/* ── jeopardy ─────────────────────────────────────────────── */
+.jeopardy .jp-grid {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.jp-header {
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 700;
+  font-size: clamp(0.75rem, 1.4vw, 1rem);
+  padding: 0.75rem 0.4rem;
+  text-align: center;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.jp-cell {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  font-size: clamp(1.4rem, 3vw, 2.4rem);
+  font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 1rem 0.5rem;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.jp-cell:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: rgba(230, 172, 0, 0.08);
+}
+
+.jp-cell:disabled { cursor: default; }
+.jp-cell.jp-claimed-0 { border-color: var(--blue);  background: rgba(121,192,255,0.12); }
+.jp-cell.jp-claimed-1 { border-color: #f85149;       background: rgba(248, 81, 73,0.12); }
+.jp-cell.jp-claimed-2 { border-color: var(--green);  background: rgba(86, 211,100,0.12); }
+.jp-cell.jp-claimed-3 { border-color: var(--accent); background: rgba(230,172,  0,0.12); }
+
+.jeopardy .jp-panel { width: 100%; text-align: center; }
+.jp-panel.hidden { display: none; }
+.jp-grid.hidden  { display: none; }
+
+.jp-cat-label {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+.jp-value-label {
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  font-weight: 900;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: 1rem;
+}
+
+.jp-q-text {
+  font-size: clamp(1.4rem, 2.8vw, 2.5rem);
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.jp-answer {
+  font-size: clamp(1rem, 1.8vw, 1.6rem);
+  color: var(--green);
+  padding: 0.9rem 1.5rem;
+  background: var(--surface);
+  border-left: 4px solid var(--green);
+  border-radius: 4px;
+  text-align: left;
+  opacity: 0;
+  transition: opacity 0.35s;
+  margin-bottom: 1.5rem;
+}
+
+.jp-answer.visible { opacity: 1; }
+
+.jp-claim-bar {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.jp-claim {
+  background: none;
+  border: 2px solid var(--border);
+  color: var(--muted);
+  font-size: 1rem;
+  padding: 0.5rem 1.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.jp-claim[data-team="0"]:hover { border-color: var(--blue);  color: var(--blue);   }
+.jp-claim[data-team="1"]:hover { border-color: #f85149;       color: #f85149;       }
+.jp-claim[data-team="2"]:hover { border-color: var(--green);  color: var(--green);  }
+.jp-claim[data-team="3"]:hover { border-color: var(--accent); color: var(--accent); }
+
+.jp-back {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 0.4rem 1.2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: block;
+  margin: 0.5rem auto 0;
+}
+
+.jp-back:hover { color: var(--text); border-color: var(--text); }
+
 /* ── anagram ──────────────────────────────────────────────── */
 .anagram .ana-label {
   font-size: 1rem;

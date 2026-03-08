@@ -41,7 +41,10 @@ Phase: Activity picker home screen + 12 activity types
 - Event bus (engine/events.js) scopes events per activity session
 - Each activity card has a minimalist SVG icon (36×36, stroke-based, accent on hover)
 - Icons defined inline in ACTIVITY_CATALOG via icon() helper in engine.js
-- Next: jeopardy (medium effort, high value) or countdown letters
+- 13 activity types total — jeopardy added
+- Jeopardy: categories × point values grid, full-screen question view, team claim buttons
+- Scoreboard module updated to support variable point values via { team, value } in point events
+- Next: countdown letters, or build real lesson content using existing activity types
 
 ## Constraints
 - Must work on a standard classroom TV/browser — no exotic dependencies

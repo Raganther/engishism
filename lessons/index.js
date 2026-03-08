@@ -17,6 +17,6 @@ window.LESSON_INDEX = [
     id:    'demo-games',
     title: 'New Games — Demo',
     tag:   'Demo',
-    types: ['anagram', 'call-my-bluff', 'odd-one-out', 'missing-vowels'],
+    types: ['jeopardy', 'anagram', 'call-my-bluff', 'odd-one-out', 'missing-vowels'],
   },
 ];
