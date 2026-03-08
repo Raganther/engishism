@@ -49,6 +49,14 @@
         icon: icon('<line x1="14" y1="5" x2="14" y2="35"/><line x1="26" y1="5" x2="26" y2="35"/><line x1="5" y1="14" x2="35" y2="14"/><line x1="5" y1="26" x2="35" y2="26"/><line x1="7" y1="7" x2="12" y2="12"/><line x1="12" y1="7" x2="7" y2="12"/><circle cx="20" cy="30" r="4"/>')
       },
       {
+        type: 'millionaire', label: 'Millionaire', desc: 'Progressive questions — 50/50 lifeline, walk away',
+        icon: icon('<polyline points="4,35 4,27 13,27 13,20 22,20 22,13 31,13 31,6 38,6"/>')
+      },
+      {
+        type: 'countdown', label: 'Countdown', desc: '9 letters, 30 seconds — make the longest word',
+        icon: icon('<rect x="3" y="4" width="6" height="8" rx="1"/><rect x="11" y="4" width="6" height="8" rx="1"/><rect x="19" y="4" width="6" height="8" rx="1"/><rect x="27" y="4" width="6" height="8" rx="1"/><circle cx="20" cy="29" r="9"/><line x1="20" y1="22" x2="20" y2="29"/><line x1="20" y1="29" x2="26" y2="29"/>')
+      },
+      {
         type: 'jeopardy', label: 'Jeopardy', desc: 'Categories × point values — teams claim squares',
         icon: icon('<rect x="3" y="4" width="10" height="10" rx="1"/><rect x="15" y="4" width="10" height="10" rx="1"/><rect x="27" y="4" width="10" height="10" rx="1"/><rect x="3" y="17" width="10" height="9" rx="1" fill="currentColor" stroke="none"/><rect x="15" y="17" width="10" height="9" rx="1"/><rect x="27" y="17" width="10" height="9" rx="1"/><rect x="3" y="29" width="10" height="9" rx="1"/><rect x="15" y="29" width="10" height="9" rx="1"/><rect x="27" y="29" width="10" height="9" rx="1" fill="currentColor" stroke="none"/>')
       },
@@ -240,6 +248,8 @@
         case 'noughts-crosses':   return `${c.cells.length} questions`;
         case 'meaning-pair':      return `${c.pairs.length} pairs`;
         case 'sentence-complete': return `${c.stems.length} sentences`;
+        case 'millionaire':       return `${c.questions.length} questions`;
+        case 'countdown':         return `${c.time || 30}s`;
         case 'jeopardy':          return `${c.categories.length} categories`;
         case 'anagram':           return `${c.words.length} words`;
         case 'call-my-bluff':     return `${c.items.length} words`;

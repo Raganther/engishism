@@ -3,6 +3,68 @@ window.LESSON = {
   mode: "selector",
   slides: [
 
+    // ── Millionaire ───────────────────────────────────────────
+    {
+      label: "Millionaire — Grammar & Vocab",
+      type: "millionaire",
+      content: {
+        questions: [
+          {
+            question: "Which sentence uses a gerund correctly?",
+            options: [
+              "I enjoy to swim in the sea.",
+              "I enjoy swimming in the sea.",
+              "I enjoy swim in the sea.",
+              "I enjoy swam in the sea."
+            ],
+            answer: 1
+          },
+          {
+            question: "What does 'ubiquitous' mean?",
+            options: [
+              "Extremely rare and precious",
+              "Present or found everywhere",
+              "Difficult to understand",
+              "Related to water"
+            ],
+            answer: 1
+          },
+          {
+            question: "Which word is an abstract noun?",
+            options: ["quickly", "run", "beautiful", "freedom"],
+            answer: 3
+          },
+          {
+            question: "What form follows 'you'd better'?",
+            options: [
+              "Infinitive without 'to'",
+              "Gerund (-ing form)",
+              "Past participle",
+              "Infinitive with 'to'"
+            ],
+            answer: 0
+          },
+          {
+            question: "What does IKEA stand for?",
+            options: [
+              "International Kitchens, Electronics and Appliances",
+              "Ingvar Kamprad Elmtaryd Agunnaryd",
+              "It's a made-up word with no meaning",
+              "In Keeping Everything Affordable"
+            ],
+            answer: 1
+          }
+        ]
+      }
+    },
+
+    // ── Countdown ─────────────────────────────────────────────
+    {
+      label: "Countdown — Letters",
+      type: "countdown",
+      content: { time: 30 }
+    },
+
     // ── Jeopardy ──────────────────────────────────────────────
     {
       label: "Jeopardy — Grammar & Vocabulary",

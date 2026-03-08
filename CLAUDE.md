@@ -41,10 +41,12 @@ Phase: Activity picker home screen + 12 activity types
 - Event bus (engine/events.js) scopes events per activity session
 - Each activity card has a minimalist SVG icon (36×36, stroke-based, accent on hover)
 - Icons defined inline in ACTIVITY_CATALOG via icon() helper in engine.js
-- 13 activity types total — jeopardy added
+- 16 activity types total: all originals + anagram, call-my-bluff, odd-one-out, missing-vowels, jeopardy, countdown, millionaire
+- Millionaire: progressive questions, money ladder, 50/50 lifeline, walk away, safe levels auto-calculated
+- Countdown: generative — teacher picks vowels/consonants, 30s internal timer, multi-round
 - Jeopardy: categories × point values grid, full-screen question view, team claim buttons
-- Scoreboard module updated to support variable point values via { team, value } in point events
-- Next: countdown letters, or build real lesson content using existing activity types
+- Scoreboard module supports variable point values via { team, value }
+- Next: Taboo, Catchphrase, or Word Chain — or start building real lesson content
 
 ## Constraints
 - Must work on a standard classroom TV/browser — no exotic dependencies

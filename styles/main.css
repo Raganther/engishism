@@ -698,6 +698,224 @@ html, body {
 
 .meaning-pair .pair-note.visible { opacity: 1; }
 
+/* ── millionaire ──────────────────────────────────────────── */
+.millionaire {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.mm-main { flex: 1; min-width: 0; }
+
+.mm-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.2rem;
+}
+
+.mm-fifty, .mm-walk {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 0.3rem 0.9rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mm-fifty:hover:not(.used) { border-color: var(--blue);   color: var(--blue);   }
+.mm-fifty.used             { opacity: 0.3; cursor: default; }
+.mm-walk:hover             { border-color: var(--accent); color: var(--accent); }
+
+.mm-progress {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.mm-value {
+  font-size: clamp(1.6rem, 3.5vw, 3rem);
+  font-weight: 900;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.mm-question {
+  font-size: clamp(1.1rem, 2vw, 1.7rem);
+  line-height: 1.5;
+  margin-bottom: 1.2rem;
+  text-align: center;
+}
+
+.mm-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.mm-option {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.mm-option:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: rgba(230, 172, 0, 0.06);
+}
+
+.mm-opt-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--blue);
+  min-width: 1.2rem;
+  flex-shrink: 0;
+}
+
+.mm-opt-text {
+  font-size: clamp(0.85rem, 1.5vw, 1.2rem);
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.mm-option.selected { border-color: var(--accent); background: rgba(230,172,  0,0.10); }
+.mm-option.correct  { border-color: var(--green);  background: rgba(86, 211,100,0.12); }
+.mm-option.wrong    { border-color: #f85149;        background: rgba(248, 81, 73,0.12); }
+.mm-option.removed  { opacity: 0.15; cursor: default; }
+.mm-option:disabled { cursor: default; }
+
+.mm-reveal        { display: block; margin: 0 auto; }
+.mm-reveal.hidden { display: none; }
+
+.mm-ladder {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 115px;
+  flex-shrink: 0;
+}
+
+.mm-rung {
+  padding: 0.28rem 0.75rem;
+  text-align: right;
+  font-size: 0.78rem;
+  color: var(--muted);
+  border-radius: 3px;
+  border: 1px solid transparent;
+  transition: all 0.25s;
+}
+
+.mm-rung.safe    { color: var(--blue); }
+.mm-rung.current { color: var(--accent); font-weight: 700; background: rgba(230,172,0,0.1); border-color: rgba(230,172,0,0.4); }
+.mm-rung.won     { color: var(--green); font-weight: 600; }
+
+.mm-endscreen {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.mm-end-title {
+  font-size: clamp(1.5rem, 3vw, 2.5rem);
+  font-weight: 900;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  margin-bottom: 0.5rem;
+}
+
+.mm-end-amount {
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  font-weight: 900;
+  color: var(--green);
+  margin-bottom: 1.5rem;
+}
+
+.mm-done {
+  background: none;
+  border: 2px solid var(--green);
+  color: var(--green);
+  font-size: 1rem;
+  padding: 0.5rem 2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mm-done:hover { background: var(--green); color: var(--bg); }
+
+/* ── countdown ────────────────────────────────────────────── */
+.countdown .cd-tiles {
+  display: flex;
+  gap: clamp(4px, 0.8vw, 10px);
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.cd-tile {
+  width: clamp(46px, 7vw, 78px);
+  height: clamp(58px, 8.5vw, 92px);
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(1.6rem, 3.8vw, 3.4rem);
+  font-weight: 700;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.cd-tile.vowel     { color: var(--blue);   border-color: var(--blue);   }
+.cd-tile.consonant { color: var(--accent); border-color: var(--accent); }
+
+.countdown .cd-timer {
+  font-size: clamp(3rem, 8vw, 6rem);
+  font-weight: 700;
+  color: var(--blue);
+  line-height: 1;
+  margin-bottom: 1.2rem;
+  transition: color 0.3s;
+}
+
+.countdown .cd-timer.hidden { display: none; }
+.countdown .cd-timer.urgent { color: #f85149; }
+
+.countdown .cd-controls {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.cd-btn {
+  background: none;
+  border: 2px solid var(--border);
+  color: var(--text);
+  font-size: 1.1rem;
+  padding: 0.5rem 2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.cd-btn.hidden    { display: none; }
+.cd-btn:disabled  { opacity: 0.3; cursor: default; }
+
+.cd-vowel:not(:disabled):hover     { border-color: var(--blue);   color: var(--blue);   }
+.cd-consonant:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+.cd-new:not(:disabled):hover       { border-color: var(--muted);  color: var(--text);   }
+.cd-done:not(:disabled):hover      { border-color: var(--green);  color: var(--green);  }
+
 /* ── jeopardy ─────────────────────────────────────────────── */
 .jeopardy .jp-grid {
   display: grid;
