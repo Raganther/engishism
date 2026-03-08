@@ -42,11 +42,10 @@ Phase: Activity picker home screen + 12 activity types
 - Each activity card has a minimalist SVG icon (36×36, stroke-based, accent on hover)
 - Icons defined inline in ACTIVITY_CATALOG via icon() helper in engine.js
 - 16 activity types total: all originals + anagram, call-my-bluff, odd-one-out, missing-vowels, jeopardy, countdown, millionaire
-- Millionaire: progressive questions, money ladder, 50/50 lifeline, walk away, safe levels auto-calculated
-- Countdown: generative — teacher picks vowels/consonants, 30s internal timer, multi-round
-- Jeopardy: categories × point values grid, full-screen question view, team claim buttons
-- Scoreboard module supports variable point values via { team, value }
-- Next: Taboo, Catchphrase, or Word Chain — or start building real lesson content
+- Persistent session bar (engine/session.js) sits above all screens — always visible
+- Session bar: team names (inline editable), colour-coded scores, +/− buttons, add/remove teams, reset
+- Session state lives in window.Session — teacher-driven scoring, separate from per-activity modules
+- Next: connect session scoring to activity events, or build the meta-game board
 
 ## Constraints
 - Must work on a standard classroom TV/browser — no exotic dependencies

@@ -1,0 +1,148 @@
+(function () {
+
+  const TEAM_COLORS  = ['var(--blue)', '#f85149', 'var(--green)', 'var(--accent)'];
+  const TEAM_NAMES   = ['Team A', 'Team B', 'Team C', 'Team D'];
+
+  // ── Session state ───────────────────────────────────────────
+  window.Session = {
+    teams:  ['Team A', 'Team B'],
+    scores: { 'Team A': 0, 'Team B': 0 },
+
+    award(team, value) {
+      if (this.scores[team] === undefined) return;
+      this.scores[team] += (value || 1);
+      SessionBar.updateScore(team);
+    },
+
+    deduct(team, value) {
+      if (this.scores[team] === undefined) return;
+      this.scores[team] -= (value || 1);
+      SessionBar.updateScore(team);
+    }
+  };
+
+  // ── Bar renderer ────────────────────────────────────────────
+  const SessionBar = window.SessionBar = {
+    el: null,
+
+    init() {
+      this.el = document.getElementById('session-bar');
+      this.render();
+    },
+
+    render() {
+      const teams = window.Session.teams;
+
+      const cards = teams.map((team, i) => {
+        const color = TEAM_COLORS[i] || 'var(--text)';
+        return `
+          <div class="sb-team" data-team="${i}">
+            <span class="sb-name"
+                  contenteditable="true"
+                  spellcheck="false"
+                  data-name="${team}"
+                  style="color:${color}">${team}</span>
+            <span class="sb-score" style="color:${color}">${window.Session.scores[team] || 0}</span>
+            <button class="sb-btn sb-minus" data-team="${i}" title="−1">−</button>
+            <button class="sb-btn sb-plus"  data-team="${i}" title="+1">+</button>
+            ${teams.length > 1 ? `<button class="sb-btn sb-remove" data-team="${i}" title="Remove">×</button>` : ''}
+          </div>
+        `;
+      }).join('');
+
+      this.el.innerHTML = `
+        ${cards}
+        <div class="sb-actions">
+          ${teams.length < 4 ? '<button class="sb-add">+ Team</button>' : ''}
+          <button class="sb-reset" title="Reset all scores">↺</button>
+        </div>
+      `;
+
+      this.bindEvents();
+    },
+
+    bindEvents() {
+      const el  = this.el;
+      const ses = window.Session;
+
+      // +1 / −1
+      el.querySelectorAll('.sb-plus, .sb-minus').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const idx  = parseInt(btn.dataset.team);
+          const team = ses.teams[idx];
+          const dir  = btn.classList.contains('sb-plus') ? 1 : -1;
+          ses.scores[team] = (ses.scores[team] || 0) + dir;
+          this.updateScore(team);
+        });
+      });
+
+      // Remove team
+      el.querySelectorAll('.sb-remove').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const idx  = parseInt(btn.dataset.team);
+          const team = ses.teams[idx];
+          ses.teams.splice(idx, 1);
+          delete ses.scores[team];
+          this.render();
+        });
+      });
+
+      // Add team
+      const addBtn = el.querySelector('.sb-add');
+      if (addBtn) {
+        addBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          const next = TEAM_NAMES.find(n => !ses.teams.includes(n))
+                    || `Team ${ses.teams.length + 1}`;
+          ses.teams.push(next);
+          ses.scores[next] = 0;
+          this.render();
+        });
+      }
+
+      // Reset scores
+      el.querySelector('.sb-reset').addEventListener('click', e => {
+        e.stopPropagation();
+        ses.teams.forEach(t => { ses.scores[t] = 0; });
+        this.render();
+      });
+
+      // Inline name editing
+      el.querySelectorAll('.sb-name').forEach(nameEl => {
+        nameEl.addEventListener('keydown', e => {
+          if (e.key === 'Enter') { e.preventDefault(); nameEl.blur(); }
+        });
+
+        nameEl.addEventListener('blur', () => {
+          const oldName = nameEl.dataset.name;
+          const newName = nameEl.textContent.trim() || oldName;
+          if (newName !== oldName) {
+            const idx = ses.teams.indexOf(oldName);
+            if (idx !== -1) {
+              ses.teams[idx]      = newName;
+              ses.scores[newName] = ses.scores[oldName] || 0;
+              delete ses.scores[oldName];
+            }
+          }
+          this.render();
+        });
+      });
+    },
+
+    updateScore(team) {
+      const idx     = window.Session.teams.indexOf(team);
+      const color   = TEAM_COLORS[idx] || 'var(--text)';
+      const scoreEl = this.el.querySelector(`.sb-team[data-team="${idx}"] .sb-score`);
+      if (!scoreEl) return;
+      scoreEl.textContent = window.Session.scores[team];
+      scoreEl.style.color = color;
+      scoreEl.classList.add('bumped');
+      setTimeout(() => scoreEl.classList.remove('bumped'), 350);
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', () => SessionBar.init());
+
+})();
