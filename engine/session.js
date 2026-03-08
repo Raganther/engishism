@@ -5,8 +5,9 @@
 
   // ── Session state ───────────────────────────────────────────
   window.Session = {
-    teams:  ['Team A', 'Team B'],
-    scores: { 'Team A': 0, 'Team B': 0 },
+    teams:      ['Team A', 'Team B'],
+    scores:     { 'Team A': 0, 'Team B': 0 },
+    activeTeam: 0,
 
     award(team, value) {
       if (this.scores[team] === undefined) return;
@@ -34,9 +35,10 @@
       const teams = window.Session.teams;
 
       const cards = teams.map((team, i) => {
-        const color = TEAM_COLORS[i] || 'var(--text)';
+        const color    = TEAM_COLORS[i] || 'var(--text)';
+        const isActive = i === window.Session.activeTeam;
         return `
-          <div class="sb-team" data-team="${i}">
+          <div class="sb-team${isActive ? ' sb-active' : ''}" data-team="${i}">
             <span class="sb-name"
                   contenteditable="true"
                   spellcheck="false"
@@ -64,6 +66,15 @@
     bindEvents() {
       const el  = this.el;
       const ses = window.Session;
+
+      // Select active team
+      el.querySelectorAll('.sb-team').forEach(card => {
+        card.addEventListener('click', () => {
+          window.Session.activeTeam = parseInt(card.dataset.team);
+          el.querySelectorAll('.sb-team').forEach(c => c.classList.remove('sb-active'));
+          card.classList.add('sb-active');
+        });
+      });
 
       // +1 / −1
       el.querySelectorAll('.sb-plus, .sb-minus').forEach(btn => {

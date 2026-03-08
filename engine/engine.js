@@ -138,6 +138,11 @@
       onComplete: onComplete || function () {},
       state, events,
     });
+
+    events.on('point', ({ value }) => {
+      const team = window.Session.teams[window.Session.activeTeam];
+      if (team) window.Session.award(team, value);
+    });
   }
 
   // ── Activity picker (home screen) ──────────────────────────

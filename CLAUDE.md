@@ -45,7 +45,9 @@ Phase: Activity picker home screen + 12 activity types
 - Persistent session bar (engine/session.js) sits above all screens — always visible
 - Session bar: team names (inline editable), colour-coded scores, +/− buttons, add/remove teams, reset
 - Session state lives in window.Session — teacher-driven scoring, separate from per-activity modules
-- Next: connect session scoring to activity events, or build the meta-game board
+- Session scoring wired: click a team in the bar to select it, all activity point events route to that team automatically
+- Selected team shown with accent border + glow; activeTeam index on window.Session
+- Next: browser test the full flow, then consider meta-game board or per-activity module cleanup
 
 ## Constraints
 - Must work on a standard classroom TV/browser — no exotic dependencies
