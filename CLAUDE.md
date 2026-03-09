@@ -12,12 +12,16 @@ Read on demand only:
 - docs/dev.md — ideas and backlog
 
 ## Run Commands
-None yet — project not scaffolded.
 
 ```bash
 # Git save
-./scripts/git-save.sh "message"
+./scripts/git-save.sh "subject" "body"
+
+# Deploy (push to GitHub Pages)
+git push
 ```
+
+**Live URL:** https://raganther.github.io/engishism/
 
 ## Architecture
 - Stack: HTML, CSS, vanilla JS (no build step — keep it simple and TV-friendly)
@@ -45,9 +49,12 @@ Phase: Activity picker home screen + 12 activity types
 - Persistent session bar (engine/session.js) sits above all screens — always visible
 - Session bar: team names (inline editable), colour-coded scores, +/− buttons, add/remove teams, reset
 - Session state lives in window.Session — teacher-driven scoring, separate from per-activity modules
-- Session scoring wired: click a team in the bar to select it, all activity point events route to that team automatically
-- Selected team shown with accent border + glow; activeTeam index on window.Session
-- Next: browser test the full flow, then consider meta-game board or per-activity module cleanup
+- Navigation inverted: topic picker first → game type picker → play (all 15 types shown, unavailable ones greyed out)
+- Session scoring wired: click a team to select it, all activity point events route to that team
+- 5 lessons: unit-6-scandi-successes, unit-8a, teamwork, negotiation-skills, demo-games
+- teamwork.js + negotiation-skills.js: all 15 game types fully populated from handout PDFs
+- Deployed to GitHub Pages: https://raganther.github.io/engishism/
+- Next: browser test full flow, then new lessons or meta-game board
 
 ## Constraints
 - Must work on a standard classroom TV/browser — no exotic dependencies

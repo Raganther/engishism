@@ -79,6 +79,31 @@
     ];
   })();
 
+  // ── Shared helpers ──────────────────────────────────────────
+  function formatType(t) { return t.replace(/-/g, ' '); }
+
+  function autoLabel(slide) {
+    const c = slide.content;
+    switch (slide.type) {
+      case 'title-card':        return c.heading;
+      case 'reveal-card':       return c.heading;
+      case 'fill-blank':        return `${c.questions.length} questions`;
+      case 'true-false':        return `${c.questions.length} statements`;
+      case 'hot-seat':          return `${c.words.length} words \u00b7 ${c.time}s`;
+      case 'noughts-crosses':   return `${c.cells.length} questions`;
+      case 'meaning-pair':      return `${c.pairs.length} pairs`;
+      case 'sentence-complete': return `${c.stems.length} sentences`;
+      case 'millionaire':       return `${c.questions.length} questions`;
+      case 'countdown':         return `${c.time || 30}s`;
+      case 'jeopardy':          return `${c.categories.length} categories`;
+      case 'anagram':           return `${c.words.length} words`;
+      case 'call-my-bluff':     return `${c.items.length} words`;
+      case 'odd-one-out':       return `${c.items.length} sets`;
+      case 'missing-vowels':    return `${c.items.length} words`;
+      default:                  return slide.type;
+    }
+  }
+
   // ── Helpers ────────────────────────────────────────────────
   function hideAll() {
     [btnLessons, btnPrev, btnNext, btnMenu].forEach(b => b.style.display = 'none');
@@ -145,65 +170,124 @@
     });
   }
 
-  // ── Activity picker (home screen) ──────────────────────────
-  function showActivityPicker() {
+  // ── Topic picker (home screen) ──────────────────────────────
+  function showTopicPicker() {
     hideAll();
 
     const index = window.LESSON_INDEX || [];
+    const tiles = index.map(l => `
+      <button class="sel-tile" data-id="${l.id}">
+        ${l.tag ? `<span class="sel-type">${l.tag}</span>` : ''}
+        <span class="sel-label">${l.title}</span>
+        <span class="act-count">${l.types.length} activit${l.types.length === 1 ? 'y' : 'ies'}</span>
+      </button>
+    `).join('');
+
+    container.innerHTML = `
+      <div class="selector">
+        <h1 class="sel-title">Topics</h1>
+        <div class="sel-grid">${tiles}</div>
+      </div>
+    `;
+
+    container.querySelectorAll('.sel-tile').forEach(tile => {
+      const meta = index.find(l => l.id === tile.dataset.id);
+      tile.addEventListener('click', () => showTopicGames(meta));
+    });
+  }
+
+  // ── Game picker for a topic ─────────────────────────────────
+  function showTopicGames(lessonMeta) {
+    hideAll();
+    btnLessons.style.display = '';
+
     const tiles = ACTIVITY_CATALOG.map(a => {
-      const count = index.filter(l => l.types && l.types.includes(a.type)).length;
-      const empty = count === 0;
+      const available = lessonMeta.types.includes(a.type);
       return `
-        <button class="sel-tile act-tile${empty ? ' act-empty' : ''}" data-type="${a.type}">
+        <button class="sel-tile act-tile${available ? '' : ' act-empty'}" data-type="${a.type}" ${available ? '' : 'disabled'}>
           <div class="act-icon">${a.icon}</div>
           <span class="act-label">${a.label}</span>
           <span class="act-desc">${a.desc}</span>
-          <span class="act-count${empty ? ' none' : ''}">${empty ? 'No lessons yet' : count + ' lesson' + (count > 1 ? 's' : '')}</span>
         </button>
       `;
     }).join('');
 
     container.innerHTML = `
       <div class="selector">
-        <h1 class="sel-title">Activities</h1>
+        <h1 class="sel-title">${lessonMeta.title}</h1>
+        ${lessonMeta.tag ? `<p class="sel-desc">${lessonMeta.tag}</p>` : ''}
         <div class="sel-grid">${tiles}</div>
       </div>
     `;
 
     container.querySelectorAll('.act-tile:not(.act-empty)').forEach(tile => {
-      tile.addEventListener('click', () => showActivityLessons(tile.dataset.type));
+      tile.addEventListener('click', () => launchTopicActivity(lessonMeta, tile.dataset.type));
     });
   }
 
-  function showActivityLessons(type) {
-    hideAll();
-    btnLessons.style.display = '';
+  // ── Launch an activity from a topic ─────────────────────────
+  function launchTopicActivity(lessonMeta, type) {
+    loadLesson(lessonMeta.id, () => {
+      const lesson = window.LESSON;
+      if (!lesson) return;
 
-    const index    = window.LESSON_INDEX || [];
-    const activity = ACTIVITY_CATALOG.find(a => a.type === type);
-    const matched  = index.filter(l => l.types && l.types.includes(type));
+      const slides   = lesson.slides.filter(s => s.type === type);
+      if (slides.length === 0) return;
 
-    const tiles = matched.map(l => `
-      <button class="sel-tile" data-id="${l.id}">
-        ${l.tag ? `<span class="sel-type">${l.tag}</span>` : ''}
-        <span class="sel-label">${l.title}</span>
-      </button>
-    `).join('');
+      const activity = ACTIVITY_CATALOG.find(a => a.type === type);
 
-    container.innerHTML = `
-      <div class="selector">
-        <h1 class="sel-title">${activity.label}</h1>
-        <p class="sel-desc">${activity.desc}</p>
-        <div class="sel-grid">${tiles}</div>
-      </div>
-    `;
+      function playSlide(slide) {
+        hideAll();
+        btnLessons.style.display = '';
+        btnMenu.style.display    = '';
+        counter.textContent      = slide.label || formatType(type);
 
-    container.querySelectorAll('.sel-tile').forEach(tile => {
-      tile.addEventListener('click', () => loadLesson(tile.dataset.id));
+        function goBack() {
+          document.removeEventListener('keydown', escHandler);
+          showTopicGames(lessonMeta);
+        }
+        function escHandler(e) { if (e.key === 'Escape') goBack(); }
+        document.addEventListener('keydown', escHandler);
+
+        renderActivity(slide, goBack);
+        btnMenu.addEventListener('click', goBack, { once: true });
+      }
+
+      if (slides.length === 1) {
+        playSlide(slides[0]);
+        return;
+      }
+
+      // Multiple slides of same type — show sub-picker
+      hideAll();
+      btnLessons.style.display = '';
+
+      const tiles = slides.map((slide, i) => {
+        const label   = slide.label || autoLabel(slide);
+        const hasMods = slide.modules && slide.modules.length;
+        return `
+          <button class="sel-tile${hasMods ? ' has-modules' : ''}" data-index="${i}">
+            <span class="sel-label">${label}</span>
+            ${hasMods ? `<span class="sel-mods">${slide.modules.join(' \u00b7 ')}</span>` : ''}
+          </button>
+        `;
+      }).join('');
+
+      container.innerHTML = `
+        <div class="selector">
+          <h1 class="sel-title">${activity ? activity.label : formatType(type)}</h1>
+          <p class="sel-desc">${lessonMeta.title}</p>
+          <div class="sel-grid">${tiles}</div>
+        </div>
+      `;
+
+      container.querySelectorAll('.sel-tile').forEach(tile => {
+        tile.addEventListener('click', () => playSlide(slides[parseInt(tile.dataset.index)]));
+      });
     });
   }
 
-  function loadLesson(id) {
+  function loadLesson(id, onLoad) {
     container.innerHTML = `<p class="loading-msg">Loading\u2026</p>`;
 
     // Remove any previously injected lesson script
@@ -212,9 +296,9 @@
     window.LESSON = null;
 
     const script = document.createElement('script');
-    script.src          = `lessons/${id}.js`;
+    script.src            = `lessons/${id}.js`;
     script.dataset.lesson = id;
-    script.onload  = () => startLesson();
+    script.onload  = () => (onLoad || startLesson)();
     script.onerror = () => {
       container.innerHTML = `<p style="color:red;font-size:1.5rem">Could not load: ${id}</p>`;
     };
@@ -240,30 +324,6 @@
 
   // ── Selector mode ──────────────────────────────────────────
   function startSelectorMode(lesson) {
-    function formatType(t) { return t.replace(/-/g, ' '); }
-
-    function autoLabel(slide) {
-      const c = slide.content;
-      switch (slide.type) {
-        case 'title-card':        return c.heading;
-        case 'reveal-card':       return c.heading;
-        case 'fill-blank':        return `${c.questions.length} questions`;
-        case 'true-false':        return `${c.questions.length} statements`;
-        case 'hot-seat':          return `${c.words.length} words \u00b7 ${c.time}s`;
-        case 'noughts-crosses':   return `${c.cells.length} questions`;
-        case 'meaning-pair':      return `${c.pairs.length} pairs`;
-        case 'sentence-complete': return `${c.stems.length} sentences`;
-        case 'millionaire':       return `${c.questions.length} questions`;
-        case 'countdown':         return `${c.time || 30}s`;
-        case 'jeopardy':          return `${c.categories.length} categories`;
-        case 'anagram':           return `${c.words.length} words`;
-        case 'call-my-bluff':     return `${c.items.length} words`;
-        case 'odd-one-out':       return `${c.items.length} sets`;
-        case 'missing-vowels':    return `${c.items.length} words`;
-        default:                  return slide.type;
-      }
-    }
-
     function escHandler(e) { if (e.key === 'Escape') showMenu(); }
 
     function showMenu() {
@@ -344,10 +404,10 @@
   }
 
   // ── Entry point ────────────────────────────────────────────
-  btnLessons.addEventListener('click', showActivityPicker);
+  btnLessons.addEventListener('click', showTopicPicker);
 
   if (window.LESSON_INDEX) {
-    showActivityPicker();
+    showTopicPicker();
   } else if (window.LESSON) {
     startLesson();
   } else {

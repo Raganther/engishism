@@ -14,6 +14,18 @@ window.LESSON_INDEX = [
     types: ['title-card', 'reveal-card', 'fill-blank', 'meaning-pair', 'sentence-complete', 'true-false', 'hot-seat', 'noughts-crosses'],
   },
   {
+    id:    'teamwork',
+    title: 'Teamwork & Collaboration',
+    tag:   'Communication & Skills',
+    types: ['title-card', 'reveal-card', 'fill-blank', 'meaning-pair', 'sentence-complete', 'true-false', 'hot-seat', 'noughts-crosses', 'millionaire', 'countdown', 'jeopardy', 'anagram', 'call-my-bluff', 'odd-one-out', 'missing-vowels'],
+  },
+  {
+    id:    'negotiation-skills',
+    title: 'Negotiation Skills',
+    tag:   'Speaking & Communication',
+    types: ['title-card', 'reveal-card', 'fill-blank', 'meaning-pair', 'sentence-complete', 'true-false', 'hot-seat', 'noughts-crosses', 'millionaire', 'countdown', 'jeopardy', 'anagram', 'call-my-bluff', 'odd-one-out', 'missing-vowels'],
+  },
+  {
     id:    'demo-games',
     title: 'New Games — Demo',
     tag:   'Demo',
