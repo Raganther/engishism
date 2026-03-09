@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Who Makes It? — The Bunker</title>
+  <style>
+    :root {
+      --bg:      #080d18;
+      --surface: #0f1525;
+      --card:    #111828;
+      --border:  #1e2d45;
+      --text:    #d8e4f8;
+      --muted:   #4a6a9a;
+      --accent:  #5b8def;
+      --keep:    #22c55e;
+      --lose:    #ef4444;
+      --missed:  #f59e0b;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 2px solid var(--accent);
+      padding: 0.75rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .h-title {
+      font-size: 1.4rem;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 0.04em;
+    }
+
+    .h-sub {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 0.1rem;
+    }
+
+    .h-actions { display: flex; gap: 0.75rem; align-items: center; }
+
+    .score {
+      display: none;
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: var(--accent);
+      background: rgba(91,141,239,0.12);
+      border: 1px solid var(--accent);
+      padding: 0.3rem 1rem;
+      border-radius: 6px;
+    }
+
+    button {
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 700;
+      border-radius: 6px;
+      padding: 0.45rem 1.1rem;
+      font-size: 0.9rem;
+      border: none;
+      transition: all 0.15s;
+    }
+
+    .btn-reveal { background: var(--accent); color: #fff; }
+    .btn-reveal:hover { background: #7aa4f4; }
+    .btn-reveal:disabled { opacity: 0.4; cursor: default; }
+
+    .btn-reset {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .btn-reset:hover { border-color: var(--lose); color: var(--lose); }
+
+    /* ── Legend ─────────────────────────────────────────────── */
+    .legend {
+      display: none;
+      gap: 1.5rem;
+      padding: 0.5rem 2rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.78rem;
+      color: var(--muted);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .legend.show { display: flex; }
+    .legend-item { display: flex; align-items: center; gap: 0.4rem; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Grid ───────────────────────────────────────────────── */
+    main {
+      flex: 1;
+      padding: 1rem 1.5rem;
+      overflow-y: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.75rem;
+    }
+
+    /* ── Cards ──────────────────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem 0.75rem 0.7rem;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.3rem;
+      text-align: center;
+      transition: all 0.18s;
+      position: relative;
+      user-select: none;
+    }
+
+    .card:not(.revealed):hover {
+      border-color: var(--muted);
+      transform: translateY(-2px);
+    }
+
+    .card.keep {
+      border-color: var(--keep);
+      background: rgba(34,197,94,0.08);
+      box-shadow: 0 0 14px rgba(34,197,94,0.18);
+    }
+
+    .card.lose {
+      border-color: #2a1414;
+      background: rgba(239,68,68,0.03);
+      opacity: 0.35;
+    }
+
+    .card.lose .card-name { text-decoration: line-through; }
+
+    .card.correct {
+      border-color: var(--keep);
+      background: rgba(34,197,94,0.1);
+      box-shadow: 0 0 18px rgba(34,197,94,0.22);
+      cursor: default;
+    }
+
+    .card.wrong-keep {
+      border-color: var(--lose);
+      background: rgba(239,68,68,0.07);
+      box-shadow: 0 0 14px rgba(239,68,68,0.18);
+      opacity: 0.72;
+      cursor: default;
+    }
+
+    .card.missed {
+      border-color: var(--missed);
+      background: rgba(245,158,11,0.07);
+      box-shadow: 0 0 14px rgba(245,158,11,0.18);
+      cursor: default;
+    }
+
+    .card.neutral-out { opacity: 0.2; cursor: default; }
+
+    /* Card content */
+    .card-icon {
+      width: 38px;
+      height: 38px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .card.keep       .card-icon { color: var(--keep); }
+    .card.lose       .card-icon { color: #4a2020; }
+    .card.correct    .card-icon { color: var(--keep); }
+    .card.wrong-keep .card-icon { color: var(--lose); }
+    .card.missed     .card-icon { color: var(--missed); }
+
+    .card-name {
+      font-size: 0.88rem;
+      font-weight: 800;
+      line-height: 1.2;
+      color: var(--text);
+    }
+
+    .card-age {
+      font-size: 0.7rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .card-role {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-top: 0.1rem;
+    }
+
+    .card.lose .card-role { color: var(--muted); }
+
+    .card-trait {
+      font-size: 0.66rem;
+      color: var(--muted);
+      line-height: 1.35;
+      font-style: italic;
+      margin-top: 0.1rem;
+    }
+
+    .card-vote {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      min-height: 0.9rem;
+      margin-top: 0.15rem;
+    }
+
+    .card.keep .card-vote { color: var(--keep); }
+    .card.lose .card-vote { color: #5a2020; }
+
+    .result-badge {
+      position: absolute;
+      top: 0.4rem;
+      right: 0.4rem;
+      font-size: 1rem;
+      display: none;
+    }
+
+    .rank-badge {
+      position: absolute;
+      top: 0.4rem;
+      left: 0.4rem;
+      background: rgba(91,141,239,0.15);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-size: 0.6rem;
+      font-weight: 900;
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+    }
+
+    .card-note {
+      font-size: 0.64rem;
+      line-height: 1.35;
+      display: none;
+      margin-top: 0.25rem;
+    }
+
+    .card.correct    .card-note { display: block; color: rgba(34,197,94,0.75); }
+    .card.wrong-keep .card-note { display: block; color: rgba(239,68,68,0.75); }
+    .card.missed     .card-note { display: block; color: rgba(245,158,11,0.75); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="h-title">☢ Who Makes It? — The Bunker</div>
+    <div class="h-sub">A disaster is coming. The bunker holds 8 people. 15 candidates. Your team decides who gets in.</div>
+  </div>
+  <div class="h-actions">
+    <div class="score" id="score"></div>
+    <button class="btn-reset" onclick="reset()">↺ Reset</button>
+    <button class="btn-reveal" id="btn-reveal" onclick="reveal()">Reveal Council Decision</button>
+  </div>
+</header>
+
+<div class="legend" id="legend">
+  <strong style="color:var(--text)">Council result:</strong>
+  <div class="legend-item"><div class="dot" style="background:var(--keep)"></div> Good call — council agrees</div>
+  <div class="legend-item"><div class="dot" style="background:var(--lose)"></div> You admitted them — council says no</div>
+  <div class="legend-item"><div class="dot" style="background:var(--missed)"></div> You turned them away — council says they're essential</div>
+</div>
+
+<main>
+  <div class="grid" id="grid"></div>
+</main>
+
+<script>
+const ITEMS = [
+  {
+    id: 'surgeon',
+    name: 'Dr Sarah Chen',
+    age: 'Age 34',
+    role: 'Surgeon',
+    trait: 'Can save lives in almost any conditions. Admits she struggles to follow orders.',
+    councilRank: 1,
+    note: 'Medical expertise is the single most critical skill. Her attitude is a risk worth taking.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="8" width="28" height="24" rx="3"/><line x1="20" y1="15" x2="20" y2="25"/><line x1="15" y1="20" x2="25" y2="20"/></svg>`
+  },
+  {
+    id: 'farmer',
+    name: 'Marcus Diallo',
+    age: 'Age 52',
+    role: 'Farmer',
+    trait: 'Can grow food in almost any conditions. Short-tempered and difficult to work with.',
+    councilRank: 2,
+    note: 'Without food production, the group starves within months. His temper is a problem — but hunger is worse.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 35 L20 18"/><path d="M20 22 C20 22 14 18 12 12 C16 12 20 16 20 22"/><path d="M20 26 C20 26 26 22 28 16 C24 16 20 20 20 26"/><line x1="8" y1="35" x2="32" y2="35"/></svg>`
+  },
+  {
+    id: 'engineer',
+    name: 'Tom Brennan',
+    age: 'Age 38',
+    role: 'Civil Engineer',
+    trait: 'Can build water systems, manage power and construct safe structures.',
+    councilRank: 3,
+    note: 'Clean water, electricity and stable shelter require engineering knowledge. Irreplaceable.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="20" cy="20" r="7"/><circle cx="20" cy="20" r="2.5" fill="currentColor" stroke="none"/><line x1="20" y1="6" x2="20" y2="13"/><line x1="20" y1="27" x2="20" y2="34"/><line x1="6" y1="20" x2="13" y2="20"/><line x1="27" y1="20" x2="34" y2="20"/></svg>`
+  },
+  {
+    id: 'soldier',
+    name: 'Corporal Jake Rivera',
+    age: 'Age 28',
+    role: 'Soldier',
+    trait: 'Expert in security, combat and emergency logistics. Managing PTSD.',
+    councilRank: 4,
+    note: 'Without security, nothing else matters. His PTSD is a concern but his skills are essential.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5 L34 12 L34 24 C34 31 20 37 20 37 C20 37 6 31 6 24 L6 12 Z"/><polyline points="14,20 18,24 26,16"/></svg>`
+  },
+  {
+    id: 'botanist',
+    name: 'Prof. Emil Hoffmann',
+    age: 'Age 72',
+    role: 'Botanist & Scientist',
+    trait: 'Brilliant knowledge of plants, toxins and biology. In poor health — may not survive long.',
+    councilRank: 5,
+    note: 'Knowing which plants are safe, how to purify water and treat illness without medicine could save everyone. Worth the risk.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 35 C16 25 22 18 20 8 C18 18 12 22 14 35"/><path d="M20 20 C24 14 32 16 30 24 C26 22 22 24 20 28"/><path d="M20 24 C16 18 8 20 10 28 C14 26 18 28 20 32"/></svg>`
+  },
+  {
+    id: 'carpenter',
+    name: 'Dan Cooper',
+    age: 'Age 40',
+    role: 'Carpenter',
+    trait: 'Can build shelter, furniture and tools from raw materials. Calm, reliable team player.',
+    councilRank: 6,
+    note: 'Physical shelter is a basic survival need. Dan\'s calm temperament is also a stabilising force.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 30 L28 12"/><rect x="26" y="6" width="8" height="8" rx="1" transform="rotate(45 30 10)"/><rect x="6" y="26" width="8" height="8" rx="1"/></svg>`
+  },
+  {
+    id: 'pregnant',
+    name: 'Zara Malik',
+    age: 'Age 32 — 7 months pregnant',
+    role: 'Electrician',
+    trait: 'Trained electrician. Will need medical support during childbirth in 2 months.',
+    councilRank: 7,
+    note: 'Electrical skills are critical and she represents two lives. Childbirth is a risk but a managed one with the surgeon present.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="20" cy="10" r="5"/><path d="M14 18 C14 18 10 28 12 35 L20 32 L28 35 C30 28 26 18 26 18 C24 16 16 16 14 18Z"/><path d="M16 22 C18 24 22 24 24 22" stroke-dasharray="2,2"/></svg>`
+  },
+  {
+    id: 'artist',
+    name: 'Lily Park',
+    age: 'Age 26',
+    role: 'Artist & Musician',
+    trait: 'No practical survival skills. Exceptional at raising morale and bringing people together.',
+    councilRank: 8,
+    note: 'Controversial — but research on isolated communities shows that morale and mental health are critical. Groups without culture fall apart.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="20" cy="20" r="12"/><circle cx="15" cy="16" r="2.5" fill="currentColor" stroke="none"/><circle cx="25" cy="16" r="2.5" fill="currentColor" stroke="none"/><circle cx="20" cy="24" r="2.5" fill="currentColor" stroke="none"/><circle cx="12" cy="24" r="2.5" fill="currentColor" stroke="none"/><circle cx="28" cy="24" r="2.5" fill="currentColor" stroke="none"/></svg>`
+  },
+  {
+    id: 'nurse',
+    name: 'Rosa Santos',
+    age: 'Age 29',
+    role: 'Nurse',
+    trait: 'Strong medical skills, especially trauma care. Calm under extreme pressure.',
+    councilRank: 9,
+    note: 'With a surgeon already admitted, a second medical professional is desirable but not essential. A close call.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="20" cy="12" r="6"/><path d="M10 38 C10 28 14 24 20 24 C26 24 30 28 30 38"/><line x1="20" y1="8" x2="20" y2="16"/><line x1="16" y1="12" x2="24" y2="12"/></svg>`
+  },
+  {
+    id: 'chef',
+    name: 'Amara Osei',
+    age: 'Age 31',
+    role: 'Chef',
+    trait: 'Expert at turning limited ingredients into nutritious meals. Skilled in food preservation.',
+    councilRank: 10,
+    note: 'Valuable — but cooking and preservation can be learned. With a farmer already in, others can cover this role.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 18 C10 12 14 8 20 8 C26 8 30 12 30 18"/><rect x="10" y="18" width="20" height="4" rx="1"/><path d="M14 22 L14 34"/><path d="M26 22 L26 34"/><line x1="14" y1="34" x2="26" y2="34"/></svg>`
+  },
+  {
+    id: 'teacher',
+    name: 'Ms. Adele Okafor',
+    age: 'Age 45',
+    role: 'Primary School Teacher',
+    trait: 'Skilled educator. Exceptional at managing conflict and maintaining group morale.',
+    councilRank: 11,
+    note: 'If children are admitted, a teacher becomes critical. With no children in the recommended group, her priority drops — but her conflict management skills are genuinely valuable.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="8" width="22" height="18" rx="1"/><line x1="10" y1="14" x2="24" y2="14"/><line x1="10" y1="19" x2="20" y2="19"/><path d="M28 14 L34 8 L34 32 L28 26"/></svg>`
+  },
+  {
+    id: 'criminal',
+    name: 'Dean Fletcher',
+    age: 'Age 35',
+    role: 'Mechanic (Reformed Criminal)',
+    trait: 'Served 5 years for armed robbery. Now a skilled mechanic. Strong, resourceful, loyal to those who trust him.',
+    councilRank: 12,
+    note: 'His mechanical skills are useful but not irreplaceable. The council judged the risk too high in a confined, high-stress environment — though many disagree.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 30 L24 16"/><rect x="22" y="8" width="10" height="6" rx="1" transform="rotate(45 27 11)"/><circle cx="13" cy="33" r="4"/><circle cx="13" cy="33" r="1.5" fill="currentColor" stroke="none"/></svg>`
+  },
+  {
+    id: 'priest',
+    name: 'Father O\'Brien',
+    age: 'Age 61',
+    role: 'Priest & Counsellor',
+    trait: 'Provides spiritual guidance and psychological counselling. No practical survival skills.',
+    councilRank: 13,
+    note: 'Mental health matters for long-term survival — but the artist already provides this. With limited space, the council prioritised practical skills.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="20" y1="6" x2="20" y2="34"/><line x1="12" y1="14" x2="28" y2="14"/></svg>`
+  },
+  {
+    id: 'politician',
+    name: 'Senator Patricia Walsh',
+    age: 'Age 58',
+    role: 'Politician',
+    trait: 'Skilled negotiator and natural leader. No practical survival skills whatsoever.',
+    councilRank: 14,
+    note: 'Leadership and negotiation matter — but the group must first survive before it can be governed. The council found no practical justification.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="6" width="12" height="16" rx="1"/><line x1="10" y1="22" x2="30" y2="22"/><rect x="8" y="22" width="24" height="12" rx="1"/><line x1="20" y1="22" x2="20" y2="34"/></svg>`
+  },
+  {
+    id: 'child',
+    name: 'Mia',
+    age: 'Age 8',
+    role: 'Child',
+    trait: 'The youngest candidate. No practical skills yet — but represents hope and the future.',
+    councilRank: 15,
+    note: 'The hardest decision. The council chose practicality — but this is the most debated choice of all. Many groups argue Mia must be included. What do you think?',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="20" cy="10" r="5"/><path d="M14 20 C14 20 11 30 13 36 L20 33 L27 36 C29 30 26 20 26 20 C24 17 16 17 14 20Z"/><path d="M14 20 L8 26"/><path d="M26 20 L32 26"/></svg>`
+  }
+];
+
+const COUNCIL_TOP = new Set(ITEMS.filter(i => i.councilRank <= 8).map(i => i.id));
+let votes = {};
+let revealed = false;
+
+function render() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+
+  ITEMS.forEach(item => {
+    const v = votes[item.id] || null;
+    let cls = 'card';
+
+    if (!revealed) {
+      if (v === 'keep') cls += ' keep';
+      if (v === 'lose') cls += ' lose';
+    } else {
+      const expert = COUNCIL_TOP.has(item.id);
+      if (v === 'keep' && expert)   cls += ' correct';
+      else if (v === 'keep')        cls += ' wrong-keep';
+      else if (expert)              cls += ' missed';
+      else                          cls += ' neutral-out';
+    }
+
+    const voteLabel = v === 'keep' ? '✓ ADMIT' : v === 'lose' ? '✗ DENY' : '';
+
+    let resultIcon = '';
+    if (revealed) {
+      const expert = COUNCIL_TOP.has(item.id);
+      if (v === 'keep' && expert)        resultIcon = '✓';
+      else if (v === 'keep' && !expert)  resultIcon = '✗';
+      else if (expert)                   resultIcon = '!';
+    }
+
+    const div = document.createElement('div');
+    div.className = cls;
+    div.innerHTML = `
+      ${revealed ? `<div class="rank-badge">#${item.councilRank}</div>` : ''}
+      ${revealed ? `<div class="result-badge" style="display:block">${resultIcon}</div>` : ''}
+      <div class="card-icon">${item.icon}</div>
+      <div class="card-name">${item.name}</div>
+      <div class="card-age">${item.age}</div>
+      <div class="card-role">${item.role}</div>
+      <div class="card-trait">${item.trait}</div>
+      <div class="card-vote">${revealed ? '' : voteLabel}</div>
+      <div class="card-note">${item.note}</div>
+    `;
+
+    if (!revealed) {
+      div.addEventListener('click', () => {
+        const cur = votes[item.id] || null;
+        votes[item.id] = cur === null ? 'keep' : cur === 'keep' ? 'lose' : null;
+        render();
+      });
+    }
+
+    grid.appendChild(div);
+  });
+}
+
+function reveal() {
+  revealed = true;
+  document.getElementById('btn-reveal').disabled = true;
+  document.getElementById('legend').classList.add('show');
+
+  const kept    = Object.entries(votes).filter(([, v]) => v === 'keep').map(([id]) => id);
+  const correct = kept.filter(id => COUNCIL_TOP.has(id)).length;
+
+  const score = document.getElementById('score');
+  score.textContent = `${correct} / 8 council picks matched`;
+  score.style.display = 'block';
+
+  render();
+}
+
+function reset() {
+  votes = {};
+  revealed = false;
+  document.getElementById('btn-reveal').disabled = false;
+  document.getElementById('score').style.display = 'none';
+  document.getElementById('legend').classList.remove('show');
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
