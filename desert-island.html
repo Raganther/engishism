@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Desert Island — Survival Vote</title>
+  <style>
+    :root {
+      --bg:      #0d1a0a;
+      --surface: #152010;
+      --card:    #1a2812;
+      --border:  #2a3d1a;
+      --text:    #e8f0dc;
+      --muted:   #6a8a50;
+      --amber:   #e8a020;
+      --keep:    #22c55e;
+      --lose:    #ef4444;
+      --missed:  #f59e0b;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 2px solid var(--amber);
+      padding: 0.75rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .h-title {
+      font-size: 1.4rem;
+      font-weight: 900;
+      color: var(--amber);
+      letter-spacing: 0.04em;
+    }
+
+    .h-sub {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 0.1rem;
+    }
+
+    .h-actions { display: flex; gap: 0.75rem; align-items: center; }
+
+    .score {
+      display: none;
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: var(--amber);
+      background: rgba(232,160,32,0.12);
+      border: 1px solid var(--amber);
+      padding: 0.3rem 1rem;
+      border-radius: 6px;
+    }
+
+    button {
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 700;
+      border-radius: 6px;
+      padding: 0.45rem 1.1rem;
+      font-size: 0.9rem;
+      border: none;
+      transition: all 0.15s;
+    }
+
+    .btn-reveal { background: var(--amber); color: #000; }
+    .btn-reveal:hover { background: #f0b030; }
+    .btn-reveal:disabled { opacity: 0.4; cursor: default; }
+
+    .btn-reset {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .btn-reset:hover { border-color: var(--lose); color: var(--lose); }
+
+    /* ── Legend ─────────────────────────────────────────────── */
+    .legend {
+      display: none;
+      gap: 1.5rem;
+      padding: 0.5rem 2rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.78rem;
+      color: var(--muted);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .legend.show { display: flex; }
+    .legend-item { display: flex; align-items: center; gap: 0.4rem; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Grid ───────────────────────────────────────────────── */
+    main {
+      flex: 1;
+      padding: 1rem 1.5rem;
+      overflow-y: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.75rem;
+    }
+
+    /* ── Cards ──────────────────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem 0.7rem 0.7rem;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+      text-align: center;
+      transition: all 0.18s;
+      position: relative;
+      user-select: none;
+    }
+
+    .card:not(.revealed):hover {
+      border-color: var(--muted);
+      transform: translateY(-2px);
+    }
+
+    /* Vote states */
+    .card.keep {
+      border-color: var(--keep);
+      background: rgba(34,197,94,0.08);
+      box-shadow: 0 0 14px rgba(34,197,94,0.18);
+    }
+
+    .card.lose {
+      border-color: #3a1818;
+      background: rgba(239,68,68,0.04);
+      opacity: 0.38;
+    }
+
+    .card.lose .card-name { text-decoration: line-through; }
+
+    /* Reveal states */
+    .card.correct {
+      border-color: var(--keep);
+      background: rgba(34,197,94,0.12);
+      box-shadow: 0 0 18px rgba(34,197,94,0.25);
+      cursor: default;
+    }
+
+    .card.wrong-keep {
+      border-color: var(--lose);
+      background: rgba(239,68,68,0.08);
+      box-shadow: 0 0 14px rgba(239,68,68,0.2);
+      opacity: 0.7;
+      cursor: default;
+    }
+
+    .card.missed {
+      border-color: var(--missed);
+      background: rgba(245,158,11,0.08);
+      box-shadow: 0 0 14px rgba(245,158,11,0.2);
+      cursor: default;
+    }
+
+    .card.neutral-out {
+      opacity: 0.25;
+      cursor: default;
+    }
+
+    /* Card content */
+    .card-icon {
+      width: 40px;
+      height: 40px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .card.keep  .card-icon { color: var(--keep); }
+    .card.lose  .card-icon { color: #5a2020; }
+    .card.correct    .card-icon { color: var(--keep); }
+    .card.wrong-keep .card-icon { color: var(--lose); }
+    .card.missed     .card-icon { color: var(--missed); }
+
+    .card-name {
+      font-size: 0.85rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .card-desc {
+      font-size: 0.68rem;
+      color: var(--muted);
+      line-height: 1.3;
+    }
+
+    .card-vote {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      min-height: 0.9rem;
+    }
+
+    .card.keep  .card-vote { color: var(--keep); }
+    .card.lose  .card-vote { color: #5a2020; }
+
+    /* Result badge (shown after reveal) */
+    .result-badge {
+      position: absolute;
+      top: 0.4rem;
+      right: 0.4rem;
+      font-size: 1rem;
+      display: none;
+    }
+
+    /* Expert rank badge */
+    .rank-badge {
+      position: absolute;
+      top: 0.4rem;
+      left: 0.4rem;
+      background: rgba(232,160,32,0.15);
+      border: 1px solid var(--amber);
+      color: var(--amber);
+      font-size: 0.6rem;
+      font-weight: 900;
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      display: none;
+    }
+
+    /* Expert note tooltip */
+    .card-note {
+      font-size: 0.67rem;
+      color: var(--muted);
+      line-height: 1.35;
+      display: none;
+      margin-top: 0.2rem;
+    }
+
+    .card.correct    .card-note,
+    .card.wrong-keep .card-note,
+    .card.missed     .card-note { display: block; }
+
+    .card.correct    .card-note { color: rgba(34,197,94,0.7); }
+    .card.wrong-keep .card-note { color: rgba(239,68,68,0.7); }
+    .card.missed     .card-note { color: rgba(245,158,11,0.7); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="h-title">🏝 Desert Island — Survival Vote</div>
+    <div class="h-sub">You are stranded. You can only keep 8 items. Click to KEEP or LOSE each one.</div>
+  </div>
+  <div class="h-actions">
+    <div class="score" id="score"></div>
+    <button class="btn-reset" onclick="reset()">↺ Reset</button>
+    <button class="btn-reveal" id="btn-reveal" onclick="reveal()">Reveal Expert Picks</button>
+  </div>
+</header>
+
+<div class="legend" id="legend">
+  <strong style="color:var(--text)">Expert result:</strong>
+  <div class="legend-item"><div class="dot" style="background:var(--keep)"></div> Good call — expert agrees</div>
+  <div class="legend-item"><div class="dot" style="background:var(--lose)"></div> You kept this — expert says lose it</div>
+  <div class="legend-item"><div class="dot" style="background:var(--missed)"></div> You lost this — expert says you need it</div>
+</div>
+
+<main>
+  <div class="grid" id="grid"></div>
+</main>
+
+<script>
+const ITEMS = [
+  {
+    id: 'water', name: 'Water Purification Tablets', desc: 'Pack of 50 tablets', expertRank: 1,
+    note: 'Water kills in 3 days. These make any water safe — the single most important item.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 C20 6 10 18 10 24 a10 10 0 0 0 20 0 C30 18 20 6 20 6Z"/><line x1="15" y1="24" x2="25" y2="24"/><line x1="20" y1="19" x2="20" y2="29"/></svg>`
+  },
+  {
+    id: 'mirror', name: 'Signal Mirror', desc: 'Polished stainless steel', expertRank: 2,
+    note: 'Visible 16km away in sunlight. The most effective rescue signal — better than flares in daylight.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="10" y="8" width="18" height="22" rx="2"/><line x1="14" y1="13" x2="24" y2="23"/><line x1="24" y1="13" x2="14" y2="23"/><line x1="30" y1="10" x2="36" y2="7"/><line x1="32" y1="16" x2="38" y2="15"/><line x1="31" y1="22" x2="37" y2="23"/></svg>`
+  },
+  {
+    id: 'matches', name: 'Box of Matches', desc: 'Waterproof, full box', expertRank: 3,
+    note: 'Fire = warmth, cooked food, purified water, and a smoke signal. Essential for survival.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="20" y1="36" x2="20" y2="18"/><path d="M16 18 C14 12 18 8 20 6 C22 8 26 12 24 18Z" fill="currentColor" stroke="none" opacity="0.7"/><line x1="8" y1="36" x2="32" y2="36"/></svg>`
+  },
+  {
+    id: 'tarp', name: 'Waterproof Tarpaulin', desc: '3m × 3m, heavy duty', expertRank: 4,
+    note: 'Instant shelter from sun, rain and wind. Exposure kills fast — this keeps you alive overnight.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,33 20,7 35,33"/><line x1="5" y1="33" x2="35" y2="33"/><line x1="20" y1="7" x2="20" y2="33"/><line x1="12" y1="22" x2="28" y2="22"/></svg>`
+  },
+  {
+    id: 'flares', name: 'Signal Flares', desc: 'Pack of 4, day/night', expertRank: 5,
+    note: 'Visible for miles day and night. Your best chance of attracting a rescue boat or plane.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="16" y="22" width="8" height="14" rx="2"/><path d="M16 22 C14 18 13 13 17 9 C18 13 20 11 20 9 C20 11 22 13 23 9 C27 13 26 18 24 22Z" fill="currentColor" stroke="none" opacity="0.7"/></svg>`
+  },
+  {
+    id: 'firstaid', name: 'First Aid Kit', desc: 'Bandages, antiseptic, meds', expertRank: 6,
+    note: 'A small cut becomes deadly without treatment. Infections kill. Do not underestimate this.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="8" width="28" height="24" rx="3"/><line x1="20" y1="15" x2="20" y2="25"/><line x1="15" y1="20" x2="25" y2="20"/></svg>`
+  },
+  {
+    id: 'knife', name: 'Hunting Knife', desc: 'Large, fixed blade', expertRank: 7,
+    note: 'Build shelter, prepare food, cut rope. The most versatile tool you can carry.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 34 L30 10 L34 13 L13 36 Z"/><line x1="8" y1="34" x2="13" y2="36"/><line x1="28" y1="30" x2="34" y2="24"/></svg>`
+  },
+  {
+    id: 'rope', name: '20 Metres of Rope', desc: 'Strong nylon rope', expertRank: 8,
+    note: 'Lash shelter, climb, tie a raft, make a safety line. Dozens of uses — every one of them vital.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="20" cy="20" r="12"/><circle cx="20" cy="20" r="7"/><circle cx="20" cy="20" r="2"/></svg>`
+  },
+  {
+    id: 'plants', name: 'Book of Edible Plants', desc: 'Illustrated field guide', expertRank: 9,
+    note: 'Eating the wrong plant can kill you in hours. This book separates a meal from a medical emergency.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="5" width="20" height="30" rx="1"/><line x1="26" y1="5" x2="26" y2="35"/><path d="M30 15 C34 11 38 15 34 20 C30 24 30 30 30 30"/><path d="M30 22 C32 19 36 21 34 24"/></svg>`
+  },
+  {
+    id: 'fishing', name: 'Fishing Line & Hooks', desc: '50m line, 20 hooks', expertRank: 10,
+    note: 'Set it and forget it — catches food while you focus on shelter and signalling.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8 Q8 30 26 30"/><path d="M26 30 Q36 30 36 20"/><circle cx="8" cy="8" r="2.5" fill="currentColor" stroke="none"/></svg>`
+  },
+  {
+    id: 'radio', name: 'Hand-Crank Radio', desc: 'No batteries needed', expertRank: 11,
+    note: 'Useful for weather forecasts and rescue broadcasts — but you can only receive, not send.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="16" width="30" height="20" rx="2"/><line x1="22" y1="16" x2="28" y2="8"/><circle cx="14" cy="26" r="5"/><line x1="23" y1="22" x2="32" y2="22"/><line x1="23" y1="27" x2="32" y2="27"/><line x1="23" y1="32" x2="32" y2="32"/></svg>`
+  },
+  {
+    id: 'compass', name: 'Compass', desc: 'Baseplate compass', expertRank: 12,
+    note: 'Only useful with a map. Tells you direction but not where you are. Rank together with the map.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="20" cy="20" r="14"/><polygon points="20,9 22.5,20 20,18 17.5,20" fill="currentColor" stroke="none"/><polygon points="20,31 17.5,20 20,22 22.5,20" fill="none"/><line x1="20" y1="6" x2="20" y2="34" stroke-width="0.5"/><line x1="6" y1="20" x2="34" y2="20" stroke-width="0.5"/></svg>`
+  },
+  {
+    id: 'map', name: 'Map of the Area', desc: 'Detailed topographic map', expertRank: 13,
+    note: 'Invaluable with a compass, limited without one. Only useful if you know where you are.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,8 17,5 27,10 35,7 35,33 23,36 13,31 5,34"/><line x1="17" y1="5" x2="17" y2="31"/><line x1="27" y1="10" x2="27" y2="36"/><path d="M9 20 Q13 16 17 20 Q21 24 25 20"/></svg>`
+  },
+  {
+    id: 'sunscreen', name: 'Sunscreen SPF 50', desc: 'Large tube, 200ml', expertRank: 14,
+    note: 'Sunburn is unpleasant but won\'t kill you. Far less important than water, shelter and signalling.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="12" width="12" height="22" rx="4"/><line x1="20" y1="5" x2="20" y2="9"/><line x1="27" y1="7" x2="25" y2="10"/><line x1="31" y1="13" x2="28" y2="15"/><line x1="13" y1="7" x2="15" y2="10"/><line x1="9" y1="13" x2="12" y2="15"/></svg>`
+  },
+  {
+    id: 'phone', name: 'Mobile Phone', desc: 'Fully charged — no signal', expertRank: 15,
+    note: 'No signal = no calls, no GPS, no maps. Completely useless. The most common wrong answer.',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="12" y="4" width="16" height="32" rx="3"/><rect x="15" y="9" width="10" height="18" rx="1"/><line x1="18" y1="33" x2="22" y2="33"/></svg>`
+  }
+];
+
+const EXPERT_TOP = new Set(ITEMS.filter(i => i.expertRank <= 8).map(i => i.id));
+let votes = {};
+let revealed = false;
+
+function render() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  ITEMS.forEach(item => {
+    const v = votes[item.id] || null;
+    let cls = 'card';
+    if (!revealed) {
+      if (v === 'keep') cls += ' keep';
+      if (v === 'lose') cls += ' lose';
+    } else {
+      const expert = EXPERT_TOP.has(item.id);
+      if (v === 'keep' && expert)   cls += ' correct';
+      else if (v === 'keep')        cls += ' wrong-keep';
+      else if (expert)              cls += ' missed';
+      else                          cls += ' neutral-out';
+    }
+
+    const voteLabel = v === 'keep' ? '✓ KEEP' : v === 'lose' ? '✗ LOSE' : '';
+
+    const div = document.createElement('div');
+    div.className = cls;
+    div.innerHTML = `
+      <div class="rank-badge" style="display:${revealed ? 'block' : 'none'}">
+        ${revealed ? '#' + item.expertRank : ''}
+      </div>
+      <div class="result-badge" style="display:${revealed ? 'block' : 'none'}">
+        ${revealed ? (EXPERT_TOP.has(item.id) && v === 'keep' ? '✓' : !EXPERT_TOP.has(item.id) && v !== 'keep' ? '' : EXPERT_TOP.has(item.id) ? '!' : '✗') : ''}
+      </div>
+      <div class="card-icon">${item.icon}</div>
+      <div class="card-name">${item.name}</div>
+      <div class="card-desc">${item.desc}</div>
+      <div class="card-vote">${revealed ? '' : voteLabel}</div>
+      <div class="card-note">${item.note}</div>
+    `;
+    if (!revealed) {
+      div.addEventListener('click', () => {
+        const cur = votes[item.id] || null;
+        votes[item.id] = cur === null ? 'keep' : cur === 'keep' ? 'lose' : null;
+        render();
+      });
+    }
+    grid.appendChild(div);
+  });
+}
+
+function reveal() {
+  revealed = true;
+  document.getElementById('btn-reveal').disabled = true;
+  document.getElementById('legend').classList.add('show');
+
+  const kept   = Object.entries(votes).filter(([, v]) => v === 'keep').map(([id]) => id);
+  const correct = kept.filter(id => EXPERT_TOP.has(id)).length;
+
+  const score = document.getElementById('score');
+  score.textContent = `${correct} / 8 expert picks correct`;
+  score.style.display = 'block';
+
+  render();
+}
+
+function reset() {
+  votes = {};
+  revealed = false;
+  document.getElementById('btn-reveal').disabled = false;
+  document.getElementById('score').style.display = 'none';
+  document.getElementById('legend').classList.remove('show');
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
