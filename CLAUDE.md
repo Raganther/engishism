@@ -54,7 +54,10 @@ Phase: Activity picker home screen + 12 activity types
 - 5 lessons: unit-6-scandi-successes, unit-8a, teamwork, negotiation-skills, demo-games
 - teamwork.js + negotiation-skills.js: all 15 game types fully populated from handout PDFs
 - Deployed to GitHub Pages: https://raganther.github.io/engishism/
-- Next: browser test full flow, then new lessons or meta-game board
+- Standalone team building activities (separate from main app):
+  - desert-island.html — 15 survival items, KEEP/LOSE vote, expert reveal
+  - bunker.html — 15 people candidates, 8 bunker spaces, ethical debate + council reveal
+- Next: more lessons, more standalone activities, or meta-game board
 
 ## Constraints
 - Must work on a standard classroom TV/browser — no exotic dependencies
