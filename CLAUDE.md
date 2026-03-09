@@ -25,7 +25,8 @@ git push
 
 ## Architecture
 - Stack: HTML, CSS, vanilla JS (no build step — keep it simple and TV-friendly)
-- Entry point: index.html — the main presenter view
+- Entry point: index.html — landing page (links to all tools)
+- App entry point: app.html — the main presenter view
 - Slides rendered in-browser, no server required (static files)
 - Module registry: TBD (likely a JS object mapping slide/game types to their renderers)
 
@@ -57,6 +58,7 @@ Phase: Activity picker home screen + 12 activity types
 - Standalone team building activities (separate from main app):
   - desert-island.html — 15 survival items, KEEP/LOSE vote, expert reveal
   - bunker.html — 15 people candidates, 8 bunker spaces, ethical debate + council reveal
+- Landing page at index.html — links to app.html and all standalone activities
 - Next: more lessons, more standalone activities, or meta-game board
 
 ## Constraints

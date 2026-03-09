@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Engishism</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <div id="app">
+    <div id="session-bar"></div>
+    <div id="module-bar-top" class="module-bar hidden"></div>
+    <div id="slide-container"></div>
+    <div id="module-bar-bottom" class="module-bar hidden"></div>
+    <nav id="nav-bar">
+      <button id="btn-lessons">&#8592; Activities</button>
+      <button id="btn-prev">&#8592; Prev</button>
+      <button id="btn-menu">&#8592; Menu</button>
+      <span id="slide-counter"></span>
+      <button id="btn-next">Next &#8594;</button>
+    </nav>
+  </div>
+
+  <!-- Engine utilities -->
+  <script src="engine/events.js"></script>
+  <script src="engine/session.js"></script>
+
+  <!-- Activity types -->
+  <script src="activities/title-card.js"></script>
+  <script src="activities/reveal-card.js"></script>
+  <script src="activities/fill-blank.js"></script>
+  <script src="activities/meaning-pair.js"></script>
+  <script src="activities/sentence-complete.js"></script>
+  <script src="activities/true-false.js"></script>
+  <script src="activities/hot-seat.js"></script>
+  <script src="activities/noughts-crosses.js"></script>
+  <script src="activities/millionaire.js"></script>
+  <script src="activities/countdown.js"></script>
+  <script src="activities/jeopardy.js"></script>
+  <script src="activities/anagram.js"></script>
+  <script src="activities/call-my-bluff.js"></script>
+  <script src="activities/odd-one-out.js"></script>
+  <script src="activities/missing-vowels.js"></script>
+
+  <!-- Modules -->
+  <script src="modules/timer.js"></script>
+  <script src="modules/scoreboard.js"></script>
+  <script src="modules/teams.js"></script>
+
+  <!-- Lesson manifest — lists available lessons -->
+  <script src="lessons/index.js"></script>
+
+  <!-- Engine — must load last -->
+  <script src="engine/engine.js"></script>
+</body>
+</html>

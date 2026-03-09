@@ -4,53 +4,125 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Engishism</title>
-  <link rel="stylesheet" href="styles/main.css">
+  <style>
+    :root {
+      --bg:      #0d1117;
+      --surface: #161b22;
+      --border:  #30363d;
+      --text:    #e6edf3;
+      --muted:   #6e7681;
+      --accent:  #e6ac00;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 3rem 2rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      color: var(--accent);
+    }
+
+    header p {
+      margin-top: 0.5rem;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    section {
+      max-width: 720px;
+      margin: 0 auto 2.5rem;
+    }
+
+    section h2 {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    a.card {
+      display: block;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      text-decoration: none;
+      color: var(--text);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    a.card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    a.card .card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+
+    a.card .card-desc {
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+  </style>
 </head>
 <body>
-  <div id="app">
-    <div id="session-bar"></div>
-    <div id="module-bar-top" class="module-bar hidden"></div>
-    <div id="slide-container"></div>
-    <div id="module-bar-bottom" class="module-bar hidden"></div>
-    <nav id="nav-bar">
-      <button id="btn-lessons">&#8592; Activities</button>
-      <button id="btn-prev">&#8592; Prev</button>
-      <button id="btn-menu">&#8592; Menu</button>
-      <span id="slide-counter"></span>
-      <button id="btn-next">Next &#8594;</button>
-    </nav>
-  </div>
 
-  <!-- Engine utilities -->
-  <script src="engine/events.js"></script>
-  <script src="engine/session.js"></script>
+  <header>
+    <h1>Engishism</h1>
+    <p>ESL classroom tools</p>
+  </header>
 
-  <!-- Activity types -->
-  <script src="activities/title-card.js"></script>
-  <script src="activities/reveal-card.js"></script>
-  <script src="activities/fill-blank.js"></script>
-  <script src="activities/meaning-pair.js"></script>
-  <script src="activities/sentence-complete.js"></script>
-  <script src="activities/true-false.js"></script>
-  <script src="activities/hot-seat.js"></script>
-  <script src="activities/noughts-crosses.js"></script>
-  <script src="activities/millionaire.js"></script>
-  <script src="activities/countdown.js"></script>
-  <script src="activities/jeopardy.js"></script>
-  <script src="activities/anagram.js"></script>
-  <script src="activities/call-my-bluff.js"></script>
-  <script src="activities/odd-one-out.js"></script>
-  <script src="activities/missing-vowels.js"></script>
+  <section>
+    <h2>Lessons</h2>
+    <div class="card-grid">
+      <a class="card" href="app.html">
+        <div class="card-title">Lesson Activities</div>
+        <div class="card-desc">Games, drills, and vocabulary activities for the classroom TV.</div>
+      </a>
+    </div>
+  </section>
 
-  <!-- Modules -->
-  <script src="modules/timer.js"></script>
-  <script src="modules/scoreboard.js"></script>
-  <script src="modules/teams.js"></script>
+  <section>
+    <h2>Team Building</h2>
+    <div class="card-grid">
+      <a class="card" href="desert-island.html">
+        <div class="card-title">Desert Island</div>
+        <div class="card-desc">15 survival items — vote to keep or lose, then the expert reveals.</div>
+      </a>
+      <a class="card" href="bunker.html">
+        <div class="card-title">Who Makes It?</div>
+        <div class="card-desc">15 candidates, 8 bunker spaces — ethical debate and council reveal.</div>
+      </a>
+    </div>
+  </section>
 
-  <!-- Lesson manifest — lists available lessons -->
-  <script src="lessons/index.js"></script>
-
-  <!-- Engine — must load last -->
-  <script src="engine/engine.js"></script>
 </body>
 </html>
