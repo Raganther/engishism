@@ -5,9 +5,37 @@
 
   // ── Timer state (persists across session bar re-renders) ────
   const TIMER_DURATION = 30;
-  let timerLeft     = TIMER_DURATION;
-  let timerRunning  = false;
-  let timerInterval = null;
+  let timerLeft       = TIMER_DURATION;
+  let timerRunning    = false;
+  let timerInterval   = null;
+  let spacebarHandler = null;
+
+  function toggleTimer() {
+    if (timerRunning) {
+      timerRunning = false;
+      clearInterval(timerInterval);
+      timerInterval = null;
+    } else {
+      if (timerLeft <= 0) return;
+      timerRunning = true;
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(timerTick, 100);
+    }
+    const playBtn = SessionBar.el && SessionBar.el.querySelector('.sb-tbar-play');
+    if (playBtn) playBtn.textContent = timerRunning ? '⏸' : '▶';
+  }
+
+  function resetTimer() {
+    timerRunning = false;
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    timerLeft = TIMER_DURATION;
+    const fill = document.getElementById('timer-fill');
+    const time = SessionBar.el && SessionBar.el.querySelector('.sb-tbar-time');
+    const play = SessionBar.el && SessionBar.el.querySelector('.sb-tbar-play');
+    if (fill) { fill.style.width = '100%'; fill.style.background = 'hsl(120, 85%, 50%)'; }
+    if (time) { time.textContent = TIMER_DURATION; time.classList.remove('urgent'); }
+    if (play) play.textContent = '▶';
+  }
 
   function timerTick() {
     timerLeft = Math.max(0, timerLeft - 0.1);
@@ -27,8 +55,8 @@
       timerRunning = false;
       clearInterval(timerInterval);
       timerInterval = null;
-      const start = SessionBar.el.querySelector('.sb-tbar-start');
-      if (start) start.classList.remove('hidden');
+      const play = SessionBar.el && SessionBar.el.querySelector('.sb-tbar-play');
+      if (play) play.textContent = '▶';
     }
   }
 
@@ -88,8 +116,8 @@
           <button class="sb-reset" title="Reset all scores">↺</button>
           <div class="sb-timer">
             <span class="sb-tbar-time${timerLeft <= 10 ? ' urgent' : ''}">${Math.ceil(timerLeft)}</span>
-            <button class="sb-tbar-start${timerRunning ? ' hidden' : ''}" title="Start timer">▶ Timer</button>
-            <button class="sb-tbar-reload${timerLeft >= TIMER_DURATION ? ' hidden' : ''}" title="Reset timer">↺</button>
+            <button class="sb-tbar-play" title="Play / Pause (Space)">${timerRunning ? '⏸' : '▶'}</button>
+            <button class="sb-tbar-reset" title="Reset timer">↺</button>
           </div>
         </div>
       `;
@@ -154,38 +182,27 @@
         this.render();
       });
 
-      // Timer — start
-      const tStart  = el.querySelector('.sb-tbar-start');
-      const tReload = el.querySelector('.sb-tbar-reload');
-
-      if (tStart) {
-        tStart.addEventListener('click', e => {
-          e.stopPropagation();
-          if (timerRunning) return;
-          timerRunning = true;
-          tStart.classList.add('hidden');
-          const reload = el.querySelector('.sb-tbar-reload');
-          if (reload) reload.classList.remove('hidden');
-          if (timerInterval) clearInterval(timerInterval);
-          timerInterval = setInterval(timerTick, 100);
-        });
-      }
+      // Timer — play/pause
+      el.querySelector('.sb-tbar-play').addEventListener('click', e => {
+        e.stopPropagation();
+        toggleTimer();
+      });
 
       // Timer — reset
-      if (tReload) {
-        tReload.addEventListener('click', e => {
-          e.stopPropagation();
-          timerRunning = false;
-          if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-          timerLeft = TIMER_DURATION;
-          const fill = el.querySelector('.sb-tbar-fill');
-          const time = el.querySelector('.sb-tbar-time');
-          if (fill)   { fill.style.width = '100%'; fill.classList.remove('urgent'); }
-          if (time)   { time.textContent = TIMER_DURATION; time.classList.remove('urgent'); }
-          tReload.classList.add('hidden');
-          tStart.classList.remove('hidden');
-        });
-      }
+      el.querySelector('.sb-tbar-reset').addEventListener('click', e => {
+        e.stopPropagation();
+        resetTimer();
+      });
+
+      // Spacebar — toggle timer (not when typing in a team name)
+      if (spacebarHandler) document.removeEventListener('keydown', spacebarHandler);
+      spacebarHandler = e => {
+        if (e.code !== 'Space') return;
+        if (document.activeElement && document.activeElement.isContentEditable) return;
+        e.preventDefault();
+        toggleTimer();
+      };
+      document.addEventListener('keydown', spacebarHandler);
 
       // Inline name editing
       el.querySelectorAll('.sb-name').forEach(nameEl => {

@@ -41,6 +41,6 @@ window.LESSON_INDEX = [
     id:    'demo-games',
     title: 'New Games — Demo',
     tag:   'Demo',
-    types: ['millionaire', 'countdown', 'jeopardy', 'anagram', 'call-my-bluff', 'odd-one-out', 'missing-vowels', 'fluency-tree'],
+    types: ['millionaire', 'countdown', 'jeopardy', 'anagram', 'call-my-bluff', 'odd-one-out', 'missing-vowels', 'fluency-tree', 'scenario-cards'],
   },
 ];

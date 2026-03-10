@@ -126,22 +126,25 @@
 
 .sb-tbar-time.urgent { color: #f85149; }
 
-.sb-tbar-start,
-.sb-tbar-reload {
+.sb-tbar-play,
+.sb-tbar-reset {
   background: none;
   border: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 0.75rem;
-  padding: 0.15rem 0.6rem;
-  border-radius: 4px;
+  color: var(--text);
+  font-size: 0.8rem;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.15s;
+  flex-shrink: 0;
 }
 
-.sb-tbar-start:hover  { border-color: var(--accent); color: var(--accent); }
-.sb-tbar-reload:hover { border-color: var(--muted);  color: var(--text);   }
-.sb-tbar-start.hidden,
-.sb-tbar-reload.hidden { display: none; }
+.sb-tbar-play:hover  { background: var(--accent); border-color: var(--accent); color: #fff; }
+.sb-tbar-reset:hover { background: var(--surface-2); border-color: var(--text); color: var(--text); }
 
 /* ── module bars ──────────────────────────────────────────── */
 .module-bar {

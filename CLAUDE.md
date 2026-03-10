@@ -68,6 +68,8 @@ Phase: Activity picker home screen + 12 activity types
 - fluency-tree: branching two-speaker conversation activity. Each node has speaker (A/B) + multiple options. Teacher clicks a line → it joins the thread as a chat bubble (A left, B right). Paths can branch and merge via node graph. Content shape: { title, start: 'id', nodes: { id: { speaker, options: [{text, next}] } } }
 - Scrolling fixed: #slide-container now uses overflow-y: auto + align-items: flex-start so card grids scroll properly
 - 18 activity types total: all originals + fluency-tree
+- Desert Island and Bunker games ported as scenario-cards slides into demo-games lesson
+- Timer improved: separate ▶/⏸ + ↺ circular buttons, spacebar toggles play/pause
 - Next: more lessons from handouts, or new standalone games
 
 ## Constraints

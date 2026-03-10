@@ -3,6 +3,296 @@ window.LESSON = {
   mode: "selector",
   slides: [
 
+    // ── Desert Island ─────────────────────────────────────────
+    {
+      label: "Desert Island — Survival Vote",
+      type: "scenario-cards",
+      content: {
+        cards: [
+          {
+            title: "Water Purification Tablets",
+            scenario: "A pack of 50 tablets. Each one makes contaminated water safe to drink.",
+            verdict: "Expert says: KEEP ✓",
+            verdictStyle: "success",
+            reveal: "Water kills in 3 days. These make any source safe — the single most important item on the island.",
+            details: [],
+            hook: "Why is this the top priority? What would happen without it?"
+          },
+          {
+            title: "Signal Mirror",
+            scenario: "A polished stainless steel mirror designed for signalling rescuers.",
+            verdict: "Expert says: KEEP ✓",
+            verdictStyle: "success",
+            reveal: "Visible up to 16km away in sunlight. More reliable than flares in daylight — and it never runs out.",
+            details: [],
+            hook: "How would you use this? When would it be most useful?"
+          },
+          {
+            title: "Box of Matches",
+            scenario: "A full box of waterproof matches.",
+            verdict: "Expert says: KEEP ✓",
+            verdictStyle: "success",
+            reveal: "Fire = warmth, cooked food, purified water, and a smoke signal. Essential for long-term survival.",
+            details: [],
+            hook: "What are all the things fire gives you? Can you list them?"
+          },
+          {
+            title: "Waterproof Tarpaulin",
+            scenario: "A heavy-duty 3m × 3m sheet of waterproof material.",
+            verdict: "Expert says: KEEP ✓",
+            verdictStyle: "success",
+            reveal: "Instant shelter from sun, rain and wind. Exposure kills fast — this keeps you alive through the first night.",
+            details: [],
+            hook: "What other uses might a tarpaulin have beyond shelter?"
+          },
+          {
+            title: "Signal Flares",
+            scenario: "A pack of 4 flares — visible day and night.",
+            verdict: "Expert says: KEEP ✓",
+            verdictStyle: "success",
+            reveal: "Visible for miles day and night. Your best chance of attracting a rescue boat or aircraft quickly.",
+            details: [],
+            hook: "You only have 4. When would you use them? Would you save any?"
+          },
+          {
+            title: "First Aid Kit",
+            scenario: "A kit containing bandages, antiseptic, pain relief, and basic medications.",
+            verdict: "Expert says: KEEP ✓",
+            verdictStyle: "success",
+            reveal: "A small cut becomes deadly without treatment in tropical conditions. Infections kill. Do not underestimate this.",
+            details: [],
+            hook: "What injuries are most likely to happen on a desert island?"
+          },
+          {
+            title: "Hunting Knife",
+            scenario: "A large, fixed-blade hunting knife.",
+            verdict: "Expert says: KEEP ✓",
+            verdictStyle: "success",
+            reveal: "Build shelter, prepare food, cut rope, make tools. The most versatile piece of equipment you can carry.",
+            details: [],
+            hook: "How many uses can you think of for a large knife?"
+          },
+          {
+            title: "20 Metres of Rope",
+            scenario: "Strong nylon rope, 20 metres long.",
+            verdict: "Expert says: KEEP ✓",
+            verdictStyle: "success",
+            reveal: "Lash a shelter together, climb, tie a raft, create a safety line. Dozens of uses — every one of them vital.",
+            details: [],
+            hook: "What would you build or do first with the rope?"
+          },
+          {
+            title: "Book of Edible Plants",
+            scenario: "An illustrated field guide to identifying safe and dangerous plants.",
+            verdict: "Expert says: leave it",
+            verdictStyle: "warning",
+            reveal: "Useful — but fire, water, and shelter come first. With matches and a knife, you can find and prepare food without it. A close call.",
+            details: [],
+            hook: "Do you agree? Could this book save your life, or is it a luxury?"
+          },
+          {
+            title: "Fishing Line & Hooks",
+            scenario: "50 metres of fishing line and 20 hooks.",
+            verdict: "Expert says: leave it",
+            verdictStyle: "warning",
+            reveal: "Set it and forget it — but you need food only after water and shelter are sorted. With a knife, you can improvise fishing tools.",
+            details: [],
+            hook: "Would you swap the rope for the fishing line? Why or why not?"
+          },
+          {
+            title: "Hand-Crank Radio",
+            scenario: "A battery-free radio powered by a built-in hand crank. Receives only — cannot broadcast.",
+            verdict: "Expert says: leave it",
+            verdictStyle: "danger",
+            reveal: "You can only receive, not send. Useful for weather forecasts, but you already have two active signalling tools. Not worth the space.",
+            details: [],
+            hook: "What's the difference between sending and receiving a signal?"
+          },
+          {
+            title: "Compass",
+            scenario: "A baseplate compass for navigation.",
+            verdict: "Expert says: leave it",
+            verdictStyle: "danger",
+            reveal: "Only useful with a map — and you don't know exactly where you are. Tells you direction but not location. The mirror and flares are better priorities.",
+            details: [],
+            hook: "Why is a compass less useful on an island than in a forest?"
+          },
+          {
+            title: "Map of the Area",
+            scenario: "A detailed topographic map of the region.",
+            verdict: "Expert says: leave it",
+            verdictStyle: "danger",
+            reveal: "Invaluable with a compass, limited without one — and only useful if you know where you started. Your focus should be signalling, not navigating.",
+            details: [],
+            hook: "In what situation would this map become the most important item?"
+          },
+          {
+            title: "Sunscreen SPF 50",
+            scenario: "A large tube of high-factor sunscreen, 200ml.",
+            verdict: "Expert says: leave it",
+            verdictStyle: "danger",
+            reveal: "Sunburn is painful but won't kill you in the short term. Far less important than water, shelter, and signalling rescue services.",
+            details: [],
+            hook: "Is sunburn ever dangerous? At what point does it become a survival issue?"
+          },
+          {
+            title: "Mobile Phone",
+            scenario: "A fully charged smartphone — but there is no signal on the island.",
+            verdict: "Expert says: leave it",
+            verdictStyle: "danger",
+            reveal: "No signal = no calls, no GPS, no maps. Completely useless as a communication device. The most common wrong answer in survival exercises.",
+            details: [],
+            hook: "People often keep the phone. Why? What does this tell us about our habits?"
+          }
+        ]
+      }
+    },
+
+    // ── The Bunker ────────────────────────────────────────────
+    {
+      label: "The Bunker — Who Makes It?",
+      type: "scenario-cards",
+      content: {
+        cards: [
+          {
+            title: "Dr Sarah Chen — Surgeon, age 34",
+            scenario: "Can save lives in almost any conditions. Brilliant diagnostician. She admits she struggles to follow orders from non-medical staff.",
+            verdict: "Council says: ADMIT ✓",
+            verdictStyle: "success",
+            reveal: "Medical expertise is the single most critical skill for long-term survival. Her attitude is a risk worth taking.",
+            details: [],
+            hook: "Is a difficult personality ever worth it? What problems might she cause?"
+          },
+          {
+            title: "Marcus Diallo — Farmer, age 52",
+            scenario: "Can grow food in almost any conditions, even with minimal resources. Short-tempered and difficult to work with under stress.",
+            verdict: "Council says: ADMIT ✓",
+            verdictStyle: "success",
+            reveal: "Without food production, the group starves within months. His temper is a problem — but hunger is worse.",
+            details: [],
+            hook: "How would you manage someone difficult but essential in a small group?"
+          },
+          {
+            title: "Tom Brennan — Civil Engineer, age 38",
+            scenario: "Can build water systems, manage power, and construct safe structures from available materials.",
+            verdict: "Council says: ADMIT ✓",
+            verdictStyle: "success",
+            reveal: "Clean water, electricity and stable shelter require engineering knowledge. Without Tom, these systems fail and people die.",
+            details: [],
+            hook: "What would happen in the first week without an engineer?"
+          },
+          {
+            title: "Corporal Jake Rivera — Soldier, age 28",
+            scenario: "Expert in security, combat, and emergency logistics. He is currently managing PTSD from active service.",
+            verdict: "Council says: ADMIT ✓",
+            verdictStyle: "success",
+            reveal: "Without security, nothing else matters. His PTSD is a concern, but his skills are essential and manageable with support.",
+            details: [],
+            hook: "How would you support someone with PTSD in a high-stress environment?"
+          },
+          {
+            title: "Prof. Emil Hoffmann — Botanist, age 72",
+            scenario: "Brilliant knowledge of plants, toxins, water purification, and biology. In poor health — may not survive long in difficult conditions.",
+            verdict: "Council says: ADMIT ✓",
+            verdictStyle: "success",
+            reveal: "Knowing which plants are safe, how to treat illness without medicine, and how to purify water could save everyone. Worth the risk.",
+            details: [],
+            hook: "If someone might not survive, should they still take a place? Who decides?"
+          },
+          {
+            title: "Dan Cooper — Carpenter, age 40",
+            scenario: "Can build shelter, furniture, and tools from raw materials. Calm, reliable, and a natural team player.",
+            verdict: "Council says: ADMIT ✓",
+            verdictStyle: "success",
+            reveal: "Physical shelter is a basic survival need. Dan's calm temperament is also a stabilising force in a high-stress group.",
+            details: [],
+            hook: "Why might someone's personality matter as much as their skills?"
+          },
+          {
+            title: "Zara Malik — Electrician, age 32 (7 months pregnant)",
+            scenario: "A trained electrician with critical technical skills. Will need medical support during childbirth in approximately 2 months.",
+            verdict: "Council says: ADMIT ✓",
+            verdictStyle: "success",
+            reveal: "Electrical skills are critical and she represents two lives. Childbirth is a risk, but a managed one with the surgeon present.",
+            details: [],
+            hook: "Is it fair that her pregnancy affects the decision? Why or why not?"
+          },
+          {
+            title: "Lily Park — Artist & Musician, age 26",
+            scenario: "No practical survival skills. Exceptional at raising morale, resolving conflict, and bringing people together through creativity.",
+            verdict: "Council says: ADMIT ✓",
+            verdictStyle: "success",
+            reveal: "Controversial — but research on isolated communities shows morale is critical. Groups without art and culture fall apart psychologically.",
+            details: [],
+            hook: "Do you agree? Is morale a survival skill? What evidence supports this?"
+          },
+          {
+            title: "Rosa Santos — Nurse, age 29",
+            scenario: "Strong medical skills, especially in trauma care. Calm and composed under extreme pressure.",
+            verdict: "Council says: DENY ✗",
+            verdictStyle: "warning",
+            reveal: "With a surgeon already admitted, a second medical professional is desirable but not essential. A very close call — many groups choose to admit her.",
+            details: [],
+            hook: "If the surgeon got injured, how would this decision look then?"
+          },
+          {
+            title: "Amara Osei — Chef, age 31",
+            scenario: "Expert at turning limited ingredients into nutritious, safe meals. Skilled in food preservation and storage.",
+            verdict: "Council says: DENY ✗",
+            verdictStyle: "warning",
+            reveal: "Valuable — but cooking and preservation can be taught. With a farmer already in the bunker, others can cover this role.",
+            details: [],
+            hook: "What skills can be learned quickly? What skills can't?"
+          },
+          {
+            title: "Ms. Adele Okafor — Primary Teacher, age 45",
+            scenario: "Skilled educator. Exceptional at managing conflict and maintaining group morale under pressure.",
+            verdict: "Council says: DENY ✗",
+            verdictStyle: "warning",
+            reveal: "If children were admitted, a teacher becomes critical. With no children in the recommended group, her priority drops — but her conflict management is genuinely valuable.",
+            details: [],
+            hook: "Does the presence of children change your answer? Why?"
+          },
+          {
+            title: "Dean Fletcher — Mechanic (Reformed Criminal), age 35",
+            scenario: "Served 5 years for armed robbery. Now a skilled mechanic — strong, resourceful, and loyal to those who trust him.",
+            verdict: "Council says: DENY ✗",
+            verdictStyle: "danger",
+            reveal: "His mechanical skills are useful but not irreplaceable. The council judged the risk too high in a confined, high-stress environment — though many disagree strongly.",
+            details: [],
+            hook: "Is it fair to judge someone by their past? How do you feel about this decision?"
+          },
+          {
+            title: "Father O'Brien — Priest & Counsellor, age 61",
+            scenario: "Provides spiritual guidance and psychological counselling. No practical survival skills.",
+            verdict: "Council says: DENY ✗",
+            verdictStyle: "danger",
+            reveal: "Mental health matters for long-term survival — but the artist already provides community and morale. With limited space, the council prioritised practical skills.",
+            details: [],
+            hook: "Is there a difference between a counsellor and an artist when it comes to morale?"
+          },
+          {
+            title: "Senator Patricia Walsh — Politician, age 58",
+            scenario: "Skilled negotiator and natural leader with a strong public profile. No practical survival skills whatsoever.",
+            verdict: "Council says: DENY ✗",
+            verdictStyle: "danger",
+            reveal: "Leadership and negotiation matter — but the group must first survive before it can be governed. The council found no practical justification.",
+            details: [],
+            hook: "At what point would a leader become useful? Would your answer change after 6 months?"
+          },
+          {
+            title: "Mia — Child, age 8",
+            scenario: "The youngest candidate. No practical skills yet. Represents innocence, hope, and the future of any rebuilt society.",
+            verdict: "Council says: DENY ✗",
+            verdictStyle: "danger",
+            reveal: "The hardest decision. The council chose practicality — but this is the most debated choice of all. Many groups argue Mia must be included. What do you think?",
+            details: [],
+            hook: "Does the answer change if the bunker is for 10 years rather than 10 months?"
+          }
+        ]
+      }
+    },
+
     // ── Millionaire ───────────────────────────────────────────
     {
       label: "Millionaire — Grammar & Vocab",
