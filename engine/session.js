@@ -11,12 +11,13 @@
 
   function timerTick() {
     timerLeft = Math.max(0, timerLeft - 0.1);
-    const el   = SessionBar.el;
-    const fill = el.querySelector('.sb-tbar-fill');
-    const time = el.querySelector('.sb-tbar-time');
+    const pct  = timerLeft / TIMER_DURATION;
+    const hue  = Math.round(pct * 120);   // 120 = green → 60 = yellow → 0 = red
+    const fill = document.getElementById('timer-fill');
+    const time = SessionBar.el.querySelector('.sb-tbar-time');
     if (fill) {
-      fill.style.width = (timerLeft / TIMER_DURATION * 100) + '%';
-      fill.classList.toggle('urgent', timerLeft <= 10);
+      fill.style.width      = (pct * 100) + '%';
+      fill.style.background = `hsl(${hue}, 85%, 50%)`;
     }
     if (time) {
       time.textContent = Math.ceil(timerLeft);
@@ -26,7 +27,7 @@
       timerRunning = false;
       clearInterval(timerInterval);
       timerInterval = null;
-      const start = el.querySelector('.sb-tbar-start');
+      const start = SessionBar.el.querySelector('.sb-tbar-start');
       if (start) start.classList.remove('hidden');
     }
   }
@@ -80,19 +81,14 @@
         `;
       }).join('');
 
-      const timerPct = (timerLeft / TIMER_DURATION * 100).toFixed(1);
-
       this.el.innerHTML = `
         ${cards}
         <div class="sb-actions">
           ${teams.length < 4 ? '<button class="sb-add">+ Team</button>' : ''}
           <button class="sb-reset" title="Reset all scores">↺</button>
           <div class="sb-timer">
-            <div class="sb-tbar-track">
-              <div class="sb-tbar-fill${timerLeft <= 10 ? ' urgent' : ''}" style="width:${timerPct}%"></div>
-            </div>
             <span class="sb-tbar-time${timerLeft <= 10 ? ' urgent' : ''}">${Math.ceil(timerLeft)}</span>
-            <button class="sb-tbar-start${timerRunning ? ' hidden' : ''}" title="Start timer">▶</button>
+            <button class="sb-tbar-start${timerRunning ? ' hidden' : ''}" title="Start timer">▶ Timer</button>
             <button class="sb-tbar-reload${timerLeft >= TIMER_DURATION ? ' hidden' : ''}" title="Reset timer">↺</button>
           </div>
         </div>
@@ -225,6 +221,10 @@
     }
   };
 
-  document.addEventListener('DOMContentLoaded', () => SessionBar.init());
+  document.addEventListener('DOMContentLoaded', () => {
+    SessionBar.init();
+    const fill = document.getElementById('timer-fill');
+    if (fill) { fill.style.width = '100%'; fill.style.background = 'hsl(120, 85%, 50%)'; }
+  });
 
 })();
