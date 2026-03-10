@@ -17,13 +17,13 @@ window.LESSON_INDEX = [
     id:    'money-present-perfect',
     title: 'Money & Present Perfect',
     tag:   'Grammar & Vocabulary',
-    types: ['title-card', 'reveal-card', 'fill-blank', 'meaning-pair', 'true-false', 'sentence-complete', 'hot-seat', 'noughts-crosses', 'millionaire', 'jeopardy', 'anagram', 'call-my-bluff', 'odd-one-out', 'missing-vowels'],
+    types: ['title-card', 'reveal-card', 'fill-blank', 'meaning-pair', 'true-false', 'sentence-complete', 'hot-seat', 'noughts-crosses', 'millionaire', 'jeopardy', 'anagram', 'call-my-bluff', 'odd-one-out', 'missing-vowels', 'scenario-cards'],
   },
   {
     id:    'technology-problems',
     title: 'Technology & Problem Solving',
     tag:   'Functional Language',
-    types: ['title-card', 'reveal-card', 'fill-blank', 'meaning-pair', 'true-false', 'sentence-complete', 'hot-seat', 'noughts-crosses', 'millionaire', 'jeopardy', 'anagram', 'call-my-bluff', 'odd-one-out', 'missing-vowels'],
+    types: ['title-card', 'reveal-card', 'fill-blank', 'meaning-pair', 'true-false', 'sentence-complete', 'hot-seat', 'noughts-crosses', 'millionaire', 'jeopardy', 'anagram', 'call-my-bluff', 'odd-one-out', 'missing-vowels', 'scenario-cards'],
   },
   {
     id:    'teamwork',

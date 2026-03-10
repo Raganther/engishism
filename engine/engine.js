@@ -76,6 +76,10 @@
         type: 'missing-vowels', label: 'Missing Vowels', desc: 'Word with vowels removed — guess and reveal',
         icon: icon('<rect x="3" y="14" width="7" height="12" rx="1"/><line x1="12" y1="26" x2="18" y2="26"/><rect x="20" y="14" width="7" height="12" rx="1"/><line x1="29" y1="26" x2="35" y2="26"/>')
       },
+      {
+        type: 'scenario-cards', label: 'Scenario Cards', desc: 'Card grid — click to reveal situation, verdict, and language model',
+        icon: icon('<rect x="3" y="7" width="15" height="26" rx="2"/><rect x="22" y="7" width="15" height="26" rx="2"/><line x1="7" y1="13" x2="14" y2="13"/><line x1="7" y1="17" x2="13" y2="17"/><line x1="26" y1="13" x2="33" y2="13"/><line x1="26" y1="17" x2="32" y2="17"/>')
+      },
     ];
   })();
 
@@ -100,6 +104,7 @@
       case 'call-my-bluff':     return `${c.items.length} words`;
       case 'odd-one-out':       return `${c.items.length} sets`;
       case 'missing-vowels':    return `${c.items.length} words`;
+      case 'scenario-cards':    return `${c.cards.length} scenarios`;
       default:                  return slide.type;
     }
   }

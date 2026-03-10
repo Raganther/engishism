@@ -346,6 +346,166 @@ window.LESSON = {
           { display: "SVNGS", answer: "SAVINGS", hint: "Money you have put aside over time" }
         ]
       }
+    },
+
+    // ── Scam or Legit? ─────────────────────────────────────────
+    {
+      label: "Scam or Legit? — 10 Scenarios",
+      type: "scenario-cards",
+      content: {
+        cards: [
+          {
+            title: 'The Nigerian Inheritance',
+            scenario: 'An email arrives from a woman called Naomi Cooper in Lagos, Nigeria. Her parents have just died and left $4.6 million in an international bank account. She is desperate for help. She needs you to transfer the money out of Nigeria for her. In exchange, you can keep 20% — nearly $1 million. She just needs your bank account details.',
+            verdict: '🚨 SCAM',
+            verdictStyle: 'danger',
+            reveal: 'This is a classic advance-fee fraud — also called a "419 scam". There is no money. Once you share your bank details, criminals can drain your account. The "fee" you are asked to pay disappears.',
+            details: [
+              'A complete stranger is offering you enormous wealth',
+              'They need YOUR bank details to help THEM',
+              'Strong sense of urgency — "as fast as you can"',
+              'Grammar and spelling mistakes in the email',
+              'The story is designed to make you feel special and trusted'
+            ],
+            hook: 'Have you ever received an email like this? Have you ever been asked to share your bank details by a stranger?'
+          },
+          {
+            title: "You've Won the Lottery!",
+            scenario: 'You receive an email: "Congratulations! You have been selected as the winner of €50,000 in the European Happiness Lottery draw. To claim your prize, please send a processing fee of €200 and your full bank details to our claims department within 48 hours."',
+            verdict: '🚨 SCAM',
+            verdictStyle: 'danger',
+            reveal: 'You cannot win a lottery you never entered. The €200 "processing fee" is the theft. Once you pay, the criminals disappear. There is no prize.',
+            details: [
+              'You never entered this lottery',
+              'A fee is required to "claim" your prize',
+              'Strong time pressure — 48 hours to respond',
+              'No official lottery name or verifiable organisation',
+              'Asking for bank details alongside the fee payment'
+            ],
+            hook: "Have you ever won any money — in a competition or lottery? Have you ever received an email claiming you'd won something?"
+          },
+          {
+            title: "Help! I'm Stuck Abroad",
+            scenario: "You get a WhatsApp message from what appears to be your friend's number: \"Hi! I'm in trouble in Berlin. I've lost my wallet and my phone is nearly dead. I need £300 urgently to get home. Please transfer it to this account: [new account number]. I promise I'll pay you back first thing tomorrow.\"",
+            verdict: '🚨 SCAM',
+            verdictStyle: 'danger',
+            reveal: "This is a \"friend in trouble\" scam. Criminals hack or clone your friend's phone number. The urgency stops you thinking clearly. Your friend is fine — they have no idea this is happening.",
+            details: [
+              'Extreme urgency — phone is "nearly dead" creates panic',
+              'A new, unfamiliar bank account number',
+              "No video call or voice note to verify it's really them",
+              'The story is emotional and designed to bypass logic',
+              'Simple fix: call your friend directly on a different number'
+            ],
+            hook: 'Has a friend ever asked you to lend them money urgently? Have you ever lent money to someone who promised to pay you back the next day?'
+          },
+          {
+            title: 'Call from Your Bank',
+            scenario: "Your phone rings. It's a woman who says she's calling from your bank's fraud department. She says someone has just tried to access your account from abroad. To protect your money, she needs you to confirm your PIN and then transfer your savings into a \"secure holding account\" she has set up for you.",
+            verdict: '🚨 SCAM',
+            verdictStyle: 'danger',
+            reveal: "Banks NEVER ask for your PIN — not by phone, email, or any other way. \"Safe\" or \"secure\" account transfers are how this scam works: you transfer your own money to the criminal.",
+            details: [
+              'Your bank will NEVER ask for your PIN',
+              '"Safe account" transfers — you send your own money to criminals',
+              "The call feels official — that's the point",
+              "Real fix: hang up, wait 5 minutes, call your bank's official number",
+              'The scammer may even "confirm" your name and address — this proves nothing'
+            ],
+            hook: 'Have you ever had a suspicious phone call? Has your bank ever called you about a problem with your account?'
+          },
+          {
+            title: 'Guaranteed 40% Returns',
+            scenario: 'An Instagram ad catches your eye: "Turn £500 into £5,000 in just 30 days. Guaranteed returns. Our members have already made millions. Only 10 spots left — direct message us NOW before it\'s too late."',
+            verdict: '🚨 SCAM',
+            verdictStyle: 'danger',
+            reveal: "No investment guarantees returns — that's not how investing works. This is a Ponzi scheme: early investors are paid using money from new investors. It collapses when there are no new victims.",
+            details: [
+              '"Guaranteed returns" — real investments always carry risk',
+              'Urgency — "only 10 spots left" stops you researching properly',
+              'Promoted on social media with no official registration',
+              'Returns of 900% in 30 days are impossible through legitimate means',
+              'No information about how the money is actually invested'
+            ],
+            hook: 'Have you ever invested any money? Have you ever seen an advert that promised something that seemed too good to be true?'
+          },
+          {
+            title: 'Amazing Designer Trainers — 80% Off',
+            scenario: 'You find a website selling limited-edition designer trainers at 80% off. The site looks professional and modern. There are five-star customer reviews. It accepts all major credit cards. You order a pair. Three weeks pass. Nothing arrives. The site has disappeared.',
+            verdict: '🚨 SCAM',
+            verdictStyle: 'danger',
+            reveal: 'Fake online shops are one of the most common scams. The professional design and fake reviews are part of the deception. Your card details may also have been stolen in the process.',
+            details: [
+              'Prices far below any legitimate retailer — 80% off is not realistic',
+              'No verifiable physical address or phone number',
+              'Reviews cannot be verified — they may be entirely fake',
+              'The domain was registered recently and has no trading history',
+              'No returns policy or customer service contact'
+            ],
+            hook: 'Have you ever bought something online that turned out to be a scam? Have you ever wasted money on something that never arrived?'
+          },
+          {
+            title: 'Second-Hand iPhone on eBay',
+            scenario: 'A seller on eBay is offering a second-hand iPhone for £280. Similar phones cost around £350 in shops. The seller has 912 positive reviews, a 100% feedback score, and has been a member since 2017. The listing includes clear photos and a detailed description. eBay buyer protection is included.',
+            verdict: '✓ LEGIT',
+            verdictStyle: 'success',
+            reveal: 'This is a legitimate transaction with strong safety indicators. A high number of verified reviews, a long trading history, eBay buyer protection, and a reasonable price all point to a trustworthy seller.',
+            details: [
+              '912 verified reviews with 100% positive feedback',
+              'Member since 2017 — long, established trading history',
+              'Price is lower than new but not suspiciously low',
+              'eBay buyer protection covers you if anything goes wrong',
+              'Detailed photos and honest description'
+            ],
+            hook: 'Have you ever bought or sold anything on eBay or a similar site? Have you ever found a really good bargain online?'
+          },
+          {
+            title: 'Savings Account — 4.5% Interest',
+            scenario: "Your bank sends you a letter — on headed paper with the bank's official logo and your full name and address — offering a new savings account at 4.5% annual interest. There are no fees. To open the account, you need to make an appointment at your local branch in person.",
+            verdict: '✓ LEGIT',
+            verdictStyle: 'success',
+            reveal: "Official correspondence from your own bank, a reasonable interest rate, in-person account opening, and no fees are all signs of a legitimate offer. Always verify by checking your bank's website or calling the number on the back of your card.",
+            details: [
+              'Official headed letter from a bank you already use',
+              '4.5% is a realistic and competitive savings rate',
+              'Account opened in person at a branch — not online',
+              'No fees, no upfront payment required',
+              "Easily verified by calling your bank's official number"
+            ],
+            hook: 'Have you ever saved up for something for a long time? Have you ever taken out a bank account or savings plan?'
+          },
+          {
+            title: 'Job Offer on LinkedIn',
+            scenario: 'A company contacts you on LinkedIn after seeing your profile. They are recruiting for a customer service role paying £24,000 per year. They ask for your CV and invite you to an online interview. At no point do they ask for any payment, a registration fee, or your bank details.',
+            verdict: '✓ LEGIT',
+            verdictStyle: 'success',
+            reveal: "This follows a completely normal recruitment process. No money ever changes hands in legitimate job recruitment. The only red flag would be if they asked for any kind of payment — they don't.",
+            details: [
+              'No money asked for at any stage',
+              'Salary is realistic and transparent',
+              'Standard recruitment steps: CV, interview, offer',
+              'Company has a verifiable LinkedIn presence',
+              'Rule: if any job asks for payment, it is a scam'
+            ],
+            hook: 'Have you ever applied for a job online? Have you ever been contacted by a company that seemed suspicious?'
+          },
+          {
+            title: 'Cashback App — 3% Back',
+            scenario: 'A cashback app promises 3% back when you shop at partner stores like supermarkets and online retailers. It asks for your email address and connects to your existing payment card. It does NOT ask for your account password, your PIN, or any money upfront. It earns commission from retailers when you use it.',
+            verdict: '✓ LEGIT',
+            verdictStyle: 'success',
+            reveal: 'Cashback apps are a genuine business model. The company earns a commission from retailers each time you shop, and passes part of that back to you. 3% is a realistic rate. The critical safety sign: they never ask for your PIN or password.',
+            details: [
+              'No PIN, no password, no upfront payment requested',
+              '3% cashback is realistic — not too good to be true',
+              'Transparent business model: commission from retailers',
+              'Only asks for email and card connection — standard',
+              'Check reviews on an app store before installing'
+            ],
+            hook: 'Have you ever used a cashback app or loyalty card? Have you ever saved money by using a special offer or app?'
+          }
+        ]
+      }
     }
 
   ]

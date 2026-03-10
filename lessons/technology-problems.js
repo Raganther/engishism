@@ -342,6 +342,112 @@ window.LESSON = {
           { display: "TCHNLGY", answer: "TECHNOLOGY", hint: "The topic of this lesson" }
         ]
       }
+    },
+
+    // ── IT Helpdesk — Scenario Cards ───────────────────────────
+    {
+      label: "IT Helpdesk — 8 Tickets",
+      type: "scenario-cards",
+      content: {
+        cards: [
+          {
+            title: 'Nothing works since this morning',
+            scenario: '"My laptop was fine yesterday, but since I switched it on this morning, nothing works properly. The internet is very slow and one of my programmes crashed twice. I haven\'t changed anything."',
+            verdict: '🔍 Identified',
+            verdictStyle: 'warning',
+            reveal: 'A system update installed overnight is still processing in the background, consuming memory and network bandwidth.',
+            details: [
+              'IDENTIFY: "It appears there\'s an issue with a background process — possibly an overnight system update that hasn\'t finished installing."',
+              'CLARIFY: "Just to clarify, the problem is that the system is running slowly because all its resources are being used by the update."'
+            ],
+            hook: null
+          },
+          {
+            title: 'The printer is lying to me',
+            scenario: '"The printer says it\'s ready and online but when I press print, absolutely nothing happens. I\'ve tried three times — I can hear it make a noise but nothing comes out. I\'ve checked and the paper is definitely in the tray."',
+            verdict: '🔍 Identified',
+            verdictStyle: 'warning',
+            reveal: 'The print queue has a stuck job from a previous session that is blocking all new print requests.',
+            details: [
+              'IDENTIFY: "It seems like something is wrong with your print queue — a stuck job from earlier is blocking everything else."',
+              'CLARIFY: "So, what you\'re saying is that the printer receives the job and makes a noise, but the page never actually comes out?"'
+            ],
+            hook: null
+          },
+          {
+            title: 'My password stopped working',
+            scenario: '"I tried to log in and it said my password was wrong. But I know it\'s right — I use it every day. I tried three times and then it locked me out completely. I can\'t get into anything."',
+            verdict: '🔍 Identified',
+            verdictStyle: 'warning',
+            reveal: 'The password expired automatically overnight and the system locked the account after three failed attempts with the old password.',
+            details: [
+              'IDENTIFY: "The main concern is that your account has been locked — most likely because your password expired and triggered an automatic security lockout."',
+              'CLARIFY: "Let me make sure I understand — you entered the same password you always use, but the system said it was incorrect each time?"'
+            ],
+            hook: null
+          },
+          {
+            title: 'My document has disappeared',
+            scenario: '"I was working on a really important document all day yesterday and now I can\'t find it anywhere. I definitely saved it — I remember clicking save at the end. It was right there on my desktop. Now it\'s just gone."',
+            verdict: '🔍 Identified',
+            verdictStyle: 'warning',
+            reveal: 'The file was saved to a temporary auto-recovery location rather than the intended folder. The desktop shortcut may have been accidentally removed.',
+            details: [
+              'IDENTIFY: "The challenge we need to address is locating where the file was actually saved — it may be in a temporary or unexpected folder rather than the desktop."',
+              'CLARIFY: "Could you explain the issue again? When you clicked save, did you use Save or Save As? And do you remember which folder was shown in the save dialogue?"'
+            ],
+            hook: null
+          },
+          {
+            title: "They can see me but can't hear me",
+            scenario: '"I joined the online meeting and everyone could see my face on the screen perfectly. But nobody could hear me speaking at all. I tried speaking louder and moving closer to the laptop but it didn\'t make any difference."',
+            verdict: '🔍 Identified',
+            verdictStyle: 'warning',
+            reveal: 'The wrong audio input device is selected in the meeting application settings. The microphone is muted or a different input (e.g. headset) is selected instead of the built-in microphone.',
+            details: [
+              'IDENTIFY: "We seem to be facing a problem with your microphone settings — the meeting app appears to be using the wrong audio input device."',
+              'CLARIFY: "Do you mean that your microphone works in other applications, or does the sound problem happen in every programme you try?"'
+            ],
+            hook: null
+          },
+          {
+            title: 'My screen is impossible to read',
+            scenario: '"I moved to a different desk today and I can\'t see my screen properly at all. It\'s either too bright or there\'s a terrible reflection from the window. I\'ve tried moving my chair but it\'s still a problem every time I look at the screen."',
+            verdict: '🔍 Identified',
+            verdictStyle: 'warning',
+            reveal: 'The screen brightness is not set correctly for the new environment, and auto-brightness is disabled. The screen angle is creating glare from overhead or window lighting.',
+            details: [
+              'IDENTIFY: "It appears there\'s an issue with your screen settings — the brightness level isn\'t adapted to your new workspace, and the angle may be causing glare."',
+              'CLARIFY: "So, what you\'re saying is that you\'ve tried adjusting your position, but you\'re still unable to see clearly because of the brightness or reflection?"'
+            ],
+            hook: null
+          },
+          {
+            title: 'A strange message keeps appearing',
+            scenario: '"Every time I open a specific programme, a box pops up with a message and some numbers in it. I always just click OK and then it seems to work fine. But the exact same box comes back every single time I open the programme."',
+            verdict: '🔍 Identified',
+            verdictStyle: 'warning',
+            reveal: 'The software is generating an error code on startup because it needs updating or has a version conflict with the current operating system.',
+            details: [
+              'IDENTIFY: "The main concern is that the software is generating a recurring error code on startup — most likely because it needs updating or has a version conflict."',
+              'CLARIFY: "Let me make sure I understand — the programme works normally after you click OK, but the exact same error message appears every time you open it?"'
+            ],
+            hook: null
+          },
+          {
+            title: "The wifi works — but also doesn't",
+            scenario: '"I\'m connected to the wifi and the connection bar is full. Some websites load completely fine. But other websites just don\'t load at all, or they take forever. I don\'t understand — why do some work and others don\'t?"',
+            verdict: '🔍 Identified',
+            verdictStyle: 'warning',
+            reveal: "Certain websites are being blocked by the school's network firewall or content filter. The internet connection itself is working normally.",
+            details: [
+              'IDENTIFY: "It seems like something is wrong with your network access permissions — the wifi is connected but certain sites appear to be filtered or blocked."',
+              'CLARIFY: "Could you explain the issue again? Can you give me an example of a site that works and one that doesn\'t — that will help us identify whether it\'s a firewall issue."'
+            ],
+            hook: null
+          }
+        ]
+      }
     }
 
   ]
