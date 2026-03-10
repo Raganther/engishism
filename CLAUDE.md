@@ -48,6 +48,8 @@ Phase: Activity picker home screen + 12 activity types
 - Icons defined inline in ACTIVITY_CATALOG via icon() helper in engine.js
 - 17 activity types total: all originals + anagram, call-my-bluff, odd-one-out, missing-vowels, jeopardy, countdown, millionaire, scenario-cards
 - scenario-cards: card grid → click → scenario text → Reveal Verdict → Show Details → Back (marks done). Content shape: cards[{title, scenario, verdict, verdictStyle, reveal, details[], hook}]
+- Jeopardy: claim buttons use window.Session.teams (supports up to 4 teams), awards points directly via Session.award
+- Timer bar: full-width bar below session bar, always visible. green→yellow→orange→red HSL transition. ▶ Timer / ↺ controls in session bar. 30s default. Managed in engine/session.js
 - Persistent session bar (engine/session.js) sits above all screens — always visible
 - Session bar: team names (inline editable), colour-coded scores, +/− buttons, add/remove teams, reset
 - Session state lives in window.Session — teacher-driven scoring, separate from per-activity modules
