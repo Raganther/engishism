@@ -49,7 +49,11 @@ window.Activities['jeopardy'] = {
       const q   = cat.questions[qi];
       const key = `${ci}-${qi}`;
 
-      const claimBtns = state.teams.map((t, ti) =>
+      const sessionTeams = (window.Session && window.Session.teams && window.Session.teams.length)
+        ? window.Session.teams
+        : state.teams;
+
+      const claimBtns = sessionTeams.map((t, ti) =>
         `<button class="jp-claim" data-team="${ti}">${t} +${q.value}</button>`
       ).join('');
 
@@ -75,7 +79,8 @@ window.Activities['jeopardy'] = {
       panel.querySelectorAll('.jp-claim').forEach(btn => {
         btn.addEventListener('click', e => {
           e.stopPropagation();
-          const teamIdx = parseInt(btn.dataset.team);
+          const teamIdx  = parseInt(btn.dataset.team);
+          const teamName = sessionTeams[teamIdx];
           claimed.set(key, teamIdx);
 
           const cell = el.querySelector(`.jp-cell[data-cat="${ci}"][data-qi="${qi}"]`);
@@ -83,7 +88,11 @@ window.Activities['jeopardy'] = {
           cell.textContent = '';
           cell.disabled = true;
 
-          events.emit('point', { team: teamIdx, value: q.value });
+          if (window.Session && teamName) {
+            window.Session.award(teamName, q.value);
+          } else {
+            events.emit('point', { value: q.value });
+          }
           showGrid();
         });
       });

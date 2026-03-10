@@ -194,44 +194,108 @@ window.LESSON = {
 
     // ── Jeopardy ──────────────────────────────────────────────
     {
-      label: "Jeopardy — Money & Grammar",
+      label: "Jeopardy — Gap Fill: PP vs PS",
       type: "jeopardy",
       content: {
         categories: [
           {
-            name: "Present Perfect",
+            name: "Have You Ever...?",
             questions: [
-              { value: 200, question: "Which tense: 'Have you ever lost your wallet?'", answer: "Present perfect — 'Have you ever...?' asks about life experience with no specific time." },
-              { value: 400, question: "Name two words that signal present perfect.", answer: "Just, already, yet, ever, never — any two are correct." },
-              { value: 600, question: "Make a present perfect sentence using 'already' and a money verb.", answer: "e.g. 'I've already deposited the money.' / 'She's already paid the bill.' / 'We've already taken out the loan.'" },
-              { value: 800, question: "Why is this wrong: 'I've bought shoes last week'?", answer: "'Last week' is a specific time reference — this requires past simple: 'I bought shoes last week.'" }
+              {
+                value: 200,
+                question: "Fill the gap:\n'_____ you ever _____ (win) any money — in a lottery or competition?'",
+                answer: "Have / won — 'Have you ever...?' always uses present perfect. Irregular verb: win → won."
+              },
+              {
+                value: 400,
+                question: "Fill the gap:\n'I _____ (never / be) the victim of a scam. I'm very careful online.'",
+                answer: "have never been — 'never' + present perfect for life experience. 'been' is the past participle of 'be'."
+              },
+              {
+                value: 600,
+                question: "Fill both gaps:\n'She _____ (lend) money to people three times this year, and none of them _____ (pay) her back yet.'",
+                answer: "has lent / have paid — 'this year' is unfinished → present perfect. 'yet' → PP negative. Irregular: lend → lent."
+              },
+              {
+                value: 800,
+                question: "Fill all four gaps:\n'She _____ (save) for years, then _____ (invest) everything in 2022, _____ (lose) it all — and _____ (not / recover) financially since.'",
+                answer: "saved / invested / lost / has not recovered — three past simple verbs (specific sequence in the past); present perfect for the ongoing result — 'since' signals PP."
+              }
             ]
           },
           {
-            name: "Past Simple",
+            name: "Just / Already / Yet",
             questions: [
-              { value: 200, question: "Which tense: 'I lost my wallet yesterday'?", answer: "Past simple — 'yesterday' is a specific time reference." },
-              { value: 400, question: "Name two time expressions that go with past simple.", answer: "Yesterday, last week/month/year, in 2020, three years ago, on Monday — any two." },
-              { value: 600, question: "Change this to past simple with a time: 'I've just inherited some money.'", answer: "e.g. 'I inherited some money last year.' / 'I inherited some money when my grandmother died in 2019.'" },
-              { value: 800, question: "When do we choose past simple over present perfect?", answer: "When we say exactly WHEN something happened — with a specific time reference like 'last week', 'yesterday', 'in 2020'." }
+              {
+                value: 200,
+                question: "Fill the gap:\n'Don't call the bank — I _____ (just / speak) to them.'",
+                answer: "have just spoken — 'just' = very recently completed → present perfect. Irregular: speak → spoken."
+              },
+              {
+                value: 400,
+                question: "Fill both gaps:\n'_____ they _____ (reply) to your complaint yet?'",
+                answer: "Have / replied — question form with 'yet' → present perfect. 'Yet' goes at the end in questions and negatives."
+              },
+              {
+                value: 600,
+                question: "Fill the gap:\n'I _____ (already / transfer) the money. I'm afraid it's too late to stop it.'",
+                answer: "have already transferred — 'already' shows the action is done and the result matters now → present perfect."
+              },
+              {
+                value: 800,
+                question: "Fill both gaps:\n'We _____ (not / receive) a refund yet, even though I _____ (call) the bank three times last week.'",
+                answer: "haven't received / called — 'yet' → PP negative. 'last week' = specific finished time → past simple. Two tenses in one sentence!"
+              }
             ]
           },
           {
-            name: "Money Vocabulary",
+            name: "Specific Times → PS",
             questions: [
-              { value: 200, question: "What is the difference between 'lend' and 'borrow'?", answer: "Lend = give money temporarily to someone. Borrow = receive money temporarily from someone." },
-              { value: 400, question: "What does 'inherit' mean? Give an example sentence.", answer: "To receive money or property from someone who has died. e.g. 'She inherited £10,000 from her grandfather.'" },
-              { value: 600, question: "What is a 'deposit'? Use it in a sentence about buying a house.", answer: "An upfront payment — part of a larger amount. e.g. 'I saved for three years to pay the deposit on my flat.'" },
-              { value: 800, question: "Explain 'take out a loan' and describe two situations where someone might do it.", answer: "To borrow money from a bank that you repay over time with interest. e.g. to buy a car, pay for university, start a business, renovate a house." }
+              {
+                value: 200,
+                question: "Fill the gap:\n'She _____ (receive) a suspicious phone call last Tuesday.'",
+                answer: "received — 'last Tuesday' is a specific completed time → past simple."
+              },
+              {
+                value: 400,
+                question: "Fill both gaps:\n'How much money _____ you _____ (lose) to the scam?'",
+                answer: "did / lose — past simple question form: did + subject + bare infinitive."
+              },
+              {
+                value: 600,
+                question: "Fill both gaps:\n'I _____ (not / realise) it was a scam until I _____ (check) my bank account the following morning.'",
+                answer: "didn't realise / checked — both past simple. Two completed events in sequence. 'Until' connects them."
+              },
+              {
+                value: 800,
+                question: "Fill all three gaps:\n'He _____ (save) for three years, _____ (take out) a small loan in 2022, and finally _____ (buy) his first flat last spring.'",
+                answer: "saved / took out / bought — all past simple. Specific time references throughout. Irregulars: take → took, buy → bought."
+              }
             ]
           },
           {
-            name: "Scams",
+            name: "Choose the Tense",
             questions: [
-              { value: 200, question: "What is a scam?", answer: "A dishonest and illegal way of making money by tricking people." },
-              { value: 400, question: "Name two red flags that suggest an email might be a scam.", answer: "Any two: promises too much money / asks for upfront payment / creates urgency / asks for bank details / you never entered the competition." },
-              { value: 600, question: "Your bank calls asking for your PIN to 'secure your account'. What do you do?", answer: "Hang up. Banks NEVER ask for your PIN by phone. Call your bank back using the number on their official website." },
-              { value: 800, question: "Use present perfect to describe a scam experience. Use at least two target phrases.", answer: "e.g. 'I've never received an email like that.' / 'Have you ever been tricked by a scam?' / 'Luckily, I've never lost money to a scammer.'" }
+              {
+                value: 200,
+                question: "Choose the correct form:\n'I [have seen / saw] this scam before. Don't fall for it!'",
+                answer: "have seen — no specific time given → present perfect for experience. Compare: 'I saw this scam on the news last night' (PS — specific time)."
+              },
+              {
+                value: 400,
+                question: "Choose and explain:\n'She [has lost / lost] her credit card twice this year.'",
+                answer: "has lost — 'this year' is still in progress → present perfect. If it were 'last year', we'd use: 'she lost her card twice last year' (PS)."
+              },
+              {
+                value: 600,
+                question: "Choose and explain:\n'I [have wasted / wasted] so much money on that gym last year.'",
+                answer: "wasted — 'last year' is a finished, specific period → past simple. Compare: 'I've wasted so much money this year' — present perfect, still ongoing."
+              },
+              {
+                value: 800,
+                question: "Find and correct ALL mistakes:\n'I've received a suspicious email yesterday — I've immediately called my bank and they've told me it was a scam.'",
+                answer: "I received a suspicious email yesterday / I immediately called my bank / they told me it was a scam — 'yesterday' forces past simple. The whole sequence of completed events uses PS."
+              }
             ]
           }
         ]
