@@ -198,6 +198,99 @@ window.LESSON = {
       }
     },
 
+    // ── Fluency Tree ──────────────────────────────────────────
+    {
+      label: "Fluency Tree — Food Experiences",
+      type: "fluency-tree",
+      content: {
+        title: "Food Experiences",
+        start: "a1",
+        nodes: {
+
+          // ── Turn 1: A opens ───────────────────────────────
+          "a1": {
+            speaker: "A",
+            options: [
+              { text: "Have you ever eaten something really unusual?", next: "b1" },
+              { text: "Are you a picky eater or do you like trying new things?", next: "b1" },
+              { text: "What's the most adventurous food you've ever tried?", next: "b1" }
+            ]
+          },
+
+          // ── Turn 2: B responds ────────────────────────────
+          "b1": {
+            speaker: "B",
+            options: [
+              { text: "Yes! I tried snails once — in France.", next: "a2-yes" },
+              { text: "I ate insects at a street market in Thailand.", next: "a2-yes" },
+              { text: "Not really. I tend to stick to food I know.", next: "a2-no" }
+            ]
+          },
+
+          // ── Turn 3a: A follows up (B said yes) ───────────
+          "a2-yes": {
+            speaker: "A",
+            options: [
+              { text: "Wow! Were you nervous before trying it?", next: "b2-yes" },
+              { text: "What were they like?", next: "b2-yes" },
+              { text: "Would you eat it again?", next: "b2-yes" }
+            ]
+          },
+
+          // ── Turn 3b: A follows up (B said no) ────────────
+          "a2-no": {
+            speaker: "A",
+            options: [
+              { text: "Is there anything you'd never try, even if someone dared you?", next: "b2-no" },
+              { text: "Has anyone ever tried to get you to eat something you refused?", next: "b2-no" },
+              { text: "Do you think you'll always be that way, or might you change?", next: "b2-no" }
+            ]
+          },
+
+          // ── Turn 4a: B elaborates (adventurous) ──────────
+          "b2-yes": {
+            speaker: "B",
+            options: [
+              { text: "A bit nervous, yes — but curious more than scared.", next: "a3" },
+              { text: "They were surprisingly good, actually. Really garlicky.", next: "a3" },
+              { text: "Once was enough, honestly. The texture was too strange.", next: "a3" }
+            ]
+          },
+
+          // ── Turn 4b: B elaborates (cautious) ─────────────
+          "b2-no": {
+            speaker: "B",
+            options: [
+              { text: "Raw fish, probably. I can't get past the texture.", next: "a3" },
+              { text: "My friends once made me try durian. I hated it.", next: "a3" },
+              { text: "I think I'm getting more adventurous as I get older, actually.", next: "a3" }
+            ]
+          },
+
+          // ── Turn 5: A wraps up ────────────────────────────
+          "a3": {
+            speaker: "A",
+            options: [
+              { text: "I know what you mean. I used to be the same.", next: "b3" },
+              { text: "That's fair enough. Food is really personal, isn't it.", next: "b3" },
+              { text: "Ha! I've had a similar experience.", next: "b3" }
+            ]
+          },
+
+          // ── Turn 6: B closes ──────────────────────────────
+          "b3": {
+            speaker: "B",
+            options: [
+              { text: "Exactly. Have you ever eaten anything really unusual?", next: null },
+              { text: "What about you — are you adventurous with food?", next: null },
+              { text: "Yeah, food says a lot about where you're from, doesn't it.", next: null }
+            ]
+          }
+
+        }
+      }
+    },
+
     // ── Missing Vowels ────────────────────────────────────────
     {
       label: "Missing Vowels — Grammar Terms",

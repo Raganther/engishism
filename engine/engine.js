@@ -80,6 +80,10 @@
         type: 'scenario-cards', label: 'Scenario Cards', desc: 'Card grid — click to reveal situation, verdict, and language model',
         icon: icon('<rect x="3" y="7" width="15" height="26" rx="2"/><rect x="22" y="7" width="15" height="26" rx="2"/><line x1="7" y1="13" x2="14" y2="13"/><line x1="7" y1="17" x2="13" y2="17"/><line x1="26" y1="13" x2="33" y2="13"/><line x1="26" y1="17" x2="32" y2="17"/>')
       },
+      {
+        type: 'fluency-tree', label: 'Fluency Tree', desc: 'Branching conversation — click a response to follow the dialogue path',
+        icon: icon('<circle cx="20" cy="8" r="4"/><line x1="20" y1="12" x2="20" y2="18"/><line x1="20" y1="18" x2="10" y2="24"/><line x1="20" y1="18" x2="30" y2="24"/><circle cx="10" cy="28" r="4"/><circle cx="30" cy="28" r="4"/>')
+      },
     ];
   })();
 
@@ -105,6 +109,7 @@
       case 'odd-one-out':       return `${c.items.length} sets`;
       case 'missing-vowels':    return `${c.items.length} words`;
       case 'scenario-cards':    return `${c.cards.length} scenarios`;
+      case 'fluency-tree':      return c.title || 'Conversation';
       default:                  return slide.type;
     }
   }
