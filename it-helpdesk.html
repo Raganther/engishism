@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IT Helpdesk — Identifying & Clarifying Problems</title>
+  <style>
+    :root {
+      --bg:      #0d1117;
+      --surface: #161b22;
+      --card:    #1a2236;
+      --border:  #2d3a52;
+      --text:    #e6edf3;
+      --muted:   #6e7681;
+      --accent:  #58a6ff;
+      --success: #3fb950;
+      --warning: #d29922;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 2px solid var(--accent);
+      padding: 0.6rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .h-brand { flex: 1; }
+
+    .h-title {
+      font-size: 1.2rem;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 0.04em;
+    }
+
+    .h-sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.1rem;
+    }
+
+    /* ── Scores ──────────────────────────────────────────────── */
+    .scores {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .team-box {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.3rem 0.7rem;
+    }
+
+    .team-name {
+      font-size: 0.82rem;
+      font-weight: 700;
+      min-width: 52px;
+      outline: none;
+      cursor: text;
+    }
+
+    .team-name:focus { border-bottom: 1px solid var(--accent); }
+
+    .team-score {
+      font-size: 1.5rem;
+      font-weight: 900;
+      min-width: 2ch;
+      text-align: center;
+      color: var(--accent);
+      transition: transform 0.2s;
+    }
+
+    .team-score.bump { transform: scale(1.5); }
+
+    button {
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 700;
+      border-radius: 6px;
+      border: none;
+      transition: all 0.15s;
+    }
+
+    .btn-small {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 1rem;
+      padding: 0.1rem 0.45rem;
+    }
+
+    .btn-small:hover { border-color: var(--accent); color: var(--accent); }
+
+    .btn-phrase {
+      background: none;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-size: 0.82rem;
+      padding: 0.35rem 0.9rem;
+    }
+
+    .btn-phrase:hover { background: rgba(88,166,255,0.1); }
+
+    .btn-phrase.active {
+      background: var(--accent);
+      color: #0d1117;
+    }
+
+    .btn-reset {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.82rem;
+      padding: 0.35rem 0.9rem;
+    }
+
+    .btn-reset:hover { border-color: #f85149; color: #f85149; }
+
+    /* ── Phrase Panel ─────────────────────────────────────────── */
+    .phrase-panel {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.5rem;
+      display: none;
+      gap: 3rem;
+      flex-shrink: 0;
+    }
+
+    .phrase-panel.show { display: flex; }
+
+    .phrase-col { flex: 1; }
+
+    .phrase-label {
+      font-size: 0.65rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.4rem;
+    }
+
+    .phrase-col ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .phrase-col li {
+      font-size: 0.82rem;
+      color: var(--muted);
+      padding-left: 0.8rem;
+      position: relative;
+    }
+
+    .phrase-col li::before {
+      content: "·";
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+    }
+
+    /* ── Grid View ───────────────────────────────────────────── */
+    #view-grid {
+      flex: 1;
+      padding: 1.25rem 1.5rem;
+      overflow-y: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.9rem;
+    }
+
+    .ticket-card {
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 0.9rem 0.85rem;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+      text-align: center;
+      transition: all 0.18s;
+      user-select: none;
+    }
+
+    .ticket-card:not(.resolved):hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(88,166,255,0.15);
+    }
+
+    .ticket-card.resolved {
+      border-color: var(--success);
+      background: rgba(63,185,80,0.06);
+      opacity: 0.55;
+      cursor: default;
+    }
+
+    .ticket-icon {
+      width: 36px;
+      height: 36px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .ticket-card.resolved .ticket-icon { color: var(--success); }
+
+    .ticket-num {
+      font-size: 0.62rem;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      font-family: monospace;
+    }
+
+    .ticket-card.resolved .ticket-num { color: var(--success); }
+
+    .ticket-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      line-height: 1.3;
+      color: var(--text);
+    }
+
+    .ticket-card.resolved .ticket-title {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+
+    .ticket-badge {
+      font-size: 0.65rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      margin-top: 0.1rem;
+    }
+
+    .ticket-badge.pending {
+      background: rgba(88,166,255,0.12);
+      color: var(--accent);
+    }
+
+    .ticket-badge.resolved-badge {
+      background: rgba(63,185,80,0.15);
+      color: var(--success);
+    }
+
+    /* ── Ticket Detail View ──────────────────────────────────── */
+    #view-ticket {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    #view-ticket.show { display: flex; }
+
+    .ticket-nav {
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-shrink: 0;
+    }
+
+    .btn-back {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.82rem;
+      padding: 0.35rem 0.9rem;
+    }
+
+    .btn-back:hover { border-color: var(--accent); color: var(--accent); }
+
+    .ticket-detail-id {
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      font-family: monospace;
+    }
+
+    .ticket-detail-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .complaint-section {
+      margin: 0 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .section-label {
+      font-size: 0.62rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .complaint-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem 2rem;
+    }
+
+    .complaint-text {
+      font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+      line-height: 1.6;
+      color: var(--text);
+      font-style: italic;
+    }
+
+    .reveal-sections {
+      padding: 1rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      flex: 1;
+    }
+
+    .reveal-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      display: none;
+    }
+
+    .reveal-box.show { display: block; }
+
+    .reveal-box.problem-box { border-color: var(--warning); }
+    .reveal-box.phrases-box { border-color: var(--success); }
+
+    .problem-label {
+      font-size: 0.65rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--warning);
+      margin-bottom: 0.6rem;
+    }
+
+    .phrases-label-box {
+      font-size: 0.65rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--success);
+      margin-bottom: 0.8rem;
+    }
+
+    .problem-text {
+      font-size: 1rem;
+      line-height: 1.6;
+      color: var(--text);
+    }
+
+    .model-phrase {
+      margin-bottom: 0.75rem;
+    }
+
+    .model-phrase-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: var(--success);
+      margin-bottom: 0.25rem;
+    }
+
+    .model-phrase-text {
+      font-size: 0.95rem;
+      line-height: 1.5;
+      color: var(--text);
+      font-style: italic;
+      padding-left: 0.75rem;
+      border-left: 2px solid var(--success);
+    }
+
+    .ticket-actions {
+      padding: 1rem 1.5rem;
+      display: flex;
+      gap: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .btn-reveal {
+      background: var(--accent);
+      color: #0d1117;
+      font-size: 0.9rem;
+      padding: 0.6rem 1.5rem;
+    }
+
+    .btn-reveal:hover { opacity: 0.85; }
+    .btn-reveal:disabled { opacity: 0.35; cursor: default; }
+
+    .btn-resolve {
+      background: var(--success);
+      color: #0d1117;
+      font-size: 0.9rem;
+      padding: 0.6rem 1.5rem;
+    }
+
+    .btn-resolve:hover { opacity: 0.85; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="h-brand">
+    <div class="h-title">🖥 IT Helpdesk</div>
+    <div class="h-sub">8 support tickets · Identify the problem · Clarify the issue · Resolve</div>
+  </div>
+
+  <div class="scores">
+    <div class="team-box">
+      <span class="team-name" contenteditable="true" spellcheck="false">Team A</span>
+      <button class="btn-small" onclick="addScore('a',-1)">−</button>
+      <span class="team-score" id="score-a">0</span>
+      <button class="btn-small" onclick="addScore('a',1)">+</button>
+    </div>
+    <div class="team-box">
+      <span class="team-name" contenteditable="true" spellcheck="false">Team B</span>
+      <button class="btn-small" onclick="addScore('b',-1)">−</button>
+      <span class="team-score" id="score-b">0</span>
+      <button class="btn-small" onclick="addScore('b',1)">+</button>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:0.5rem;align-items:center">
+    <button class="btn-phrase" id="btn-phrases" onclick="togglePhrases()">📋 Phrases</button>
+    <button class="btn-reset" onclick="reset()">↺ Reset</button>
+  </div>
+</header>
+
+<!-- Phrase Reference -->
+<div class="phrase-panel" id="phrase-panel">
+  <div class="phrase-col">
+    <div class="phrase-label">Identify a Problem</div>
+    <ul>
+      <li>The main concern is...</li>
+      <li>It appears there's an issue with...</li>
+      <li>We seem to be facing a problem with...</li>
+      <li>It seems like something is wrong with...</li>
+      <li>The challenge we need to address is...</li>
+    </ul>
+  </div>
+  <div class="phrase-col">
+    <div class="phrase-label">Clarify a Problem</div>
+    <ul>
+      <li>Just to clarify, the problem is...</li>
+      <li>So, what you're saying is that...</li>
+      <li>Do you mean that...?</li>
+      <li>Let me make sure I understand...</li>
+      <li>Could you explain the issue again?</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Grid View -->
+<div id="view-grid">
+  <div class="grid" id="grid"></div>
+</div>
+
+<!-- Ticket Detail View -->
+<div id="view-ticket">
+  <div class="ticket-nav">
+    <button class="btn-back" onclick="showGrid()">← Back to Tickets</button>
+    <div>
+      <div class="ticket-detail-id" id="detail-id"></div>
+      <div class="ticket-detail-title" id="detail-title"></div>
+    </div>
+  </div>
+
+  <div class="complaint-section">
+    <div class="section-label">The Complaint</div>
+    <div class="complaint-box">
+      <div class="complaint-text" id="detail-complaint"></div>
+    </div>
+  </div>
+
+  <div class="reveal-sections">
+    <div class="reveal-box problem-box" id="box-problem">
+      <div class="problem-label">Actual Problem</div>
+      <div class="problem-text" id="detail-problem"></div>
+    </div>
+    <div class="reveal-box phrases-box" id="box-phrases">
+      <div class="phrases-label-box">Model Phrases</div>
+      <div class="model-phrase">
+        <div class="model-phrase-label">IDENTIFY</div>
+        <div class="model-phrase-text" id="detail-identify"></div>
+      </div>
+      <div class="model-phrase">
+        <div class="model-phrase-label">CLARIFY</div>
+        <div class="model-phrase-text" id="detail-clarify"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ticket-actions">
+    <button class="btn-reveal" id="btn-reveal-problem" onclick="revealProblem()">🔍 Reveal: What's the actual problem?</button>
+    <button class="btn-reveal hidden" id="btn-reveal-phrases" onclick="revealPhrases()">💬 Show Model Phrases</button>
+    <button class="btn-resolve hidden" id="btn-resolve" onclick="resolveTicket()">✓ Mark as Resolved</button>
+  </div>
+</div>
+
+<script>
+const TICKETS = [
+  {
+    id: '001',
+    title: 'Nothing works since this morning',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="7" width="30" height="19" rx="2"/><path d="M2 30 L38 30 L34 26 L6 26 Z"/><line x1="16" y1="30" x2="24" y2="30"/></svg>`,
+    complaint: '"My laptop was fine yesterday, but since I switched it on this morning, nothing works properly. The internet is very slow and one of my programmes crashed twice. I haven\'t changed anything."',
+    problem: 'A system update installed overnight is still processing in the background, consuming memory and network bandwidth.',
+    identify: '"It appears there\'s an issue with a background process — possibly an overnight system update that hasn\'t finished installing."',
+    clarify: '"Just to clarify, the problem is that the system is running slowly because all its resources are being used by the update."'
+  },
+  {
+    id: '002',
+    title: 'The printer is lying to me',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="14" width="26" height="16" rx="2"/><path d="M12 14 L12 7 L28 7 L28 14"/><rect x="12" y="22" width="16" height="10"/><line x1="12" y1="18" x2="15" y2="18"/></svg>`,
+    complaint: '"The printer says it\'s ready and online but when I press print, absolutely nothing happens. I\'ve tried three times — I can hear it make a noise but nothing comes out. I\'ve checked and the paper is definitely in the tray."',
+    problem: 'The print queue has a stuck job from a previous session that is blocking all new print requests.',
+    identify: '"It seems like something is wrong with your print queue — a stuck job from earlier is blocking everything else."',
+    clarify: '"So, what you\'re saying is that the printer receives the job and makes a noise, but the page never actually comes out?"'
+  },
+  {
+    id: '003',
+    title: 'My password stopped working',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="18" width="22" height="16" rx="3"/><path d="M14 18 L14 13 C14 8 26 8 26 13 L26 18"/><circle cx="20" cy="26" r="2" fill="currentColor" stroke="none"/><line x1="20" y1="28" x2="20" y2="31"/></svg>`,
+    complaint: '"I tried to log in and it said my password was wrong. But I know it\'s right — I use it every day. I tried three times and then it locked me out completely. I can\'t get into anything."',
+    problem: 'The password expired automatically overnight and the system locked the account after three failed attempts with the old password.',
+    identify: '"The main concern is that your account has been locked — most likely because your password expired and triggered an automatic security lockout."',
+    clarify: '"Let me make sure I understand — you entered the same password you always use, but the system said it was incorrect each time?"'
+  },
+  {
+    id: '004',
+    title: 'My document has disappeared',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 36 L8 10 L22 10 L32 20 L32 36 Z"/><path d="M22 10 L22 20 L32 20"/><line x1="13" y1="25" x2="27" y2="25"/><line x1="13" y1="30" x2="22" y2="30"/></svg>`,
+    complaint: '"I was working on a really important document all day yesterday and now I can\'t find it anywhere. I definitely saved it — I remember clicking save at the end. It was right there on my desktop. Now it\'s just gone."',
+    problem: 'The file was saved to a temporary auto-recovery location rather than the intended folder. The desktop shortcut may have been accidentally removed.',
+    identify: '"The challenge we need to address is locating where the file was actually saved — it may be in a temporary or unexpected folder rather than the desktop."',
+    clarify: '"Could you explain the issue again? When you clicked save, did you use Save or Save As? And do you remember which folder was shown in the save dialogue?"'
+  },
+  {
+    id: '005',
+    title: 'They can see me but can\'t hear me',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="5" width="12" height="20" rx="6"/><path d="M8 22 C8 30 32 30 32 22"/><line x1="20" y1="30" x2="20" y2="36"/><line x1="14" y1="36" x2="26" y2="36"/></svg>`,
+    complaint: '"I joined the online meeting and everyone could see my face on the screen perfectly. But nobody could hear me speaking at all. I tried speaking louder and moving closer to the laptop but it didn\'t make any difference."',
+    problem: 'The wrong audio input device is selected in the meeting application settings. The microphone is muted or a different input (e.g. headset) is selected instead of the built-in microphone.',
+    identify: '"We seem to be facing a problem with your microphone settings — the meeting app appears to be using the wrong audio input device."',
+    clarify: '"Do you mean that your microphone works in other applications, or does the sound problem happen in every programme you try?"'
+  },
+  {
+    id: '006',
+    title: 'My screen is impossible to read',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="32" height="22" rx="2"/><line x1="4" y1="23" x2="36" y2="23"/><path d="M15 34 L20 28 L25 34"/><line x1="12" y1="34" x2="28" y2="34"/></svg>`,
+    complaint: '"I moved to a different desk today and I can\'t see my screen properly at all. It\'s either too bright or there\'s a terrible reflection from the window. I\'ve tried moving my chair but it\'s still a problem every time I look at the screen."',
+    problem: 'The screen brightness is not set correctly for the new environment, and auto-brightness is disabled. The screen angle is creating glare from overhead or window lighting.',
+    identify: '"It appears there\'s an issue with your screen settings — the brightness level isn\'t adapted to your new workspace, and the angle may be causing glare."',
+    clarify: '"So, what you\'re saying is that you\'ve tried adjusting your position, but you\'re still unable to see clearly because of the brightness or reflection?"'
+  },
+  {
+    id: '007',
+    title: 'A strange message keeps appearing',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 L36 34 L4 34 Z"/><line x1="20" y1="17" x2="20" y2="26"/><circle cx="20" cy="30" r="1.5" fill="currentColor" stroke="none"/></svg>`,
+    complaint: '"Every time I open a specific programme, a box pops up with a message and some numbers in it. I always just click OK and then it seems to work fine. But the exact same box comes back every single time I open the programme."',
+    problem: 'The software is generating an error code on startup because it needs updating or has a version conflict with the current operating system.',
+    identify: '"The main concern is that the software is generating a recurring error code on startup — most likely because it needs updating or has a version conflict."',
+    clarify: '"Let me make sure I understand — the programme works normally after you click OK, but the exact same error message appears every time you open it?"'
+  },
+  {
+    id: '008',
+    title: 'The wifi works — but also doesn\'t',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16 C10 9 30 9 36 16"/><path d="M9 22 C13 17 27 17 31 22"/><path d="M14 27 C16 25 24 25 26 27"/><circle cx="20" cy="33" r="2" fill="currentColor" stroke="none"/></svg>`,
+    complaint: '"I\'m connected to the wifi and the connection bar is full. Some websites load completely fine. But other websites just don\'t load at all, or they take forever. I don\'t understand — why do some work and others don\'t?"',
+    problem: 'Certain websites are being blocked by the school\'s network firewall or content filter. The internet connection itself is working normally.',
+    identify: '"It seems like something is wrong with your network access permissions — the wifi is connected but certain sites appear to be filtered or blocked."',
+    clarify: '"Could you explain the issue again? Can you give me an example of a site that works and one that doesn\'t — that will help us identify whether it\'s a firewall issue."'
+  }
+];
+
+let state = {
+  resolved: new Set(),
+  active: null,
+  phase: 0,
+  scores: { a: 0, b: 0 },
+  phrasesVisible: false
+};
+
+function render() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  TICKETS.forEach(t => {
+    const done = state.resolved.has(t.id);
+    const card = document.createElement('div');
+    card.className = 'ticket-card' + (done ? ' resolved' : '');
+    card.onclick = done ? null : () => openTicket(t.id);
+    card.innerHTML = `
+      <div class="ticket-icon">${t.icon}</div>
+      <div class="ticket-num">#${t.id}</div>
+      <div class="ticket-title">${t.title}</div>
+      <div class="ticket-badge ${done ? 'resolved-badge' : 'pending'}">${done ? '✓ RESOLVED' : 'PENDING'}</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function openTicket(id) {
+  const t = TICKETS.find(x => x.id === id);
+  if (!t) return;
+  state.active = id;
+  state.phase = 0;
+
+  document.getElementById('detail-id').textContent = `#${t.id}`;
+  document.getElementById('detail-title').textContent = t.title;
+  document.getElementById('detail-complaint').textContent = t.complaint;
+  document.getElementById('detail-problem').textContent = t.problem;
+  document.getElementById('detail-identify').textContent = t.identify;
+  document.getElementById('detail-clarify').textContent = t.clarify;
+
+  document.getElementById('box-problem').classList.remove('show');
+  document.getElementById('box-phrases').classList.remove('show');
+  document.getElementById('btn-reveal-problem').classList.remove('hidden');
+  document.getElementById('btn-reveal-phrases').classList.add('hidden');
+  document.getElementById('btn-resolve').classList.add('hidden');
+
+  document.getElementById('view-grid').style.display = 'none';
+  document.getElementById('view-ticket').classList.add('show');
+}
+
+function showGrid() {
+  document.getElementById('view-ticket').classList.remove('show');
+  document.getElementById('view-grid').style.display = '';
+  state.active = null;
+}
+
+function revealProblem() {
+  document.getElementById('box-problem').classList.add('show');
+  document.getElementById('btn-reveal-problem').classList.add('hidden');
+  document.getElementById('btn-reveal-phrases').classList.remove('hidden');
+  state.phase = 1;
+}
+
+function revealPhrases() {
+  document.getElementById('box-phrases').classList.add('show');
+  document.getElementById('btn-reveal-phrases').classList.add('hidden');
+  document.getElementById('btn-resolve').classList.remove('hidden');
+  state.phase = 2;
+}
+
+function resolveTicket() {
+  if (state.active) {
+    state.resolved.add(state.active);
+  }
+  showGrid();
+  render();
+}
+
+function addScore(team, delta) {
+  state.scores[team] = Math.max(0, state.scores[team] + delta);
+  const el = document.getElementById('score-' + team);
+  el.textContent = state.scores[team];
+  el.classList.remove('bump');
+  void el.offsetWidth;
+  el.classList.add('bump');
+  setTimeout(() => el.classList.remove('bump'), 200);
+}
+
+function togglePhrases() {
+  state.phrasesVisible = !state.phrasesVisible;
+  document.getElementById('phrase-panel').classList.toggle('show', state.phrasesVisible);
+  document.getElementById('btn-phrases').classList.toggle('active', state.phrasesVisible);
+}
+
+function reset() {
+  if (!confirm('Reset all tickets and scores?')) return;
+  state = { resolved: new Set(), active: null, phase: 0, scores: { a: 0, b: 0 }, phrasesVisible: false };
+  document.getElementById('score-a').textContent = '0';
+  document.getElementById('score-b').textContent = '0';
+  document.getElementById('phrase-panel').classList.remove('show');
+  document.getElementById('btn-phrases').classList.remove('active');
+  showGrid();
+  render();
+}
+
+render();
+</script>
+</body>
+</html>

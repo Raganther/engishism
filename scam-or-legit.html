@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scam or Legit? — Money & Present Perfect</title>
+  <style>
+    :root {
+      --bg:      #0d1117;
+      --surface: #161b22;
+      --card:    #1c1a10;
+      --border:  #3a3010;
+      --text:    #e6edf3;
+      --muted:   #6e7681;
+      --accent:  #e6ac00;
+      --scam:    #f85149;
+      --legit:   #3fb950;
+      --pending: #58a6ff;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 2px solid var(--accent);
+      padding: 0.6rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .h-brand { flex: 1; }
+
+    .h-title {
+      font-size: 1.25rem;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 0.04em;
+    }
+
+    .h-sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.1rem;
+    }
+
+    /* ── Scores ──────────────────────────────────────────────── */
+    .scores { display: flex; gap: 0.75rem; }
+
+    .team-box {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.3rem 0.7rem;
+    }
+
+    .team-name {
+      font-size: 0.82rem;
+      font-weight: 700;
+      min-width: 52px;
+      outline: none;
+      cursor: text;
+    }
+
+    .team-name:focus { border-bottom: 1px solid var(--accent); }
+
+    .team-score {
+      font-size: 1.5rem;
+      font-weight: 900;
+      min-width: 2ch;
+      text-align: center;
+      color: var(--accent);
+      transition: transform 0.2s;
+    }
+
+    .team-score.bump { transform: scale(1.5); }
+
+    button {
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 700;
+      border-radius: 6px;
+      border: none;
+      transition: all 0.15s;
+    }
+
+    .btn-small {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 1rem;
+      padding: 0.1rem 0.45rem;
+    }
+
+    .btn-small:hover { border-color: var(--accent); color: var(--accent); }
+
+    .btn-grammar {
+      background: none;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-size: 0.82rem;
+      padding: 0.35rem 0.9rem;
+    }
+
+    .btn-grammar:hover { background: rgba(230,172,0,0.1); }
+    .btn-grammar.active { background: var(--accent); color: #0d1117; }
+
+    .btn-reset {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.82rem;
+      padding: 0.35rem 0.9rem;
+    }
+
+    .btn-reset:hover { border-color: var(--scam); color: var(--scam); }
+
+    /* ── Grammar Panel ───────────────────────────────────────── */
+    .grammar-panel {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.5rem;
+      display: none;
+      gap: 3rem;
+      flex-shrink: 0;
+    }
+
+    .grammar-panel.show { display: flex; }
+
+    .grammar-col { flex: 1; }
+
+    .grammar-label {
+      font-size: 0.62rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.4rem;
+    }
+
+    .grammar-col ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.18rem;
+    }
+
+    .grammar-col li {
+      font-size: 0.8rem;
+      color: var(--muted);
+      padding-left: 0.8rem;
+      position: relative;
+    }
+
+    .grammar-col li::before {
+      content: "·";
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+    }
+
+    /* ── Legend ──────────────────────────────────────────────── */
+    .legend {
+      display: none;
+      gap: 1.5rem;
+      padding: 0.4rem 1.5rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.75rem;
+      color: var(--muted);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .legend.show { display: flex; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; display: inline-block; margin-right: 0.3rem; }
+
+    /* ── Grid ────────────────────────────────────────────────── */
+    #view-grid {
+      flex: 1;
+      padding: 1rem 1.5rem;
+      overflow-y: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.85rem;
+    }
+
+    .scenario-card {
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem 0.75rem 0.8rem;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.3rem;
+      text-align: center;
+      transition: all 0.18s;
+      user-select: none;
+    }
+
+    .scenario-card:not(.done):hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 14px rgba(230,172,0,0.15);
+    }
+
+    .scenario-card.done { cursor: default; }
+    .scenario-card.is-scam  { border-color: var(--scam);  background: rgba(248,81,73,0.06); }
+    .scenario-card.is-legit { border-color: var(--legit); background: rgba(63,185,80,0.06); }
+
+    .card-icon {
+      width: 36px;
+      height: 36px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .scenario-card.is-scam  .card-icon { color: var(--scam); }
+    .scenario-card.is-legit .card-icon { color: var(--legit); }
+
+    .card-num {
+      font-size: 0.6rem;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      font-family: monospace;
+    }
+
+    .card-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      line-height: 1.3;
+      color: var(--text);
+    }
+
+    .scenario-card.is-scam  .card-title { color: var(--scam); }
+    .scenario-card.is-legit .card-title { color: var(--legit); }
+
+    .card-badge {
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      margin-top: 0.1rem;
+    }
+
+    .badge-pending { background: rgba(88,166,255,0.12); color: var(--pending); }
+    .badge-scam    { background: rgba(248,81,73,0.18);  color: var(--scam); }
+    .badge-legit   { background: rgba(63,185,80,0.18);  color: var(--legit); }
+
+    /* ── Detail View ─────────────────────────────────────────── */
+    #view-detail {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    #view-detail.show { display: flex; }
+
+    .detail-nav {
+      padding: 0.7rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-shrink: 0;
+    }
+
+    .btn-back {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.82rem;
+      padding: 0.35rem 0.9rem;
+    }
+
+    .btn-back:hover { border-color: var(--accent); color: var(--accent); }
+
+    .detail-id {
+      font-size: 0.68rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      font-family: monospace;
+    }
+
+    .detail-title-text {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    /* Scenario section */
+    .scenario-section {
+      margin: 0 1.5rem 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .section-label {
+      font-size: 0.62rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.45rem;
+    }
+
+    .scenario-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.75rem;
+    }
+
+    .scenario-text {
+      font-size: clamp(1rem, 2.2vw, 1.35rem);
+      line-height: 1.65;
+      color: var(--text);
+      font-style: italic;
+    }
+
+    /* Vote prompt */
+    .vote-prompt {
+      margin: 0 1.5rem 0.75rem;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .vote-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+    }
+
+    .vote-buttons {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+    }
+
+    .btn-vote-scam {
+      background: rgba(248,81,73,0.1);
+      border: 2px solid var(--scam);
+      color: var(--scam);
+      font-size: 1rem;
+      padding: 0.6rem 2rem;
+      letter-spacing: 0.06em;
+    }
+
+    .btn-vote-scam:hover  { background: rgba(248,81,73,0.2); }
+    .btn-vote-scam.active { background: rgba(248,81,73,0.25); }
+
+    .btn-vote-legit {
+      background: rgba(63,185,80,0.1);
+      border: 2px solid var(--legit);
+      color: var(--legit);
+      font-size: 1rem;
+      padding: 0.6rem 2rem;
+      letter-spacing: 0.06em;
+    }
+
+    .btn-vote-legit:hover  { background: rgba(63,185,80,0.2); }
+    .btn-vote-legit.active { background: rgba(63,185,80,0.25); }
+
+    /* Reveal boxes */
+    .reveal-area {
+      padding: 0 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      flex: 1;
+    }
+
+    .reveal-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.4rem;
+      display: none;
+    }
+
+    .reveal-box.show { display: block; }
+
+    .verdict-box {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .verdict-badge {
+      font-size: 1.6rem;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .verdict-badge.scam  { color: var(--scam); }
+    .verdict-badge.legit { color: var(--legit); }
+
+    .verdict-text {
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: var(--text);
+    }
+
+    .flags-box { }
+
+    .flags-label {
+      font-size: 0.65rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--scam);
+      margin-bottom: 0.6rem;
+    }
+
+    .safe-label {
+      font-size: 0.65rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--legit);
+      margin-bottom: 0.6rem;
+    }
+
+    .flags-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .flags-list li {
+      font-size: 0.88rem;
+      color: var(--muted);
+      padding-left: 1.1rem;
+      position: relative;
+      line-height: 1.4;
+    }
+
+    .flags-list li::before {
+      position: absolute;
+      left: 0;
+      font-weight: 900;
+    }
+
+    .flags-list.scam-flags li::before  { content: "⚑"; color: var(--scam); }
+    .flags-list.safe-flags li::before  { content: "✓"; color: var(--legit); }
+
+    .grammar-hook-box { }
+
+    .grammar-hook-label {
+      font-size: 0.65rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+
+    .grammar-hook-text {
+      font-size: 0.9rem;
+      color: var(--text);
+      font-style: italic;
+      line-height: 1.5;
+    }
+
+    /* Actions */
+    .detail-actions {
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      gap: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .btn-reveal {
+      background: var(--accent);
+      color: #0d1117;
+      font-size: 0.9rem;
+      padding: 0.55rem 1.4rem;
+    }
+
+    .btn-reveal:hover { opacity: 0.85; }
+
+    .btn-flags {
+      background: none;
+      border: 1px solid var(--scam);
+      color: var(--scam);
+      font-size: 0.9rem;
+      padding: 0.55rem 1.4rem;
+    }
+
+    .btn-flags.legit-btn { border-color: var(--legit); color: var(--legit); }
+    .btn-flags:hover { opacity: 0.8; }
+
+    .btn-mark {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 0.55rem 1.4rem;
+    }
+
+    .btn-mark:hover { border-color: var(--legit); color: var(--legit); }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="h-brand">
+    <div class="h-title">💰 Scam or Legit?</div>
+    <div class="h-sub">10 financial situations · Discuss using "Have you ever...?" · Spot the con</div>
+  </div>
+
+  <div class="scores">
+    <div class="team-box">
+      <span class="team-name" contenteditable="true" spellcheck="false">Team A</span>
+      <button class="btn-small" onclick="addScore('a',-1)">−</button>
+      <span class="team-score" id="score-a">0</span>
+      <button class="btn-small" onclick="addScore('a',1)">+</button>
+    </div>
+    <div class="team-box">
+      <span class="team-name" contenteditable="true" spellcheck="false">Team B</span>
+      <button class="btn-small" onclick="addScore('b',-1)">−</button>
+      <span class="team-score" id="score-b">0</span>
+      <button class="btn-small" onclick="addScore('b',1)">+</button>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:0.5rem;align-items:center">
+    <button class="btn-grammar" id="btn-grammar" onclick="toggleGrammar()">📝 Grammar</button>
+    <button class="btn-reset" onclick="reset()">↺ Reset</button>
+  </div>
+</header>
+
+<!-- Grammar Reference Panel -->
+<div class="grammar-panel" id="grammar-panel">
+  <div class="grammar-col">
+    <div class="grammar-label">Present Perfect — Use for</div>
+    <ul>
+      <li>Life experience with no specific time: <em>Have you ever won...?</em></li>
+      <li>Very recent events: <em>I've just inherited some money.</em></li>
+      <li>With just / already / yet / ever / never</li>
+    </ul>
+  </div>
+  <div class="grammar-col">
+    <div class="grammar-label">Past Simple — Use for</div>
+    <ul>
+      <li>Specific time reference: <em>I won £200 three years ago.</em></li>
+      <li>With yesterday / last week / in 2020 / ago</li>
+    </ul>
+  </div>
+  <div class="grammar-col">
+    <div class="grammar-label">Have You Ever...?</div>
+    <ul>
+      <li>...saved up for something?</li>
+      <li>...been the victim of a scam?</li>
+      <li>...lost your wallet or purse?</li>
+      <li>...received a suspicious email?</li>
+      <li>...won money in a lottery?</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Legend (shown after first reveal) -->
+<div class="legend" id="legend">
+  <strong style="color:var(--text)">Results:</strong>
+  <span><span class="dot" style="background:var(--scam)"></span>Scam — watch out</span>
+  <span><span class="dot" style="background:var(--legit)"></span>Legit — safe</span>
+  <span><span class="dot" style="background:var(--pending)"></span>Not yet revealed</span>
+</div>
+
+<!-- Grid View -->
+<div id="view-grid">
+  <div class="grid" id="grid"></div>
+</div>
+
+<!-- Detail View -->
+<div id="view-detail">
+  <div class="detail-nav">
+    <button class="btn-back" onclick="showGrid()">← Back</button>
+    <div>
+      <div class="detail-id" id="detail-num"></div>
+      <div class="detail-title-text" id="detail-title"></div>
+    </div>
+  </div>
+
+  <div class="scenario-section">
+    <div class="section-label">The Situation</div>
+    <div class="scenario-box">
+      <div class="scenario-text" id="detail-scenario"></div>
+    </div>
+  </div>
+
+  <div class="vote-prompt">
+    <div class="vote-label">What does your team think?</div>
+    <div class="vote-buttons">
+      <button class="btn-vote-scam"  onclick="castVote('scam')">🚨 SCAM</button>
+      <button class="btn-vote-legit" onclick="castVote('legit')">✓ LEGIT</button>
+    </div>
+  </div>
+
+  <div class="reveal-area">
+    <div class="reveal-box" id="box-verdict">
+      <div class="verdict-box">
+        <div class="verdict-badge" id="verdict-badge"></div>
+        <div class="verdict-text" id="verdict-text"></div>
+      </div>
+    </div>
+    <div class="reveal-box" id="box-flags">
+      <div id="flags-label-el"></div>
+      <ul class="flags-list" id="flags-list"></ul>
+    </div>
+    <div class="reveal-box" id="box-grammar">
+      <div class="grammar-hook-label">Have You Ever...? — Discuss</div>
+      <div class="grammar-hook-text" id="detail-grammar"></div>
+    </div>
+  </div>
+
+  <div class="detail-actions">
+    <button class="btn-reveal" id="btn-reveal-verdict" onclick="revealVerdict()">🔍 Reveal: Scam or Legit?</button>
+    <button class="btn-flags hidden" id="btn-reveal-flags" onclick="revealFlags()">⚑ Show Red Flags</button>
+    <button class="btn-mark hidden" id="btn-mark" onclick="markDone()">✓ Next Scenario</button>
+  </div>
+</div>
+
+<script>
+const SCENARIOS = [
+  {
+    id: '01',
+    title: 'The Nigerian Inheritance',
+    type: 'scam',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="30" height="22" rx="2"/><polyline points="5,10 20,22 35,10"/></svg>`,
+    scenario: `An email arrives from a woman called Naomi Cooper in Lagos, Nigeria. Her parents have just died and left $4.6 million in an international bank account. She is desperate for help. She needs you to transfer the money out of Nigeria for her. In exchange, you can keep 20% — nearly $1 million. She just needs your bank account details. She says there is no risk.`,
+    verdict: 'SCAM',
+    verdictText: 'This is a classic advance-fee fraud — also called a "419 scam". There is no money. Once you share your bank details, criminals can drain your account. The "fee" you are asked to pay disappears.',
+    flags: [
+      'A complete stranger is offering you enormous wealth',
+      'They need YOUR bank details to help THEM',
+      'Strong sense of urgency — "as fast as you can"',
+      'The email contains grammar and spelling mistakes',
+      'The story is designed to make you feel special and trusted'
+    ],
+    grammar: 'Have you ever received an email like this? Have you ever been asked to share your bank details by a stranger?'
+  },
+  {
+    id: '02',
+    title: 'You\'ve Won the Lottery!',
+    type: 'scam',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="26" r="7"/><circle cx="26" cy="26" r="7"/><circle cx="20" cy="16" r="7"/><circle cx="14" cy="26" r="2" fill="currentColor" stroke="none"/><circle cx="26" cy="26" r="2" fill="currentColor" stroke="none"/><circle cx="20" cy="16" r="2" fill="currentColor" stroke="none"/></svg>`,
+    scenario: `You receive an email: "Congratulations! You have been selected as the winner of €50,000 in the European Happiness Lottery draw. To claim your prize, please send a processing fee of €200 and your full bank details to our claims department within 48 hours."`,
+    verdict: 'SCAM',
+    verdictText: 'You cannot win a lottery you never entered. The €200 "processing fee" is the theft. Once you pay, the criminals disappear. There is no prize.',
+    flags: [
+      'You never entered this lottery',
+      'A fee is required to "claim" your prize',
+      'Strong time pressure — 48 hours to respond',
+      'No official lottery name or verifiable organisation',
+      'Asking for bank details alongside the fee payment'
+    ],
+    grammar: 'Have you ever won any money — in a competition or lottery? Have you ever received an email claiming you\'d won something?'
+  },
+  {
+    id: '03',
+    title: 'Help! I\'m Stuck Abroad',
+    type: 'scam',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="6" width="24" height="28" rx="3"/><rect x="13" y="11" width="14" height="8" rx="1"/><circle cx="20" cy="28" r="2.5" fill="currentColor" stroke="none"/></svg>`,
+    scenario: `You get a WhatsApp message from what appears to be your friend's number: "Hi! I'm in trouble in Berlin. I've lost my wallet and my phone is nearly dead. I need £300 urgently to get home. Please transfer it to this account: [new account number]. I promise I'll pay you back first thing tomorrow."`,
+    verdict: 'SCAM',
+    verdictText: 'This is a "friend in trouble" scam. Criminals hack or clone your friend\'s phone number. The urgency stops you thinking clearly. Your friend is fine — they have no idea this is happening.',
+    flags: [
+      'Extreme urgency — phone is "nearly dead" creates panic',
+      'A new, unfamiliar bank account number',
+      'No video call or voice note to verify it\'s really them',
+      'The story is emotional and designed to bypass logic',
+      'Simple fix: call your friend directly on a different number'
+    ],
+    grammar: 'Has a friend ever asked you to lend them money urgently? Have you ever lent money to someone who promised to pay you back the next day?'
+  },
+  {
+    id: '04',
+    title: 'Call from Your Bank',
+    type: 'scam',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 8 C10 8 8 12 10 16 C12 20 16 20 16 20 L20 24 C20 24 22 28 26 28 C30 28 32 26 32 26 L26 20 C26 20 24 22 22 20 C20 18 22 16 22 16 L16 10 C16 10 14 8 10 8 Z"/></svg>`,
+    scenario: `Your phone rings. It's a woman who says she's calling from your bank's fraud department. She says someone has just tried to access your account from abroad. To protect your money, she needs you to confirm your PIN and then transfer your savings into a "secure holding account" she has set up for you.`,
+    verdict: 'SCAM',
+    verdictText: 'Banks NEVER ask for your PIN — not by phone, email, or any other way. "Safe" or "secure" account transfers are how this scam works: you transfer your own money to the criminal.',
+    flags: [
+      'Your bank will NEVER ask for your PIN',
+      '"Safe account" transfers — you send your own money to criminals',
+      'The call feels official — that\'s the point',
+      'Real fix: hang up, wait 5 minutes, call your bank\'s official number',
+      'The scammer may even "confirm" your name and address — this proves nothing'
+    ],
+    grammar: 'Have you ever had a suspicious phone call? Has your bank ever called you about a problem with your account?'
+  },
+  {
+    id: '05',
+    title: 'Guaranteed 40% Returns',
+    type: 'scam',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,30 14,20 20,24 28,12 34,16"/><polyline points="28,12 34,12 34,18"/></svg>`,
+    scenario: `An Instagram ad catches your eye: "Turn £500 into £5,000 in just 30 days. Guaranteed returns. Our members have already made millions. Only 10 spots left — direct message us NOW before it's too late."`,
+    verdict: 'SCAM',
+    verdictText: 'No investment guarantees returns — that\'s not how investing works. This is a Ponzi scheme: early investors are paid using money from new investors. It collapses when there are no new victims.',
+    flags: [
+      '"Guaranteed returns" — real investments always carry risk',
+      'Urgency — "only 10 spots left" stops you researching properly',
+      'Promoted on social media with no official registration',
+      'Returns of 900% in 30 days are impossible through legitimate means',
+      'No information about how the money is actually invested'
+    ],
+    grammar: 'Have you ever invested any money? Have you ever seen an advert that promised something that seemed too good to be true?'
+  },
+  {
+    id: '06',
+    title: 'Amazing Designer Trainers — 80% Off',
+    type: 'scam',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 26 C4 26 8 18 20 18 C32 18 36 24 36 24 L36 28 C36 28 4 30 4 28 Z"/><path d="M8 18 C10 14 12 12 16 12 L22 12 C26 12 28 15 28 18"/><line x1="4" y1="28" x2="36" y2="28"/></svg>`,
+    scenario: `You find a website selling limited-edition designer trainers at 80% off the original price. The site looks professional and modern. There are five-star customer reviews. It accepts all major credit cards. You order a pair. Three weeks pass. Nothing arrives. The site has disappeared.`,
+    verdict: 'SCAM',
+    verdictText: 'Fake online shops are one of the most common scams. The professional design and fake reviews are part of the deception. Your card details may also have been stolen in the process.',
+    flags: [
+      'Prices far below any legitimate retailer — 80% off is not realistic',
+      'No verifiable physical address or phone number',
+      'Reviews cannot be verified — they may be entirely fake',
+      'The domain was registered recently and has no trading history',
+      'No returns policy or customer service contact'
+    ],
+    grammar: 'Have you ever bought something online that turned out to be a scam? Have you ever wasted money on something that never arrived?'
+  },
+  {
+    id: '07',
+    title: 'Second-Hand iPhone on eBay',
+    type: 'legit',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="11" y="4" width="18" height="32" rx="3"/><circle cx="20" cy="31" r="2" fill="currentColor" stroke="none"/><line x1="15" y1="9" x2="25" y2="9"/></svg>`,
+    scenario: `A seller on eBay is offering a second-hand iPhone for £280. Similar phones cost around £350 in shops. The seller has 912 positive reviews, a 100% feedback score, and has been a member since 2017. The listing includes clear photos and a detailed description. eBay buyer protection is included.`,
+    verdict: 'LEGIT',
+    verdictText: 'This is a legitimate transaction with strong safety indicators. A high number of verified reviews, a long trading history, eBay buyer protection, and a reasonable price all point to a trustworthy seller.',
+    flags: [
+      '912 verified reviews with 100% positive feedback',
+      'Member since 2017 — long, established trading history',
+      'Price is lower than new but not suspiciously low',
+      'eBay buyer protection covers you if anything goes wrong',
+      'Detailed photos and honest description'
+    ],
+    grammar: 'Have you ever bought or sold anything on eBay or a similar site? Have you ever found a really good bargain online?'
+  },
+  {
+    id: '08',
+    title: 'Savings Account — 4.5% Interest',
+    type: 'legit',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="14" width="30" height="20" rx="2"/><path d="M5 20 L35 20"/><path d="M13 8 L20 14 L27 8"/><line x1="12" y1="26" x2="18" y2="26"/><line x1="12" y1="30" x2="16" y2="30"/></svg>`,
+    scenario: `Your bank sends you a letter — on headed paper with the bank's official logo and your full name and address — offering a new savings account at 4.5% annual interest. There are no fees. To open the account, you need to make an appointment at your local branch in person.`,
+    verdict: 'LEGIT',
+    verdictText: 'Official correspondence from your own bank, a reasonable interest rate, in-person account opening, and no fees are all signs of a legitimate offer. Always verify by checking your bank\'s website or calling the number on the back of your card.',
+    flags: [
+      'Official headed letter from a bank you already use',
+      '4.5% is a realistic and competitive savings rate',
+      'Account opened in person at a branch — not online',
+      'No fees, no upfront payment required',
+      'Easily verified by calling your bank\'s official number'
+    ],
+    grammar: 'Have you ever saved up for something for a long time? Have you ever taken out a bank account or savings plan?'
+  },
+  {
+    id: '09',
+    title: 'Job Offer on LinkedIn',
+    type: 'legit',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="20" cy="12" r="6"/><path d="M10 38 C10 28 14 24 20 24 C26 24 30 28 30 38"/><rect x="8" y="18" width="24" height="12" rx="1" stroke="none" fill="none"/></svg>`,
+    scenario: `A company contacts you on LinkedIn after seeing your profile. They are recruiting for a customer service role paying £24,000 per year. They ask for your CV and invite you to an online interview. At no point do they ask for any payment, a registration fee, or your bank details.`,
+    verdict: 'LEGIT',
+    verdictText: 'This follows a completely normal recruitment process. No money ever changes hands in legitimate job recruitment. The only red flag would be if they asked for any kind of payment — they don\'t.',
+    flags: [
+      'No money asked for at any stage',
+      'Salary is realistic and transparent',
+      'Standard recruitment steps: CV, interview, offer',
+      'Company has a verifiable LinkedIn presence',
+      'Rule: if any job asks for payment, it is a scam'
+    ],
+    grammar: 'Have you ever applied for a job online? Have you ever been contacted by a company that seemed suspicious?'
+  },
+  {
+    id: '10',
+    title: 'Cashback App — 3% Back',
+    type: 'legit',
+    icon: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="8" width="30" height="20" rx="3"/><line x1="5" y1="16" x2="35" y2="16"/><line x1="10" y1="24" x2="16" y2="24"/><circle cx="28" cy="30" r="7"/><path d="M25 30 L27 32 L32 27"/></svg>`,
+    scenario: `A cashback app promises 3% back when you shop at partner stores like supermarkets and online retailers. It asks for your email address and connects to your existing payment card. It does NOT ask for your account password, your PIN, or any money upfront. It earns commission from retailers when you use it.`,
+    verdict: 'LEGIT',
+    verdictText: 'Cashback apps are a genuine business model. The company earns a commission from retailers each time you shop, and passes part of that back to you. 3% is a realistic rate. The critical safety sign: they never ask for your PIN or password.',
+    flags: [
+      'No PIN, no password, no upfront payment requested',
+      '3% cashback is realistic — not too good to be true',
+      'Transparent business model: commission from retailers',
+      'Only asks for email and card connection — standard',
+      'Check reviews on an app store before installing'
+    ],
+    grammar: 'Have you ever used a cashback app or loyalty card? Have you ever saved money by using a special offer or app?'
+  }
+];
+
+let state = {
+  done: new Set(),
+  active: null,
+  phase: 0,
+  scores: { a: 0, b: 0 },
+  grammarVisible: false,
+  teamVote: null
+};
+
+function render() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  SCENARIOS.forEach(s => {
+    const done = state.done.has(s.id);
+    const card = document.createElement('div');
+    card.className = 'scenario-card' + (done ? (' done is-' + s.type) : '');
+    card.onclick = done ? null : () => openScenario(s.id);
+
+    let badge, badgeClass;
+    if (!done) { badge = 'PENDING'; badgeClass = 'badge-pending'; }
+    else if (s.type === 'scam') { badge = '🚨 SCAM'; badgeClass = 'badge-scam'; }
+    else { badge = '✓ LEGIT'; badgeClass = 'badge-legit'; }
+
+    card.innerHTML = `
+      <div class="card-icon">${s.icon}</div>
+      <div class="card-num">#${s.id}</div>
+      <div class="card-title">${s.title}</div>
+      <div class="card-badge ${badgeClass}">${badge}</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function openScenario(id) {
+  const s = SCENARIOS.find(x => x.id === id);
+  if (!s) return;
+  state.active = id;
+  state.phase = 0;
+  state.teamVote = null;
+
+  document.getElementById('detail-num').textContent = `#${s.id}`;
+  document.getElementById('detail-title').textContent = s.title;
+  document.getElementById('detail-scenario').textContent = s.scenario;
+  document.getElementById('detail-grammar').textContent = s.grammar;
+
+  // Reset reveal boxes
+  document.getElementById('box-verdict').classList.remove('show');
+  document.getElementById('box-flags').classList.remove('show');
+  document.getElementById('box-grammar').classList.remove('show');
+
+  // Reset vote buttons
+  document.querySelector('.btn-vote-scam').classList.remove('active');
+  document.querySelector('.btn-vote-legit').classList.remove('active');
+
+  // Reset action buttons
+  document.getElementById('btn-reveal-verdict').classList.remove('hidden');
+  document.getElementById('btn-reveal-flags').classList.add('hidden');
+  document.getElementById('btn-mark').classList.add('hidden');
+
+  document.getElementById('view-grid').style.display = 'none';
+  document.getElementById('view-detail').classList.add('show');
+}
+
+function showGrid() {
+  document.getElementById('view-detail').classList.remove('show');
+  document.getElementById('view-grid').style.display = '';
+  state.active = null;
+}
+
+function castVote(vote) {
+  state.teamVote = vote;
+  document.querySelector('.btn-vote-scam').classList.toggle('active', vote === 'scam');
+  document.querySelector('.btn-vote-legit').classList.toggle('active', vote === 'legit');
+}
+
+function revealVerdict() {
+  const s = SCENARIOS.find(x => x.id === state.active);
+  const isScam = s.type === 'scam';
+
+  const badge = document.getElementById('verdict-badge');
+  badge.textContent = isScam ? '🚨 SCAM' : '✓ LEGIT';
+  badge.className = 'verdict-badge ' + s.type;
+
+  document.getElementById('verdict-text').textContent = s.verdictText;
+  document.getElementById('box-verdict').classList.add('show');
+  document.getElementById('legend').classList.add('show');
+
+  document.getElementById('btn-reveal-verdict').classList.add('hidden');
+  document.getElementById('btn-reveal-flags').classList.remove('hidden');
+  document.getElementById('btn-reveal-flags').className = isScam
+    ? 'btn-flags' : 'btn-flags legit-btn';
+  document.getElementById('btn-reveal-flags').textContent = isScam
+    ? '⚑ Show Red Flags' : '✓ Show Why It\'s Safe';
+
+  state.phase = 1;
+}
+
+function revealFlags() {
+  const s = SCENARIOS.find(x => x.id === state.active);
+  const isScam = s.type === 'scam';
+  const labelEl = document.getElementById('flags-label-el');
+  const listEl  = document.getElementById('flags-list');
+
+  labelEl.className = isScam ? 'flags-label' : 'safe-label';
+  labelEl.textContent = isScam ? 'Red Flags' : 'Why It\'s Safe';
+  listEl.className = 'flags-list ' + (isScam ? 'scam-flags' : 'safe-flags');
+  listEl.innerHTML = s.flags.map(f => `<li>${f}</li>`).join('');
+
+  document.getElementById('box-flags').classList.add('show');
+  document.getElementById('box-grammar').classList.add('show');
+  document.getElementById('btn-reveal-flags').classList.add('hidden');
+  document.getElementById('btn-mark').classList.remove('hidden');
+
+  state.phase = 2;
+}
+
+function markDone() {
+  if (state.active) state.done.add(state.active);
+  showGrid();
+  render();
+}
+
+function addScore(team, delta) {
+  state.scores[team] = Math.max(0, state.scores[team] + delta);
+  const el = document.getElementById('score-' + team);
+  el.textContent = state.scores[team];
+  el.classList.remove('bump');
+  void el.offsetWidth;
+  el.classList.add('bump');
+  setTimeout(() => el.classList.remove('bump'), 200);
+}
+
+function toggleGrammar() {
+  state.grammarVisible = !state.grammarVisible;
+  document.getElementById('grammar-panel').classList.toggle('show', state.grammarVisible);
+  document.getElementById('btn-grammar').classList.toggle('active', state.grammarVisible);
+}
+
+function reset() {
+  if (!confirm('Reset all scenarios and scores?')) return;
+  state = { done: new Set(), active: null, phase: 0, scores: { a: 0, b: 0 }, grammarVisible: false, teamVote: null };
+  document.getElementById('score-a').textContent = '0';
+  document.getElementById('score-b').textContent = '0';
+  document.getElementById('grammar-panel').classList.remove('show');
+  document.getElementById('btn-grammar').classList.remove('active');
+  document.getElementById('legend').classList.remove('show');
+  showGrid();
+  render();
+}
+
+render();
+</script>
+</body>
+</html>

@@ -52,14 +52,16 @@ Phase: Activity picker home screen + 12 activity types
 - Session state lives in window.Session — teacher-driven scoring, separate from per-activity modules
 - Navigation inverted: topic picker first → game type picker → play (all 15 types shown, unavailable ones greyed out)
 - Session scoring wired: click a team to select it, all activity point events route to that team
-- 5 lessons: unit-6-scandi-successes, unit-8a, teamwork, negotiation-skills, demo-games
+- 7 lessons: unit-6-scandi-successes, unit-8a, teamwork, negotiation-skills, technology-problems, money-present-perfect, demo-games
 - teamwork.js + negotiation-skills.js: all 15 game types fully populated from handout PDFs
 - Deployed to GitHub Pages: https://raganther.github.io/engishism/
 - Standalone team building activities (separate from main app):
   - desert-island.html — 15 survival items, KEEP/LOSE vote, expert reveal
   - bunker.html — 15 people candidates, 8 bunker spaces, ethical debate + council reveal
 - Landing page at index.html — links to app.html and all standalone activities
-- Next: more lessons, more standalone activities, or meta-game board
+- Standalone activities: desert-island.html, bunker.html, it-helpdesk.html, scam-or-legit.html
+- Lesson generation pipeline: photo → Claude + lesson-prompt.md → lesson file → register in lessons/index.js
+- Next: more lessons from handouts, or new standalone games
 
 ## Constraints
 - Must work on a standard classroom TV/browser — no exotic dependencies
