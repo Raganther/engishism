@@ -89,6 +89,63 @@
 .sb-add:hover   { border-color: var(--green); color: var(--green); }
 .sb-reset:hover { border-color: #f85149;      color: #f85149;      }
 
+/* ── session bar timer ────────────────────────────────────── */
+.sb-timer {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--border);
+}
+
+.sb-tbar-track {
+  width: 90px;
+  height: 7px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.sb-tbar-fill {
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+  transition: width 0.1s linear, background-color 0.4s;
+}
+
+.sb-tbar-fill.urgent  { background: #f85149; }
+
+.sb-tbar-time {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+  min-width: 2ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.3s;
+}
+
+.sb-tbar-time.urgent { color: #f85149; }
+
+.sb-tbar-start,
+.sb-tbar-reload {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sb-tbar-start:hover  { border-color: var(--accent); color: var(--accent); }
+.sb-tbar-reload:hover { border-color: var(--muted);  color: var(--text);   }
+.sb-tbar-start.hidden,
+.sb-tbar-reload.hidden { display: none; }
+
 /* ── module bars ──────────────────────────────────────────── */
 .module-bar {
   display: flex;

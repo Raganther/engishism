@@ -3,6 +3,34 @@
   const TEAM_COLORS  = ['var(--blue)', '#f85149', 'var(--green)', 'var(--accent)'];
   const TEAM_NAMES   = ['Team A', 'Team B', 'Team C', 'Team D'];
 
+  // ── Timer state (persists across session bar re-renders) ────
+  const TIMER_DURATION = 30;
+  let timerLeft     = TIMER_DURATION;
+  let timerRunning  = false;
+  let timerInterval = null;
+
+  function timerTick() {
+    timerLeft = Math.max(0, timerLeft - 0.1);
+    const el   = SessionBar.el;
+    const fill = el.querySelector('.sb-tbar-fill');
+    const time = el.querySelector('.sb-tbar-time');
+    if (fill) {
+      fill.style.width = (timerLeft / TIMER_DURATION * 100) + '%';
+      fill.classList.toggle('urgent', timerLeft <= 10);
+    }
+    if (time) {
+      time.textContent = Math.ceil(timerLeft);
+      time.classList.toggle('urgent', timerLeft <= 10);
+    }
+    if (timerLeft <= 0) {
+      timerRunning = false;
+      clearInterval(timerInterval);
+      timerInterval = null;
+      const start = el.querySelector('.sb-tbar-start');
+      if (start) start.classList.remove('hidden');
+    }
+  }
+
   // ── Session state ───────────────────────────────────────────
   window.Session = {
     teams:      ['Team A', 'Team B'],
@@ -52,11 +80,21 @@
         `;
       }).join('');
 
+      const timerPct = (timerLeft / TIMER_DURATION * 100).toFixed(1);
+
       this.el.innerHTML = `
         ${cards}
         <div class="sb-actions">
           ${teams.length < 4 ? '<button class="sb-add">+ Team</button>' : ''}
           <button class="sb-reset" title="Reset all scores">↺</button>
+          <div class="sb-timer">
+            <div class="sb-tbar-track">
+              <div class="sb-tbar-fill${timerLeft <= 10 ? ' urgent' : ''}" style="width:${timerPct}%"></div>
+            </div>
+            <span class="sb-tbar-time${timerLeft <= 10 ? ' urgent' : ''}">${Math.ceil(timerLeft)}</span>
+            <button class="sb-tbar-start${timerRunning ? ' hidden' : ''}" title="Start timer">▶</button>
+            <button class="sb-tbar-reload${timerLeft >= TIMER_DURATION ? ' hidden' : ''}" title="Reset timer">↺</button>
+          </div>
         </div>
       `;
 
@@ -119,6 +157,39 @@
         ses.teams.forEach(t => { ses.scores[t] = 0; });
         this.render();
       });
+
+      // Timer — start
+      const tStart  = el.querySelector('.sb-tbar-start');
+      const tReload = el.querySelector('.sb-tbar-reload');
+
+      if (tStart) {
+        tStart.addEventListener('click', e => {
+          e.stopPropagation();
+          if (timerRunning) return;
+          timerRunning = true;
+          tStart.classList.add('hidden');
+          const reload = el.querySelector('.sb-tbar-reload');
+          if (reload) reload.classList.remove('hidden');
+          if (timerInterval) clearInterval(timerInterval);
+          timerInterval = setInterval(timerTick, 100);
+        });
+      }
+
+      // Timer — reset
+      if (tReload) {
+        tReload.addEventListener('click', e => {
+          e.stopPropagation();
+          timerRunning = false;
+          if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+          timerLeft = TIMER_DURATION;
+          const fill = el.querySelector('.sb-tbar-fill');
+          const time = el.querySelector('.sb-tbar-time');
+          if (fill)   { fill.style.width = '100%'; fill.classList.remove('urgent'); }
+          if (time)   { time.textContent = TIMER_DURATION; time.classList.remove('urgent'); }
+          tReload.classList.add('hidden');
+          tStart.classList.remove('hidden');
+        });
+      }
 
       // Inline name editing
       el.querySelectorAll('.sb-name').forEach(nameEl => {
