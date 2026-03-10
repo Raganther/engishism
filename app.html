@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Engishism</title>
   <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/themes.css">
 </head>
 <body>
   <div id="app">
@@ -21,6 +22,12 @@
       <button id="btn-next">Next &#8594;</button>
     </nav>
   </div>
+
+  <script>
+    // Restore saved theme before first paint
+    const t = localStorage.getItem('theme');
+    if (t) document.documentElement.dataset.theme = t;
+  </script>
 
   <!-- Engine utilities -->
   <script src="engine/events.js"></script>

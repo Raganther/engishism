@@ -1,0 +1,103 @@
+/* ── Themes ───────────────────────────────────────────────────
+   Apply by setting data-theme on <html>.
+   Add a new theme: copy a block, change the name + values,
+   add the name to the THEMES array in engine/session.js.
+─────────────────────────────────────────────────────────────── */
+
+/* ── 1. dark (default) ──── conservative, GitHub-style */
+[data-theme="dark"] {
+  --bg:        #0d1117;
+  --surface:   #161b22;
+  --surface-2: #21262d;
+  --border:    #30363d;
+  --text:      #e6edf3;
+  --text-muted:#7d8590;
+  --muted:     #7d8590;
+  --accent:    #e6ac00;
+  --blue:      #79c0ff;
+  --green:     #56d364;
+}
+
+/* ── 2. neon ──── electric colours on near-black */
+[data-theme="neon"] {
+  --bg:        #080810;
+  --surface:   #0f0f1c;
+  --surface-2: #181828;
+  --border:    #ff00cc44;
+  --text:      #f8f0ff;
+  --text-muted:#9988bb;
+  --muted:     #9988bb;
+  --accent:    #ff00cc;
+  --blue:      #00ddff;
+  --green:     #00ffaa;
+}
+
+/* ── 3. arcade ──── chunky retro game palette */
+[data-theme="arcade"] {
+  --bg:        #0d0020;
+  --surface:   #160030;
+  --surface-2: #200048;
+  --border:    #ffdd0055;
+  --text:      #fff8e0;
+  --text-muted:#aa9944;
+  --muted:     #aa9944;
+  --accent:    #ffdd00;
+  --blue:      #ff4488;
+  --green:     #44ff66;
+}
+
+/* ── 4. tropical ──── vivid caribbean colours */
+[data-theme="tropical"] {
+  --bg:        #001a2c;
+  --surface:   #002a42;
+  --surface-2: #003858;
+  --border:    #ff6b2b55;
+  --text:      #fff5e8;
+  --text-muted:#7fbfaa;
+  --muted:     #7fbfaa;
+  --accent:    #ff6b2b;
+  --blue:      #00cfcf;
+  --green:     #80ff44;
+}
+
+/* ── 5. candy ──── pastel neons on deep purple */
+[data-theme="candy"] {
+  --bg:        #120820;
+  --surface:   #1e1030;
+  --surface-2: #2a1840;
+  --border:    #ff80c855;
+  --text:      #ffe8ff;
+  --text-muted:#cc88cc;
+  --muted:     #cc88cc;
+  --accent:    #ff80c8;
+  --blue:      #80c8ff;
+  --green:     #80ffcc;
+}
+
+/* ── 6. fire ──── red/orange, high contrast */
+[data-theme="fire"] {
+  --bg:        #100808;
+  --surface:   #1e0e0a;
+  --surface-2: #2c1410;
+  --border:    #ff440044;
+  --text:      #fff0e8;
+  --text-muted:#aa6644;
+  --muted:     #aa6644;
+  --accent:    #ff6600;
+  --blue:      #ff2244;
+  --green:     #ffcc00;
+}
+
+/* ── 7. chalk ──── light theme, like a classroom whiteboard */
+[data-theme="chalk"] {
+  --bg:        #f0f4f8;
+  --surface:   #ffffff;
+  --surface-2: #e4ecf4;
+  --border:    #c8d8e8;
+  --text:      #1a2636;
+  --text-muted:#6688aa;
+  --muted:     #6688aa;
+  --accent:    #e63b2e;
+  --blue:      #1d6fe8;
+  --green:     #1a9e50;
+}

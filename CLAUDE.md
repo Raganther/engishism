@@ -70,6 +70,7 @@ Phase: Activity picker home screen + 12 activity types
 - 18 activity types total: all originals + fluency-tree
 - Desert Island and Bunker games ported as scenario-cards slides into demo-games lesson
 - Timer improved: separate ▶/⏸ + ↺ circular buttons, spacebar toggles play/pause
+- Theme system: styles/themes.css defines 7 themes (dark, neon, arcade, tropical, candy, fire, chalk). ◑ button in session bar cycles themes, saves to localStorage. Load order: main.css first, themes.css second (so [data-theme] overrides :root)
 - Next: more lessons from handouts, or new standalone games
 
 ## Constraints

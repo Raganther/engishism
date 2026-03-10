@@ -3,6 +3,17 @@
   const TEAM_COLORS  = ['var(--blue)', '#f85149', 'var(--green)', 'var(--accent)'];
   const TEAM_NAMES   = ['Team A', 'Team B', 'Team C', 'Team D'];
 
+  // ── Theme cycling ───────────────────────────────────────────
+  const THEMES = ['dark', 'neon', 'arcade', 'tropical', 'candy', 'fire', 'chalk'];
+  function nextTheme() {
+    const current = document.documentElement.dataset.theme || 'dark';
+    const next    = THEMES[(THEMES.indexOf(current) + 1) % THEMES.length];
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem('theme', next);
+    const btn = SessionBar.el && SessionBar.el.querySelector('.sb-theme');
+    if (btn) btn.title = next;
+  }
+
   // ── Timer state (persists across session bar re-renders) ────
   const TIMER_DURATION = 30;
   let timerLeft       = TIMER_DURATION;
@@ -114,6 +125,7 @@
         <div class="sb-actions">
           ${teams.length < 4 ? '<button class="sb-add">+ Team</button>' : ''}
           <button class="sb-reset" title="Reset all scores">↺</button>
+          <button class="sb-theme">◑ ${document.documentElement.dataset.theme || 'dark'}</button>
           <div class="sb-timer">
             <span class="sb-tbar-time${timerLeft <= 10 ? ' urgent' : ''}">${Math.ceil(timerLeft)}</span>
             <button class="sb-tbar-play" title="Play / Pause (Space)">${timerRunning ? '⏸' : '▶'}</button>
@@ -174,6 +186,12 @@
           this.render();
         });
       }
+
+      // Theme cycle
+      el.querySelector('.sb-theme').addEventListener('click', e => {
+        e.stopPropagation();
+        nextTheme();
+      });
 
       // Reset scores
       el.querySelector('.sb-reset').addEventListener('click', e => {
