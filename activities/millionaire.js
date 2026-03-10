@@ -25,7 +25,7 @@ window.Activities['millionaire'] = {
     `;
   },
 
-  init(el, c, { onComplete }) {
+  init(el, c, { onComplete, state }) {
     const VALUES = [
       '£100','£200','£300','£500','£1,000',
       '£2,000','£4,000','£8,000','£16,000','£32,000',
@@ -116,11 +116,10 @@ window.Activities['millionaire'] = {
 
         if (selected === q.answer) {
           el.querySelector(`.mm-rung[data-qi="${qi}"]`).classList.add('won');
-          if (qi + 1 >= qCount) {
-            setTimeout(() => showEnd(true, vals[qCount - 1]), 1400);
-          } else {
-            setTimeout(() => renderQuestion(qi + 1), 1400);
-          }
+          const advance = qi + 1 >= qCount
+            ? () => showEnd(true, vals[qCount - 1])
+            : () => renderQuestion(qi + 1);
+          setTimeout(() => showClaim(vals[qi], advance), 1400);
         } else {
           setTimeout(() => showEnd(false, getGuaranteed(qi)), 1400);
         }
@@ -157,15 +156,72 @@ window.Activities['millionaire'] = {
       });
     }
 
+    function getSessionTeams() {
+      return (window.Session && window.Session.teams && window.Session.teams.length)
+        ? window.Session.teams : ['Team A', 'Team B'];
+    }
+
+    function showClaim(amount, onNext) {
+      const numeric = parseInt(amount.replace(/[£,]/g, '')) || 0;
+      const teams   = getSessionTeams();
+      const claimDiv = document.createElement('div');
+      claimDiv.className = 'mm-claim-row';
+      claimDiv.innerHTML = teams.map((t, ti) =>
+        `<button class="mm-claim" data-team="${ti}">${t} +${amount}</button>`
+      ).join('') + '<button class="mm-claim-skip">Skip →</button>';
+      main.appendChild(claimDiv);
+
+      claimDiv.querySelectorAll('.mm-claim').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const teamName = teams[parseInt(btn.dataset.team)];
+          if (window.Session && teamName) window.Session.award(teamName, numeric);
+          onNext();
+        });
+      });
+      claimDiv.querySelector('.mm-claim-skip').addEventListener('click', e => {
+        e.stopPropagation();
+        onNext();
+      });
+    }
+
     function showEnd(won, amount, walkedAway = false) {
-      const title = won ? 'WINNER!' : walkedAway ? 'Walked Away' : 'Game Over';
+      const title   = won ? 'WINNER!' : walkedAway ? 'Walked Away' : 'Game Over';
+      const numeric = parseInt(amount.replace(/[£,]/g, '')) || 0;
+      const teams   = getSessionTeams();
+
+      const claimBtns = (won || walkedAway) && numeric > 0
+        ? teams.map((t, ti) =>
+            `<button class="mm-claim" data-team="${ti}">${t} +${amount}</button>`
+          ).join('') + '<button class="mm-claim-skip">No Award</button>'
+        : '';
+
       main.innerHTML = `
         <div class="mm-endscreen">
           <p class="mm-end-title">${title}</p>
           <p class="mm-end-amount">${amount}</p>
-          <button class="mm-done">Done &#10003;</button>
+          ${claimBtns ? `<div class="mm-claim-row">${claimBtns}</div>` : ''}
+          <button class="mm-done${claimBtns ? ' hidden' : ''}">Done &#10003;</button>
         </div>
       `;
+
+      if (claimBtns) {
+        main.querySelectorAll('.mm-claim').forEach(btn => {
+          btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const teamName = teams[parseInt(btn.dataset.team)];
+            if (window.Session && teamName) window.Session.award(teamName, numeric);
+            main.querySelector('.mm-claim-row').remove();
+            main.querySelector('.mm-done').classList.remove('hidden');
+          });
+        });
+        main.querySelector('.mm-claim-skip').addEventListener('click', e => {
+          e.stopPropagation();
+          main.querySelector('.mm-claim-row').remove();
+          main.querySelector('.mm-done').classList.remove('hidden');
+        });
+      }
+
       main.querySelector('.mm-done').addEventListener('click', e => {
         e.stopPropagation();
         onComplete();

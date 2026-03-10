@@ -941,6 +941,12 @@ html, body {
 .mm-reveal        { display: block; margin: 0 auto; }
 .mm-reveal.hidden { display: none; }
 
+.mm-claim-row { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; margin-top: 1rem; }
+.mm-claim     { padding: 0.5rem 1rem; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); cursor: pointer; font-size: 0.9rem; }
+.mm-claim:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.mm-claim-skip { padding: 0.5rem 1rem; border-radius: 8px; background: transparent; border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; font-size: 0.9rem; }
+.mm-claim-skip:hover { background: var(--surface-2); }
+
 .mm-ladder {
   display: flex;
   flex-direction: column;
