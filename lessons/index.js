@@ -38,6 +38,12 @@ window.LESSON_INDEX = [
     types: ['title-card', 'reveal-card', 'fill-blank', 'meaning-pair', 'sentence-complete', 'true-false', 'hot-seat', 'noughts-crosses', 'millionaire', 'countdown', 'jeopardy', 'anagram', 'call-my-bluff', 'odd-one-out', 'missing-vowels'],
   },
   {
+    id:    'at-work',
+    title: 'At Work',
+    tag:   'Vocabulary & Grammar — B1',
+    types: ['title-card', 'reveal-card', 'fill-blank', 'meaning-pair', 'true-false', 'sentence-complete', 'hot-seat', 'noughts-crosses', 'anagram', 'call-my-bluff', 'odd-one-out', 'missing-vowels', 'jeopardy', 'millionaire', 'countdown', 'scenario-cards', 'fluency-tree'],
+  },
+  {
     id:    'creating-a-cv',
     title: 'Jobs & Careers',
     tag:   'Professional English — B1',

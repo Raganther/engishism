@@ -1,6 +1,7 @@
 # Engishism — Memory
 
 ## Recent Git Saves
+- 2026-03-11 — add At Work lesson — all 19 activity types
 - 2026-03-11 — expand jobs & careers lesson to all 17 activity types
 - 2026-03-11 — add creating-a-cv lesson + fluency tree prompt
 - 2026-03-10 — add theme system with 7 colour themes
@@ -8,4 +9,3 @@
 - 2026-03-10 — add fluency-tree activity + fix card grid scrolling
 - 2026-03-10 — millionaire team claim buttons
 - 2026-03-10 — feat: timer bar + jeopardy 4-team fix + scenario-cards activity
-- 2026-03-10 — fix: timer bar below session bar, taller (22px)
