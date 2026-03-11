@@ -39,9 +39,9 @@ window.LESSON_INDEX = [
   },
   {
     id:    'creating-a-cv',
-    title: 'Creating a CV',
+    title: 'Jobs & Careers',
     tag:   'Professional English — B1',
-    types: ['title-card', 'reveal-card', 'fill-blank', 'meaning-pair', 'true-false', 'sentence-complete', 'hot-seat', 'fluency-tree', 'noughts-crosses'],
+    types: ['title-card', 'reveal-card', 'fill-blank', 'meaning-pair', 'true-false', 'sentence-complete', 'hot-seat', 'noughts-crosses', 'anagram', 'call-my-bluff', 'odd-one-out', 'missing-vowels', 'jeopardy', 'millionaire', 'countdown', 'scenario-cards', 'fluency-tree'],
   },
   {
     id:    'demo-games',
