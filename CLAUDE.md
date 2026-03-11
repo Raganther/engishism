@@ -71,6 +71,9 @@ Phase: Activity picker home screen + 12 activity types
 - Desert Island and Bunker games ported as scenario-cards slides into demo-games lesson
 - Timer improved: separate ▶/⏸ + ↺ circular buttons, spacebar toggles play/pause
 - Theme system: styles/themes.css defines 7 themes (dark, neon, arcade, tropical, candy, fire, chalk). ◑ button in session bar cycles themes, saves to localStorage. Load order: main.css first, themes.css second (so [data-theme] overrides :root)
+- 8 lessons: unit-6-scandi-successes, unit-8a, teamwork, negotiation-skills, technology-problems, money-present-perfect, creating-a-cv, demo-games
+- creating-a-cv.js: B1 lesson — 10 slides: title-card, 2× reveal-card, fill-blank, meaning-pair, true-false, sentence-complete, hot-seat, fluency-tree (mock interview, 3 paths), noughts-crosses
+- fluency-tree-prompt.md added to docs/ — standalone prompt for generating new fluency trees with merge rule enforced
 - Next: more lessons from handouts, or new standalone games
 
 ## Constraints

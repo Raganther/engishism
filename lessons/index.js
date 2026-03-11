@@ -38,6 +38,12 @@ window.LESSON_INDEX = [
     types: ['title-card', 'reveal-card', 'fill-blank', 'meaning-pair', 'sentence-complete', 'true-false', 'hot-seat', 'noughts-crosses', 'millionaire', 'countdown', 'jeopardy', 'anagram', 'call-my-bluff', 'odd-one-out', 'missing-vowels'],
   },
   {
+    id:    'creating-a-cv',
+    title: 'Creating a CV',
+    tag:   'Professional English — B1',
+    types: ['title-card', 'reveal-card', 'fill-blank', 'meaning-pair', 'true-false', 'sentence-complete', 'hot-seat', 'fluency-tree', 'noughts-crosses'],
+  },
+  {
     id:    'demo-games',
     title: 'New Games — Demo',
     tag:   'Demo',

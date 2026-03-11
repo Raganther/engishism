@@ -191,6 +191,58 @@ Use as a review game — mix question types from the whole lesson.
 
 ---
 
+### fluency-tree
+A branching two-person conversation. Teacher clicks which line each speaker says each turn.
+Paths diverge based on choices and can merge later. Both A and B have options every turn.
+
+```js
+{
+  label: "Short name for selector menu",
+  type: "fluency-tree",
+  content: {
+    title: "Topic name",
+    start: "n1",
+    nodes: {
+      "n1": {
+        speaker: "A",
+        options: [
+          { text: "Option A says...", next: "n2a" },
+          { text: "Alternative A says...", next: "n2b" }
+        ]
+      },
+      "n2a": {
+        speaker: "B",
+        options: [
+          { text: "B responds to n2a path...", next: "n3" }
+        ]
+      },
+      "n2b": {
+        speaker: "B",
+        options: [
+          { text: "B responds to n2b path...", next: "n3" }
+        ]
+      },
+      "n3": {
+        speaker: "A",
+        options: [
+          { text: "...", next: null }
+        ]
+      }
+    }
+  }
+}
+```
+
+**CRITICAL RULE — merge nodes:** When two or more different nodes point to the same next node (paths merging), the responses at that merge node MUST make sense regardless of which previous line was just spoken. Write neutral, universal bridge responses at merge points — not responses that only work for one specific path. If you cannot write a response that fits all incoming paths, split the merge into separate nodes instead.
+
+- Aim for 5–7 turns total per conversation path.
+- Give each speaker 2–3 options per turn.
+- Paths should branch at least once per speaker side.
+- End nodes have `options: []` or `next: null` on all options.
+- Keep language at natural spoken register — contractions, short sentences, real reactions.
+
+---
+
 ## Example of a good lesson
 
 A good lesson for a grammar page might look like:

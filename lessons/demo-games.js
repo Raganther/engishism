@@ -488,7 +488,182 @@ window.LESSON = {
       }
     },
 
-    // ── Fluency Tree ──────────────────────────────────────────
+    // ── Fluency Tree 2 ────────────────────────────────────────
+    {
+      label: "Fluency Tree — Have You Seen Breaking Bad?",
+      type: "fluency-tree",
+      content: {
+        title: "Have You Seen Breaking Bad?",
+        start: "n1",
+        nodes: {
+
+          // ── Turn 1: A opens ───────────────────────────────
+          "n1": {
+            speaker: "A",
+            options: [
+              { text: "Have you seen Breaking Bad? I just finished the whole thing.", next: "n2" },
+              { text: "Okay random question — have you ever actually watched Breaking Bad?", next: "n2" },
+              { text: "Please tell me you've seen Breaking Bad. I need someone to talk to about it.", next: "n2" }
+            ]
+          },
+
+          // ── Turn 2: B responds — three very different paths ─
+          "n2": {
+            speaker: "B",
+            options: [
+              { text: "Yes! Watched the whole thing years ago. Absolutely loved it.", next: "n3-fan" },
+              { text: "Oh yeah, of course. Great show. Really... great.", next: "n3-bluff" },
+              { text: "No. I haven't. I know — please don't look at me like that.", next: "n3-honest" }
+            ]
+          },
+
+          // ══ PATH 1: Genuine fan ═══════════════════════════
+
+          "n3-fan": {
+            speaker: "A",
+            options: [
+              { text: "Finally! Who was your favourite character?", next: "n4-fan" },
+              { text: "Which season do you think is the best? Be honest.", next: "n4-fan" },
+              { text: "Did you cry at the finale? It's a safe space.", next: "n4-fan" }
+            ]
+          },
+          "n4-fan": {
+            speaker: "B",
+            options: [
+              { text: "Gus Fring. Terrifying in the best possible way.", next: "n5-fan" },
+              { text: "Season four. No competition. It's basically a feature film.", next: "n5-fan" },
+              { text: "I'm not going to answer that. But yes. Obviously.", next: "n5-fan" }
+            ]
+          },
+          "n5-fan": {
+            speaker: "A",
+            options: [
+              { text: "The thing is, nothing has hit the same since. Nothing.", next: "n6-fan" },
+              { text: "I tried to get my partner to watch it and they fell asleep. Twice.", next: "n6-fan" },
+              { text: "I've rewatched the whole thing twice. I have absolutely no regrets.", next: "n6-fan" }
+            ]
+          },
+          "n6-fan": {
+            speaker: "B",
+            options: [
+              { text: "Same. I've been chasing that feeling with every show since. Nothing comes close.", next: "n7-fan" },
+              { text: "Twice?! Okay, I feel much better about owning the box set.", next: "n7-fan" },
+              { text: "Your partner fell asleep?! During season one?! I have serious questions.", next: "n7-fan" }
+            ]
+          },
+          "n7-fan": {
+            speaker: "A",
+            options: [
+              { text: "What are you watching now? I am desperate for something new.", next: "n8-fan" },
+              { text: "We need to talk about what comes even close. Because I cannot find it.", next: "n8-fan" },
+              { text: "The real tragedy is we can never watch it for the first time again.", next: "n8-fan" }
+            ]
+          },
+          "n8-fan": {
+            speaker: "B",
+            options: [
+              { text: "I'm halfway through Succession. It's scratching the same itch, actually.", next: null },
+              { text: "The real tragedy is we're discussing this at work and now I want to go home.", next: null },
+              { text: "Don't say that. That's too sad. I'm genuinely not ready to process that.", next: null }
+            ]
+          },
+
+          // ══ PATH 2: The bluffer ═══════════════════════════
+
+          "n3-bluff": {
+            speaker: "A",
+            options: [
+              { text: "Amazing, right? Who was your favourite character?", next: "n4-bluff" },
+              { text: "What did you think of the ending? I'm still not over it.", next: "n4-bluff" },
+              { text: "The bit in season three — you know the bit — absolutely incredible.", next: "n4-bluff" }
+            ]
+          },
+          "n4-bluff": {
+            speaker: "B",
+            options: [
+              { text: "The main character. Brilliant performance. Very convincing.", next: "n5-bluff" },
+              { text: "The ending was very... unexpected. Really made you think.", next: "n5-bluff" },
+              { text: "Oh, that bit. Yes. Absolutely. A lot to take in.", next: "n5-bluff" }
+            ]
+          },
+          "n5-bluff": {
+            speaker: "A",
+            options: [
+              { text: "The main character. His name is Walter White. Just... checking.", next: "n6-bluff" },
+              { text: "'Unexpected' — in what way specifically? I'm curious.", next: "n6-bluff" },
+              { text: "That bit. Yes. Which bit, though? Be specific.", next: "n6-bluff" }
+            ]
+          },
+          "n6-bluff": {
+            speaker: "B",
+            options: [
+              { text: "Okay. Fine. I lied. I have never seen it. I panicked.", next: "n7-merge" },
+              { text: "I may have... significantly overstated my familiarity with this show.", next: "n7-merge" },
+              { text: "Everyone kept talking about it so I assumed I must have seen it at some point.", next: "n7-merge" }
+            ]
+          },
+
+          // ══ PATH 3: Honest ════════════════════════════════
+
+          "n3-honest": {
+            speaker: "A",
+            options: [
+              { text: "How?! It's been out for fifteen years. What have you been doing?", next: "n4-honest" },
+              { text: "Okay genuinely — what have you been watching instead?", next: "n4-honest" },
+              { text: "I respect the honesty. Most people in your position would have just lied.", next: "n4-honest" }
+            ]
+          },
+          "n4-honest": {
+            speaker: "B",
+            options: [
+              { text: "I've been rewatching The Office. For the fifth time. Don't judge me.", next: "n5-honest" },
+              { text: "Work, kids, exhaustion. I get forty minutes on a good night.", next: "n5-honest" },
+              { text: "I started it. Three episodes in. Then just... never went back.", next: "n5-honest" }
+            ]
+          },
+          "n5-honest": {
+            speaker: "A",
+            options: [
+              { text: "The Office on repeat is completely valid. I stand by that.", next: "n6-honest" },
+              { text: "Three episodes is actually the exciting part — you need to go back.", next: "n6-honest" },
+              { text: "One episode before bed. That's all I'm asking. Forty minutes.", next: "n6-honest" }
+            ]
+          },
+          "n6-honest": {
+            speaker: "B",
+            options: [
+              { text: "The list of things I need to go back to is very, very long.", next: "n7-merge" },
+              { text: "Every time I sit down for it, someone recommends something else first.", next: "n7-merge" },
+              { text: "The forty minutes always ends with me asleep after ten.", next: "n7-merge" }
+            ]
+          },
+
+          // ══ MERGE: honest + caught ════════════════════════
+          // Both paths arrive here with B not having seen the show.
+          // All A responses work regardless of which B line just happened.
+
+          "n7-merge": {
+            speaker: "A",
+            options: [
+              { text: "Okay. I'm officially putting it at the top of your list. Right now.", next: "n8-merge" },
+              { text: "That is the most relatable thing anyone has ever said to me.", next: "n8-merge" },
+              { text: "Everyone has this list. Nobody talks about it. We should talk about it.", next: "n8-merge" }
+            ]
+          },
+          "n8-merge": {
+            speaker: "B",
+            options: [
+              { text: "My list has its own list at this point. It's completely out of control.", next: null },
+              { text: "If I watch it this weekend, will you stop bringing it up?", next: null },
+              { text: "Can I just talk about it with people who've seen it? Is that an option?", next: null }
+            ]
+          }
+
+        }
+      }
+    },
+
+    // ── Fluency Tree 1 ────────────────────────────────────────
     {
       label: "Fluency Tree — Food Experiences",
       type: "fluency-tree",
@@ -557,13 +732,13 @@ window.LESSON = {
             ]
           },
 
-          // ── Turn 5: A wraps up ────────────────────────────
+          // ── Turn 5: A responds (works after any B answer) ─
           "a3": {
             speaker: "A",
             options: [
-              { text: "I know what you mean. I used to be the same.", next: "b3" },
-              { text: "That's fair enough. Food is really personal, isn't it.", next: "b3" },
-              { text: "Ha! I've had a similar experience.", next: "b3" }
+              { text: "Ha! I've had a similar experience, actually.", next: "b3" },
+              { text: "Really? I wouldn't have expected that.", next: "b3" },
+              { text: "Food is so personal, isn't it. Everyone's different.", next: "b3" }
             ]
           },
 
