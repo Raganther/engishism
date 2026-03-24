@@ -23,6 +23,24 @@ The fluency-tree merge rule is the most subtle schema constraint: every branchin
 
 ---
 
+## New direction — English school admin + teaching tools (2026-03-24)
+Exploring AI-powered solutions for an English school. Two distinct tracks:
+
+**Track 1 — Admin:** Student/operations database (enrollment, attendance, test scores, reports) queryable via natural language AI. Target users: Academic Manager, Operations Manager.
+
+**Track 2 — Teaching:** Textbook content database (e.g. New English File chapters) → query a chapter → auto-populate Engishism activity engine. Removes manual lesson-writing step entirely.
+
+**Strategy:** Interview Academic Manager + Operations Manager to discover actual pain points. Preemptively build category demos (not specific solutions) so the conversation is concrete.
+
+**Open questions before building:**
+- What is their biggest pain? (Scheduling? Attendance tracking? Lesson planning?)
+- Are they on software or spreadsheets/paper?
+- Which track to prototype first?
+
+Not committed to anything yet — pending discovery interviews.
+
+---
+
 ## Lesson generation pipeline (2026-03-24)
 Pipeline is proven and documented in `docs/lesson-prompt.md`. The main failure mode is schema errors — wrong field names, missing required fields, or using options[] instead of stems[] etc. The schemas reference file should prevent this.
 
