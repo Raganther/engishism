@@ -1,5 +1,5 @@
 #!/bin/bash
-# SessionStart hook — surfaces dynamic project state for Engishism
+# SessionStart hook — surfaces dynamic project state for Engishism (v3)
 
 PROJECT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 
@@ -17,10 +17,11 @@ else
 fi
 echo ""
 echo "Cold start — read these files in order:"
-echo "  memory/MEMORY.md     — recent git saves"
-echo "  memory/plan.md       — active plan"
-echo "  memory/observations.md — running insights"
+echo "  .claude/memory/gitlog.md       — recent git saves"
+echo "  .claude/memory/observations.md — active work + staging"
+echo "  Domain files — on demand via 'read when X' triggers in CLAUDE.md"
 echo ""
 echo "On demand only:"
-echo "  docs/dev.md          — ideas and backlog"
-echo "  .claude/activities/schemas.md — activity type schemas (lesson writing reference)"
+echo "  .claude/activities/schemas.md     — activity type schemas (lesson writing reference)"
+echo "  .claude/procedures/_index.md      — scan at plan creation for relevant how-to patterns"
+echo "  docs/dev.md                       — ideas and backlog"

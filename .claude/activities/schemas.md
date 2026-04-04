@@ -1,11 +1,14 @@
+Status: current | Epistemic: confirmed | Last verified: 2026-03-24
+
 # Activity Schemas — Engishism
 
+## Knowledge
+
 Confirmed data shapes for all 18 activity types. Use this as the reference when writing new lessons.
-Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## title-card
+### title-card
 ```js
 {
   type: "title-card",
@@ -19,7 +22,7 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## reveal-card
+### reveal-card
 ```js
 {
   type: "reveal-card",
@@ -34,7 +37,7 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## fill-blank
+### fill-blank
 ```js
 {
   type: "fill-blank",
@@ -49,7 +52,7 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## meaning-pair
+### meaning-pair
 ```js
 {
   type: "meaning-pair",
@@ -63,7 +66,7 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## true-false
+### true-false
 ```js
 {
   type: "true-false",
@@ -77,7 +80,7 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## sentence-complete
+### sentence-complete
 ```js
 {
   type: "sentence-complete",
@@ -92,7 +95,7 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## hot-seat
+### hot-seat
 ```js
 {
   type: "hot-seat",
@@ -105,7 +108,7 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## fluency-tree
+### fluency-tree
 ```js
 {
   type: "fluency-tree",
@@ -130,7 +133,7 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## noughts-crosses
+### noughts-crosses
 ```js
 {
   type: "noughts-crosses",
@@ -145,7 +148,7 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## anagram
+### anagram
 ```js
 {
   type: "anagram",
@@ -160,7 +163,7 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## call-my-bluff
+### call-my-bluff
 ```js
 {
   type: "call-my-bluff",
@@ -179,7 +182,7 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## odd-one-out
+### odd-one-out
 ```js
 {
   type: "odd-one-out",
@@ -197,7 +200,7 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## missing-vowels
+### missing-vowels
 ```js
 {
   type: "missing-vowels",
@@ -212,7 +215,7 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## jeopardy
+### jeopardy
 ```js
 {
   type: "jeopardy",
@@ -236,7 +239,7 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## millionaire
+### millionaire
 ```js
 {
   type: "millionaire",
@@ -255,7 +258,7 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## countdown
+### countdown
 ```js
 {
   type: "countdown",
@@ -266,7 +269,7 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## scenario-cards
+### scenario-cards
 ```js
 {
   type: "scenario-cards",
@@ -290,7 +293,7 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 
 ---
 
-## Summary — 18 types
+### Quick Reference — 18 types
 
 | Type | Key fields |
 |---|---|
@@ -311,3 +314,6 @@ Last verified: 2026-03-24 (from at-work.js, creating-a-cv.js, teamwork.js).
 | millionaire | questions[10]{question, options[4], answer: 0-3} |
 | countdown | time |
 | scenario-cards | cards[]{title, scenario, verdict, verdictStyle, reveal, details[], hook} |
+
+## Open Questions
+- Should countdown accept an optional topic/prompt field, or is verbal-only the right design?
