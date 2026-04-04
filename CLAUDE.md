@@ -12,6 +12,8 @@ Read in order on every cold start:
 Read on demand only:
 - .claude/procedures/_index.md — scan at plan creation for relevant how-to patterns
 - .claude/activities/schemas.md — read when writing or editing lesson files
+- .claude/lesson-pipeline.md — read when creating a new lesson or modifying the generation process
+- .claude/school-exploration.md — read when discussing school admin tools or teaching automation
 - docs/dev.md — read when exploring ideas or backlog
 
 ## Run Commands
