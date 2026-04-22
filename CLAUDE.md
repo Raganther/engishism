@@ -6,14 +6,17 @@ A web-based slideshow application for ESL teachers to present English lessons on
 ## Session Start
 Read in order on every cold start:
 1. .claude/memory/gitlog.md — recent git saves
-2. .claude/memory/observations.md — active work + staging
+2. .claude/strategies/research-roadmap.md — open questions, ideas, in-progress work, and monitoring items
 3. Domain files — on demand via "read when X" triggers below
 
 Read on demand only:
+- .claude/harness-v4.md — read when editing project memory, roadmap, domain files, or CLAUDE.md
+- .claude/strategies/research-roadmap.md — read when planning work, continuing open items, or resolving questions
 - .claude/procedures/_index.md — scan at plan creation for relevant how-to patterns
 - .claude/activities/schemas.md — read when writing or editing lesson files
 - .claude/lesson-pipeline.md — read when creating a new lesson or modifying the generation process
 - .claude/school-exploration.md — read when discussing school admin tools or teaching automation
+- .claude/activity-feedback.md — read when working on any activity type, adding features, or reviewing feedback
 - docs/dev.md — read when exploring ideas or backlog
 
 ## Run Commands
@@ -34,7 +37,7 @@ git push
 - App entry point: app.html — the main presenter view
 - Engine (engine/engine.js): two modes — slideshow (sequential slides) and selector (pick activities)
 - Navigation flow: topic picker → game type picker → play
-- ACTIVITY_CATALOG in engine.js — single source of truth for all 18 activity types (names, descriptions, SVG icons)
+- ACTIVITY_CATALOG in engine.js — single source of truth for all 17 activity types (names, descriptions, SVG icons)
 - LESSON_INDEX in lessons/index.js — registry of all lessons with `types: []` for picker filtering
 - Session bar (engine/session.js): persistent top bar — team names (editable), colour-coded scores, +/− buttons, timer controls
 - Session state: window.Session — teacher-driven scoring, teams support (up to 4)
@@ -43,16 +46,18 @@ git push
 - Theme system: styles/themes.css — 7 themes (dark, neon, arcade, tropical, candy, fire, chalk), persisted to localStorage
 
 ## Current Status
-- 18 activity types: title-card, reveal-card, fill-blank, meaning-pair, sentence-complete, true-false, hot-seat, noughts-crosses, anagram, call-my-bluff, odd-one-out, missing-vowels, jeopardy, countdown, millionaire, scenario-cards, fluency-tree, countdown
+- 17 activity types: title-card, reveal-card, fill-blank, meaning-pair, sentence-complete, true-false, hot-seat, noughts-crosses, anagram, call-my-bluff, odd-one-out, missing-vowels, jeopardy, countdown, millionaire, scenario-cards, fluency-tree
 - 9 lessons: unit-6-scandi-successes, unit-8a, teamwork, negotiation-skills, technology-problems, money-present-perfect, creating-a-cv, at-work, demo-games
 - 4 standalone activities: desert-island.html, bunker.html, it-helpdesk.html, scam-or-legit.html
 - Lesson generation pipeline: photo → Claude + docs/lesson-prompt.md → lesson file → register in lessons/index.js
 - Fluency tree prompt: docs/fluency-tree-prompt.md — standalone prompt for generating branching conversations
-- Memory system: v3 harness — domain-first write order, no plan.md
+- Memory system: Harness v4.2 — CLAUDE.md for navigation, roadmap for unresolved work, domain files for confirmed knowledge
 - Next: more lessons from handouts, or new standalone games
 
 ## Constraints
 - Before starting any update, new feature, or bug fix — scan the domain file list above and read any relevant files first
+- Open questions, ideas, and in-progress work belong in .claude/strategies/research-roadmap.md
+- Domain files must contain confirmed knowledge only; do not add `## Open Questions`, `## Plan`, or `## Research` sections
 - Must work on a standard classroom TV/browser — no exotic dependencies
 - No internet required during class (fully offline capable)
 - Teacher controls everything — students do not touch the device

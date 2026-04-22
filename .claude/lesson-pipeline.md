@@ -1,4 +1,4 @@
-Status: current | Epistemic: confirmed | Last verified: 2026-04-04
+Status: current | Epistemic: confirmed | Last verified: 2026-04-22
 
 # Lesson Generation Pipeline
 
@@ -24,7 +24,3 @@ Status: current | Epistemic: confirmed | Last verified: 2026-04-04
 
 ### Source material
 Handout PDFs/DOCXs live in `material/`. Not all have been converted to lessons yet.
-
-## Open Questions
-- Should the prompt template include all 18 schemas inline (current), or reference schemas.md and be shorter?
-- Would a validation script that checks lesson files against schemas catch errors before they reach the browser?

@@ -1,10 +1,10 @@
-Status: current | Epistemic: confirmed | Last verified: 2026-03-24
+Status: current | Epistemic: confirmed | Last verified: 2026-04-22
 
 # Activity Schemas — Engishism
 
 ## Knowledge
 
-Confirmed data shapes for all 18 activity types. Use this as the reference when writing new lessons.
+Confirmed data shapes for all 17 activity types. Use this as the reference when writing new lessons.
 
 ---
 
@@ -314,6 +314,3 @@ Confirmed data shapes for all 18 activity types. Use this as the reference when 
 | millionaire | questions[10]{question, options[4], answer: 0-3} |
 | countdown | time |
 | scenario-cards | cards[]{title, scenario, verdict, verdictStyle, reveal, details[], hook} |
-
-## Open Questions
-- Should countdown accept an optional topic/prompt field, or is verbal-only the right design?

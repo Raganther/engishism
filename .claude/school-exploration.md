@@ -1,4 +1,4 @@
-Status: current | Epistemic: assumed | Last verified: 2026-04-04
+Status: current | Epistemic: assumed | Last verified: 2026-04-22
 
 # School Admin & Teaching Tools Exploration
 
@@ -13,10 +13,3 @@ Exploring AI-powered solutions for an English language school. Two distinct trac
 
 ### Strategy
 Interview Academic Manager + Operations Manager to discover actual pain points. Preemptively build category demos (not specific solutions) so the conversation is concrete rather than abstract.
-
-## Open Questions
-- What is their biggest pain? (Scheduling? Attendance tracking? Lesson planning?)
-- Are they currently on software or spreadsheets/paper?
-- Which track to prototype first — admin or teaching?
-- Does Track 2 make the lesson generation pipeline obsolete, or complement it?
-- Is this a separate project or an extension of Engishism?
