@@ -28,6 +28,11 @@ Confirmed data shapes for all 17 activity types. Use this as the reference when 
   type: "reveal-card",
   content: {
     heading: "",        // section title
+    image: {            // optional — visual prompt or reference image
+      src: "",
+      alt: "",
+      caption: ""
+    },
     items: [
       { label: "", example: "" }   // label = word/phrase, example = full sentence
     ]
@@ -55,6 +60,34 @@ Confirmed data shapes for all 17 activity types. Use this as the reference when 
 ```
 **Rule:** answers go inside [square brackets] in the sentence. No separate `answer` field.
 **Mode notes:** omit `mode` or use `open` for legacy tap-to-reveal. Use `multiple-choice` when each question includes `options[]`. For v2 multiple-choice, one intended answer target per question is preferred.
+
+---
+
+### picture-choice
+```js
+{
+  type: "picture-choice",
+  content: {
+    questions: [
+      {
+        image: {
+          src: "",      // image or source sheet path
+          col: 0,       // optional crop column when using a source sheet
+          row: 0,       // optional crop row when using a source sheet
+          cols: 3,      // optional number of columns in source sheet
+          rows: 2,      // optional number of rows in source sheet
+          alt: ""
+        },
+        prompt: "",
+        options: ["", "", "", ""],
+        answer: 0,
+        explanation: ""
+      }
+    ]
+  }
+}
+```
+**Purpose:** one image prompt at a time with multiple-choice answers. Useful for picture-based grammar and vocabulary checks.
 
 ---
 

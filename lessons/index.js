@@ -14,6 +14,13 @@ window.LESSON_INDEX = [
     types: ['title-card', 'reveal-card', 'fill-blank', 'meaning-pair', 'sentence-complete', 'true-false', 'hot-seat', 'noughts-crosses'],
   },
   {
+    id:    'unit-1-present-continuous',
+    title: 'Unit 1 — Present Continuous',
+    tag:   'Grammar — A2/B1',
+    version: 'picture-choice',
+    types: ['title-card', 'reveal-card', 'picture-choice', 'fill-blank', 'meaning-pair', 'sentence-complete', 'true-false', 'hot-seat', 'noughts-crosses', 'millionaire', 'countdown', 'jeopardy', 'anagram', 'call-my-bluff', 'odd-one-out', 'missing-vowels', 'scenario-cards', 'fluency-tree'],
+  },
+  {
     id:    'money-present-perfect',
     title: 'Money & Present Perfect',
     tag:   'Grammar & Vocabulary',

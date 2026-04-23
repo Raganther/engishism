@@ -30,6 +30,14 @@ Reference for how each activity works from the teacher's perspective, design dec
 
 ---
 
+### picture-choice
+**How it works:** One picture prompt appears at a time with multiple sentence choices. Teacher or class selects an answer; the chosen button is marked correct or wrong, the correct option is highlighted, and the teacher advances with Next.
+**Teacher use:** Picture-based grammar or vocabulary checks. Good for present continuous action pictures where students match an image to a sentence.
+**Scoring:** None.
+**Feedback:** (none yet)
+
+---
+
 ### meaning-pair
 **How it works:** Two sentences (A and B) shown side by side. Three-stage reveal: sentence A visible → click "Show B" → click "Show note" (explanation of the difference). Internal navigation between pairs.
 **Teacher use:** Active/passive contrasts, tense differences, meaning nuances. Teacher reads A, class discusses, then reveals B and explanation.

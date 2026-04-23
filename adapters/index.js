@@ -195,7 +195,48 @@
     return cells.slice(0, 9);
   }
 
+  function revealItems(topic) {
+    if (Array.isArray(topic.revealItems) && topic.revealItems.length) return topic.revealItems;
+    return (topic.examples || []).map(item => ({
+      label: item.focus || topic.title,
+      example: item.sentence,
+    }));
+  }
+
   root.GameAdapters = {
+    'title-card': {
+      canAdapt(topic) {
+        return !!(topic && topic.title);
+      },
+      build(topic) {
+        return {
+          label: `${topic.title} Title Card`,
+          type: 'title-card',
+          content: {
+            unit: '',
+            heading: topic.title,
+            subheading: `${topic.category || 'Topic'} — ${topic.level || ''}`.trim(),
+          },
+        };
+      },
+    },
+
+    'reveal-card': {
+      canAdapt(topic) {
+        return revealItems(topic).length >= 3;
+      },
+      build(topic) {
+        return {
+          label: `${topic.title} Reference`,
+          type: 'reveal-card',
+          content: {
+            heading: topic.title,
+            items: revealItems(topic).slice(0, 6),
+          },
+        };
+      },
+    },
+
     'fill-blank': {
       canAdapt(topic) {
         return Array.isArray(topic.fillBlanks) && topic.fillBlanks.length >= 4;
@@ -358,6 +399,140 @@
                 answer: definitions.indexOf(item.definition),
               };
             }),
+          },
+        };
+      },
+    },
+
+    'meaning-pair': {
+      canAdapt(topic) {
+        return Array.isArray(topic.pairs) && topic.pairs.length >= 3;
+      },
+      build(topic) {
+        return {
+          label: `${topic.title} Meaning Pair`,
+          type: 'meaning-pair',
+          content: {
+            pairs: pick(topic.pairs, Math.min(4, topic.pairs.length)).map(item => ({
+              a: item.a,
+              b: item.b,
+              note: item.note || '',
+            })),
+          },
+        };
+      },
+    },
+
+    'odd-one-out': {
+      canAdapt(topic) {
+        return Array.isArray(topic.oddOneOut) && topic.oddOneOut.length >= 3;
+      },
+      build(topic) {
+        return {
+          label: `${topic.title} Odd One Out`,
+          type: 'odd-one-out',
+          content: {
+            items: pick(topic.oddOneOut, Math.min(4, topic.oddOneOut.length)).map(item => ({
+              words: item.words,
+              odd: item.odd,
+              reason: item.reason,
+            })),
+          },
+        };
+      },
+    },
+
+    'millionaire': {
+      canAdapt(topic) {
+        return !!(topic.questions && Array.isArray(topic.questions.multipleChoice) && topic.questions.multipleChoice.length >= 10);
+      },
+      build(topic) {
+        return {
+          label: `${topic.title} Millionaire`,
+          type: 'millionaire',
+          content: {
+            questions: topic.questions.multipleChoice.slice(0, 10).map(item => ({
+              question: item.question,
+              options: item.options,
+              answer: item.answer,
+            })),
+          },
+        };
+      },
+    },
+
+    'jeopardy': {
+      canAdapt(topic) {
+        return Array.isArray(topic.jeopardyCategories)
+          && topic.jeopardyCategories.length === 4
+          && topic.jeopardyCategories.every(cat => Array.isArray(cat.questions) && cat.questions.length === 4);
+      },
+      build(topic) {
+        return {
+          label: `${topic.title} Jeopardy`,
+          type: 'jeopardy',
+          content: {
+            categories: topic.jeopardyCategories.map(cat => ({
+              name: cat.name,
+              questions: cat.questions.map(q => ({
+                value: q.value,
+                question: q.question,
+                answer: q.answer,
+              })),
+            })),
+          },
+        };
+      },
+    },
+
+    'countdown': {
+      canAdapt(topic) {
+        return true;
+      },
+      build(topic) {
+        return {
+          label: `${topic.title} Countdown`,
+          type: 'countdown',
+          content: { time: 30 },
+        };
+      },
+    },
+
+    'scenario-cards': {
+      canAdapt(topic) {
+        return Array.isArray(topic.scenarioCards) && topic.scenarioCards.length >= 4;
+      },
+      build(topic) {
+        return {
+          label: `${topic.title} Scenarios`,
+          type: 'scenario-cards',
+          content: {
+            cards: topic.scenarioCards.slice(0, 6).map(card => ({
+              title: card.title,
+              scenario: card.scenario,
+              verdict: card.verdict,
+              verdictStyle: card.verdictStyle,
+              reveal: card.reveal,
+              details: card.details,
+              hook: card.hook,
+            })),
+          },
+        };
+      },
+    },
+
+    'fluency-tree': {
+      canAdapt(topic) {
+        return !!(topic.fluencyTree && topic.fluencyTree.start && topic.fluencyTree.nodes);
+      },
+      build(topic) {
+        return {
+          label: `${topic.title} Fluency Tree`,
+          type: 'fluency-tree',
+          content: {
+            title: topic.fluencyTree.title || topic.title,
+            start: topic.fluencyTree.start,
+            nodes: topic.fluencyTree.nodes,
           },
         };
       },

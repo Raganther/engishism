@@ -38,7 +38,7 @@ git push
 - App entry point: app.html — the main presenter view
 - Engine (engine/engine.js): two modes — slideshow (sequential slides) and selector (pick activities)
 - Navigation flow: topic picker → compatible game type picker → play
-- ACTIVITY_CATALOG in engine.js — single source of truth for all 17 activity types (names, descriptions, SVG icons)
+- ACTIVITY_CATALOG in engine.js — single source of truth for all 18 activity types (names, descriptions, SVG icons)
 - Topic system: TOPIC_INDEX + per-topic packs + GameAdapters generate playable slide data at runtime
 - LESSON_INDEX in lessons/index.js — registry of all lessons with `types: []` for picker filtering
 - Session bar (engine/session.js): persistent top bar — team names (editable), colour-coded scores, +/− buttons, timer controls
@@ -48,9 +48,9 @@ git push
 - Theme system: styles/themes.css — 7 themes (dark, neon, arcade, tropical, candy, fire, chalk), persisted to localStorage
 
 ## Current Status
-- 17 activity types: title-card, reveal-card, fill-blank, meaning-pair, sentence-complete, true-false, hot-seat, noughts-crosses, anagram, call-my-bluff, odd-one-out, missing-vowels, jeopardy, countdown, millionaire, scenario-cards, fluency-tree
-- 3 topic packs: Present Perfect, Jobs & Workplaces, Technology Support
-- 9 lessons: unit-6-scandi-successes, unit-8a, teamwork, negotiation-skills, technology-problems, money-present-perfect, creating-a-cv, at-work, demo-games
+- 18 activity types: title-card, reveal-card, fill-blank, picture-choice, meaning-pair, sentence-complete, true-false, hot-seat, noughts-crosses, anagram, call-my-bluff, odd-one-out, missing-vowels, jeopardy, countdown, millionaire, scenario-cards, fluency-tree
+- 5 topic packs: Present Simple, Present Continuous, Present Perfect, Jobs & Workplaces, Technology Support
+- 10 lessons: unit-1-present-continuous, unit-6-scandi-successes, unit-8a, teamwork, negotiation-skills, technology-problems, money-present-perfect, creating-a-cv, at-work, demo-games
 - 4 standalone activities: desert-island.html, bunker.html, it-helpdesk.html, scam-or-legit.html
 - Topic adapters live in `adapters/index.js` for: fill-blank, true-false, sentence-complete, hot-seat, noughts-crosses, anagram, missing-vowels, call-my-bluff
 - Lesson generation pipeline: photo → Claude + docs/lesson-prompt.md → lesson file → register in lessons/index.js

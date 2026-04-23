@@ -9,6 +9,15 @@ window.TOPIC_INDEX = [
     path: 'topics/grammar/present-simple.js',
   },
   {
+    id: 'present-continuous',
+    title: 'Present Continuous',
+    category: 'Grammar',
+    level: 'A2-B1',
+    summary: 'Actions happening now, temporary situations, and changes in progress.',
+    tags: ['grammar', 'core tense', 'actions now'],
+    path: 'topics/grammar/present-continuous.js',
+  },
+  {
     id: 'present-perfect',
     title: 'Present Perfect',
     category: 'Grammar',

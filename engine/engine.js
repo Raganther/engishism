@@ -33,6 +33,10 @@
         icon: icon('<line x1="3" y1="18" x2="13" y2="18"/><rect x="16" y="13" width="10" height="10" rx="1" stroke-dasharray="2,2"/><line x1="28" y1="18" x2="37" y2="18"/><line x1="3" y1="28" x2="20" y2="28"/>')
       },
       {
+        type: 'picture-choice', label: 'Picture Choice', desc: 'One picture, four sentences — choose the match',
+        icon: icon('<rect x="5" y="6" width="30" height="18" rx="2"/><circle cx="14" cy="14" r="3"/><path d="M8 23 L17 17 L23 22 L28 18 L34 23"/><line x1="7" y1="31" x2="33" y2="31"/><line x1="10" y1="35" x2="24" y2="35"/>')
+      },
+      {
         type: 'meaning-pair', label: 'Meaning Pair', desc: 'Compare two sentences — spot the difference',
         icon: icon('<rect x="3" y="12" width="13" height="16" rx="2"/><rect x="24" y="12" width="13" height="16" rx="2"/><line x1="16" y1="20" x2="24" y2="20"/><polyline points="18,18 16,20 18,22"/><polyline points="22,18 24,20 22,22"/>')
       },
@@ -105,6 +109,7 @@
       case 'title-card':        return c.heading;
       case 'reveal-card':       return c.heading;
       case 'fill-blank':        return `${c.questions.length} questions`;
+      case 'picture-choice':    return `${c.questions.length} pictures`;
       case 'true-false':        return `${c.questions.length} statements`;
       case 'hot-seat':          return `${c.words.length} words · ${c.time}s`;
       case 'noughts-crosses':   return `${c.cells.length} questions`;
@@ -289,7 +294,7 @@
     if (old) old.remove();
 
     const script = document.createElement('script');
-    script.src = `lessons/${id}.js`;
+    script.src = `lessons/${id}.js?v=${encodeURIComponent(meta.version || 'dev')}`;
     script.dataset.lesson = id;
     script.onload = () => {
       if (!window.LESSON) {
