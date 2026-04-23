@@ -1,5 +1,7 @@
 # Engishism — Lesson Generation Prompt
 
+Legacy workflow: this prompt generates full lesson files. The newer topic-first pipeline uses `docs/topic-pack-prompt.md` to generate reusable topic packs.
+
 Copy everything below this line and paste it into Claude along with a photo of the textbook page.
 
 ---

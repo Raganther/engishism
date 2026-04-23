@@ -17,6 +17,7 @@ Read on demand only:
 - .claude/lesson-pipeline.md — read when creating a new lesson or modifying the generation process
 - .claude/school-exploration.md — read when discussing school admin tools or teaching automation
 - .claude/activity-feedback.md — read when working on any activity type, adding features, or reviewing feedback
+- docs/topic-pack-prompt.md — read when generating or editing topic packs
 - docs/dev.md — read when exploring ideas or backlog
 
 ## Run Commands
@@ -36,8 +37,9 @@ git push
 - Entry point: index.html — landing page linking to app + standalone activities
 - App entry point: app.html — the main presenter view
 - Engine (engine/engine.js): two modes — slideshow (sequential slides) and selector (pick activities)
-- Navigation flow: topic picker → game type picker → play
+- Navigation flow: topic picker → compatible game type picker → play
 - ACTIVITY_CATALOG in engine.js — single source of truth for all 17 activity types (names, descriptions, SVG icons)
+- Topic system: TOPIC_INDEX + per-topic packs + GameAdapters generate playable slide data at runtime
 - LESSON_INDEX in lessons/index.js — registry of all lessons with `types: []` for picker filtering
 - Session bar (engine/session.js): persistent top bar — team names (editable), colour-coded scores, +/− buttons, timer controls
 - Session state: window.Session — teacher-driven scoring, teams support (up to 4)
@@ -47,12 +49,15 @@ git push
 
 ## Current Status
 - 17 activity types: title-card, reveal-card, fill-blank, meaning-pair, sentence-complete, true-false, hot-seat, noughts-crosses, anagram, call-my-bluff, odd-one-out, missing-vowels, jeopardy, countdown, millionaire, scenario-cards, fluency-tree
+- 3 topic packs: Present Perfect, Jobs & Workplaces, Technology Support
 - 9 lessons: unit-6-scandi-successes, unit-8a, teamwork, negotiation-skills, technology-problems, money-present-perfect, creating-a-cv, at-work, demo-games
 - 4 standalone activities: desert-island.html, bunker.html, it-helpdesk.html, scam-or-legit.html
+- Topic adapters live in `adapters/index.js` for: fill-blank, true-false, sentence-complete, hot-seat, noughts-crosses, anagram, missing-vowels, call-my-bluff
 - Lesson generation pipeline: photo → Claude + docs/lesson-prompt.md → lesson file → register in lessons/index.js
+- Topic generation pipeline: prompt/image → Claude + docs/topic-pack-prompt.md → topic pack → `node scripts/validate-topics.js`
 - Fluency tree prompt: docs/fluency-tree-prompt.md — standalone prompt for generating branching conversations
 - Memory system: Harness v4.2 — CLAUDE.md for navigation, roadmap for unresolved work, domain files for confirmed knowledge
-- Next: more lessons from handouts, or new standalone games
+- Next: expand topic packs, add more game adapters, or generate topic packs from handouts
 
 ## Constraints
 - Before starting any update, new feature, or bug fix — scan the domain file list above and read any relevant files first

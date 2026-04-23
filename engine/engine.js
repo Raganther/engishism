@@ -1,15 +1,19 @@
 (function () {
-  const activities = window.Activities;
-  const mods       = window.Modules || {};
+  const activities = window.Activities || {};
+  const mods = window.Modules || {};
+  const adapters = window.GameAdapters || {};
 
-  const container  = document.getElementById('slide-container');
-  const counter    = document.getElementById('slide-counter');
+  const container = document.getElementById('slide-container');
+  const counter = document.getElementById('slide-counter');
   const btnLessons = document.getElementById('btn-lessons');
-  const btnPrev    = document.getElementById('btn-prev');
-  const btnNext    = document.getElementById('btn-next');
-  const btnMenu    = document.getElementById('btn-menu');
-  const barTop     = document.getElementById('module-bar-top');
-  const barBottom  = document.getElementById('module-bar-bottom');
+  const btnPrev = document.getElementById('btn-prev');
+  const btnNext = document.getElementById('btn-next');
+  const btnMenu = document.getElementById('btn-menu');
+  const barTop = document.getElementById('module-bar-top');
+  const barBottom = document.getElementById('module-bar-bottom');
+
+  const topicCache = {};
+  const lessonCache = {};
 
   const ACTIVITY_CATALOG = (function () {
     function icon(inner) {
@@ -87,8 +91,13 @@
     ];
   })();
 
-  // ── Shared helpers ──────────────────────────────────────────
-  function formatType(t) { return t.replace(/-/g, ' '); }
+  function getActivityMeta(type) {
+    return ACTIVITY_CATALOG.find(item => item.type === type);
+  }
+
+  function formatType(type) {
+    return String(type || '').replace(/-/g, ' ');
+  }
 
   function autoLabel(slide) {
     const c = slide.content;
@@ -97,7 +106,7 @@
       case 'reveal-card':       return c.heading;
       case 'fill-blank':        return `${c.questions.length} questions`;
       case 'true-false':        return `${c.questions.length} statements`;
-      case 'hot-seat':          return `${c.words.length} words \u00b7 ${c.time}s`;
+      case 'hot-seat':          return `${c.words.length} words · ${c.time}s`;
       case 'noughts-crosses':   return `${c.cells.length} questions`;
       case 'meaning-pair':      return `${c.pairs.length} pairs`;
       case 'sentence-complete': return `${c.stems.length} sentences`;
@@ -114,29 +123,43 @@
     }
   }
 
-  // ── Helpers ────────────────────────────────────────────────
-  function hideAll() {
-    [btnLessons, btnPrev, btnNext, btnMenu].forEach(b => b.style.display = 'none');
-    counter.textContent = '';
-    clearModuleBars();
+  function showLoading(message) {
+    container.innerHTML = `<p class="loading-msg">${message}</p>`;
   }
 
   function clearModuleBars() {
-    barTop.innerHTML    = '';
+    barTop.innerHTML = '';
     barBottom.innerHTML = '';
     barTop.classList.add('hidden');
     barBottom.classList.add('hidden');
   }
 
+  function hideAll() {
+    [btnLessons, btnPrev, btnNext, btnMenu].forEach(button => {
+      button.style.display = 'none';
+      button.onclick = null;
+      button.disabled = false;
+    });
+    counter.textContent = '';
+    clearModuleBars();
+  }
+
+  function setBackButton(label, handler) {
+    btnLessons.textContent = label;
+    btnLessons.style.display = '';
+    btnLessons.onclick = handler;
+  }
+
   function buildState(slide) {
-    const c     = slide.content || {};
+    const c = slide.content || {};
     const teams = c.teams || ['Team A', 'Team B'];
     const scores = {};
-    teams.forEach(t => scores[t] = 0);
+    teams.forEach(team => { scores[team] = 0; });
     return {
-      teams, scores,
-      timeLeft:       c.time || 60,
-      currentTeam:    0,
+      teams,
+      scores,
+      timeLeft: c.time || 60,
+      currentTeam: 0,
       hasTimerModule: !!(slide.modules && slide.modules.includes('timer')),
     };
   }
@@ -151,14 +174,17 @@
     }
 
     const events = window.createEventBus();
-    const state  = buildState(slide);
+    const state = buildState(slide);
 
     container.innerHTML = activity.render(slide.content);
 
     if (slide.modules && slide.modules.length) {
       slide.modules.forEach(name => {
         const mod = mods[name];
-        if (!mod) { console.warn(`Module "${name}" not found`); return; }
+        if (!mod) {
+          console.warn(`Module "${name}" not found`);
+          return;
+        }
         const bar = mod.zone === 'bottom' ? barBottom : barTop;
         bar.classList.remove('hidden');
         const wrapper = document.createElement('div');
@@ -171,53 +197,321 @@
 
     activity.init(container, slide.content, {
       onComplete: onComplete || function () {},
-      state, events,
+      state,
+      events,
     });
 
-    events.on('point', ({ value }) => {
+    events.on('point', ({ value = 1 }) => {
       const team = window.Session.teams[window.Session.activeTeam];
       if (team) window.Session.award(team, value);
     });
   }
 
-  // ── Topic picker (home screen) ──────────────────────────────
+  function getTopicMeta(id) {
+    return (window.TOPIC_INDEX || []).find(item => item.id === id);
+  }
+
+  function getLessonMeta(id) {
+    return (window.LESSON_INDEX || []).find(item => item.id === id);
+  }
+
+  function loadTopic(id, onLoad) {
+    const meta = getTopicMeta(id);
+    if (!meta) {
+      container.innerHTML = `<p style="color:red;font-size:1.5rem">Unknown topic: ${id}</p>`;
+      return;
+    }
+
+    if (topicCache[id]) {
+      window.TOPIC_PACK = topicCache[id];
+      onLoad(topicCache[id], meta);
+      return;
+    }
+
+    showLoading('Loading topic…');
+    window.TOPIC_PACK = null;
+
+    const old = document.querySelector('script[data-topic]');
+    if (old) old.remove();
+
+    const script = document.createElement('script');
+    script.src = meta.path;
+    script.dataset.topic = id;
+    script.onload = () => {
+      if (!window.TOPIC_PACK) {
+        container.innerHTML = `<p style="color:red;font-size:1.5rem">Topic did not load: ${id}</p>`;
+        return;
+      }
+      topicCache[id] = window.TOPIC_PACK;
+      onLoad(topicCache[id], meta);
+    };
+    script.onerror = () => {
+      container.innerHTML = `<p style="color:red;font-size:1.5rem">Could not load topic: ${id}</p>`;
+    };
+    document.head.appendChild(script);
+  }
+
+  function loadAllTopics(onLoad) {
+    const metas = window.TOPIC_INDEX || [];
+    const topics = [];
+
+    function next(index) {
+      if (index >= metas.length) {
+        onLoad(topics);
+        return;
+      }
+      loadTopic(metas[index].id, topic => {
+        topics.push(topic);
+        next(index + 1);
+      });
+    }
+
+    next(0);
+  }
+
+  function loadLesson(id, onLoad) {
+    const meta = getLessonMeta(id);
+    if (!meta) {
+      container.innerHTML = `<p style="color:red;font-size:1.5rem">Unknown lesson: ${id}</p>`;
+      return;
+    }
+
+    if (lessonCache[id]) {
+      window.LESSON = lessonCache[id];
+      onLoad(lessonCache[id], meta);
+      return;
+    }
+
+    showLoading('Loading lesson…');
+    window.LESSON = null;
+
+    const old = document.querySelector('script[data-lesson]');
+    if (old) old.remove();
+
+    const script = document.createElement('script');
+    script.src = `lessons/${id}.js`;
+    script.dataset.lesson = id;
+    script.onload = () => {
+      if (!window.LESSON) {
+        container.innerHTML = `<p style="color:red;font-size:1.5rem">Lesson did not load: ${id}</p>`;
+        return;
+      }
+      lessonCache[id] = window.LESSON;
+      onLoad(lessonCache[id], meta);
+    };
+    script.onerror = () => {
+      container.innerHTML = `<p style="color:red;font-size:1.5rem">Could not load lesson: ${id}</p>`;
+    };
+    document.head.appendChild(script);
+  }
+
+  function topicTile(meta) {
+    return `
+      <button class="sel-tile" data-id="${meta.id}">
+        <span class="sel-type">${meta.category}</span>
+        <span class="sel-label">${meta.title}</span>
+        <span class="act-desc">${meta.summary}</span>
+        <span class="act-count">${meta.level}${meta.tags && meta.tags.length ? ` · ${meta.tags.join(' · ')}` : ''}</span>
+      </button>
+    `;
+  }
+
   function showTopicPicker() {
     hideAll();
 
-    const index = window.LESSON_INDEX || [];
-    const tiles = index.map(l => `
-      <button class="sel-tile" data-id="${l.id}">
-        ${l.tag ? `<span class="sel-type">${l.tag}</span>` : ''}
-        <span class="sel-label">${l.title}</span>
-        <span class="act-count">${l.types.length} activit${l.types.length === 1 ? 'y' : 'ies'}</span>
-      </button>
-    `).join('');
+    const tiles = (window.TOPIC_INDEX || []).map(topicTile).join('');
 
     container.innerHTML = `
       <div class="selector">
         <h1 class="sel-title">Topics</h1>
+        <p class="sel-desc">Choose a topic first, then launch a compatible game.</p>
         <div class="sel-grid">${tiles}</div>
       </div>
     `;
 
     container.querySelectorAll('.sel-tile').forEach(tile => {
-      const meta = index.find(l => l.id === tile.dataset.id);
-      tile.addEventListener('click', () => showTopicGames(meta));
+      tile.addEventListener('click', () => showTopicGames(tile.dataset.id));
     });
   }
 
-  // ── Game picker for a topic ─────────────────────────────────
-  function showTopicGames(lessonMeta) {
-    hideAll();
-    btnLessons.style.display = '';
+  function topicAvailabilityText(activityMeta, topic) {
+    const adapter = adapters[activityMeta.type];
+    if (!adapter) return 'Topic adapter coming soon';
+    if (!adapter.canAdapt(topic)) return 'Not enough topic data';
+    return 'Ready';
+  }
 
-    const tiles = ACTIVITY_CATALOG.map(a => {
-      const available = lessonMeta.types.includes(a.type);
+  function showTopicGames(topicId) {
+    const topicMeta = getTopicMeta(topicId);
+    if (!topicMeta) return;
+
+    hideAll();
+    setBackButton('← Topics', showTopicPicker);
+    showLoading('Checking compatible games…');
+
+    loadTopic(topicId, topic => {
+      const tiles = ACTIVITY_CATALOG.map(activityMeta => {
+        const adapter = adapters[activityMeta.type];
+        const available = !!(adapter && adapter.canAdapt(topic));
+        return `
+          <button class="sel-tile act-tile${available ? '' : ' act-empty'}" data-type="${activityMeta.type}" ${available ? '' : 'disabled'}>
+            <div class="act-icon">${activityMeta.icon}</div>
+            <span class="act-label">${activityMeta.label}</span>
+            <span class="act-desc">${activityMeta.desc}</span>
+            <span class="act-count${available ? '' : ' none'}">${topicAvailabilityText(activityMeta, topic)}</span>
+          </button>
+        `;
+      }).join('');
+
+      container.innerHTML = `
+        <div class="selector">
+          <h1 class="sel-title">${topicMeta.title}</h1>
+          <p class="sel-desc">${topicMeta.summary}</p>
+          <div class="sel-grid">${tiles}</div>
+        </div>
+      `;
+
+      container.querySelectorAll('.act-tile:not(.act-empty)').forEach(tile => {
+        tile.addEventListener('click', () => {
+          launchGeneratedActivity(topicMeta.id, tile.dataset.type, () => showTopicGames(topicMeta.id));
+        });
+      });
+    });
+  }
+
+  function showAllGamesPicker() {
+    hideAll();
+    setBackButton('← Topics', showTopicPicker);
+    showLoading('Loading game coverage…');
+
+    loadAllTopics(topics => {
+      const tiles = ACTIVITY_CATALOG.map(activityMeta => {
+        const adapter = adapters[activityMeta.type];
+        const count = adapter ? topics.filter(topic => adapter.canAdapt(topic)).length : 0;
+        const available = count > 0;
+        const badge = adapter ? `${count} topic${count === 1 ? '' : 's'}` : 'Topic adapter coming soon';
+        return `
+          <button class="sel-tile act-tile${available ? '' : ' act-empty'}" data-type="${activityMeta.type}" ${available ? '' : 'disabled'}>
+            <div class="act-icon">${activityMeta.icon}</div>
+            <span class="act-label">${activityMeta.label}</span>
+            <span class="act-desc">${activityMeta.desc}</span>
+            <span class="act-count${available ? '' : ' none'}">${badge}</span>
+          </button>
+        `;
+      }).join('');
+
+      container.innerHTML = `
+        <div class="selector">
+          <h1 class="sel-title">All Game Types</h1>
+          <p class="sel-desc">Browse every game format, then choose a topic that can drive it.</p>
+          <div class="sel-grid">${tiles}</div>
+        </div>
+      `;
+
+      container.querySelectorAll('.act-tile:not(.act-empty)').forEach(tile => {
+        tile.addEventListener('click', () => showGameTopics(tile.dataset.type));
+      });
+    });
+  }
+
+  function showGameTopics(type) {
+    const activityMeta = getActivityMeta(type);
+    const adapter = adapters[type];
+
+    if (!activityMeta || !adapter) {
+      showAllGamesPicker();
+      return;
+    }
+
+    hideAll();
+    setBackButton('← Games', showAllGamesPicker);
+    showLoading('Finding matching topics…');
+
+    loadAllTopics(topics => {
+      const matches = topics
+        .map(topic => ({ topic, meta: getTopicMeta(topic.id) }))
+        .filter(item => item.meta && adapter.canAdapt(item.topic));
+
+      const tiles = matches.map(item => topicTile(item.meta)).join('');
+
+      container.innerHTML = `
+        <div class="selector">
+          <h1 class="sel-title">${activityMeta.label}</h1>
+          <p class="sel-desc">Choose a topic that can generate this game.</p>
+          <div class="sel-grid">${tiles}</div>
+        </div>
+      `;
+
+      container.querySelectorAll('.sel-tile').forEach(tile => {
+        tile.addEventListener('click', () => {
+          launchGeneratedActivity(tile.dataset.id, type, () => showGameTopics(type));
+        });
+      });
+    });
+  }
+
+  function launchGeneratedActivity(topicId, type, returnHandler) {
+    const topicMeta = getTopicMeta(topicId);
+    const activityMeta = getActivityMeta(type);
+    const adapter = adapters[type];
+
+    if (!topicMeta || !activityMeta || !adapter) return;
+
+    hideAll();
+    setBackButton('← Games', returnHandler);
+    showLoading('Building activity…');
+
+    loadTopic(topicId, topic => {
+      if (!adapter.canAdapt(topic)) {
+        container.innerHTML = `<p style="color:red;font-size:1.5rem">This topic cannot generate ${activityMeta.label} yet.</p>`;
+        return;
+      }
+
+      const slide = adapter.build(topic);
+      counter.textContent = slide.label || `${activityMeta.label} · ${topicMeta.title}`;
+      renderActivity(slide, returnHandler);
+    });
+  }
+
+  function showLegacyLessonPicker() {
+    hideAll();
+
+    const index = window.LESSON_INDEX || [];
+    const tiles = index.map(lesson => `
+      <button class="sel-tile" data-id="${lesson.id}">
+        ${lesson.tag ? `<span class="sel-type">${lesson.tag}</span>` : ''}
+        <span class="sel-label">${lesson.title}</span>
+        <span class="act-count">${lesson.types.length} activit${lesson.types.length === 1 ? 'y' : 'ies'}</span>
+      </button>
+    `).join('');
+
+    container.innerHTML = `
+      <div class="selector">
+        <h1 class="sel-title">Curated Lessons</h1>
+        <p class="sel-desc">Existing hand-built lesson packs.</p>
+        <div class="sel-grid">${tiles}</div>
+      </div>
+    `;
+
+    container.querySelectorAll('.sel-tile').forEach(tile => {
+      tile.addEventListener('click', () => showLegacyLessonGames(tile.dataset.id));
+    });
+  }
+
+  function showLegacyLessonGames(lessonId) {
+    const lessonMeta = getLessonMeta(lessonId);
+    if (!lessonMeta) return;
+
+    hideAll();
+    setBackButton('← Lessons', showLegacyLessonPicker);
+
+    const tiles = ACTIVITY_CATALOG.map(activityMeta => {
+      const available = lessonMeta.types.includes(activityMeta.type);
       return `
-        <button class="sel-tile act-tile${available ? '' : ' act-empty'}" data-type="${a.type}" ${available ? '' : 'disabled'}>
-          <div class="act-icon">${a.icon}</div>
-          <span class="act-label">${a.label}</span>
-          <span class="act-desc">${a.desc}</span>
+        <button class="sel-tile act-tile${available ? '' : ' act-empty'}" data-type="${activityMeta.type}" ${available ? '' : 'disabled'}>
+          <div class="act-icon">${activityMeta.icon}</div>
+          <span class="act-label">${activityMeta.label}</span>
+          <span class="act-desc">${activityMeta.desc}</span>
         </button>
       `;
     }).join('');
@@ -231,124 +525,76 @@
     `;
 
     container.querySelectorAll('.act-tile:not(.act-empty)').forEach(tile => {
-      tile.addEventListener('click', () => launchTopicActivity(lessonMeta, tile.dataset.type));
+      tile.addEventListener('click', () => {
+        launchLegacyLessonActivity(lessonId, tile.dataset.type, () => showLegacyLessonGames(lessonId));
+      });
     });
   }
 
-  // ── Launch an activity from a topic ─────────────────────────
-  function launchTopicActivity(lessonMeta, type) {
-    loadLesson(lessonMeta.id, () => {
-      const lesson = window.LESSON;
-      if (!lesson) return;
+  function launchLegacyLessonActivity(lessonId, type, returnHandler, options) {
+    const activityMeta = getActivityMeta(type);
+    const directFirst = options && options.directFirst;
 
-      const slides   = lesson.slides.filter(s => s.type === type);
-      if (slides.length === 0) return;
+    hideAll();
+    setBackButton('← Games', returnHandler);
+    showLoading('Loading lesson activity…');
 
-      const activity = ACTIVITY_CATALOG.find(a => a.type === type);
+    loadLesson(lessonId, lesson => {
+      const slides = lesson.slides.filter(slide => slide.type === type);
+      if (slides.length === 0) {
+        container.innerHTML = `<p style="color:red;font-size:1.5rem">No slides found for ${type}.</p>`;
+        return;
+      }
 
       function playSlide(slide) {
         hideAll();
-        btnLessons.style.display = '';
-        btnMenu.style.display    = '';
-        counter.textContent      = slide.label || formatType(type);
-
-        function goBack() {
-          document.removeEventListener('keydown', escHandler);
-          showTopicGames(lessonMeta);
-        }
-        function escHandler(e) { if (e.key === 'Escape') goBack(); }
-        document.addEventListener('keydown', escHandler);
-
-        renderActivity(slide, goBack);
-        btnMenu.addEventListener('click', goBack, { once: true });
+        setBackButton('← Games', returnHandler);
+        counter.textContent = slide.label || activityMeta.label || formatType(type);
+        renderActivity(slide, returnHandler);
       }
 
-      if (slides.length === 1) {
+      if (slides.length === 1 || directFirst) {
         playSlide(slides[0]);
         return;
       }
 
-      // Multiple slides of same type — show sub-picker
-      hideAll();
-      btnLessons.style.display = '';
-
-      const tiles = slides.map((slide, i) => {
-        const label   = slide.label || autoLabel(slide);
+      const tiles = slides.map((slide, index) => {
+        const label = slide.label || autoLabel(slide);
         const hasMods = slide.modules && slide.modules.length;
         return `
-          <button class="sel-tile${hasMods ? ' has-modules' : ''}" data-index="${i}">
+          <button class="sel-tile${hasMods ? ' has-modules' : ''}" data-index="${index}">
             <span class="sel-label">${label}</span>
-            ${hasMods ? `<span class="sel-mods">${slide.modules.join(' \u00b7 ')}</span>` : ''}
+            ${hasMods ? `<span class="sel-mods">${slide.modules.join(' · ')}</span>` : ''}
           </button>
         `;
       }).join('');
 
       container.innerHTML = `
         <div class="selector">
-          <h1 class="sel-title">${activity ? activity.label : formatType(type)}</h1>
-          <p class="sel-desc">${lessonMeta.title}</p>
+          <h1 class="sel-title">${activityMeta ? activityMeta.label : formatType(type)}</h1>
           <div class="sel-grid">${tiles}</div>
         </div>
       `;
 
       container.querySelectorAll('.sel-tile').forEach(tile => {
-        tile.addEventListener('click', () => playSlide(slides[parseInt(tile.dataset.index)]));
+        tile.addEventListener('click', () => playSlide(slides[parseInt(tile.dataset.index, 10)]));
       });
     });
   }
 
-  function loadLesson(id, onLoad) {
-    container.innerHTML = `<p class="loading-msg">Loading\u2026</p>`;
-
-    // Remove any previously injected lesson script
-    const old = document.querySelector('script[data-lesson]');
-    if (old) old.remove();
-    window.LESSON = null;
-
-    const script = document.createElement('script');
-    script.src            = `lessons/${id}.js`;
-    script.dataset.lesson = id;
-    script.onload  = () => (onLoad || startLesson)();
-    script.onerror = () => {
-      container.innerHTML = `<p style="color:red;font-size:1.5rem">Could not load: ${id}</p>`;
-    };
-    document.head.appendChild(script);
-  }
-
-  // ── Start lesson ───────────────────────────────────────────
-  function startLesson() {
-    const lesson = window.LESSON;
-    if (!lesson) return;
-
-    // Show "← Lessons" only when a picker is available
-    if (window.LESSON_INDEX) {
-      btnLessons.style.display = '';
-    }
-
-    if ((lesson.mode || 'slideshow') === 'selector') {
-      startSelectorMode(lesson);
-    } else {
-      startSlideshowMode(lesson);
-    }
-  }
-
-  // ── Selector mode ──────────────────────────────────────────
   function startSelectorMode(lesson) {
-    function escHandler(e) { if (e.key === 'Escape') showMenu(); }
-
     function showMenu() {
-      document.removeEventListener('keydown', escHandler);
       hideAll();
-      if (window.LESSON_INDEX) btnLessons.style.display = '';
+      setBackButton('← Lessons', showLegacyLessonPicker);
 
-      const tiles = lesson.slides.map((slide, i) => {
-        const label   = slide.label || autoLabel(slide);
+      const tiles = lesson.slides.map((slide, index) => {
+        const label = slide.label || autoLabel(slide);
         const hasMods = slide.modules && slide.modules.length;
         return `
-          <button class="sel-tile${hasMods ? ' has-modules' : ''}" data-index="${i}">
+          <button class="sel-tile${hasMods ? ' has-modules' : ''}" data-index="${index}">
             <span class="sel-type">${formatType(slide.type)}</span>
             <span class="sel-label">${label}</span>
-            ${hasMods ? `<span class="sel-mods">${slide.modules.join(' \u00b7 ')}</span>` : ''}
+            ${hasMods ? `<span class="sel-mods">${slide.modules.join(' · ')}</span>` : ''}
           </button>
         `;
       }).join('');
@@ -361,67 +607,65 @@
       `;
 
       container.querySelectorAll('.sel-tile').forEach(tile => {
-        tile.addEventListener('click', () => launch(parseInt(tile.dataset.index)));
+        tile.addEventListener('click', () => launch(parseInt(tile.dataset.index, 10)));
       });
     }
 
     function launch(index) {
       hideAll();
-      if (window.LESSON_INDEX) btnLessons.style.display = '';
-      btnMenu.style.display = '';
-      counter.textContent   = lesson.slides[index].label || formatType(lesson.slides[index].type);
-      document.addEventListener('keydown', escHandler);
+      setBackButton('← Lessons', showMenu);
+      counter.textContent = lesson.slides[index].label || formatType(lesson.slides[index].type);
       renderActivity(lesson.slides[index], showMenu);
     }
 
-    btnMenu.addEventListener('click', showMenu);
     showMenu();
   }
 
-  // ── Slideshow mode ─────────────────────────────────────────
   function startSlideshowMode(lesson) {
-    let current  = 0;
-    let active   = true;
+    let current = 0;
 
+    hideAll();
+    setBackButton('← Lessons', showLegacyLessonPicker);
     btnPrev.style.display = '';
     btnNext.style.display = '';
 
     function go(dir) {
-      if (!active) return;
       const next = current + dir;
       if (next < 0 || next >= lesson.slides.length) return;
       current = next;
       renderActivity(lesson.slides[current], () => go(1));
       counter.textContent = `${current + 1} / ${lesson.slides.length}`;
-      btnPrev.disabled    = current === 0;
-      btnNext.disabled    = current === lesson.slides.length - 1;
+      btnPrev.disabled = current === 0;
+      btnNext.disabled = current === lesson.slides.length - 1;
     }
 
-    function keyHandler(e) {
-      if (!active) { document.removeEventListener('keydown', keyHandler); return; }
-      if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(1); }
-      if (e.key === 'ArrowLeft')                   { e.preventDefault(); go(-1); }
-    }
-
-    btnPrev.addEventListener('click', () => go(-1));
-    btnNext.addEventListener('click', () => go(1));
-    document.addEventListener('keydown', keyHandler);
-
-    // Clean up when returning to picker
-    btnLessons.addEventListener('click', () => { active = false; }, { once: true });
-
+    btnPrev.onclick = () => go(-1);
+    btnNext.onclick = () => go(1);
     go(0);
   }
 
-  // ── Entry point ────────────────────────────────────────────
-  btnLessons.addEventListener('click', showTopicPicker);
+  function startLesson() {
+    const lesson = window.LESSON;
+    if (!lesson) return;
+    if ((lesson.mode || 'slideshow') === 'selector') {
+      startSelectorMode(lesson);
+    } else {
+      startSlideshowMode(lesson);
+    }
+  }
 
-  if (window.LESSON_INDEX) {
+  const params = new URLSearchParams(window.location.search);
+  const initialView = params.get('view');
+
+  if (initialView === 'lessons') {
+    showLegacyLessonPicker();
+  } else if (initialView === 'games') {
+    showAllGamesPicker();
+  } else if (window.TOPIC_INDEX) {
     showTopicPicker();
   } else if (window.LESSON) {
     startLesson();
   } else {
-    container.innerHTML = `<p style="color:var(--muted);font-size:1.5rem">No lesson loaded.</p>`;
+    container.innerHTML = `<p style="color:var(--muted);font-size:1.5rem">No content loaded.</p>`;
   }
-
 })();
