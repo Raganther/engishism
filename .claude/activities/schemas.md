@@ -42,13 +42,19 @@ Confirmed data shapes for all 17 activity types. Use this as the reference when 
 {
   type: "fill-blank",
   content: {
+    mode: "open"|"multiple-choice",   // optional; defaults to open reveal mode
     questions: [
-      { sentence: "The answer is [in brackets].", note: "explanation of why" }
+      {
+        sentence: "The answer is [in brackets].",
+        note: "explanation of why",
+        options: ["wrong", "right", "wrong"]   // optional; used for multiple-choice mode
+      }
     ]
   }
 }
 ```
 **Rule:** answers go inside [square brackets] in the sentence. No separate `answer` field.
+**Mode notes:** omit `mode` or use `open` for legacy tap-to-reveal. Use `multiple-choice` when each question includes `options[]`. For v2 multiple-choice, one intended answer target per question is preferred.
 
 ---
 
@@ -299,7 +305,7 @@ Confirmed data shapes for all 17 activity types. Use this as the reference when 
 |---|---|
 | title-card | unit, heading, subheading |
 | reveal-card | heading, items[]{label, example} |
-| fill-blank | questions[]{sentence (answers in [brackets]), note} |
+| fill-blank | mode, questions[]{sentence (answers in [brackets]), note, options?} |
 | meaning-pair | pairs[]{a, b, note} |
 | true-false | questions[]{statement, answer: bool, explanation} |
 | sentence-complete | stems[]{stem, hint, answer} |

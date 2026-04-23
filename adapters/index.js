@@ -18,6 +18,10 @@
     return (topic.vocabulary || []).filter(item => item && item.term);
   }
 
+  function uniqueStrings(list) {
+    return [...new Set((list || []).filter(Boolean).map(item => String(item).trim()).filter(Boolean))];
+  }
+
   function plainSentence(sentence) {
     return String(sentence || '').replace(/\[([^\]]+)\]/g, '$1');
   }
@@ -48,6 +52,120 @@
       .toUpperCase()
       .replace(/[AEIOU]/g, '')
       .replace(/[^A-Z]/g, '');
+  }
+
+  function looksShortAnswer(answer) {
+    return String(answer || '').trim().split(/\s+/).length <= 4;
+  }
+
+  function regularPastBase(word) {
+    const base = String(word || '').trim();
+    if (!/ed$/i.test(base)) return null;
+    if (/ied$/i.test(base)) return `${base.slice(0, -3)}y`;
+    if (/ed$/i.test(base)) return base.slice(0, -2);
+    return null;
+  }
+
+  function regularPastForms(word) {
+    const base = regularPastBase(word);
+    if (!base) return [];
+    const forms = [base];
+    if (/y$/i.test(base)) forms.push(`${base.slice(0, -1)}ies`);
+    else if (/(s|sh|ch|x|z|o)$/i.test(base)) forms.push(`${base}es`);
+    else forms.push(`${base}s`);
+    return forms;
+  }
+
+  function auxiliaryAlternatives(word) {
+    const lower = String(word || '').toLowerCase();
+    const map = {
+      do: ['does', 'did'],
+      does: ['do', 'did'],
+      did: ['do', 'does'],
+      is: ['are', 'was'],
+      are: ['is', 'were'],
+      was: ['is', 'were'],
+      were: ['are', 'was'],
+      has: ['have', 'had'],
+      have: ['has', 'had'],
+      had: ['has', 'have'],
+    };
+    return map[lower] || [];
+  }
+
+  function mutateAnswer(answer) {
+    const base = String(answer || '').trim();
+    if (!base) return [];
+
+    const variants = [];
+    const lower = base.toLowerCase();
+    const words = base.split(/\s+/);
+
+    if (words.length > 1) return [];
+
+    if (auxiliaryAlternatives(base).length) {
+      variants.push(...auxiliaryAlternatives(base));
+      return uniqueStrings(variants).filter(item => item.toLowerCase() !== lower);
+    }
+
+    if (/\bdoes not\b/.test(lower)) variants.push(base.replace(/does not/i, 'do not'));
+    if (/\bdo not\b/.test(lower)) variants.push(base.replace(/do not/i, 'does not'));
+    if (/\bhas\b/.test(lower)) variants.push(base.replace(/\bhas\b/i, 'have'));
+    if (/\bhave\b/.test(lower)) variants.push(base.replace(/\bhave\b/i, 'has'));
+    if (/\bis\b/.test(lower)) variants.push(base.replace(/\bis\b/i, 'are'));
+    if (/\bare\b/.test(lower)) variants.push(base.replace(/\bare\b/i, 'is'));
+
+    if (/ied$/i.test(base) || /ed$/i.test(base)) variants.push(...regularPastForms(base));
+    else if (/ies$/i.test(base)) variants.push(base.replace(/ies$/i, 'y'));
+    else if (/es$/i.test(base)) variants.push(base.replace(/es$/i, ''));
+    else if (/s$/i.test(base) && !/ss$/i.test(base)) variants.push(base.replace(/s$/i, ''));
+    else if (/y$/i.test(base)) variants.push(`${base.slice(0, -1)}ies`);
+    else if (/^[A-Za-z]+$/.test(base)) variants.push(`${base}s`, `${base}ed`);
+
+    return uniqueStrings(variants).filter(item => item.toLowerCase() !== lower);
+  }
+
+  function vocabularyDistractors(topic, answer) {
+    return uniqueStrings(
+      flattenVocabulary(topic)
+        .map(item => item.term)
+        .filter(term => String(term).toLowerCase() !== String(answer).toLowerCase())
+    );
+  }
+
+  function fallbackDistractors(topic, item) {
+    return uniqueStrings(
+      (topic.fillBlanks || [])
+        .filter(other => other !== item)
+        .map(other => extractBracketAnswer(other.sentence))
+    );
+  }
+
+  function buildFillBlankOptions(topic, item) {
+    const answer = extractBracketAnswer(item.sentence);
+    const explicit = uniqueStrings(item.options || []);
+    if (explicit.includes(answer) && explicit.length >= 3) {
+      return shuffle(explicit);
+    }
+
+    if (!looksShortAnswer(answer)) return null;
+
+    const mutated = mutateAnswer(answer);
+    const lexicalPool = topic.category === 'vocabulary'
+      ? vocabularyDistractors(topic, answer)
+      : [];
+    const fallbackPool = topic.category === 'vocabulary'
+      ? fallbackDistractors(topic, item)
+      : [];
+
+    const pool = uniqueStrings([
+      ...mutated,
+      ...lexicalPool,
+      ...fallbackPool,
+    ]).filter(option => option.toLowerCase() !== answer.toLowerCase());
+
+    const options = uniqueStrings([answer, ...pool]).slice(0, 4);
+    return options.length >= 3 ? shuffle(options) : null;
   }
 
   function buildNcCells(topic) {
@@ -83,13 +201,23 @@
         return Array.isArray(topic.fillBlanks) && topic.fillBlanks.length >= 4;
       },
       build(topic) {
+        const questions = pick(topic.fillBlanks, Math.min(6, topic.fillBlanks.length)).map(item => ({
+          sentence: item.sentence,
+          note: item.note || '',
+          options: buildFillBlankOptions(topic, item),
+        }));
+
+        const allChoiceReady = questions.every(item => Array.isArray(item.options) && item.options.length >= 3);
+
         return {
           label: `${topic.title} Fill in the Blank`,
           type: 'fill-blank',
           content: {
-            questions: pick(topic.fillBlanks, Math.min(6, topic.fillBlanks.length)).map(item => ({
+            mode: allChoiceReady ? 'multiple-choice' : undefined,
+            questions: questions.map(item => ({
               sentence: item.sentence,
               note: item.note || '',
+              ...(allChoiceReady ? { options: item.options } : {}),
             })),
           },
         };

@@ -1,4 +1,4 @@
-Status: current | Epistemic: working | Last verified: 2026-04-22
+Status: current | Epistemic: working | Last verified: 2026-04-23
 
 # Engishism Research Roadmap
 
@@ -30,4 +30,7 @@ None.
 
 ## Resolved
 
-None yet.
+| Date | Topic | Resolution |
+|---|---|---|
+| 2026-04-23 | Topic-first architecture | Implemented topic-first runtime flow with topic packs, game adapters, topic validation, and legacy lesson fallback. |
+| 2026-04-23 | Fill-blank v2 | Implemented backward-compatible multiple-choice mode for `fill-blank`; Present Simple now provides an explicit v2 example while weaker topic data falls back to open reveal mode. |

@@ -109,11 +109,13 @@ Include 4–6 items where possible.
 ```js
 {
   sentence: "She has [already finished] the report.",
-  note: "already"
+  note: "already",
+  options: ["already finish", "already finished", "finishes already"]
 }
 ```
 
 Include 4–6 items where possible. Mark the answer in square brackets.
+`options` is optional but useful when the topic should generate a multiple-choice fill-blank activity. If included, provide 3–4 plausible choices and include the correct answer exactly as it appears in brackets.
 
 ### pairs
 

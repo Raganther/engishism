@@ -1,5 +1,14 @@
 window.TOPIC_INDEX = [
   {
+    id: 'present-simple',
+    title: 'Present Simple',
+    category: 'Grammar',
+    level: 'A2-B1',
+    summary: 'Daily routines, habits, and general truths with present simple forms.',
+    tags: ['grammar', 'core tense'],
+    path: 'topics/grammar/present-simple.js',
+  },
+  {
     id: 'present-perfect',
     title: 'Present Perfect',
     category: 'Grammar',

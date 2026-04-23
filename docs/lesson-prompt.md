@@ -65,15 +65,20 @@ All items shown at once — no interaction.
 ---
 
 ### fill-blank
-Sentences with a missing word or phrase. Teacher clicks the blank to reveal.
+Sentences with a missing word or phrase. Can be open reveal or multiple-choice.
 Mark the answer in the sentence using [square brackets].
 ```js
 {
   label: "Short name for selector menu",
   type: "fill-blank",
   content: {
+    mode: "multiple-choice",
     questions: [
-      { sentence: "She enjoys [being read to] in bed.", note: "passive gerund" }
+      {
+        sentence: "She enjoys [being read to] in bed.",
+        note: "passive gerund",
+        options: ["read", "to read", "being read to"]
+      }
     ]
   }
 }
@@ -81,6 +86,8 @@ Mark the answer in the sentence using [square brackets].
 - Aim for 4–8 questions.
 - `note` is the grammar label (e.g. "to + infinitive"). Optional but helpful.
 - One blank per sentence is ideal. Multiple blanks are supported: use [bracket] for each.
+- Omit `mode` and `options` if you want the legacy teacher-reveal version.
+- For `mode: "multiple-choice"`, include 3–4 options and make the distractors plausible.
 
 ---
 
