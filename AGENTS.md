@@ -46,7 +46,7 @@ git push
 
 ## Current Status
 - Primary runtime has 1 rebuilt unit: grammar-unit-1-present-continuous
-- Primary runtime has 1 rebuilt game: Picture Choice
+- Primary runtime has 2 rebuilt games: Picture Choice and Sentence Builder
 - Unit 1 uses a generated classroom action sheet at assets/images/units/unit-1-present-continuous/action-sheet.png
 - Legacy runtime still contains 18 activity types, 5 topic packs, 10 lessons, and 4 standalone activities, but these are not exposed by the rebuilt app shell
 - New lesson/content generation target: grammar workbook unit → rich unit file → game capability adapters

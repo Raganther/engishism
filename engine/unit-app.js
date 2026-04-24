@@ -14,6 +14,16 @@
         return Boolean(unit && unit.practice && Array.isArray(unit.practice.imagePrompts) && unit.practice.imagePrompts.length);
       },
     },
+    {
+      id: 'sentence-builder',
+      label: 'Sentence Builder',
+      kicker: 'Word Order',
+      description: 'Drag or tap word tiles into the correct sentence.',
+      requires: ['sentenceBuilders'],
+      canPlay(unit) {
+        return Boolean(unit && unit.practice && Array.isArray(unit.practice.sentenceBuilders) && unit.practice.sentenceBuilders.length);
+      },
+    },
   ];
 
   function escapeHtml(value) {
@@ -203,6 +213,8 @@
     const game = games.find(item => item.id === gameId);
     if (!unit || !game || !game.canPlay(unit)) return renderUnit(unitId);
 
+    if (gameId === 'sentence-builder') return renderSentenceBuilder(unitId, unit);
+
     const prompts = unit.practice.imagePrompts;
     let index = 0;
     let selected = null;
@@ -279,6 +291,370 @@
           renderUnit(unitId);
         }
       });
+    }
+
+    draw();
+  }
+
+  function renderSentenceBuilder(unitId, unit) {
+    const prompts = unit.practice.sentenceBuilders;
+    let index = 0;
+    let built = [];
+    let selectedTile = null;
+    let checked = false;
+    let draggingItem = null;
+    let pendingSnap = null;
+
+    renderShell(`
+      <section class="game-shell sentence-builder-shell">
+        <div class="game-topline">
+          <button class="back-link" data-action="back-unit">← ${escapeHtml(unit.meta.title)}</button>
+          <span class="game-progress"></span>
+        </div>
+        <div class="sentence-builder-game"></div>
+      </section>
+    `);
+
+    const board = root.querySelector('.sentence-builder-game');
+    const progress = root.querySelector('.game-progress');
+
+    root.querySelector('[data-action="back-unit"]').addEventListener('click', () => {
+      setRoute('unit', unitId);
+      renderUnit(unitId);
+    });
+
+    function currentPrompt() {
+      return prompts[index];
+    }
+
+    function isCorrect() {
+      const answer = currentPrompt().answer;
+      return built.length === answer.length && built.every((item, i) => item.word === answer[i]);
+    }
+
+    function remainingTiles() {
+      const usedIds = new Set(built.map(item => item.id));
+      return currentPrompt().words.map((word, wordIndex) => ({ id: `${wordIndex}-${word}`, word })).filter(item => !usedIds.has(item.id));
+    }
+
+    function draw() {
+      const prompt = currentPrompt();
+      const complete = checked;
+      const correct = complete && isCorrect();
+      const builtTiles = built.map((item, slotIndex) => {
+        return `
+          <button class="sentence-slot filled"
+            data-slot="${slotIndex}"
+            data-tile-id="${escapeHtml(item.id)}"
+            data-word="${escapeHtml(item.word)}"
+            draggable="${complete ? 'false' : 'true'}"
+            ${complete ? 'disabled' : ''}>
+            ${escapeHtml(item.word)}
+          </button>
+        `;
+      }).join('');
+      const tiles = remainingTiles().map(item => `
+        <button class="word-tile${selectedTile && selectedTile.id === item.id ? ' selected' : ''}"
+          data-tile-id="${escapeHtml(item.id)}"
+          data-word="${escapeHtml(item.word)}"
+          draggable="${complete ? 'false' : 'true'}"
+          ${complete ? 'disabled' : ''}>
+          ${escapeHtml(item.word)}
+        </button>
+      `).join('');
+      const wordBank = complete
+        ? ''
+        : `<div class="word-bank" aria-label="Word tiles">${tiles}</div>`;
+
+      progress.textContent = `${index + 1} / ${prompts.length}`;
+      board.innerHTML = `
+        <div class="builder-panel">
+          <p class="eyebrow">Sentence Builder</p>
+          <h1>${escapeHtml(prompt.clue)}</h1>
+          <div class="sentence-slots sentence-dropzone" aria-label="Built sentence">
+            ${builtTiles || '<div class="drop-hint">Drop words here</div>'}
+          </div>
+          ${wordBank}
+          <div class="feedback ${complete ? 'visible' : ''} ${correct ? 'success' : 'error'}">
+            ${complete ? escapeHtml(correct ? `Correct: ${prompt.sentence}` : `Not quite. ${prompt.explanation}`) : 'Tap words in order, or drag them into the sentence.'}
+          </div>
+          <div class="game-actions">
+            <button class="secondary-action" data-action="clear">Clear</button>
+            <button class="secondary-action" data-action="reveal">Reveal</button>
+            <button class="primary-action" data-action="check">${complete ? (index === prompts.length - 1 ? 'Finish' : 'Next sentence →') : 'Check sentence'}</button>
+          </div>
+        </div>
+      `;
+
+      board.querySelectorAll('.word-tile').forEach(tile => {
+        tile.addEventListener('click', () => {
+          if (checked) return;
+          const item = { id: tile.dataset.tileId, word: tile.dataset.word };
+          built.push(item);
+          selectedTile = null;
+          draw();
+        });
+
+        tile.addEventListener('dragstart', event => {
+          if (checked) return;
+          const tileRect = tile.getBoundingClientRect();
+          draggingItem = {
+            id: tile.dataset.tileId,
+            word: tile.dataset.word,
+            source: 'bank',
+            offsetX: event.clientX - tileRect.left,
+            offsetY: event.clientY - tileRect.top,
+            width: tileRect.width,
+            height: tileRect.height,
+          };
+          tile.classList.add('dragging');
+          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.setData('application/json', JSON.stringify(draggingItem));
+        });
+
+        tile.addEventListener('dragend', () => {
+          draggingItem = null;
+          clearDragPreview();
+        });
+      });
+
+      board.querySelectorAll('.sentence-slot').forEach(slot => {
+        slot.addEventListener('click', () => {
+          if (checked) return;
+          const slotIndex = Number(slot.dataset.slot);
+          if (built[slotIndex]) {
+            built.splice(slotIndex, 1);
+            draw();
+          }
+        });
+
+        slot.addEventListener('dragstart', event => {
+          if (checked || !slot.dataset.word) return;
+          const slotRect = slot.getBoundingClientRect();
+          draggingItem = {
+            id: slot.dataset.tileId,
+            word: slot.dataset.word,
+            source: 'slot',
+            slotIndex: Number(slot.dataset.slot),
+            offsetX: event.clientX - slotRect.left,
+            offsetY: event.clientY - slotRect.top,
+            width: slotRect.width,
+            height: slotRect.height,
+          };
+          slot.classList.add('dragging');
+          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.setData('application/json', JSON.stringify(draggingItem));
+        });
+
+        slot.addEventListener('dragend', () => {
+          draggingItem = null;
+          clearDragPreview();
+        });
+      });
+
+      const sentenceDropzone = board.querySelector('.sentence-dropzone');
+      if (sentenceDropzone) {
+        sentenceDropzone.addEventListener('dragover', event => {
+          if (checked) return;
+          event.preventDefault();
+          sentenceDropzone.classList.add('drag-over');
+          showTilePlaceholder(sentenceDropzone, getInsertionIndex(sentenceDropzone, event));
+        });
+
+        sentenceDropzone.addEventListener('dragleave', event => {
+          if (sentenceDropzone.contains(event.relatedTarget)) return;
+          sentenceDropzone.classList.remove('drag-over');
+          removeTilePlaceholder();
+        });
+
+        sentenceDropzone.addEventListener('drop', event => {
+          if (checked) return;
+          event.preventDefault();
+          const raw = event.dataTransfer.getData('application/json');
+          if (!raw) return;
+          const item = JSON.parse(raw);
+          const insertionIndex = getInsertionIndex(sentenceDropzone, event);
+          sentenceDropzone.classList.remove('drag-over');
+          clearDragPreview();
+
+          if (item.source === 'slot') {
+            built.splice(item.slotIndex, 1);
+            built.splice(insertionIndex, 0, { id: item.id, word: item.word });
+          } else {
+            built = built.filter(existing => existing.id !== item.id);
+            built.splice(insertionIndex, 0, { id: item.id, word: item.word });
+          }
+          built = built.slice(0, currentPrompt().answer.length);
+          pendingSnap = {
+            id: item.id,
+            x: event.clientX,
+            y: event.clientY,
+            offsetX: item.offsetX,
+            offsetY: item.offsetY,
+          };
+          draw();
+        });
+      }
+
+      const wordBankElement = board.querySelector('.word-bank');
+      if (wordBankElement) {
+        wordBankElement.addEventListener('dragover', event => {
+          if (checked || !draggingItem || draggingItem.source !== 'slot') return;
+          event.preventDefault();
+          wordBankElement.classList.add('drag-over');
+        });
+
+        wordBankElement.addEventListener('dragleave', () => {
+          wordBankElement.classList.remove('drag-over');
+        });
+
+        wordBankElement.addEventListener('drop', event => {
+          if (checked) return;
+          event.preventDefault();
+          wordBankElement.classList.remove('drag-over');
+          const raw = event.dataTransfer.getData('application/json');
+          if (!raw) return;
+          const item = JSON.parse(raw);
+          if (item.source === 'slot') {
+            built.splice(item.slotIndex, 1);
+            draw();
+          }
+        });
+      }
+
+      board.querySelector('[data-action="clear"]').addEventListener('click', () => {
+        built = [];
+        checked = false;
+        selectedTile = null;
+        draggingItem = null;
+        pendingSnap = null;
+        draw();
+      });
+
+      board.querySelector('[data-action="reveal"]').addEventListener('click', () => {
+        built = prompt.answer.map((word, wordIndex) => ({ id: `reveal-${wordIndex}`, word }));
+        checked = true;
+        draw();
+      });
+
+      board.querySelector('[data-action="check"]').addEventListener('click', () => {
+        if (!checked) {
+          checked = true;
+          draw();
+          return;
+        }
+
+        if (index < prompts.length - 1) {
+          index++;
+          built = [];
+          checked = false;
+          selectedTile = null;
+          draggingItem = null;
+          pendingSnap = null;
+          draw();
+        } else {
+          renderUnit(unitId);
+        }
+      });
+
+      animatePendingSnap();
+    }
+
+    function clearDragPreview() {
+      board.querySelectorAll('.dragging').forEach(item => item.classList.remove('dragging'));
+      const wordBankElement = board.querySelector('.word-bank');
+      if (wordBankElement) wordBankElement.classList.remove('drag-over');
+      const sentenceDropzone = board.querySelector('.sentence-dropzone');
+      if (sentenceDropzone) sentenceDropzone.classList.remove('drag-over');
+      removeTilePlaceholder();
+    }
+
+    function getInsertionIndex(dropzone, event) {
+      const tiles = [...dropzone.querySelectorAll('.sentence-slot:not(.dragging)')];
+      if (!tiles.length) return 0;
+      let bestIndex = tiles.length;
+      let bestDistance = Infinity;
+      tiles.forEach((tile, index) => {
+        const rect = tile.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const distance = Math.hypot(event.clientX - centerX, event.clientY - centerY);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestIndex = event.clientX < centerX ? index : index + 1;
+        }
+      });
+      return bestIndex;
+    }
+
+    function showTilePlaceholder(dropzone, index) {
+      if (!draggingItem) return;
+      let placeholder = dropzone.querySelector('.tile-placeholder');
+      if (!placeholder) {
+        placeholder = document.createElement('span');
+        placeholder.className = 'tile-placeholder';
+      }
+      if (placeholder.dataset.index === String(index)) return;
+      const beforeRects = new Map([...dropzone.querySelectorAll('.sentence-slot:not(.dragging)')].map(tile => [tile, tile.getBoundingClientRect()]));
+      placeholder.style.width = `${draggingItem.width || 92}px`;
+      placeholder.style.height = `${draggingItem.height || 70}px`;
+      placeholder.dataset.index = String(index);
+      const tiles = [...dropzone.querySelectorAll('.sentence-slot:not(.dragging)')];
+      dropzone.insertBefore(placeholder, tiles[index] || null);
+      animateTrayReflow(beforeRects, dropzone);
+    }
+
+    function removeTilePlaceholder() {
+      board.querySelectorAll('.tile-placeholder').forEach(placeholder => placeholder.remove());
+    }
+
+    function animateTrayReflow(beforeRects, dropzone) {
+      dropzone.querySelectorAll('.sentence-slot:not(.dragging)').forEach(tile => {
+        const before = beforeRects.get(tile);
+        if (!before) return;
+        const after = tile.getBoundingClientRect();
+        const dx = before.left - after.left;
+        const dy = before.top - after.top;
+        if (!dx && !dy) return;
+        tile.style.transition = 'none';
+        tile.style.transform = `translate(${dx}px, ${dy}px)`;
+        requestAnimationFrame(() => {
+          tile.style.transition = '';
+          tile.style.transform = '';
+        });
+      });
+    }
+
+    function animatePendingSnap() {
+      if (!pendingSnap) return;
+      const snap = pendingSnap;
+      pendingSnap = null;
+      const target = board.querySelector(`.sentence-slot.filled[data-tile-id="${CSS.escape(snap.id)}"]`);
+      if (!target) return;
+      const rect = target.getBoundingClientRect();
+      const startX = snap.x - (snap.offsetX || rect.width / 2);
+      const startY = snap.y - (snap.offsetY || rect.height / 2);
+      const ghost = document.createElement('div');
+      ghost.className = 'snap-ghost';
+      ghost.textContent = target.textContent.trim();
+      ghost.style.left = `${startX}px`;
+      ghost.style.top = `${startY}px`;
+      ghost.style.width = `${rect.width}px`;
+      ghost.style.height = `${rect.height}px`;
+
+      target.classList.add('snap-target');
+      document.body.appendChild(ghost);
+      ghost.getBoundingClientRect();
+      ghost.style.transform = `translate(${rect.left - startX}px, ${rect.top - startY}px) scale(1)`;
+
+      ghost.addEventListener('transitionend', () => {
+        ghost.remove();
+        target.classList.remove('snap-target');
+        target.classList.add('snap-landed');
+        target.addEventListener('animationend', () => {
+          target.classList.remove('snap-landed');
+        }, { once: true });
+      }, { once: true });
     }
 
     draw();

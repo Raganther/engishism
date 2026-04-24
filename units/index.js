@@ -6,6 +6,6 @@ window.ENGISHISM_UNIT_INDEX = [
     category: 'Grammar',
     level: 'A2-B1',
     summary: 'Actions happening now, temporary situations, and changes in progress.',
-    capabilities: ['rules', 'forms', 'examples', 'contrasts', 'mistakes', 'multipleChoice', 'fillBlanks', 'speakingPrompts', 'imagePrompts'],
+    capabilities: ['rules', 'forms', 'examples', 'contrasts', 'mistakes', 'multipleChoice', 'fillBlanks', 'speakingPrompts', 'imagePrompts', 'sentenceBuilders'],
   },
 ];

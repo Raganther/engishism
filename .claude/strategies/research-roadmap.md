@@ -23,6 +23,8 @@ None.
 | idea | Activity UX | Should activities track which items have been revealed, so re-entering does not reset state? | `.claude/activity-feedback.md` |
 | idea | Activity scoring | Is the current "no scoring on most activities" intentional, or should more activities integrate with the session bar? | `.claude/activity-feedback.md` |
 | idea | Activity schemas | Should countdown accept an optional topic or prompt field, or is verbal-only the right design? | `.claude/activities/schemas.md` |
+| idea | Unit-first lesson board | Should Unit 1 get an original interactive workbook-style lesson page with explanations, illustrated examples, gap fills, correction tasks, and teacher reveal/check controls before adding more games? | Conversation, 2026-04-24 |
+| idea | Illustration workflow | Should Unit lesson boards use generated image packs that can also feed games, with style variants selectable or swappable later? | Conversation, 2026-04-24 |
 
 ## Monitoring
 
@@ -32,6 +34,7 @@ None.
 
 | Date | Topic | Resolution |
 |---|---|---|
+| 2026-04-24 | Sentence Builder template | Added the second Unit-first game, Sentence Builder, powered by `practice.sentenceBuilders` content with tap/drag word tiles, check/reveal/clear controls, and clean feedback for Unit 1 Present Continuous. |
 | 2026-04-24 | Unit-first rebuild | Replaced the visible app flow with a Unit-first runtime, rich Unit 1 content model, generated action-sheet asset, interactive whiteboard UI, and polished Picture Choice vertical slice while preserving legacy files in the repo. |
 | 2026-04-23 | Unit 1 Present Continuous | Added a reusable Present Continuous topic pack from the grammar book, a curated Unit 1 lesson, project-local image asset, and a new `picture-choice` activity for one-image multiple-choice grammar practice. |
 | 2026-04-23 | Topic-first architecture | Implemented topic-first runtime flow with topic packs, game adapters, topic validation, and legacy lesson fallback. |

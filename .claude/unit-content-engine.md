@@ -14,4 +14,6 @@ The first rebuilt vertical slice is `grammar-unit-1-present-continuous`, based o
 
 The first rebuilt game is Picture Choice. It reads `practice.imagePrompts`, crops the unit image sheet by column and row, shows one illustration at a time, presents four answer choices, marks correct/wrong answers, and advances through the prompt set.
 
+The second rebuilt game is Sentence Builder. It reads `practice.sentenceBuilders`, shows scrambled word tiles, lets the teacher tap or drag words into a flexible sentence tray, supports reordering placed words or moving them back to the word bank, creates a tile-sized gap that pushes neighbouring words aside while dragging, checks the built sentence against the unit answer, offers reveal/clear controls, and hides the remaining word bank once feedback is shown so the answer is visually unambiguous.
+
 The visual design target is an interactive whiteboard: large readable type, chunky magnetic cards, sticker-like buttons, bright high-contrast colours, and generated classroom illustrations as lesson assets rather than static UI screenshots.
