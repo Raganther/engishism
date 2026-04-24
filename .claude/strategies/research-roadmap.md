@@ -32,6 +32,7 @@ None.
 
 | Date | Topic | Resolution |
 |---|---|---|
+| 2026-04-24 | Unit-first rebuild | Replaced the visible app flow with a Unit-first runtime, rich Unit 1 content model, generated action-sheet asset, interactive whiteboard UI, and polished Picture Choice vertical slice while preserving legacy files in the repo. |
 | 2026-04-23 | Unit 1 Present Continuous | Added a reusable Present Continuous topic pack from the grammar book, a curated Unit 1 lesson, project-local image asset, and a new `picture-choice` activity for one-image multiple-choice grammar practice. |
 | 2026-04-23 | Topic-first architecture | Implemented topic-first runtime flow with topic packs, game adapters, topic validation, and legacy lesson fallback. |
 | 2026-04-23 | Fill-blank v2 | Implemented backward-compatible multiple-choice mode for `fill-blank`; Present Simple now provides an explicit v2 example while weaker topic data falls back to open reveal mode. |

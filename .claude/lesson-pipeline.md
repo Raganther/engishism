@@ -4,7 +4,10 @@ Status: current | Epistemic: confirmed | Last verified: 2026-04-22
 
 ## Knowledge
 
-### Pipeline steps
+### Legacy lesson pipeline
+The older `window.LESSON` pipeline is preserved for legacy files but is no longer the primary app flow.
+
+### Legacy pipeline steps
 1. Photograph or screenshot a textbook page
 2. Paste into Claude alongside the prompt template (`docs/lesson-prompt.md`)
 3. Claude outputs a raw JS file — `window.LESSON = { title, mode: "selector", slides: [...] }`
@@ -20,7 +23,10 @@ Status: current | Epistemic: confirmed | Last verified: 2026-04-22
 - **Fluency tree merge violations** — merge nodes whose options only make sense after one incoming path. The merge rule is the most subtle constraint: every option at a merge point must work regardless of which path was taken. Documented in both schemas.md and fluency-tree-prompt.md.
 
 ### Lesson count and registry
-9 lessons registered in `lessons/index.js`: unit-6-scandi-successes, unit-8a, money-present-perfect, technology-problems, teamwork, negotiation-skills, at-work, creating-a-cv, demo-games.
+Legacy lessons remain registered in `lessons/index.js`, but the rebuilt primary app does not expose the legacy lesson picker.
+
+### New unit-first target
+New workbook-derived content should be represented as rich Unit files under `units/`, with metadata, grammar content, practice pools, image prompts, and asset references. Games should consume those unit buckets through capability checks rather than duplicating content into hand-built lesson slides.
 
 ### Source material
 Handout PDFs/DOCXs live in `material/`. Not all have been converted to lessons yet.

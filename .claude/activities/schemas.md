@@ -4,7 +4,7 @@ Status: current | Epistemic: confirmed | Last verified: 2026-04-22
 
 ## Knowledge
 
-Confirmed data shapes for all 17 activity types. Use this as the reference when writing new lessons.
+Confirmed data shapes for legacy activity types. The rebuilt Unit-first runtime uses unit content buckets and game capability checks as its primary model; these schemas remain useful for legacy lessons and for migrating games.
 
 ---
 

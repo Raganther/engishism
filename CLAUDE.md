@@ -15,6 +15,7 @@ Read on demand only:
 - .claude/procedures/_index.md — scan at plan creation for relevant how-to patterns
 - .claude/activities/schemas.md — read when writing or editing lesson files
 - .claude/lesson-pipeline.md — read when creating a new lesson or modifying the generation process
+- .claude/unit-content-engine.md — read when working on the rebuilt Unit-first runtime, unit schemas, or game capability adapters
 - .claude/school-exploration.md — read when discussing school admin tools or teaching automation
 - .claude/activity-feedback.md — read when working on any activity type, adding features, or reviewing feedback
 - docs/topic-pack-prompt.md — read when generating or editing topic packs
@@ -34,30 +35,23 @@ git push
 
 ## Architecture
 - Stack: HTML, CSS, vanilla JS — no build step, fully offline capable
-- Entry point: index.html — landing page linking to app + standalone activities
-- App entry point: app.html — the main presenter view
-- Engine (engine/engine.js): two modes — slideshow (sequential slides) and selector (pick activities)
-- Navigation flow: topic picker → compatible game type picker → play
-- ACTIVITY_CATALOG in engine.js — single source of truth for all 18 activity types (names, descriptions, SVG icons)
-- Topic system: TOPIC_INDEX + per-topic packs + GameAdapters generate playable slide data at runtime
-- LESSON_INDEX in lessons/index.js — registry of all lessons with `types: []` for picker filtering
-- Session bar (engine/session.js): persistent top bar — team names (editable), colour-coded scores, +/− buttons, timer controls
-- Session state: window.Session — teacher-driven scoring, teams support (up to 4)
-- Event bus (engine/events.js): scoped per activity session
-- Module system: timer, scoreboard, teams snap onto any activity via `modules` field
-- Theme system: styles/themes.css — 7 themes (dark, neon, arcade, tropical, candy, fire, chalk), persisted to localStorage
+- Entry point: index.html — landing page for the rebuilt Unit-first app
+- App entry point: app.html — new Unit-first classroom runtime
+- New runtime: engine/unit-app.js — chooses a unit, shows compatible games, and runs the selected game from unit content
+- Unit registry: units/index.js + unit files under units/ — source of truth for workbook-derived content
+- Unit model: metadata, grammar forms/rules/contrasts/mistakes, practice pools, speaking prompts, image prompts, and generated asset references
+- Game capability model: games declare required content buckets and enable themselves when a unit can power them
+- Primary visual system: styles/whiteboard.css — interactive whiteboard metaphor with magnetic cards and large classroom-TV UI
+- Legacy runtime: engine/engine.js, lessons/, topics/, adapters/, activities/, modules/, and standalone HTML activities remain in the repo but are hidden from the primary UI
 
 ## Current Status
-- 18 activity types: title-card, reveal-card, fill-blank, picture-choice, meaning-pair, sentence-complete, true-false, hot-seat, noughts-crosses, anagram, call-my-bluff, odd-one-out, missing-vowels, jeopardy, countdown, millionaire, scenario-cards, fluency-tree
-- 5 topic packs: Present Simple, Present Continuous, Present Perfect, Jobs & Workplaces, Technology Support
-- 10 lessons: unit-1-present-continuous, unit-6-scandi-successes, unit-8a, teamwork, negotiation-skills, technology-problems, money-present-perfect, creating-a-cv, at-work, demo-games
-- 4 standalone activities: desert-island.html, bunker.html, it-helpdesk.html, scam-or-legit.html
-- Topic adapters live in `adapters/index.js` for: fill-blank, true-false, sentence-complete, hot-seat, noughts-crosses, anagram, missing-vowels, call-my-bluff
-- Lesson generation pipeline: photo → Claude + docs/lesson-prompt.md → lesson file → register in lessons/index.js
-- Topic generation pipeline: prompt/image → Claude + docs/topic-pack-prompt.md → topic pack → `node scripts/validate-topics.js`
-- Fluency tree prompt: docs/fluency-tree-prompt.md — standalone prompt for generating branching conversations
+- Primary runtime has 1 rebuilt unit: grammar-unit-1-present-continuous
+- Primary runtime has 1 rebuilt game: Picture Choice
+- Unit 1 uses a generated classroom action sheet at assets/images/units/unit-1-present-continuous/action-sheet.png
+- Legacy runtime still contains 18 activity types, 5 topic packs, 10 lessons, and 4 standalone activities, but these are not exposed by the rebuilt app shell
+- New lesson/content generation target: grammar workbook unit → rich unit file → game capability adapters
 - Memory system: Harness v4.2 — CLAUDE.md for navigation, roadmap for unresolved work, domain files for confirmed knowledge
-- Next: expand topic packs, add more game adapters, or generate topic packs from handouts
+- Next: expand the Unit-first schema and add more games that can consume the same unit content
 
 ## Constraints
 - Before starting any update, new feature, or bug fix — scan the domain file list above and read any relevant files first

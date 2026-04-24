@@ -4,141 +4,97 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Engishism</title>
+  <link rel="stylesheet" href="styles/whiteboard.css">
   <style>
-    :root {
-      --bg:      #0d1117;
-      --surface: #161b22;
-      --border:  #30363d;
-      --text:    #e6edf3;
-      --muted:   #6e7681;
-      --accent:  #e6ac00;
-    }
-
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      min-height: 100vh;
-      padding: 3rem 2rem;
-    }
-
-    header {
-      text-align: center;
-      margin-bottom: 3rem;
-    }
-
-    header h1 {
-      font-size: 2.5rem;
-      font-weight: 900;
-      letter-spacing: -0.02em;
-      color: var(--accent);
-    }
-
-    header p {
-      margin-top: 0.5rem;
-      color: var(--muted);
-      font-size: 1rem;
-    }
-
-    section {
-      max-width: 720px;
-      margin: 0 auto 2.5rem;
-    }
-
-    section h2 {
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 1rem;
-      padding-bottom: 0.5rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .card-grid {
+    .landing-main {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 1rem;
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+      gap: clamp(1rem, 3vw, 2rem);
+      align-items: center;
+      min-height: calc(100vh - 4rem);
+      width: min(100%, 1240px);
+      margin: 0 auto;
+      padding: clamp(1rem, 2.2vw, 2rem);
     }
 
-    a.card {
-      display: block;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1.25rem 1.5rem;
-      text-decoration: none;
-      color: var(--text);
-      transition: border-color 0.15s, box-shadow 0.15s;
+    .landing-board {
+      background: var(--board);
+      border: 5px solid var(--line);
+      border-radius: 34px;
+      padding: clamp(1.4rem, 4vw, 3rem);
+      box-shadow: 0 14px 0 var(--shadow);
     }
 
-    a.card:hover {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 1px var(--accent);
+    .landing-board h1 {
+      margin: 0 0 1rem;
+      color: var(--orange);
+      font-size: clamp(4rem, 10vw, 8rem);
+      font-weight: 950;
+      line-height: 0.9;
     }
 
-    a.card .card-title {
-      font-size: 1rem;
-      font-weight: 700;
-      margin-bottom: 0.35rem;
-    }
-
-    a.card .card-desc {
-      font-size: 0.8rem;
+    .landing-board p {
+      max-width: 650px;
       color: var(--muted);
+      font-size: clamp(1.15rem, 2vw, 1.55rem);
+      font-weight: 800;
       line-height: 1.4;
+    }
+
+    .landing-actions {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 2rem;
+    }
+
+    .landing-actions a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 4rem;
+      padding: 0.8rem 1.25rem;
+      border: 4px solid var(--orange);
+      border-radius: 22px;
+      background: var(--orange);
+      color: #fff;
+      box-shadow: 0 7px 0 rgba(255, 122, 26, 0.28);
+      font-size: 1.1rem;
+      font-weight: 950;
+      text-decoration: none;
+    }
+
+    .landing-art {
+      min-height: 560px;
+      border: 5px solid var(--line);
+      border-radius: 34px;
+      background:
+        linear-gradient(rgba(31, 42, 68, 0.02), rgba(31, 42, 68, 0.02)),
+        url("assets/images/units/unit-1-present-continuous/action-sheet.png") center / cover no-repeat;
+      box-shadow: 0 14px 0 var(--shadow);
+    }
+
+    @media (max-width: 860px) {
+      .landing-main {
+        grid-template-columns: 1fr;
+      }
+
+      .landing-art {
+        min-height: 320px;
+      }
     }
   </style>
 </head>
 <body>
-
-  <header>
-    <h1>Engishism</h1>
-    <p>ESL classroom tools</p>
-  </header>
-
-  <section>
-    <h2>Classroom Library</h2>
-    <div class="card-grid">
-      <a class="card" href="app.html">
-        <div class="card-title">Topic Activities</div>
-        <div class="card-desc">Choose a grammar or vocabulary topic first, then launch a compatible game.</div>
-      </a>
-      <a class="card" href="app.html?view=lessons">
-        <div class="card-title">Curated Lessons</div>
-        <div class="card-desc">Browse the existing hand-built lesson packs and their activity selections.</div>
-      </a>
-      <a class="card" href="app.html?view=games">
-        <div class="card-title">All Game Types</div>
-        <div class="card-desc">Browse every game format, then choose a topic that can drive it.</div>
-      </a>
-    </div>
-  </section>
-
-  <section>
-    <h2>Team Building</h2>
-    <div class="card-grid">
-      <a class="card" href="desert-island.html">
-        <div class="card-title">Desert Island</div>
-        <div class="card-desc">15 survival items — vote to keep or lose, then the expert reveals.</div>
-      </a>
-      <a class="card" href="bunker.html">
-        <div class="card-title">Who Makes It?</div>
-        <div class="card-desc">15 candidates, 8 bunker spaces — ethical debate and council reveal.</div>
-      </a>
-      <a class="card" href="it-helpdesk.html">
-        <div class="card-title">IT Helpdesk</div>
-        <div class="card-desc">8 support tickets — identify the problem, clarify the issue, earn points.</div>
-      </a>
-      <a class="card" href="scam-or-legit.html">
-        <div class="card-title">Scam or Legit?</div>
-        <div class="card-desc">10 financial situations — spot the con, discuss using "Have you ever...?"</div>
-      </a>
-    </div>
-  </section>
-
+  <main class="landing-main">
+    <section class="landing-board">
+      <p class="eyebrow">Unit-first classroom games</p>
+      <h1>Engishism</h1>
+      <p>Turn grammar workbook units into illustrated, interactive games for the big screen.</p>
+      <div class="landing-actions">
+        <a href="app.html">Choose a unit →</a>
+      </div>
+    </section>
+    <aside class="landing-art" aria-label="Present continuous classroom action illustrations"></aside>
+  </main>
 </body>
 </html>

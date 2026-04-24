@@ -1,0 +1,468 @@
+:root {
+  --wall: #fff5d6;
+  --board: #fffdf6;
+  --ink: #1f2a44;
+  --muted: #667085;
+  --line: #efc65b;
+  --orange: #ff7a1a;
+  --blue: #2563eb;
+  --green: #13a860;
+  --red: #ef4444;
+  --shadow: rgba(120, 77, 9, 0.2);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    linear-gradient(90deg, rgba(239, 198, 91, 0.2) 1px, transparent 1px),
+    linear-gradient(rgba(239, 198, 91, 0.2) 1px, transparent 1px),
+    radial-gradient(circle at top left, #fff9e8, var(--wall) 56%);
+  background-size: 44px 44px, 44px 44px, auto;
+  color: var(--ink);
+  font-family: ui-rounded, "Avenir Next", "Segoe UI", system-ui, sans-serif;
+}
+
+button {
+  font: inherit;
+}
+
+.wb-app {
+  min-height: 100vh;
+  padding: clamp(1rem, 2.2vw, 2rem);
+}
+
+.wb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: min(100%, 1240px);
+  margin: 0 auto 1.25rem;
+}
+
+.wb-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.wb-brand-mark {
+  display: grid;
+  place-items: center;
+  width: 3.1rem;
+  height: 3.1rem;
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  background: var(--orange);
+  color: #fff;
+  font-size: 1.75rem;
+  font-weight: 950;
+  box-shadow: 0 5px 0 var(--shadow);
+}
+
+.wb-brand strong,
+.wb-brand small {
+  display: block;
+}
+
+.wb-brand strong {
+  font-size: 1.2rem;
+  font-weight: 950;
+}
+
+.wb-brand small,
+.wb-header-note {
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.wb-main {
+  width: min(100%, 1240px);
+  margin: 0 auto;
+  background: var(--board);
+  border: 5px solid var(--line);
+  border-radius: 32px;
+  box-shadow: 0 14px 0 var(--shadow);
+  padding: clamp(1.2rem, 3vw, 2.5rem);
+  min-height: calc(100vh - 8rem);
+}
+
+.wb-hero,
+.unit-stage,
+.picture-game {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  gap: clamp(1rem, 3vw, 2rem);
+  align-items: center;
+}
+
+.eyebrow,
+.card-kicker {
+  color: var(--blue);
+  font-size: 0.85rem;
+  font-weight: 950;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+.wb-hero h1,
+.unit-stage h1,
+.question-panel h1 {
+  margin-bottom: 1rem;
+  color: var(--orange);
+  font-size: clamp(2.5rem, 6vw, 5.8rem);
+  font-weight: 950;
+  line-height: 0.95;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.hero-copy,
+.unit-copy p {
+  color: var(--muted);
+  font-size: clamp(1.05rem, 1.7vw, 1.35rem);
+  font-weight: 750;
+  line-height: 1.45;
+  max-width: 680px;
+}
+
+.hero-board {
+  position: relative;
+  min-height: 340px;
+  border: 4px solid var(--line);
+  border-radius: 28px;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.08), transparent),
+    #ffffff;
+  box-shadow: inset 0 0 0 8px rgba(255, 247, 223, 0.8), 0 10px 0 var(--shadow);
+}
+
+.mini-card {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 42%;
+  min-height: 96px;
+  border: 4px solid currentColor;
+  border-radius: 22px;
+  background: #fff;
+  font-size: clamp(1.2rem, 2vw, 1.7rem);
+  font-weight: 950;
+  text-transform: uppercase;
+  box-shadow: 0 8px 0 var(--shadow);
+}
+
+.mini-card.blue { top: 12%; left: 10%; color: var(--blue); transform: rotate(-4deg); }
+.mini-card.orange { top: 38%; right: 8%; color: var(--orange); transform: rotate(5deg); }
+.mini-card.green { bottom: 12%; left: 18%; color: var(--green); transform: rotate(-2deg); }
+
+.unit-grid,
+.game-grid,
+.rule-grid,
+.answer-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.unit-grid,
+.game-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-top: 1.5rem;
+}
+
+.magnet-card,
+.answer-tile,
+.primary-action,
+.secondary-action,
+.back-link {
+  border: 4px solid var(--line);
+  border-radius: 22px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 7px 0 var(--shadow);
+  cursor: pointer;
+  transition: transform 0.16s, box-shadow 0.16s, border-color 0.16s;
+}
+
+.magnet-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-height: 188px;
+  padding: 1.25rem;
+  text-align: left;
+}
+
+.magnet-card:hover,
+.answer-tile:hover:not(:disabled),
+.primary-action:hover,
+.secondary-action:hover,
+.back-link:hover {
+  border-color: var(--orange);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 0 rgba(255, 122, 26, 0.22);
+}
+
+.card-title {
+  color: var(--ink);
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+  font-weight: 950;
+  line-height: 1.05;
+}
+
+.card-desc {
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.card-meta {
+  margin-top: auto;
+  color: var(--green);
+  font-size: 0.9rem;
+  font-weight: 950;
+}
+
+.legacy-note {
+  margin-top: 1.5rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 750;
+}
+
+.back-link {
+  display: inline-flex;
+  margin-bottom: 1rem;
+  padding: 0.65rem 1rem;
+  color: var(--blue);
+  font-weight: 950;
+}
+
+.unit-preview {
+  min-height: 340px;
+  border: 4px solid var(--line);
+  border-radius: 28px;
+  background-position: center;
+  background-size: cover;
+  box-shadow: 0 10px 0 var(--shadow);
+}
+
+.content-panel {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.2fr);
+  gap: 1.25rem;
+  margin: 1.5rem 0 2rem;
+}
+
+.content-panel > div,
+.rule-chip {
+  border: 3px solid rgba(239, 198, 91, 0.72);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 1rem;
+}
+
+.content-panel h2,
+.section-heading h2 {
+  color: var(--orange);
+  font-size: clamp(1.4rem, 2.5vw, 2.2rem);
+  line-height: 1;
+  margin-bottom: 0.85rem;
+}
+
+.form-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.form-list li {
+  display: grid;
+  gap: 0.2rem;
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.form-list strong,
+.rule-chip h3 {
+  color: var(--blue);
+  font-weight: 950;
+}
+
+.rule-grid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.rule-chip p {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.game-card.disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.game-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.game-progress {
+  color: var(--blue);
+  font-size: 1.2rem;
+  font-weight: 950;
+}
+
+.picture-frame {
+  border: 5px solid var(--line);
+  border-radius: 30px;
+  background: #fff;
+  padding: 0.75rem;
+  box-shadow: 0 12px 0 var(--shadow);
+}
+
+.picture-crop {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 22px;
+  background-repeat: no-repeat;
+  background-color: #fff;
+}
+
+.question-panel {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.question-panel h1 {
+  font-size: clamp(2rem, 4.5vw, 4.3rem);
+}
+
+.answer-grid {
+  grid-template-columns: 1fr;
+}
+
+.answer-tile {
+  min-height: 4.8rem;
+  padding: 0.85rem 1rem;
+  font-size: clamp(1.05rem, 1.7vw, 1.45rem);
+  font-weight: 900;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.answer-tile.correct {
+  border-color: var(--green);
+  background: #e8fff3;
+  color: #047444;
+}
+
+.answer-tile.wrong {
+  border-color: var(--red);
+  background: #fff0f0;
+  color: #b42318;
+}
+
+.answer-tile:disabled {
+  cursor: default;
+}
+
+.feedback {
+  min-height: 2.4rem;
+  margin: 1rem 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+.feedback.visible {
+  color: var(--green);
+}
+
+.game-actions {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.primary-action,
+.secondary-action {
+  min-height: 3.25rem;
+  padding: 0.7rem 1.1rem;
+  font-weight: 950;
+}
+
+.primary-action {
+  border-color: var(--orange);
+  background: var(--orange);
+  color: #fff;
+}
+
+.secondary-action {
+  color: var(--blue);
+}
+
+@media (max-width: 860px) {
+  .wb-header,
+  .game-topline {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .wb-header-note {
+    display: none;
+  }
+
+  .wb-main {
+    min-height: calc(100vh - 7rem);
+    border-radius: 24px;
+  }
+
+  .wb-hero,
+  .unit-stage,
+  .picture-game,
+  .content-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-board,
+  .unit-preview {
+    min-height: 260px;
+  }
+
+  .wb-hero h1,
+  .unit-stage h1,
+  .question-panel h1 {
+    font-size: clamp(2.3rem, 13vw, 4rem);
+  }
+}
