@@ -304,6 +304,8 @@
     let checked = false;
     let draggingItem = null;
     let pendingSnap = null;
+    let suppressSlotClick = false;
+    let pendingWordBankRects = null;
 
     renderShell(`
       <section class="game-shell sentence-builder-shell">
@@ -347,7 +349,7 @@
             data-slot="${slotIndex}"
             data-tile-id="${escapeHtml(item.id)}"
             data-word="${escapeHtml(item.word)}"
-            draggable="${complete ? 'false' : 'true'}"
+            draggable="false"
             ${complete ? 'disabled' : ''}>
             ${escapeHtml(item.word)}
           </button>
@@ -363,7 +365,7 @@
         </button>
       `).join('');
       const wordBank = complete
-        ? ''
+        ? '<div class="word-bank word-bank-placeholder" aria-hidden="true"></div>'
         : `<div class="word-bank" aria-label="Word tiles">${tiles}</div>`;
 
       progress.textContent = `${index + 1} / ${prompts.length}`;
@@ -389,6 +391,7 @@
       board.querySelectorAll('.word-tile').forEach(tile => {
         tile.addEventListener('click', () => {
           if (checked) return;
+          pendingWordBankRects = captureWordBankRects();
           const item = { id: tile.dataset.tileId, word: tile.dataset.word };
           built.push(item);
           selectedTile = null;
@@ -421,11 +424,20 @@
       board.querySelectorAll('.sentence-slot').forEach(slot => {
         slot.addEventListener('click', () => {
           if (checked) return;
+          if (suppressSlotClick) {
+            suppressSlotClick = false;
+            return;
+          }
           const slotIndex = Number(slot.dataset.slot);
           if (built[slotIndex]) {
             built.splice(slotIndex, 1);
             draw();
           }
+        });
+
+        slot.addEventListener('pointerdown', event => {
+          if (checked || !slot.dataset.word || event.button !== 0) return;
+          startPlacedTileDrag(event, slot);
         });
 
         slot.addEventListener('dragstart', event => {
@@ -481,6 +493,7 @@
             built.splice(item.slotIndex, 1);
             built.splice(insertionIndex, 0, { id: item.id, word: item.word });
           } else {
+            pendingWordBankRects = captureWordBankRects();
             built = built.filter(existing => existing.id !== item.id);
             built.splice(insertionIndex, 0, { id: item.id, word: item.word });
           }
@@ -516,6 +529,7 @@
           if (!raw) return;
           const item = JSON.parse(raw);
           if (item.source === 'slot') {
+            pendingWordBankRects = captureWordBankRects();
             built.splice(item.slotIndex, 1);
             draw();
           }
@@ -558,6 +572,7 @@
       });
 
       animatePendingSnap();
+      animatePendingWordBankReflow();
     }
 
     function clearDragPreview() {
@@ -608,9 +623,110 @@
       board.querySelectorAll('.tile-placeholder').forEach(placeholder => placeholder.remove());
     }
 
+    function startPlacedTileDrag(event, slot) {
+      const dropzone = board.querySelector('.sentence-dropzone');
+      if (!dropzone) return;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const rect = slot.getBoundingClientRect();
+      const item = {
+        id: slot.dataset.tileId,
+        word: slot.dataset.word,
+        source: 'slot',
+        slotIndex: Number(slot.dataset.slot),
+        offsetX: event.clientX - rect.left,
+        offsetY: event.clientY - rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+      let active = false;
+      let ghost = null;
+
+      function beginDrag() {
+        active = true;
+        draggingItem = item;
+        slot.classList.add('dragging');
+        ghost = document.createElement('div');
+        ghost.className = 'snap-ghost live-drag-ghost';
+        ghost.textContent = item.word;
+        ghost.style.left = `${rect.left}px`;
+        ghost.style.top = `${rect.top}px`;
+        ghost.style.width = `${rect.width}px`;
+        ghost.style.height = `${rect.height}px`;
+        document.body.appendChild(ghost);
+      }
+
+      function moveGhost(moveEvent) {
+        if (!ghost) return;
+        ghost.style.left = `${moveEvent.clientX - item.offsetX}px`;
+        ghost.style.top = `${moveEvent.clientY - item.offsetY}px`;
+      }
+
+      function onPointerMove(moveEvent) {
+        const distance = Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY);
+        if (!active && distance > 6) beginDrag();
+        if (!active) return;
+        moveEvent.preventDefault();
+        moveGhost(moveEvent);
+        dropzone.classList.add('drag-over');
+        showTilePlaceholder(dropzone, getInsertionIndex(dropzone, moveEvent));
+      }
+
+      function onPointerUp(upEvent) {
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+        if (!active) return;
+        upEvent.preventDefault();
+        suppressSlotClick = true;
+        const insertionIndex = getInsertionIndex(dropzone, upEvent);
+        built.splice(item.slotIndex, 1);
+        built.splice(insertionIndex, 0, { id: item.id, word: item.word });
+        pendingSnap = {
+          id: item.id,
+          x: upEvent.clientX,
+          y: upEvent.clientY,
+          offsetX: item.offsetX,
+          offsetY: item.offsetY,
+        };
+        if (ghost) ghost.remove();
+        draggingItem = null;
+        clearDragPreview();
+        draw();
+      }
+
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp, { once: true });
+    }
+
     function animateTrayReflow(beforeRects, dropzone) {
       dropzone.querySelectorAll('.sentence-slot:not(.dragging)').forEach(tile => {
         const before = beforeRects.get(tile);
+        if (!before) return;
+        const after = tile.getBoundingClientRect();
+        const dx = before.left - after.left;
+        const dy = before.top - after.top;
+        if (!dx && !dy) return;
+        tile.style.transition = 'none';
+        tile.style.transform = `translate(${dx}px, ${dy}px)`;
+        requestAnimationFrame(() => {
+          tile.style.transition = '';
+          tile.style.transform = '';
+        });
+      });
+    }
+
+    function captureWordBankRects() {
+      const wordBankElement = board.querySelector('.word-bank');
+      if (!wordBankElement) return null;
+      return new Map([...wordBankElement.querySelectorAll('.word-tile')].map(tile => [tile.dataset.tileId, tile.getBoundingClientRect()]));
+    }
+
+    function animatePendingWordBankReflow() {
+      if (!pendingWordBankRects) return;
+      const beforeRects = pendingWordBankRects;
+      pendingWordBankRects = null;
+      board.querySelectorAll('.word-bank .word-tile').forEach(tile => {
+        const before = beforeRects.get(tile.dataset.tileId);
         if (!before) return;
         const after = tile.getBoundingClientRect();
         const dx = before.left - after.left;
