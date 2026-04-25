@@ -6,7 +6,9 @@ Single staging layer for unresolved work, open questions, ideas, experiments, an
 
 ## Active
 
-None.
+| Status | Topic | Next Step | Source |
+|---|---|---|---|
+| planned | Demo spine | Build one complete proof loop: source material -> structured Unit 1 content -> interactive lesson board -> multiple reusable games. Start with the Unit 1 Present Continuous lesson board. | `.claude/product-vision.md` |
 
 ## Open Questions
 
@@ -25,6 +27,9 @@ None.
 | idea | Activity schemas | Should countdown accept an optional topic or prompt field, or is verbal-only the right design? | `.claude/activities/schemas.md` |
 | idea | Unit-first lesson board | Should Unit 1 get an original interactive workbook-style lesson page with explanations, illustrated examples, gap fills, correction tasks, and teacher reveal/check controls before adding more games? | Conversation, 2026-04-24 |
 | idea | Illustration workflow | Should Unit lesson boards use generated image packs that can also feed games, with style variants selectable or swappable later? | Conversation, 2026-04-24 |
+| idea | Tile Tray reuse | Should Sort It be the next game to prove `EngishismTileTray` can power a different tile-based activity dynamic? | Conversation, 2026-04-24 |
+| idea | Student phone layer | Which phone interaction should come first later: buzzer, voting, team controller, or lightweight text entry? | `.claude/product-vision.md` |
+| idea | Teacher editing | When should school/teacher content editing become self-serve rather than Codex-assisted internal generation? | `.claude/product-vision.md` |
 
 ## Monitoring
 
@@ -34,6 +39,7 @@ None.
 
 | Date | Topic | Resolution |
 |---|---|---|
+| 2026-04-24 | Tile Tray extraction | Extracted Sentence Builder tile movement into the reusable `EngishismTileTray` interaction helper and added skin-friendly CSS variables for tile/tray/action styling. |
 | 2026-04-24 | Sentence Builder template | Added the second Unit-first game, Sentence Builder, powered by `practice.sentenceBuilders` content with tap/drag word tiles, check/reveal/clear controls, and clean feedback for Unit 1 Present Continuous. |
 | 2026-04-24 | Unit-first rebuild | Replaced the visible app flow with a Unit-first runtime, rich Unit 1 content model, generated action-sheet asset, interactive whiteboard UI, and polished Picture Choice vertical slice while preserving legacy files in the repo. |
 | 2026-04-23 | Unit 1 Present Continuous | Added a reusable Present Continuous topic pack from the grammar book, a curated Unit 1 lesson, project-local image asset, and a new `picture-choice` activity for one-image multiple-choice grammar practice. |

@@ -14,6 +14,8 @@ The first rebuilt vertical slice is `grammar-unit-1-present-continuous`, based o
 
 The first rebuilt game is Picture Choice. It reads `practice.imagePrompts`, crops the unit image sheet by column and row, shows one illustration at a time, presents four answer choices, marks correct/wrong answers, and advances through the prompt set.
 
-The second rebuilt game is Sentence Builder. It reads `practice.sentenceBuilders`, shows scrambled word tiles, lets the teacher tap or drag words into a flexible sentence tray, supports reordering placed words or moving them back to the word bank, creates a tile-sized gap that pushes neighbouring words aside while dragging, checks the built sentence against the unit answer, offers reveal/clear controls, and hides the remaining word bank once feedback is shown so the answer is visually unambiguous.
+The second rebuilt game is Sentence Builder. It reads `practice.sentenceBuilders`, checks the built sentence against the unit answer, and owns reveal/clear/check/next controls. Its tile movement is delegated to the shared `window.EngishismTileTray` interaction helper.
+
+`engine/interactions/tile-tray.js` provides the reusable Tile Tray primitive for tile-based games. It supports source tiles, a flexible placement tray, tap-to-add, drag from bank to tray, reordering placed tiles after the tray is full, moving placed tiles back to the bank, tile-sized placeholder gaps, snap ghost animation, and reserved layout space to prevent UI jumps.
 
 The visual design target is an interactive whiteboard: large readable type, chunky magnetic cards, sticker-like buttons, bright high-contrast colours, and generated classroom illustrations as lesson assets rather than static UI screenshots.
