@@ -5,8 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Engishism — Units</title>
   <link rel="stylesheet" href="styles/whiteboard.css">
+  <style>
+    /* Floating layout switcher — lets the teacher flip to the classic games layout */
+    .layout-switch {
+      position: fixed;
+      top: 0.6rem;
+      right: 0.6rem;
+      z-index: 9999;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 0.85rem;
+      border-radius: 999px;
+      border: 3px solid var(--orange);
+      background: #fff;
+      color: var(--orange);
+      font-weight: 950;
+      font-size: 0.85rem;
+      text-decoration: none;
+      box-shadow: 0 4px 0 var(--shadow);
+    }
+    .layout-switch:hover { background: var(--orange); color: #fff; }
+  </style>
 </head>
 <body>
+  <a class="layout-switch" href="classic.html" title="Switch to the classic games layout">↩ Classic games</a>
   <div id="unit-app"></div>
 
   <script src="units/index.js"></script>
