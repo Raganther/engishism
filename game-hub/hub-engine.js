@@ -117,12 +117,13 @@
   let jTeams = [];        // jeopardy teams: [{name, score}]
   let jActive = 0;        // index of the team whose turn it is
   let bbTurn = 'gold';    // blockbusters current team ('gold'=Yellow, 'silver'=Blue)
+  let bbCounts = {gold:0, silver:0};  // blockbusters hexes claimed per team
 
   function showScreen(id){
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
     document.getElementById('new-game-btn').style.display = (id==='screen-play') ? 'inline-block' : 'none';
-    document.getElementById('scorebar').style.display = (id==='screen-play' && activeGame==='jeopardy') ? 'flex' : 'none';
+    document.getElementById('scorebar').style.display = (id==='screen-play') ? 'flex' : 'none';
     document.getElementById('timer-widget').style.display = (id==='screen-play') ? 'flex' : 'none';
     if(id!=='screen-play') timerStop();
   }
@@ -229,7 +230,7 @@
       for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
       pool = pool.slice(0, 18);   // classic 5/4/5/4 board holds 18
       buildBlockbustersBoard();
-      bbTurn='gold'; renderBBTurn();
+      bbTurn='gold'; bbCounts={gold:0, silver:0}; renderBBTurn(); renderBBScorebar();
     }
     showScreen('screen-play');
     timerReset();
@@ -288,6 +289,18 @@
     const s=document.querySelector('#legend .legend-silver');
     if(g) g.classList.toggle('active-turn', bbTurn==='gold');
     if(s) s.classList.toggle('active-turn', bbTurn==='silver');
+  }
+
+  // Blockbusters team bar — two fixed teams (Yellow / Blue) with claimed-hex
+  // counts and the whose-turn highlight, shown in the same bottom bar as Jeopardy.
+  function renderBBScorebar(){
+    const bar=document.getElementById('scorebar'); bar.innerHTML='';
+    [['gold','Yellow','var(--yellow)'], ['silver','Blue','var(--blue)']].forEach(([key,label,col])=>{
+      const el=document.createElement('div');
+      el.className='team bb-team'+(bbTurn===key?' active':'');
+      el.innerHTML=`<span class="dot" style="background:${col}"></span><span class="bb-name">${label}</span><span class="score">${bbCounts[key]}</span>`;
+      bar.appendChild(el);
+    });
   }
 
   function buildBlockbustersBoard(){
@@ -419,10 +432,12 @@
     if(currentTile && modalMode==='blockbusters' && claim){
       currentTile.classList.add(claim==='gold' ? 'claimed-gold' : 'claimed-silver');
       currentTile.textContent='';
+      bbCounts[claim]++;
     }
     closeModal();
     bbTurn = (bbTurn==='gold') ? 'silver' : 'gold';
     renderBBTurn();
+    renderBBScorebar();
   }
   document.getElementById('gold-btn').addEventListener('click', ()=>claimHex('gold'));
   document.getElementById('silver-btn').addEventListener('click', ()=>claimHex('silver'));

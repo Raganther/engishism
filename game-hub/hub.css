@@ -128,4 +128,6 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 
 /* --- Active team + turn highlight --- */
 .team.active{ outline:2px solid var(--yellow); box-shadow:0 0 0 3px rgba(255,194,14,0.25); }
+.bb-team .dot{ width:13px; height:13px; border-radius:4px; }
+.bb-team .bb-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; color:var(--white); font-size:0.98rem; }
 #legend span.active-turn{ font-weight:700; color:var(--navy); background:var(--cream); padding:2px 9px; border-radius:6px; }
