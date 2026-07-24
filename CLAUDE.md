@@ -1,68 +1,80 @@
 # Engishism — ESL Classroom Presentation App
 
-## What it is
-A web-based slideshow application for ESL teachers to present English lessons on a classroom TV. Built in HTML/CSS/vanilla JS (no build step), it delivers interactive games, grammar drills, and vocabulary activities. Teacher-driven, class-facing — students don't touch the device. Deployed to GitHub Pages.
+Web-based games for ESL teachers to present English lessons on a classroom TV.
+Pure HTML/CSS/vanilla JS, **no build step**, fully offline-capable, deployed to
+GitHub Pages. Teacher-driven and class-facing — students don't touch the device.
 
-## Session Start
-Read in order on every cold start:
-1. .claude/memory/gitlog.md — recent git saves
-2. .claude/strategies/research-roadmap.md — open questions, ideas, in-progress work, and monitoring items
-3. Domain files — on demand via "read when X" triggers below
+- **Live:** https://raganther.github.io/engishism/
+- **Repo:** public (GitHub Pages serves from `main`) — pushing to `main` deploys.
 
-Read on demand only:
-- .claude/harness-v4.md — read when editing project memory, roadmap, domain files, or CLAUDE.md
-- .claude/strategies/research-roadmap.md — read when planning work, continuing open items, or resolving questions
-- .claude/product-vision.md — read when discussing product direction, school demos, MVP scope, or commercial positioning
-- .claude/procedures/_index.md — scan at plan creation for relevant how-to patterns
-- .claude/activities/schemas.md — read when writing or editing lesson files
-- .claude/lesson-pipeline.md — read when creating a new lesson or modifying the generation process
-- .claude/unit-content-engine.md — read when working on the rebuilt Unit-first runtime, unit schemas, or game capability adapters
-- .claude/school-exploration.md — read when discussing school admin tools or teaching automation
-- .claude/activity-feedback.md — read when working on any activity type, adding features, or reviewing feedback
-- docs/topic-pack-prompt.md — read when generating or editing topic packs
-- docs/dev.md — read when exploring ideas or backlog
+## How this file works (native, no harness)
+This `CLAUDE.md` is loaded automatically at the start of every session, so it is
+the project's memory. The repo is re-cloned fresh each session (the workspace is
+ephemeral), so **anything worth keeping must be committed and pushed.** Continuity
+= this file (kept current) + `git log` (what changed) + `docs/` (specs). At the
+end of a work session, update the **Current status** / **Next** sections below and
+commit. No hooks, no roadmap file, no domain-file discipline required.
 
-## Run Commands
-
+## Run
 ```bash
-# Git save
-./scripts/git-save.sh "subject" "body"
-
-# Deploy (push to GitHub Pages)
-git push
+git add -A && git commit -m "..."   # save
+git push                            # deploy to GitHub Pages
 ```
 
-**Live URL:** https://raganther.github.io/engishism/
+## Architecture — three generations coexist
+1. **Classroom Game Hub (current focus).** The MVP demo.
+   - `game-hub.html` — DCU-branded front door / unit chooser (linked from index.html)
+   - `game-hub-unit4.html`, `game-hub-unit5.html` — thin shells (head + `<div id="game-hub-root">` + 2 scripts)
+   - `game-hub/hub-engine.js` — all game logic + injected UI skeleton; reads `window.UNIT`
+   - `game-hub/hub.css` — shared styling (DCU theme); the one place to restyle
+   - `game-hub/content/unit-4.js`, `unit-5.js` — data-only content banks (`window.UNIT = {…}`)
+   - Games: **Jeopardy** and **Blockbusters**. Per-game content model (content lives
+     in data, separate from the engine). Adding a unit = one content file + a shell.
 
-## Architecture
-- Stack: HTML, CSS, vanilla JS — no build step, fully offline capable
-- Entry point: index.html — landing page for the rebuilt Unit-first app
-- App entry point: app.html — new Unit-first classroom runtime
-- New runtime: engine/unit-app.js — chooses a unit, shows compatible games, and runs the selected game from unit content
-- Shared interactions: engine/interactions/tile-tray.js — reusable tile bank/tray movement used by Sentence Builder and future tile-based games
-- Unit registry: units/index.js + unit files under units/ — source of truth for workbook-derived content
-- Unit model: metadata, grammar forms/rules/contrasts/mistakes, practice pools, speaking prompts, image prompts, and generated asset references
-- Game capability model: games declare required content buckets and enable themselves when a unit can power them
-- Product direction: custom syllabus gamification framework for schools, with teacher-led big-screen classroom use as the MVP focus
-- Primary visual system: styles/whiteboard.css — interactive whiteboard metaphor with magnetic cards and large classroom-TV UI
-- Legacy runtime: engine/engine.js, lessons/, topics/, adapters/, activities/, modules/, and standalone HTML activities remain in the repo but are hidden from the primary UI
+2. **Unit-first whiteboard app (earlier rebuild, paused).**
+   - `index.html` (landing) → `app.html` → `engine/unit-app.js`; 1 unit, 2 games
+     (Picture Choice, Sentence Builder), shared `engine/interactions/tile-tray.js`.
 
-## Current Status
-- Primary runtime has 1 rebuilt unit: grammar-unit-1-present-continuous
-- Primary runtime has 2 rebuilt games: Picture Choice and Sentence Builder
-- Sentence Builder uses the shared Tile Tray interaction primitive for reusable tile movement
-- Unit 1 uses a generated classroom action sheet at assets/images/units/unit-1-present-continuous/action-sheet.png
-- Legacy runtime still contains 18 activity types, 5 topic packs, 10 lessons, and 4 standalone activities, but these are not exposed by the rebuilt app shell
-- New lesson/content generation target: grammar workbook unit → rich unit file → game capability adapters
-- Next product spine: one complete proof loop from source material → structured Unit content → lesson board → multiple reusable games
-- Memory system: Harness v4.2 — CLAUDE.md for navigation, roadmap for unresolved work, domain files for confirmed knowledge
-- Next: build the Unit 1 Present Continuous lesson board, then prove Tile Tray reuse with a third game such as Sort It
+3. **Legacy topic-first engine.**
+   - `classic.html` → `engine/engine.js`; 18 activity types, topics, lessons, plus
+     4 standalone team-building games (`bunker`, `desert-island`, `it-helpdesk`,
+     `scam-or-legit`). Reachable via the landing page's "Classic games" link.
+
+`index.html` links all three (Choose a unit / Game Hub / Classic games).
+
+## Source material & specs
+- `material/empower-c1-unit-4/`, `material/empower-c1-unit-5/` — Cambridge Empower
+  C1 workbook page scans (indexed by page/section) the game content is authored from.
+- `docs/game-hub-requirements.md` — the MVP spec (per-game content model, game tier
+  analysis, success criteria). The key open metric: realistic authoring time per unit.
+- `docs/design-reference.md` — DCU International Academy brand (navy/sky-blue/yellow/cream).
+- `.claude/*.md` — older experimental domain notes (product vision, lesson pipeline,
+  activity schemas). Reference only; not required reading.
+
+## Current status
+- Game Hub MVP live with **2 units** (Unit 4 Consciousness, Unit 5 Fairness) and
+  **2 games** (Jeopardy, Blockbusters), on a shared engine.
+- DCU brand reskin applied (light theme, geometric band, Yellow/Blue teams, icons).
+- Teacher features: header **countdown timer** (start/pause, reset, ±15s); Jeopardy
+  **auto-scoring** (Correct awards the tile value to the selected team); **turn
+  highlighting** in both games; team bars in both (Jeopardy named teams, Blockbusters
+  Yellow/Blue with hex counts).
+
+## Next
+- Measure authoring cost per unit (the number the demo pitch hinges on).
+- A third game format (Millionaire or Bullseye, per the spec — both transfer well).
+- Small wins: "steal" in Blockbusters (wrong → other team claims); winner banner
+  when a Jeopardy board is cleared; self-host fonts for true offline.
+- Product-line decision: is the Game Hub now the product, with #2/#3 as legacy?
 
 ## Constraints
-- Before starting any update, new feature, or bug fix — scan the domain file list above and read any relevant files first
-- Open questions, ideas, and in-progress work belong in .claude/strategies/research-roadmap.md
-- Domain files must contain confirmed knowledge only; do not add `## Open Questions`, `## Plan`, or `## Research` sections
-- Must work on a standard classroom TV/browser — no exotic dependencies
-- No internet required during class (fully offline capable)
-- Teacher controls everything — students do not touch the device
-- Keep the UI readable at distance (large fonts, high contrast)
+- No build step; must run by opening a file. Fully offline (use `<script src>`,
+  not `fetch`, which browsers block on `file://`).
+- Works on a standard classroom TV/browser; large fonts, high contrast, readable at distance.
+- Teacher controls everything; students don't touch the device.
+- Repo is **public** — don't commit anything that shouldn't be internet-visible.
+
+## Verifying UI changes
+Playwright + Chromium are available (global `playwright`, browser at
+`/opt/pw-browsers`). Open a hub via `file://…` and exercise it to confirm changes
+render and play before committing.
