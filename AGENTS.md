@@ -22,14 +22,20 @@ git push                            # deploy to GitHub Pages
 ```
 
 ## Architecture — three generations coexist
-1. **Classroom Game Hub (current focus).** The MVP demo.
-   - `game-hub.html` — DCU-branded front door / unit chooser (linked from index.html)
-   - `game-hub-unit4.html`, `game-hub-unit5.html` — thin shells (head + `<div id="game-hub-root">` + 2 scripts)
-   - `game-hub/hub-engine.js` — all game logic + injected UI skeleton; reads `window.UNIT`
-   - `game-hub/hub.css` — shared styling (DCU theme); the one place to restyle
-   - `game-hub/content/unit-4.js`, `unit-5.js` — data-only content banks (`window.UNIT = {…}`)
+1. **Classroom Game Hub (current focus).** The MVP demo. One consolidated app;
+   flow is **choose unit → choose game → choose sections → play**.
+   - `game-hub.html` — the app: loads every unit content file + the engine
+     (linked from index.html). Units register into `window.UNITS`.
+   - `game-hub-unit4.html`, `game-hub-unit5.html` — per-unit deep-links (load one
+     unit; the engine auto-skips the unit-select step).
+   - `game-hub/hub-engine.js` — all game logic + injected UI skeleton; renders the
+     unit/game/section/play screens, the persistent team bar, and the timer.
+   - `game-hub/hub.css` — shared styling (DCU theme); the one place to restyle.
+   - `game-hub/content/unit-4.js`, `unit-5.js` — data-only content banks; each does
+     `window.UNITS.push({ id, label, card, jeopardy…, blockbusters… })`.
    - Games: **Jeopardy** and **Blockbusters**. Per-game content model (content lives
-     in data, separate from the engine). Adding a unit = one content file + a shell.
+     in data, separate from the engine). **Adding a unit = one content file + a
+     `<script>` line in game-hub.html.**
 
 2. **Unit-first whiteboard app (earlier rebuild, paused).**
    - `index.html` (landing) → `app.html` → `engine/unit-app.js`; 1 unit, 2 games
@@ -52,13 +58,19 @@ git push                            # deploy to GitHub Pages
   activity schemas). Reference only; not required reading.
 
 ## Current status
-- Game Hub MVP live with **2 units** (Unit 4 Consciousness, Unit 5 Fairness) and
-  **2 games** (Jeopardy, Blockbusters), on a shared engine.
-- DCU brand reskin applied (light theme, geometric band, Yellow/Blue teams, icons).
-- Teacher features: header **countdown timer** (start/pause, reset, ±15s); Jeopardy
-  **auto-scoring** (Correct awards the tile value to the selected team); **turn
-  highlighting** in both games; team bars in both (Jeopardy named teams, Blockbusters
-  Yellow/Blue with hex counts).
+- Game Hub MVP live as **one consolidated app** (`game-hub.html`): choose unit →
+  game → sections → play. **2 units** (Unit 4 Consciousness, Unit 5 Fairness),
+  **2 games** (Jeopardy, Blockbusters), shared engine, DCU-branded.
+- **Persistent shared team bar** on every screen: team names + points survive
+  moving between games, units, and setup screens (nothing resets on navigation).
+  Both games feed one score — Jeopardy awards the tile value to the selected team;
+  Blockbusters awards +1 per claimed hex to Yellow/Blue (teams[0]/[1]).
+  **↺ Reset points** zeroes scores but keeps names; +/- for manual correction;
+  rename + add-team; active-team / whose-turn highlight.
+- Teacher **countdown timer** in the header on the play screen (start/pause, reset,
+  ±15s, red under 10s).
+- DCU reskin: light theme, geometric band, uppercase grotesk, game-card icons.
+- To change unit mid-session: game screen → "New game" → "Change unit".
 
 ## Next
 - Measure authoring cost per unit (the number the demo pitch hinges on).
