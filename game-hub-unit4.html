@@ -214,9 +214,23 @@ const JEOPARDY_CATEGORIES = [
   { id:'have-get', section:'4B', name:'Have & Get Structures', clues:[
     {v:100, q:"Complete with have or get: 'My parents ___ the kitchen renovated' (someone else did the work).", a:"had (or got)"},
     {v:200, q:"'I had my toys stolen' — is the subject responsible for the action, or on the receiving end of it?", a:"on the receiving end — something happened to them"},
-    {v:300, q:"'He got himself locked in the shed' — was this on purpose or by accident?", a:"by accident / unintentionally"},
+    {v:300, q:"'He got himself locked in the shed' — was this on purpose or by accident?", a:"by accident, and he caused it himself"},
     {v:400, q:"Fill the gap: 'His disappearance ___ everyone looking for him.'", a:"got"},
-    {v:500, q:"Explain the meaning of 'She had me sitting on my own.'", a:"she caused/made someone else do the sitting alone"},
+    {v:500, q:"Explain the meaning of 'She had me sitting on my own.'", a:"she caused me to sit alone — the subject made someone else do it"},
+  ]},
+  { id:'have-get-uses', section:'4B', name:'Have & Get: Which Use?', clues:[
+    {v:100, q:"Which use is this? 'They had their roof fixed.'", a:"the subject paid somebody else to do a job"},
+    {v:200, q:"Which use is this? 'We got our car broken into.'", a:"the subject's possessions were harmed by somebody else"},
+    {v:300, q:"Which use is this? 'He got me to play when nobody else could.'", a:"the subject caused somebody to do something"},
+    {v:400, q:"Which use is this? 'He got himself locked in the garden shed.'", a:"the subject caused what happened to them"},
+    {v:500, q:"What's the difference between 'He got locked in the shed' and 'He got himself locked in the shed'?", a:"the second says it was his own doing; the first just says it happened to him"},
+  ]},
+  { id:'have-get-transform', section:'4B', name:'Have & Get: Transform It', clues:[
+    {v:100, q:"Rewrite with had: 'Someone stole my bike.'", a:"I had my bike stolen."},
+    {v:200, q:"Rewrite with got: 'Someone broke my arm in a football match.'", a:"I got my arm broken in a football match."},
+    {v:300, q:"Rewrite with had: 'She made me do all her homework.'", a:"She had me doing all her homework."},
+    {v:400, q:"Rewrite with got: 'I persuaded my mum to say I was sick.'", a:"I got my mum to say I was sick."},
+    {v:500, q:"Rewrite with got: 'My brother caused me to be punished unfairly.'", a:"My brother got me punished unfairly."},
   ]},
   { id:'false-memories', section:'4B', name:'False Memories & Eyewitnesses', clues:[
     {v:100, q:"Very few people can remember events before what age, according to the text?", a:"age two"},
@@ -275,6 +289,16 @@ const BLOCKBUSTERS_BANK = [
   {section:'4B', letter:'D', clue:"The person accused of a crime in court.", answer:"Defendant"},
   {section:'4B', letter:'J', clue:"The group of people who decide a verdict in court.", answer:"Jury"},
 
+  /* ---- 4B: structures with have and get ---- */
+  {section:'4B', letter:'H', clue:"The verb in 'They ___ their roof fixed' — paying someone else to do a job.", answer:"Had"},
+  {section:'4B', letter:'G', clue:"The verb in 'We ___ our car broken into' — something bad happened to our property.", answer:"Got"},
+  {section:'4B', letter:'C', clue:"'He got himself locked in the shed' — he ___ what happened to him.", answer:"Caused"},
+  {section:'4B', letter:'S', clue:"In 'I had my bike stolen', which grammatical role does 'I' play — subject or object?", answer:"Subject"},
+  {section:'4B', letter:'H', clue:"Fill the gap: 'She ___ me doing all her homework.'", answer:"Had"},
+  {section:'4B', letter:'P', clue:"In 'My brother got me punished unfairly', what is the past participle?", answer:"Punished"},
+  {section:'4B', letter:'R', clue:"'My parents were having the kitchen ___' — someone else did the work.", answer:"Renovated"},
+  {section:'4B', letter:'T', clue:"In 'I got my mum to say I was sick', which one-word particle comes before 'say'?", answer:"To"},
+
   /* ---- expansion: 4C ---- */
   {section:'4C', letter:'T', clue:"The skill of saying difficult things without causing offence.", answer:"Tact"},
   {section:'4C', letter:'O', clue:"'No ___ intended' — said before a potentially rude remark.", answer:"Offence"},
@@ -298,7 +322,7 @@ const BLOCKBUSTERS_BANK = [
 
 const BLOCKBUSTERS_SECTION_NAMES = {
   '4A':'4A · Instinct & reason (16 clues)',
-  '4B':'4B · Memory & eyewitnesses (16 clues)',
+  '4B':'4B · Memory, eyewitnesses & have/get (24 clues)',
   '4C':'4C · Tact & idioms (14 clues)',
   '4D':'4D · Profile writing & time expressions (12 clues)',
 };
