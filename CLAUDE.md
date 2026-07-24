@@ -63,11 +63,18 @@ git push                            # deploy to GitHub Pages
   game → sections → play. **2 units** (Unit 4 Consciousness, Unit 5 Fairness),
   **3 games** (Jeopardy, Blockbusters, Race to the Board), shared engine, DCU-branded.
 - **Race to the Board** (Unit 5 only so far, 36 prompts across 5A–5C): target words
-  scattered on screen, teacher reads a **gapped sentence**, a student runs to the
-  projector screen and touches the word, teacher clicks it on the laptop. One team
-  per timed round (60s default) so scoring stays unambiguous — the engine can't know
-  who tapped, but it knows whose round it is. Wrong tap = red flash, no penalty, and
-  the sentence returns to the queue. Board caps at 18 words; game ends when cleared.
+  scattered across the screen, teacher reads a **gapped sentence**, a student runs to
+  the projector screen and touches the word, teacher clicks it on the laptop.
+  **Two modes**, picked on the content screen:
+  - **Head-to-head (default)** — both teams at the board, first touch wins. The engine
+    can't know who touched, so after a correct click you say who got it: click the team
+    chip or press `1`/`2`. Wrong touch = red flash, sentence stays up so the other team
+    can steal. No clock; ends when the board is cleared.
+  - **Timed team rounds** — one team per 60s round, then the board passes on. Wrong tap
+    advances and the sentence returns to the queue later.
+  - Board caps at 18 words and **re-scatters after every claim** so position can't be
+    memorised; a jittered-grid layout guarantees no overlap and shrinks the type
+    (`--rs`) if the field is too small. Claimed words carry the team's colour.
   **Distractors aren't authored** — every other word on the board is a real target
   word from the selection. Spec §4.4 updated to match as-built.
 - **Persistent shared team bar** on every screen: team names + points survive
@@ -82,10 +89,16 @@ git push                            # deploy to GitHub Pages
 - To change unit mid-session: game screen → "New game" → "Change unit".
 
 ## Next
-- **Race to the Board is awaiting first-run feedback** — built to the defaults agreed
-  in discussion (timed team rounds, wrong tap advances, Unit 5 first). Open variants
-  if wanted: head-to-head first-touch, wrong tap ends the team's round, per-team
-  fresh board instead of one depleting board.
+- **Race to the Board — head-to-head + full-screen scatter shipped; awaiting a real
+  classroom run.** Variations discussed but not built, roughly in priority order:
+  **relay** (each team lines up, one student per sentence — stops the two fastest
+  students owning the game), **wager** (call 1 or 3 points before hearing the sentence),
+  **class vs. the clock** (no teams, one shared score), **sweep** rounds ("touch *all*
+  the words to do with punishment"), **director & toucher** (one student directs another
+  by language alone — highest speaking value of the lot), and further prompt types that
+  reuse the same mechanic for free: definition, word-form change, collocation, odd one
+  out, error correction, pronunciation/stress. Deliberately not built: continuous drifting
+  words — the teacher has to click a moving target while a student shadows the beam.
 - Author Unit 4's race bank (4A–4D) once the format is settled; Unit 4 currently
   shows only Jeopardy + Blockbusters.
 - Measure authoring cost per unit (the number the demo pitch hinges on). Race is the

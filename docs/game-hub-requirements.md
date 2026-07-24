@@ -297,9 +297,16 @@ generalisation argument if presented as core.
 - A gapped sentence appears; a student comes to the board and touches the matching word
 - Correct taps highlight and score +1; incorrect taps flash red but are not penalised,
   and the missed sentence returns to the queue to be asked again later
-- One team plays at a time against the header timer (60s default). The round ends when
-  the clock runs out and the board passes to the next team; the game ends when the
-  board is cleared
+- Two ways to run it, chosen on the content screen:
+  - **Head-to-head (default)** — both teams send a student at once and the first to
+    touch the right word scores. No clock; the game ends when the board is cleared.
+    A wrong touch leaves the sentence up so the other team can steal it.
+  - **Timed team rounds** — one team at a time against the header timer (60s default);
+    the round ends when the clock runs out and the board passes to the next team.
+- Words are spread across the whole field rather than a centred block, and the board
+  **re-scatters after every claim**, so position can't be memorised. The top strip is
+  reserved for the sentence, which also keeps every word within reach of a student
+  standing at a wall-mounted projection
 - Content fields: `section`, `prompt` (with `___` marking the gap), `answer`
 - **Distractors are not authored.** The board *is* the distractor set: every word on
   screen is a real target word from the selected sections, which guarantees the
@@ -312,10 +319,15 @@ generalisation argument if presented as core.
 
 *Projector note.* A projected screen is not a touchscreen. The student touches the
 projected word; the **teacher clicks that word on the laptop** to register it. The
-per-team timed round exists for this reason — the engine cannot tell who tapped, but it
-always knows whose round it is, so scoring stays unambiguous and hands-free during play.
-A head-to-head variant (two students, first correct touch wins) is playable with the
-same build, at the cost of the teacher deciding and clicking the winner each item.
+engine therefore cannot know *who* touched first. Timed rounds sidestep this — it always
+knows whose round it is — while head-to-head asks the teacher for that one bit: click the
+word, then click the team or press its number key (`1`–`9`).
+
+*Rejected: the split board.* Giving each team its own copy of the word field on its own
+half of the screen would encode the team in the click position and remove the extra
+input. It was rejected because halving the width drops the words below the legibility
+floor in F5.1, and it changes the activity from a race for the same word into two
+parallel hunts.
 
 *Departure from §3.2.* §3.2 assumed this format needed authored distractors and listed
 it as a reason to reject a shared bank. Deriving the distractors from the sibling

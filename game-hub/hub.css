@@ -16,6 +16,7 @@ body{
   color: var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; min-height:100vh;
   padding-bottom: 84px;   /* clearance for the always-present team bar */
 }
+body.race-active{ padding-bottom:0; overflow:hidden; }   /* race field measures its own fit */
 .eyebrow{ font-family:'IBM Plex Mono', monospace; letter-spacing:0.14em; text-transform:uppercase; font-size:0.72rem; color: var(--blue); }
 header{ padding: 22px 32px 14px; display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:10px; }
 h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1.3rem, 3vw, 2.1rem); letter-spacing:-0.01em; text-transform:uppercase; color: var(--navy); }
@@ -115,9 +116,18 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 .hex.claimed-silver{ background: var(--blue); color: var(--white); cursor:default; }
 .hex.claimed-gold:hover, .hex.claimed-silver:hover{ transform:none; }
 
+/* --- Race to the Board: mode picker on the content screen --- */
+#race-mode{ margin: 22px 0 4px; }
+#race-mode .mode-title{ font-family:'Space Grotesk',sans-serif; font-size:1.02rem; text-transform:uppercase; color:var(--navy); margin-bottom:12px; }
+.mode-opt{ display:flex; align-items:flex-start; gap:12px; background:var(--white); border:2px solid rgba(18,38,63,0.12); border-radius:10px; padding:13px 16px; margin-bottom:10px; cursor:pointer; font-size:0.9rem; line-height:1.5; color:var(--muted); }
+.mode-opt:hover{ border-color:var(--blue); }
+.mode-opt input{ width:18px; height:18px; accent-color:var(--blue); flex-shrink:0; margin-top:2px; }
+.mode-opt strong{ color:var(--ink); }
+.mode-opt:has(input:checked){ border-color:var(--blue); background:rgba(0,160,223,0.05); }
+
 /* --- Race to the Board play --- */
-#play-race{ display:none; padding: 14px 24px 40px; }
-#race-bar{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:14px; }
+#play-race{ display:none; padding: 10px 20px 8px; }
+#race-bar{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin: 8px 0 2px; min-height:50px; }
 #race-status{ font-family:'IBM Plex Mono',monospace; font-size:0.82rem; letter-spacing:0.04em; text-transform:uppercase; color: var(--muted); }
 .race-actions{ display:flex; gap:10px; }
 #race-start, #race-skip{ font-family:'Space Grotesk',sans-serif; font-weight:700; border-radius:8px; padding:11px 20px; cursor:pointer; font-size:0.92rem; border:none; }
@@ -128,32 +138,57 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 
 /* the sentence the teacher reads aloud — the biggest thing on screen */
 #race-prompt{
-  background: var(--navy); border-radius:14px; padding: 26px 30px; text-align:center;
-  min-height: 118px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+  background: var(--navy); border-radius:14px; padding: 16px 26px; text-align:center;
+  min-height: 78px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
 }
 #race-prompt .race-idle{ font-family:'IBM Plex Mono',monospace; font-size:0.9rem; letter-spacing:0.05em; color: rgba(251,243,213,0.65); text-transform:uppercase; }
 #race-prompt .race-sec{ font-family:'IBM Plex Mono',monospace; font-size:0.72rem; letter-spacing:0.12em; text-transform:uppercase; color: var(--blue); }
-#race-prompt .race-sentence{ font-family:'Space Grotesk',sans-serif; font-weight:500; font-size: clamp(1.3rem, 3vw, 2.3rem); line-height:1.34; color: var(--white); }
+#race-prompt .race-sentence{ font-family:'Space Grotesk',sans-serif; font-weight:500; font-size: clamp(1.15rem, 2.5vw, 1.95rem); line-height:1.3; color: var(--white); }
 #race-prompt .gap{
   display:inline-block; min-width: 2.2em; margin: 0 0.12em; padding: 0 0.2em;
   background: var(--yellow); color: var(--navy); border-radius:6px; font-weight:700;
 }
 
-/* the scattered word field — flex-wrap keeps them tilted but never overlapping */
-#race-words{ display:flex; flex-wrap:wrap; justify-content:center; align-content:center; gap: 16px 20px; margin-top: 22px; min-height: 42vh; }
+/* "who touched it first?" — only in head-to-head, where the engine can't know */
+/* lives inside the status row and only toggles visibility — if it took its own row
+   the word field would shift under the already-placed words and clip the bottom */
+#race-claim{ display:flex; visibility:hidden; align-items:center; justify-content:center; gap:14px; }
+#race-claim .claim-q{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1.05rem; color:var(--navy); }
+#race-claim-teams{ display:flex; gap:10px; flex-wrap:wrap; }
+.claim-team{
+  display:inline-flex; align-items:center; gap:9px; cursor:pointer; border:none; border-radius:10px;
+  padding:11px 20px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1rem;
+  background: var(--navy); color: var(--white);
+}
+.claim-team .claim-key{
+  font-family:'IBM Plex Mono',monospace; font-size:0.72rem; background:rgba(255,255,255,0.28);
+  border-radius:5px; padding:1px 7px;
+}
+.claim-team.team-0{ background: var(--yellow); color: var(--navy); }
+.claim-team.team-0 .claim-key{ background:rgba(18,38,63,0.18); }
+.claim-team.team-1{ background: var(--blue); color: var(--white); }
+.claim-team:hover{ filter: brightness(1.08); }
+
+/* the scattered word field — words are placed across the whole area (see
+   scatterRaceWords) so students have to cross the room, not scan one block */
+/* --rs is the shrink-to-fit multiplier set by scatterRaceWords; the word size has to
+   be expressed relative to it, or a rem/vw size would ignore the scaling entirely */
+#race-words{ position:relative; margin-top: 6px; --rs:1; }
 .race-word{
+  position:absolute;
   font-family:'Space Grotesk',sans-serif; font-weight:700; text-transform:uppercase; letter-spacing:0.01em;
-  font-size: clamp(1rem, 2.1vw, 1.85rem);
+  font-size: calc(clamp(1rem, 2.1vw, 1.8rem) * var(--rs)); white-space:nowrap;
   background: var(--white); color: var(--navy); border: 3px solid var(--navy);
-  border-radius:12px; padding: 12px 22px; cursor:pointer;
-  transition: transform .12s, background .12s, border-color .12s, color .12s;
+  border-radius:12px; padding: 11px 20px; cursor:pointer;
+  transition: background .12s, border-color .12s, color .12s, opacity .2s;
 }
 .race-word:hover{ background: var(--cream); border-color: var(--blue); }
-.race-word.found{
-  background: var(--blue); border-color: var(--blue); color: var(--white);
-  cursor:default; opacity:0.55; transform:none !important;
-}
-.race-word.found:hover{ background: var(--blue); }
+.race-word.pending{ background: var(--yellow); border-color: var(--yellow); color: var(--navy); animation: racePulse .7s ease-in-out infinite alternate; }
+@keyframes racePulse{ from{ box-shadow:0 0 0 0 rgba(255,194,14,0.6); } to{ box-shadow:0 0 0 12px rgba(255,194,14,0); } }
+.race-word.found{ cursor:default; opacity:0.5; background: var(--navy); border-color: var(--navy); color: var(--cream); }
+.race-word.found.team-0{ background: var(--yellow); border-color: var(--yellow); color: var(--navy); }
+.race-word.found.team-1{ background: var(--blue); border-color: var(--blue); color: var(--white); }
+.race-word.found:hover{ border-color:inherit; }
 .race-word.wrong{ background:#ff5a4d; border-color:#ff5a4d; color: var(--white); }
 
 /* --- Shared clue modal --- */

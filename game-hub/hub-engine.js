@@ -75,13 +75,18 @@
         <span class="team-tag tag-silver">BLUE</span> connects a path from the <strong>top</strong> edge to the <strong>bottom</strong> edge.<br>
         Click a hexagon, read the clue aloud &mdash; the answer starts with the letter shown. Correct = claim it. Wrong = the other team can steal it.
       </div>
-      <div class="rules-note" id="race-rules" style="display:none;">
-        One team is up at a time. Press <strong>Start round</strong> and read the sentence aloud &mdash;
-        a student runs to the screen and <strong>touches the missing word</strong>.<br>
-        The projector screen isn't a touchscreen, so <strong>you click the word they touched</strong> on your laptop:
-        right = it lights up and scores +1, wrong = a red flash and the sentence comes back later.<br>
-        Keep going until the timer runs out, then the next team is up. The round ends when the board is cleared.
+      <div id="race-mode" style="display:none;">
+        <div class="mode-title">How do you want to run it?</div>
+        <label class="mode-opt">
+          <input type="radio" name="racemode" value="h2h" checked>
+          <span><strong>Head-to-head</strong> &mdash; both teams at the board at once. First to touch the word wins the point. No clock.</span>
+        </label>
+        <label class="mode-opt">
+          <input type="radio" name="racemode" value="timed">
+          <span><strong>Timed team rounds</strong> &mdash; one team at a time, as many as they can before the clock runs out.</span>
+        </label>
       </div>
+      <div class="rules-note" id="race-rules" style="display:none;"></div>
       <button id="start-btn" disabled>Select content to continue</button>
     </div>
 
@@ -98,14 +103,18 @@
         <div id="hexwrap"></div>
       </div>
       <div id="play-race">
+        <div id="race-prompt"></div>
         <div id="race-bar">
           <div id="race-status"></div>
+          <div id="race-claim">
+            <span class="claim-q">Who touched it first?</span>
+            <div id="race-claim-teams"></div>
+          </div>
           <div class="race-actions">
-            <button id="race-start">&#9654; Start round</button>
+            <button id="race-start">&#9654; Start</button>
             <button id="race-skip" style="display:none;">Skip this one</button>
           </div>
         </div>
-        <div id="race-prompt"></div>
         <div id="race-words"></div>
       </div>
     </div>
@@ -203,6 +212,9 @@
     document.getElementById(id).classList.add('active');
     document.getElementById('new-game-btn').style.display = (id==='screen-play') ? 'inline-block' : 'none';
     document.getElementById('timer-widget').style.display = (id==='screen-play') ? 'flex' : 'none';
+    // the race field sizes itself around the team bar, so it doesn't need the body
+    // padding that keeps the bar off the other screens
+    document.body.classList.toggle('race-active', id==='screen-play' && activeGame==='race');
     if(id!=='screen-play') timerStop();
     renderScorebar();   // team bar is always visible; refresh its highlight/cues
   }
@@ -237,7 +249,11 @@
   function renderScorebar(){
     const bar=document.getElementById('scorebar'); bar.innerHTML='';
     const playing = document.getElementById('screen-play').classList.contains('active');
-    const hi = playing ? (activeGame==='blockbusters' ? bbTurn : active) : -1;
+    // head-to-head has no "whose turn" — both teams are at the board at once
+    const hi = !playing ? -1
+             : (activeGame==='blockbusters') ? bbTurn
+             : (activeGame==='race' && raceMode==='h2h') ? -1
+             : active;
     const step = (activeGame==='jeopardy') ? 100 : 1;   // manual +/- correction step
     teams.forEach((t, i)=>{
       const el=document.createElement('div'); el.className='team'+(i===hi?' active':'');
@@ -295,6 +311,7 @@
     list.innerHTML='';
     selectedContent=[];
     raceNote.style.display='none';
+    document.getElementById('race-mode').style.display='none';
 
     if(activeGame==='jeopardy'){
       rulesNote.style.display='none';
@@ -333,6 +350,8 @@
     if(activeGame==='race'){
       rulesNote.style.display='none';
       raceNote.style.display='block';
+      document.getElementById('race-mode').style.display='block';
+      renderRaceRules();
       help.textContent = "Pick which sections feed the board. Every word on screen is a target word from your selection, so a wrong tap is still worth talking about.";
       Object.keys(RACE_SECTION_NAMES).forEach(sec=>{
         const div=document.createElement('label');
@@ -407,6 +426,8 @@
       timerSetDuration(RACE_ROUND_SECONDS);
     }
     showScreen('screen-play');
+    // the word field can only be measured once the play screen is actually visible
+    if(activeGame==='race') scatterRaceWords();
     timerReset();
   });
 
@@ -563,18 +584,44 @@
   const RACE_MAX_WORDS     = 18;   // beyond this the words stop being readable at distance
   const RACE_ROUND_SECONDS = 60;
 
-  let raceWords   = [];     // [{word, section, found}] — what's on the board
+  let raceMode    = 'h2h';  // 'h2h' = both teams race the same word; 'timed' = one team per round
+  let raceWords   = [];     // [{word, section, found, by}] — what's on the board
   let raceQueue   = [];     // prompts still to ask; a missed one goes to the back
   let raceCurrent = null;
   let raceRunning = false;
+  let racePending = null;   // {w, el} — correct word clicked, waiting on "who got it?"
+
+  const RACE_MODE_RULES = {
+    h2h: `Both teams send a student to the board at the same time. Read the sentence aloud &mdash; the
+          <strong>first student to touch the right word wins the point</strong>.<br>
+          The projector screen isn't a touchscreen, so <strong>you click the word they touched</strong>, then
+          say who got there first (click the team, or just press <strong>1</strong> or <strong>2</strong>).<br>
+          A wrong touch flashes red and costs nothing &mdash; the sentence stays up, so the other team can steal it.
+          No clock: the game ends when the board is cleared.`,
+    timed:`One team is up at a time. Press <strong>Start</strong> and read the sentence aloud &mdash;
+          a student runs to the screen and <strong>touches the missing word</strong>.<br>
+          The projector screen isn't a touchscreen, so <strong>you click the word they touched</strong> on your laptop:
+          right = it lights up and scores +1, wrong = a red flash and the sentence comes back later.<br>
+          Keep going until the timer runs out, then the next team is up. The game ends when the board is cleared.`
+  };
+
+  function renderRaceRules(){
+    document.getElementById('race-rules').innerHTML = RACE_MODE_RULES[raceMode];
+  }
+
+  document.querySelectorAll('#race-mode input[name="racemode"]').forEach(r=>{
+    r.addEventListener('change', ()=>{ raceMode = r.value; renderRaceRules(); });
+  });
 
   function buildRaceBoard(){
     const picked = shuffle(RACE_BANK.filter(c=>selectedContent.includes(c.section)))
                      .slice(0, RACE_MAX_WORDS);
-    raceWords   = picked.map(p=>({ word:p.answer, section:p.section, found:false }));
+    raceWords   = picked.map(p=>({ word:p.answer, section:p.section, found:false, by:-1 }));
     raceQueue   = shuffle(picked.slice());
     raceCurrent = null;
     raceRunning = false;
+    racePending = null;
+    hideClaimBar();
     renderRaceWords();
     setRacePrompt(null);
     updateRaceBar();
@@ -583,13 +630,62 @@
   function renderRaceWords(){
     const wrap=document.getElementById('race-words');
     wrap.innerHTML='';
-    raceWords.forEach((w,i)=>{
+    raceWords.forEach(w=>{
       const el=document.createElement('button');
-      el.className='race-word'+(w.found?' found':'');
+      el.className='race-word'+(w.found?' found team-'+Math.min(w.by,3):'');
       el.textContent=w.word;
-      el.style.transform=`rotate(${((i*37)%5-2)*0.8}deg)`;   // scattered, never overlapping
       el.addEventListener('click', ()=>onRaceWordClick(w, el));
       wrap.appendChild(el);
+    });
+    scatterRaceWords();
+  }
+
+  /* Spread the words over the whole field rather than a centred block, so students
+     genuinely have to cross the room. A jittered grid is used instead of random
+     placement because it can never overlap — unreadable words are worse than tidy ones.
+     The top strip is left free: on a wall-mounted projector the very top of the image
+     is out of reach for shorter students, and that's where the sentence lives anyway. */
+  function scatterRaceWords(){
+    const field = document.getElementById('race-words');
+    const tiles = [...field.querySelectorAll('.race-word')];
+    if(!tiles.length) return;
+
+    field.style.setProperty('--rs', 1);            // reset any previous down-scaling
+    const barH  = document.getElementById('scorebar').offsetHeight || 76;
+    const top   = field.getBoundingClientRect().top;
+    const W     = field.clientWidth;
+    // nothing is measurable while the play screen is still hidden — the caller
+    // re-runs this once the screen is up
+    if(W < 50 || top <= 0) return;
+    const avail = Math.max(240, window.innerHeight - top - barH - 10);
+    field.style.height = avail + 'px';
+
+    // Shrink the type until the grid genuinely fits. Cells are sized to the widest
+    // and tallest word, so once the grid fits, no two words can overlap.
+    let cols=1, rows=tiles.length, maxW=0, maxH=0, scale=1;
+    for(let attempt=0; attempt<7; attempt++){
+      field.style.setProperty('--rs', scale.toFixed(3));
+      maxW = Math.max(...tiles.map(t=>t.offsetWidth));
+      maxH = Math.max(...tiles.map(t=>t.offsetHeight));
+      cols = Math.min(tiles.length, Math.max(1, Math.floor(W / (maxW + 20))));
+      rows = Math.ceil(tiles.length / cols);
+      if(rows * (maxH + 18) <= avail || scale <= 0.6) break;
+      scale = Math.max(0.6, scale * Math.sqrt(avail / (rows * (maxH + 18))) * 0.97);
+    }
+
+    const cellW = W / cols, cellH = avail / rows;
+    const slots = [];
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) slots.push({r,c});
+    shuffle(slots);
+
+    tiles.forEach((el, i)=>{
+      const s = slots[i]; if(!s) return;
+      const tw = el.offsetWidth, th = el.offsetHeight;
+      const x = s.c*cellW + Math.random()*Math.max(0, cellW - tw);
+      const y = s.r*cellH + Math.random()*Math.max(0, cellH - th);
+      el.style.left = Math.round(Math.max(0, Math.min(W - tw, x))) + 'px';
+      el.style.top  = Math.round(Math.max(0, Math.min(avail - th, y))) + 'px';
+      el.style.transform = `rotate(${(Math.random()*3-1.5).toFixed(2)}deg)`;
     });
   }
 
@@ -631,12 +727,13 @@
   function startRaceRound(){
     if(!raceWords.some(w=>!w.found)) return;
     raceRunning=true;
-    timerReset(); timerStart();
+    if(raceMode==='timed'){ timerReset(); timerStart(); }
     nextRacePrompt();
   }
 
   function endRaceRound(cleared){
     raceRunning=false;
+    hideClaimBar();
     // the sentence on screen when the clock stopped hasn't been answered — put it
     // back in the queue, or its word could never be claimed and the board never clears
     if(raceCurrent){
@@ -648,7 +745,7 @@
     if(cleared){
       setRaceMessage('Board cleared — final scores are in the team bar.');
     } else {
-      nextTurn();                       // hand the board to the next team
+      nextTurn();                       // timed mode: hand the board to the next team
       setRacePrompt(null);
     }
     updateRaceBar();
@@ -660,37 +757,91 @@
     const skipBtn  = document.getElementById('race-skip');
     const left     = raceWords.filter(w=>!w.found).length;
     const teamName = (teams[active] && teams[active].name) || 'Team';
-    status.textContent = left
-      ? `${teamName} is up · ${left} word${left===1?'':'s'} left`
-      : 'All words found';
+    if(raceMode==='h2h'){
+      status.textContent = left ? `First touch wins · ${left} word${left===1?'':'s'} left` : 'All words found';
+      startBtn.textContent = '▶ Start';
+    } else {
+      status.textContent = left ? `${teamName} is up · ${left} word${left===1?'':'s'} left` : 'All words found';
+      startBtn.textContent = `▶ Start round — ${teamName}`;
+    }
     startBtn.style.display = (!raceRunning && left) ? 'inline-block' : 'none';
     skipBtn.style.display  = (raceRunning && left) ? 'inline-block' : 'none';
-    startBtn.textContent   = `▶ Start round — ${teamName}`;
   }
 
   function onRaceWordClick(w, el){
-    if(!raceRunning || !raceCurrent || w.found) return;
+    if(!raceRunning || !raceCurrent || w.found || racePending) return;
     if(w.word === raceCurrent.answer){
-      w.found=true;
       el.classList.remove('wrong');
-      el.classList.add('found');
-      if(teams[active]) teams[active].score++;
-      renderScorebar();
-      nextRacePrompt();
+      if(raceMode==='h2h'){
+        // the engine can't know who touched first — ask, then award
+        racePending = { w, el };
+        el.classList.add('pending');
+        showClaimBar();
+      } else {
+        awardRaceWord(active);
+      }
     } else {
-      // wrong taps are flagged, never penalised (§4.4) — the sentence comes back later
       el.classList.add('wrong');
       setTimeout(()=>el.classList.remove('wrong'), 600);
-      raceQueue.push(raceCurrent);
-      nextRacePrompt();
+      if(raceMode==='timed'){
+        // keep the pace up: no penalty, but move on — the sentence returns later
+        raceQueue.push(raceCurrent);
+        nextRacePrompt();
+      }
+      // h2h: the sentence stays up so the other team can steal it
     }
   }
+
+  // Award the pending (or, in timed mode, the just-clicked) word to a team.
+  function awardRaceWord(teamIdx){
+    const hit = racePending || { w: raceWords.find(x=>x.word===raceCurrent.answer), el:null };
+    if(!hit.w) return;
+    hit.w.found = true;
+    hit.w.by    = teamIdx;
+    if(teams[teamIdx]) teams[teamIdx].score++;
+    racePending = null;
+    hideClaimBar();
+    renderScorebar();
+    renderRaceWords();     // re-scatter, so nobody wins on remembering where a word sat
+    nextRacePrompt();
+  }
+
+  function showClaimBar(){
+    const bar  = document.getElementById('race-claim');
+    const list = document.getElementById('race-claim-teams');
+    list.innerHTML='';
+    teams.forEach((t,i)=>{
+      const b=document.createElement('button');
+      b.className='claim-team team-'+Math.min(i,3);
+      b.innerHTML = `<span class="claim-key">${i+1}</span>${t.name}`;
+      b.addEventListener('click', ()=>awardRaceWord(i));
+      list.appendChild(b);
+    });
+    bar.style.visibility='visible';
+  }
+  function hideClaimBar(){
+    document.getElementById('race-claim').style.visibility='hidden';
+    if(racePending && racePending.el) racePending.el.classList.remove('pending');
+  }
+
+  // number keys pick the team, so you never have to look down at the laptop
+  document.addEventListener('keydown', (e)=>{
+    if(!racePending) return;
+    if(e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+    const n = parseInt(e.key, 10);
+    if(n>=1 && n<=teams.length){ e.preventDefault(); awardRaceWord(n-1); }
+  });
 
   document.getElementById('race-start').addEventListener('click', startRaceRound);
   document.getElementById('race-skip').addEventListener('click', ()=>{
     if(!raceRunning || !raceCurrent) return;
+    if(racePending){ racePending.el.classList.remove('pending'); racePending=null; hideClaimBar(); }
     raceQueue.push(raceCurrent);
     nextRacePrompt();
+  });
+
+  window.addEventListener('resize', ()=>{
+    if(activeGame==='race' && raceWords.length) scatterRaceWords();
   });
 
   /* ================= TIMER (teacher-controlled) ================= */
@@ -711,8 +862,8 @@
       tmrLeft--;
       if(tmrLeft<=0){
         tmrLeft=0; clearInterval(tmrTick); tmrTick=null;
-        // a race round is the one thing the clock actually ends
-        if(activeGame==='race' && raceRunning){ endRaceRound(false); }
+        // a timed race round is the one thing the clock actually ends
+        if(activeGame==='race' && raceMode==='timed' && raceRunning){ endRaceRound(false); }
       }
       timerRender();
     }, 1000);
