@@ -16,7 +16,7 @@ body{
   color: var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; min-height:100vh;
   padding-bottom: 84px;   /* clearance for the always-present team bar */
 }
-body.race-active{ padding-bottom:0; overflow:hidden; }   /* race field measures its own fit */
+body.play-fit{ padding-bottom:0; overflow:hidden; }   /* boards that measure their own fit */
 .eyebrow{ font-family:'IBM Plex Mono', monospace; letter-spacing:0.14em; text-transform:uppercase; font-size:0.72rem; color: var(--blue); }
 header{ padding: 22px 32px 14px; display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:10px; }
 h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1.3rem, 3vw, 2.1rem); letter-spacing:-0.01em; text-transform:uppercase; color: var(--navy); }
@@ -86,10 +86,12 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 #start-btn:not(:disabled):hover{ background:#0089c0; }
 
 /* --- Jeopardy play --- */
-#play-jeopardy{ display:none; padding: 18px 24px 100px; }
-#board{ display:grid; gap:8px; margin-top: 18px; }
-.cat-header{ background: var(--navy); border-radius:8px; padding: 14px 8px; text-align:center; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(0.7rem, 1.1vw, 0.9rem); text-transform:uppercase; letter-spacing:0.04em; min-height: 58px; display:flex; align-items:center; justify-content:center; color: var(--yellow); }
-.tile{ background: var(--blue); border-radius:8px; aspect-ratio: 3/2; display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1rem, 2vw, 1.6rem); color: var(--white); cursor:pointer; transition: transform .12s, background .12s; }
+#play-jeopardy{ display:none; padding: 12px 24px 6px; }
+/* --jt is the type scale fitJeopardyBoard works out from the row height it ends up
+   with; height and rows are set there too, so the board always fits the screen */
+#board{ display:grid; gap:8px; margin-top: 10px; --jt:1; }
+.cat-header{ background: var(--navy); border-radius:8px; padding: 8px; text-align:center; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(0.68rem, 1.05vw, 0.88rem); text-transform:uppercase; letter-spacing:0.03em; line-height:1.2; min-height:0; overflow:hidden; display:flex; align-items:center; justify-content:center; color: var(--yellow); }
+.tile{ background: var(--blue); border-radius:8px; min-height:0; overflow:hidden; display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: calc(clamp(1rem, 2vw, 1.6rem) * var(--jt)); color: var(--white); cursor:pointer; transition: transform .12s, background .12s; }
 .tile:hover{ transform: scale(1.03); background: #0089c0; }
 .tile.used{ background: var(--cream); color: rgba(18,38,63,0.18); cursor:default; }
 .tile.used:hover{ transform:none; background: var(--cream); }

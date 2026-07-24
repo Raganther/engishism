@@ -102,6 +102,12 @@ back to memory for the session (the panel says so).
   rename + add-team; active-team / whose-turn highlight.
 - Teacher **countdown timer** in the header on the play screen (start/pause, reset,
   ±15s, red under 10s).
+- **Boards fit the screen — never scroll.** Jeopardy (`fitJeopardyBoard`) and Race
+  (`scatterRaceWords`) measure the space left under the header and above the team bar
+  and size themselves to it, scaling their type down if needed; `body.play-fit` drops
+  the body padding while they're up. Both re-fit on resize. Jeopardy tiles used to
+  take their height from a fixed 3:2 aspect ratio, so fewer categories meant taller
+  tiles and up to 1400px of hidden board — don't reintroduce a fixed aspect ratio.
 - **Settings panel** (⚙ in the header, Esc or click-away to close), built from a
   registry so a new feature's switch appears by registering it — see "Adding a
   feature" above. Currently: sound on/off, volume, race re-scatter, race round

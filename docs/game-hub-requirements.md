@@ -401,6 +401,7 @@ storage the app degrades to session-only and says so in the panel.
 |---|---|---|
 | F5.1 | Layout is legible at 1280×720 and above | Must |
 | F5.2 | Layout adapts to window size without breaking | Must |
+| F5.5 | A game board is fully visible without scrolling, at any window size and any content selection — a teacher cannot scroll the projected image mid-game | Must |
 | F5.3 | Colour scheme has sufficient contrast for projection in a lit room | Must |
 | F5.4 | No element requires hover to be understood — projectors have no cursor for students | Should |
 

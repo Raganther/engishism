@@ -271,9 +271,10 @@
     document.getElementById(id).classList.add('active');
     document.getElementById('new-game-btn').style.display = (id==='screen-play') ? 'inline-block' : 'none';
     document.getElementById('timer-widget').style.display = (id==='screen-play') ? 'flex' : 'none';
-    // the race field sizes itself around the team bar, so it doesn't need the body
-    // padding that keeps the bar off the other screens
-    document.body.classList.toggle('race-active', id==='screen-play' && activeGame==='race');
+    // these boards size themselves around the team bar, so they don't need the body
+    // padding that keeps the bar clear of the other screens
+    document.body.classList.toggle('play-fit',
+      id==='screen-play' && (activeGame==='race' || activeGame==='jeopardy'));
     if(id!=='screen-play') timerStop();
     renderScorebar();   // team bar is always visible; refresh its highlight/cues
   }
@@ -339,6 +340,8 @@
   function nextTurn(){ if(teams.length){ active=(active+1)%teams.length; renderScorebar(); } }
 
   /* ================= JEOPARDY ================= */
+  let jeoRows = 0;
+
   function buildJeopardyBoard(){
     const cats = JEOPARDY_CATEGORIES.filter(c=>selectedContent.includes(c.id));
     const board = document.getElementById('board');
@@ -349,8 +352,8 @@
       h.className='cat-header'; h.textContent=cat.name;
       board.appendChild(h);
     });
-    const maxRows = Math.max(...cats.map(c=>c.clues.length));
-    for(let r=0;r<maxRows;r++){
+    jeoRows = Math.max(...cats.map(c=>c.clues.length));
+    for(let r=0;r<jeoRows;r++){
       cats.forEach(cat=>{
         const clue=cat.clues[r];
         const tile=document.createElement('div');
@@ -358,6 +361,29 @@
         tile.addEventListener('click', ()=> openJeopardyClue(cat, clue, tile));
         board.appendChild(tile);
       });
+    }
+    fitJeopardyBoard();
+  }
+
+  /* The whole board has to be reachable without scrolling — a teacher can't scroll
+     the projected image mid-game. Tiles used to take their height from a fixed 3:2
+     aspect ratio, so the fewer categories you picked the taller they grew and the
+     board ran off the bottom. Height is now driven by the space actually available
+     and the rows share what's left; the type scales to whatever row height results. */
+  function fitJeopardyBoard(){
+    const board = document.getElementById('board');
+    if(!board.children.length || !jeoRows) return;
+    const top  = board.getBoundingClientRect().top;
+    const barH = document.getElementById('scorebar').offsetHeight || 76;
+    if(top <= 0) return;                       // play screen not visible yet
+    const avail = Math.max(220, window.innerHeight - top - barH - 14);
+    board.style.height = avail + 'px';
+    board.style.gridTemplateRows = `auto repeat(${jeoRows}, minmax(0, 1fr))`;
+
+    const tile = board.querySelector('.tile');
+    if(tile){
+      const th = tile.getBoundingClientRect().height;
+      board.style.setProperty('--jt', Math.max(0.5, Math.min(1.3, th/84)).toFixed(3));
     }
   }
 
@@ -485,8 +511,9 @@
       timerSetDuration(Number(S.get('raceRoundSeconds')) || 60);
     }
     showScreen('screen-play');
-    // the word field can only be measured once the play screen is actually visible
-    if(activeGame==='race') scatterRaceWords();
+    // neither board can be measured until the play screen is actually visible
+    if(activeGame==='race')     scatterRaceWords();
+    if(activeGame==='jeopardy') fitJeopardyBoard();
     timerReset();
   });
 
@@ -914,6 +941,7 @@
 
   window.addEventListener('resize', ()=>{
     if(activeGame==='race' && raceWords.length) scatterRaceWords();
+    if(activeGame==='jeopardy') fitJeopardyBoard();
   });
 
   /* ================= TIMER (teacher-controlled) ================= */
