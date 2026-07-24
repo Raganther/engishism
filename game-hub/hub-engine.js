@@ -13,6 +13,65 @@
   const UNITS = window.UNITS || (window.UNIT ? [window.UNIT] : []);
   if(!UNITS.length){ throw new Error('hub-engine: no units loaded — include a content file (window.UNITS) before hub-engine.js'); }
 
+  const S = window.HubSettings;
+  if(!S){ throw new Error('hub-engine: game-hub/hub-settings.js must load before hub-engine.js'); }
+
+  /* ---- feature switches. Adding a feature? Register it here and the settings
+     panel picks it up automatically — there is no panel markup to edit. ---- */
+  S.register({ id:'sound', group:'Sound', type:'toggle', default:true,
+    label:'Sound effects', help:'Short tones for a right answer, a wrong one, and a cleared board.' });
+  S.register({ id:'soundVolume', group:'Sound', type:'select', default:'med',
+    label:'Volume', help:'Classroom speakers are usually louder than they sound at your desk.',
+    options:[{value:'quiet',label:'Quiet'},{value:'med',label:'Medium'},{value:'loud',label:'Loud'}] });
+
+  S.register({ id:'raceRescatter', group:'Race to the Board', type:'toggle', default:true,
+    label:'Re-scatter after every claim', help:'Moves the words each time one is won, so nobody wins on memory alone.' });
+  S.register({ id:'raceRoundSeconds', group:'Race to the Board', type:'select', default:60,
+    label:'Timed round length', help:'Only used in timed team rounds.',
+    options:[{value:45,label:'45 seconds'},{value:60,label:'60 seconds'},{value:90,label:'90 seconds'}] });
+  S.register({ id:'raceShowSection', group:'Race to the Board', type:'toggle', default:true,
+    label:'Show the section tag', help:'The small 5A / 5B label above the sentence.' });
+
+  /* ---- sound: synthesised, so it needs no audio files and still works offline ---- */
+  const Sound = (function(){
+    const LEVEL = { quiet:0.035, med:0.09, loud:0.2 };
+    const VOICES = {
+      correct:[{f:660,d:0.09},{f:990,d:0.13}],
+      wrong:  [{f:180,d:0.16,type:'sawtooth'},{f:120,d:0.18,type:'sawtooth'}],
+      claim:  [{f:523,d:0.07},{f:784,d:0.07},{f:1047,d:0.14}],
+      end:    [{f:440,d:0.14},{f:330,d:0.2}],
+      clear:  [{f:523,d:0.1},{f:659,d:0.1},{f:784,d:0.1},{f:1047,d:0.28}]
+    };
+    let ctx=null;
+    function audio(){
+      if(ctx) return ctx;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return null;
+      try{ ctx = new AC(); }catch(e){ ctx=null; }
+      return ctx;
+    }
+    function play(name){
+      if(!S.get('sound')) return;
+      const seq = VOICES[name]; if(!seq) return;
+      const ac = audio(); if(!ac) return;
+      if(ac.state==='suspended' && ac.resume) ac.resume();
+      const peak = LEVEL[S.get('soundVolume')] || LEVEL.med;
+      let at = ac.currentTime;
+      seq.forEach(n=>{
+        const osc=ac.createOscillator(), gain=ac.createGain();
+        osc.type = n.type || 'triangle';
+        osc.frequency.setValueAtTime(n.f, at);
+        gain.gain.setValueAtTime(0.0001, at);
+        gain.gain.exponentialRampToValueAtTime(peak, at+0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, at+n.d);
+        osc.connect(gain); gain.connect(ac.destination);
+        osc.start(at); osc.stop(at+n.d+0.02);
+        at += n.d*0.85;
+      });
+    }
+    return { play };
+  })();
+
   /* ---- UI skeleton (identical for every unit) ---- */
   const SKELETON = `
     <header>
@@ -423,7 +482,7 @@
     } else if(activeGame==='race'){
       document.getElementById('play-race').style.display='block';
       buildRaceBoard();
-      timerSetDuration(RACE_ROUND_SECONDS);
+      timerSetDuration(Number(S.get('raceRoundSeconds')) || 60);
     }
     showScreen('screen-play');
     // the word field can only be measured once the play screen is actually visible
@@ -544,12 +603,14 @@
 
   // Jeopardy: award the tile's value to the selected team, then pass the turn.
   document.getElementById('correct-btn').addEventListener('click', ()=>{
+    Sound.play('correct');
     if(currentTile){ currentTile.classList.add('used'); currentTile.textContent=''; }
     if(teams.length){ teams[active].score += currentClueValue; }
     closeModal();
     nextTurn();
   });
   document.getElementById('wrong-btn').addEventListener('click', ()=>{
+    Sound.play('wrong');
     if(currentTile){ currentTile.classList.add('used'); currentTile.textContent=''; }
     closeModal();
     nextTurn();
@@ -559,6 +620,7 @@
 
   // Blockbusters: claim (or skip) a hex, award +1 to the claiming team, pass turn.
   function claimHex(claim){
+    if(claim) Sound.play('claim');
     if(currentTile && modalMode==='blockbusters' && claim){
       const idx = (claim==='gold') ? 0 : 1;
       currentTile.classList.add(claim==='gold' ? 'claimed-gold' : 'claimed-silver');
@@ -702,7 +764,8 @@
     const el=document.getElementById('race-prompt');
     el.classList.add('live');
     el.innerHTML='';
-    const sec=document.createElement('span'); sec.className='race-sec'; sec.textContent=item.section;
+    const sec=document.createElement('span'); sec.className='race-sec';
+    sec.textContent = S.get('raceShowSection') ? item.section : '';
     const sent=document.createElement('span'); sent.className='race-sentence';
     item.prompt.split(/___+/).forEach((part,i,arr)=>{
       sent.appendChild(document.createTextNode(part));
@@ -743,8 +806,10 @@
     raceCurrent=null;
     timerStop();
     if(cleared){
+      Sound.play('clear');
       setRaceMessage('Board cleared — final scores are in the team bar.');
     } else {
+      Sound.play('end');
       nextTurn();                       // timed mode: hand the board to the next team
       setRacePrompt(null);
     }
@@ -771,6 +836,7 @@
   function onRaceWordClick(w, el){
     if(!raceRunning || !raceCurrent || w.found || racePending) return;
     if(w.word === raceCurrent.answer){
+      Sound.play('correct');
       el.classList.remove('wrong');
       if(raceMode==='h2h'){
         // the engine can't know who touched first — ask, then award
@@ -778,9 +844,10 @@
         el.classList.add('pending');
         showClaimBar();
       } else {
-        awardRaceWord(active);
+        awardRaceWord(active, el);
       }
     } else {
+      Sound.play('wrong');
       el.classList.add('wrong');
       setTimeout(()=>el.classList.remove('wrong'), 600);
       if(raceMode==='timed'){
@@ -793,8 +860,8 @@
   }
 
   // Award the pending (or, in timed mode, the just-clicked) word to a team.
-  function awardRaceWord(teamIdx){
-    const hit = racePending || { w: raceWords.find(x=>x.word===raceCurrent.answer), el:null };
+  function awardRaceWord(teamIdx, elOverride){
+    const hit = racePending || { w: raceWords.find(x=>x.word===raceCurrent.answer), el:elOverride||null };
     if(!hit.w) return;
     hit.w.found = true;
     hit.w.by    = teamIdx;
@@ -802,7 +869,12 @@
     racePending = null;
     hideClaimBar();
     renderScorebar();
-    renderRaceWords();     // re-scatter, so nobody wins on remembering where a word sat
+    if(S.get('raceRescatter')){
+      renderRaceWords();   // re-scatter, so nobody wins on remembering where a word sat
+    } else if(hit.el){
+      hit.el.classList.remove('pending');
+      hit.el.classList.add('found', 'team-'+Math.min(teamIdx,3));
+    }
     nextRacePrompt();
   }
 
@@ -883,7 +955,16 @@
   /* ================= INIT ================= */
   document.querySelector('.eyebrow').textContent = 'Cambridge Empower C1 · Classroom games';
   document.getElementById('change-unit').style.display = (UNITS.length>1) ? 'inline-block' : 'none';
+  S.mount(document.querySelector('.header-right'));   // gear button + panel
   renderScorebar();   // team bar visible from the very first screen
+
+  // settings that change what's already on screen take effect without a restart
+  S.onChange((id)=>{
+    if(id==='raceShowSection' && activeGame==='race' && raceCurrent) setRacePrompt(raceCurrent);
+    if(id==='raceRoundSeconds' && activeGame==='race' && raceMode==='timed' && !raceRunning){
+      timerSetDuration(Number(S.get('raceRoundSeconds')) || 60);
+    }
+  });
   if(UNITS.length===1){
     loadUnit(UNITS[0]);
     showScreen('screen-game-select');

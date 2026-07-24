@@ -30,6 +30,8 @@ git push                            # deploy to GitHub Pages
      unit; the engine auto-skips the unit-select step).
    - `game-hub/hub-engine.js` — all game logic + injected UI skeleton; renders the
      unit/game/section/play screens, the persistent team bar, and the timer.
+   - `game-hub/hub-settings.js` — settings registry + panel (⚙ in the header).
+     **Must load before hub-engine.js** (the engine throws without it).
    - `game-hub/hub.css` — shared styling (DCU theme); the one place to restyle.
    - `game-hub/content/unit-4.js`, `unit-5.js` — data-only content banks; each does
      `window.UNITS.push({ id, label, card, jeopardy…, blockbusters… })`.
@@ -48,6 +50,21 @@ git push                            # deploy to GitHub Pages
      `scam-or-legit`). Reachable via the landing page's "Classic games" link.
 
 `index.html` links all three (Choose a unit / Game Hub / Classic games).
+
+## Adding a feature (settings-first)
+Every new feature gets a switch. Register it at the top of `hub-engine.js` and the
+panel builds its own row — **there is no panel markup to edit**:
+
+```js
+S.register({ id:'myThing', group:'Race to the Board', type:'toggle', default:true,
+             label:'Human-readable name', help:'One line on what it does.' });
+// then, wherever it matters:
+if(S.get('myThing')) { … }
+```
+`type:'select'` takes `options:[{value,label}]`. `S.onChange(fn)` is for settings that
+should change what's already on screen without restarting the game. Values persist in
+`localStorage` per device; a browser that blocks storage on `file://` silently falls
+back to memory for the session (the panel says so).
 
 ## Source material & specs
 - `material/empower-c1-unit-4/`, `material/empower-c1-unit-5/` — Cambridge Empower
@@ -85,10 +102,19 @@ git push                            # deploy to GitHub Pages
   rename + add-team; active-team / whose-turn highlight.
 - Teacher **countdown timer** in the header on the play screen (start/pause, reset,
   ±15s, red under 10s).
+- **Settings panel** (⚙ in the header, Esc or click-away to close), built from a
+  registry so a new feature's switch appears by registering it — see "Adding a
+  feature" above. Currently: sound on/off, volume, race re-scatter, race round
+  length, race section tag. Saved per device; **Reset to defaults** restores all.
+- **Sound effects** — synthesised with Web Audio (no audio files, so offline still
+  works): rising tone for right, buzz for wrong, chime on a Blockbusters claim,
+  fanfare on a cleared board, low tone when a timed round expires.
 - DCU reskin: light theme, geometric band, uppercase grotesk, game-card icons.
 - To change unit mid-session: game screen → "New game" → "Change unit".
 
 ## Next
+- **Sound is a first pass** — five synthesised cues. Worth checking on real classroom
+  speakers; if they're thin, the fix is a richer envelope, not sample files (offline).
 - **Race to the Board — head-to-head + full-screen scatter shipped; awaiting a real
   classroom run.** Variations discussed but not built, roughly in priority order:
   **relay** (each team lines up, one student per sentence — stops the two fastest

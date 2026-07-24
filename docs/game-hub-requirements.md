@@ -375,6 +375,26 @@ Tier ratings refer to §3.6.
 | Anagram sprint | 2 | Unscramble a target word against the clock | Cheapest of all to author; tests spelling and word form, which no other game here does | Pedagogically thin; little beyond form recognition |
 | Countdown letters round | — | Build the longest word from random letters | Good warmer | **Not recommended**: content-free, so it does not revise the unit and does not support the pitch |
 
+### 4.4b Settings — built
+
+Features are switchable rather than fixed, so a teacher can turn off anything that
+doesn't suit the class or the room. The panel (⚙ in the header) is generated from a
+registry: a feature declares its own switch when it registers, so the panel never has
+to be edited by hand and no feature can ship without one.
+
+| ID | Requirement | Priority |
+|---|---|---|
+| F4b.1 | Every optional behaviour is toggleable from one panel | Must |
+| F4b.2 | The panel is built from registered features, not hand-written markup | Must |
+| F4b.3 | Choices are remembered between lessons on the same machine | Should |
+| F4b.4 | A single reset restores every default | Should |
+
+*Departure from §1.3.* "No data persistence" was listed out of scope, meaning scores,
+saved boards and history — that still holds. Teacher **preferences** are persisted to
+`localStorage`, because a setting that has to be re-chosen every lesson is worse than
+no setting. Nothing about a game in progress is saved, and where a browser blocks
+storage the app degrades to session-only and says so in the panel.
+
 ### 4.5 Display
 
 | ID | Requirement | Priority |
