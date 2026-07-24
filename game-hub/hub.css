@@ -14,6 +14,7 @@
 body{
   background: var(--white);
   color: var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; min-height:100vh;
+  padding-bottom: 84px;   /* clearance for the always-present team bar */
 }
 .eyebrow{ font-family:'IBM Plex Mono', monospace; letter-spacing:0.14em; text-transform:uppercase; font-size:0.72rem; color: var(--blue); }
 header{ padding: 22px 32px 14px; display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:10px; }
@@ -99,6 +100,8 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 .team button.minus{ color: var(--yellow); }
 .team button:hover{ background: var(--blue); }
 #add-team-btn{ background:var(--yellow);color:var(--navy);border:none;border-radius:8px;padding:0 14px;font-family:'Space Grotesk',sans-serif;font-weight:700;cursor:pointer; }
+#scorebar .reset-btn{ background:transparent; color:var(--cream); border:1px solid rgba(255,255,255,0.35); border-radius:8px; padding:0 14px; height:38px; font-family:'IBM Plex Mono',monospace; font-size:0.72rem; letter-spacing:0.04em; text-transform:uppercase; cursor:pointer; }
+#scorebar .reset-btn:hover{ border-color:var(--yellow); color:var(--yellow); }
 
 /* --- Blockbusters play --- */
 #play-blockbusters{ display:none; padding: 18px 12px 40px; text-align:center; }
