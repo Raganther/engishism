@@ -292,14 +292,35 @@ generalisation argument if presented as core.
   register, word class — not merely topic. At least one group should be a plausible
   trap for another.
 
-**Tap-the-word race** *(kinaesthetic)*
+**Race to the Board** *(kinaesthetic)* — **built**, Unit 5
 - Target words displayed scattered on screen
-- A prompt appears; a student comes to the board and taps the matching word
-- Correct taps highlight; incorrect taps are indicated but not penalised
-- Optional timer for competitive rounds
-- Content fields: `prompt`, `answer`, `distractors[]`
-- Authoring note: distractors must be plausible for the prompt, otherwise the game
-  tests reading speed rather than language knowledge
+- A gapped sentence appears; a student comes to the board and touches the matching word
+- Correct taps highlight and score +1; incorrect taps flash red but are not penalised,
+  and the missed sentence returns to the queue to be asked again later
+- One team plays at a time against the header timer (60s default). The round ends when
+  the clock runs out and the board passes to the next team; the game ends when the
+  board is cleared
+- Content fields: `section`, `prompt` (with `___` marking the gap), `answer`
+- **Distractors are not authored.** The board *is* the distractor set: every word on
+  screen is a real target word from the selected sections, which guarantees the
+  plausibility §3.2 requires and removes the largest authoring cost in the format.
+  See the note below on where this departs from §3.2.
+- Authoring note: write the prompt as a **gapped sentence**, not a definition, so the
+  item tests collocation and word form in context. This is deliberately a different
+  angle from Jeopardy's Q&A and Blockbusters' definitions, which preserves §3.2's
+  varied-retrieval argument even though the target language overlaps.
+
+*Projector note.* A projected screen is not a touchscreen. The student touches the
+projected word; the **teacher clicks that word on the laptop** to register it. The
+per-team timed round exists for this reason — the engine cannot tell who tapped, but it
+always knows whose round it is, so scoring stays unambiguous and hands-free during play.
+A head-to-head variant (two students, first correct touch wins) is playable with the
+same build, at the cost of the teacher deciding and clicking the winner each item.
+
+*Departure from §3.2.* §3.2 assumed this format needed authored distractors and listed
+it as a reason to reject a shared bank. Deriving the distractors from the sibling
+answers removes that cost without sharing items between games: the race bank is still
+its own content set, authored in its own shape. The rest of §3.2 stands.
 
 **Who Wants to Be a Millionaire — teams variation**
 - Teams take turns; each climbs its own ladder of 8–10 questions of rising difficulty

@@ -56,6 +56,12 @@
           <p>Hexagon board. Yellow connects left&rarr;right, Blue connects top&rarr;bottom, by answering letter clues.</p>
           <span class="badge">Best for: single-word / short-answer vocab</span>
         </div>
+        <div class="game-card" data-game="race">
+          <svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="13" height="6" rx="1.5"/><rect x="21" y="9" width="15" height="6" rx="1.5"/><rect x="5" y="20" width="15" height="6" rx="1.5"/><rect x="24" y="24" width="12" height="6" rx="1.5"/><path d="M13 36 L20 30 L27 36"/></svg>
+          <h3>Race to the Board</h3>
+          <p>Target words scattered on screen. Read the sentence aloud &mdash; a student runs up and touches the missing word.</p>
+          <span class="badge">Best for: getting them out of their seats</span>
+        </div>
       </div>
     </div>
 
@@ -68,6 +74,13 @@
         <span class="team-tag tag-gold">YELLOW</span> connects a path of hexagons from the <strong>left</strong> edge to the <strong>right</strong> edge.<br>
         <span class="team-tag tag-silver">BLUE</span> connects a path from the <strong>top</strong> edge to the <strong>bottom</strong> edge.<br>
         Click a hexagon, read the clue aloud &mdash; the answer starts with the letter shown. Correct = claim it. Wrong = the other team can steal it.
+      </div>
+      <div class="rules-note" id="race-rules" style="display:none;">
+        One team is up at a time. Press <strong>Start round</strong> and read the sentence aloud &mdash;
+        a student runs to the screen and <strong>touches the missing word</strong>.<br>
+        The projector screen isn't a touchscreen, so <strong>you click the word they touched</strong> on your laptop:
+        right = it lights up and scores +1, wrong = a red flash and the sentence comes back later.<br>
+        Keep going until the timer runs out, then the next team is up. The round ends when the board is cleared.
       </div>
       <button id="start-btn" disabled>Select content to continue</button>
     </div>
@@ -83,6 +96,17 @@
           <span class="legend-silver"><span class="dot" style="background:var(--silver)"></span> Blue: top &rarr; bottom</span>
         </div>
         <div id="hexwrap"></div>
+      </div>
+      <div id="play-race">
+        <div id="race-bar">
+          <div id="race-status"></div>
+          <div class="race-actions">
+            <button id="race-start">&#9654; Start round</button>
+            <button id="race-skip" style="display:none;">Skip this one</button>
+          </div>
+        </div>
+        <div id="race-prompt"></div>
+        <div id="race-words"></div>
       </div>
     </div>
 
@@ -117,6 +141,20 @@
   let JEOPARDY_CATEGORIES       = [];
   let BLOCKBUSTERS_BANK         = [];
   let BLOCKBUSTERS_SECTION_NAMES= {};
+  let RACE_BANK                 = [];
+  let RACE_SECTION_NAMES        = {};
+
+  const GAME_TITLES = { jeopardy:'Jeopardy', blockbusters:'Blockbusters', race:'Race to the Board' };
+
+  // Which games a unit can actually offer — a unit without a bank for a game
+  // simply doesn't show that card, so units can adopt new games one at a time.
+  function gamesFor(u){
+    const g=[];
+    if((u.jeopardyCategories||[]).length) g.push('jeopardy');
+    if((u.blockbustersBank||[]).length)   g.push('blockbusters');
+    if((u.raceBank||[]).length)           g.push('race');
+    return g;
+  }
 
   function loadUnit(u){
     UNIT = u;
@@ -124,6 +162,12 @@
     JEOPARDY_CATEGORIES        = u.jeopardyCategories || [];
     BLOCKBUSTERS_BANK          = u.blockbustersBank || [];
     BLOCKBUSTERS_SECTION_NAMES = u.blockbustersSectionNames || {};
+    RACE_BANK                  = u.raceBank || [];
+    RACE_SECTION_NAMES         = u.raceSectionNames || {};
+    const available = gamesFor(u);
+    document.querySelectorAll('.game-card').forEach(c=>{
+      c.style.display = available.includes(c.dataset.game) ? 'block' : 'none';
+    });
     document.querySelector('.eyebrow').textContent = u.label || '';
     document.querySelector('#screen-game-select p.intro').textContent = u.intro || '';
     if(u.label){ document.title = u.label + ' — Game Hub'; }
@@ -138,7 +182,7 @@
       el.className='unit-card';
       el.innerHTML = `<span class="unit-num">${c.num||u.id||'Unit'}</span>`+
         `<h2>${c.title||''}</h2><p>${c.blurb||''}</p>`+
-        `<div class="games"><span>Jeopardy</span><span>Blockbusters</span></div>`;
+        `<div class="games">${gamesFor(u).map(g=>`<span>${GAME_TITLES[g]}</span>`).join('')}</div>`;
       el.addEventListener('click', ()=>{ loadUnit(u); document.getElementById('page-title').textContent='Game Hub'; showScreen('screen-game-select'); });
       grid.appendChild(el);
     });
@@ -166,8 +210,7 @@
   document.querySelectorAll('.game-card').forEach(card=>{
     card.addEventListener('click', ()=>{
       activeGame = card.dataset.game;
-      document.getElementById('page-title').textContent =
-        activeGame==='jeopardy' ? 'Jeopardy' : 'Blockbusters';
+      document.getElementById('page-title').textContent = GAME_TITLES[activeGame] || 'Game Hub';
       renderContentScreen();
       showScreen('screen-content-select');
     });
@@ -185,7 +228,7 @@
   });
 
   document.getElementById('new-game-btn').addEventListener('click', ()=>{
-    activeGame=null; selectedContent=[]; pool=[];
+    activeGame=null; selectedContent=[]; pool=[]; raceRunning=false;
     document.getElementById('page-title').textContent='Game Hub';
     showScreen('screen-game-select');
   });
@@ -195,7 +238,7 @@
     const bar=document.getElementById('scorebar'); bar.innerHTML='';
     const playing = document.getElementById('screen-play').classList.contains('active');
     const hi = playing ? (activeGame==='blockbusters' ? bbTurn : active) : -1;
-    const step = (activeGame==='blockbusters') ? 1 : 100;   // manual +/- correction step
+    const step = (activeGame==='jeopardy') ? 100 : 1;   // manual +/- correction step
     teams.forEach((t, i)=>{
       const el=document.createElement('div'); el.className='team'+(i===hi?' active':'');
       const dot = (activeGame==='blockbusters' && i<2)
@@ -248,8 +291,10 @@
     const list = document.getElementById('content-list');
     const help = document.getElementById('content-helptext');
     const rulesNote = document.getElementById('blockbusters-rules');
+    const raceNote  = document.getElementById('race-rules');
     list.innerHTML='';
     selectedContent=[];
+    raceNote.style.display='none';
 
     if(activeGame==='jeopardy'){
       rulesNote.style.display='none';
@@ -284,6 +329,20 @@
       });
       updateStartButton();
     }
+
+    if(activeGame==='race'){
+      rulesNote.style.display='none';
+      raceNote.style.display='block';
+      help.textContent = "Pick which sections feed the board. Every word on screen is a target word from your selection, so a wrong tap is still worth talking about.";
+      Object.keys(RACE_SECTION_NAMES).forEach(sec=>{
+        const div=document.createElement('label');
+        div.className='cat-check';
+        div.innerHTML = `<input type="checkbox" value="${sec}"><span class="tag">${sec}</span><span class="name">${RACE_SECTION_NAMES[sec].split('·')[1]}</span>`;
+        div.querySelector('input').addEventListener('change', onContentToggle);
+        list.appendChild(div);
+      });
+      updateStartButton();
+    }
   }
 
   function onContentToggle(){
@@ -308,22 +367,44 @@
       } else {
         btn.textContent = `Build board — 18 of ${total} clues, shuffled`;
       }
+    } else if(activeGame==='race'){
+      const total = RACE_BANK.filter(c=>selectedContent.includes(c.section)).length;
+      btn.disabled = total < RACE_MIN_WORDS;
+      if(selectedContent.length===0){
+        btn.textContent = 'Select at least one section';
+      } else if(total < RACE_MIN_WORDS){
+        btn.textContent = `Need ${RACE_MIN_WORDS} words for a board — ${total} selected, add another section`;
+      } else {
+        const onBoard = Math.min(total, RACE_MAX_WORDS);
+        btn.textContent = `Build board — ${onBoard} of ${total} words, shuffled`;
+      }
     }
   }
 
+  function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+    return arr;
+  }
+
   document.getElementById('start-btn').addEventListener('click', ()=>{
+    ['play-jeopardy','play-blockbusters','play-race'].forEach(id=>{
+      document.getElementById(id).style.display='none';
+    });
     if(activeGame==='jeopardy'){
       document.getElementById('play-jeopardy').style.display='block';
-      document.getElementById('play-blockbusters').style.display='none';
       buildJeopardyBoard();
-    } else {
-      document.getElementById('play-jeopardy').style.display='none';
+      timerSetDuration(30);
+    } else if(activeGame==='blockbusters'){
       document.getElementById('play-blockbusters').style.display='block';
-      pool = BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(c.section));
-      for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+      pool = shuffle(BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(c.section)));
       pool = pool.slice(0, 18);   // classic 5/4/5/4 board holds 18
       buildBlockbustersBoard();
       bbTurn=0; renderBBTurn();
+      timerSetDuration(30);
+    } else if(activeGame==='race'){
+      document.getElementById('play-race').style.display='block';
+      buildRaceBoard();
+      timerSetDuration(RACE_ROUND_SECONDS);
     }
     showScreen('screen-play');
     timerReset();
@@ -472,6 +553,146 @@
   document.getElementById('silver-btn').addEventListener('click', ()=>claimHex('silver'));
   document.getElementById('skip-btn').addEventListener('click', ()=>claimHex(null));
 
+  /* ================= RACE TO THE BOARD =================
+     Target words sit on screen; the teacher reads a gapped sentence and a student
+     runs to the projector screen and touches the word. The screen isn't a
+     touchscreen, so the teacher clicks the word the student touched.
+     One team plays at a time against the clock, which keeps scoring unambiguous —
+     the engine can't tell who tapped, but it always knows whose round it is. */
+  const RACE_MIN_WORDS     = 10;   // §3.4: playable from a single lesson section
+  const RACE_MAX_WORDS     = 18;   // beyond this the words stop being readable at distance
+  const RACE_ROUND_SECONDS = 60;
+
+  let raceWords   = [];     // [{word, section, found}] — what's on the board
+  let raceQueue   = [];     // prompts still to ask; a missed one goes to the back
+  let raceCurrent = null;
+  let raceRunning = false;
+
+  function buildRaceBoard(){
+    const picked = shuffle(RACE_BANK.filter(c=>selectedContent.includes(c.section)))
+                     .slice(0, RACE_MAX_WORDS);
+    raceWords   = picked.map(p=>({ word:p.answer, section:p.section, found:false }));
+    raceQueue   = shuffle(picked.slice());
+    raceCurrent = null;
+    raceRunning = false;
+    renderRaceWords();
+    setRacePrompt(null);
+    updateRaceBar();
+  }
+
+  function renderRaceWords(){
+    const wrap=document.getElementById('race-words');
+    wrap.innerHTML='';
+    raceWords.forEach((w,i)=>{
+      const el=document.createElement('button');
+      el.className='race-word'+(w.found?' found':'');
+      el.textContent=w.word;
+      el.style.transform=`rotate(${((i*37)%5-2)*0.8}deg)`;   // scattered, never overlapping
+      el.addEventListener('click', ()=>onRaceWordClick(w, el));
+      wrap.appendChild(el);
+    });
+  }
+
+  function setRaceMessage(text){
+    const el=document.getElementById('race-prompt');
+    el.classList.remove('live');
+    el.innerHTML='';
+    const s=document.createElement('span'); s.className='race-idle'; s.textContent=text;
+    el.appendChild(s);
+  }
+
+  function setRacePrompt(item){
+    if(!item){ setRaceMessage('Press Start round when the team is ready.'); return; }
+    const el=document.getElementById('race-prompt');
+    el.classList.add('live');
+    el.innerHTML='';
+    const sec=document.createElement('span'); sec.className='race-sec'; sec.textContent=item.section;
+    const sent=document.createElement('span'); sent.className='race-sentence';
+    item.prompt.split(/___+/).forEach((part,i,arr)=>{
+      sent.appendChild(document.createTextNode(part));
+      if(i<arr.length-1){
+        const gap=document.createElement('span'); gap.className='gap'; gap.textContent='?';
+        sent.appendChild(gap);
+      }
+    });
+    el.appendChild(sec); el.appendChild(sent);
+  }
+
+  function nextRacePrompt(){
+    while(raceQueue.length){
+      const item = raceQueue.shift();
+      const w = raceWords.find(x=>x.word===item.answer);
+      if(w && !w.found){ raceCurrent=item; setRacePrompt(item); updateRaceBar(); return; }
+    }
+    raceCurrent=null;
+    endRaceRound(true);
+  }
+
+  function startRaceRound(){
+    if(!raceWords.some(w=>!w.found)) return;
+    raceRunning=true;
+    timerReset(); timerStart();
+    nextRacePrompt();
+  }
+
+  function endRaceRound(cleared){
+    raceRunning=false;
+    // the sentence on screen when the clock stopped hasn't been answered — put it
+    // back in the queue, or its word could never be claimed and the board never clears
+    if(raceCurrent){
+      const w = raceWords.find(x=>x.word===raceCurrent.answer);
+      if(w && !w.found) raceQueue.push(raceCurrent);
+    }
+    raceCurrent=null;
+    timerStop();
+    if(cleared){
+      setRaceMessage('Board cleared — final scores are in the team bar.');
+    } else {
+      nextTurn();                       // hand the board to the next team
+      setRacePrompt(null);
+    }
+    updateRaceBar();
+  }
+
+  function updateRaceBar(){
+    const status   = document.getElementById('race-status');
+    const startBtn = document.getElementById('race-start');
+    const skipBtn  = document.getElementById('race-skip');
+    const left     = raceWords.filter(w=>!w.found).length;
+    const teamName = (teams[active] && teams[active].name) || 'Team';
+    status.textContent = left
+      ? `${teamName} is up · ${left} word${left===1?'':'s'} left`
+      : 'All words found';
+    startBtn.style.display = (!raceRunning && left) ? 'inline-block' : 'none';
+    skipBtn.style.display  = (raceRunning && left) ? 'inline-block' : 'none';
+    startBtn.textContent   = `▶ Start round — ${teamName}`;
+  }
+
+  function onRaceWordClick(w, el){
+    if(!raceRunning || !raceCurrent || w.found) return;
+    if(w.word === raceCurrent.answer){
+      w.found=true;
+      el.classList.remove('wrong');
+      el.classList.add('found');
+      if(teams[active]) teams[active].score++;
+      renderScorebar();
+      nextRacePrompt();
+    } else {
+      // wrong taps are flagged, never penalised (§4.4) — the sentence comes back later
+      el.classList.add('wrong');
+      setTimeout(()=>el.classList.remove('wrong'), 600);
+      raceQueue.push(raceCurrent);
+      nextRacePrompt();
+    }
+  }
+
+  document.getElementById('race-start').addEventListener('click', startRaceRound);
+  document.getElementById('race-skip').addEventListener('click', ()=>{
+    if(!raceRunning || !raceCurrent) return;
+    raceQueue.push(raceCurrent);
+    nextRacePrompt();
+  });
+
   /* ================= TIMER (teacher-controlled) ================= */
   let tmrDuration=30, tmrLeft=30, tmrTick=null;
   const tmrDisplay = document.getElementById('tmr-display');
@@ -488,13 +709,18 @@
     if(tmrLeft<=0) tmrLeft=tmrDuration;
     tmrTick=setInterval(()=>{
       tmrLeft--;
-      if(tmrLeft<=0){ tmrLeft=0; clearInterval(tmrTick); tmrTick=null; }
+      if(tmrLeft<=0){
+        tmrLeft=0; clearInterval(tmrTick); tmrTick=null;
+        // a race round is the one thing the clock actually ends
+        if(activeGame==='race' && raceRunning){ endRaceRound(false); }
+      }
       timerRender();
     }, 1000);
     timerRender();
   }
   function timerStop(){ if(tmrTick){ clearInterval(tmrTick); tmrTick=null; } timerRender(); }
   function timerReset(){ timerStop(); tmrLeft=tmrDuration; timerRender(); }
+  function timerSetDuration(s){ tmrDuration=s; tmrLeft=s; timerRender(); }
   function timerAdjust(delta){ if(tmrTick) return; tmrDuration=Math.min(300, Math.max(15, tmrDuration+delta)); tmrLeft=tmrDuration; timerRender(); }
 
   tmrToggle.addEventListener('click', ()=> tmrTick ? timerStop() : timerStart());

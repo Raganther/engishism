@@ -33,9 +33,10 @@ git push                            # deploy to GitHub Pages
    - `game-hub/hub.css` — shared styling (DCU theme); the one place to restyle.
    - `game-hub/content/unit-4.js`, `unit-5.js` — data-only content banks; each does
      `window.UNITS.push({ id, label, card, jeopardy…, blockbusters… })`.
-   - Games: **Jeopardy** and **Blockbusters**. Per-game content model (content lives
-     in data, separate from the engine). **Adding a unit = one content file + a
-     `<script>` line in game-hub.html.**
+   - Games: **Jeopardy**, **Blockbusters** and **Race to the Board**. Per-game content
+     model (content lives in data, separate from the engine). **Adding a unit = one
+     content file + a `<script>` line in game-hub.html.** A unit only shows the games
+     it has a bank for (`gamesFor()`), so units can adopt a new game one at a time.
 
 2. **Unit-first whiteboard app (earlier rebuild, paused).**
    - `index.html` (landing) → `app.html` → `engine/unit-app.js`; 1 unit, 2 games
@@ -60,7 +61,15 @@ git push                            # deploy to GitHub Pages
 ## Current status
 - Game Hub MVP live as **one consolidated app** (`game-hub.html`): choose unit →
   game → sections → play. **2 units** (Unit 4 Consciousness, Unit 5 Fairness),
-  **2 games** (Jeopardy, Blockbusters), shared engine, DCU-branded.
+  **3 games** (Jeopardy, Blockbusters, Race to the Board), shared engine, DCU-branded.
+- **Race to the Board** (Unit 5 only so far, 36 prompts across 5A–5C): target words
+  scattered on screen, teacher reads a **gapped sentence**, a student runs to the
+  projector screen and touches the word, teacher clicks it on the laptop. One team
+  per timed round (60s default) so scoring stays unambiguous — the engine can't know
+  who tapped, but it knows whose round it is. Wrong tap = red flash, no penalty, and
+  the sentence returns to the queue. Board caps at 18 words; game ends when cleared.
+  **Distractors aren't authored** — every other word on the board is a real target
+  word from the selection. Spec §4.4 updated to match as-built.
 - **Persistent shared team bar** on every screen: team names + points survive
   moving between games, units, and setup screens (nothing resets on navigation).
   Both games feed one score — Jeopardy awards the tile value to the selected team;
@@ -73,8 +82,15 @@ git push                            # deploy to GitHub Pages
 - To change unit mid-session: game screen → "New game" → "Change unit".
 
 ## Next
-- Measure authoring cost per unit (the number the demo pitch hinges on).
-- A third game format (Millionaire or Bullseye, per the spec — both transfer well).
+- **Race to the Board is awaiting first-run feedback** — built to the defaults agreed
+  in discussion (timed team rounds, wrong tap advances, Unit 5 first). Open variants
+  if wanted: head-to-head first-touch, wrong tap ends the team's round, per-team
+  fresh board instead of one depleting board.
+- Author Unit 4's race bank (4A–4D) once the format is settled; Unit 4 currently
+  shows only Jeopardy + Blockbusters.
+- Measure authoring cost per unit (the number the demo pitch hinges on). Race is the
+  cheapest data point so far: 36 prompts, no distractors.
+- Fill Unit 4's Jeopardy gap — the card claims 4A–4D but only 4A/4B have categories.
 - Small wins: "steal" in Blockbusters (wrong → other team claims); winner banner
   when a Jeopardy board is cleared; self-host fonts for true offline.
 - Product-line decision: is the Game Hub now the product, with #2/#3 as legacy?
@@ -83,7 +99,9 @@ git push                            # deploy to GitHub Pages
 - No build step; must run by opening a file. Fully offline (use `<script src>`,
   not `fetch`, which browsers block on `file://`).
 - Works on a standard classroom TV/browser; large fonts, high contrast, readable at distance.
-- Teacher controls everything; students don't touch the device.
+- Teacher controls everything; students never touch the device. (Race to the Board is
+  the one game students are physically involved in — they touch the *projected image*,
+  which isn't a touchscreen, so the teacher still does every click.)
 - Repo is **public** — don't commit anything that shouldn't be internet-visible.
 
 ## Verifying UI changes

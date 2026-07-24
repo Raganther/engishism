@@ -136,4 +136,61 @@
     '5B':'5B · Employment & obligation (16 clues)',
     '5C':'5C · Recalling & speculating (10 clues)',
   },
+
+  /* ---- Race to the Board ----------------------------------------------------
+     Gapped sentences, not definitions. The words themselves are on screen, so
+     the prompt tests collocation and word form in context — a different angle on
+     the same target language from Jeopardy's Q&A and Blockbusters' definitions.
+     Distractors are not authored: every other word on the board is a real target
+     word from the selected sections, so wrong taps are still teachable.
+     Fields: section, prompt (use ___ for the gap), answer (one word). */
+  raceBank: [
+    /* ---- 5A: crime & justice ---- */
+    {section:'5A', prompt:"The jury returned a ___ of not guilty after six hours.", answer:"Verdict"},
+    {section:'5A', prompt:"He was held in ___ for three months before the trial began.", answer:"Custody"},
+    {section:'5A', prompt:"She has a solid ___ — she was at work when the robbery happened.", answer:"Alibi"},
+    {section:'5A', prompt:"The ___ lawyer argued there was no evidence against her client.", answer:"Defence"},
+    {section:'5A', prompt:"He was ___ of fraud and sentenced to two years.", answer:"Convicted"},
+    {section:'5A', prompt:"The judge handed down a five-year ___.", answer:"Sentence"},
+    {section:'5A', prompt:"The ___ called three witnesses to prove the case.", answer:"Prosecution"},
+    {section:'5A', prompt:"Instead of prison, he was ordered to do 200 hours of ___ service.", answer:"Community"},
+    {section:'5A', prompt:"The prison in Norway focuses on ___ rather than punishment.", answer:"Rehabilitation"},
+    {section:'5A', prompt:"Her ___ in court contradicted what she had told the police.", answer:"Testimony"},
+    {section:'5A', prompt:"He was ___ from driving for eighteen months.", answer:"Banned"},
+    {section:'5A', prompt:"Prisoners who attack staff can be put in ___ confinement.", answer:"Solitary"},
+
+    /* ---- 5B: employment, pay & obligation ---- */
+    {section:'5B', prompt:"After twelve years at the firm she took a six-month ___ to travel.", answer:"Sabbatical"},
+    {section:'5B', prompt:"___ means staff can choose when they start and finish work.", answer:"Flexitime"},
+    {section:'5B', prompt:"The company announced 200 ___ after a sharp fall in sales.", answer:"Redundancies"},
+    {section:'5B', prompt:"New fathers are entitled to two weeks' ___ leave.", answer:"Paternity"},
+    {section:'5B', prompt:"Safety training is ___ — every employee has to complete it.", answer:"Mandatory"},
+    {section:'5B', prompt:"You'll be ___ to hold a diving certificate for this role.", answer:"Required"},
+    {section:'5B', prompt:"Employers are legally ___ to provide protective clothing.", answer:"Obliged"},
+    {section:'5B', prompt:"Most of the jobs lost were in the ___ sector — factories and plants.", answer:"Manufacturing"},
+    {section:'5B', prompt:"Banking, insurance and investment make up the ___ sector.", answer:"Financial"},
+    {section:'5B', prompt:"She didn't have the right ___, so her application was rejected.", answer:"Qualifications"},
+    {section:'5B', prompt:"Bonuses here are ___-related — the better you do, the more you earn.", answer:"Performance"},
+    {section:'5B', prompt:"Schools and hospitals belong to the ___ sector.", answer:"Public"},
+
+    /* ---- 5C: recalling & speculating ---- */
+    {section:'5C', prompt:"If my ___ serves me correctly, we met at a conference in Berlin.", answer:"Memory"},
+    {section:'5C', prompt:"If my memory ___ me correctly, it was a Tuesday in October.", answer:"Serves"},
+    {section:'5C', prompt:"I'd ___ a guess that she's about forty.", answer:"Hazard"},
+    {section:'5C', prompt:"I'd hazard a ___ that it cost around two thousand euros.", answer:"Guess"},
+    {section:'5C', prompt:"What ___ out in my mind is how quiet the room went.", answer:"Stands"},
+    {section:'5C', prompt:"I was under the ___ that you'd already left the company.", answer:"Impression"},
+    {section:'5C', prompt:"No ___ you've heard the news already.", answer:"Doubt"},
+    {section:'5C', prompt:"___ you're the technician, right? The server's through there.", answer:"Presuming"},
+    {section:'5C', prompt:"Sorry, his name has completely ___ my mind.", answer:"Slipped"},
+    {section:'5C', prompt:"I can't ___ exactly what she said, but it was something like that.", answer:"Recall"},
+    {section:'5C', prompt:"It's pointless to ___ about what might have happened.", answer:"Speculate"},
+    {section:'5C', prompt:"I think I ___ her saying she'd be late.", answer:"Remember"},
+  ],
+
+  raceSectionNames: {
+    '5A':'5A · Crime & justice (12 words)',
+    '5B':'5B · Employment & obligation (12 words)',
+    '5C':'5C · Recalling & speculating (12 words)',
+  },
 });
