@@ -1,0 +1,156 @@
+/* ================= Content bank — Empower C1 Unit 4: Consciousness =================
+   Data only. Consumed by game-hub/hub-engine.js via window.UNIT. */
+window.UNIT = {
+  label: "Cambridge Empower C1 · Unit 4 · Consciousness",
+  intro: "Choose a template. You'll pick the content next — mix and match any of 4A–4D.",
+
+  jeopardySectionLabels: {
+    '4A': '4A · That little voice in your head',
+    '4B': '4B · He got himself locked in a shed',
+  },
+
+  jeopardyCategories: [
+    { id:'instinct-vocab', section:'4A', name:'Instinct Vocabulary', clues:[
+      {v:100, q:"Making decisions based on logic and evidence, not emotion.", a:"rational"},
+      {v:200, q:"Deciding to do something suddenly, without planning it.", a:"on impulse (or 'on a whim')"},
+      {v:300, q:"Knowing something without being consciously aware of it.", a:"subconsciously"},
+      {v:400, q:"Carefully considering the advantages and disadvantages before deciding.", a:"weigh up"},
+      {v:500, q:"A near-synonym for 'on impulse' — doing something on a sudden idea.", a:"on a whim"},
+    ]},
+    { id:'noun-phrases', section:'4A', name:'Noun Phrases', clues:[
+      {v:100, q:"What structure is 'a chance meeting'? (article + ? + ?)", a:"article + noun + noun"},
+      {v:200, q:"Rephrase as a two-word noun phrase: 'a meeting which happens by chance'.", a:"a chance meeting"},
+      {v:300, q:"'Humanity's oldest survival mechanisms' combines a possessive with which kind of adjective?", a:"a superlative (possessive + superlative + compound noun)"},
+      {v:400, q:"True or false: a noun phrase can contain a whole prepositional phrase, e.g. 'a funny feeling in your stomach'.", a:"True"},
+      {v:500, q:"Combine using adjective + adjective + noun: 'thoughts that are dark and secret'.", a:"dark, secret thoughts"},
+    ]},
+    { id:'trust-gut', section:'4A', name:'Trust Your Gut (reading)', clues:[
+      {v:100, q:"According to the article, which side of the brain is home to intuition?", a:"the right hemisphere / right brain"},
+      {v:200, q:"Name one physical symptom the article says signals intuition at work.", a:"clammy palms / a tingle up the spine / a funny feeling in your stomach"},
+      {v:300, q:"The article says intuition is most reliable in which kind of situation — relaxed, or high-pressure?", a:"high-pressure / under stress"},
+      {v:400, q:"What does the logical left brain tend to do with the right brain's urges?", a:"dismiss them as irrational"},
+      {v:500, q:"What's the article's advice for decisions that could affect your whole future?", a:"use your whole brain — don't discount your gut instincts"},
+    ]},
+    { id:'memory-vocab', section:'4B', name:'Memory Vocabulary', clues:[
+      {v:100, q:"A memory that's unclear or hazy: a ___ memory.", a:"vague memory"},
+      {v:200, q:"A memory that makes you unhappy to recall: a ___ memory.", a:"painful memory"},
+      {v:300, q:"A memory with clear, sharp sensations: a ___ memory.", a:"vivid memory"},
+      {v:400, q:"Being able to recall things perfectly, as if from a picture: a ___ memory.", a:"photographic memory"},
+      {v:500, q:"A memory of something that happened a long time ago: a ___ memory.", a:"distant memory"},
+    ]},
+    { id:'have-get', section:'4B', name:'Have & Get Structures', clues:[
+      {v:100, q:"Complete with have or get: 'My parents ___ the kitchen renovated' (someone else did the work).", a:"had (or got)"},
+      {v:200, q:"'I had my toys stolen' — is the subject responsible for the action, or on the receiving end of it?", a:"on the receiving end — something happened to them"},
+      {v:300, q:"'He got himself locked in the shed' — was this on purpose or by accident?", a:"by accident, and he caused it himself"},
+      {v:400, q:"Fill the gap: 'His disappearance ___ everyone looking for him.'", a:"got"},
+      {v:500, q:"Explain the meaning of 'She had me sitting on my own.'", a:"she caused me to sit alone — the subject made someone else do it"},
+    ]},
+    { id:'have-get-uses', section:'4B', name:'Have & Get: Which Use?', clues:[
+      {v:100, q:"Which use is this? 'They had their roof fixed.'", a:"the subject paid somebody else to do a job"},
+      {v:200, q:"Which use is this? 'We got our car broken into.'", a:"the subject's possessions were harmed by somebody else"},
+      {v:300, q:"Which use is this? 'He got me to play when nobody else could.'", a:"the subject caused somebody to do something"},
+      {v:400, q:"Which use is this? 'He got himself locked in the garden shed.'", a:"the subject caused what happened to them"},
+      {v:500, q:"What's the difference between 'He got locked in the shed' and 'He got himself locked in the shed'?", a:"the second says it was his own doing; the first just says it happened to him"},
+    ]},
+    { id:'have-get-transform', section:'4B', name:'Have & Get: Transform It', clues:[
+      {v:100, q:"Rewrite with had: 'Someone stole my bike.'", a:"I had my bike stolen."},
+      {v:200, q:"Rewrite with got: 'Someone broke my arm in a football match.'", a:"I got my arm broken in a football match."},
+      {v:300, q:"Rewrite with had: 'She made me do all her homework.'", a:"She had me doing all her homework."},
+      {v:400, q:"Rewrite with got: 'I persuaded my mum to say I was sick.'", a:"I got my mum to say I was sick."},
+      {v:500, q:"Rewrite with got: 'My brother caused me to be punished unfairly.'", a:"My brother got me punished unfairly."},
+    ]},
+    { id:'false-memories', section:'4B', name:'False Memories & Eyewitnesses', clues:[
+      {v:100, q:"Very few people can remember events before what age, according to the text?", a:"age two"},
+      {v:200, q:"What do brain scans show about false memories compared to real ones?", a:"they look very similar in neural activity"},
+      {v:300, q:"Name one factor the article gives for why eyewitness testimony can be unreliable.", a:"stress/trauma, time elapsed, police influence, gaze direction — any one"},
+      {v:400, q:"What is a police 'line-up' used for?", a:"for a witness to try to identify a suspect among several people"},
+      {v:500, q:"What's a paradoxical clue that a childhood memory might be fake, according to the text?", a:"having very complex, detailed, sensory detail actually makes it more likely to be invented"},
+    ]},
+  ],
+
+  blockbustersBank: [
+    {section:'4A', letter:'R', clue:"Making decisions based on logic and evidence, not emotion.", answer:"Rational"},
+    {section:'4A', letter:'I', clue:"Doing something suddenly, without planning it — 'on ___'.", answer:"Impulse"},
+    {section:'4A', letter:'S', clue:"Knowing something without being consciously aware of it.", answer:"Subconsciously"},
+    {section:'4A', letter:'W', clue:"Carefully considering the pros and cons before deciding — '___ up'.", answer:"Weigh (up)"},
+    {section:'4A', letter:'O', clue:"Based on facts, not feelings — the opposite of subjective.", answer:"Objective"},
+    {section:'4A', letter:'D', clue:"An expression meaning 'in your heart, even if you won't admit it' — '___ down'.", answer:"Deep"},
+    {section:'4A', letter:'G', clue:"Informal word for instinct — trust your ___.", answer:"Gut"},
+    {section:'4A', letter:'H', clue:"A strong feeling that something is true, without proof.", answer:"Hunch"},
+    {section:'4B', letter:'V', clue:"A memory that's unclear or hazy.", answer:"Vague (memory)"},
+    {section:'4B', letter:'P', clue:"A memory that makes you unhappy to recall.", answer:"Painful (memory)"},
+    {section:'4B', letter:'L', clue:"A memory that stays with you permanently.", answer:"Lasting (memory)"},
+    {section:'4B', letter:'F', clue:"Capable of making mistakes — used to describe eyewitness testimony.", answer:"Fallible"},
+    {section:'4B', letter:'E', clue:"Someone who saw a crime happen.", answer:"Eyewitness"},
+    {section:'4B', letter:'M', clue:"Easily shaped or changed — used to describe how flexible our memories are.", answer:"Malleable"},
+    {section:'4B', letter:'G', clue:"The direction someone is looking — an officer's ___ might influence a witness.", answer:"Gaze"},
+    {section:'4B', letter:'E', clue:"To add invented details to a story, making it more dramatic.", answer:"Embellish"},
+    {section:'4C', letter:'N', clue:"Idiom: to say exactly the right thing — hit the ___ on the head.", answer:"Nail"},
+    {section:'4C', letter:'D', clue:"'I beg to ___' — a tactful way of disagreeing.", answer:"Differ"},
+    {section:'4C', letter:'R', clue:"'With all due ___' — softening a criticism politely.", answer:"Respect"},
+    {section:'4C', letter:'U', clue:"Feeling worried or not quite comfortable about something.", answer:"Uneasy"},
+    {section:'4C', letter:'N', clue:"An adjective for a nagging feeling that won't go away.", answer:"Nagging"},
+    {section:'4C', letter:'F', clue:"Someone 'not particularly ___' isn't very willing to share information.", answer:"Forthcoming"},
+    {section:'4D', letter:'S', clue:"A time expression meaning 'without delay, right after' — '___ afterwards'.", answer:"Shortly"},
+    {section:'4D', letter:'I', clue:"A time expression meaning 'right away'.", answer:"Immediately"},
+    {section:'4D', letter:'G', clue:"A time expression meaning 'slowly, over time'.", answer:"Gradually"},
+    {section:'4D', letter:'B', clue:"A word for sudden success — also the title of Noni-K's debut album.", answer:"Breakout"},
+
+    /* ---- expansion: 4A ---- */
+    {section:'4A', letter:'I', clue:"An adjective for a feeling you can't explain or account for.", answer:"Inexplicable"},
+    {section:'4A', letter:'U', clue:"An ___ urge is one you can't resist.", answer:"Irresistible / Unstoppable (irresistible)"},
+    {section:'4A', letter:'C', clue:"The part of the brain the article calls logical and coherent — the ___ left brain.", answer:"Conscious"},
+    {section:'4A', letter:'P', clue:"Clammy ___ are one physical sign that intuition is at work.", answer:"Palms"},
+    {section:'4A', letter:'S', clue:"The '___ sense' — a supposed extra sense beyond the usual five.", answer:"Sixth"},
+    {section:'4A', letter:'C', clue:"Two events happening together by chance.", answer:"Coincidence"},
+    {section:'4A', letter:'I', clue:"The formal noun for gut feeling or instinctive knowing.", answer:"Intuition"},
+    {section:'4A', letter:'H', clue:"Each half of the brain is called a ___.", answer:"Hemisphere"},
+
+    /* ---- expansion: 4B ---- */
+    {section:'4B', letter:'S', clue:"Your brother or sister.", answer:"Sibling"},
+    {section:'4B', letter:'P', clue:"The person who committed the crime.", answer:"Perpetrator"},
+    {section:'4B', letter:'T', clue:"The formal word for evidence a witness gives in court.", answer:"Testimony"},
+    {section:'4B', letter:'S', clue:"Easily influenced — our memories are ___ to suggestion.", answer:"Susceptible"},
+    {section:'4B', letter:'R', clue:"'Bear little ___ to' means to be very unlike something.", answer:"Resemblance"},
+    {section:'4B', letter:'T', clue:"Humankind ___ on stories, according to the reading.", answer:"Thrives"},
+    {section:'4B', letter:'D', clue:"The person accused of a crime in court.", answer:"Defendant"},
+    {section:'4B', letter:'J', clue:"The group of people who decide a verdict in court.", answer:"Jury"},
+
+    /* ---- 4B: structures with have and get ---- */
+    {section:'4B', letter:'H', clue:"The verb in 'They ___ their roof fixed' — paying someone else to do a job.", answer:"Had"},
+    {section:'4B', letter:'G', clue:"The verb in 'We ___ our car broken into' — something bad happened to our property.", answer:"Got"},
+    {section:'4B', letter:'C', clue:"'He got himself locked in the shed' — he ___ what happened to him.", answer:"Caused"},
+    {section:'4B', letter:'S', clue:"In 'I had my bike stolen', which grammatical role does 'I' play — subject or object?", answer:"Subject"},
+    {section:'4B', letter:'H', clue:"Fill the gap: 'She ___ me doing all her homework.'", answer:"Had"},
+    {section:'4B', letter:'P', clue:"In 'My brother got me punished unfairly', what is the past participle?", answer:"Punished"},
+    {section:'4B', letter:'R', clue:"'My parents were having the kitchen ___' — someone else did the work.", answer:"Renovated"},
+    {section:'4B', letter:'T', clue:"In 'I got my mum to say I was sick', which one-word particle comes before 'say'?", answer:"To"},
+
+    /* ---- expansion: 4C ---- */
+    {section:'4C', letter:'T', clue:"The skill of saying difficult things without causing offence.", answer:"Tact"},
+    {section:'4C', letter:'O', clue:"'No ___ intended' — said before a potentially rude remark.", answer:"Offence"},
+    {section:'4C', letter:'P', clue:"'I do take your ___, but…' — acknowledging before disagreeing.", answer:"Point"},
+    {section:'4C', letter:'B', clue:"Idiom: getting information from an unwilling person is like getting ___ out of a stone.", answer:"Blood"},
+    {section:'4C', letter:'H', clue:"Being too forceful or harsh in your approach — '___-handed'.", answer:"Heavy"},
+    {section:'4C', letter:'S', clue:"Two words that sound the same but are spelled differently.", answer:"Homophones (sound-alikes)"},
+    {section:'4C', letter:'C', clue:"Criticism meant to help rather than attack is ___.", answer:"Constructive"},
+    {section:'4C', letter:'P', clue:"Behaving in a professional way — Nadia values ___ in interviews.", answer:"Professionalism"},
+
+    /* ---- expansion: 4D ---- */
+    {section:'4D', letter:'P', clue:"An article describing a person's life and career.", answer:"Profile"},
+    {section:'4D', letter:'Q', clue:"Someone's exact words, reproduced in an article.", answer:"Quote"},
+    {section:'4D', letter:'S', clue:"A time expression meaning 'afterwards, following that'.", answer:"Subsequently"},
+    {section:'4D', letter:'I', clue:"'The ___ I heard her music, I knew' — a time expression meaning 'the moment'.", answer:"Instant"},
+    {section:'4D', letter:'B', clue:"'___ long, she was creating songs' — a time expression meaning 'soon after'.", answer:"Before"},
+    {section:'4D', letter:'W', clue:"'It ___ until she was 17 that she felt confident' — the emphatic time structure.", answer:"Wasn't"},
+    {section:'4D', letter:'S', clue:"The place and surroundings an interview happens in.", answer:"Setting"},
+    {section:'4D', letter:'A', clue:"Things a person has accomplished — one thing to ask about in an interview.", answer:"Achievements"},
+  ],
+
+  blockbustersSectionNames: {
+    '4A':'4A · Instinct & reason (16 clues)',
+    '4B':'4B · Memory, eyewitnesses & have/get (24 clues)',
+    '4C':'4C · Tact & idioms (14 clues)',
+    '4D':'4D · Profile writing & time expressions (12 clues)',
+  },
+};
