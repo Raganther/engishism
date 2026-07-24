@@ -111,7 +111,21 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 #clue-actions{ display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
 #clue-actions button{ font-family:'Space Grotesk', sans-serif; font-weight:700; padding: 12px 20px; border-radius:8px; border:none; cursor:pointer; font-size:0.92rem; }
 #reveal-btn{ background: var(--navy); color: var(--white); }
+#correct-btn{ background: var(--blue); color: var(--white); }
+#wrong-btn{ background: var(--white); color: var(--navy); border:2px solid var(--navy); }
 #gold-btn{ background: var(--yellow); color: var(--navy); }
 #silver-btn{ background: var(--blue); color: var(--white); }
 #close-btn, #skip-btn{ background: var(--white); color: var(--navy); border:2px solid var(--navy); }
 #clue-actions button:hover{ filter: brightness(1.06); }
+
+/* --- Timer widget (teacher-controlled, both games) — lives in the header bar --- */
+.header-right{ display:flex; align-items:center; gap:12px; }
+#timer-widget{ display:none; align-items:center; gap:6px; background:var(--navy); border:2px solid var(--yellow); border-radius:12px; padding:6px 9px; }
+#timer-widget button{ background:var(--navy3); color:var(--white); border:none; width:30px; height:30px; border-radius:7px; cursor:pointer; font-size:1rem; line-height:1; font-family:'Space Grotesk',sans-serif; }
+#timer-widget button:hover{ background:var(--blue); }
+#tmr-display{ font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:1.6rem; color:var(--yellow); min-width:70px; text-align:center; }
+#tmr-display.urgent{ color:#ff5a4d; }
+
+/* --- Active team + turn highlight --- */
+.team.active{ outline:2px solid var(--yellow); box-shadow:0 0 0 3px rgba(255,194,14,0.25); }
+#legend span.active-turn{ font-weight:700; color:var(--navy); background:var(--cream); padding:2px 9px; border-radius:6px; }
