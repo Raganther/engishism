@@ -18,19 +18,22 @@
       </div>
       <button id="new-game-btn">↺ New game</button>
     </header>
+    <div class="geo-band"></div>
 
     <!-- SCREEN 1: choose game -->
     <div class="screen active" id="screen-game-select">
       <p class="intro"></p>
       <div class="game-grid">
         <div class="game-card" data-game="jeopardy">
+          <svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="9" height="7" rx="1"/><rect x="15.5" y="6" width="9" height="7" rx="1"/><rect x="27" y="6" width="9" height="7" rx="1"/><rect x="4" y="16.5" width="9" height="7" rx="1"/><rect x="15.5" y="16.5" width="9" height="7" rx="1"/><rect x="27" y="16.5" width="9" height="7" rx="1"/><rect x="4" y="27" width="9" height="7" rx="1"/><rect x="15.5" y="27" width="9" height="7" rx="1"/><rect x="27" y="27" width="9" height="7" rx="1"/></svg>
           <h3>Jeopardy</h3>
           <p>Category board, five point values each. Teams pick a tile, answer, bank the points.</p>
           <span class="badge">Best for: mixed vocab &amp; grammar</span>
         </div>
         <div class="game-card" data-game="blockbusters">
+          <svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4 L33 11.5 L33 26.5 L20 34 L7 26.5 L7 11.5 Z"/><path d="M20 13 L26 16.5 L26 23.5 L20 27 L14 23.5 L14 16.5 Z"/></svg>
           <h3>Blockbusters</h3>
-          <p>Hexagon board. Gold connects left&rarr;right, Silver connects top&rarr;bottom, by answering letter clues.</p>
+          <p>Hexagon board. Yellow connects left&rarr;right, Blue connects top&rarr;bottom, by answering letter clues.</p>
           <span class="badge">Best for: single-word / short-answer vocab</span>
         </div>
       </div>
@@ -42,8 +45,8 @@
       <p class="helptext" id="content-helptext"></p>
       <div id="content-list"></div>
       <div class="rules-note" id="blockbusters-rules" style="display:none;">
-        <span class="team-tag tag-gold">GOLD</span> connects a path of hexagons from the <strong>left</strong> edge to the <strong>right</strong> edge.<br>
-        <span class="team-tag tag-silver">SILVER</span> connects a path from the <strong>top</strong> edge to the <strong>bottom</strong> edge.<br>
+        <span class="team-tag tag-gold">YELLOW</span> connects a path of hexagons from the <strong>left</strong> edge to the <strong>right</strong> edge.<br>
+        <span class="team-tag tag-silver">BLUE</span> connects a path from the <strong>top</strong> edge to the <strong>bottom</strong> edge.<br>
         Click a hexagon, read the clue aloud &mdash; the answer starts with the letter shown. Correct = claim it. Wrong = the other team can steal it.
       </div>
       <button id="start-btn" disabled>Select content to continue</button>
@@ -56,8 +59,8 @@
       </div>
       <div id="play-blockbusters">
         <div id="legend">
-          <span><span class="dot" style="background:var(--gold)"></span> Gold: left &rarr; right</span>
-          <span><span class="dot" style="background:var(--silver)"></span> Silver: top &rarr; bottom</span>
+          <span><span class="dot" style="background:var(--gold)"></span> Yellow: left &rarr; right</span>
+          <span><span class="dot" style="background:var(--silver)"></span> Blue: top &rarr; bottom</span>
         </div>
         <div id="hexwrap"></div>
       </div>
@@ -74,8 +77,8 @@
         <div id="clue-answer"></div>
         <div id="clue-actions">
           <button id="reveal-btn">Reveal answer</button>
-          <button id="gold-btn" style="display:none;">Gold claims it</button>
-          <button id="silver-btn" style="display:none;">Silver claims it</button>
+          <button id="gold-btn" style="display:none;">Yellow claims it</button>
+          <button id="silver-btn" style="display:none;">Blue claims it</button>
           <button id="skip-btn" style="display:none;">No claim / close</button>
           <button id="close-btn" style="display:none;">Close</button>
         </div>
