@@ -6,87 +6,14 @@
 <title>Classroom Game Hub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<style>
-  /* DCU International Academy palette — see docs/design-reference.md */
-  :root{
-    --navy:#12263F; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#FFFFFF;
-    --ink:#12263F; --muted:#5A6B82;
-  }
-  *{box-sizing:border-box; margin:0; padding:0;}
-  body{ background:var(--white); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; min-height:100vh; }
-
-  header{ padding:26px 32px 16px; }
-  .eyebrow{ font-family:'IBM Plex Mono', monospace; letter-spacing:0.14em; text-transform:uppercase; font-size:0.72rem; color:var(--blue); }
-  h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; text-transform:uppercase; color:var(--navy); font-size:clamp(1.6rem,4vw,2.6rem); letter-spacing:-0.01em; margin-top:4px; }
-
-  .geo-band{
-    height:16px;
-    background-color:var(--navy);
-    background-image:
-      radial-gradient(circle at 9px 16px, var(--yellow) 0 8px, transparent 8px),
-      radial-gradient(circle at 27px 16px, var(--cream) 0 8px, transparent 8px),
-      radial-gradient(circle at 45px 16px, var(--blue)  0 8px, transparent 8px);
-    background-size:54px 16px; background-repeat:repeat-x;
-  }
-
-  main{ max-width:900px; margin:40px auto; padding:0 24px 60px; }
-  .lead{ color:var(--muted); font-size:1.05rem; line-height:1.5; margin-bottom:28px; max-width:640px; }
-
-  .unit-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:18px; }
-  a.unit-card{
-    display:block; text-decoration:none; color:inherit;
-    background:var(--white); border:2px solid rgba(18,38,63,0.12); border-radius:16px;
-    padding:24px 22px; transition:transform .15s, border-color .15s, box-shadow .15s;
-  }
-  a.unit-card:hover{ transform:translateY(-3px); border-color:var(--blue); box-shadow:0 8px 22px rgba(0,160,223,0.18); }
-  .unit-num{ display:inline-block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.8rem; letter-spacing:0.06em; text-transform:uppercase; background:var(--yellow); color:var(--navy); padding:4px 10px; border-radius:6px; }
-  .unit-card h2{ font-family:'Space Grotesk',sans-serif; text-transform:uppercase; color:var(--navy); font-size:1.35rem; margin:14px 0 6px; }
-  .unit-card p{ color:var(--muted); font-size:0.92rem; line-height:1.5; }
-  .unit-card .games{ margin-top:14px; display:flex; gap:8px; flex-wrap:wrap; }
-  .unit-card .games span{ font-family:'IBM Plex Mono',monospace; font-size:0.66rem; letter-spacing:0.06em; text-transform:uppercase; background:var(--cream); color:var(--navy); padding:3px 9px; border-radius:5px; }
-
-  .soon{ opacity:0.55; border-style:dashed; cursor:default; }
-  .soon:hover{ transform:none; border-color:rgba(18,38,63,0.2); box-shadow:none; }
-  .soon .unit-num{ background:var(--cream); }
-
-  .backrow{ margin-top:34px; }
-  .backrow a{ color:var(--blue); font-family:'IBM Plex Mono',monospace; font-size:0.8rem; text-decoration:none; }
-  .backrow a:hover{ text-decoration:underline; }
-</style>
+<link rel="stylesheet" href="game-hub/hub.css">
 </head>
 <body>
-  <header>
-    <div class="eyebrow">Cambridge Empower C1 · Classroom games</div>
-    <h1>Game Hub</h1>
-  </header>
-  <div class="geo-band"></div>
+<div id="game-hub-root"></div>
 
-  <main>
-    <p class="lead">Pick a unit. Each opens a hub where you choose a game (Jeopardy or Blockbusters) and which lesson sections to revise, then play on the big screen.</p>
-
-    <div class="unit-grid">
-      <a class="unit-card" href="game-hub-unit4.html">
-        <span class="unit-num">Unit 4</span>
-        <h2>Consciousness</h2>
-        <p>Instinct &amp; reason, memory, <em>have</em>/<em>get</em>, tact and idioms, profile writing (4A–4D).</p>
-        <div class="games"><span>Jeopardy</span><span>Blockbusters</span></div>
-      </a>
-
-      <a class="unit-card" href="game-hub-unit5.html">
-        <span class="unit-num">Unit 5</span>
-        <h2>Fairness</h2>
-        <p>Crime &amp; justice, relative clauses, employment, obligation, recalling &amp; speculating (5A–5C).</p>
-        <div class="games"><span>Jeopardy</span><span>Blockbusters</span></div>
-      </a>
-
-      <div class="unit-card soon">
-        <span class="unit-num">More soon</span>
-        <h2>Next units</h2>
-        <p>New units drop in as a small content file — the games come for free.</p>
-      </div>
-    </div>
-
-    <p class="backrow"><a href="index.html">← Back to Engishism</a></p>
-  </main>
+<!-- every unit registers into window.UNITS; add a unit = add its content file here -->
+<script src="game-hub/content/unit-4.js"></script>
+<script src="game-hub/content/unit-5.js"></script>
+<script src="game-hub/hub-engine.js"></script>
 </body>
 </html>

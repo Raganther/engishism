@@ -1,7 +1,9 @@
 /* ================= Content bank — Empower C1 Unit 4: Consciousness =================
    Data only. Consumed by game-hub/hub-engine.js via window.UNIT. */
-window.UNIT = {
+(window.UNITS = window.UNITS || []).push({
+  id: "unit-4",
   label: "Cambridge Empower C1 · Unit 4 · Consciousness",
+  card: { num: "Unit 4", title: "Consciousness", blurb: "Instinct & reason, memory, have/get, tact and idioms, profile writing (4A–4D).", sections: "4A–4D" },
   intro: "Choose a template. You'll pick the content next — mix and match any of 4A–4D.",
 
   jeopardySectionLabels: {
@@ -153,4 +155,4 @@ window.UNIT = {
     '4C':'4C · Tact & idioms (14 clues)',
     '4D':'4D · Profile writing & time expressions (12 clues)',
   },
-};
+});

@@ -1,8 +1,10 @@
 /* ================= Content bank — Empower C1 Unit 5: Fairness =================
    Data only. Consumed by game-hub/hub-engine.js via window.UNIT.
    Authored from material/empower-c1-unit-5/ (pp.55-66 + Grammar/Vocab Focus). */
-window.UNIT = {
+(window.UNITS = window.UNITS || []).push({
+  id: "unit-5",
   label: "Cambridge Empower C1 · Unit 5 · Fairness",
+  card: { num: "Unit 5", title: "Fairness", blurb: "Crime & justice, relative clauses, employment, obligation, recalling & speculating (5A–5C).", sections: "5A–5C" },
   intro: "Choose a template. You'll pick the content next — mix and match any of 5A–5C.",
 
   jeopardySectionLabels: {
@@ -134,4 +136,4 @@ window.UNIT = {
     '5B':'5B · Employment & obligation (16 clues)',
     '5C':'5C · Recalling & speculating (10 clues)',
   },
-};
+});

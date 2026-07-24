@@ -1,13 +1,13 @@
 /* ================= Game Hub — shared engine =================
-   Renders the UI and runs Jeopardy + Blockbusters from a unit's content.
-   Expects a global `window.UNIT` (see game-hub/content/unit-*.js) to be
-   defined BEFORE this script loads. All unit-specific text and content comes
-   from that object; nothing unit-specific lives in here. */
+   Renders the UI and runs Jeopardy + Blockbusters from unit content.
+   Units register themselves into `window.UNITS` (see game-hub/content/unit-*.js).
+   Flow: choose unit -> choose game -> choose sections -> play.
+   If only one unit is loaded (a per-unit shell), the unit step is skipped. */
 (function(){
   'use strict';
 
-  const UNIT = window.UNIT;
-  if(!UNIT){ throw new Error('hub-engine: window.UNIT is not defined — load the unit content file before hub-engine.js'); }
+  const UNITS = window.UNITS || (window.UNIT ? [window.UNIT] : []);
+  if(!UNITS.length){ throw new Error('hub-engine: no units loaded — include a content file (window.UNITS) before hub-engine.js'); }
 
   /* ---- UI skeleton (identical for every unit) ---- */
   const SKELETON = `
@@ -29,8 +29,15 @@
     </header>
     <div class="geo-band"></div>
 
+    <!-- SCREEN 0: choose unit -->
+    <div class="screen" id="screen-unit-select">
+      <p class="intro" id="unit-intro">Choose a unit to gamify.</p>
+      <div class="unit-grid" id="unit-grid"></div>
+    </div>
+
     <!-- SCREEN 1: choose game -->
-    <div class="screen active" id="screen-game-select">
+    <div class="screen" id="screen-game-select">
+      <span class="back-link" id="change-unit" style="display:none;">&larr; Change unit</span>
       <p class="intro"></p>
       <div class="game-grid">
         <div class="game-card" data-game="jeopardy">
@@ -99,16 +106,38 @@
   const root = document.getElementById('game-hub-root') || document.body;
   root.innerHTML = SKELETON;
 
-  /* ---- populate unit-specific text ---- */
-  document.querySelector('.eyebrow').textContent = UNIT.label || '';
-  document.querySelector('#screen-game-select p.intro').textContent = UNIT.intro || '';
-  if(UNIT.label){ document.title = UNIT.label + ' — Game Hub'; }
+  /* ---- current unit content (set by loadUnit) ---- */
+  let UNIT = null;
+  let JEOPARDY_SECTION_LABELS   = {};
+  let JEOPARDY_CATEGORIES       = [];
+  let BLOCKBUSTERS_BANK         = [];
+  let BLOCKBUSTERS_SECTION_NAMES= {};
 
-  /* ---- unit content ---- */
-  const JEOPARDY_SECTION_LABELS   = UNIT.jeopardySectionLabels || {};
-  const JEOPARDY_CATEGORIES       = UNIT.jeopardyCategories || [];
-  const BLOCKBUSTERS_BANK         = UNIT.blockbustersBank || [];
-  const BLOCKBUSTERS_SECTION_NAMES= UNIT.blockbustersSectionNames || {};
+  function loadUnit(u){
+    UNIT = u;
+    JEOPARDY_SECTION_LABELS    = u.jeopardySectionLabels || {};
+    JEOPARDY_CATEGORIES        = u.jeopardyCategories || [];
+    BLOCKBUSTERS_BANK          = u.blockbustersBank || [];
+    BLOCKBUSTERS_SECTION_NAMES = u.blockbustersSectionNames || {};
+    document.querySelector('.eyebrow').textContent = u.label || '';
+    document.querySelector('#screen-game-select p.intro').textContent = u.intro || '';
+    if(u.label){ document.title = u.label + ' — Game Hub'; }
+  }
+
+  /* ================= UNIT SELECT ================= */
+  function renderUnitSelect(){
+    const grid=document.getElementById('unit-grid'); grid.innerHTML='';
+    UNITS.forEach(u=>{
+      const c=u.card||{};
+      const el=document.createElement('div');
+      el.className='unit-card';
+      el.innerHTML = `<span class="unit-num">${c.num||u.id||'Unit'}</span>`+
+        `<h2>${c.title||''}</h2><p>${c.blurb||''}</p>`+
+        `<div class="games"><span>Jeopardy</span><span>Blockbusters</span></div>`;
+      el.addEventListener('click', ()=>{ loadUnit(u); document.getElementById('page-title').textContent='Game Hub'; showScreen('screen-game-select'); });
+      grid.appendChild(el);
+    });
+  }
 
   /* ================= STATE / NAVIGATION ================= */
   let activeGame = null;
@@ -136,6 +165,11 @@
       renderContentScreen();
       showScreen('screen-content-select');
     });
+  });
+
+  document.getElementById('change-unit').addEventListener('click', ()=>{
+    document.getElementById('page-title').textContent='Game Hub';
+    showScreen('screen-unit-select');
   });
 
   document.getElementById('back-to-games').addEventListener('click', ()=>{
@@ -266,7 +300,6 @@
     jTeams.forEach((t, i)=>{
       const el=document.createElement('div'); el.className='team'+(i===jActive?' active':'');
       el.innerHTML = `<input class="tname" value="${t.name}"><button class="minus">−</button><span class="score">${t.score}</span><button class="plus">+</button>`;
-      // clicking the team (not its input/buttons) makes it the active/selected team
       el.addEventListener('click', (ev)=>{
         if(ev.target.closest('button') || ev.target.classList.contains('tname')) return;
         jActive = i; renderScorebar();
@@ -291,8 +324,6 @@
     if(s) s.classList.toggle('active-turn', bbTurn==='silver');
   }
 
-  // Blockbusters team bar — two fixed teams (Yellow / Blue) with claimed-hex
-  // counts and the whose-turn highlight, shown in the same bottom bar as Jeopardy.
   function renderBBScorebar(){
     const bar=document.getElementById('scorebar'); bar.innerHTML='';
     [['gold','Yellow','var(--yellow)'], ['silver','Blue','var(--blue)']].forEach(([key,label,col])=>{
@@ -307,29 +338,25 @@
     const wrap=document.getElementById('hexwrap');
     wrap.innerHTML='';
 
-    // Measure actual hex width from the CSS variable
     const probe=document.createElement('div');
     probe.className='hex'; probe.style.visibility='hidden';
     wrap.appendChild(probe);
     const w = probe.getBoundingClientRect().width || 90;
     probe.remove();
 
-    const h = w * 1.1547;          // height of a pointy-top hex
+    const h = w * 1.1547;
     const gap = Math.max(3, w*0.05);
-    const colStep = w + gap;        // horizontal distance between hexes in a row
-    const rowStep = h * 0.75 + gap*0.5; // vertical: rows overlap by 1/4 height
+    const colStep = w + gap;
+    const rowStep = h * 0.75 + gap*0.5;
 
-    // Classic Blockbusters board: 5 columns x 4 rows, alternating 5/4/5/4 = 18 hexes.
     const rowSizes = [5,4,5,4];
     const widest = 5;
-
     const boardW = widest*colStep - gap;
     let idx=0;
 
     rowSizes.forEach((size, r)=>{
       const rowW = size*colStep - gap;
       const startX = (boardW - rowW)/2;
-
       for(let c=0; c<size; c++){
         const clueObj = pool[idx++];
         if(!clueObj) return;
@@ -377,7 +404,7 @@
     const ansEl=document.getElementById('clue-answer'); ansEl.style.display='none'; ansEl.textContent=clue.a;
     hideAllActionButtons();
     document.getElementById('reveal-btn').style.display='inline-block';
-    document.getElementById('close-btn').style.display='inline-block';   // cancel (tile stays available)
+    document.getElementById('close-btn').style.display='inline-block';
     document.getElementById('clue-modal').style.display='flex';
   }
 
@@ -398,7 +425,6 @@
 
   function closeModal(){ document.getElementById('clue-modal').style.display='none'; currentTile=null; modalMode=null; }
 
-  // Reveal — shows the answer, then swaps in the resolve buttons for Jeopardy.
   document.getElementById('reveal-btn').addEventListener('click', ()=>{
     document.getElementById('clue-answer').style.display='block';
     if(modalMode==='jeopardy'){
@@ -411,7 +437,6 @@
     }
   });
 
-  // Jeopardy: award the tile's value to the selected team, then pass the turn.
   document.getElementById('correct-btn').addEventListener('click', ()=>{
     if(currentTile){ currentTile.classList.add('used'); currentTile.textContent=''; }
     if(jTeams.length){ jTeams[jActive].score += currentClueValue; }
@@ -424,10 +449,8 @@
     nextTurn();
   });
 
-  // Cancel (before reveal) — leaves the tile available.
   document.getElementById('close-btn').addEventListener('click', ()=>{ closeModal(); });
 
-  // Blockbusters: claim (or skip) a hex, then pass the turn to the other team.
   function claimHex(claim){
     if(currentTile && modalMode==='blockbusters' && claim){
       currentTile.classList.add(claim==='gold' ? 'claimed-gold' : 'claimed-silver');
@@ -473,5 +496,16 @@
   document.getElementById('tmr-minus').addEventListener('click', ()=> timerAdjust(-15));
   document.getElementById('tmr-plus').addEventListener('click', ()=> timerAdjust(+15));
   timerRender();
+
+  /* ================= INIT ================= */
+  document.querySelector('.eyebrow').textContent = 'Cambridge Empower C1 · Classroom games';
+  document.getElementById('change-unit').style.display = (UNITS.length>1) ? 'inline-block' : 'none';
+  if(UNITS.length===1){
+    loadUnit(UNITS[0]);
+    showScreen('screen-game-select');
+  } else {
+    renderUnitSelect();
+    showScreen('screen-unit-select');
+  }
 
 })();

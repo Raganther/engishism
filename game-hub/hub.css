@@ -53,6 +53,17 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 .game-card.disabled{ opacity:0.4; cursor:not-allowed; }
 .game-card.disabled:hover{ transform:none; border-color: rgba(18,38,63,0.12); box-shadow:none; }
 
+/* --- Unit select (step 1: choose which unit to gamify) --- */
+#screen-unit-select{ max-width: 900px; margin: 46px auto; padding: 0 24px 60px; }
+.unit-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:18px; }
+.unit-card{ background:var(--white); border:2px solid rgba(18,38,63,0.12); border-radius:16px; padding:24px 22px; cursor:pointer; transition:transform .15s, border-color .15s, box-shadow .15s; }
+.unit-card:hover{ transform:translateY(-3px); border-color:var(--blue); box-shadow:0 8px 22px rgba(0,160,223,0.18); }
+.unit-card .unit-num{ display:inline-block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.8rem; letter-spacing:0.06em; text-transform:uppercase; background:var(--yellow); color:var(--navy); padding:4px 10px; border-radius:6px; }
+.unit-card h2{ font-family:'Space Grotesk',sans-serif; text-transform:uppercase; color:var(--navy); font-size:1.35rem; margin:14px 0 6px; }
+.unit-card p{ color:var(--muted); font-size:0.92rem; line-height:1.5; }
+.unit-card .games{ margin-top:14px; display:flex; gap:8px; flex-wrap:wrap; }
+.unit-card .games span{ font-family:'IBM Plex Mono',monospace; font-size:0.66rem; letter-spacing:0.06em; text-transform:uppercase; background:var(--cream); color:var(--navy); padding:3px 9px; border-radius:5px; }
+
 /* --- Content select --- */
 #screen-content-select{ max-width: 780px; margin: 40px auto; padding: 0 24px 60px; }
 .back-link{ display:inline-block; color: var(--blue); font-family:'IBM Plex Mono',monospace; font-size:0.8rem; cursor:pointer; margin-bottom:18px; }
