@@ -606,15 +606,24 @@
   }
 
   function openJeopardyClue(cat, clue, tile){
-    if(tile.classList.contains('used')) return;
-    currentTile=tile; modalMode='jeopardy'; currentClueValue=clue.v;
-    document.getElementById('clue-topline').textContent = cat.name + ' · $' + clue.v;
+    const review = tile.classList.contains('used');
+    currentTile=tile; modalMode = review ? 'review' : 'jeopardy'; currentClueValue=clue.v;
+    document.getElementById('clue-topline').textContent =
+      cat.name + ' · $' + clue.v + (review ? '  ·  review' : '');
     document.getElementById('clue-section').textContent = cat.section;
     document.getElementById('clue-text').textContent = clue.q;
-    const ansEl=document.getElementById('clue-answer'); ansEl.style.display='none'; ansEl.textContent=clue.a;
+    const ansEl=document.getElementById('clue-answer');
+    ansEl.textContent=clue.a;
     hideAllActionButtons();
-    document.getElementById('reveal-btn').style.display='inline-block';
-    document.getElementById('close-btn').style.display='inline-block';
+    if(review){
+      // already played — show everything, score nothing
+      ansEl.style.display='block';
+      document.getElementById('close-btn').style.display='inline-block';
+    } else {
+      ansEl.style.display='none';
+      document.getElementById('reveal-btn').style.display='inline-block';
+      document.getElementById('close-btn').style.display='inline-block';
+    }
     openClueCard(tile);
   }
 
@@ -639,6 +648,10 @@
      the Web Animations API against the real element rects, so it lands exactly on
      the tile whatever the board size. Falls back to an instant open when the
      animation is switched off or the machine asks for reduced motion. */
+  const FLIP_OPEN_MS  = 1000;   // grow, hold on the value, then turn
+  const FLIP_CLOSE_MS = 820;    // turn back to the value, then shrink to the tile
+  const FLIP_HOLD_MS  = 550;    // beat before the card leaves, once it's been answered
+
   function flipEnabled(){
     if(!S.get('cardFlip')) return false;
     try{ return !window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
@@ -660,40 +673,51 @@
   function openClueCard(origin){
     const modal = document.getElementById('clue-modal');
     const card  = document.getElementById('clue-card');
-    document.getElementById('clue-front-text').textContent = origin ? origin.textContent : '';
+    document.getElementById('clue-front-text').textContent =
+      origin ? (origin.dataset.face || origin.textContent) : '';
     modal.style.display = 'flex';
     card.getAnimations().forEach(a=>a.cancel());
+    card.classList.remove('flipped');
 
     if(!flipEnabled() || !origin){
       card.style.transform = 'rotateY(180deg)';   // rest showing the clue face
+      card.classList.add('flipped');
       return;
     }
     const from = originTransform(card, origin, 0);
     card.style.transform = 'rotateY(180deg)';
     Sound.play('flip');
-    card.animate(
-      [{ transform: from, opacity: 0.9 }, { transform: 'rotateY(180deg)', opacity: 1 }],
-      { duration: 520, easing: 'cubic-bezier(.2,.85,.3,1)' }
-    );
+    // grow out of the tile still showing its value, hold a beat, then turn over
+    // easing per segment, not across the whole run — one curve over the lot makes
+    // the early phase rush and the hold on the value disappears
+    const anim = card.animate([
+      { transform: from, opacity: 0.9, offset: 0, easing: 'cubic-bezier(.2,.85,.3,1)' },
+      { transform: 'translate(0px,0px) scale(1,1) rotateY(0deg)',   opacity: 1, offset: 0.46, easing: 'cubic-bezier(.55,0,.3,1)' },
+      { transform: 'translate(0px,0px) scale(1,1) rotateY(180deg)', opacity: 1, offset: 1 }
+    ], { duration: FLIP_OPEN_MS, easing: 'linear' });
+    anim.onfinish = ()=> card.classList.add('flipped');
   }
 
-  function closeModal(){
+  function closeModal(hold){
     const modal  = document.getElementById('clue-modal');
     const card   = document.getElementById('clue-card');
     const origin = currentTile;
     currentTile=null; modalMode=null;          // clear state now; the animation is cosmetic
 
-    const done = ()=>{ modal.style.display='none'; card.style.transform=''; };
+    const done = ()=>{ modal.style.display='none'; card.style.transform=''; card.classList.remove('flipped'); };
     if(!flipEnabled() || !origin || !modal.style.display || modal.style.display==='none'){ done(); return; }
 
     card.getAnimations().forEach(a=>a.cancel());
     card.style.transform = 'rotateY(180deg)';
-    // carry on turning rather than reversing, so it never looks like a rewind
+    card.classList.remove('flipped');          // the value has to be showable again
+    // Keep turning the same way rather than reversing, and come back to full size
+    // showing the value before shrinking, so you can see what was at stake.
     const to = originTransform(card, origin, 360);
-    const anim = card.animate(
-      [{ transform:'rotateY(180deg)', opacity:1 }, { transform: to, opacity:0.85 }],
-      { duration: 380, easing: 'cubic-bezier(.5,0,.75,.4)' }
-    );
+    const anim = card.animate([
+      { transform:'translate(0px,0px) scale(1,1) rotateY(180deg)', opacity:1, offset:0,    easing:'cubic-bezier(.55,0,.3,1)' },
+      { transform:'translate(0px,0px) scale(1,1) rotateY(360deg)', opacity:1, offset:0.58, easing:'cubic-bezier(.4,0,.7,.5)' },
+      { transform: to, opacity:0.85, offset:1 }
+    ], { duration: FLIP_CLOSE_MS, delay: hold||0, easing:'linear' });
     anim.onfinish = done;
     anim.oncancel = done;
   }
@@ -714,15 +738,15 @@
   // Jeopardy: award the tile's value to the selected team, then pass the turn.
   document.getElementById('correct-btn').addEventListener('click', ()=>{
     Sound.play('correct');
-    if(currentTile){ currentTile.classList.add('used'); currentTile.textContent=''; }
+    if(currentTile){ currentTile.classList.add('used'); }   // keeps its value, faded
     if(teams.length){ teams[active].score += currentClueValue; }
-    closeModal();
+    closeModal(FLIP_HOLD_MS);
     nextTurn();
   });
   document.getElementById('wrong-btn').addEventListener('click', ()=>{
     Sound.play('wrong');
-    if(currentTile){ currentTile.classList.add('used'); currentTile.textContent=''; }
-    closeModal();
+    if(currentTile){ currentTile.classList.add('used'); }   // keeps its value, faded
+    closeModal(FLIP_HOLD_MS);
     nextTurn();
   });
 
@@ -737,7 +761,7 @@
       currentTile.textContent='';
       if(teams[idx]) teams[idx].score++;
     }
-    closeModal();
+    closeModal(claim ? FLIP_HOLD_MS : 0);
     bbTurn = (bbTurn===0) ? 1 : 0;
     renderBBTurn();
     renderScorebar();

@@ -93,8 +93,10 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 .cat-header{ background: var(--navy); border-radius:8px; padding: 8px; text-align:center; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(0.68rem, 1.05vw, 0.88rem); text-transform:uppercase; letter-spacing:0.03em; line-height:1.2; min-height:0; overflow:hidden; display:flex; align-items:center; justify-content:center; color: var(--yellow); }
 .tile{ background: var(--blue); border-radius:8px; min-height:0; overflow:hidden; display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: calc(clamp(1rem, 2vw, 1.6rem) * var(--jt)); color: var(--white); cursor:pointer; transition: transform .12s, background .12s; }
 .tile:hover{ transform: scale(1.03); background: #0089c0; }
-.tile.used{ background: var(--cream); color: rgba(18,38,63,0.18); cursor:default; }
-.tile.used:hover{ transform:none; background: var(--cream); }
+/* spent tiles keep their value, faded — you can still see what was at stake, and
+   clicking one reopens the clue for review without scoring */
+.tile.used{ background: var(--cream); color: rgba(18,38,63,0.30); cursor:pointer; }
+.tile.used:hover{ transform:none; background:#F3E9C7; color: rgba(18,38,63,0.55); }
 #scorebar{ position:fixed; bottom:0; left:0; right:0; background: var(--navy); border-top: 3px solid var(--yellow); display:flex; justify-content:center; gap:14px; padding: 12px 16px; flex-wrap:wrap; }
 .team{ display:flex; align-items:center; gap:10px; background: var(--navy2); border-radius:10px; padding: 8px 12px; }
 .team input.tname{ background:transparent; border:none; color:var(--white); font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:0.95rem; width: 90px; }
@@ -198,8 +200,11 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 /* two faces on one card: the tile's value in front, the clue behind. openClueCard
    grows it out of the clicked tile and turns it over. */
 #clue-card{ position:relative; max-width:720px; width:100%; transform-style: preserve-3d; will-change: transform; }
+/* The two faces must sit on separate z planes. Coplanar faces z-fight, and the
+   front bleeds through the back mirrored — which is what made $500 read as 005. */
 #clue-front{
   position:absolute; inset:0; border-radius:16px;
+  transform: translateZ(2px);
   background: var(--blue); color: var(--white); border:2px solid var(--blue);
   display:flex; align-items:center; justify-content:center;
   font-family:'Space Grotesk', sans-serif; font-weight:700;
@@ -208,12 +213,15 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
   box-shadow: 0 20px 60px rgba(0,0,0,0.35);
 }
 #clue-back{
-  position:relative; transform: rotateY(180deg);
+  position:relative; transform: rotateY(180deg) translateZ(2px);
   backface-visibility:hidden; -webkit-backface-visibility:hidden;
   background: var(--white); border:2px solid var(--blue); border-radius:16px;
   padding: 44px 40px; text-align:center;
   box-shadow: 0 20px 60px rgba(0,0,0,0.35);
 }
+/* belt and braces: once the card is at rest on the clue face, the value face is
+   taken out of the picture entirely rather than trusting backface-visibility */
+#clue-card.flipped #clue-front{ visibility:hidden; }
 #clue-topline{ font-family:'Space Grotesk', sans-serif; color: var(--navy); font-size:1.6rem; font-weight:700; }
 #clue-section{ font-family:'IBM Plex Mono', monospace; color: var(--blue); font-size:0.75rem; letter-spacing:0.1em; text-transform:uppercase; margin-top:2px; }
 #clue-text{ font-family:'Space Grotesk', sans-serif; font-size: clamp(1.15rem, 2.4vw, 1.7rem); font-weight:500; line-height:1.4; margin: 24px 0; color: var(--ink); }

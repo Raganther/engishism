@@ -130,9 +130,19 @@ back to memory for the session (the panel says so).
   that tile and turns it over — front face carries the tile's own `$400` / letter,
   back carries the clue. Uses the Web Animations API against the live element rects
   (`openClueCard` / `closeModal` in hub-engine.js), so it lands on the right tile at
-  any board size; closing keeps rotating to 360° rather than reversing. Honours the
-  `cardFlip` setting **and** `prefers-reduced-motion`; with either off it opens
-  instantly, exactly as before.
+  any board size. Shape: **grow at full value for ~460ms, then turn** (open, 1000ms);
+  answer → **550ms hold**, then turn back to the value at full size and shrink to the
+  tile (820ms). Two things that will bite if touched:
+  - **Ease each keyframe segment, not the whole run.** One curve across the lot makes
+    the early phase rush and the hold on the value vanish.
+  - **The faces need separate z planes** (`translateZ(2px)`). Coplanar faces z-fight
+    and the front bleeds through mirrored — that's what made `$500` read as `005`.
+    `#clue-card.flipped #clue-front{visibility:hidden}` is the belt-and-braces.
+  Honours the `cardFlip` setting **and** `prefers-reduced-motion`; with either off it
+  opens instantly, exactly as before.
+- **Spent Jeopardy tiles keep their value, faded, and stay clickable** — clicking one
+  reopens the clue with the answer already showing, marked "· review" in the topline,
+  with no scoring buttons. Nothing about the game state changes.
 - DCU reskin: light theme, geometric band, uppercase grotesk, game-card icons.
 - To change unit mid-session: game screen → "New game" → "Change unit".
 
