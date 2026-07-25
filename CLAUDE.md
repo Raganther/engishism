@@ -353,7 +353,7 @@ back to memory for the session (the panel says so).
 
 ## Before you push
 ```bash
-NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~8 min, 148 checks
+NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~8 min, 140 checks
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=jeopardy,fit   # while iterating
 ```
 Drives all four games in a real browser and checks the things that have actually
