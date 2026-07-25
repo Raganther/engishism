@@ -35,6 +35,17 @@
       {v:400, q:"Complete (formal): 'the prison, the walls ___ which are covered in art'.", a:"of"},
       {v:500, q:"Make it formal: 'some of the prisoners, who have committed serious crimes' → 'some ___ ___ …'.", a:"of whom"},
     ]},
+    /* The second half of Grammar Focus 5A (p146). The first category covers who /
+       where / defining-vs-non-defining; this one takes the parts a C1 class actually
+       gets wrong — whom after a preposition, whose, which for a whole clause, the
+       fixed formal phrases, and the multi-word-verb trap the book flags explicitly. */
+    { id:'which-or-whom', section:'5A', name:'Which or Whom?', clues:[
+      {v:100, q:"Object pronoun for people in formal writing: 'the woman ___ I met at the party'.", a:"whom"},
+      {v:200, q:"Possessive relative pronoun: 'the elderly woman ___ bag was taken'.", a:"whose"},
+      {v:300, q:"Which word refers back to the whole clause? 'She lied on her form, ___ was a bad sign.'", a:"which"},
+      {v:400, q:"Finish the formal phrase: 'the guilty person has been found, in ___ ___ you are free to go'.", a:"which case"},
+      {v:500, q:"Correct it: 'The children after whom I look are very naughty.'", a:"the children who I look after (keep the particle with the verb)"},
+    ]},
     { id:'change-the-word', section:'5A', name:'Change the Word', clues:[
       {v:100, q:"Change the verb 'to convict' into the noun for the court's decision.", a:"conviction"},
       {v:200, q:"Change 'crime' into the word for the person who commits one.", a:"criminal"},
@@ -69,6 +80,16 @@
       {v:300, q:"Correct it: 'It isn't permitted bringing food into the lab.'", a:"permitted TO BRING"},
       {v:400, q:"Correct it: 'You haven't to pay tax on that.'", a:"you don't have to pay"},
       {v:500, q:"Correct it: 'He was made redundancy last year.'", a:"he was made REDUNDANT (adjective)"},
+    ]},
+    /* The distinction Grammar Focus 5B (p147) is built around — must imposes an
+       obligation, have to describes one somebody else imposed — plus the parts of
+       the page nothing else tested: must has no past, had better, be supposed to. */
+    { id:'must-or-have-to', section:'5B', name:'Must or Have To?', clues:[
+      {v:100, q:"Which one describes a rule somebody else made — 'must' or 'have to'?", a:"have to (must imposes the rule yourself)"},
+      {v:200, q:"Imposing an obligation on yourself: 'I really ___ organise my time better'.", a:"must"},
+      {v:300, q:"'Must' has no past. Put it in the past: 'I must go on a business trip.'", a:"I had to go"},
+      {v:400, q:"Urgent advice, two words: 'You ___ ___ be early tomorrow!'", a:"had better"},
+      {v:500, q:"What the rules say: 'The Finance Director is ___ ___ authorise all major spending.'", a:"supposed to"},
     ]},
     { id:'recall-speculate', section:'5C', name:'Recall or Speculate?', clues:[
       {v:100, q:"Recalling or speculating? 'If my memory serves me correctly…'", a:"recalling"},
@@ -105,7 +126,7 @@
     {section:'5A', letter:'F', clue:"A financial crime of deception for personal gain.", answer:"Fraud"},
     {section:'5A', letter:'M', clue:"The most serious crime — unlawful killing.", answer:"Murder"},
     {section:'5A', letter:'C', clue:"Held before trial: held in ___.", answer:"Custody"},
-    {section:'5A', letter:'T', clue:"The formal evidence a witness gives in court.", answer:"Testimony"},
+    {section:'5A', letter:'T', clue:"'He gave ___ against his former business partner' — a witness's sworn account.", answer:"Testimony"},
     {section:'5A', letter:'A', clue:"A claim that you were elsewhere when the crime happened.", answer:"Alibi"},
     {section:'5A', letter:'V', clue:"The court's decision: guilty or not guilty.", answer:"Verdict"},
     {section:'5A', letter:'J', clue:"The group of ordinary citizens who decide guilt.", answer:"Jury"},
@@ -134,26 +155,34 @@
     {section:'5B', letter:'R', clue:"Job cuts that make workers lose their jobs.", answer:"Redundancies"},
     {section:'5B', letter:'F', clue:"A benefit that lets you choose your own working hours.", answer:"Flexitime"},
     {section:'5B', letter:'S', clue:"A long paid career break, often six months.", answer:"Sabbatical"},
-    {section:'5B', letter:'P', clue:"Leave for new fathers: ___ leave.", answer:"Paternity"},
+    {section:'5B', letter:'P', clue:"Leave for the new father, as opposed to maternity leave.", answer:"Paternity"},
     {section:'5B', letter:'M', clue:"A ___ requirement is one you absolutely MUST meet.", answer:"Mandatory"},
     {section:'5B', letter:'O', clue:"'You are ___ to wear protective clothing' — formal strong obligation (be ___).", answer:"Obliged"},
     {section:'5B', letter:'Q', clue:"The training and certificates a job requires.", answer:"Qualifications"},
+    /* Phrase-box exponents from Grammar Focus 5B (p147). Relative clauses are
+       deliberately NOT here: single-word answers keyed by an initial make W
+       ambiguous across who / whom / whose / where / when / why, which would make
+       the letter a hindrance rather than the clue it is meant to be. */
+    {section:'5B', letter:'F', clue:"'Visitors are ___ to bring food into the building' — formal refusal of permission.", answer:"Forbidden"},
+    {section:'5B', letter:'E', clue:"'How can she be ___ to be in two places at once?' — mild obligation.", answer:"Expected"},
+    {section:'5B', letter:'S', clue:"'I was ___ to read the report by today' — what the rules said I'd do.", answer:"Supposed"},
+    {section:'5B', letter:'A', clue:"'It is ___ to wear protective clothing' — formal advice, not an order.", answer:"Advisable"},
 
     /* ---- 5C: recalling & speculating (single-word answers) ---- */
     {section:'5C', letter:'M', clue:"'If my ___ serves me correctly…'", answer:"Memory"},
-    {section:'5C', letter:'I', clue:"'I was under the ___ that you were writing another book.'", answer:"Impression"},
+    {section:'5C', letter:'I', clue:"A belief you held that turned out to be wrong — you were 'under' one.", answer:"Impression"},
     {section:'5C', letter:'H', clue:"'I'd ___ a guess that…' — make a rough estimate.", answer:"Hazard"},
     {section:'5C', letter:'G', clue:"'I'd hazard a ___ that…'", answer:"Guess"},
-    {section:'5C', letter:'S', clue:"'What ___ out in my mind is…'", answer:"Stands"},
-    {section:'5C', letter:'P', clue:"'___ you're a technician, right?' — making an assumption.", answer:"Presuming"},
+    {section:'5C', letter:'S', clue:"To ___ out is to be the one detail you remember most vividly.", answer:"Stands"},
+    {section:'5C', letter:'P', clue:"'___ nothing goes wrong, we'll be finished by six' — assuming, without checking.", answer:"Presuming"},
     {section:'5C', letter:'D', clue:"'No ___ you heard that from…' — a confident assumption.", answer:"Doubt"},
     {section:'5C', letter:'R', clue:"To ___ something is to bring a past event back to mind.", answer:"Recall"},
     {section:'5C', letter:'S', clue:"To ___ is to guess about something you're not sure of.", answer:"Speculate"},
     {section:'5C', letter:'M', clue:"'It's slipped my ___' — I've forgotten it.", answer:"Mind"},
 
     /* ---- added later: transformations and opposites, to vary the clue types ---- */
-    {section:'5A', letter:'C', clue:"Change the verb 'to convict' into the noun for the court's decision.", answer:"Conviction"},
-    {section:'5A', letter:'C', clue:"Change 'crime' into the word for the person who commits one.", answer:"Criminal"},
+    {section:'5A', letter:'C', clue:"The formal record that a court has found you guilty.", answer:"Conviction"},
+    {section:'5A', letter:'C', clue:"The adjective in both '___ record' and '___ damage'.", answer:"Criminal"},
     {section:'5A', letter:'I', clue:"The opposite of a guilty verdict.", answer:"Innocent"},
     {section:'5A', letter:'A', clue:"Change the noun 'accusation' into the past participle: 'he was ___ of fraud'.", answer:"Accused"},
     {section:'5B', letter:'R', clue:"Change the adjective 'redundant' into the noun for the job cuts.", answer:"Redundancy"},
@@ -168,7 +197,7 @@
 
   blockbustersSectionNames: {
     '5A':'5A · Crime & justice (22 clues)',
-    '5B':'5B · Employment & obligation (20 clues)',
+    '5B':'5B · Employment & obligation (24 clues)',
     '5C':'5C · Recalling & speculating (14 clues)',
   },
 
@@ -194,6 +223,22 @@
     {section:'5A', prompt:"He was ___ from driving for eighteen months.", answer:"Banned"},
     {section:'5A', prompt:"Prisoners who attack staff can be put in ___ confinement.", answer:"Solitary"},
 
+    /* Relative pronouns as board tiles — the format Grammar Focus 5A fits best of
+       all four games. Every pronoun is one word and none repeats, so each gets its
+       own tile and the whole set sits on the board at once: you read the sentence,
+       a student has to pick the right pronoun out of the nine plausible ones.
+       That is a genuinely harder discrimination than a gap fill on paper, where
+       only one or two would ever be candidates. */
+    {section:'5A', prompt:"The officer ___ arrested him has since retired.", answer:"Who"},
+    {section:'5A', prompt:"The witness ___ the police interviewed has disappeared.", answer:"Whom"},
+    {section:'5A', prompt:"It's up to the person ___ job it is to arrange the transport.", answer:"Whose"},
+    {section:'5A', prompt:"She lied on her interview form, ___ was a bad sign.", answer:"Which"},
+    {section:'5A', prompt:"Take me somewhere ___ I can relax for a few days.", answer:"Where"},
+    {section:'5A', prompt:"The 1930s was the time ___ organised crime flourished.", answer:"When"},
+    {section:'5A', prompt:"Does anyone know the reason ___ crime is so high here?", answer:"Why"},
+    {section:'5A', prompt:"___ stole my lunch from the fridge is in big trouble.", answer:"Whoever"},
+    {section:'5A', prompt:"You're free to choose ___ position you want.", answer:"Whatever"},
+
     /* ---- 5B: employment, pay & obligation ---- */
     {section:'5B', prompt:"After twelve years at the firm she took a six-month ___ to travel.", answer:"Sabbatical"},
     {section:'5B', prompt:"___ means staff can choose when they start and finish work.", answer:"Flexitime"},
@@ -207,6 +252,17 @@
     {section:'5B', prompt:"She didn't have the right ___, so her application was rejected.", answer:"Qualifications"},
     {section:'5B', prompt:"Bonuses here are ___-related — the better you do, the more you earn.", answer:"Performance"},
     {section:'5B', prompt:"Schools and hospitals belong to the ___ sector.", answer:"Public"},
+    /* The rest of the p147 phrase box. On the board these sit alongside 'Mandatory',
+       'Required' and 'Obliged', so picking the right one is a register and strength
+       judgement, not a recall test — which is exactly what the page is teaching. */
+    {section:'5B', prompt:"Visitors are not ___ to bring food into the building.", answer:"Permitted"},
+    {section:'5B', prompt:"Members of the public are ___ to go beyond this point.", answer:"Forbidden"},
+    {section:'5B', prompt:"Applicants are ___ to arrive ten minutes before their interview.", answer:"Expected"},
+    {section:'5B', prompt:"I was ___ to read the report by today, but I didn't have time.", answer:"Supposed"},
+    {section:'5B', prompt:"It is ___ to wear protective clothing in the workshop.", answer:"Advisable"},
+    {section:'5B', prompt:"It is ___ to have the right qualifications for this job.", answer:"Essential"},
+    {section:'5B', prompt:"We're not ___ to wear jeans to work.", answer:"Allowed"},
+    {section:'5B', prompt:"I have no ___ but to hand in my notice.", answer:"Choice"},
 
     /* ---- 5C: recalling & speculating ---- */
     {section:'5C', prompt:"If my ___ serves me correctly, we met at a conference in Berlin.", answer:"Memory"},
@@ -224,17 +280,17 @@
     /* ---- added later: transformations, opposites and collocation, so the board
            isn't only gapped sentences. Answers are deliberately new words — two
            identical tiles on one board would be unplayable. ---- */
-    {section:'5A', prompt:"Change the verb 'to convict' into the noun for the court's decision.", answer:"Conviction"},
+    {section:'5A', prompt:"He already had a previous ___ for fraud when he was arrested again.", answer:"Conviction"},
     {section:'5A', prompt:"What is the opposite of a guilty verdict?", answer:"Innocent"},
-    {section:'5A', prompt:"Change 'crime' into the word for the person who commits one.", answer:"Criminal"},
+    {section:'5A', prompt:"He has no ___ record — this is his first offence.", answer:"Criminal"},
     {section:'5A', prompt:"Give the formal word for a crime or illegal act.", answer:"Offence"},
-    {section:'5B', prompt:"Change the verb 'oblige' into the noun for a duty you must fulfil.", answer:"Obligation"},
-    {section:'5B', prompt:"Change the verb 'permit' into the noun for official approval.", answer:"Permission"},
+    {section:'5B', prompt:"Under the contract we are under no ___ to refund the deposit.", answer:"Obligation"},
+    {section:'5B', prompt:"You'll need written ___ from the landlord before you start work.", answer:"Permission"},
     {section:'5B', prompt:"Correct the error: 'He was made redundancy last year.'", answer:"Redundant"},
     {section:'5B', prompt:"Retail, transport and energy are each one of these parts of the economy.", answer:"Sector"},
-    {section:'5C', prompt:"Change the verb 'to speculate' into the noun.", answer:"Speculation"},
-    {section:'5C', prompt:"Change the verb 'assume' into the noun for something taken for granted.", answer:"Assumption"},
-    {section:'5C', prompt:"Which adjective describes a memory that is unclear or hazy?", answer:"Vague"},
+    {section:'5C', prompt:"The report is pure ___ — there's no evidence for any of it.", answer:"Speculation"},
+    {section:'5C', prompt:"The whole plan rests on the ___ that prices will keep falling.", answer:"Assumption"},
+    {section:'5C', prompt:"I've only a ___ memory of the meeting — it was years ago.", answer:"Vague"},
     {section:'5C', prompt:"Which noun completes both 'it slipped my ___' and 'it crossed my ___'?", answer:"Mind"},
   ],
 
@@ -273,6 +329,34 @@
     {section:'5A', level:8, prompt:"Which term means hiding where illegally-earned money came from?",
       answer:"money laundering", distractors:["money washing","money cleaning","money bleaching"]},
 
+    /* Relative clauses, Grammar Focus 5A (p146). This is the game the page suits
+       best: exercise b is already written as a four-way choice, so the distractors
+       are the book's own — 'to who' for 'to whom', 'few of who' for 'few of whom'.
+       Every wrong option here is an error a C1 class actually makes, which is the
+       authoring rule for this bank. */
+    {section:'5A', level:1, prompt:"'Florida is the only place ___ I want to live.'",
+      answer:"that", distractors:["wherever","what","whom"]},
+    {section:'5A', level:2, prompt:"'Give me one good reason ___ I should believe you.'",
+      answer:"why", distractors:["which","what","how"]},
+    {section:'5A', level:3, prompt:"'It's up to the person ___ job it is to sort out the transport.'",
+      answer:"whose", distractors:["what","which","who's"]},
+    {section:'5A', level:4, prompt:"'The emergency number is 999, ___ is easy to remember.'",
+      answer:"which", distractors:["that","what","whom"]},
+    {section:'5A', level:5, prompt:"'Mrs Jackson, ___ we are very grateful, has agreed to speak.'",
+      answer:"to whom", distractors:["to who","whose","that"]},
+    {section:'5A', level:6, prompt:"'We recruited some younger staff, ___ had any experience.'",
+      answer:"few of whom", distractors:["few of who","few of which","few of whose"]},
+    {section:'5A', level:7, prompt:"Which sentence is correct?",
+      answer:"The victim, who we cannot name, is recovering.",
+      distractors:["The victim, that we cannot name, is recovering.",
+                   "The victim, we cannot name, is recovering.",
+                   "The victim, what we cannot name, is recovering."]},
+    {section:'5A', level:8, prompt:"Which sentence is correct?",
+      answer:"Stealing from the kitchen is something which we will not put up with.",
+      distractors:["Stealing from the kitchen is something with which we will not put up.",
+                   "Stealing from the kitchen is something up with which we will not put.",
+                   "Stealing from the kitchen is something which we will not put up with it."]},
+
     /* ---- 5B: employment, pay & benefits, obligation ---- */
     {section:'5B', level:1, prompt:"Flexible working hours are known as ___.",
       answer:"flexitime", distractors:["flexihours","freetime","flexiwork"]},
@@ -286,8 +370,8 @@
       answer:"performance", distractors:["production","productive","performing"]},
     {section:'5B', level:4, prompt:"'Safety training is ___' — you absolutely must do it.",
       answer:"mandatory", distractors:["mandated","obliged","compulsive"]},
-    {section:'5B', level:4, prompt:"'Employers are legally ___ to provide protective clothing.'",
-      answer:"obliged", distractors:["forced","demanded","insisted"]},
+    {section:'5B', level:4, prompt:"'Under the contract we are ___ to start work at 8:00.'",
+      answer:"obliged", distractors:["obligated","obliging","obligatory"]},
     {section:'5B', level:5, prompt:"'You'll be ___ to hold a diving certificate for this job.'",
       answer:"required", distractors:["requested","requisite","demanded"]},
     {section:'5B', level:5, prompt:"The training and certificates a job demands are your ___.",
@@ -299,35 +383,62 @@
     {section:'5B', level:8, prompt:"'You ___ to get some experience first' — mild advice, not an obligation.",
       answer:"ought", distractors:["must","have","should"]},
 
+    /* Obligation, necessity and permission — Grammar Focus 5B (p147). The choices
+       come from the page's own practice exercises, so the wrong options are the
+       ones the book deliberately contrasts: needn't vs mustn't, should vs ought
+       (which needs 'to'), was supposed to vs had to. */
+    {section:'5B', level:1, prompt:"'Maria ___ keep her promotion a secret until it's officially announced.'",
+      answer:"must", distractors:["will","would","may"]},
+    {section:'5B', level:2, prompt:"'You ___ bring a towel for the pool — they provide them free of charge.'",
+      answer:"needn't", distractors:["mustn't","can't","shouldn't"]},
+    {section:'5B', level:3, prompt:"'Pilots are ___ to get a medical exam every six months.'",
+      answer:"required", distractors:["essential","obligatory","necessary"]},
+    {section:'5B', level:4, prompt:"'When we lived in the village, we ___ drive for miles to reach a supermarket.'",
+      answer:"had to", distractors:["must","were allowed to","ought to"]},
+    {section:'5B', level:5, prompt:"'Tony ___ be taking care of that, but he's so lazy.'",
+      answer:"should", distractors:["ought","had better","must"]},
+    {section:'5B', level:6, prompt:"'The match ___ begin at 7:00, but heavy rain delayed the start.'",
+      answer:"was supposed to", distractors:["had to","was required to","must have"]},
+    {section:'5B', level:7, prompt:"Which is the most formal way of stating the rule?",
+      answer:"Visitors are forbidden to bring food into the building.",
+      distractors:["Visitors mustn't bring food into the building.",
+                   "Visitors can't bring food into the building.",
+                   "Visitors shouldn't bring food into the building."]},
+    {section:'5B', level:8, prompt:"Rewrite with 'choice': 'The only option I have is to cancel the trip.'",
+      answer:"I have no choice but to cancel the trip.",
+      distractors:["I have no choice to cancel the trip.",
+                   "I have no choice but cancelling the trip.",
+                   "I haven't any choice but cancel the trip."]},
+
     /* ---- 5C: recalling & speculating ---- */
     {section:'5C', level:1, prompt:"'It's ___ my mind' — I've forgotten it.",
       answer:"slipped", distractors:["slid","escaped","dropped"]},
-    {section:'5C', level:2, prompt:"'If my memory ___ me correctly…'",
-      answer:"serves", distractors:["services","serviced","helps"]},
+    {section:'5C', level:2, prompt:"Which phrase means the same as 'if I remember rightly'?",
+      answer:"if my memory serves me correctly", distractors:["if my memory stands me correctly","if my memory holds me right","if my memory works correctly"]},
     {section:'5C', level:2, prompt:"'I'd ___ a guess that it cost about two thousand euros.'",
       answer:"hazard", distractors:["risk","chance","hazardous"]},
-    {section:'5C', level:3, prompt:"'What ___ out in my mind is how quiet the room went.'",
-      answer:"stands", distractors:["stood","sticks","comes"]},
-    {section:'5C', level:3, prompt:"'I was under the ___ that you'd already left the company.'",
-      answer:"impression", distractors:["idea","opinion","impressive"]},
-    {section:'5C', level:4, prompt:"'No ___ you've heard the news already.'",
-      answer:"doubt", distractors:["question","wonder","doubtless"]},
+    {section:'5C', level:3, prompt:"'That evening ___ out in my mind more than any other.'",
+      answer:"stands", distractors:["sticks","holds","comes"]},
+    {section:'5C', level:3, prompt:"'I was under the ___ that the meeting had been cancelled.'",
+      answer:"impression", distractors:["assumption","expression","impact"]},
+    {section:'5C', level:4, prompt:"Which phrase introduces something you assume the listener already knows?",
+      answer:"no doubt", distractors:["no wonder","no question","without fail"]},
     {section:'5C', level:4, prompt:"Which expression introduces something you are recalling, with slight uncertainty?",
       answer:"If my memory serves me correctly", distractors:["I'd hazard a guess","No doubt you heard","Presuming you're right"]},
     {section:'5C', level:5, prompt:"'___ a guess, I'd say she's about forty.'",
       answer:"Hazarding", distractors:["Hazard","Hazarded","Hazardly"]},
-    {section:'5C', level:5, prompt:"Recalling or speculating? 'I'd hazard a guess that…'",
-      answer:"Speculating", distractors:["Recalling","Confirming","Denying"]},
-    {section:'5C', level:6, prompt:"'It's pointless to ___ about what might have happened.'",
-      answer:"speculate", distractors:["spectate","specify","speculating"]},
+    {section:'5C', level:5, prompt:"Which phrase signals a guess rather than a memory?",
+      answer:"I'd hazard a guess that…", distractors:["If my memory serves me correctly…","What stands out in my mind is…","I distinctly remember…"]},
+    {section:'5C', level:6, prompt:"'There's no point ___ about what might have happened.'",
+      answer:"speculating", distractors:["speculate","to speculate","speculation"]},
     {section:'5C', level:7, prompt:"Which of these is NOT used for recalling?",
       answer:"I'd hazard a guess", distractors:["If my memory serves me","What stands out in my mind","I think I remember"]},
     {section:'5C', level:8, prompt:"'I was under the impression that…' suggests the speaker…",
       answer:"believed something that may not be true", distractors:["is certain of a fact","is recalling it exactly","is asking a question"]},
     /* ---- added later: transformation, error correction, collocation, register and
            stress, so the ladder isn't only gapped sentences ---- */
-    {section:'5A', level:2, prompt:"Change the verb 'to convict' into the noun for the court's decision.",
-      answer:"conviction", distractors:["convictment","convicture","convicting"]},
+    {section:'5A', level:2, prompt:"Which word means a court's formal finding that someone is guilty?",
+      answer:"conviction", distractors:["indictment","acquittal","testimony"]},
     {section:'5A', level:3, prompt:"Which sentence is correct?",
       answer:"He was accused of fraud.", distractors:["He was accused for fraud.","He was accused with fraud.","He was accused on fraud."]},
     {section:'5A', level:4, prompt:"Which word does NOT belong with the others?",
@@ -336,24 +447,24 @@
       answer:"serve", distractors:["make","do","take"]},
     {section:'5A', level:6, prompt:"Which is the correct formal version?",
       answer:"the prisoners, many of whom reoffend", distractors:["the prisoners, many of who reoffend","the prisoners that many reoffend","the prisoners which many of them reoffend"]},
-    {section:'5B', level:2, prompt:"Change the verb 'oblige' into the noun for a duty you must fulfil.",
-      answer:"obligation", distractors:["obligement","obligeance","obligity"]},
+    {section:'5B', level:2, prompt:"'We are under no ___ to accept their offer.'",
+      answer:"obligation", distractors:["obliged","obligatory","obliging"]},
     {section:'5B', level:3, prompt:"Which sentence is correct?",
       answer:"You must wear a helmet.", distractors:["You must to wear a helmet.","You must wearing a helmet.","You must worn a helmet."]},
-    {section:'5B', level:4, prompt:"Change the adjective 'redundant' into the noun for the job cuts.",
-      answer:"redundancy", distractors:["redundance","redundantness","redundation"]},
+    {section:'5B', level:4, prompt:"'She received a generous ___ payment when her job was cut.'",
+      answer:"redundancy", distractors:["severance","redundant","redundancies"]},
     {section:'5B', level:5, prompt:"Which sentence is correct?",
       answer:"He was made redundant.", distractors:["He was made redundancy.","He was made a redundant.","He was done redundant."]},
     {section:'5B', level:6, prompt:"Which is the most formal way of refusing permission?",
       answer:"Visitors are not permitted to bring food.", distractors:["Visitors can't bring food.","Visitors mustn't bring food.","Visitors aren't allowed food."]},
-    {section:'5C', level:2, prompt:"Change the verb 'to speculate' into the noun.",
-      answer:"speculation", distractors:["speculating","speculance","specularity"]},
+    {section:'5C', level:2, prompt:"'The article was dismissed as idle ___.'",
+      answer:"speculation", distractors:["speculating","speculative","speculator"]},
     {section:'5C', level:3, prompt:"Which one does NOT show uncertainty?",
       answer:"No doubt", distractors:["I'd hazard a guess","I'm not entirely sure","Presumably"]},
     {section:'5C', level:4, prompt:"Which adjective does NOT go with 'memory'?",
       answer:"heavy", distractors:["vague","painful","lasting"]},
-    {section:'5C', level:5, prompt:"Change the verb 'assume' into the noun.",
-      answer:"assumption", distractors:["assumingness","assumance","assumal"]},
+    {section:'5C', level:5, prompt:"'You're making a lot of ___ there.'",
+      answer:"assumptions", distractors:["assumes","assuming","presumptions"]},
     {section:'5C', level:6, prompt:"Which sentence is correct?",
       answer:"If my memory serves me correctly…", distractors:["If my memory serves me correct…","If my memory serves to me correctly…","If my memory is serving me correct…"]},
     {section:'5C', level:7, prompt:"Which syllable carries the main stress in 're-ha-bi-li-ta-tion'?",
@@ -361,14 +472,14 @@
   ],
 
   millionaireSectionNames: {
-    '5A':'5A · Crime & justice (17 questions)',
-    '5B':'5B · Employment & obligation (17 questions)',
+    '5A':'5A · Crime, justice & relative clauses (25 questions)',
+    '5B':'5B · Employment & obligation (25 questions)',
     '5C':'5C · Recalling & speculating (18 questions)',
   },
 
   raceSectionNames: {
-    '5A':'5A · Crime & justice (16 words)',
-    '5B':'5B · Employment & obligation (16 words)',
+    '5A':'5A · Crime, justice & relative clauses (25 words)',
+    '5B':'5B · Employment & obligation (24 words)',
     '5C':'5C · Recalling & speculating (16 words)',
   },
 });
