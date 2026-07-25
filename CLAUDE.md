@@ -70,6 +70,40 @@ footer shows it, so **"Build …" in ⚙ tells you which version is actually run
 
 `index.html` links all three (Choose a unit / Game Hub / Classic games).
 
+## Three layers, and where a change belongs
+Everything below fits one of three layers plus two things that cut across all of them.
+Knowing which you are touching tells you the blast radius before you start.
+
+| Layer | What it is | Changing it costs |
+|---|---|---|
+| **1 · Template** | What every game gets by existing: the skin (chrome *and* setup screens), team bar, scoring, timer, clue card + flip variants, `showResult()`, all `Sound.*`, all `Kit.*`, the content gate | Highest engineering risk, touches everything — this is what the smoke suite is for |
+| **2 · Game** | Board logic, stage CSS, its `tension()` source. Free-form within the registry contract | Low risk, isolated to one game |
+| **3 · Content** | The banks — shaped per game (§3.2), organised per unit | Near-zero engineering risk, **highest cost in your hours** — Unit 5 is 263 items |
+
+**Layer 1 is really two things pointing opposite ways**, and the distinction matters
+when adding a feature:
+- **Services the game calls** — `Kit.fitToScreen`, `Sound.applause`, `showResult`.
+  Write once, every game inherits, including games that don't exist yet. A richer
+  clock is this kind of change.
+- **Hooks the engine calls** — `start()`, `fit()`, `tension()`, `onResize()`. Adding a
+  new beat to the round (`onTeamChange()`, say) means every game *may* respond.
+
+**Two axes cut across all three layers:**
+- **Variants + per-game settings.** `cardFlip` is layer 1, `bbWinRoute` is layer 2,
+  `theme` is layer 1 applied per game — same mechanism, any of them overridable from
+  that game's settings tab. Shared by default, divergent by declaration.
+- **Units.** Content is a **matrix of games × units** with `hasBank()` at each
+  intersection, so Unit 4 offering only Jeopardy and Blockbusters is a supported
+  state, not a gap.
+
+**Where the layering leaks — worth knowing before trusting it:** `hub-engine.js` holds
+layer 1 *and* all four layer-2 games in one closure, so the boundary is conceptual, not
+physical. And parts of layer 1 were generalised *from* specific games and still show it
+— `showResult()`'s `tone` is gold/silver, `Kit.claimTeam`'s `allow` exists for
+Blockbusters' two-team geometry, and the clue card is only used by Jeopardy and
+Blockbusters. Read layer 1 as "what happens to be shared so far", not "what is
+inherently shared".
+
 ## Adding a game — the registry
 A game declares itself once and the engine drives it through that contract. There
 used to be **nine** `if (activeGame === 'jeopardy')` branch points — build, fit,

@@ -1,9 +1,31 @@
 # Classroom Game Hub — MVP System Requirements
 
-**Version:** 0.1 (draft for review)
+**Version:** 0.2
 **Author:** Alistair
 **Date:** July 2026
 **Purpose:** Proof-of-concept demonstration to academic management
+
+## Status at v0.2
+
+v0.1 was written before anything was built. Enough has shipped that the honest thing
+is to say which parts of this document are specification and which are description.
+
+**Built and working:**
+
+| | |
+|---|---|
+| Games | Jeopardy, Blockbusters, Race to the Board, Millionaire (4 of the 3–5 in §1.3; **Bullseye not built**) |
+| Units | **2** — Unit 5 (Fairness) and Unit 4 (Consciousness), against §1.3's planned 1 |
+| Content | Unit 5: **263 items** across 5A–5C. **5D is entirely unauthored.** Unit 4: Jeopardy + Blockbusters only |
+| Beyond spec | Per-game settings panel (§4.4b), phone buzzers (§4.4c), game show mode (§4.4d), content-integrity gate (§4.4a), a 240-check regression suite |
+
+**Not yet true of any of it:** none of this has been run in front of a class. Every
+"untrialled" note in §4.4b–d still stands, and §1.4's success criteria are all
+unverified.
+
+**What changed structurally since v0.1:** the engine grew a **layered architecture**
+with a game registry (§3.7). v0.1 had no architecture section at all, which is why
+adding the fourth game cost more than the third.
 
 ---
 
@@ -36,13 +58,20 @@ hypothetical one.
 - 3–5 game formats. Current candidates, all Tier 1 or Tier 2 per §3.6:
   Jeopardy, Blockbusters, Race to the Board, Millionaire, Bullseye.
   Final count depends on measured authoring cost (§3.4, §9.2).
+  → **Four built** (all but Bullseye). Authoring cost is now measured, and four is
+  the honest answer — see §9.2.
 - Content coverage of Unit 5, selectable by lesson section (5A / 5B / 5C / 5D)
+  → **5A–5C complete; 5D not authored at all.** This is the largest content gap.
 - Teacher-facing setup: choose game, choose content, play
 - Runs on classroom display via projector or large screen
 
 **Out of scope for MVP:**
 - Content authoring UI (content is authored directly in the file)
 - Additional units beyond Unit 5
+  → **Departed from deliberately.** Unit 4 was added because a second unit is what
+  turns "it works for this unit" into "it transfers", which is success criterion
+  §1.4.3. Unit 4 carries Jeopardy and Blockbusters only, which is itself the point:
+  a unit adopts games one at a time (F3.7.4).
 - Any data persistence (scores, saved games, history)
 - Student devices / individual logins
 - Accounts, cloud sync, or backend services
@@ -176,6 +205,25 @@ authoring (§9.1). If it proves too costly, the lever is **fewer games**, not th
 content per game — three well-populated games demonstrate the concept better than five
 sparse ones.
 
+**Measured (Unit 5, four games, sections 5A–5C):**
+
+| Bank | Items |
+|---|---|
+| Jeopardy | 70 (14 categories × 5) |
+| Blockbusters | 60 |
+| Race to the Board | 65 |
+| Millionaire | 68 |
+| **Total** | **263** |
+
+The estimate held. 263 items for four games across three sections projects to roughly
+**250–270 for a full four-game unit**, against the 236 predicted for five games — so
+the per-game figures in the table above were slightly low, not the model. Useful
+sub-measurements: Millionaire's ladder cost **36 questions** for one unit (the single
+largest job, because every item needs three plausible distractors), and covering the
+two Grammar Focus reference pages properly cost a further **47 items** across three
+games. Race is the cheapest per item — no distractors are authored, because every other
+word on the board is a real target word.
+
 ### 3.5 Content authoring
 
 For the MVP, content is authored directly in the source file by the author. No
@@ -229,6 +277,80 @@ documents its required content fields and authoring constraints.
 approach transfers to any unit in the coursebook" is defensible with minimal caveats.
 Tier 3 formats are strong games and worth building eventually, but they weaken the
 generalisation argument if presented as core.
+
+---
+
+### 3.7 Layered architecture
+
+v0.1 specified a content model but no architecture, and it showed: by the fourth game
+there were nine places in the engine shaped like `if (activeGame === 'jeopardy')` —
+board building, screen-fitting, the entrance animation, resize, timer expiry, the
+content picker, the start button, unit loading, and the games-a-unit-offers list. A
+new game had to be threaded into all nine by hand, and **nothing failed if you missed
+one**. You would get a game that worked except for the two beats you forgot.
+
+The system now has three layers and two axes that cut across them.
+
+| Layer | Contains | Cost of changing it |
+|---|---|---|
+| **1 · Template** | Everything a game gets by existing: the skin, team bar, scoring, timer, clue card, end-of-round banner, sound, the shared kit, the content gate | Highest engineering risk — touches every game. This is what the regression suite exists for |
+| **2 · Game** | Board logic, its stage's look, its own source of `--tension`. Free-form within the registry contract | Low risk, isolated |
+| **3 · Content** | The banks — shaped per game (§3.2), organised per unit (§3.3) | Near-zero engineering risk, **highest cost in teacher hours** |
+
+**Layer 1 is two things pointing in opposite directions**, and which one a feature
+belongs to determines how it propagates:
+
+- **Services a game calls** — `fitToScreen`, `applause`, `showResult`. Written once;
+  every game inherits, including games that do not exist yet. A richer countdown clock
+  is this kind of change: one widget, universal effect, no per-game work.
+- **Hooks the engine calls** — `start()`, `fit()`, `tension()`, `onResize()`. Adding a
+  new beat to the round lifecycle means every game *may* respond to it, and those that
+  don't are silently fine.
+
+**The registry (F3.7.1–3)** turns layer 2 from a convention into a contract:
+
+```js
+registerGame({
+  id, title,
+  card:  { icon, blurb, badge },        // the game-select card
+  intro: { title, sub, accent },        // its title sequence, optional
+  hasBank(unit),                        // does this unit offer it?
+  load, renderContent, startButton, start, fit, deal, tension, onResize, onTimerEnd
+});
+```
+
+| ID | Requirement | Priority |
+|---|---|---|
+| F3.7.1 | A game is added by registering it; the engine contains no per-game branching | Must |
+| F3.7.2 | Every hook is optional and defaults to a no-op, so a partial game still runs | Must |
+| F3.7.3 | A registered game inherits the whole of layer 1 without asking for any of it | Must |
+| F3.7.4 | A unit may offer any subset of games (`hasBank`), so units adopt games one at a time | Must |
+| F3.7.5 | Games should eventually be able to live in their own file, as units already do | Should |
+
+**Two axes cut across all three layers:**
+
+- **Variants and per-game settings.** A feature can ship several interchangeable
+  implementations and let the teacher choose, per game, from that game's settings tab
+  — `cardFlip` (layer 1), `bbWinRoute` (layer 2) and `theme` (layer 1 applied per
+  game) all use one mechanism. *Shared by default, divergent by declaration.* This is
+  the answer to "should this behave the same everywhere?" — it doesn't have to be
+  decided once and for all.
+- **Units.** Content is a **matrix of games × units**, not a list. Unit 4 offering only
+  Jeopardy and Blockbusters is a supported state. The matrix grows in two independent
+  directions, which is what makes the scaling argument in §1.4.3 concrete.
+
+**Where the layering leaks.** Honesty matters more than tidiness here:
+
+- `hub-engine.js` holds layer 1 *and* all four layer-2 games in one closure. The
+  registry gives the contract; it does not yet give a file boundary (F3.7.5).
+- Parts of layer 1 were generalised *from* particular games and still carry their
+  assumptions: the banner's team tones are gold/silver, the team-chooser's `allow`
+  parameter exists for Blockbusters' two-team geometry, and the clue card is used by
+  only two of the four games.
+
+Layer 1 is therefore best read as *what happens to be shared so far*, not *what is
+inherently shared*. That is the correct state for a system at this stage, but it should
+not be mistaken for a finished abstraction.
 
 ---
 
@@ -638,8 +760,13 @@ natural next steps:
 - **Content authoring interface** so teachers can add their own units without editing code
 - **Coverage of remaining units** — the MVP proves one unit; the value case depends on scale
 - **Persistence** of scores or saved boards across lessons
-- **Accessibility**: colour-blind-safe team colours, keyboard navigation, screen-reader
-  support. The current Gold/Silver team colours in particular need review.
+- **Accessibility**: partially addressed, not audited. Team colours moved from
+  gold/silver to the DCU yellow/blue pairing, which is colour-blind-safer, and the
+  game-show skin holds a hard rule that nothing flashes faster than ~1.5Hz, no flash is
+  full-screen white, and every animation is disabled under `prefers-reduced-motion` —
+  this is projected at students whose medical histories the teacher does not have.
+  **Still missing:** keyboard navigation and screen-reader support, and no audit by
+  anyone qualified to do one.
 - **Copyright position** if the tool is ever shared beyond the school
 - **Student-device mode** for individual or pair practice outside class
 
@@ -647,28 +774,64 @@ natural next steps:
 
 ## 9. Open questions
 
-1. **What is the realistic authoring time per unit?** This is the number management
-   will care about most, and it is currently unknown. Under the per-game content model
-   it is also the number most likely to be underestimated. Unit 5 authoring should be
-   timed, broken down per game, and reported as measured fact.
-2. **How many games can the MVP sustain?** The spec says 3–5. The lower bound may be
-   the honest answer once authoring cost is measured. Three well-populated games
-   demonstrate the concept better than five thin ones.
-3. **Which games best suit Unit 5's content?** Deferred until the content is known.
-   Blockbusters in particular (Tier 2, §3.6) should be checked against Unit 5's target
-   language before authoring: if the unit is built on multi-word structures rather than
-   single-word vocabulary, the format will fight the content.
-4. **Should Bullseye penalise wrong answers at higher tiers?** Deducting points sharpens
-   the risk decision but can demoralise a trailing team. Decide after one classroom run.
-5. **Is Millionaire's team format better as parallel ladders or a single shared ladder
-   with teams alternating?** Parallel gives every team a full arc; shared is faster and
-   keeps all eyes on one board. Worth trialling both in the Unit 5 lesson.
-6. **Should any Tier 3 game (§4.4, optional list) be built for the demonstration?**
-   The connecting wall has the highest pedagogical value of any format considered, but
-   the weakest generalisation guarantee. Building it as an explicitly conditional
-   "works when the unit suits it" example may demonstrate judgement rather than
-   inconsistency — but only if there is authoring capacity left after the Tier 1 games.
-7. Should section selection allow finer granularity than 5A–5D — for example,
-   individual exercises — if a lesson covers only part of a section?
-8. Should Jeopardy scale its board down when only one section is selected, or state a
-   minimum of two sections? (See §3.4.)
+Four of the original eight are now settled by having built the thing. They are kept
+here with their answers rather than deleted, because the reasoning is the useful part.
+
+### Answered
+
+1. **What is the realistic authoring time per unit?** — **Answered: ~250–270 items for
+   a four-game unit.** Unit 5 is 263 across 5A–5C (breakdown in §3.4). The v0.1
+   estimate of 236 for *five* games was slightly optimistic per game but right in
+   shape. Millionaire is the most expensive format at 36 questions per unit, because
+   each needs three plausible distractors; Race is the cheapest, because it authors no
+   distractors at all.
+2. **How many games can the MVP sustain?** — **Answered: four.** The lower bound in
+   v0.1 turned out to be close to right. A fifth is affordable in engineering terms
+   (§3.7 makes it cheap) but not in authoring terms until 5D and Unit 4's missing banks
+   are done. Content, not code, is the constraint.
+3. **Which games best suit Unit 5's content?** — **Answered, and the concern was
+   justified.** Blockbusters does fight some of the content: its single-word answers
+   keyed by an initial letter make relative pronouns unusable (**W** is ambiguous
+   across who/whom/whose/where/when/why), so Unit 5's 5A grammar is carried by
+   Jeopardy, Race and Millionaire instead. Race turned out to be the *best* home for
+   relative pronouns — one word each, none repeating, so all nine sit on the board at
+   once and choosing between them is a real discrimination.
+5. **Millionaire: parallel ladders or one shared ladder?** — **Answered: parallel,
+   with interleaved turns** (§4.4). Parallel gives every team a full arc; interleaving
+   the turns means nobody sits out for eight questions. Safe havens were dropped in
+   favour of never deducting points, which solves the same problem more simply.
+
+### Still open
+
+4. **Should Bullseye penalise wrong answers at higher tiers?** Moot until Bullseye is
+   built, which is now unlikely for the demo (see Q2).
+6. **Should any Tier 3 game be built for the demonstration?** Unchanged. The connecting
+   wall still has the highest pedagogical value and the weakest generalisation
+   guarantee. §3.7 has lowered the *engineering* cost of adding it; the authoring cost
+   and the generalisation argument are untouched.
+7. **Should section selection allow finer granularity than 5A–5D** — individual
+   exercises, say — if a lesson covers only part of a section? Unchanged.
+8. **Should Jeopardy scale its board down for one section, or state a minimum?**
+   — **Partly answered in practice:** it states a minimum of 3 categories and the board
+   sizes itself to whatever is chosen, so both halves happen. Whether 3 is the right
+   floor is untested with a class.
+
+### New since v0.1
+
+9. **Does the atmosphere help or hinder?** Game show mode is now the default (§4.4d)
+   and has never been in front of a class. Three specific unknowns: whether the music
+   bed competes with the teacher's voice on classroom speakers; whether the title
+   sequence is still welcome by the fourth round of a lesson (the once-per-session
+   default is a guess, not evidence); and whether the lights lift a class's energy or
+   tip it over. All three need one real lesson, not more building.
+10. **Are phone buzzers a net gain?** (§4.4c) Never run with real handsets. Unknowns:
+    latency, whether school WiFi permits it, and whether phones in hands are a
+    behaviour cost that outweighs the fairness gain.
+11. **Should the games live in their own files?** (F3.7.5) The registry contract makes
+    it possible; the four built-ins still share one closure. Worth doing when a fifth
+    game arrives, not before — the move is mechanical and the current arrangement is
+    not costing anything yet.
+12. **What is the second unit's authoring cost, now that the formats are settled?**
+    Unit 5 was authored while the games were still changing shape. Unit 4's missing
+    Race and Millionaire banks would give a clean measurement of steady-state cost,
+    which is the number that actually projects across a coursebook.
