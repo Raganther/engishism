@@ -71,17 +71,17 @@
   ],
 
   blockbustersBank: [
-    {section:'4A', letter:'R', clue:"Making decisions based on logic and evidence, not emotion.", answer:"Rational"},
+    {section:'4A', letter:'R', clue:"The opposite of emotional — deciding with your head, not your heart.", answer:"Rational"},
     {section:'4A', letter:'I', clue:"Doing something suddenly, without planning it — 'on ___'.", answer:"Impulse"},
-    {section:'4A', letter:'S', clue:"Knowing something without being consciously aware of it.", answer:"Subconsciously"},
-    {section:'4A', letter:'W', clue:"Carefully considering the pros and cons before deciding — '___ up'.", answer:"Weigh (up)"},
+    {section:'4A', letter:'S', clue:"'We ___ pick up on tiny changes in someone's face' — below conscious awareness.", answer:"Subconsciously"},
+    {section:'4A', letter:'W', clue:"To ___ up the options is to consider the pros and cons before deciding.", answer:"Weigh"},
     {section:'4A', letter:'O', clue:"Based on facts, not feelings — the opposite of subjective.", answer:"Objective"},
     {section:'4A', letter:'D', clue:"An expression meaning 'in your heart, even if you won't admit it' — '___ down'.", answer:"Deep"},
     {section:'4A', letter:'G', clue:"Informal word for instinct — trust your ___.", answer:"Gut"},
     {section:'4A', letter:'H', clue:"A strong feeling that something is true, without proof.", answer:"Hunch"},
-    {section:'4B', letter:'V', clue:"A memory that's unclear or hazy.", answer:"Vague (memory)"},
-    {section:'4B', letter:'P', clue:"A memory that makes you unhappy to recall.", answer:"Painful (memory)"},
-    {section:'4B', letter:'L', clue:"A memory that stays with you permanently.", answer:"Lasting (memory)"},
+    {section:'4B', letter:'V', clue:"A memory that's unclear or hazy is a ___ one.", answer:"Vague"},
+    {section:'4B', letter:'P', clue:"A memory that makes you unhappy to recall is a ___ one.", answer:"Painful"},
+    {section:'4B', letter:'L', clue:"A memory that stays with you permanently is a ___ one.", answer:"Lasting"},
     {section:'4B', letter:'F', clue:"Capable of making mistakes — used to describe eyewitness testimony.", answer:"Fallible"},
     {section:'4B', letter:'E', clue:"Someone who saw a crime happen.", answer:"Eyewitness"},
     {section:'4B', letter:'M', clue:"Easily shaped or changed — used to describe how flexible our memories are.", answer:"Malleable"},
@@ -100,7 +100,7 @@
 
     /* ---- expansion: 4A ---- */
     {section:'4A', letter:'I', clue:"An adjective for a feeling you can't explain or account for.", answer:"Inexplicable"},
-    {section:'4A', letter:'U', clue:"An ___ urge is one you can't resist.", answer:"Irresistible / Unstoppable (irresistible)"},
+    {section:'4A', letter:'I', clue:"An ___ urge is one you simply cannot resist.", answer:"Irresistible"},
     {section:'4A', letter:'C', clue:"The part of the brain the article calls logical and coherent — the ___ left brain.", answer:"Conscious"},
     {section:'4A', letter:'P', clue:"Clammy ___ are one physical sign that intuition is at work.", answer:"Palms"},
     {section:'4A', letter:'S', clue:"The '___ sense' — a supposed extra sense beyond the usual five.", answer:"Sixth"},
@@ -134,7 +134,7 @@
     {section:'4C', letter:'P', clue:"'I do take your ___, but…' — acknowledging before disagreeing.", answer:"Point"},
     {section:'4C', letter:'B', clue:"Idiom: getting information from an unwilling person is like getting ___ out of a stone.", answer:"Blood"},
     {section:'4C', letter:'H', clue:"Being too forceful or harsh in your approach — '___-handed'.", answer:"Heavy"},
-    {section:'4C', letter:'S', clue:"Two words that sound the same but are spelled differently.", answer:"Homophones (sound-alikes)"},
+    {section:'4C', letter:'H', clue:"Two words that sound the same but are spelled differently.", answer:"Homophones"},
     {section:'4C', letter:'C', clue:"Criticism meant to help rather than attack is ___.", answer:"Constructive"},
     {section:'4C', letter:'P', clue:"Behaving in a professional way — Nadia values ___ in interviews.", answer:"Professionalism"},
 

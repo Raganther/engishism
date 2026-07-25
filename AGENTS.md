@@ -26,7 +26,7 @@ linked as `…?v=YYYYMMDDx` in the three page shells; without a bump, Chrome kee
 the cached JS/CSS and a fix looks like it never shipped (this has already cost one
 debugging round). Change it in all three shells together:
 ```bash
-sed -i '' 's/?v=[0-9a-z]*/?v=20260728f/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
+sed -i '' 's/?v=[0-9a-z]*/?v=20260728g/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
 ```
 The engine reads its own `?v=` and exposes it as `window.HUB_BUILD`; the settings panel
 footer shows it, so **"Build …" in ⚙ tells you which version is actually running.**
@@ -123,6 +123,39 @@ shuffles, so more items simply means more variety per play. Three constraints:
 answers become board tiles, so they must be single words and never duplicate another
 answer in that bank; **Jeopardy** categories must stay grouped by section in array
 order or the content screen prints a section heading twice.
+
+**Grammar Focus pages are content too, and they were nearly missed.** An audit found
+5A relative clauses (p146) had **three** items that genuinely tested a relative
+pronoun, all in one Jeopardy category — so playing any other game gave zero practice
+on the unit's own grammar. 5B obligation (p147) fared better at 27. Both are now
+covered across Jeopardy, Race and Millionaire. Two lessons worth keeping:
+- **Jeopardy's named categories gave grammar a slot; the other three banks are flat
+  lists, so authoring drifted to vocabulary.** When adding a unit, check the Grammar
+  Focus pages explicitly — the format will not remind you.
+- **Match the point to the format.** Relative pronouns are ideal Race tiles (one word
+  each, none repeating, so all nine sit on the board and picking the right one is a
+  real discrimination). Millionaire suits them because p146 exercise b is *already*
+  written as a four-way choice, so the book's own distractors transfer. Blockbusters
+  is the wrong home — single-word answers keyed by an initial make **W** ambiguous
+  across who/whom/whose/where/when/why.
+
+**No prompt may appear in two banks.** An audit found 21 prompts copy-pasted across
+2–4 banks, nearly all word transformations added during the vary-the-forms pass —
+the letter of that request, but it broke §3.2. Same *answer* in several games is the
+design working (spaced retrieval from different angles); same *prompt* is the thing
+per-game authoring exists to avoid. Each game now keeps the shape it suits —
+transformations in Jeopardy's "Change the Word", definitions in Blockbusters, gapped
+sentences in Race, four-option discriminations in Millionaire. This is now
+**enforced**, not a convention:
+```bash
+NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=content
+```
+`testContentIntegrity` runs over every unit in `window.UNITS`, so a new unit is
+checked for free. It catches the things no engine test can: a duplicated prompt, a
+Blockbusters answer whose initial doesn't match its hexagon, two Race items competing
+for one tile, a Millionaire rung with no question behind it, and section labels whose
+counts have drifted from the bank. **It found eight real defects in Unit 4 the day it
+was written** — including a hexagon showing `U` whose answer was *Irresistible*.
 
 Still missing for Unit 5: **5D entirely** (the writing lesson — opinion essay and
 linking for addition/reinforcement, both very gameable), pronunciation beyond one
@@ -419,7 +452,7 @@ back to memory for the session (the panel says so).
 
 ## Before you push
 ```bash
-NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~13 min, 199 checks
+NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~14 min, 208 checks
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=jeopardy,fit   # while iterating
 ```
 Drives all four games in a real browser and checks the things that have actually

@@ -418,6 +418,41 @@ Tier ratings refer to §3.6.
 | Anagram sprint | 2 | Unscramble a target word against the clock | Cheapest of all to author; tests spelling and word form, which no other game here does | Pedagogically thin; little beyond form recognition |
 | Countdown letters round | — | Build the longest word from random letters | Good warmer | **Not recommended**: content-free, so it does not revise the unit and does not support the pitch |
 
+### 4.4a Content integrity — enforced, not assumed
+
+§3.1 requires per-game content and §3.2 argues the case; neither was checked, and
+both had quietly drifted. Two audits found:
+
+- **21 prompts copy-pasted across 2–4 banks**, nearly all word transformations added
+  during the question-form work. Sharing an *answer* between games is the design
+  working — a student meets `custody` as a Blockbusters definition, a Race gap and a
+  Millionaire discrimination. Sharing a *prompt* is precisely what §3.2 rejects.
+- **The unit's own Grammar Focus pages were nearly absent.** 5A relative clauses had
+  three items that genuinely tested a relative pronoun, all in one Jeopardy category.
+
+| ID | Requirement | Priority |
+|---|---|---|
+| F4a.1 | No prompt appears in more than one game's bank | Must |
+| F4a.2 | A Blockbusters answer is one word and its hexagon shows that word's initial | Must |
+| F4a.3 | Race answers are single words, unique within the bank (they become tiles) | Must |
+| F4a.4 | Every Millionaire section covers all eight rungs, three distractors each | Must |
+| F4a.5 | Jeopardy categories are equal length and grouped by section | Must |
+| F4a.6 | Section labels on the content screen match what the banks hold | Should |
+| F4a.7 | Both Grammar Focus pages are covered by at least two games | Should |
+
+Enforced by `testContentIntegrity` in `tools/smoke-test.js`, which runs over every
+unit loaded, so a new unit is checked without writing a new test. It found eight
+defects in Unit 4 on the day it was written, including a hexagon showing `U` whose
+answer was *Irresistible*.
+
+**Which game suits which grammar point** is a real authoring decision, not a
+formality. Relative pronouns make ideal Race tiles — one word each, none repeating,
+so all nine sit on the board and choosing between them is a genuine discrimination.
+Millionaire suits them because Grammar Focus 5A exercise b is *already* written as a
+four-way choice, so the book's own distractors transfer intact. Blockbusters is the
+wrong home for them: single-word answers keyed by an initial make **W** ambiguous
+across who/whom/whose/where/when/why, so the letter hinders instead of helping.
+
 ### 4.4b Settings — built
 
 Features are switchable rather than fixed, so a teacher can turn off anything that

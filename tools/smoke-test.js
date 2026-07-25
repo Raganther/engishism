@@ -731,6 +731,116 @@ async function testGameShowRace(browser){
   await page.close();
 }
 
+/* ---- content integrity ----
+   The banks have constraints that no amount of engine testing would catch, and
+   breaking one produces a board that looks fine and plays wrong: a Blockbusters
+   answer whose initial doesn't match its hexagon, two Race items competing for
+   one tile, a Millionaire rung with no question behind it.
+
+   It also enforces the rule per-game authoring exists for (spec §3.2): **no prompt
+   may appear in two banks**. An audit found 21 copy-pasted across 2-4 banks, nearly
+   all word transformations added during the vary-the-forms pass. Sharing an *answer*
+   between games is the design working; sharing a *prompt* is the thing it avoids.
+   Runs over every unit loaded in the hub, so a new unit is checked for free. */
+async function testContentIntegrity(browser){
+  section('Content integrity');
+  const page = await openHub(browser);
+
+  const report = await page.evaluate(() => {
+    const norm = s => String(s).toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+    const out = [];
+    (window.UNITS || []).forEach(u => {
+      const id = u.id || '?';
+      const banks = { jeopardy:[], blockbusters:[], race:[], millionaire:[] };
+      (u.jeopardyCategories||[]).forEach(c => c.clues.forEach(x => banks.jeopardy.push({ p:x.q, a:x.a, section:c.section })));
+      (u.blockbustersBank||[]).forEach(x => banks.blockbusters.push({ p:x.clue, a:x.answer, section:x.section, letter:x.letter }));
+      (u.raceBank||[]).forEach(x => banks.race.push({ p:x.prompt, a:x.answer, section:x.section }));
+      (u.millionaireBank||[]).forEach(x => banks.millionaire.push({ p:x.prompt, a:x.answer, section:x.section, level:x.level, distractors:x.distractors }));
+
+      // a prompt in two banks
+      const where = new Map();
+      Object.keys(banks).forEach(b => banks[b].forEach(i => {
+        const k = norm(i.p); if(!where.has(k)) where.set(k, new Set()); where.get(k).add(b);
+      }));
+      where.forEach((set, k) => { if(set.size > 1)
+        out.push({kind:'dupe', msg:id + ': prompt in ' + [...set].join(' + ') + ' — "' + k.slice(0,60) + '"'}); });
+
+      // Jeopardy: equal-length categories, sections contiguous (or a heading prints twice)
+      const cats = u.jeopardyCategories || [];
+      const lens = new Set(cats.map(c => c.clues.length));
+      if(cats.length && lens.size > 1) out.push({kind:'jeopardy', msg:id + ': categories differ in length — ' + [...lens].join('/')});
+      const secs = cats.map(c => c.section);
+      secs.forEach((s, i) => { if(i && s !== secs[i-1] && secs.slice(0, i).indexOf(s) !== -1)
+        out.push({kind:'jeopardy', msg:id + ': jeopardy section ' + s + ' is not contiguous'}); });
+
+      // Blockbusters: one word, and the hexagon's letter is its initial
+      banks.blockbusters.forEach(i => {
+        if(/\s/.test(String(i.a).trim())) out.push({kind:'blockbusters', msg:id + ': answer is not one word — ' + i.a});
+        if(String(i.a)[0].toUpperCase() !== String(i.letter).toUpperCase())
+          out.push({kind:'blockbusters', msg:id + ': letter ' + i.letter + ' does not match ' + i.a});
+      });
+
+      // Race: answers become tiles, so one word and never repeated
+      const tiles = new Set();
+      banks.race.forEach(i => {
+        if(/\s/.test(String(i.a).trim())) out.push({kind:'race', msg:id + ': answer is not one word — ' + i.a});
+        const k = norm(i.a);
+        if(tiles.has(k)) out.push({kind:'race', msg:id + ': answer would need two tiles — ' + i.a});
+        tiles.add(k);
+      });
+
+      // Millionaire: three real distractors, and every rung reachable in every section
+      banks.millionaire.forEach(i => {
+        if(!i.distractors || i.distractors.length !== 3)
+          out.push({kind:'millionaire', msg:id + ': needs 3 distractors — "' + String(i.p).slice(0,40) + '"'});
+        if(i.distractors && i.distractors.indexOf(i.a) !== -1)
+          out.push({kind:'millionaire', msg:id + ': distractor repeats the answer — "' + String(i.p).slice(0,40) + '"'});
+        if(!(i.level >= 1 && i.level <= 8)) out.push({kind:'millionaire', msg:id + ': level out of range — ' + i.level});
+      });
+      const mSecs = [...new Set(banks.millionaire.map(i => i.section))];
+      mSecs.forEach(s => {
+        const have = new Set(banks.millionaire.filter(i => i.section === s).map(i => i.level));
+        for(let r = 1; r <= 8; r++) if(!have.has(r)) out.push({kind:'millionaire', msg:id + ': ' + s + ' has no rung ' + r});
+      });
+
+      // the content screen quotes these counts, so they must not drift
+      [['blockbustersSectionNames', banks.blockbusters],
+       ['raceSectionNames',         banks.race],
+       ['millionaireSectionNames',  banks.millionaire]].forEach(([key, arr]) => {
+        Object.keys(u[key] || {}).forEach(sec => {
+          const m = String(u[key][sec]).match(/\((\d+)/);
+          if(!m) return;
+          const actual = arr.filter(i => i.section === sec).length;
+          if(actual !== +m[1])
+            out.push({kind:'counts', msg:id + ': ' + key + ' ' + sec + ' says ' + m[1] + ' but the bank holds ' + actual});
+        });
+      });
+    });
+    return { problems: out, units: (window.UNITS||[]).length };
+  });
+
+  const of = k => report.problems.filter(p => p.kind === k);
+  const first = k => (of(k)[0] || {}).msg;
+  check('every unit loaded', report.units > 0, report.units + ' units');
+  check('no prompt appears in two banks',        !of('dupe').length,         first('dupe'));
+  check('Blockbusters answers are one word, keyed by their initial',
+        !of('blockbusters').length, first('blockbusters'));
+  check('Race answers are one word and unique enough to be tiles',
+        !of('race').length,         first('race'));
+  check('Millionaire has 3 distractors and every rung in every section',
+        !of('millionaire').length,  first('millionaire'));
+  check('Jeopardy categories are equal length and grouped by section',
+        !of('jeopardy').length,     first('jeopardy'));
+  check('the counts on the content screen match the banks',
+        !of('counts').length,       first('counts'));
+
+  if(report.problems.length) console.log('    ' + report.problems.length + ' problem(s):\n      ' +
+    report.problems.slice(0, 14).map(p => p.msg).join('\n      '));
+
+  checkClean(page);
+  await page.close();
+}
+
 /* Every game now has an ident, and they must stay distinct — one accent reused
    twice would make two games look like the same show. */
 async function testIdentsAreDistinct(browser){
@@ -1006,7 +1116,7 @@ async function main(){
     jeopardy: testJeopardy, blockbusters: testBlockbusters, race: testRace,
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
-    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, jfinish: testJeopardyFinish,
+    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, content: testContentIntegrity, jfinish: testJeopardyFinish,
     buzzers: testBuzzers,
     degradation: testDegradation, file: testFileProtocol
   };
