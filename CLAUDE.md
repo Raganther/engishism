@@ -26,7 +26,7 @@ linked as `…?v=YYYYMMDDx` in the three page shells; without a bump, Chrome kee
 the cached JS/CSS and a fix looks like it never shipped (this has already cost one
 debugging round). Change it in all three shells together:
 ```bash
-sed -i '' 's/?v=[0-9a-z]*/?v=20260728e/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
+sed -i '' 's/?v=[0-9a-z]*/?v=20260728f/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
 ```
 The engine reads its own `?v=` and exposes it as `window.HUB_BUILD`; the settings panel
 footer shows it, so **"Build …" in ⚙ tells you which version is actually running.**
@@ -262,7 +262,7 @@ back to memory for the session (the panel says so).
     bar says so explicitly.
   - **Everything degrades**: buzzers off, relay dead, or WiFi gone → the hub behaves
     exactly as before with the manual chips / `1`-`2` keys. Verified for all three.
-- **Game show mode** — a second skin: **Millionaire, Jeopardy, Blockbusters**. `theme` is a variant
+- **Game show mode** — a second skin, now on **all four games**. `theme` is a variant
   setting (`dcu` | `gameshow`); `body.theme-gameshow` goes on when a themed game
   reaches the play screen and comes off when you leave, so the chrome never
   half-changes (a neon board over a navy team bar reads as broken). The DCU theme
@@ -293,15 +293,24 @@ back to memory for the session (the panel says so).
     Jeopardy: blue starfield, gold-on-navy tiles, a board that **deals itself in**
     on the diagonal (`jDeal`). Blockbusters: violet honeycomb lattice — violet
     because yellow and blue are *game state* on that board and both have to stay
-    legible — with the hexes assembling themselves (`bbDeal`).
+    legible — with the hexes assembling themselves (`bbDeal`). Race: floodlit green
+    track with lane markings, words flying in, and a **starting pistol** the moment
+    a sentence goes up (`Sound.crack` — the same noise buffer as the applause, but
+    the envelope is the whole sound: 3ms of attack through a highpass).
   - **`--tension` is one contract fed from three different places**, which is the
     whole trick: Millionaire's rung; Jeopardy's *value at stake* over a floor that
     rises as the board empties; Blockbusters' **distance to a finished line**
     (`bbStepsToWin` — Dijkstra, your hexes free, unclaimed cost the question you'd
-    have to answer, the opponent's are walls). One hex from a win reads 1.0.
-    A fourth game needs a new source, not new plumbing.
+    have to answer, the opponent's are walls; one hex from a win reads 1.0); and
+    Race's **board cleared plus whether a race is live this second** — the only one
+    with two ingredients, because a sentence going up is when students leave their
+    chairs. A fifth game needs a new source, not new plumbing.
   - **Stagger on `row+col`, never DOM order**: a 12×6 Jeopardy board is 72 cells,
     and a flat stagger runs for 3 seconds with the class waiting on it.
+  - **`--title-vw`** exists because a four-word title at the shared 11vw cap runs
+    off the screen. When measuring the title in a test, wait for the slam to land:
+    it holds at `scale(2.4)` through its delay, so an early rect reports it two and
+    a half times its real width.
   - **Two specificity traps, both already paid for.** `body.theme-gameshow
     #play-blockbusters.lit .hex.claimed-gold` out-specifies `.hex.route.claimed-gold`,
     so the skin silently cancelled the winning-route glow until the route rules were
@@ -390,15 +399,13 @@ back to memory for the session (the panel says so).
 - Small wins: "steal" in Blockbusters (wrong → other team claims); self-host fonts
   for true offline — also what a chunkier display face for the game-show wordmarks
   would need.
-- **Game show mode covers three of the four games; only Race to the Board is left.**
-  Adding it is: `race` in `theme`'s and `intro`'s `games` arrays, an `INTROS` entry,
-  its stage rules in the skin block of `hub.css`, and — the only real design work —
-  deciding what feeds `--tension`. The other three read the rung, the value at stake
-  and the distance to a line; Race's obvious candidate is words left on the board,
-  or the clock in timed rounds. Sketched look: stadium wash, starting pistol, the
-  words flying in. **Still untried in a real room** — check the music bed isn't
-  fighting the teacher's voice on classroom speakers, and whether the title sequence
-  is still welcome by the fourth round.
+- **Game show mode is now on all four games and has never been in front of a class.**
+  That is the gap: check the music bed isn't fighting the teacher's voice on the
+  classroom speakers, whether the title sequence is still welcome by the fourth
+  round (the once-per-session default is a guess, not evidence), and whether the
+  lights lift the energy or tip a class over. Adding a fifth game's ident is its
+  name in `theme`'s and `intro`'s `games` arrays, an `INTROS` entry, its stage rules
+  in the skin block of `hub.css`, and a source for `--tension`.
 - Product-line decision: is the Game Hub now the product, with #2/#3 as legacy?
 
 ## Constraints
@@ -412,7 +419,7 @@ back to memory for the session (the panel says so).
 
 ## Before you push
 ```bash
-NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~12 min, 182 checks
+NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~13 min, 199 checks
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=jeopardy,fit   # while iterating
 ```
 Drives all four games in a real browser and checks the things that have actually

@@ -670,6 +670,86 @@ async function testGameShowBlockbusters(browser){
   await page.close();
 }
 
+/* Race's ident. Its tension is the only one of the four with two ingredients: how
+   much of the board is gone, and whether a race is live this second. */
+async function testGameShowRace(browser){
+  section('Game show — Race to the Board');
+  const page = await openHub(browser);
+  const stress = () => page.evaluate(() =>
+    document.getElementById('play-race').style.getPropertyValue('--tension'));
+
+  await startGame(page, 'Race to the Board', { sections:'all' });
+  check('the default look is unchanged',
+        await page.evaluate(() => !document.getElementById('play-race').classList.contains('lit')));
+
+  await page.evaluate(() => {
+    window.HubSettings.set('theme', 'gameshow', 'race');
+    window.HubSettings.set('intro', 'every', 'race');
+  });
+  await startGame(page, 'Race to the Board', { sections:'all' });
+  check('the titles name this game',
+        (await page.locator('#intro-title').textContent()).trim() === 'RACE TO THE BOARD');
+  // four words at the shared 11vw cap would run off the screen. Measure only once
+  // the slam has landed: it holds at scale(2.4) through its delay, so a rect taken
+  // early reports the title two and a half times its real width.
+  await page.waitForTimeout(1400);
+  const title = await page.evaluate(() => ({
+    w: Math.round(document.getElementById('intro-title').getBoundingClientRect().width),
+    vw: window.innerWidth
+  }));
+  check('a four-word title still fits the screen', title.w < title.vw, title.w + ' of ' + title.vw);
+
+  await page.keyboard.press('Space'); await page.waitForTimeout(180);
+  check('the words fly in', await page.locator('#race-words.dealing').count() === 1);
+  await page.waitForTimeout(1500);
+  check('the stage is lit', await page.evaluate(() => document.getElementById('play-race').classList.contains('lit')));
+
+  const idle = parseFloat(await stress());
+  check('an untouched board with no sentence up is slack', idle === 0, String(idle));
+  await page.locator('#race-start').click(); await page.waitForTimeout(600);
+  const live = parseFloat(await stress());
+  check('a live sentence lifts the lights on its own', live > idle, idle + ' → ' + live);
+  check('and marks the stage as running', await page.locator('#play-race.running').count() === 1);
+
+  for (let i = 0; i < 3; i++){
+    const word = await currentRaceAnswer(page);
+    if (!word) break;
+    await page.locator('.race-word', { hasText: new RegExp('^' + word + '$','i') }).first().click();
+    await page.waitForTimeout(220);
+    if (await page.locator('#race-claim .claim-team').first().isVisible().catch(()=>false))
+      await page.keyboard.press('1');
+    await page.waitForTimeout(700);
+  }
+  const later = parseFloat(await stress());
+  check('clearing the board raises it further', later > live, live + ' → ' + later);
+
+  await page.evaluate(() => {
+    window.HubSettings.clearOverride('theme', 'race');
+    window.HubSettings.clearOverride('intro', 'race');
+  });
+  checkClean(page);
+  await page.close();
+}
+
+/* Every game now has an ident, and they must stay distinct — one accent reused
+   twice would make two games look like the same show. */
+async function testIdentsAreDistinct(browser){
+  section('Idents');
+  const page = await openHub(browser);
+  const idents = await page.evaluate(() => {
+    const out = {};
+    ['jeopardy','blockbusters','race','millionaire'].forEach(g=>{
+      out[g] = window.HubSettings.variantsFor('theme', g).map(v=>v.value);
+    });
+    return out;
+  });
+  Object.keys(idents).forEach(g=>
+    check(g + ' can be switched to game show mode', idents[g].indexOf('gameshow') !== -1,
+          idents[g].join(',')));
+  checkClean(page);
+  await page.close();
+}
+
 /* A cleared Jeopardy board used to do nothing at all — the same gap Blockbusters
    had. This is theme-independent: the banner appears either way. */
 async function testJeopardyFinish(browser){
@@ -926,7 +1006,7 @@ async function main(){
     jeopardy: testJeopardy, blockbusters: testBlockbusters, race: testRace,
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
-    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, jfinish: testJeopardyFinish,
+    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, jfinish: testJeopardyFinish,
     buzzers: testBuzzers,
     degradation: testDegradation, file: testFileProtocol
   };

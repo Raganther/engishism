@@ -63,13 +63,13 @@
      a DCU team bar. Only Millionaire is dressed so far — adding another game is its
      name in `games` plus an ident in INTROS. */
   S.register({ id:'theme', group:'Presentation', type:'variant', default:'dcu',
-    games:['jeopardy','blockbusters','millionaire'],
+    games:['jeopardy','blockbusters','race','millionaire'],
     label:'Look and feel', help:'Game show mode darkens the room, adds chase lights, an intro and music.',
     variants:[{value:'dcu',      label:'DCU — school colours'},
               {value:'gameshow', label:'Game show — lights, music, intro'}] });
 
   S.register({ id:'intro', group:'Presentation', type:'select', default:'once',
-    games:['jeopardy','blockbusters','millionaire'],
+    games:['jeopardy','blockbusters','race','millionaire'],
     label:'Title sequence', help:'The lights-and-logo opening. Any key or click skips it.',
     options:[{value:'once',  label:'Once per session'},
              {value:'every', label:'Every round'},
@@ -173,6 +173,26 @@
       src.start(t); src.stop(t+secs+0.05);
     }
 
+    /* Starting pistol. Same noise buffer as the applause, but the envelope is the
+       whole sound: three milliseconds of attack and a 90ms tail through a highpass
+       is a crack, where applause's slow swell is a room. */
+    function crack(){
+      const ac = live(); if(!ac) return;
+      const secs = 0.16;
+      const buf = ac.createBuffer(1, Math.ceil(ac.sampleRate*secs), ac.sampleRate);
+      const d = buf.getChannelData(0);
+      for(let i=0; i<d.length; i++) d[i] = Math.random()*2 - 1;
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const hp = ac.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=900;
+      const gain = ac.createGain();
+      const t = ac.currentTime, peak = level()*1.5;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(peak, t+0.003);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t+0.09);
+      src.connect(hp); hp.connect(gain); gain.connect(ac.destination);
+      src.start(t); src.stop(t+secs);
+    }
+
     /* Brass-ish rising figure for a cleared ladder — sawtooth under a lowpass is a
        serviceable horn section at classroom-speaker resolution. */
     function fanfare(){
@@ -239,7 +259,7 @@
       setTimeout(()=>{ try{ b.oscs.forEach(o=>o.stop()); b.out.disconnect(); }catch(e){} }, 600);
     }
 
-    return { play, applause, fanfare, bedStart, bedSet, bedStop };
+    return { play, applause, crack, fanfare, bedStart, bedSet, bedStop };
   })();
 
   /* ---- UI skeleton (identical for every unit) ---- */
@@ -550,7 +570,12 @@
     // to read against whatever the stage is
     blockbusters:{ eyebrow:'Cambridge Empower C1', title:'BLOCKBUSTERS',
                    sub:'Yellow goes across. Blue goes down. Build your line.',
-                   accent:'#C77DFF' }
+                   accent:'#C77DFF' },
+    // a four-word title needs a smaller cap than a one-word one, or it runs off
+    // the screen at the shared 11vw
+    race:        { eyebrow:'Cambridge Empower C1', title:'RACE TO THE BOARD',
+                   sub:'On your marks. Listen for the gap. Get there first.',
+                   accent:'#3DFFA8', titleVw:'6.4vw' }
   };
   const introShown = Object.create(null);      // per session, for the 'once' setting
 
@@ -570,6 +595,7 @@
     document.getElementById('intro-title').textContent   = cfg.title;
     document.getElementById('intro-sub').textContent     = cfg.sub;
     el.style.setProperty('--accent', cfg.accent);
+    el.style.setProperty('--title-vw', cfg.titleVw || '11vw');
 
     const ms = motionOK() ? 3600 : 1200;
     el.classList.toggle('still', !motionOK());
@@ -973,6 +999,7 @@
       if(game === 'millionaire') mTension();
       if(game === 'jeopardy'){ jTension(); jDeal(); }
       if(game === 'blockbusters'){ bbTension(); bbDeal(); }
+      if(game === 'race'){ rTension(); rDeal(); }
     };
     if(wantsIntro(activeGame)){
       const game = activeGame;
@@ -2280,6 +2307,9 @@
       if(w && !w.found){
         raceCurrent=item; setRacePrompt(item); updateRaceBar();
         if(raceMode==='h2h') armBuzzers(item.prompt);
+        // the sentence going up is the starting gun — that is the moment they run
+        if(document.getElementById('play-race').classList.contains('lit')) Sound.crack();
+        rTension();
         return;
       }
     }
@@ -2306,15 +2336,19 @@
     }
     raceCurrent=null;
     timerStop();
+    const showy = document.getElementById('play-race').classList.contains('lit');
+    Sound.bedStop();
     if(cleared){
-      Sound.play('clear');
+      if(showy){ Sound.fanfare(); setTimeout(()=>Sound.applause(2400), 640); }
+      else Sound.play('clear');
       setRaceMessage('Board cleared — final scores are in the team bar.');
     } else {
-      Sound.play('end');
+      Sound.play(showy ? 'klaxon' : 'end');
       nextTurn();                       // timed mode: hand the board to the next team
       setRacePrompt(null);
     }
     updateRaceBar();
+    rTension();
   }
 
   function updateRaceBar(){
@@ -2334,10 +2368,52 @@
     skipBtn.style.display  = (raceRunning && left) ? 'inline-block' : 'none';
   }
 
+  /* ---- Race's tension curve ----
+     The other three read a rung, a tile's value and the distance to a line. This
+     game has none of those, but it has two things that matter at once: **how much
+     of the board is gone**, and **whether a race is actually happening right now**.
+     A sentence going up is the moment students leave their chairs, so it counts for
+     nearly as much as a nearly-empty board — and the last word on the board with a
+     sentence live is the loudest this game gets, which is exactly right.
+
+     Deliberately the same in both modes. Timed rounds already have the header
+     clock going red under ten seconds; driving the stage off the clock as well
+     would mean the lights say something different from the number beside them. */
+  /* The words fly in — but only on the opening scatter. Race re-scatters after every
+     claim, and a full fly-in each time would put an animation between the teacher
+     and the next sentence a dozen times a game. The re-scatter instead glides, which
+     the CSS does for free once `.lit` puts a transition on left/top. */
+  function rDeal(){
+    const wrap = document.getElementById('race-words');
+    if(!document.getElementById('play-race').classList.contains('lit') || !motionOK()) return;
+    [...wrap.querySelectorAll('.race-word')].forEach((el, i)=> el.style.setProperty('--i', i));
+    wrap.classList.remove('dealing'); void wrap.offsetWidth;
+    wrap.classList.add('dealing');
+    setTimeout(()=>wrap.classList.remove('dealing'), 1800);
+  }
+
+  function rTension(){
+    const stage = document.getElementById('play-race');
+    const on = themeOf('race')==='gameshow' && activeGame==='race';
+    stage.classList.toggle('lit', on);
+    if(!on){ stage.style.removeProperty('--tension'); Sound.bedStop(); return; }
+
+    const done  = raceWords.filter(w=>w.found).length;
+    const clear = raceWords.length ? done/raceWords.length : 0;
+    const live  = !!(raceRunning && raceCurrent);
+    const t = Math.min(1, 0.6*clear + (live ? 0.4 : 0));
+    stage.style.setProperty('--tension', t.toFixed(3));
+    stage.classList.toggle('running', live);
+
+    if(live && motionOK()) Sound.bedStart(t);
+    else Sound.bedStop();
+  }
+
   function onRaceWordClick(w, el){
     if(!raceRunning || !raceCurrent || w.found || racePending) return;
+    const showy = document.getElementById('play-race').classList.contains('lit');
     if(w.word === raceCurrent.answer){
-      Sound.play('correct');
+      Sound.play(showy ? 'sting' : 'correct');
       el.classList.remove('wrong');
       if(raceMode==='h2h'){
         if(buzzWinner && teams[buzzWinner.team]){
@@ -2354,7 +2430,7 @@
         awardRaceWord(active, el);
       }
     } else {
-      Sound.play('wrong');
+      Sound.play(showy ? 'klaxon' : 'wrong');
       el.classList.add('wrong');
       setTimeout(()=>el.classList.remove('wrong'), 600);
       if(raceMode==='timed'){
@@ -2385,6 +2461,7 @@
       hit.el.classList.remove('pending');
       hit.el.classList.add('found', 'team-'+Math.min(teamIdx,3));
     }
+    rTension();
     nextRacePrompt();
   }
 
