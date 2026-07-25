@@ -63,13 +63,13 @@
      a DCU team bar. Only Millionaire is dressed so far — adding another game is its
      name in `games` plus an ident in INTROS. */
   S.register({ id:'theme', group:'Presentation', type:'variant', default:'dcu',
-    games:['millionaire'],
+    games:['jeopardy','millionaire'],
     label:'Look and feel', help:'Game show mode darkens the room, adds chase lights, an intro and music.',
     variants:[{value:'dcu',      label:'DCU — school colours'},
               {value:'gameshow', label:'Game show — lights, music, intro'}] });
 
   S.register({ id:'intro', group:'Presentation', type:'select', default:'once',
-    games:['millionaire'],
+    games:['jeopardy','millionaire'],
     label:'Title sequence', help:'The lights-and-logo opening. Any key or click skips it.',
     options:[{value:'once',  label:'Once per session'},
              {value:'every', label:'Every round'},
@@ -542,7 +542,10 @@
   const INTROS = {
     millionaire: { eyebrow:'Cambridge Empower C1', title:'MILLIONAIRE',
                    sub:'Eight rungs. One team at a time. No safety net.',
-                   accent:'#FFC83D' }
+                   accent:'#FFC83D' },
+    jeopardy:    { eyebrow:'Cambridge Empower C1', title:'JEOPARDY',
+                   sub:'Pick your category. Pick your price. Answer it.',
+                   accent:'#4FC3FF' }
   };
   const introShown = Object.create(null);      // per session, for the 'once' setting
 
@@ -720,6 +723,62 @@
       });
     }
     fitJeopardyBoard();
+    jTension();
+  }
+
+  /* In the lit theme the board deals itself in rather than simply appearing. The
+     stagger is a CSS variable per cell, so there is no JS animation to keep in
+     step — and like every other board measurement here, it can only run once the
+     play screen is actually visible. */
+  function jDeal(){
+    const board = document.getElementById('board');
+    if(!document.getElementById('play-jeopardy').classList.contains('lit') || !motionOK()) return;
+    // stagger on the diagonal, not on DOM order: a 12x6 board is 72 cells, so a flat
+    // stagger takes 3 seconds and the class is waiting on it. Row+column caps the
+    // wave at rows+columns steps — under a second — and reads as a sweep across the
+    // board rather than a queue.
+    const cols = Math.max(1, board.querySelectorAll('.cat-header').length);
+    [...board.children].forEach((el, i)=>
+      el.style.setProperty('--i', Math.floor(i/cols) + (i % cols)));
+    board.classList.remove('dealing'); void board.offsetWidth;
+    board.classList.add('dealing');
+    setTimeout(()=>board.classList.remove('dealing'), 1600);
+  }
+
+  /* ---- Jeopardy's tension curve ----
+     Millionaire has a ladder; Jeopardy's equivalent is what's at stake on the tile
+     in play, with a slow floor that rises as the board empties. So a $500 clue
+     late in a game is the brightest, hottest moment on the board, and an opening
+     $100 is the coolest — which is what the show's lighting actually does.
+     Same `--tension` contract as Millionaire, so the CSS is shared. */
+  function jValueRange(){
+    const vals = [];
+    JEOPARDY_CATEGORIES.filter(c=>selectedContent.includes(c.id))
+      .forEach(c=>c.clues.forEach(cl=>vals.push(cl.v)));
+    return vals.length ? { lo:Math.min(...vals), hi:Math.max(...vals) } : { lo:0, hi:1 };
+  }
+  function jTension(atStake){
+    const stage = document.getElementById('play-jeopardy');
+    const on = themeOf('jeopardy')==='gameshow' && activeGame==='jeopardy';
+    stage.classList.toggle('lit', on);
+    if(!on){ stage.style.removeProperty('--tension'); Sound.bedStop(); return; }
+
+    const tiles = [...document.querySelectorAll('#board .tile')];
+    const done  = tiles.filter(t=>t.classList.contains('used')).length;
+    const floor = tiles.length ? done/tiles.length : 0;
+
+    let stake = 0;
+    if(atStake){
+      const { lo, hi } = jValueRange();
+      stake = hi > lo ? (atStake - lo)/(hi - lo) : 1;
+    }
+    const t = Math.min(1, 0.45*floor + 0.55*stake);
+    stage.style.setProperty('--tension', t.toFixed(3));
+
+    // think music while a clue is on the table and unanswered — the show's own
+    // habit, and the reason a class stops talking and starts thinking
+    if(atStake && motionOK()) Sound.bedStart(t);
+    else Sound.bedStop();
   }
 
   /* The whole board has to be reachable without scrolling — a teacher can't scroll
@@ -904,14 +963,16 @@
     /* The intro plays over the finished board rather than before it is built, so
        the first thing behind the titles is the real thing, and skipping drops you
        straight into a game that is already running. */
+    const curtainUp = game=>{
+      if(activeGame !== game) return;        // they navigated away mid-titles
+      if(game === 'millionaire') mTension();
+      if(game === 'jeopardy'){ jTension(); jDeal(); }
+    };
     if(wantsIntro(activeGame)){
       const game = activeGame;
-      runIntro(game).then(()=>{
-        if(activeGame !== game) return;      // they navigated away mid-titles
-        if(game === 'millionaire') mTension();
-      });
-    } else if(activeGame === 'millionaire'){
-      mTension();
+      runIntro(game).then(()=>curtainUp(game));
+    } else {
+      curtainUp(activeGame);
     }
   });
 
@@ -1258,6 +1319,7 @@
       document.getElementById('reveal-btn').style.display='inline-block';
       document.getElementById('close-btn').style.display='inline-block';
     }
+    jTension(review ? 0 : clue.v);     // the lights follow what's at stake
     openClueCard(tile);
   }
 
@@ -1522,20 +1584,78 @@
 
   // Jeopardy: award the tile's value to the selected team, then pass the turn.
   document.getElementById('correct-btn').addEventListener('click', ()=>{
-    Sound.play('correct');
+    const showy = document.getElementById('play-jeopardy').classList.contains('lit');
+    const value = currentClueValue;
+    Sound.bedStop();
+    if(showy){
+      Sound.play('sting'); jFlash('right');
+      // the top of the board is worth a round of applause
+      if(value >= jValueRange().hi) setTimeout(()=>Sound.applause(1500), 260);
+    } else {
+      Sound.play('correct');
+    }
     if(currentTile){ currentTile.classList.add('used'); }   // keeps its value, faded
-    if(teams.length){ teams[active].score += currentClueValue; }
-    closeModal(flipMs(FLIP_HOLD_MS));
+    if(teams.length){ teams[active].score += value; }
+    closeModal(flipMs(FLIP_HOLD_MS), jAfterClue);
     nextTurn();
   });
   document.getElementById('wrong-btn').addEventListener('click', ()=>{
-    Sound.play('wrong');
+    const showy = document.getElementById('play-jeopardy').classList.contains('lit');
+    Sound.bedStop();
+    if(showy){ Sound.play('klaxon'); jFlash('wrong'); }
+    else Sound.play('wrong');
     if(currentTile){ currentTile.classList.add('used'); }   // keeps its value, faded
-    closeModal(flipMs(FLIP_HOLD_MS));
+    closeModal(flipMs(FLIP_HOLD_MS), jAfterClue);
     nextTurn();
   });
 
-  document.getElementById('close-btn').addEventListener('click', ()=>{ closeModal(); });
+  document.getElementById('close-btn').addEventListener('click', ()=>{
+    const wasJeopardy = modalMode==='jeopardy' || modalMode==='review';
+    closeModal(0, wasJeopardy ? ()=>jTension() : null);
+  });
+
+  /* A slow wash over the board on the result — same 1.5Hz ceiling and the same
+     reduced-motion opt-out as Millionaire's. */
+  function jFlash(kind){
+    const stage = document.getElementById('play-jeopardy');
+    if(!stage.classList.contains('lit') || !motionOK()) return;
+    stage.classList.remove('flash-right','flash-wrong');
+    void stage.offsetWidth;
+    stage.classList.add(kind==='right' ? 'flash-right' : 'flash-wrong');
+    setTimeout(()=>stage.classList.remove('flash-right','flash-wrong'), 900);
+  }
+
+  /* Once the card is back on its tile: reset the lights to the board's own level,
+     and if that was the last tile, call the game. A cleared board used to do
+     nothing at all — the same gap Blockbusters had. */
+  function jAfterClue(){
+    if(activeGame !== 'jeopardy') return;
+    jTension();
+    const tiles = [...document.querySelectorAll('#board .tile')];
+    if(!tiles.length || tiles.some(t=>!t.classList.contains('used'))) return;
+    jFinish();
+  }
+
+  function jFinish(){
+    const ranked = teams.map((t,i)=>({ t, i })).sort((a,b)=>b.t.score - a.t.score);
+    const top    = ranked[0];
+    if(!top) return;
+    const drawn  = ranked.length > 1 && ranked[1].t.score === top.t.score;
+    if(document.getElementById('play-jeopardy').classList.contains('lit')){
+      Sound.fanfare(); setTimeout(()=>Sound.applause(2400), 700);
+    } else {
+      Sound.play('clear');
+    }
+    showResult({
+      eyebrow:'Jeopardy · board cleared',
+      title: drawn ? 'It\'s a tie!' : (top.t.name + ' wins!'),
+      sub: drawn ? ranked.filter(r=>r.t.score===top.t.score).map(r=>r.t.name).join(' and ') +
+                   ' finish level on $' + top.t.score + '.'
+                 : 'Final score $' + top.t.score + '.',
+      tone: !drawn && top.i < 2 ? (top.i===0 ? 'gold' : 'silver') : null,
+      actions:[{ label:'Close', primary:true, onPick:function(){} }]
+    });
+  }
 
   // Blockbusters: claim (or skip) a hex, award +1 to the claiming team, pass turn.
   function claimHex(idx){

@@ -26,7 +26,7 @@ linked as `…?v=YYYYMMDDx` in the three page shells; without a bump, Chrome kee
 the cached JS/CSS and a fix looks like it never shipped (this has already cost one
 debugging round). Change it in all three shells together:
 ```bash
-sed -i '' 's/?v=[0-9a-z]*/?v=20260728c/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
+sed -i '' 's/?v=[0-9a-z]*/?v=20260728d/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
 ```
 The engine reads its own `?v=` and exposes it as `window.HUB_BUILD`; the settings panel
 footer shows it, so **"Build …" in ⚙ tells you which version is actually running.**
@@ -262,7 +262,7 @@ back to memory for the session (the panel says so).
     bar says so explicitly.
   - **Everything degrades**: buzzers off, relay dead, or WiFi gone → the hub behaves
     exactly as before with the manual chips / `1`-`2` keys. Verified for all three.
-- **Game show mode** — a second skin, Millionaire only so far. `theme` is a variant
+- **Game show mode** — a second skin, **Millionaire and Jeopardy**. `theme` is a variant
   setting (`dcu` | `gameshow`); `body.theme-gameshow` goes on when a themed game
   reaches the play screen and comes off when you leave, so the chrome never
   half-changes (a neon board over a navy team bar reads as broken). The DCU theme
@@ -288,6 +288,19 @@ back to memory for the session (the panel says so).
     in the skin is switched off under `prefers-reduced-motion`, which also shortens
     the intro to a still card rather than removing it.
   - Escape is deliberately *not* the skip key — it belongs to the settings panel.
+  - **Each game gets its own signature, not one sparkle applied four times.**
+    Millionaire: spotlight closing in, chase lights down both sides, gold.
+    Jeopardy: blue starfield, gold-on-navy tiles, a board that **deals itself in**
+    on the diagonal (`jDeal`). `--tension` is the same contract in both, but the
+    number comes from somewhere different — Millionaire's rung vs Jeopardy's
+    *value at stake* over a floor that rises as the board empties, so a $500 late
+    on is the hottest the board ever gets. **Stagger on `row+col`, never DOM
+    order**: a 12×6 board is 72 cells, and a flat stagger runs for 3 seconds with
+    the class waiting on it.
+- **A cleared Jeopardy board now ends the game** — `jFinish()` ranks the teams,
+  handles a tie, and raises the shared `showResult()` banner. Theme-independent;
+  the game-show skin just adds the fanfare and applause on top. Same gap
+  Blockbusters had.
 - **Settings panel** (⚙ in the header, Esc or click-away to close), built from a
   registry so a new feature's switch appears by registering it — see "Adding a
   feature" above. Currently: sound on/off, volume, race re-scatter, race round
@@ -363,17 +376,17 @@ back to memory for the session (the panel says so).
 - Measure authoring cost per unit (the number the demo pitch hinges on). Race is the
   cheapest data point so far: 36 prompts, no distractors.
 - Fill Unit 4's Jeopardy gap — the card claims 4A–4D but only 4A/4B have categories.
-- Small wins: "steal" in Blockbusters (wrong → other team claims); a winner banner
-  when a Jeopardy board is cleared — `showResult()` already exists, so this is a
-  call site, not a feature; self-host fonts for true offline.
-- **Game show mode is Millionaire-only.** Extending it to another game is: add the
-  game to `theme`'s `games` array, add an `INTROS` entry, and write the stage rules
-  in the skin block of `hub.css`. Ideas already sketched — Jeopardy: starfield +
-  searchlight, categories flipping up, chase lights racing round a chosen tile;
-  Blockbusters: honeycomb assembling, applause on the winning route (it already has
-  `showResult`); Race: stadium wash and a starting pistol. Untried in a real room —
-  check the bed isn't fighting the teacher's voice on classroom speakers, and
-  whether the intro is still welcome by the fourth round.
+- Small wins: "steal" in Blockbusters (wrong → other team claims); self-host fonts
+  for true offline — also what a chunkier display face for the game-show wordmarks
+  would need.
+- **Game show mode covers Millionaire and Jeopardy; Blockbusters and Race are next.**
+  Adding one is: the game in `theme`'s and `intro`'s `games` arrays, an `INTROS`
+  entry, and its stage rules in the skin block of `hub.css` — no engine change.
+  Sketched: Blockbusters, honeycomb assembling itself, applause on the winning route
+  (`showResult` and the route trace are already there, so this is nearly all CSS);
+  Race, stadium wash and a starting pistol. **Still untried in a real room** — check
+  the music bed isn't fighting the teacher's voice on classroom speakers, and whether
+  the title sequence is still welcome by the fourth round.
 - Product-line decision: is the Game Hub now the product, with #2/#3 as legacy?
 
 ## Constraints
@@ -387,7 +400,7 @@ back to memory for the session (the panel says so).
 
 ## Before you push
 ```bash
-NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~9 min, 155 checks
+NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~11 min, 170 checks
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=jeopardy,fit   # while iterating
 ```
 Drives all four games in a real browser and checks the things that have actually

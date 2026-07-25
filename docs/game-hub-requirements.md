@@ -438,7 +438,7 @@ saved boards and history — that still holds. Teacher **preferences** are persi
 no setting. Nothing about a game in progress is saved, and where a browser blocks
 storage the app degrades to session-only and says so in the panel.
 
-### 4.4d Game show mode — built for Millionaire, untrialled
+### 4.4d Game show mode — built for Millionaire and Jeopardy, untrialled
 
 An alternative **skin**, chosen per game in that game's settings tab: `dcu` (the
 default, unchanged) or `gameshow`. Dark stage, chase lights, a title sequence,
@@ -469,6 +469,20 @@ Decisions taken:
   colour washes rather than strobes, and reduced motion removes them entirely.
 - **Music is original.** Everything is synthesised from oscillators, so the cues are
   written in the spirit of a quiz show rather than reproduced from one.
+
+- **Each game gets its own signature.** One sparkle applied to four games reads as
+  one skin; four idents read as four shows. Millionaire is a closing spotlight and
+  chase lights in gold; Jeopardy is a blue starfield with a board that deals itself
+  in on the diagonal. They share the machinery, not the look.
+- **`--tension` is the same contract in both, fed from different places.** Millionaire
+  takes it from the rung; Jeopardy from what's at stake on the tile in play, over a
+  floor that rises as the board empties — so a $500 late in a game is the hottest the
+  board ever gets, which is what the show's lighting actually does.
+
+Also closed here: **a cleared Jeopardy board now ends the game** with a winner banner
+(`jFinish` → the shared `showResult`), handling a tie. That was §9's open "nothing
+happens when the board is cleared" and is independent of the theme — the game-show
+skin only adds the fanfare and applause on top.
 
 Open: whether the bed competes with the teacher's voice on classroom speakers, and
 whether the title sequence is still welcome by the fourth round of a lesson. Both

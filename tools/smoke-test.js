@@ -552,6 +552,94 @@ async function testGameShow(browser){
   await page.close();
 }
 
+/* Jeopardy's ident. Same skin machinery, a different signature: a starfield board
+   that deals itself in, and tension driven by what's at stake on the tile in play
+   rather than by a ladder. */
+async function testGameShowJeopardy(browser){
+  section('Game show — Jeopardy');
+  const page = await openHub(browser);
+  const stress = () => page.evaluate(() =>
+    document.getElementById('play-jeopardy').style.getPropertyValue('--tension'));
+
+  await startGame(page, 'Jeopardy', { sections:'all' });
+  check('the default look is unchanged',
+        await page.evaluate(() => !document.getElementById('play-jeopardy').classList.contains('lit')));
+
+  await page.evaluate(() => {
+    window.HubSettings.set('theme', 'gameshow', 'jeopardy');
+    window.HubSettings.set('intro', 'every', 'jeopardy');
+  });
+  await startGame(page, 'Jeopardy', { sections:'all' });
+  check('the titles name this game',
+        (await page.locator('#intro-title').textContent()).trim() === 'JEOPARDY');
+  await page.keyboard.press('Space'); await page.waitForTimeout(200);
+  check('the board deals itself in', await page.locator('#board.dealing').count() === 1);
+  // a flat stagger over a 12x6 board runs for three seconds; the diagonal caps it
+  const wave = await page.evaluate(() => {
+    const kids = [...document.getElementById('board').children];
+    return Math.max(...kids.map(k => +k.style.getPropertyValue('--i') || 0));
+  });
+  check('the deal is a diagonal wave, not a queue', wave < 20, 'longest delay step ' + wave);
+  await page.waitForTimeout(1500);
+  check('the stage is lit', await page.evaluate(() => document.getElementById('play-jeopardy').classList.contains('lit')));
+
+  // what is at stake drives the lights: the cheapest tile is the coolest moment
+  const rest = await stress();
+  await page.locator('#board .tile', { hasText:/^\$100$/ }).first().click();
+  await page.waitForTimeout(1350);
+  const low = await stress();
+  await page.locator('#reveal-btn').click(); await page.waitForTimeout(160);
+  await page.locator('#correct-btn').click(); await page.waitForTimeout(1700);
+  await page.locator('#board .tile:not(.used)', { hasText:/^\$500$/ }).first().click();
+  await page.waitForTimeout(1350);
+  const high = await stress();
+  check('a dearer tile raises the tension', parseFloat(high) > parseFloat(low),
+        'rest ' + rest + ', $100 ' + low + ', $500 ' + high);
+  await page.locator('#reveal-btn').click(); await page.waitForTimeout(160);
+  await page.locator('#correct-btn').click(); await page.waitForTimeout(1700);
+  check('the lights drop back once the card is away', parseFloat(await stress()) < parseFloat(high));
+
+  await page.evaluate(() => {
+    window.HubSettings.clearOverride('theme', 'jeopardy');
+    window.HubSettings.clearOverride('intro', 'jeopardy');
+  });
+  checkClean(page);
+  await page.close();
+}
+
+/* A cleared Jeopardy board used to do nothing at all — the same gap Blockbusters
+   had. This is theme-independent: the banner appears either way. */
+async function testJeopardyFinish(browser){
+  section('Jeopardy — board cleared');
+  const page = await openHub(browser);
+  await startGame(page, 'Jeopardy', { sections:3 });
+
+  const total = await page.locator('#board .tile').count();
+  for (let i = 0; i < total; i++){
+    const tile = page.locator('#board .tile:not(.used)').first();
+    if (!(await tile.count())) break;
+    await tile.click(); await page.waitForTimeout(1250);
+    await page.locator('#reveal-btn').click(); await page.waitForTimeout(140);
+    // alternate right and wrong so the two teams do not finish level
+    await page.locator(i % 3 === 0 ? '#wrong-btn' : '#correct-btn').click();
+    await page.waitForTimeout(1450);
+  }
+  await page.waitForTimeout(700);
+  const fin = await page.evaluate(() => ({
+    unused: document.querySelectorAll('#board .tile:not(.used)').length,
+    banner: document.getElementById('result-modal').classList.contains('on'),
+    title:  document.getElementById('result-title').textContent,
+    sub:    document.getElementById('result-sub').textContent
+  }));
+  check('every tile was played', fin.unused === 0, fin.unused + ' left');
+  check('a cleared board raises the banner', fin.banner);
+  check('the banner declares a result', /wins|tie/i.test(fin.title), fin.title);
+  check('the banner gives the final score', /\$\d/.test(fin.sub), fin.sub);
+
+  checkClean(page);
+  await page.close();
+}
+
 const tension = page =>
   page.evaluate(() => document.getElementById('play-millionaire').style.getPropertyValue('--tension'));
 
@@ -775,7 +863,7 @@ async function main(){
     jeopardy: testJeopardy, blockbusters: testBlockbusters, race: testRace,
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
-    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow,
+    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, jfinish: testJeopardyFinish,
     buzzers: testBuzzers,
     degradation: testDegradation, file: testFileProtocol
   };
