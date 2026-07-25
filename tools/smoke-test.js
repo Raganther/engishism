@@ -63,6 +63,12 @@ async function openHub(browser, viewport){
 }
 
 async function startGame(page, gameTitle, { sections = 1, unit = 'Unit 5' } = {}){
+  // callers may already be mid-game; walk back to the unit screen first
+  const newGame = page.locator('#new-game-btn');
+  if (await newGame.isVisible().catch(()=>false)){ await newGame.click(); await page.waitForTimeout(180); }
+  const changeUnit = page.locator('#change-unit');
+  if (await changeUnit.isVisible().catch(()=>false)){ await changeUnit.click(); await page.waitForTimeout(180); }
+
   await page.getByText(unit, { exact:false }).first().click();
   await page.waitForTimeout(180);
   await page.locator('h3:visible', { hasText: gameTitle }).first().click();
@@ -308,6 +314,75 @@ async function testSettings(browser){
   await page.close();
 }
 
+async function testPerGameSettings(browser){
+  section('Per-game settings');
+  const page = await openHub(browser);
+
+  await page.locator('#settings-btn').click(); await page.waitForTimeout(250);
+  const tabs = await page.locator('.settings-tab').allInnerTexts();
+  check('a tab per game plus All games', tabs.length >= 5, tabs.join('|'));
+  const masterRows = await page.locator('.settings-row').count();
+  await page.locator('.settings-tab', { hasText:'Jeopardy' }).click(); await page.waitForTimeout(200);
+  const jeoRows = await page.locator('.settings-row').count();
+  check('a game tab shows only what applies to it', jeoRows > 0 && jeoRows < masterRows,
+        jeoRows + ' of ' + masterRows);
+  check('nothing is overridden to begin with',
+        (await page.locator('.settings-state').allInnerTexts()).every(t => /matching/i.test(t)));
+  await page.locator('#settings-close').click();
+
+  // the whole point: off in one game, untouched in another
+  await page.evaluate(() => window.HubSettings.set('cardFlip', false, 'blockbusters'));
+  await page.reload(); await page.waitForTimeout(400);
+  const read = g => page.evaluate(x => window.HubSettings.get('cardFlip', x), g);
+  check('override survives reload', await read('blockbusters') === false);
+  check('the other game is unaffected', await read('jeopardy') === true);
+  check('the master value is unaffected',
+        await page.evaluate(() => window.HubSettings.get('cardFlip')) === true);
+
+  // and it changes behaviour, not just storage
+  await startGame(page, 'Blockbusters', { sections:'all' });
+  await page.locator('.hex').first().click(); await page.waitForTimeout(150);
+  check('override actually suppresses the animation',
+        await page.evaluate(() => document.getElementById('clue-card').getAnimations().length) === 0);
+  check('the card still opens', await page.locator('#clue-modal').isVisible());
+  await page.locator('#skip-btn').click(); await page.waitForTimeout(300);
+
+  await page.evaluate(() => window.HubSettings.clearOverride('cardFlip', 'blockbusters'));
+  check('clearing an override falls back to master', await read('blockbusters') === true);
+
+  // ⚙ opens on the tab for whatever is being played
+  await startGame(page, 'Jeopardy', { sections:3 });
+  await page.locator('#settings-btn').click(); await page.waitForTimeout(250);
+  check('gear opens on the current game\'s tab',
+        /jeopardy/i.test(await page.locator('.settings-tab.on').innerText()));
+  await page.locator('#settings-close').click();
+
+  checkClean(page);
+  await page.close();
+}
+
+/* Settings written before per-game scoping existed are flat keys. They are master
+   values under the same names, so they must keep working untouched. */
+async function testSettingsMigration(browser){
+  section('Old settings still apply');
+  const page = await openHub(browser);
+  await page.evaluate(() => localStorage.setItem('engishism.gamehub.settings',
+    JSON.stringify({ sound:false, soundVolume:'loud', cardFlip:false, raceRoundSeconds:90 })));
+  await page.reload(); await page.waitForTimeout(400);
+  const got = await page.evaluate(() => ({
+    sound:  window.HubSettings.get('sound','race'),
+    volume: window.HubSettings.get('soundVolume','jeopardy'),
+    flip:   window.HubSettings.get('cardFlip','blockbusters'),
+    round:  window.HubSettings.get('raceRoundSeconds','race')
+  }));
+  check('a pre-scoping value is read as the master', got.sound === false, JSON.stringify(got));
+  check('and applies to every game', got.volume === 'loud' && got.flip === false && got.round === 90,
+        JSON.stringify(got));
+  await page.evaluate(() => localStorage.removeItem('engishism.gamehub.settings'));
+  checkClean(page);
+  await page.close();
+}
+
 async function testBuzzers(browser){
   section('Phone buzzers');
   const host = await openHub(browser);
@@ -412,7 +487,8 @@ async function main(){
   const suites = {
     jeopardy: testJeopardy, blockbusters: testBlockbusters, race: testRace,
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens,
-    settings: testSettings, buzzers: testBuzzers,
+    settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
+    buzzers: testBuzzers,
     degradation: testDegradation, file: testFileProtocol
   };
   const toRun = onlyArg ? onlyArg.split(',').map(s => s.trim()).filter(k => suites[k])

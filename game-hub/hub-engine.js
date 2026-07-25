@@ -28,22 +28,24 @@
 
   /* ---- feature switches. Adding a feature? Register it here and the settings
      panel picks it up automatically — there is no panel markup to edit. ---- */
-  S.register({ id:'sound', group:'Sound', type:'toggle', default:true,
+  S.register({ id:'sound', group:'Sound', type:'toggle', default:true, games:['jeopardy','blockbusters','race','millionaire'],
     label:'Sound effects', help:'Short tones for a right answer, a wrong one, and a cleared board.' });
-  S.register({ id:'soundVolume', group:'Sound', type:'select', default:'med',
+  S.register({ id:'soundVolume', group:'Sound', type:'select', default:'med', games:['jeopardy','blockbusters','race','millionaire'],
     label:'Volume', help:'Classroom speakers are usually louder than they sound at your desk.',
     options:[{value:'quiet',label:'Quiet'},{value:'med',label:'Medium'},{value:'loud',label:'Loud'}] });
 
-  S.register({ id:'cardFlip', group:'Jeopardy & Blockbusters', type:'toggle', default:true,
+  S.register({ id:'cardFlip', group:'Clue card', type:'toggle', default:true,
+    games:['jeopardy','blockbusters'],
     label:'Card flip animation', help:'The clue card grows out of the tile and turns over. Switch off if the classroom machine stutters.' });
 
-  S.register({ id:'flipSpeed', group:'Jeopardy & Blockbusters', type:'select', default:'normal',
+  S.register({ id:'flipSpeed', group:'Clue card', type:'select', default:'normal',
+    games:['jeopardy','blockbusters'],
     label:'Flip speed', help:'How long the card takes to turn over and come back.',
     options:[{value:'relaxed',label:'Relaxed'},{value:'normal',label:'Normal'},{value:'snappy',label:'Snappy'}] });
 
-  S.register({ id:'mLifelines', group:'Millionaire', type:'toggle', default:true,
+  S.register({ id:'mLifelines', group:'Millionaire', type:'toggle', default:true, games:['millionaire'],
     label:'Lifelines', help:'50:50, Ask the class, and Confer — one use each per team.' });
-  S.register({ id:'mConferSeconds', group:'Millionaire', type:'select', default:30,
+  S.register({ id:'mConferSeconds', group:'Millionaire', type:'select', default:30, games:['millionaire'],
     label:'Confer time', help:'How long a team gets to consult when they use Confer.',
     options:[{value:30,label:'30 seconds'},{value:45,label:'45 seconds'},{value:60,label:'60 seconds'}] });
 
@@ -53,12 +55,12 @@
     label:'Relay address', placeholder:'same site as this page',
     help:'Leave empty when the page is being served by the relay itself — which is the simplest setup. Otherwise the https address of a hosted relay.' });
 
-  S.register({ id:'raceRescatter', group:'Race to the Board', type:'toggle', default:true,
+  S.register({ id:'raceRescatter', group:'Race to the Board', type:'toggle', default:true, games:['race'],
     label:'Re-scatter after every claim', help:'Moves the words each time one is won, so nobody wins on memory alone.' });
-  S.register({ id:'raceRoundSeconds', group:'Race to the Board', type:'select', default:60,
+  S.register({ id:'raceRoundSeconds', group:'Race to the Board', type:'select', default:60, games:['race'],
     label:'Timed round length', help:'Only used in timed team rounds.',
     options:[{value:45,label:'45 seconds'},{value:60,label:'60 seconds'},{value:90,label:'90 seconds'}] });
-  S.register({ id:'raceShowSection', group:'Race to the Board', type:'toggle', default:true,
+  S.register({ id:'raceShowSection', group:'Race to the Board', type:'toggle', default:true, games:['race'],
     label:'Show the section tag', help:'The small 5A / 5B label above the sentence.' });
 
   /* ---- sound: synthesised, so it needs no audio files and still works offline ---- */
@@ -82,11 +84,11 @@
       return ctx;
     }
     function play(name){
-      if(!S.get('sound')) return;
+      if(!S.get('sound', activeGame)) return;
       const seq = VOICES[name]; if(!seq) return;
       const ac = audio(); if(!ac) return;
       if(ac.state==='suspended' && ac.resume) ac.resume();
-      const peak = LEVEL[S.get('soundVolume')] || LEVEL.med;
+      const peak = LEVEL[S.get('soundVolume', activeGame)] || LEVEL.med;
       let at = ac.currentTime;
       seq.forEach(n=>{
         const osc=ac.createOscillator(), gain=ac.createGain();
@@ -280,6 +282,7 @@
 
   const GAME_TITLES = { jeopardy:'Jeopardy', blockbusters:'Blockbusters',
                         race:'Race to the Board', millionaire:'Millionaire' };
+  window.HUB_GAME_TITLES = GAME_TITLES;      // the settings panel labels its tabs with these
 
   // Which games a unit can actually offer — a unit without a bank for a game
   // simply doesn't show that card, so units can adopt new games one at a time.
@@ -352,6 +355,7 @@
   document.querySelectorAll('.game-card').forEach(card=>{
     card.addEventListener('click', ()=>{
       activeGame = card.dataset.game;
+      S.setContext(activeGame);        // ⚙ opens on this game's tab from here on
       document.getElementById('page-title').textContent = GAME_TITLES[activeGame] || 'Game Hub';
       renderContentScreen();
       showScreen('screen-content-select');
@@ -371,6 +375,7 @@
 
   document.getElementById('new-game-btn').addEventListener('click', ()=>{
     activeGame=null; selectedContent=[]; pool=[]; raceRunning=false;
+    S.setContext(null);
     closeBuzzRoom();
     document.getElementById('page-title').textContent='Game Hub';
     showScreen('screen-game-select');
@@ -604,12 +609,12 @@
     } else if(activeGame==='millionaire'){
       document.getElementById('play-millionaire').style.display='block';
       buildMillionaire();
-      timerSetDuration(Number(S.get('mConferSeconds')) || 30);
+      timerSetDuration(Number(S.get('mConferSeconds', 'millionaire')) || 30);
     } else if(activeGame==='race'){
       document.getElementById('play-race').style.display='block';
       buildRaceBoard();
       if(raceMode==='h2h') openBuzzRoom(); else closeBuzzRoom();
-      timerSetDuration(Number(S.get('raceRoundSeconds')) || 60);
+      timerSetDuration(Number(S.get('raceRoundSeconds', 'race')) || 60);
     }
     showScreen('screen-play');
     // neither board can be measured until the play screen is actually visible
@@ -735,7 +740,7 @@
   const FLIP_CLOSE_MS = 1000;   // turn back to the value, then settle into the tile
   const FLIP_HOLD_MS  = 550;    // beat before the card leaves, once it's been answered
   const FLIP_SPEEDS   = { relaxed:1.35, normal:1, snappy:0.72 };
-  function flipMs(base){ return Math.round(base * (FLIP_SPEEDS[S.get('flipSpeed')] || 1)); }
+  function flipMs(base){ return Math.round(base * (FLIP_SPEEDS[S.get('flipSpeed', activeGame)] || 1)); }
 
   // The card's own untransformed box. Measuring while a rotateY is applied gives the
   // projected box, which skews the maths and makes the card land off its tile.
@@ -748,7 +753,7 @@
   }
 
   function flipEnabled(){
-    if(!S.get('cardFlip')) return false;
+    if(!S.get('cardFlip', activeGame)) return false;
     try{ return !window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
     catch(e){ return true; }
   }
@@ -956,7 +961,7 @@
 
     // lifelines belong to the team whose turn it is
     document.querySelectorAll('#m-lifelines .lifeline').forEach(btn=>{
-      const on = S.get('mLifelines');
+      const on = S.get('mLifelines', 'millionaire');
       btn.style.display = on ? 'inline-block' : 'none';
       btn.disabled = !on || !st.lifelines[btn.dataset.life] || !mCurrent || mAnswered;
       btn.classList.toggle('spent', !st.lifelines[btn.dataset.life]);
@@ -1074,7 +1079,7 @@
       mCurrent.options.forEach(o=>{ mTally[o] = 0; });
       renderMillionaire();
     } else if(kind === 'confer'){
-      timerSetDuration(Number(S.get('mConferSeconds')) || 30);
+      timerSetDuration(Number(S.get('mConferSeconds', 'millionaire')) || 30);
       timerReset(); timerStart();
     }
     renderMillionaire();
@@ -1327,7 +1332,7 @@
     el.classList.add('live');
     el.innerHTML='';
     const sec=document.createElement('span'); sec.className='race-sec';
-    sec.textContent = S.get('raceShowSection') ? item.section : '';
+    sec.textContent = S.get('raceShowSection', 'race') ? item.section : '';
     const sent=document.createElement('span'); sent.className='race-sentence';
     item.prompt.split(/___+/).forEach((part,i,arr)=>{
       sent.appendChild(document.createTextNode(part));
@@ -1445,7 +1450,7 @@
     hideClaimBar();
     resetBuzzers();
     renderScorebar();
-    if(S.get('raceRescatter')){
+    if(S.get('raceRescatter', 'race')){
       renderRaceWords();   // re-scatter, so nobody wins on remembering where a word sat
     } else if(hit.el){
       hit.el.classList.remove('pending');
@@ -1540,7 +1545,7 @@
   S.onChange((id)=>{
     if(id==='raceShowSection' && activeGame==='race' && raceCurrent) setRacePrompt(raceCurrent);
     if(id==='raceRoundSeconds' && activeGame==='race' && raceMode==='timed' && !raceRunning){
-      timerSetDuration(Number(S.get('raceRoundSeconds')) || 60);
+      timerSetDuration(Number(S.get('raceRoundSeconds', 'race')) || 60);
     }
   });
   if(UNITS.length===1){

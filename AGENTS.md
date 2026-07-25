@@ -97,10 +97,21 @@ panel builds its own row — **there is no panel markup to edit**:
 
 ```js
 S.register({ id:'myThing', group:'Race to the Board', type:'toggle', default:true,
+             games:['race'],                       // which games it applies to
              label:'Human-readable name', help:'One line on what it does.' });
-// then, wherever it matters:
-if(S.get('myThing')) { … }
+// then, wherever it matters — always pass the game:
+if(S.get('myThing', activeGame)) { … }
 ```
+**Naming `games` makes it per-game overridable.** The panel grows an *All games* tab
+holding the master value plus one tab per game; a game follows the master until
+explicitly overridden, and each row says which it is doing. ⚙ opens on the tab for
+whatever is being played (`S.setContext`). Omit `games` for infrastructure that isn't
+per-game — the buzzer relay address, for instance.
+
+Storage: `id` is the master, `id@game` is an override. Settings written before scoping
+existed are master values under the same keys, so nothing needed migrating — there is a
+smoke test pinning that.
+
 `type:'select'` takes `options:[{value,label}]`. `S.onChange(fn)` is for settings that
 should change what's already on screen without restarting the game. Values persist in
 `localStorage` per device; a browser that blocks storage on `file://` silently falls
