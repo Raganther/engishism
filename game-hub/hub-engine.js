@@ -1782,6 +1782,9 @@
     }
     renderScorebar();
     renderLadder();
+    // the ladder now shows the new rung lit, so the stage has to agree — without
+    // this the lights stayed on the old rung until the next question was dealt
+    mTension();
     document.querySelectorAll('#m-lifelines .lifeline').forEach(b=>b.disabled = true);
     document.getElementById('m-next').style.display = 'inline-block';
   }

@@ -510,16 +510,13 @@ async function testGameShow(browser){
   // one number drives the lights and the music, and it climbs with the ladder
   const low = await page.evaluate(() => document.getElementById('play-millionaire').style.getPropertyValue('--tension'));
   check('the stage is lit and starts slack', parseFloat(low) === 0, low);
-  await page.evaluate(() => { window.HubSettings.set('mLifelines', false, 'millionaire'); });
-  for (let i = 0; i < 26; i++){
+  for (let i = 0; i < 8; i++){
     const next = page.locator('#m-next');
-    if (await next.isVisible().catch(()=>false)){ await next.click(); await page.waitForTimeout(220); continue; }
-    const opts = page.locator('#m-options .m-option:not([disabled])');
-    if (!(await opts.count())) break;
-    await opts.first().click(); await page.waitForTimeout(900);
-    if (parseFloat(await page.evaluate(() => document.getElementById('play-millionaire').style.getPropertyValue('--tension'))) > 0.4) break;
+    if (await next.isVisible().catch(()=>false)){ await next.click(); await page.waitForTimeout(240); continue; }
+    if (!(await answerCorrectly(page))) break;
+    if (parseFloat(await tension(page)) >= 0.28) break;
   }
-  const high = await page.evaluate(() => document.getElementById('play-millionaire').style.getPropertyValue('--tension'));
+  const high = await tension(page);
   check('tension climbs with the rung', parseFloat(high) > parseFloat(low), low + ' → ' + high);
 
   // and it all comes off again — a neon board over a navy team bar reads as broken
@@ -553,6 +550,30 @@ async function testGameShow(browser){
   });
   checkClean(page);
   await page.close();
+}
+
+const tension = page =>
+  page.evaluate(() => document.getElementById('play-millionaire').style.getPropertyValue('--tension'));
+
+/* Clicking options at random and hoping made this test flaky — one in four, and a
+   run that got unlucky reported the feature broken. The answer isn't in the DOM
+   before it is given (deliberately), so look the prompt up in the loaded content
+   bank instead and climb the ladder deterministically. */
+async function answerCorrectly(page){
+  const answer = await page.evaluate(() => {
+    const q = document.getElementById('m-question').textContent;
+    for (const u of (window.UNITS || [])){
+      const hit = (u.millionaireBank || []).find(x => x.prompt === q);
+      if (hit) return hit.answer;
+    }
+    return null;
+  });
+  if (!answer) return false;
+  const opt = page.locator('#m-options .m-option[data-opt="' + answer.replace(/"/g,'\\"') + '"]');
+  if (!(await opt.count())) return false;
+  await opt.first().click();
+  await page.waitForTimeout(900);
+  return true;
 }
 
 async function testSettingsMigration(browser){
