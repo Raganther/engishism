@@ -21,6 +21,16 @@ git add -A && git commit -m "..."   # save
 git push                            # deploy to GitHub Pages
 ```
 
+**Bump the cache stamp whenever you change a file under `game-hub/`.** Every asset is
+linked as `…?v=YYYYMMDDx` in the three page shells; without a bump, Chrome keeps serving
+the cached JS/CSS and a fix looks like it never shipped (this has already cost one
+debugging round). Change it in all three shells together:
+```bash
+sed -i '' 's/?v=[0-9a-z]*/?v=20260726a/g' game-hub.html game-hub-unit4.html game-hub-unit5.html   # macOS
+```
+The engine reads its own `?v=` and exposes it as `window.HUB_BUILD`; the settings panel
+footer shows it, so **"Build …" in ⚙ tells you which version is actually running.**
+
 ## Architecture — three generations coexist
 1. **Classroom Game Hub (current focus).** The MVP demo. One consolidated app;
    flow is **choose unit → choose game → choose sections → play**.

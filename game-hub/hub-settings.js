@@ -89,9 +89,12 @@ window.HubSettings = (function(){
     panel.querySelector('#settings-close').addEventListener('click', close);
     panel.querySelector('#settings-reset').addEventListener('click', ()=>{ resetAll(); renderBody(); });
     panel.addEventListener('click', e=>{ if(e.target===panel) close(); });
-    panel.querySelector('.settings-note').textContent = storageOK
+    const note = storageOK
       ? 'Saved on this device — your choices are remembered next lesson.'
       : "This browser won't let the page save settings from a file, so these last for this session only.";
+    // the build stamp makes a stale cached copy visible instead of silent
+    panel.querySelector('.settings-note').textContent =
+      note + (window.HUB_BUILD ? '  ·  Build ' + window.HUB_BUILD : '');
   }
 
   function renderBody(){

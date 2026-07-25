@@ -16,6 +16,16 @@
   const S = window.HubSettings;
   if(!S){ throw new Error('hub-engine: game-hub/hub-settings.js must load before hub-engine.js'); }
 
+  /* Which build is actually running — read from this script's own ?v= stamp, so the
+     HTML stays the single source of truth. Shown in the settings panel: a cached old
+     copy of the engine is otherwise invisible and looks like the fix never landed. */
+  window.HUB_BUILD = (function(){
+    const el = document.currentScript ||
+               [...document.querySelectorAll('script[src*="hub-engine.js"]')].pop();
+    const m = el && el.src && el.src.match(/[?&]v=([^&]+)/);
+    return m ? decodeURIComponent(m[1]) : 'dev';
+  })();
+
   /* ---- feature switches. Adding a feature? Register it here and the settings
      panel picks it up automatically — there is no panel markup to edit. ---- */
   S.register({ id:'sound', group:'Sound', type:'toggle', default:true,
