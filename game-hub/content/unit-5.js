@@ -35,6 +35,13 @@
       {v:400, q:"Complete (formal): 'the prison, the walls ___ which are covered in art'.", a:"of"},
       {v:500, q:"Make it formal: 'some of the prisoners, who have committed serious crimes' → 'some ___ ___ …'.", a:"of whom"},
     ]},
+    { id:'change-the-word', section:'5A', name:'Change the Word', clues:[
+      {v:100, q:"Change the verb 'to convict' into the noun for the court's decision.", a:"conviction"},
+      {v:200, q:"Change 'crime' into the word for the person who commits one.", a:"criminal"},
+      {v:300, q:"Change 'guilt' into the adjective a court uses in its verdict.", a:"guilty"},
+      {v:400, q:"Change the verb 'to prosecute' into the noun for the lawyers doing it.", a:"the prosecution"},
+      {v:500, q:"Change 'rehabilitate' into the noun for the whole process.", a:"rehabilitation"},
+    ]},
     { id:'employment', section:'5B', name:'Employment & Sectors', clues:[
       {v:100, q:"A distinct area of the economy, such as retail or transport: a ___.", a:"sector"},
       {v:200, q:"Banking and investment belong to the ___ sector.", a:"financial"},
@@ -56,6 +63,13 @@
       {v:400, q:"Lack of obligation: 'you ___ have to pay tax on it' (it isn't necessary).", a:"don't"},
       {v:500, q:"Mild advice, not 'must': 'you ___ to get some experience first'.", a:"ought / should"},
     ]},
+    { id:'spot-the-error', section:'5B', name:'Spot the Error', clues:[
+      {v:100, q:"Correct it: 'You must to wear a helmet on site.'", a:"you must wear (no 'to' after a modal)"},
+      {v:200, q:"Correct it: 'She is obliged for provide safety gear.'", a:"obliged TO provide"},
+      {v:300, q:"Correct it: 'It isn't permitted bringing food into the lab.'", a:"permitted TO BRING"},
+      {v:400, q:"Correct it: 'You haven't to pay tax on that.'", a:"you don't have to pay"},
+      {v:500, q:"Correct it: 'He was made redundancy last year.'", a:"he was made REDUNDANT (adjective)"},
+    ]},
     { id:'recall-speculate', section:'5C', name:'Recall or Speculate?', clues:[
       {v:100, q:"Recalling or speculating? 'If my memory serves me correctly…'", a:"recalling"},
       {v:200, q:"Recalling or speculating? 'I'd hazard a guess that…'", a:"speculating"},
@@ -76,6 +90,13 @@
       {v:300, q:"'No doubt you heard that from…' expresses…", a:"a confident assumption"},
       {v:400, q:"'If my memory serves me correctly' is used to…", a:"introduce something you're recalling (with slight uncertainty)"},
       {v:500, q:"'What stands out in my mind' refers to…", a:"the thing you remember most clearly"},
+    ]},
+    { id:'odd-one-out', section:'5C', name:'Odd One Out', clues:[
+      {v:100, q:"Which is NOT about remembering? recall / remember / hazard / memory", a:"hazard (it's for guessing)"},
+      {v:200, q:"Which shows you are SURE? I'd hazard a guess / I'd say roughly / no doubt / I'm not certain", a:"no doubt"},
+      {v:300, q:"Which is NOT a real expression? it slipped my mind / it crossed my mind / it fell out of my mind", a:"it fell out of my mind"},
+      {v:400, q:"Which adjective does NOT go with 'memory'? vague / painful / lasting / heavy", a:"heavy"},
+      {v:500, q:"Which does NOT introduce something you recall? if my memory serves / what stands out in my mind / I'd hazard a guess", a:"I'd hazard a guess (that's speculating)"},
     ]},
   ],
 
@@ -129,12 +150,26 @@
     {section:'5C', letter:'R', clue:"To ___ something is to bring a past event back to mind.", answer:"Recall"},
     {section:'5C', letter:'S', clue:"To ___ is to guess about something you're not sure of.", answer:"Speculate"},
     {section:'5C', letter:'M', clue:"'It's slipped my ___' — I've forgotten it.", answer:"Mind"},
+
+    /* ---- added later: transformations and opposites, to vary the clue types ---- */
+    {section:'5A', letter:'C', clue:"Change the verb 'to convict' into the noun for the court's decision.", answer:"Conviction"},
+    {section:'5A', letter:'C', clue:"Change 'crime' into the word for the person who commits one.", answer:"Criminal"},
+    {section:'5A', letter:'I', clue:"The opposite of a guilty verdict.", answer:"Innocent"},
+    {section:'5A', letter:'A', clue:"Change the noun 'accusation' into the past participle: 'he was ___ of fraud'.", answer:"Accused"},
+    {section:'5B', letter:'R', clue:"Change the adjective 'redundant' into the noun for the job cuts.", answer:"Redundancy"},
+    {section:'5B', letter:'O', clue:"Change the verb 'oblige' into the noun for a duty you must fulfil.", answer:"Obligation"},
+    {section:'5B', letter:'P', clue:"Change the verb 'permit' into the noun for official approval.", answer:"Permission"},
+    {section:'5B', letter:'M', clue:"Give another word for 'compulsory' — something you absolutely must do.", answer:"Mandatory"},
+    {section:'5C', letter:'S', clue:"Change the verb 'to speculate' into the noun.", answer:"Speculation"},
+    {section:'5C', letter:'A', clue:"Change the verb 'assume' into the noun for something taken for granted.", answer:"Assumption"},
+    {section:'5C', letter:'I', clue:"Change the verb 'impress' into the noun used in 'I was under the ___'.", answer:"Impression"},
+    {section:'5C', letter:'V', clue:"Which adjective describes a memory that is unclear or hazy?", answer:"Vague"},
   ],
 
   blockbustersSectionNames: {
-    '5A':'5A · Crime & justice (18 clues)',
-    '5B':'5B · Employment & obligation (16 clues)',
-    '5C':'5C · Recalling & speculating (10 clues)',
+    '5A':'5A · Crime & justice (22 clues)',
+    '5B':'5B · Employment & obligation (20 clues)',
+    '5C':'5C · Recalling & speculating (14 clues)',
   },
 
   /* ---- Race to the Board ----------------------------------------------------
@@ -186,6 +221,21 @@
     {section:'5C', prompt:"I can't ___ exactly what she said, but it was something like that.", answer:"Recall"},
     {section:'5C', prompt:"It's pointless to ___ about what might have happened.", answer:"Speculate"},
     {section:'5C', prompt:"I think I ___ her saying she'd be late.", answer:"Remember"},
+    /* ---- added later: transformations, opposites and collocation, so the board
+           isn't only gapped sentences. Answers are deliberately new words — two
+           identical tiles on one board would be unplayable. ---- */
+    {section:'5A', prompt:"Change the verb 'to convict' into the noun for the court's decision.", answer:"Conviction"},
+    {section:'5A', prompt:"What is the opposite of a guilty verdict?", answer:"Innocent"},
+    {section:'5A', prompt:"Change 'crime' into the word for the person who commits one.", answer:"Criminal"},
+    {section:'5A', prompt:"Give the formal word for a crime or illegal act.", answer:"Offence"},
+    {section:'5B', prompt:"Change the verb 'oblige' into the noun for a duty you must fulfil.", answer:"Obligation"},
+    {section:'5B', prompt:"Change the verb 'permit' into the noun for official approval.", answer:"Permission"},
+    {section:'5B', prompt:"Correct the error: 'He was made redundancy last year.'", answer:"Redundant"},
+    {section:'5B', prompt:"Retail, transport and energy are each one of these parts of the economy.", answer:"Sector"},
+    {section:'5C', prompt:"Change the verb 'to speculate' into the noun.", answer:"Speculation"},
+    {section:'5C', prompt:"Change the verb 'assume' into the noun for something taken for granted.", answer:"Assumption"},
+    {section:'5C', prompt:"Which adjective describes a memory that is unclear or hazy?", answer:"Vague"},
+    {section:'5C', prompt:"Which noun completes both 'it slipped my ___' and 'it crossed my ___'?", answer:"Mind"},
   ],
 
   /* ---- Millionaire ----------------------------------------------------------
@@ -274,17 +324,51 @@
       answer:"I'd hazard a guess", distractors:["If my memory serves me","What stands out in my mind","I think I remember"]},
     {section:'5C', level:8, prompt:"'I was under the impression that…' suggests the speaker…",
       answer:"believed something that may not be true", distractors:["is certain of a fact","is recalling it exactly","is asking a question"]},
+    /* ---- added later: transformation, error correction, collocation, register and
+           stress, so the ladder isn't only gapped sentences ---- */
+    {section:'5A', level:2, prompt:"Change the verb 'to convict' into the noun for the court's decision.",
+      answer:"conviction", distractors:["convictment","convicture","convicting"]},
+    {section:'5A', level:3, prompt:"Which sentence is correct?",
+      answer:"He was accused of fraud.", distractors:["He was accused for fraud.","He was accused with fraud.","He was accused on fraud."]},
+    {section:'5A', level:4, prompt:"Which word does NOT belong with the others?",
+      answer:"sabbatical", distractors:["verdict","jury","testimony"]},
+    {section:'5A', level:5, prompt:"Which verb goes with 'a sentence', meaning to undergo the punishment?",
+      answer:"serve", distractors:["make","do","take"]},
+    {section:'5A', level:6, prompt:"Which is the correct formal version?",
+      answer:"the prisoners, many of whom reoffend", distractors:["the prisoners, many of who reoffend","the prisoners that many reoffend","the prisoners which many of them reoffend"]},
+    {section:'5B', level:2, prompt:"Change the verb 'oblige' into the noun for a duty you must fulfil.",
+      answer:"obligation", distractors:["obligement","obligeance","obligity"]},
+    {section:'5B', level:3, prompt:"Which sentence is correct?",
+      answer:"You must wear a helmet.", distractors:["You must to wear a helmet.","You must wearing a helmet.","You must worn a helmet."]},
+    {section:'5B', level:4, prompt:"Change the adjective 'redundant' into the noun for the job cuts.",
+      answer:"redundancy", distractors:["redundance","redundantness","redundation"]},
+    {section:'5B', level:5, prompt:"Which sentence is correct?",
+      answer:"He was made redundant.", distractors:["He was made redundancy.","He was made a redundant.","He was done redundant."]},
+    {section:'5B', level:6, prompt:"Which is the most formal way of refusing permission?",
+      answer:"Visitors are not permitted to bring food.", distractors:["Visitors can't bring food.","Visitors mustn't bring food.","Visitors aren't allowed food."]},
+    {section:'5C', level:2, prompt:"Change the verb 'to speculate' into the noun.",
+      answer:"speculation", distractors:["speculating","speculance","specularity"]},
+    {section:'5C', level:3, prompt:"Which one does NOT show uncertainty?",
+      answer:"No doubt", distractors:["I'd hazard a guess","I'm not entirely sure","Presumably"]},
+    {section:'5C', level:4, prompt:"Which adjective does NOT go with 'memory'?",
+      answer:"heavy", distractors:["vague","painful","lasting"]},
+    {section:'5C', level:5, prompt:"Change the verb 'assume' into the noun.",
+      answer:"assumption", distractors:["assumingness","assumance","assumal"]},
+    {section:'5C', level:6, prompt:"Which sentence is correct?",
+      answer:"If my memory serves me correctly…", distractors:["If my memory serves me correct…","If my memory serves to me correctly…","If my memory is serving me correct…"]},
+    {section:'5C', level:7, prompt:"Which syllable carries the main stress in 're-ha-bi-li-ta-tion'?",
+      answer:"the 5th — TA", distractors:["the 1st — re","the 3rd — bi","the 6th — tion"]},
   ],
 
   millionaireSectionNames: {
-    '5A':'5A · Crime & justice (12 questions)',
-    '5B':'5B · Employment & obligation (12 questions)',
-    '5C':'5C · Recalling & speculating (12 questions)',
+    '5A':'5A · Crime & justice (17 questions)',
+    '5B':'5B · Employment & obligation (17 questions)',
+    '5C':'5C · Recalling & speculating (18 questions)',
   },
 
   raceSectionNames: {
-    '5A':'5A · Crime & justice (12 words)',
-    '5B':'5B · Employment & obligation (12 words)',
-    '5C':'5C · Recalling & speculating (12 words)',
+    '5A':'5A · Crime & justice (16 words)',
+    '5B':'5B · Employment & obligation (16 words)',
+    '5C':'5C · Recalling & speculating (16 words)',
   },
 });

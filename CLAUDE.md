@@ -66,6 +66,31 @@ footer shows it, so **"Build …" in ⚙ tells you which version is actually run
 
 `index.html` links all three (Choose a unit / Game Hub / Classic games).
 
+## Authoring content (keep the question forms mixed)
+An audit of Unit 5 found **71% of all items were gap fills**, which the four different
+boards had been disguising. Extra items were added rather than rewriting any, bringing
+it to **55%**. When authoring, reach for these before another gap fill:
+
+| Form | Example | Fits |
+|---|---|---|
+| Word transformation | "Change 'convict' into the noun for the court's decision." | all four |
+| Error correction | "Correct it: 'You must to wear a helmet.'" | Jeopardy, Millionaire, Race |
+| Odd one out | "Which does NOT belong: verdict / jury / sabbatical?" | Jeopardy, Millionaire |
+| Register / formality | "Which is the formal version?" | Millionaire |
+| Collocation | "Which verb goes with 'a sentence'?" | Millionaire |
+| Opposite / definition | "The opposite of a guilty verdict." | Blockbusters, Race |
+
+Extra items need **no engine change** — every game filters its bank by section and
+shuffles, so more items simply means more variety per play. Three constraints:
+**Blockbusters** answers are one word and `letter` must be its initial; **Race**
+answers become board tiles, so they must be single words and never duplicate another
+answer in that bank; **Jeopardy** categories must stay grouped by section in array
+order or the content screen prints a section heading twice.
+
+Still missing for Unit 5: **5D entirely** (the writing lesson — opinion essay and
+linking for addition/reinforcement, both very gameable), pronunciation beyond one
+item, the p66 crime idioms, and anything from the reading texts.
+
 ## Adding a feature (settings-first)
 Every new feature gets a switch. Register it at the top of `hub-engine.js` and the
 panel builds its own row — **there is no panel markup to edit**:
@@ -96,7 +121,7 @@ back to memory for the session (the panel says so).
   **4 games** (Jeopardy, Blockbusters, Race to the Board, Millionaire), shared engine,
   DCU-branded. 3 of the 4 are spec Tier 1 — content-agnostic, so they transfer to any
   unit, which is what makes the "this scales to the coursebook" claim defensible.
-- **Race to the Board** (Unit 5 only so far, 36 prompts across 5A–5C): target words
+- **Race to the Board** (Unit 5 only so far, 48 prompts across 5A–5C): target words
   scattered across the screen, teacher reads a **gapped sentence**, a student runs to
   the projector screen and touches the word, teacher clicks it on the laptop.
   **Two modes**, picked on the content screen:
@@ -111,7 +136,7 @@ back to memory for the session (the panel says so).
     (`--rs`) if the field is too small. Claimed words carry the team's colour.
   **Distractors aren't authored** — every other word on the board is a real target
   word from the selection. Spec §4.4 updated to match as-built.
-- **Millionaire** (Unit 5 only, 36 questions across 5A–5C, 12 per section): four
+- **Millionaire** (Unit 5 only, 52 questions across 5A–5C): four
   options, rising difficulty, teams take turns. Decisions taken, all recorded in
   spec §4.4:
   - **Parallel ladders, interleaved turns** — settles the open question in §9.5.
