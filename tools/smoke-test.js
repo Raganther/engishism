@@ -905,6 +905,72 @@ async function testDefaultLook(browser){
   await page.close();
 }
 
+/* ---- the game registry ----
+   The promise is that a new game declares itself once and inherits everything
+   shared, with no engine edits. That is only true if it is true, so this test
+   registers a throwaway fifth game at runtime and checks what it gets for free —
+   and, just as importantly, that omitting the optional hooks doesn't throw. */
+async function testGameRegistry(browser){
+  section('Game registry');
+  const page = await openHub(browser);
+
+  const shape = await page.evaluate(() => ({
+    ids: window.HubGames.ids(),
+    titles: Object.keys(window.HUB_GAME_TITLES),
+    hooks: window.HubGames.hooksOf('jeopardy')
+  }));
+  check('the four games are registered', shape.ids.length === 4, shape.ids.join(','));
+  check('settings tab labels come from the registry',
+        shape.titles.length === shape.ids.length, shape.titles.join(','));
+  ['load','hasBank','renderContent','startButton','start','fit','deal','tension','onResize','onTimerEnd']
+    .forEach(h => check('the contract exposes ' + h + '()', shape.hooks.indexOf(h) !== -1));
+
+  // a bare-minimum game: an id and a bank, nothing else
+  const bare = await page.evaluate(() => {
+    window.HubGames.register({
+      id:'testgame', title:'Test Game',
+      card:{ icon:'<svg class="game-icon" viewBox="0 0 40 40"><rect x="8" y="8" width="24" height="24"/></svg>',
+             blurb:'A game that implements nothing.', badge:'Best for: proving the defaults' },
+      hasBank: u => !!(u.jeopardyCategories || []).length
+    });
+    window.HubGames.renderCards();
+    return {
+      registered: window.HubGames.ids().indexOf('testgame') !== -1,
+      titled: window.HUB_GAME_TITLES.testgame,
+      card: !!document.querySelector('.game-card[data-game="testgame"]')
+    };
+  });
+  check('a new game registers with only an id and a bank', bare.registered);
+  check('and gets a settings tab label', bare.titled === 'Test Game');
+  check('and a card on the game screen', bare.card);
+
+  // the no-op defaults must survive being driven
+  const drove = await page.evaluate(() => {
+    const g = window.HubGames.get('testgame');
+    try {
+      g.load({}); g.renderContent(document.createElement('div'), document.createElement('div'));
+      g.startButton(document.createElement('button'));
+      g.start(); g.fit(); g.deal(); g.tension(); g.onResize(); g.onTimerEnd();
+      return 'ok';
+    } catch(e){ return String(e); }
+  });
+  check('every unimplemented hook is a safe no-op', drove === 'ok', drove);
+
+  // and it inherits the shared furniture without asking for any of it
+  const inherits = await page.evaluate(() => ({
+    skin:    document.body.classList.contains('theme-gameshow'),
+    teambar: !!document.getElementById('scorebar'),
+    timer:   !!document.getElementById('tmr-display'),
+    banner:  !!document.getElementById('result-card'),
+    kit:     typeof window.HubKit.fitToScreen === 'function'
+  }));
+  check('a new game inherits the skin, team bar, timer, banner and kit',
+        Object.values(inherits).every(Boolean), JSON.stringify(inherits));
+
+  checkClean(page);
+  await page.close();
+}
+
 /* Every game now has an ident, and they must stay distinct — one accent reused
    twice would make two games look like the same show. */
 async function testIdentsAreDistinct(browser){
@@ -1180,7 +1246,7 @@ async function main(){
     jeopardy: testJeopardy, blockbusters: testBlockbusters, race: testRace,
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
-    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, content: testContentIntegrity, defaultlook: testDefaultLook, jfinish: testJeopardyFinish,
+    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, content: testContentIntegrity, defaultlook: testDefaultLook, jfinish: testJeopardyFinish,
     buzzers: testBuzzers,
     degradation: testDegradation, file: testFileProtocol
   };

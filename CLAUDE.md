@@ -26,7 +26,7 @@ linked as `…?v=YYYYMMDDx` in the three page shells; without a bump, Chrome kee
 the cached JS/CSS and a fix looks like it never shipped (this has already cost one
 debugging round). Change it in all three shells together:
 ```bash
-sed -i '' 's/?v=[0-9a-z]*/?v=20260729b/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
+sed -i '' 's/?v=[0-9a-z]*/?v=20260729c/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
 ```
 The engine reads its own `?v=` and exposes it as `window.HUB_BUILD`; the settings panel
 footer shows it, so **"Build …" in ⚙ tells you which version is actually running.**
@@ -69,6 +69,42 @@ footer shows it, so **"Build …" in ⚙ tells you which version is actually run
      `scam-or-legit`). Reachable via the landing page's "Classic games" link.
 
 `index.html` links all three (Choose a unit / Game Hub / Classic games).
+
+## Adding a game — the registry
+A game declares itself once and the engine drives it through that contract. There
+used to be **nine** `if (activeGame === 'jeopardy')` branch points — build, fit,
+curtain-up, resize, timer-expiry, content screen, start button — and a new game had
+to be threaded into every one by hand, with nothing complaining if you missed one.
+
+```js
+registerGame({
+  id:'bullseye', title:'Bullseye',
+  card:  { icon:'<svg…>', blurb:'…', badge:'Best for: …' },
+  intro: { eyebrow:'…', title:'BULLSEYE', sub:'…', accent:'#39E27A' },
+  hasBank: u => (u.bullseyeBank||[]).length > 0,
+  load(u){…}, renderContent(list, help){…}, startButton(btn){…},
+  start(){…}, fit(){…}, deal(){…}, tension(){…}, onResize(){…}, onTimerEnd(){…}
+});
+```
+
+**Every hook is optional and defaults to a no-op**, so a game runs the moment it is
+registered and grows by filling hooks in — the checklist can't be half-finished.
+Hooks only fire while their game is active, so none of them checks `activeGame`.
+
+| Free, no code | One declaration | Genuinely per-game |
+|---|---|---|
+| skin (chrome + setup screens), team bar, scoring, timer, clue card + flip variants, `showResult()` banner, every `Sound.*`, every `Kit.*`, content-integrity gate | `card` (icon/blurb/badge), `intro` ident, `hasBank`, the settings `games` arrays via `gameIds()` | board logic, stage CSS, `tension()` source, content bank shape |
+
+`window.HubGames.register(...)` is exposed so a game can eventually live in its own
+file the way units do via `window.UNITS`; the four built-ins still declare themselves
+inside `hub-engine.js` because their logic shares that closure. Moving them out is
+mechanical and hasn't been done.
+
+**A shared feature reaches every game, including future ones, by living in the
+shared layer** — the header timer is one widget, so a richer clock is one change.
+Where games should *diverge*, use a `variant` setting (`cardFlip`, `bbWinRoute`,
+`theme` all do): register the implementations, list them as variants, and the panel
+builds the per-game override rows itself. Shared by default, divergent by declaration.
 
 ## Solve once, use anywhere
 Anything more than one game needs lives in `hub-kit.js`, not in a game:
@@ -466,7 +502,7 @@ back to memory for the session (the panel says so).
 
 ## Before you push
 ```bash
-NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~15 min, 221 checks
+NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~15 min, 240 checks
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=jeopardy,fit   # while iterating
 ```
 Drives all four games in a real browser and checks the things that have actually

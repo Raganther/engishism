@@ -29,11 +29,184 @@
     return m ? decodeURIComponent(m[1]) : 'dev';
   })();
 
+  /* ================= GAME REGISTRY =================
+     A game declares itself once, here, and the engine drives it through this
+     contract instead of asking `if (activeGame === 'jeopardy')` in nine places.
+     What that buys:
+
+     - **A checklist that cannot be half-finished.** Every hook has a no-op default,
+       so a new game runs the moment it is registered and grows features by filling
+       hooks in — rather than working everywhere except the two branch points you
+       didn't know about.
+     - **Shared by default.** The chrome, team bar, timer, sounds, kit services, the
+       clue card, the end-of-round banner and the whole game-show skin apply to any
+       registered game without it asking. A game only writes code for what makes it
+       different.
+     - **Divergent by declaration.** Where games genuinely differ — how tense the
+       board is right now, what the ident looks like — that is a hook or a `variant`
+       setting, not a branch.
+
+     The hooks, all optional:
+       load(unit)            pull this game's banks out of a unit
+       hasBank(unit)         does this unit offer the game at all?
+       renderContent(list,help)  the section/category picker
+       startButton(btn)      enable and label the start button
+       start()               build the board (screen is still hidden)
+       fit()                 measure and size — runs once the screen is visible
+       deal()                the board's entrance animation
+       tension()             set `--tension` and drive the music bed
+       onResize()            re-fit after a window resize
+       onTimerEnd()          the header countdown reached zero
+
+     Hooks run only while their game is the active one, so none of them needs to
+     check. Registration order is the order the cards appear on the game screen. */
+  const GAMES = [];
+  const GAME_BY_ID = Object.create(null);
+  const NO_OP = function(){};
+  // the settings panel labels its per-game tabs from this
+  const HUB_GAME_TITLES = {};
+  window.HUB_GAME_TITLES = HUB_GAME_TITLES;
+
+  function registerGame(def){
+    if(!def || !def.id) throw new Error('registerGame: a game needs an id');
+    if(GAME_BY_ID[def.id]) return GAME_BY_ID[def.id];
+    const g = Object.assign({
+      title: def.id,
+      stage: 'play-' + def.id,     // the id of its panel on the play screen
+      card:  { icon:'', blurb:'', badge:'' },
+      intro: null,                 // no ident = no title sequence, and that's fine
+      hasBank: function(){ return false; },
+      load: NO_OP, renderContent: NO_OP, startButton: NO_OP,
+      start: NO_OP, fit: NO_OP, deal: NO_OP, tension: NO_OP,
+      onResize: NO_OP, onTimerEnd: NO_OP
+    }, def);
+    GAMES.push(g);
+    GAME_BY_ID[g.id] = g;
+    HUB_GAME_TITLES[g.id] = g.title;
+    return g;
+  }
+
+  /* Exposed so a game can eventually live in its own file and register itself,
+     the way units already do with `window.UNITS`. The four built-ins still declare
+     themselves below because their logic shares this closure; moving them out is a
+     mechanical follow-up, not a change of contract. */
+  window.HubGames = {
+    register: def => registerGame(def),
+    get:      id  => GAME_BY_ID[id] || null,
+    ids:      ()  => GAMES.map(g => g.id),
+    hooksOf:  id  => Object.keys(GAME_BY_ID[id] || {}),
+    renderCards: () => renderGameCards()
+  };
+
+  const gameDef  = id => GAME_BY_ID[id === undefined ? activeGame : id] || null;
+  const gameIds  = () => GAMES.map(g => g.id);
+  /* Run a hook on the game being played. Every call site used to be an if-chain
+     that a new game had to be threaded into by hand. */
+  function hook(name){
+    const g = gameDef();
+    if(g && typeof g[name] === 'function') g[name]();
+  }
+
+  /* The four games. Hooks call functions defined further down the file — they run
+     at play time, not at registration, so the ordering is fine and each game's
+     declaration can sit here where all four can be compared side by side. */
+  registerGame({
+    id:'jeopardy', title:'Jeopardy',
+    card:{
+      icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="9" height="7" rx="1"/><rect x="15.5" y="6" width="9" height="7" rx="1"/><rect x="27" y="6" width="9" height="7" rx="1"/><rect x="4" y="16.5" width="9" height="7" rx="1"/><rect x="15.5" y="16.5" width="9" height="7" rx="1"/><rect x="27" y="16.5" width="9" height="7" rx="1"/><rect x="4" y="27" width="9" height="7" rx="1"/><rect x="15.5" y="27" width="9" height="7" rx="1"/><rect x="27" y="27" width="9" height="7" rx="1"/></svg>',
+      blurb:'Category board, five point values each. Teams pick a tile, answer, bank the points.',
+      badge:'Best for: mixed vocab &amp; grammar' },
+    intro:{ eyebrow:'Cambridge Empower C1', title:'JEOPARDY',
+            sub:'Pick your category. Pick your price. Answer it.', accent:'#4FC3FF' },
+    hasBank: u => (u.jeopardyCategories||[]).length > 0,
+    load(u){ JEOPARDY_SECTION_LABELS = u.jeopardySectionLabels || {};
+             JEOPARDY_CATEGORIES     = u.jeopardyCategories || []; },
+    renderContent: renderJeopardyContent,
+    startButton:   jeopardyStartButton,
+    start(){ buildJeopardyBoard(); timerSetDuration(30); },
+    fit:      fitJeopardyBoard,
+    deal:     jDeal,
+    tension(){ jTension(); },
+    onResize: fitJeopardyBoard
+  });
+
+  registerGame({
+    id:'blockbusters', title:'Blockbusters',
+    card:{
+      icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4 L33 11.5 L33 26.5 L20 34 L7 26.5 L7 11.5 Z"/><path d="M20 13 L26 16.5 L26 23.5 L20 27 L14 23.5 L14 16.5 Z"/></svg>',
+      blurb:'Hexagon board. Yellow connects left&rarr;right, Blue connects top&rarr;bottom, by answering letter clues.',
+      badge:'Best for: single-word / short-answer vocab' },
+    intro:{ eyebrow:'Cambridge Empower C1', title:'BLOCKBUSTERS',
+            sub:'Yellow goes across. Blue goes down. Build your line.', accent:'#C77DFF' },
+    hasBank: u => (u.blockbustersBank||[]).length > 0,
+    load(u){ BLOCKBUSTERS_BANK          = u.blockbustersBank || [];
+             BLOCKBUSTERS_SECTION_NAMES = u.blockbustersSectionNames || {}; },
+    renderContent: renderBlockbustersContent,
+    startButton:   blockbustersStartButton,
+    start(){
+      pool = shuffle(BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(c.section)));
+      pool = pool.slice(0, 18);          // classic 5/4/5/4 board holds 18
+      buildBlockbustersBoard();
+      bbTurn=0; renderBBTurn(); bbClearOutcome();
+      timerSetDuration(30);
+    },
+    fit:      layoutBlockbustersBoard,
+    deal:     bbDeal,
+    tension(){ bbTension(); },
+    onResize: layoutBlockbustersBoard
+  });
+
+  registerGame({
+    id:'race', title:'Race to the Board',
+    card:{
+      icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="13" height="6" rx="1.5"/><rect x="21" y="9" width="15" height="6" rx="1.5"/><rect x="5" y="20" width="15" height="6" rx="1.5"/><rect x="24" y="24" width="12" height="6" rx="1.5"/><path d="M13 36 L20 30 L27 36"/></svg>',
+      blurb:'Target words scattered on screen. Read the sentence aloud &mdash; a student runs up and touches the missing word.',
+      badge:'Best for: getting them out of their seats' },
+    intro:{ eyebrow:'Cambridge Empower C1', title:'RACE TO THE BOARD',
+            sub:'On your marks. Listen for the gap. Get there first.',
+            accent:'#3DFFA8', titleVw:'6.4vw' },
+    hasBank: u => (u.raceBank||[]).length > 0,
+    load(u){ RACE_BANK          = u.raceBank || [];
+             RACE_SECTION_NAMES = u.raceSectionNames || {}; },
+    renderContent: renderRaceContent,
+    startButton:   raceStartButton,
+    start(){
+      buildRaceBoard();
+      if(raceMode==='h2h') openBuzzRoom(); else closeBuzzRoom();
+      timerSetDuration(Number(S.get('raceRoundSeconds', 'race')) || 60);
+    },
+    fit:      scatterRaceWords,
+    deal:     rDeal,
+    tension(){ rTension(); },
+    onResize(){ if(raceWords.length) scatterRaceWords(); },
+    onTimerEnd(){ if(raceMode==='timed' && raceRunning) endRaceRound(false); }
+  });
+
+  registerGame({
+    id:'millionaire', title:'Millionaire',
+    card:{
+      icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 34 L8 26"/><path d="M16 34 L16 20"/><path d="M24 34 L24 14"/><path d="M32 34 L32 7"/><path d="M4 34 L36 34"/></svg>',
+      blurb:'Four options, rising difficulty. Teams climb their own ladder, with 50:50, Ask the class and Confer to spend.',
+      badge:'Best for: spotting the near-miss answer' },
+    intro:{ eyebrow:'Cambridge Empower C1', title:'MILLIONAIRE',
+            sub:'Eight rungs. One team at a time. No safety net.', accent:'#FFC83D' },
+    hasBank: u => (u.millionaireBank||[]).length > 0,
+    load(u){ MILLIONAIRE_BANK          = u.millionaireBank || [];
+             MILLIONAIRE_SECTION_NAMES = u.millionaireSectionNames || {}; },
+    renderContent: renderMillionaireContent,
+    startButton:   millionaireStartButton,
+    start(){ buildMillionaire();
+             timerSetDuration(Number(S.get('mConferSeconds', 'millionaire')) || 30); },
+    fit:      fitMillionaire,
+    tension(){ mTension(); },
+    onResize: fitMillionaire
+  });
+
   /* ---- feature switches. Adding a feature? Register it here and the settings
      panel picks it up automatically — there is no panel markup to edit. ---- */
-  S.register({ id:'sound', group:'Sound', type:'toggle', default:true, games:['jeopardy','blockbusters','race','millionaire'],
+  S.register({ id:'sound', group:'Sound', type:'toggle', default:true, games:gameIds(),
     label:'Sound effects', help:'Short tones for a right answer, a wrong one, and a cleared board.' });
-  S.register({ id:'soundVolume', group:'Sound', type:'select', default:'med', games:['jeopardy','blockbusters','race','millionaire'],
+  S.register({ id:'soundVolume', group:'Sound', type:'select', default:'med', games:gameIds(),
     label:'Volume', help:'Classroom speakers are usually louder than they sound at your desk.',
     options:[{value:'quiet',label:'Quiet'},{value:'med',label:'Medium'},{value:'loud',label:'Loud'}] });
 
@@ -67,13 +240,13 @@
      stage lights is part of the moment. Which value applies: the game's own setting
      once a game is picked, the master before that. */
   S.register({ id:'theme', group:'Presentation', type:'variant', default:'gameshow',
-    games:['jeopardy','blockbusters','race','millionaire'],
+    games:gameIds(),
     label:'Look and feel', help:'Game show mode darkens the room and adds chase lights, an intro and music. DCU is the school-colours look.',
     variants:[{value:'gameshow', label:'Game show — lights, music, intro'},
               {value:'dcu',      label:'DCU — school colours'}] });
 
   S.register({ id:'intro', group:'Presentation', type:'select', default:'once',
-    games:['jeopardy','blockbusters','race','millionaire'],
+    games:gameIds(),
     label:'Title sequence', help:'The lights-and-logo opening. Any key or click skips it.',
     options:[{value:'once',  label:'Once per session'},
              {value:'every', label:'Every round'},
@@ -296,32 +469,7 @@
     <div class="screen" id="screen-game-select">
       <span class="back-link" id="change-unit" style="display:none;">&larr; Change unit</span>
       <p class="intro"></p>
-      <div class="game-grid">
-        <div class="game-card" data-game="jeopardy">
-          <svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="9" height="7" rx="1"/><rect x="15.5" y="6" width="9" height="7" rx="1"/><rect x="27" y="6" width="9" height="7" rx="1"/><rect x="4" y="16.5" width="9" height="7" rx="1"/><rect x="15.5" y="16.5" width="9" height="7" rx="1"/><rect x="27" y="16.5" width="9" height="7" rx="1"/><rect x="4" y="27" width="9" height="7" rx="1"/><rect x="15.5" y="27" width="9" height="7" rx="1"/><rect x="27" y="27" width="9" height="7" rx="1"/></svg>
-          <h3>Jeopardy</h3>
-          <p>Category board, five point values each. Teams pick a tile, answer, bank the points.</p>
-          <span class="badge">Best for: mixed vocab &amp; grammar</span>
-        </div>
-        <div class="game-card" data-game="blockbusters">
-          <svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4 L33 11.5 L33 26.5 L20 34 L7 26.5 L7 11.5 Z"/><path d="M20 13 L26 16.5 L26 23.5 L20 27 L14 23.5 L14 16.5 Z"/></svg>
-          <h3>Blockbusters</h3>
-          <p>Hexagon board. Yellow connects left&rarr;right, Blue connects top&rarr;bottom, by answering letter clues.</p>
-          <span class="badge">Best for: single-word / short-answer vocab</span>
-        </div>
-        <div class="game-card" data-game="race">
-          <svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="13" height="6" rx="1.5"/><rect x="21" y="9" width="15" height="6" rx="1.5"/><rect x="5" y="20" width="15" height="6" rx="1.5"/><rect x="24" y="24" width="12" height="6" rx="1.5"/><path d="M13 36 L20 30 L27 36"/></svg>
-          <h3>Race to the Board</h3>
-          <p>Target words scattered on screen. Read the sentence aloud &mdash; a student runs up and touches the missing word.</p>
-          <span class="badge">Best for: getting them out of their seats</span>
-        </div>
-        <div class="game-card" data-game="millionaire">
-          <svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 34 L8 26"/><path d="M16 34 L16 20"/><path d="M24 34 L24 14"/><path d="M32 34 L32 7"/><path d="M4 34 L36 34"/></svg>
-          <h3>Millionaire</h3>
-          <p>Four options, rising difficulty. Teams climb their own ladder, with 50:50, Ask the class and Confer to spend.</p>
-          <span class="badge">Best for: spotting the near-miss answer</span>
-        </div>
-      </div>
+      <div class="game-grid"></div>
     </div>
 
     <!-- SCREEN 2: choose content -->
@@ -463,31 +611,13 @@
   let MILLIONAIRE_BANK          = [];
   let MILLIONAIRE_SECTION_NAMES = {};
 
-  const GAME_TITLES = { jeopardy:'Jeopardy', blockbusters:'Blockbusters',
-                        race:'Race to the Board', millionaire:'Millionaire' };
-  window.HUB_GAME_TITLES = GAME_TITLES;      // the settings panel labels its tabs with these
-
   // Which games a unit can actually offer — a unit without a bank for a game
   // simply doesn't show that card, so units can adopt new games one at a time.
-  function gamesFor(u){
-    const g=[];
-    if((u.jeopardyCategories||[]).length) g.push('jeopardy');
-    if((u.blockbustersBank||[]).length)   g.push('blockbusters');
-    if((u.raceBank||[]).length)           g.push('race');
-    if((u.millionaireBank||[]).length)    g.push('millionaire');
-    return g;
-  }
+  function gamesFor(u){ return GAMES.filter(g => g.hasBank(u)).map(g => g.id); }
 
   function loadUnit(u){
     UNIT = u;
-    JEOPARDY_SECTION_LABELS    = u.jeopardySectionLabels || {};
-    JEOPARDY_CATEGORIES        = u.jeopardyCategories || [];
-    BLOCKBUSTERS_BANK          = u.blockbustersBank || [];
-    BLOCKBUSTERS_SECTION_NAMES = u.blockbustersSectionNames || {};
-    RACE_BANK                  = u.raceBank || [];
-    RACE_SECTION_NAMES         = u.raceSectionNames || {};
-    MILLIONAIRE_BANK           = u.millionaireBank || [];
-    MILLIONAIRE_SECTION_NAMES  = u.millionaireSectionNames || {};
+    GAMES.forEach(g => g.load(u));
     const available = gamesFor(u);
     document.querySelectorAll('.game-card').forEach(c=>{
       c.style.display = available.includes(c.dataset.game) ? 'block' : 'none';
@@ -506,7 +636,7 @@
       el.className='unit-card';
       el.innerHTML = `<span class="unit-num">${c.num||u.id||'Unit'}</span>`+
         `<h2>${c.title||''}</h2><p>${c.blurb||''}</p>`+
-        `<div class="games">${gamesFor(u).map(g=>`<span>${GAME_TITLES[g]}</span>`).join('')}</div>`;
+        `<div class="games">${gamesFor(u).map(g=>`<span>${HUB_GAME_TITLES[g]}</span>`).join('')}</div>`;
       el.addEventListener('click', ()=>{ loadUnit(u); document.getElementById('page-title').textContent='Game Hub'; showScreen('screen-game-select'); });
       grid.appendChild(el);
     });
@@ -675,15 +805,33 @@
     if(e.key==='Escape') hideResult();
   });
 
-  document.querySelectorAll('.game-card').forEach(card=>{
-    card.addEventListener('click', ()=>{
-      activeGame = card.dataset.game;
-      S.setContext(activeGame);        // ⚙ opens on this game's tab from here on
-      document.getElementById('page-title').textContent = GAME_TITLES[activeGame] || 'Game Hub';
-      renderContentScreen();
-      showScreen('screen-content-select');
+  /* The cards are built from the registry, so a game's icon, copy and badge live
+     in its declaration rather than in a block of markup someone has to remember to
+     edit. The CSS hangs off `.game-card[data-game]`, which is unchanged. */
+  function renderGameCards(){
+    const grid = document.querySelector('.game-grid');
+    grid.innerHTML = '';
+    GAMES.forEach(g=>{
+      const card = document.createElement('div');
+      card.className = 'game-card';
+      card.dataset.game = g.id;
+      card.innerHTML = g.card.icon +
+        '<h3>' + g.title + '</h3>' +
+        '<p>' + g.card.blurb + '</p>' +
+        '<span class="badge">' + g.card.badge + '</span>';
+      card.addEventListener('click', ()=>chooseGame(card.dataset.game));
+      grid.appendChild(card);
     });
-  });
+  }
+
+  function chooseGame(id){
+    activeGame = id;
+    S.setContext(activeGame);          // ⚙ opens on this game's tab from here on
+    document.getElementById('page-title').textContent = HUB_GAME_TITLES[activeGame] || 'Game Hub';
+    renderContentScreen();
+    showScreen('screen-content-select');
+  }
+  renderGameCards();
 
   document.getElementById('change-unit').addEventListener('click', ()=>{
     document.getElementById('page-title').textContent='Game Hub';
@@ -849,68 +997,60 @@
     raceNote.style.display='none';
     document.getElementById('race-mode').style.display='none';
 
-    if(activeGame==='jeopardy'){
-      rulesNote.style.display='none';
-      help.textContent = "Pick which categories to include — the board builds itself from your selection (choose at least 3).";
-      let lastSection=null;
-      JEOPARDY_CATEGORIES.forEach(cat=>{
-        if(cat.section!==lastSection){
-          const label=document.createElement('div');
-          label.className='section-label';
-          label.textContent = JEOPARDY_SECTION_LABELS[cat.section] || cat.section;
-          list.appendChild(label);
-          lastSection=cat.section;
-        }
-        const div=document.createElement('label');
-        div.className='cat-check';
-        div.innerHTML = `<input type="checkbox" value="${cat.id}"><span class="tag">${cat.section}</span><span class="name">${cat.name}</span>`;
-        div.querySelector('input').addEventListener('change', onContentToggle);
-        list.appendChild(div);
-      });
-      updateStartButton();
-    }
+    rulesNote.style.display='none';        // a game that wants it turns it on
+    const g = gameDef();
+    if(g) g.renderContent(list, help);
+    updateStartButton();
+  }
 
-    if(activeGame==='blockbusters'){
-      rulesNote.style.display='block';
-      help.textContent = "Pick which sections feed the board. Each clue's answer starts with the letter shown on its hexagon.";
-      Object.keys(BLOCKBUSTERS_SECTION_NAMES).forEach(sec=>{
-        const div=document.createElement('label');
-        div.className='cat-check';
-        div.innerHTML = `<input type="checkbox" value="${sec}"><span class="tag">${sec}</span><span class="name">${BLOCKBUSTERS_SECTION_NAMES[sec].split('·')[1]}</span>`;
-        div.querySelector('input').addEventListener('change', onContentToggle);
-        list.appendChild(div);
-      });
-      updateStartButton();
-    }
+  /* Most games pick whole sections; Jeopardy picks named categories. Both end up
+     as `.cat-check` rows, so one builder covers them. */
+  function sectionCheckboxes(list, names){
+    Object.keys(names).forEach(sec=>{
+      const div=document.createElement('label');
+      div.className='cat-check';
+      div.innerHTML = `<input type="checkbox" value="${sec}"><span class="tag">${sec}</span><span class="name">${names[sec].split('·')[1]}</span>`;
+      div.querySelector('input').addEventListener('change', onContentToggle);
+      list.appendChild(div);
+    });
+  }
 
-    if(activeGame==='millionaire'){
-      rulesNote.style.display='none';
-      help.textContent = "Pick which sections feed the ladder. Each team climbs its own eight rungs, taking turns, and the questions get harder as they go.";
-      Object.keys(MILLIONAIRE_SECTION_NAMES).forEach(sec=>{
-        const div=document.createElement('label');
-        div.className='cat-check';
-        div.innerHTML = `<input type="checkbox" value="${sec}"><span class="tag">${sec}</span><span class="name">${MILLIONAIRE_SECTION_NAMES[sec].split('·')[1]}</span>`;
-        div.querySelector('input').addEventListener('change', onContentToggle);
-        list.appendChild(div);
-      });
-      updateStartButton();
-    }
+  function renderJeopardyContent(list, help){
+    help.textContent = "Pick which categories to include — the board builds itself from your selection (choose at least 3).";
+    let lastSection=null;
+    JEOPARDY_CATEGORIES.forEach(cat=>{
+      if(cat.section!==lastSection){
+        const label=document.createElement('div');
+        label.className='section-label';
+        label.textContent = JEOPARDY_SECTION_LABELS[cat.section] || cat.section;
+        list.appendChild(label);
+        lastSection=cat.section;
+      }
+      const div=document.createElement('label');
+      div.className='cat-check';
+      div.innerHTML = `<input type="checkbox" value="${cat.id}"><span class="tag">${cat.section}</span><span class="name">${cat.name}</span>`;
+      div.querySelector('input').addEventListener('change', onContentToggle);
+      list.appendChild(div);
+    });
+  }
 
-    if(activeGame==='race'){
-      rulesNote.style.display='none';
-      raceNote.style.display='block';
-      document.getElementById('race-mode').style.display='block';
-      renderRaceRules();
-      help.textContent = "Pick which sections feed the board. Every word on screen is a target word from your selection, so a wrong tap is still worth talking about.";
-      Object.keys(RACE_SECTION_NAMES).forEach(sec=>{
-        const div=document.createElement('label');
-        div.className='cat-check';
-        div.innerHTML = `<input type="checkbox" value="${sec}"><span class="tag">${sec}</span><span class="name">${RACE_SECTION_NAMES[sec].split('·')[1]}</span>`;
-        div.querySelector('input').addEventListener('change', onContentToggle);
-        list.appendChild(div);
-      });
-      updateStartButton();
-    }
+  function renderBlockbustersContent(list, help){
+    document.getElementById('blockbusters-rules').style.display='block';
+    help.textContent = "Pick which sections feed the board. Each clue's answer starts with the letter shown on its hexagon.";
+    sectionCheckboxes(list, BLOCKBUSTERS_SECTION_NAMES);
+  }
+
+  function renderMillionaireContent(list, help){
+    help.textContent = "Pick which sections feed the ladder. Each team climbs its own eight rungs, taking turns, and the questions get harder as they go.";
+    sectionCheckboxes(list, MILLIONAIRE_SECTION_NAMES);
+  }
+
+  function renderRaceContent(list, help){
+    document.getElementById('race-rules').style.display='block';
+    document.getElementById('race-mode').style.display='block';
+    renderRaceRules();
+    help.textContent = "Pick which sections feed the board. Every word on screen is a target word from your selection, so a wrong tap is still worth talking about.";
+    sectionCheckboxes(list, RACE_SECTION_NAMES);
   }
 
   function onContentToggle(){
@@ -918,47 +1058,46 @@
     updateStartButton();
   }
 
+  /* Each game says whether the selection is playable and what the button should
+     read. Saying *why* it isn't playable yet is the point — "add another section"
+     beats a greyed-out button with no explanation. */
   function updateStartButton(){
     const btn = document.getElementById('start-btn');
-    if(activeGame==='jeopardy'){
-      btn.disabled = selectedContent.length < 3;
-      btn.textContent = selectedContent.length < 3
-        ? `Select at least 3 categories to build the board (${selectedContent.length} chosen)`
-        : `Build board with ${selectedContent.length} categories`;
-    } else if(activeGame==='blockbusters'){
-      const total = BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(c.section)).length;
-      btn.disabled = selectedContent.length===0 || total < 18;
-      if(selectedContent.length===0){
-        btn.textContent = 'Select at least one section';
-      } else if(total < 18){
-        btn.textContent = `Need 18 clues for a full board — ${total} selected, add another section`;
-      } else {
-        btn.textContent = `Build board — 18 of ${total} clues, shuffled`;
-      }
-    } else if(activeGame==='millionaire'){
-      const pool = MILLIONAIRE_BANK.filter(q=>selectedContent.includes(q.section));
-      const rungs = new Set(pool.map(q=>q.level));
-      const missing = M_LADDER.map((_,i)=>i+1).filter(l=>!rungs.has(l));
-      btn.disabled = selectedContent.length===0 || missing.length>0;
-      if(selectedContent.length===0){
-        btn.textContent = 'Select at least one section';
-      } else if(missing.length){
-        btn.textContent = `Not enough for a full ladder — nothing at level ${missing.join(', ')}`;
-      } else {
-        btn.textContent = `Build ladder — ${pool.length} questions across 8 rungs`;
-      }
-    } else if(activeGame==='race'){
-      const total = RACE_BANK.filter(c=>selectedContent.includes(c.section)).length;
-      btn.disabled = total < RACE_MIN_WORDS;
-      if(selectedContent.length===0){
-        btn.textContent = 'Select at least one section';
-      } else if(total < RACE_MIN_WORDS){
-        btn.textContent = `Need ${RACE_MIN_WORDS} words for a board — ${total} selected, add another section`;
-      } else {
-        const onBoard = Math.min(total, RACE_MAX_WORDS);
-        btn.textContent = `Build board — ${onBoard} of ${total} words, shuffled`;
-      }
-    }
+    const g = gameDef();
+    if(g) g.startButton(btn);
+  }
+
+  function jeopardyStartButton(btn){
+    btn.disabled = selectedContent.length < 3;
+    btn.textContent = selectedContent.length < 3
+      ? `Select at least 3 categories to build the board (${selectedContent.length} chosen)`
+      : `Build board with ${selectedContent.length} categories`;
+  }
+
+  function blockbustersStartButton(btn){
+    const total = BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(c.section)).length;
+    btn.disabled = selectedContent.length===0 || total < 18;
+    btn.textContent = selectedContent.length===0 ? 'Select at least one section'
+      : total < 18 ? `Need 18 clues for a full board — ${total} selected, add another section`
+      : `Build board — 18 of ${total} clues, shuffled`;
+  }
+
+  function millionaireStartButton(btn){
+    const pool = MILLIONAIRE_BANK.filter(q=>selectedContent.includes(q.section));
+    const rungs = new Set(pool.map(q=>q.level));
+    const missing = M_LADDER.map((_,i)=>i+1).filter(l=>!rungs.has(l));
+    btn.disabled = selectedContent.length===0 || missing.length>0;
+    btn.textContent = selectedContent.length===0 ? 'Select at least one section'
+      : missing.length ? `Not enough for a full ladder — nothing at level ${missing.join(', ')}`
+      : `Build ladder — ${pool.length} questions across 8 rungs`;
+  }
+
+  function raceStartButton(btn){
+    const total = RACE_BANK.filter(c=>selectedContent.includes(c.section)).length;
+    btn.disabled = total < RACE_MIN_WORDS;
+    btn.textContent = selectedContent.length===0 ? 'Select at least one section'
+      : total < RACE_MIN_WORDS ? `Need ${RACE_MIN_WORDS} words for a board — ${total} selected, add another section`
+      : `Build board — ${Math.min(total, RACE_MAX_WORDS)} of ${total} words, shuffled`;
   }
 
   function shuffle(arr){
@@ -967,51 +1106,26 @@
   }
 
   document.getElementById('start-btn').addEventListener('click', ()=>{
-    ['play-jeopardy','play-blockbusters','play-race','play-millionaire'].forEach(id=>{
-      document.getElementById(id).style.display='none';
-    });
-    if(activeGame==='jeopardy'){
-      document.getElementById('play-jeopardy').style.display='block';
-      buildJeopardyBoard();
-      timerSetDuration(30);
-    } else if(activeGame==='blockbusters'){
-      document.getElementById('play-blockbusters').style.display='block';
-      pool = shuffle(BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(c.section)));
-      pool = pool.slice(0, 18);   // classic 5/4/5/4 board holds 18
-      buildBlockbustersBoard();
-      bbTurn=0; renderBBTurn(); bbClearOutcome();
-      timerSetDuration(30);
-    } else if(activeGame==='millionaire'){
-      document.getElementById('play-millionaire').style.display='block';
-      buildMillionaire();
-      timerSetDuration(Number(S.get('mConferSeconds', 'millionaire')) || 30);
-    } else if(activeGame==='race'){
-      document.getElementById('play-race').style.display='block';
-      buildRaceBoard();
-      if(raceMode==='h2h') openBuzzRoom(); else closeBuzzRoom();
-      timerSetDuration(Number(S.get('raceRoundSeconds', 'race')) || 60);
-    }
+    const g = gameDef();
+    if(!g) return;
+    GAMES.forEach(x => { document.getElementById(x.stage).style.display='none'; });
+    document.getElementById(g.stage).style.display='block';
+    g.start();
     showScreen('screen-play');
-    // neither board can be measured until the play screen is actually visible
-    if(activeGame==='race')         scatterRaceWords();
-    if(activeGame==='jeopardy')     fitJeopardyBoard();
-    if(activeGame==='millionaire')  fitMillionaire();
-    if(activeGame==='blockbusters') layoutBlockbustersBoard();
+    g.fit();          // no board can be measured until the play screen is visible
     timerReset();
 
     /* The intro plays over the finished board rather than before it is built, so
        the first thing behind the titles is the real thing, and skipping drops you
        straight into a game that is already running. */
-    const curtainUp = game=>{
-      if(activeGame !== game) return;        // they navigated away mid-titles
-      if(game === 'millionaire') mTension();
-      if(game === 'jeopardy'){ jTension(); jDeal(); }
-      if(game === 'blockbusters'){ bbTension(); bbDeal(); }
-      if(game === 'race'){ rTension(); rDeal(); }
+    const curtainUp = id=>{
+      if(activeGame !== id) return;          // they navigated away mid-titles
+      const d = gameDef(id);
+      if(d){ d.tension(); d.deal(); }
     };
     if(wantsIntro(activeGame)){
-      const game = activeGame;
-      runIntro(game).then(()=>curtainUp(game));
+      const id = activeGame;
+      runIntro(id).then(()=>curtainUp(id));
     } else {
       curtainUp(activeGame);
     }
@@ -1080,10 +1194,6 @@
     wrap.style.height = ((BB_ROWS.length-1)*rowStep + h) + 'px';
     return true;
   }
-
-  window.addEventListener('resize', ()=>{
-    if(activeGame==='blockbusters') layoutBlockbustersBoard();
-  });
 
   /* ---- has anybody actually won? ----------------------------------------------
      Until now a completed line did nothing at all — the teacher had to spot it and
@@ -2491,11 +2601,9 @@
     nextRacePrompt();
   });
 
-  window.addEventListener('resize', ()=>{
-    if(activeGame==='race' && raceWords.length) scatterRaceWords();
-    if(activeGame==='jeopardy') fitJeopardyBoard();
-    if(activeGame==='millionaire') fitMillionaire();
-  });
+  // one listener for every board, now and later — a new game gets re-fitted on
+  // resize by declaring onResize, not by being added to a list here
+  window.addEventListener('resize', ()=>hook('onResize'));
 
   /* ================= TIMER (teacher-controlled) ================= */
   let tmrDuration=30, tmrLeft=30, tmrTick=null;
@@ -2515,8 +2623,9 @@
       tmrLeft--;
       if(tmrLeft<=0){
         tmrLeft=0; clearInterval(tmrTick); tmrTick=null;
-        // a timed race round is the one thing the clock actually ends
-        if(activeGame==='race' && raceMode==='timed' && raceRunning){ endRaceRound(false); }
+        // whichever game is up decides what running out of time means; only a
+        // timed race round currently does anything with it
+        hook('onTimerEnd');
       }
       timerRender();
     }, 1000);
