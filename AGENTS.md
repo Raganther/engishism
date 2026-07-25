@@ -78,6 +78,7 @@ Anything more than one game needs lives in `hub-kit.js`, not in a game:
 | `Kit.fitToScreen(el, {min,gap})` | three separate header/team-bar measurements | Jeopardy, Race, Millionaire |
 | `Kit.anim.register/get(feature,name)` | hard-coded animation keyframes | the clue card, and whatever comes next |
 | `Kit.claimTeam({mount,onPick})` | Blockbusters' two buttons + Race's own bar | Blockbusters (`allow:[0,1]`), Race |
+| `Kit.shapeOf(origin,target)` | animations assuming everything is a rectangle | the `morph` card animation |
 | `Kit.passTurn(count,current)` | four ad hoc rotations | all four games |
 
 **Interchangeable implementations.** A feature can ship several versions and let the
@@ -89,6 +90,10 @@ Kit.anim.register('cardFlip', 'rise', { open(card, origin, ms, h){…}, close(�
 S.register({ id:'cardFlip', type:'variant', default:'grow-turn',
              variants:[{value:'rise', label:'Rise up — no 3D'}, …] });
 ```
+A variant may name the games it suits (`{value:'x', games:['blockbusters']}`) and the
+panel filters each tab accordingly; `currentFlip()` falls back to `grow-turn` rather
+than silently doing nothing if a game is set to one it isn't offered.
+
 Adding another is those two lines — no branching in game code, no panel edit. `h.at(deg)`
 gives the transform landing the card on its origin; the helpers are **snapshotted before
 the card's transform is touched**, because measuring after forces a reflow that delays
@@ -234,9 +239,16 @@ back to memory for the session (the panel says so).
   works): rising tone for right, buzz for wrong, chime on a Blockbusters claim,
   fanfare on a cleared board, low tone when a timed round expires, a swoop on the
   card flip and a chime on the answer reveal.
-- **Card animation** is now a **variant** setting, per game: `grow-turn` (the default,
-  unchanged), `turn-only` (no travel), `rise` (no 3D at all — the fallback if a machine
-  stutters), or `off`. Switchable mid-game to compare. Registered in `Kit.anim`.
+- **Card animation** is a **variant** setting, per game, switchable mid-game:
+  **`morph`** (the default) reads the shape of whatever was clicked via `Kit.shapeOf`
+  and unfolds from it — a genuine hexagon in Blockbusters, the tile's own corner
+  radius in Jeopardy, and any future board shape for free. `grow-turn` is the previous
+  behaviour, `turn-only` has no travel, `rise` avoids 3D entirely (the fallback if a
+  machine stutters), `off` opens instantly. Registered in `Kit.anim`.
+  Two things that will bite: **clip-path is animated on the two faces, not the card** —
+  on an element with `transform-style:preserve-3d` it flattens the 3D and kills the
+  flip; and the shape is measured **against a face**, because the corner rounding lives
+  there, so measuring the card would morph the corners square.
 - **Card flip** (Jeopardy + Blockbusters): clicking a tile grows the clue card out of
   that tile and turns it over — front face carries the tile's own `$400` / letter,
   back carries the clue. Uses the Web Animations API against the live element rects

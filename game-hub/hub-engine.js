@@ -37,10 +37,11 @@
     label:'Volume', help:'Classroom speakers are usually louder than they sound at your desk.',
     options:[{value:'quiet',label:'Quiet'},{value:'med',label:'Medium'},{value:'loud',label:'Loud'}] });
 
-  S.register({ id:'cardFlip', group:'Clue card', type:'variant', default:'grow-turn',
+  S.register({ id:'cardFlip', group:'Clue card', type:'variant', default:'morph',
     games:['jeopardy','blockbusters'],
     label:'Card animation', help:'How the clue card arrives. Try them mid-game and keep whichever reads best in your room.',
     variants:[{value:'off',       label:'None — opens instantly'},
+              {value:'morph',     label:'Unfold from the shape you clicked'},
               {value:'grow-turn', label:'Grow, then turn over'},
               {value:'turn-only', label:'Turn on the spot'},
               {value:'rise',      label:'Rise up — no 3D'}] });
@@ -811,6 +812,49 @@
     }
   });
 
+  /* Starts as whatever you actually clicked and unfolds into the card: a hexagon in
+     Blockbusters, the tile's own corner radius in Jeopardy, and whatever a future
+     board is drawn with — the shape is read off the element rather than assumed, so
+     no new animation has to be written per board.
+     The shape is animated on the two faces, not the card: clip-path on an element
+     with transform-style:preserve-3d flattens it, which would kill the flip. */
+  Kit.anim.register('cardFlip', 'morph', {
+    open(card, origin, ms, h){
+      morphFaces(card, origin, Math.round(ms*0.62), 0, false);
+      return card.animate([
+        { transform: h.at(0), opacity: 0.9, offset: 0, easing: 'cubic-bezier(.2,.85,.3,1)' },
+        { transform: 'translate(0px,0px) scale(1,1) rotateY(0deg)',   opacity: 1, offset: 0.46, easing: 'linear' },
+        { transform: 'translate(0px,0px) scale(1,1) rotateY(180deg)', opacity: 1, offset: 1 }
+      ], { duration: ms, easing: 'linear' });
+    },
+    close(card, origin, ms, hold, h){
+      // fold back only over the closing stretch, once the card starts shrinking
+      morphFaces(card, origin, Math.round(ms*0.42), (hold||0) + Math.round(ms*0.58), true);
+      return card.animate([
+        { transform:'translate(0px,0px) scale(1,1) rotateY(180deg)', opacity:1, offset:0,    easing:'linear' },
+        { transform:'translate(0px,0px) scale(1,1) rotateY(360deg)', opacity:1, offset:0.46, easing:'linear' },
+        { transform:'translate(0px,0px) scale(1,1) rotateY(360deg)', opacity:1, offset:0.58, easing:'cubic-bezier(.34,0,.2,1)' },
+        { transform: h.at(360), opacity:0.9, offset:1 }
+      ], { duration: ms, delay: hold||0, easing:'linear', fill:'forwards' });
+    }
+  });
+
+  function morphFaces(card, origin, ms, delay, reverse){
+    const faces = [document.getElementById('clue-front'), document.getElementById('clue-back')];
+    faces.forEach(f=>{
+      if(!f) return;
+      // the shape is read against the face, not the card: the rounding lives on the
+      // faces, so measuring the card would morph the corners to square
+      const shape = Kit.shapeOf(origin, f);
+      if(!shape) return;
+      const kf = [{}, {}];
+      kf[0][shape.prop] = reverse ? shape.to : shape.from;
+      kf[1][shape.prop] = reverse ? shape.from : shape.to;
+      f.animate(kf, { duration: ms, delay: delay||0,
+                      easing: 'cubic-bezier(.45,.05,.35,1)', fill: 'both' });
+    });
+  }
+
   Kit.anim.register('cardFlip', 'turn-only', {
     // no travel: the card is already where it belongs and simply turns over. Quicker,
     // and much less movement across the screen for a class that finds the grow busy.
@@ -860,7 +904,12 @@
 
   function currentFlip(){
     if(!flipEnabled()) return null;
-    return Kit.anim.get('cardFlip', S.get('cardFlip', activeGame));
+    // an animation chosen on the master tab may not suit this game — fall back
+    // rather than silently doing nothing
+    const want    = S.get('cardFlip', activeGame);
+    const allowed = S.variantsFor('cardFlip', activeGame).map(v => v.value);
+    const name    = allowed.indexOf(want) !== -1 ? want : 'grow-turn';
+    return Kit.anim.get('cardFlip', name);
   }
 
   function openClueCard(origin){
@@ -870,6 +919,10 @@
       origin ? (origin.dataset.face || origin.textContent) : '';
     modal.style.display = 'flex';
     card.getAnimations().forEach(a=>a.cancel());
+    ['clue-front','clue-back'].forEach(id=>{
+      const f=document.getElementById(id);
+      if(f){ f.getAnimations().forEach(a=>a.cancel()); f.style.clipPath=''; f.style.borderRadius=''; }
+    });
     card.classList.remove('flipped');
 
     const impl = currentFlip();

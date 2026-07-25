@@ -23,8 +23,8 @@
    nothing needs migrating.
 
    Types: 'toggle' (boolean), 'select' (options:[{value,label}]), 'variant'
-   (variants:[{value,label}] — several interchangeable implementations of one
-   feature, see hub-kit.js) and 'text'.
+   (variants:[{value,label,games?}] — several interchangeable implementations of
+   one feature, see hub-kit.js; a variant may name the games it suits) and 'text'.
    Values persist per device where storage is allowed; a browser that blocks it on
    file:// falls back to in-memory, which stays correct for the session. */
 window.HubSettings = (function(){
@@ -93,6 +93,15 @@ window.HubSettings = (function(){
 
   function hasOverride(id, game){
     return !!game && values[key(id, game)] !== undefined && values[key(id, game)] !== null;
+  }
+
+  /* Variants can name the games they suit, so a hexagon animation is never offered
+     for a board with no hexagons. Unnamed variants suit every game. */
+  function variantsFor(id, game){
+    const d = byId[id];
+    if(!d || !Array.isArray(d.variants)) return [];
+    if(!game) return d.variants.slice();
+    return d.variants.filter(v => !Array.isArray(v.games) || v.games.indexOf(game) !== -1);
   }
 
   function onChange(fn){ listeners.push(fn); }
@@ -173,7 +182,7 @@ window.HubSettings = (function(){
       return inp;
     }
     if(d.type==='select' || d.type==='variant'){
-      const opts = d.type==='variant' ? (d.variants||[]) : (d.options||[]);
+      const opts = d.type==='variant' ? variantsFor(d.id, game) : (d.options||[]);
       const sel=document.createElement('select');
       sel.className='settings-select';
       opts.forEach(o=>{
@@ -290,7 +299,7 @@ window.HubSettings = (function(){
     });
   }
 
-  return { register, get, set, clearOverride, hasOverride, onChange,
+  return { register, get, set, clearOverride, hasOverride, onChange, variantsFor,
            mount, open, close, resetAll, setContext,
            get storageAvailable(){ return storageOK; } };
 })();

@@ -402,6 +402,48 @@ async function testFlipVariants(browser){
     check(name + ': closes cleanly', true);
   }
 
+  // morph reads the shape of whatever was clicked, so the card genuinely starts as
+  // a hexagon in Blockbusters and as the tile's own corner radius in Jeopardy
+  await page.evaluate(() => window.HubSettings.set('cardFlip', 'morph'));
+  await startGame(page, 'Blockbusters', { sections:'all' });
+  const hexClip = await page.evaluate(() => getComputedStyle(document.querySelector('.hex')).clipPath);
+  await page.locator('.hex').first().click(); await page.waitForTimeout(140);
+  const mid = await page.evaluate(() => getComputedStyle(document.getElementById('clue-front')).clipPath);
+  check('morph: the card starts as a polygon in Blockbusters', mid.indexOf('polygon') === 0, mid);
+  check('morph: mid-flight it is neither the hexagon nor the rectangle',
+        mid !== hexClip && !/100% 0%.*100% 100%/.test(mid), mid);
+  await page.waitForTimeout(1700);
+  const done = await page.evaluate(() => getComputedStyle(document.getElementById('clue-front')).clipPath);
+  check('morph: it finishes as the full rectangle',
+        /50% 0%.*100% 0%.*100% 100%/.test(done), done);
+  check('morph: the flip still completes', await page.locator('#clue-card.flipped').count() === 1);
+  await page.locator('#skip-btn').click(); await page.waitForTimeout(1700);
+
+  // same variant, a board with no polygon: falls back to the corner radius
+  await startGame(page, 'Jeopardy', { sections:3 });
+  await page.locator('.tile').first().click(); await page.waitForTimeout(160);
+  const r = await page.evaluate(() => ({
+    tile: parseFloat(getComputedStyle(document.querySelector('.tile')).borderRadius),
+    live: parseFloat(getComputedStyle(document.getElementById('clue-front')).borderRadius)
+  }));
+  check('morph: a plain tile morphs its corner radius instead', r.live > r.tile, JSON.stringify(r));
+  await page.waitForTimeout(1700);
+  await page.locator('#close-btn').click(); await page.waitForTimeout(1700);
+
+  // a variant restricted to one game must not be offered to another, and must not
+  // be silently used if it somehow gets selected
+  const filtered = await page.evaluate(() => {
+    window.HubSettings.register({ id:'__probe', type:'variant', default:'a',
+      games:['jeopardy','blockbusters'], label:'probe',
+      variants:[{value:'a'}, {value:'b', games:['blockbusters']}] });
+    return { jeo: window.HubSettings.variantsFor('__probe','jeopardy').map(v=>v.value),
+             bb:  window.HubSettings.variantsFor('__probe','blockbusters').map(v=>v.value),
+             all: window.HubSettings.variantsFor('__probe').map(v=>v.value) };
+  });
+  check('a game-restricted variant is hidden from other games',
+        filtered.jeo.join() === 'a' && filtered.bb.join() === 'a,b' && filtered.all.join() === 'a,b',
+        JSON.stringify(filtered));
+
   // 'off' must skip animating entirely but still open
   await page.evaluate(() => window.HubSettings.set('cardFlip', 'off'));
   await startGame(page, 'Jeopardy', { sections:3 });
