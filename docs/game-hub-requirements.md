@@ -438,6 +438,43 @@ saved boards and history — that still holds. Teacher **preferences** are persi
 no setting. Nothing about a game in progress is saved, and where a browser blocks
 storage the app degrades to session-only and says so in the panel.
 
+### 4.4d Game show mode — built for Millionaire, untrialled
+
+An alternative **skin**, chosen per game in that game's settings tab: `dcu` (the
+default, unchanged) or `gameshow`. Dark stage, chase lights, a title sequence,
+think music, and lighting that tightens as the stakes rise.
+
+| ID | Requirement | Priority |
+|---|---|---|
+| F4d.1 | The school-colours look stays the default and is not altered by this | Must |
+| F4d.2 | The skin applies to the whole app while playing, and is removed on leaving | Must |
+| F4d.3 | The title sequence is skippable by any key or click, and capped at ~4s | Must |
+| F4d.4 | Nothing flashes faster than 3Hz; no full-screen white strobe | Must |
+| F4d.5 | Everything is disabled under `prefers-reduced-motion` | Must |
+| F4d.6 | Audio remains synthesised — no files, so offline still holds | Must |
+| F4d.7 | The intro can be set to once per session, every round, or never | Should |
+
+Decisions taken:
+
+- **The skin is app-wide but chosen per game.** Themed board plus unthemed team bar
+  reads as a bug, so the body class covers the chrome too and comes off on leaving.
+- **One number drives the atmosphere.** The rung a team is playing for becomes
+  `--tension` (0–1) on the stage; CSS closes the spotlight and warms the wash, and
+  the music bed takes its tempo and filter from the same value. The ladder was
+  already the game's tension curve — this just plugs the lights into it.
+- **The bed stops the moment a question is answered**, so it never plays under the
+  teacher reading out a result.
+- **Flashing is a safety constraint, not a taste one.** This is projected at a room
+  of students whose medical histories the teacher does not have, so flashes are slow
+  colour washes rather than strobes, and reduced motion removes them entirely.
+- **Music is original.** Everything is synthesised from oscillators, so the cues are
+  written in the spirit of a quiz show rather than reproduced from one.
+
+Open: whether the bed competes with the teacher's voice on classroom speakers, and
+whether the title sequence is still welcome by the fourth round of a lesson. Both
+need a real class. Extending the skin to another game is a `games` entry, an `INTROS`
+entry and a block of stage CSS — no engine change.
+
 ### 4.4c Phone buzzers — first draft, not yet trialled
 
 §1.3 put "student devices" out of scope for the MVP, and for the demo that still

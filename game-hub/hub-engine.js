@@ -58,6 +58,23 @@
               {value:'pulse', label:'Flash the whole route at once'},
               {value:'off',   label:'Just mark it — no animation'}] });
 
+  /* A skin, not a rewrite: `theme` swaps the whole app's look while a game is being
+     played and puts it back on leaving, so a game-show Millionaire never sits above
+     a DCU team bar. Only Millionaire is dressed so far — adding another game is its
+     name in `games` plus an ident in INTROS. */
+  S.register({ id:'theme', group:'Presentation', type:'variant', default:'dcu',
+    games:['millionaire'],
+    label:'Look and feel', help:'Game show mode darkens the room, adds chase lights, an intro and music.',
+    variants:[{value:'dcu',      label:'DCU — school colours'},
+              {value:'gameshow', label:'Game show — lights, music, intro'}] });
+
+  S.register({ id:'intro', group:'Presentation', type:'select', default:'once',
+    games:['millionaire'],
+    label:'Title sequence', help:'The lights-and-logo opening. Any key or click skips it.',
+    options:[{value:'once',  label:'Once per session'},
+             {value:'every', label:'Every round'},
+             {value:'off',   label:'Never'}] });
+
   S.register({ id:'mLifelines', group:'Millionaire', type:'toggle', default:true, games:['millionaire'],
     label:'Lifelines', help:'50:50, Ask the class, and Confer — one use each per team.' });
   S.register({ id:'mConferSeconds', group:'Millionaire', type:'select', default:30, games:['millionaire'],
@@ -88,7 +105,12 @@
       end:    [{f:440,d:0.14},{f:330,d:0.2}],
       clear:  [{f:523,d:0.1},{f:659,d:0.1},{f:784,d:0.1},{f:1047,d:0.28}],
       flip:   [{f:240,to:820,d:0.3,type:'sine'}],
-      reveal: [{f:880,d:0.07},{f:1319,d:0.19}]
+      reveal: [{f:880,d:0.07},{f:1319,d:0.19}],
+      // game-show cues. Original riffs, not the shows' own music — everything here
+      // is oscillators, so there is nothing to license and nothing to download.
+      lock:   [{f:150,to:60,d:0.22,type:'sine'},{f:70,to:190,d:0.5,type:'sawtooth'}],
+      klaxon: [{f:196,d:0.3,type:'square'},{f:185,d:0.42,type:'square'}],
+      sting:  [{f:392,d:0.1,type:'square'},{f:523,d:0.1,type:'square'},{f:784,d:0.34,type:'square'}]
     };
     let ctx=null;
     function audio(){
@@ -118,7 +140,106 @@
         at += n.d*0.85;
       });
     }
-    return { play };
+
+    function level(){ return LEVEL[S.get('soundVolume', activeGame)] || LEVEL.med; }
+    function live(){
+      if(!S.get('sound', activeGame)) return null;
+      const ac = audio(); if(!ac) return null;
+      if(ac.state==='suspended' && ac.resume) ac.resume();
+      return ac;
+    }
+
+    /* Applause is filtered noise, not a sample — a burst of white noise through a
+       bandpass lands close enough to a room clapping, and keeps the app offline. */
+    function applause(ms){
+      const ac = live(); if(!ac) return;
+      const secs = (ms || 2200) / 1000;
+      const buf = ac.createBuffer(1, Math.ceil(ac.sampleRate * secs), ac.sampleRate);
+      const d = buf.getChannelData(0);
+      for(let i=0; i<d.length; i++){
+        // a slow random envelope on top of the noise gives it a hand-clap texture
+        // rather than the flat hiss plain noise produces
+        d[i] = (Math.random()*2 - 1) * (0.45 + 0.55*Math.random());
+      }
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const band = ac.createBiquadFilter(); band.type='bandpass'; band.frequency.value=1600; band.Q.value=0.7;
+      const gain = ac.createGain();
+      const t = ac.currentTime, peak = level()*0.9;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(peak, t+0.12);
+      gain.gain.setValueAtTime(peak, t+secs*0.45);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t+secs);
+      src.connect(band); band.connect(gain); gain.connect(ac.destination);
+      src.start(t); src.stop(t+secs+0.05);
+    }
+
+    /* Brass-ish rising figure for a cleared ladder — sawtooth under a lowpass is a
+       serviceable horn section at classroom-speaker resolution. */
+    function fanfare(){
+      const ac = live(); if(!ac) return;
+      const notes = [[392,0.14],[523,0.14],[659,0.14],[784,0.5]];
+      let at = ac.currentTime, peak = level();
+      notes.forEach(([f,d])=>{
+        [1, 1.005, 2].forEach((mult, i)=>{      // slight detune + an octave = body
+          const osc=ac.createOscillator(), g=ac.createGain(), lp=ac.createBiquadFilter();
+          osc.type='sawtooth'; osc.frequency.setValueAtTime(f*mult, at);
+          lp.type='lowpass'; lp.frequency.value=2600;
+          const amp = peak * (i===2 ? 0.32 : 0.55);
+          g.gain.setValueAtTime(0.0001, at);
+          g.gain.exponentialRampToValueAtTime(amp, at+0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, at+d);
+          osc.connect(lp); lp.connect(g); g.connect(ac.destination);
+          osc.start(at); osc.stop(at+d+0.02);
+        });
+        at += d*0.92;
+      });
+    }
+
+    /* ---- the think-music bed ----
+       Runs while a question is live and stops the moment it is answered, so it
+       never talks over the teacher reading out the result. Tension (0–1, driven by
+       the rung) speeds the pulse up and opens the filter, which is most of what
+       makes the top of a ladder feel different from the bottom. */
+    let bed = null;
+    function bedStart(tension){
+      const ac = live(); if(!ac){ bedStop(); return; }
+      if(bed){ bedSet(tension); return; }
+      const out  = ac.createGain();  out.gain.value = 0;
+      const lp   = ac.createBiquadFilter(); lp.type='lowpass'; lp.Q.value=7;
+      const o1   = ac.createOscillator(); o1.type='sawtooth'; o1.frequency.value=55;    // A1
+      const o2   = ac.createOscillator(); o2.type='sawtooth'; o2.frequency.value=82.41; // E2
+      const lfo  = ac.createOscillator(); lfo.type='sine';
+      const lfoG = ac.createGain();
+      o1.connect(lp); o2.connect(lp); lp.connect(out); out.connect(ac.destination);
+      lfo.connect(lfoG); lfoG.connect(out.gain);       // pulse, like a slow heartbeat
+      [o1,o2,lfo].forEach(o=>o.start());
+      bed = { out, lp, lfo, lfoG, oscs:[o1,o2,lfo] };
+      bedSet(tension);
+    }
+    function bedSet(tension){
+      if(!bed) return;
+      const ac = audio(); if(!ac) return;
+      const t = Math.max(0, Math.min(1, tension || 0));
+      const base = level() * 0.30 * (0.55 + 0.45*t);
+      const now  = ac.currentTime;
+      bed.out.gain.cancelScheduledValues(now);
+      bed.out.gain.setTargetAtTime(base, now, 0.25);
+      bed.lfoG.gain.setTargetAtTime(base*0.85, now, 0.25);
+      bed.lfo.frequency.setTargetAtTime(0.9 + 1.5*t, now, 0.4);   // 54 → 144 bpm
+      bed.lp.frequency.setTargetAtTime(260 + 520*t, now, 0.4);
+    }
+    function bedStop(){
+      if(!bed) return;
+      const ac = audio(), b = bed; bed = null;
+      if(!ac){ return; }
+      const now = ac.currentTime;
+      b.out.gain.cancelScheduledValues(now);
+      b.out.gain.setTargetAtTime(0.0001, now, 0.12);
+      // let it fade before tearing the nodes down, or the stop clicks
+      setTimeout(()=>{ try{ b.oscs.forEach(o=>o.stop()); b.out.disconnect(); }catch(e){} }, 600);
+    }
+
+    return { play, applause, fanfare, bedStart, bedSet, bedStop };
   })();
 
   /* ---- UI skeleton (identical for every unit) ---- */
@@ -259,6 +380,18 @@
     <!-- persistent team bar (always visible, all screens) -->
     <div id="scorebar"></div>
 
+    <!-- title sequence. Empty and inert unless a game show themed game opens it. -->
+    <div id="intro-overlay" aria-hidden="true">
+      <div class="intro-sweep"></div>
+      <div class="intro-bulbs"></div>
+      <div id="intro-inner">
+        <div id="intro-eyebrow"></div>
+        <div id="intro-title"></div>
+        <div id="intro-sub"></div>
+      </div>
+      <div id="intro-skip">Press any key to skip</div>
+    </div>
+
     <!-- end-of-round banner. Deliberately a banner and not a full-screen modal: the
          whole point of a Blockbusters win is the route lit up on the board behind it,
          so this sits above the team bar and leaves the board visible. -->
@@ -376,7 +509,87 @@
     document.body.classList.toggle('play-fit',
       id==='screen-play' && (activeGame==='race' || activeGame==='jeopardy' || activeGame==='millionaire'));
     if(id!=='screen-play') timerStop();
+    applyTheme(id==='screen-play');
+    if(id!=='screen-play') Sound.bedStop();
     renderScorebar();   // team bar is always visible; refresh its highlight/cues
+  }
+
+  /* ================= THEME =================
+     A skin is a body class and a block of CSS overrides, not a second stylesheet —
+     the DCU look stays the default and untouched. It goes on when a themed game
+     reaches the play screen and comes off when you leave, so the chrome never
+     half-changes: a neon board above a navy team bar reads as broken. */
+  function themeOf(game){ return S.get('theme', game || activeGame) || 'dcu'; }
+  function applyTheme(onPlayScreen){
+    document.body.classList.toggle('theme-gameshow',
+      !!onPlayScreen && themeOf() === 'gameshow');
+  }
+  S.onChange(id=>{             // switching it in ⚙ mid-game should show immediately
+    if(id !== 'theme') return;
+    applyTheme(document.getElementById('screen-play').classList.contains('active'));
+  });
+
+  function motionOK(){
+    try{ return !window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    catch(e){ return true; }
+  }
+
+  /* ---- title sequence ----
+     One sequence, per-game copy and colour — so the next game to want an ident is a
+     line in INTROS, not another animation. Always skippable and always short: four
+     seconds times four games times every lesson is real teaching time. Resolves
+     when it's done or the moment anybody skips it, so callers can just await it. */
+  const INTROS = {
+    millionaire: { eyebrow:'Cambridge Empower C1', title:'MILLIONAIRE',
+                   sub:'Eight rungs. One team at a time. No safety net.',
+                   accent:'#FFC83D' }
+  };
+  const introShown = Object.create(null);      // per session, for the 'once' setting
+
+  function wantsIntro(game){
+    if(themeOf(game) !== 'gameshow' || !INTROS[game]) return false;
+    const mode = S.get('intro', game);
+    if(mode === 'off') return false;
+    if(mode === 'once' && introShown[game]) return false;
+    return true;
+  }
+
+  function runIntro(game){
+    const cfg = INTROS[game];
+    introShown[game] = true;
+    const el = document.getElementById('intro-overlay');
+    document.getElementById('intro-eyebrow').textContent = cfg.eyebrow;
+    document.getElementById('intro-title').textContent   = cfg.title;
+    document.getElementById('intro-sub').textContent     = cfg.sub;
+    el.style.setProperty('--accent', cfg.accent);
+
+    const ms = motionOK() ? 3600 : 1200;
+    el.classList.toggle('still', !motionOK());
+    el.classList.add('on');
+
+    return new Promise(resolve=>{
+      let done = false;
+      const finish = ()=>{
+        if(done) return; done = true;
+        clearTimeout(timer);
+        document.removeEventListener('keydown', skip, true);
+        el.removeEventListener('click', skip);
+        el.classList.remove('on', 'still');
+        resolve();
+      };
+      const skip = e=>{ if(e.type==='keydown' && e.key==='Escape') return; finish(); };
+      const timer = setTimeout(finish, ms);
+      document.addEventListener('keydown', skip, true);
+      el.addEventListener('click', skip);
+
+      if(motionOK()){
+        Sound.play('lock');
+        setTimeout(()=>Sound.play('sting'), 620);
+        setTimeout(()=>Sound.fanfare(), 1150);
+      } else {
+        Sound.play('sting');
+      }
+    });
   }
 
   /* ---- end-of-round banner ----
@@ -687,6 +900,19 @@
     if(activeGame==='millionaire')  fitMillionaire();
     if(activeGame==='blockbusters') layoutBlockbustersBoard();
     timerReset();
+
+    /* The intro plays over the finished board rather than before it is built, so
+       the first thing behind the titles is the real thing, and skipping drops you
+       straight into a game that is already running. */
+    if(wantsIntro(activeGame)){
+      const game = activeGame;
+      runIntro(game).then(()=>{
+        if(activeGame !== game) return;      // they navigated away mid-titles
+        if(game === 'millionaire') mTension();
+      });
+    } else if(activeGame === 'millionaire'){
+      mTension();
+    }
   });
 
   /* ================= BLOCKBUSTERS ================= */
@@ -1378,7 +1604,12 @@
     if(st.rung >= M_LADDER.length){       // this team has topped out
       renderMillionaire();
       showMillionaireMessage((teams[active] ? teams[active].name : 'Team') + ' has cleared the ladder!');
-      Sound.play('clear');
+      Sound.bedStop();
+      if(document.getElementById('play-millionaire').classList.contains('lit')){
+        Sound.fanfare(); setTimeout(()=>Sound.applause(2600), 700);
+      } else {
+        Sound.play('clear');
+      }
       return;
     }
     const q = pickQuestion(active);
@@ -1416,6 +1647,7 @@
     });
 
     renderLadder();
+    mTension();          // one place keeping the lights and the music in step
     if(!mCurrent) return;
 
     document.getElementById('m-question').textContent = mCurrent.q.prompt;
@@ -1447,6 +1679,41 @@
       : '';
     document.getElementById('m-next').style.display = 'none';
     document.getElementById('m-done-count').style.display = mTally ? 'inline-block' : 'none';
+  }
+
+  /* ---- how tense it should feel right now ----
+     The ladder already holds the only number this needs: rung 0 of 8 is a warm-up,
+     rung 7 is the last question of the night. One value drives both halves of the
+     atmosphere — the CSS reads `--tension` to close the spotlight in and pull the
+     colour towards red, and the think-music bed uses it for tempo and brightness.
+     Nothing here runs unless the game show skin is on. */
+  function mTension(){
+    const stage = document.getElementById('play-millionaire');
+    const on    = themeOf('millionaire') === 'gameshow' && activeGame === 'millionaire';
+    stage.classList.toggle('lit', on);
+    if(!on){ stage.style.removeProperty('--tension'); Sound.bedStop(); return; }
+
+    const st = mTeamState(active);
+    const t  = Math.min(st.rung, M_LADDER.length-1) / (M_LADDER.length-1);
+    stage.style.setProperty('--tension', t.toFixed(3));
+
+    // the bed plays under a live question and stops the moment one is answered, so
+    // it never runs under the teacher reading out the result
+    if(mCurrent && !mAnswered && motionOK()) Sound.bedStart(t);
+    else Sound.bedStop();
+  }
+
+  /* A short light wash over the stage — the show's "lights change on the answer".
+     Capped well under 3Hz and skipped entirely for reduced motion: a projected
+     full-screen strobe in front of a class you don't have medical histories for is
+     not a risk worth taking for a flourish. */
+  function mFlash(kind){
+    const stage = document.getElementById('play-millionaire');
+    if(!stage.classList.contains('lit') || !motionOK()) return;
+    stage.classList.remove('flash-right','flash-wrong');
+    void stage.offsetWidth;                        // restart the animation
+    stage.classList.add(kind === 'right' ? 'flash-right' : 'flash-wrong');
+    setTimeout(()=>stage.classList.remove('flash-right','flash-wrong'), 900);
   }
 
   /* Same rule as the other boards: fill the screen, never scroll. The stage takes
@@ -1491,14 +1758,26 @@
       b.disabled = true;
     });
 
+    const showy = document.getElementById('play-millionaire').classList.contains('lit');
+    Sound.bedStop();                     // the bed never runs over the result
+
     if(correct){
-      Sound.play('correct');
       const value = M_LADDER[Math.min(st.rung, M_LADDER.length-1)];
+      if(showy){
+        // lock the answer in first, then pay it off — the pause is the drama
+        Sound.play('lock');
+        setTimeout(()=>{ Sound.play('sting'); mFlash('right'); }, 700);
+        // the top two rungs are worth a round of applause
+        if(st.rung >= M_LADDER.length-2) setTimeout(()=>Sound.applause(1600), 1000);
+      } else {
+        Sound.play('correct');
+      }
       if(teams[mCurrent.team]) teams[mCurrent.team].score += value;
       st.rung += 1;
       document.getElementById('m-hint').textContent = '+' + value;
     } else {
-      Sound.play('wrong');
+      if(showy){ Sound.play('klaxon'); mFlash('wrong'); }
+      else Sound.play('wrong');
       document.getElementById('m-hint').textContent = 'No points — same rung next time round.';
     }
     renderScorebar();

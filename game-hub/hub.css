@@ -366,6 +366,194 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 .m-rung.cleared{ background:var(--cream); color:var(--navy); border-color:var(--cream); }
 .m-rung.here{ background:var(--yellow); border-color:var(--yellow); color:var(--navy); font-weight:700; }
 
+/* ============================================================================
+   GAME SHOW SKIN
+   A second look for the same markup: `body.theme-gameshow` goes on when a themed
+   game reaches the play screen and comes off when you leave, so the DCU theme
+   below stays the default and is never touched. Everything here is an override —
+   no element needs a second class, and a game that isn't dressed yet simply
+   doesn't get the body class.
+
+   Two rules held throughout:
+   - nothing flashes faster than about 1.5Hz, and every flash is a wash of colour
+     rather than a full-screen white strobe. This is projected at a room of
+     students whose medical histories you don't have.
+   - all of it is disabled under prefers-reduced-motion at the bottom of the file.
+   ============================================================================ */
+body.theme-gameshow{
+  --stage:#05060F; --stage2:#0D1233; --glow:#3E63FF;
+  --hot:#FF2E7E; --gold:#FFC83D; --paper:#EAF0FF;
+  background:
+    radial-gradient(120% 85% at 50% -10%, #1B2470 0%, #0A0D26 45%, var(--stage) 100%);
+  color: var(--paper);
+}
+body.theme-gameshow header h1{ color: var(--gold); text-shadow: 0 0 26px rgba(255,200,61,0.45); }
+body.theme-gameshow .eyebrow{ color: var(--glow); }
+body.theme-gameshow .geo-band{
+  background-color:#000;
+  background-image:
+    radial-gradient(circle at 9px 16px, var(--gold) 0 6px, transparent 6px),
+    radial-gradient(circle at 27px 16px, var(--hot) 0 6px, transparent 6px),
+    radial-gradient(circle at 45px 16px, var(--glow) 0 6px, transparent 6px);
+  background-size:54px 16px;
+  animation: bandRun 1.4s steps(3) infinite;   /* ~2 bulbs a second */
+}
+@keyframes bandRun{ to{ background-position:54px 0; } }
+body.theme-gameshow #new-game-btn,
+body.theme-gameshow #settings-btn{ background:rgba(255,255,255,0.06); color:var(--paper); border-color:rgba(255,255,255,0.3); }
+body.theme-gameshow #new-game-btn:hover{ background:var(--gold); color:#000; border-color:var(--gold); }
+body.theme-gameshow #timer-widget{ background:rgba(0,0,0,0.5); border-color:var(--gold); }
+
+body.theme-gameshow #scorebar{ background:#02030A; border-top-color: var(--gold); }
+body.theme-gameshow .team{ background:rgba(255,255,255,0.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
+body.theme-gameshow .team .score{ color: var(--gold); text-shadow: 0 0 14px rgba(255,200,61,0.5); }
+body.theme-gameshow .team.active-team{ box-shadow: 0 0 0 2px var(--gold), 0 0 26px rgba(255,200,61,0.4); }
+
+/* --- the stage. `--tension` (0–1) comes from the rung the team is playing for and
+   drives everything: the spotlight closes in, the wash turns from blue to red, and
+   the question card's glow tightens. One number, set in mTension(). --- */
+body.theme-gameshow #play-millionaire.lit{
+  --tension:0;
+  position:relative; border-radius:20px; padding:16px 24px 14px;
+  background:
+    radial-gradient(calc(120% - var(--tension) * 55%) calc(115% - var(--tension) * 50%) at 50% 12%,
+      color-mix(in srgb, var(--glow) calc(24% + var(--tension) * 10%), transparent) 0%,
+      rgba(6,8,24,0.5) 55%, rgba(2,3,10,0.92) 100%),
+    linear-gradient(180deg, rgba(255,46,126, calc(var(--tension) * 0.16)) 0%, transparent 60%);
+  box-shadow: inset 0 0 120px rgba(0,0,0,0.75);
+  transition: background .9s ease;
+}
+/* chase lights down both sides of the stage */
+body.theme-gameshow #play-millionaire.lit::before,
+body.theme-gameshow #play-millionaire.lit::after{
+  content:''; position:absolute; top:14px; bottom:14px; width:10px; border-radius:6px;
+  background:
+    repeating-linear-gradient(180deg, var(--gold) 0 8px, transparent 8px 24px);
+  filter: drop-shadow(0 0 7px var(--gold));
+  opacity:0.85; animation: chase 1.4s linear infinite;
+}
+body.theme-gameshow #play-millionaire.lit::before{ left:6px; }
+body.theme-gameshow #play-millionaire.lit::after{ right:6px; animation-direction:reverse; }
+@keyframes chase{ to{ background-position:0 24px; } }
+
+body.theme-gameshow #m-turn{ color: var(--gold); letter-spacing:0.12em; }
+body.theme-gameshow #m-question{
+  background: linear-gradient(180deg, #131A4E 0%, #070B22 100%);
+  color:var(--paper); border:2px solid rgba(255,255,255,0.16);
+  box-shadow: 0 0 calc(24px + var(--tension, 0) * 34px) rgba(62,99,255,0.45), inset 0 1px 0 rgba(255,255,255,0.12);
+}
+body.theme-gameshow .m-option{
+  background: linear-gradient(180deg, #10163F 0%, #070B22 100%);
+  color:var(--paper); border-color: rgba(255,255,255,0.22);
+}
+body.theme-gameshow .m-option:hover:not(:disabled){
+  background: linear-gradient(180deg, #1C2668 0%, #0B1130 100%);
+  border-color: var(--gold);
+}
+body.theme-gameshow .m-letter{ background:transparent; color:var(--gold); border:2px solid var(--gold); }
+body.theme-gameshow .m-option.right{
+  background: linear-gradient(180deg, #16833E 0%, #0B4D24 100%); border-color:#39E27A;
+  box-shadow: 0 0 30px rgba(57,226,122,0.5);
+}
+body.theme-gameshow .m-option.right .m-letter{ background:#39E27A; color:#042A12; border-color:#39E27A; }
+body.theme-gameshow .m-option.picked-wrong{
+  background: linear-gradient(180deg, #A5122F 0%, #5C0918 100%); border-color:var(--hot);
+  box-shadow: 0 0 30px rgba(255,46,126,0.45);
+}
+body.theme-gameshow .m-option.picked-wrong .m-letter{ background:var(--hot); color:#2A0410; border-color:var(--hot); }
+body.theme-gameshow .m-votes{ background:var(--glow); }
+body.theme-gameshow #m-hint{ color: var(--gold); }
+body.theme-gameshow #m-next, body.theme-gameshow #m-done-count{ background:var(--gold); color:#0A0A14; }
+body.theme-gameshow .lifeline{ background:rgba(255,255,255,0.07); color:var(--paper); border-color:rgba(255,255,255,0.32); }
+body.theme-gameshow .lifeline:hover:not(:disabled){ background:var(--gold); color:#0A0A14; border-color:var(--gold); }
+
+body.theme-gameshow .m-rung{ border-color:rgba(255,255,255,0.14); color:rgba(234,240,255,0.55); }
+body.theme-gameshow .m-rung.cleared{ background:rgba(62,99,255,0.22); border-color:rgba(62,99,255,0.5); color:var(--paper); }
+body.theme-gameshow .m-rung.here{
+  background: var(--gold); border-color:var(--gold); color:#0A0A14;
+  box-shadow: 0 0 24px rgba(255,200,61,0.55);
+  animation: rungPulse 1.6s ease-in-out infinite;    /* 0.6Hz — a breath, not a strobe */
+}
+@keyframes rungPulse{ 50%{ box-shadow: 0 0 40px rgba(255,200,61,0.85); } }
+
+/* the lights change on an answer: one slow wash, no strobe */
+body.theme-gameshow #play-millionaire.flash-right{ animation: washRight .9s ease-out; }
+body.theme-gameshow #play-millionaire.flash-wrong{ animation: washWrong .9s ease-out; }
+@keyframes washRight{ 30%{ box-shadow: inset 0 0 180px rgba(57,226,122,0.55); } }
+@keyframes washWrong{ 30%{ box-shadow: inset 0 0 180px rgba(255,46,126,0.55); } }
+
+body.theme-gameshow #result-card{ background:#05060F; border-color:var(--gold); }
+
+/* --- title sequence --- */
+#intro-overlay{ display:none; position:fixed; inset:0; z-index:70; background:#02030A; overflow:hidden; }
+#intro-overlay.on{ display:flex; align-items:center; justify-content:center; }
+/* a searchlight crossing the stage behind the wordmark */
+.intro-sweep{
+  position:absolute; inset:-40% -60%;
+  background: conic-gradient(from 0deg at 50% 50%,
+    transparent 0deg, rgba(62,99,255,0.30) 18deg, transparent 38deg,
+    transparent 180deg, rgba(62,99,255,0.22) 198deg, transparent 218deg);
+  animation: sweep 4.2s linear infinite;
+}
+@keyframes sweep{ to{ transform: rotate(360deg); } }
+/* a ring of bulbs around the edge */
+.intro-bulbs{
+  position:absolute; inset:26px; border-radius:18px; pointer-events:none;
+  background:
+    repeating-linear-gradient(90deg,  var(--accent,#FFC83D) 0 9px, transparent 9px 30px) top    /100% 7px,
+    repeating-linear-gradient(90deg,  var(--accent,#FFC83D) 0 9px, transparent 9px 30px) bottom /100% 7px,
+    repeating-linear-gradient(180deg, var(--accent,#FFC83D) 0 9px, transparent 9px 30px) left   /7px 100%,
+    repeating-linear-gradient(180deg, var(--accent,#FFC83D) 0 9px, transparent 9px 30px) right  /7px 100%;
+  background-repeat:no-repeat;
+  filter: drop-shadow(0 0 8px var(--accent,#FFC83D));
+  animation: bulbs 1.2s steps(2) infinite;      /* ~1.6Hz, well under the 3Hz limit */
+}
+@keyframes bulbs{ to{ opacity:0.35; } }
+#intro-inner{ position:relative; text-align:center; padding:24px; }
+#intro-eyebrow{
+  font-family:'IBM Plex Mono',monospace; font-size:clamp(0.65rem,1.4vw,0.85rem);
+  letter-spacing:0.34em; text-transform:uppercase; color:rgba(234,240,255,0.6);
+  animation: introEyebrow 1s ease-out both;
+}
+#intro-title{
+  font-family:'Space Grotesk',sans-serif; font-weight:700; text-transform:uppercase;
+  font-size: clamp(2.4rem, 11vw, 8rem); line-height:1; letter-spacing:-0.02em;
+  color: var(--accent,#FFC83D); margin:6px 0 10px;
+  text-shadow: 0 0 40px color-mix(in srgb, var(--accent,#FFC83D) 60%, transparent);
+  animation: introSlam .62s cubic-bezier(.15,.9,.25,1.05) .55s both;
+}
+#intro-sub{
+  font-family:'IBM Plex Sans',sans-serif; font-size:clamp(0.9rem,2vw,1.25rem);
+  color:rgba(234,240,255,0.82); animation: introSub .8s ease-out 1.25s both;
+}
+#intro-skip{
+  position:absolute; bottom:34px; left:0; right:0; text-align:center;
+  font-family:'IBM Plex Mono',monospace; font-size:0.7rem; letter-spacing:0.2em;
+  text-transform:uppercase; color:rgba(234,240,255,0.4);
+  animation: introSub .6s ease-out 1.9s both;
+}
+@keyframes introEyebrow{ from{ opacity:0; letter-spacing:0.6em; } }
+@keyframes introSlam{ from{ opacity:0; transform:scale(2.4); filter:blur(9px); } }
+@keyframes introSub{ from{ opacity:0; transform:translateY(12px); } }
+/* reduced motion, or a machine that can't hold the frame rate: the card still
+   appears and still says what game this is — it just doesn't move */
+#intro-overlay.still .intro-sweep,
+#intro-overlay.still .intro-bulbs{ animation:none; }
+#intro-overlay.still #intro-eyebrow,
+#intro-overlay.still #intro-title,
+#intro-overlay.still #intro-sub,
+#intro-overlay.still #intro-skip{ animation:none; }
+
+@media (prefers-reduced-motion: reduce){
+  body.theme-gameshow .geo-band,
+  body.theme-gameshow #play-millionaire.lit::before,
+  body.theme-gameshow #play-millionaire.lit::after,
+  body.theme-gameshow .m-rung.here,
+  .intro-sweep, .intro-bulbs{ animation:none; }
+  body.theme-gameshow #play-millionaire.flash-right,
+  body.theme-gameshow #play-millionaire.flash-wrong{ animation:none; }
+}
+
 /* --- Buzzer chip, on the race bar while a room is open --- */
 #buzzer-chip{
   display:flex; align-items:center; gap:10px; flex-wrap:wrap;

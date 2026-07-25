@@ -478,6 +478,83 @@ async function testWinRouteVariants(browser){
   await page.close();
 }
 
+/* The game show skin is a second look for the same markup. What matters is that it
+   is genuinely opt-in (the DCU default must be untouched), that it comes off when
+   you leave the game, and that the title sequence can always be got out of. */
+async function testGameShow(browser){
+  section('Game show mode');
+  const page = await openHub(browser);
+
+  await startGame(page, 'Millionaire', { sections:'all' });
+  check('the default look is unchanged',
+        await page.evaluate(() => !document.body.classList.contains('theme-gameshow') &&
+                                  !document.getElementById('play-millionaire').classList.contains('lit')));
+  check('no title sequence on the default look', await page.locator('#intro-overlay.on').count() === 0);
+
+  await page.evaluate(() => {
+    window.HubSettings.set('theme', 'gameshow', 'millionaire');
+    window.HubSettings.set('intro', 'every', 'millionaire');
+  });
+  await startGame(page, 'Millionaire', { sections:'all' });
+  check('the skin goes on with the game', await page.evaluate(() => document.body.classList.contains('theme-gameshow')));
+  check('the title sequence plays', await page.locator('#intro-overlay.on').count() === 1);
+  check('the title sequence names the game',
+        (await page.locator('#intro-title').textContent()).trim() === 'MILLIONAIRE');
+
+  // Escape belongs to the settings panel, so it must not double as the skip key
+  await page.keyboard.press('Escape'); await page.waitForTimeout(220);
+  check('Escape does not skip the titles', await page.locator('#intro-overlay.on').count() === 1);
+  await page.keyboard.press('Space'); await page.waitForTimeout(280);
+  check('any other key skips the titles', await page.locator('#intro-overlay.on').count() === 0);
+
+  // one number drives the lights and the music, and it climbs with the ladder
+  const low = await page.evaluate(() => document.getElementById('play-millionaire').style.getPropertyValue('--tension'));
+  check('the stage is lit and starts slack', parseFloat(low) === 0, low);
+  await page.evaluate(() => { window.HubSettings.set('mLifelines', false, 'millionaire'); });
+  for (let i = 0; i < 26; i++){
+    const next = page.locator('#m-next');
+    if (await next.isVisible().catch(()=>false)){ await next.click(); await page.waitForTimeout(220); continue; }
+    const opts = page.locator('#m-options .m-option:not([disabled])');
+    if (!(await opts.count())) break;
+    await opts.first().click(); await page.waitForTimeout(900);
+    if (parseFloat(await page.evaluate(() => document.getElementById('play-millionaire').style.getPropertyValue('--tension'))) > 0.4) break;
+  }
+  const high = await page.evaluate(() => document.getElementById('play-millionaire').style.getPropertyValue('--tension'));
+  check('tension climbs with the rung', parseFloat(high) > parseFloat(low), low + ' → ' + high);
+
+  // and it all comes off again — a neon board over a navy team bar reads as broken
+  await page.locator('#new-game-btn').click(); await page.waitForTimeout(300);
+  check('the skin comes off when you leave',
+        await page.evaluate(() => !document.body.classList.contains('theme-gameshow')));
+
+  // "once per session" must mean once
+  await page.evaluate(() => window.HubSettings.set('intro', 'once', 'millionaire'));
+  await startGame(page, 'Millionaire', { sections:'all' });
+  await page.keyboard.press('Space'); await page.waitForTimeout(250);
+  await startGame(page, 'Millionaire', { sections:'all' });
+  check('once per session plays it once', await page.locator('#intro-overlay.on').count() === 0);
+
+  await page.evaluate(() => window.HubSettings.set('intro', 'off', 'millionaire'));
+  await startGame(page, 'Millionaire', { sections:'all' });
+  check('off means off', await page.locator('#intro-overlay.on').count() === 0);
+
+  // the whole skin runs on the Web Audio bed; muting must not break the game
+  await page.evaluate(() => window.HubSettings.set('sound', false));
+  await startGame(page, 'Millionaire', { sections:'all' });
+  await page.locator('#m-options .m-option').first().click();
+  await page.waitForTimeout(1200);
+  check('muted, the game still scores', (await page.locator('#m-hint').innerText()).length > 0);
+
+  await page.evaluate(() => {
+    window.HubSettings.clearOverride('theme', 'millionaire');
+    window.HubSettings.clearOverride('intro', 'millionaire');
+    window.HubSettings.clearOverride('mLifelines', 'millionaire');
+    window.HubSettings.set('sound', true);
+  });
+  checkClean(page);
+  await page.close();
+}
+
 async function testSettingsMigration(browser){
   section('Old settings still apply');
   const page = await openHub(browser);
@@ -677,7 +754,7 @@ async function main(){
     jeopardy: testJeopardy, blockbusters: testBlockbusters, race: testRace,
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
-    variants: testFlipVariants, winroute: testWinRouteVariants,
+    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow,
     buzzers: testBuzzers,
     degradation: testDegradation, file: testFileProtocol
   };

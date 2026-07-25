@@ -26,7 +26,7 @@ linked as `…?v=YYYYMMDDx` in the three page shells; without a bump, Chrome kee
 the cached JS/CSS and a fix looks like it never shipped (this has already cost one
 debugging round). Change it in all three shells together:
 ```bash
-sed -i '' 's/?v=[0-9a-z]*/?v=20260728a/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
+sed -i '' 's/?v=[0-9a-z]*/?v=20260728b/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
 ```
 The engine reads its own `?v=` and exposes it as `window.HUB_BUILD`; the settings panel
 footer shows it, so **"Build …" in ⚙ tells you which version is actually running.**
@@ -262,6 +262,32 @@ back to memory for the session (the panel says so).
     bar says so explicitly.
   - **Everything degrades**: buzzers off, relay dead, or WiFi gone → the hub behaves
     exactly as before with the manual chips / `1`-`2` keys. Verified for all three.
+- **Game show mode** — a second skin, Millionaire only so far. `theme` is a variant
+  setting (`dcu` | `gameshow`); `body.theme-gameshow` goes on when a themed game
+  reaches the play screen and comes off when you leave, so the chrome never
+  half-changes (a neon board over a navy team bar reads as broken). The DCU theme
+  is the default and is untouched — the skin is pure override.
+  - **`--tension` is the whole idea.** `mTension()` turns the rung the team is
+    playing for into one 0–1 number on `#play-millionaire`; the CSS reads it to
+    close the spotlight in and pull the wash from blue towards red, and the
+    think-music bed reads it for tempo and filter. One number, both halves of the
+    atmosphere. Adding a mood to some other beat = another CSS rule, no new state.
+  - **Sound is still all synthesised** (offline). New: `Sound.bedStart/bedSet/bedStop`
+    (a looping bed with an LFO heartbeat — it plays only under a live unanswered
+    question, so it never runs while the teacher reads out a result),
+    `Sound.applause` (filtered white noise, not a sample), `Sound.fanfare`
+    (detuned sawtooth through a lowpass), plus `lock` / `klaxon` / `sting` voices.
+    Original riffs, deliberately not the shows' own music.
+  - **Title sequence**: `INTROS[game]` holds the copy and accent colour, `runIntro()`
+    plays one shared sequence and resolves when it ends *or* is skipped. Adding
+    Jeopardy's ident is an entry in `INTROS`, not another animation. It plays over
+    the finished board, so skipping drops you into a game already running.
+    `intro` setting: once per session (default) / every round / off.
+  - **Nothing flashes faster than ~1.5Hz** and no flash is full-screen white — this
+    is projected at students whose medical histories you don't have. Every animation
+    in the skin is switched off under `prefers-reduced-motion`, which also shortens
+    the intro to a still card rather than removing it.
+  - Escape is deliberately *not* the skip key — it belongs to the settings panel.
 - **Settings panel** (⚙ in the header, Esc or click-away to close), built from a
   registry so a new feature's switch appears by registering it — see "Adding a
   feature" above. Currently: sound on/off, volume, race re-scatter, race round
@@ -340,6 +366,14 @@ back to memory for the session (the panel says so).
 - Small wins: "steal" in Blockbusters (wrong → other team claims); a winner banner
   when a Jeopardy board is cleared — `showResult()` already exists, so this is a
   call site, not a feature; self-host fonts for true offline.
+- **Game show mode is Millionaire-only.** Extending it to another game is: add the
+  game to `theme`'s `games` array, add an `INTROS` entry, and write the stage rules
+  in the skin block of `hub.css`. Ideas already sketched — Jeopardy: starfield +
+  searchlight, categories flipping up, chase lights racing round a chosen tile;
+  Blockbusters: honeycomb assembling, applause on the winning route (it already has
+  `showResult`); Race: stadium wash and a starting pistol. Untried in a real room —
+  check the bed isn't fighting the teacher's voice on classroom speakers, and
+  whether the intro is still welcome by the fourth round.
 - Product-line decision: is the Game Hub now the product, with #2/#3 as legacy?
 
 ## Constraints
@@ -353,7 +387,7 @@ back to memory for the session (the panel says so).
 
 ## Before you push
 ```bash
-NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~8 min, 140 checks
+NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~9 min, 155 checks
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=jeopardy,fit   # while iterating
 ```
 Drives all four games in a real browser and checks the things that have actually
