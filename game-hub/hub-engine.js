@@ -621,13 +621,15 @@
     }
     showScreen('screen-play');
     // neither board can be measured until the play screen is actually visible
-    if(activeGame==='race')       scatterRaceWords();
-    if(activeGame==='jeopardy')   fitJeopardyBoard();
-    if(activeGame==='millionaire') fitMillionaire();
+    if(activeGame==='race')         scatterRaceWords();
+    if(activeGame==='jeopardy')     fitJeopardyBoard();
+    if(activeGame==='millionaire')  fitMillionaire();
+    if(activeGame==='blockbusters') layoutBlockbustersBoard();
     timerReset();
   });
 
   /* ================= BLOCKBUSTERS ================= */
+  const BB_ROWS = [5,4,5,4];       // the classic board
   function renderBBTurn(){
     const g=document.querySelector('#legend .legend-gold');
     const s=document.querySelector('#legend .legend-silver');
@@ -638,54 +640,60 @@
   function buildBlockbustersBoard(){
     const wrap=document.getElementById('hexwrap');
     wrap.innerHTML='';
-
-    const probe=document.createElement('div');
-    probe.className='hex'; probe.style.visibility='hidden';
-    wrap.appendChild(probe);
-    const w = probe.getBoundingClientRect().width || 90;
-    probe.remove();
-
-    const h = w * 1.1547;
-    const gap = Math.max(3, w*0.05);
-    const colStep = w + gap;
-    const rowStep = h * 0.75 + gap*0.5;
-
-    const rowSizes = [5,4,5,4];
-    const widest = 5;
-    const boardW = widest*colStep - gap;
     let idx=0;
-
-    rowSizes.forEach((size, r)=>{
-      const rowW = size*colStep - gap;
-      const startX = (boardW - rowW)/2;
+    BB_ROWS.forEach((size, r)=>{
       for(let c=0; c<size; c++){
         const clueObj = pool[idx++];
         if(!clueObj) return;
         const hex=document.createElement('div');
         hex.className='hex';
         hex.textContent=clueObj.letter;
-        hex.style.left = (startX + c*colStep) + 'px';
-        hex.style.top  = (r*rowStep) + 'px';
+        hex.dataset.row=r; hex.dataset.col=c;
         hex.addEventListener('click', ()=> openBlockbustersClue(clueObj, hex));
         wrap.appendChild(hex);
       }
     });
+    layoutBlockbustersBoard();
+  }
+
+  /* Positions are worked out from the hexagons' *rendered* width, which is a vw
+     clamp — so this can only run once the play screen is visible. It used to be
+     done at build time behind a hidden screen, where the measurement came back 0
+     and fell back to a hard-coded 90px step: at 1440px wide the hexes render at
+     116px and so overlapped by 21px. Kept separate from building so a resize
+     repositions without rebuilding, which also means claimed hexes keep their
+     colour instead of being restored by index. */
+  function layoutBlockbustersBoard(){
+    const wrap  = document.getElementById('hexwrap');
+    const hexes = [...wrap.querySelectorAll('.hex')];
+    if(!hexes.length) return false;
+
+    const w = hexes[0].getBoundingClientRect().width;
+    if(!w) return false;                 // not on screen yet — caller re-runs later
+
+    const h       = w * 1.1547;
+    const gap     = Math.max(4, w * 0.06);
+    const colStep = w + gap;
+    // a vertical step of gap leaves only gap*cos(30) between the slanted edges, so
+    // diagonal neighbours looked tighter than side-by-side ones; this evens them up
+    const rowStep = h * 0.75 + gap * 1.1547;
+    const boardW  = Math.max(...BB_ROWS) * colStep - gap;
+
+    hexes.forEach(hex=>{
+      const r = +hex.dataset.row, c = +hex.dataset.col;
+      const rowW   = BB_ROWS[r] * colStep - gap;
+      const startX = (boardW - rowW) / 2;
+      hex.style.left = (startX + c*colStep) + 'px';
+      hex.style.top  = (r*rowStep) + 'px';
+    });
 
     wrap.style.width  = boardW + 'px';
-    wrap.style.height = ((rowSizes.length-1)*rowStep + h) + 'px';
+    wrap.style.height = ((BB_ROWS.length-1)*rowStep + h) + 'px';
+    return true;
   }
 
   window.addEventListener('resize', ()=>{
-    if(activeGame==='blockbusters' && pool.length){
-      const claimed=[...document.querySelectorAll('#hexwrap .hex')].map(hx=>
-        hx.classList.contains('claimed-gold') ? 'gold' :
-        hx.classList.contains('claimed-silver') ? 'silver' : null);
-      buildBlockbustersBoard();
-      [...document.querySelectorAll('#hexwrap .hex')].forEach((hx,i)=>{
-        if(claimed[i]==='gold'){ hx.classList.add('claimed-gold'); hx.textContent=''; }
-        if(claimed[i]==='silver'){ hx.classList.add('claimed-silver'); hx.textContent=''; }
-      });
-    }
+    if(activeGame==='blockbusters') layoutBlockbustersBoard();
   });
 
   /* ================= SHARED CLUE MODAL ================= */

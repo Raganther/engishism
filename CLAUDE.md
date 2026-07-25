@@ -213,6 +213,12 @@ back to memory for the session (the panel says so).
   the body padding while they're up. Both re-fit on resize. Jeopardy tiles used to
   take their height from a fixed 3:2 aspect ratio, so fewer categories meant taller
   tiles and up to 1400px of hidden board — don't reintroduce a fixed aspect ratio.
+  Blockbusters is the same lesson in a different disguise: `layoutBlockbustersBoard()`
+  spaces the hexes from their **rendered** width (a `vw` clamp), so it must run after
+  `showScreen('screen-play')` — measuring behind a hidden screen returned 0, fell back
+  to a hard-coded 90px step, and the hexes overlapped by 21px at 1440px wide. Building
+  and laying out are separate, and positions come from `data-row`/`data-col`, so a
+  resize repositions without rebuilding and claimed hexes keep their colour.
 - **Phone buzzers (first draft, no classroom run yet).** Students open `join.html`,
   enter a 5-digit room code + name + team, and get one big buzzer. In **Race to the
   Board head-to-head** a sentence arms the buzzers; the first buzz takes the floor and

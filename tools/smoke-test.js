@@ -160,12 +160,33 @@ async function testBlockbusters(browser){
   const fit = await boardFits(page, '.hex');
   check('whole board is on screen', fit.ok, fit.why);
 
+  // the board is laid out from the hexagons' rendered width, which is a vw clamp —
+  // measuring it behind a hidden screen once made them overlap by 21px
+  const spacing = await page.evaluate(() => {
+    const h = [...document.querySelectorAll('.hex')];
+    const a = h[0].getBoundingClientRect(), b = h[1].getBoundingClientRect();
+    return { w: Math.round(a.width), step: Math.round(b.left - a.left) };
+  });
+  check('hexes are spaced wider than they are drawn', spacing.step > spacing.w,
+        'hex ' + spacing.w + 'px, step ' + spacing.step + 'px');
+
   await page.locator('.hex').first().click(); await page.waitForTimeout(1300);
   check('clue opens', (await page.locator('#clue-text').innerText()).length > 0);
   await claimForTeam(page, 0);
   await page.waitForFunction(() => document.getElementById('clue-modal').style.display === 'none', null, { timeout:6000 });
   check('claim awards a point', (await scores(page))[0] === '1', (await scores(page)).join('/'));
   check('hex is marked claimed', await page.locator('.hex.claimed-gold').count() === 1);
+
+  // a resize repositions rather than rebuilding, so a claim must survive it
+  await page.setViewportSize({ width:1280, height:720 }); await page.waitForTimeout(400);
+  check('a claim survives a resize', await page.locator('.hex.claimed-gold').count() === 1);
+  const after = await page.evaluate(() => {
+    const h = [...document.querySelectorAll('.hex')];
+    const a = h[0].getBoundingClientRect(), b = h[1].getBoundingClientRect();
+    return { w: Math.round(a.width), step: Math.round(b.left - a.left) };
+  });
+  check('still spaced correctly after a resize', after.step > after.w,
+        'hex ' + after.w + 'px, step ' + after.step + 'px');
 
   checkClean(page);
   await page.close();
