@@ -51,6 +51,13 @@
     label:'Flip speed', help:'How long the card takes to turn over and come back.',
     options:[{value:'relaxed',label:'Relaxed'},{value:'normal',label:'Normal'},{value:'snappy',label:'Snappy'}] });
 
+  S.register({ id:'bbWinRoute', group:'Blockbusters', type:'variant', default:'trace',
+    games:['blockbusters'],
+    label:'Winning route', help:'How the completed line is shown when a team connects its two edges.',
+    variants:[{value:'trace', label:'Light up along the route'},
+              {value:'pulse', label:'Flash the whole route at once'},
+              {value:'off',   label:'Just mark it — no animation'}] });
+
   S.register({ id:'mLifelines', group:'Millionaire', type:'toggle', default:true, games:['millionaire'],
     label:'Lifelines', help:'50:50, Ask the class, and Confer — one use each per team.' });
   S.register({ id:'mConferSeconds', group:'Millionaire', type:'select', default:30, games:['millionaire'],
@@ -252,6 +259,18 @@
     <!-- persistent team bar (always visible, all screens) -->
     <div id="scorebar"></div>
 
+    <!-- end-of-round banner. Deliberately a banner and not a full-screen modal: the
+         whole point of a Blockbusters win is the route lit up on the board behind it,
+         so this sits above the team bar and leaves the board visible. -->
+    <div id="result-modal">
+      <div id="result-card">
+        <div id="result-eyebrow"></div>
+        <h2 id="result-title"></h2>
+        <p id="result-sub"></p>
+        <div id="result-actions"></div>
+      </div>
+    </div>
+
     <!-- shared clue modal -->
     <div id="clue-modal">
       <div id="clue-card">
@@ -349,6 +368,7 @@
   function showScreen(id){
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
+    hideResult();                       // a banner belongs to the round that raised it
     document.getElementById('new-game-btn').style.display = (id==='screen-play') ? 'inline-block' : 'none';
     document.getElementById('timer-widget').style.display = (id==='screen-play') ? 'flex' : 'none';
     // these boards size themselves around the team bar, so they don't need the body
@@ -358,6 +378,47 @@
     if(id!=='screen-play') timerStop();
     renderScorebar();   // team bar is always visible; refresh its highlight/cues
   }
+
+  /* ---- end-of-round banner ----
+     One banner for any game that reaches an ending, so the next game to need one
+     writes no markup. It sits above the team bar rather than over the board,
+     because what a class wants to look at when a round ends is the board.
+
+       showResult({ eyebrow, title, sub, tone:'gold'|'silver'|null,
+                    actions:[{label, primary, onPick}] }) */
+  let resultOnHide = null;
+  function showResult(cfg){
+    const modal = document.getElementById('result-modal');
+    resultOnHide = cfg.onHide || null;
+    document.getElementById('result-eyebrow').textContent = cfg.eyebrow || '';
+    document.getElementById('result-title').textContent   = cfg.title || '';
+    document.getElementById('result-sub').textContent     = cfg.sub || '';
+    document.getElementById('result-card').className      = cfg.tone ? 'tone-'+cfg.tone : '';
+
+    const acts = document.getElementById('result-actions');
+    acts.innerHTML='';
+    (cfg.actions||[]).forEach(a=>{
+      const b=document.createElement('button');
+      b.type='button'; b.textContent=a.label;
+      if(a.primary) b.className='primary';
+      b.addEventListener('click', ()=>{ hideResult(); if(a.onPick) a.onPick(); });
+      acts.appendChild(b);
+    });
+
+    // clear the team bar, whose height depends on how many teams there are
+    const bar = document.getElementById('scorebar');
+    modal.style.bottom = (((bar && bar.offsetHeight) || 76) + 16) + 'px';
+    modal.classList.add('on');
+    if(cfg.onShow) cfg.onShow();
+  }
+  function hideResult(){
+    document.getElementById('result-modal').classList.remove('on');
+    const fn = resultOnHide; resultOnHide = null;
+    if(fn) fn();
+  }
+  document.addEventListener('keydown', e=>{
+    if(e.key==='Escape') hideResult();
+  });
 
   document.querySelectorAll('.game-card').forEach(card=>{
     card.addEventListener('click', ()=>{
@@ -607,7 +668,7 @@
       pool = shuffle(BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(c.section)));
       pool = pool.slice(0, 18);   // classic 5/4/5/4 board holds 18
       buildBlockbustersBoard();
-      bbTurn=0; renderBBTurn();
+      bbTurn=0; renderBBTurn(); bbClearOutcome();
       timerSetDuration(30);
     } else if(activeGame==='millionaire'){
       document.getElementById('play-millionaire').style.display='block';
@@ -696,6 +757,246 @@
     if(activeGame==='blockbusters') layoutBlockbustersBoard();
   });
 
+  /* ---- has anybody actually won? ----------------------------------------------
+     Until now a completed line did nothing at all — the teacher had to spot it and
+     call it. The board is a honeycomb, so "connected" needs the real geometry.
+
+     A row is inset by (widest − its size) / 2 columns, which is exactly what the
+     layout above does with startX, so a hex's position across the board is
+     `inset + col`. Two hexes touch when that distance is 1 within a row, or ½ in
+     the row above or below. Deriving it from BB_ROWS rather than hard-coding the
+     5/4/5/4 pattern means changing the board shape needs no change here. */
+  const BB_WIDEST = Math.max(...BB_ROWS);
+  function bbAcross(r, c){ return (BB_WIDEST - BB_ROWS[r]) / 2 + c; }
+
+  function bbNeighbours(r, c){
+    const x = bbAcross(r, c), out = [];
+    for(let rr = Math.max(0, r-1); rr <= Math.min(BB_ROWS.length-1, r+1); rr++){
+      for(let cc = 0; cc < BB_ROWS[rr]; cc++){
+        if(rr===r && cc===c) continue;
+        const d = Math.abs(bbAcross(rr, cc) - x);
+        if(Math.abs(d - (rr===r ? 1 : 0.5)) < 0.01) out.push([rr, cc]);
+      }
+    }
+    return out;
+  }
+
+  function bbHexAt(r, c){
+    return document.querySelector('#hexwrap .hex[data-row="'+r+'"][data-col="'+c+'"]');
+  }
+  function bbOwner(hex){
+    return !hex ? null
+         : hex.classList.contains('claimed-gold')   ? 0
+         : hex.classList.contains('claimed-silver') ? 1 : null;
+  }
+
+  /* Shortest connected path across the board, or null. Yellow crosses left→right,
+     blue descends top→bottom.
+
+     An edge hex is one whose *position across the board* is at the extreme, not
+     simply the first in its row: the short rows are inset by half a hexagon, so
+     counting their end hexes as edges would let yellow "win" with a line floating
+     in the middle of the board, touching neither side. That also restores the
+     asymmetry the real game has — yellow needs 5 hexes, blue 4.
+
+     `passable` is what makes one walk answer two questions: pass "hexes this team
+     owns" to find a finished route, or "owns or nobody owns" to ask whether the
+     team can still get there at all. BFS, so the route it returns is the shortest
+     one — which is also the one that traces best. */
+  function bbRoute(team, passable){
+    const last = BB_ROWS.length - 1;
+    const isStart = (r,c) => team===0 ? bbAcross(r,c)===0 : r===0;
+    const isEnd   = (r,c) => team===0 ? bbAcross(r,c)===BB_WIDEST-1 : r===last;
+    const key = (r,c) => r+','+c;
+    const from = new Map();
+    const queue = [];
+
+    for(let r=0; r<=last; r++) for(let c=0; c<BB_ROWS[r]; c++){
+      if(isStart(r,c) && passable(r,c)){ from.set(key(r,c), null); queue.push([r,c]); }
+    }
+    while(queue.length){
+      const cell = queue.shift();
+      if(isEnd(cell[0], cell[1])){
+        const path = [];
+        for(let at = cell; at; at = from.get(key(at[0], at[1]))) path.unshift(at);
+        return path;
+      }
+      bbNeighbours(cell[0], cell[1]).forEach(n=>{
+        if(from.has(key(n[0], n[1])) || !passable(n[0], n[1])) return;
+        from.set(key(n[0], n[1]), cell);
+        queue.push(n);
+      });
+    }
+    return null;
+  }
+
+  /* A win, a dead board, or nothing yet. "Blocked" is a real Blockbusters ending:
+     once neither team can reach its far edge even using every unclaimed hex, the
+     round is over however many hexes are left, and saying so beats playing on to
+     no conclusion. */
+  function bbOutcome(){
+    const owns = t => (r,c) => bbOwner(bbHexAt(r,c)) === t;
+    for(const team of [0,1]){
+      const path = bbRoute(team, owns(team));
+      if(path) return { type:'win', team, path };
+    }
+    const open = t => !!bbRoute(t, (r,c)=>{
+      const hex = bbHexAt(r,c);
+      if(!hex) return false;
+      const o = bbOwner(hex);
+      return o === null || o === t;
+    });
+    if(!open(0) && !open(1)) return { type:'blocked' };
+    return null;
+  }
+
+  /* ---- lighting up the route ----
+     Registered as variants, so another way of showing it is a register() call and
+     one line in the setting above — see "Solve once, use anywhere" in CLAUDE.md.
+     Each takes the winner's glow colour and returns how long it will take, so the
+     banner can wait for it to land.
+
+     The glow is the team's own colour, not white: the board sits on a white page,
+     so a white halo is invisible and a brightness flash on yellow just washes it
+     out. `.route` holds the same glow at rest and the keyframes end on it, so
+     there's no flicker when the animation hands back to CSS. */
+  const BB_GLOW = ['rgba(255,194,14,0.95)', 'rgba(0,160,223,0.95)'];   // yellow, blue
+  const bbLit   = g => 'brightness(1) drop-shadow(0 0 14px ' + g + ')';
+  const bbPeak  = g => 'brightness(1.18) drop-shadow(0 0 30px ' + g + ')';
+
+  Kit.anim.register('winRoute', 'trace', {
+    run(hexes, glow){
+      const step = 155, ms = 430;
+      hexes.forEach((hex, i)=>{
+        setTimeout(()=>hex.classList.add('route'), i*step);
+        hex.animate([
+          { transform:'scale(1)',    filter:'brightness(1) drop-shadow(0 0 0 ' + glow + ')' },
+          { transform:'scale(1.22)', filter:bbPeak(glow), offset:0.42 },
+          { transform:'scale(1)',    filter:bbLit(glow) }
+        ], { duration:ms, delay:i*step, easing:'cubic-bezier(.3,.85,.4,1)' });
+      });
+      return (hexes.length-1)*step + ms;
+    }
+  });
+
+  Kit.anim.register('winRoute', 'pulse', {
+    run(hexes, glow){
+      const ms = 620;
+      hexes.forEach(hex=>{
+        hex.classList.add('route');
+        hex.animate([
+          { transform:'scale(1)',    filter:bbLit(glow) },
+          { transform:'scale(1.16)', filter:bbPeak(glow), offset:0.5 },
+          { transform:'scale(1)',    filter:bbLit(glow) }
+        ], { duration:ms, iterations:2, easing:'ease-in-out' });
+      });
+      return ms*2;
+    }
+  });
+
+  // still marks the route — "off" means no animation, not no answer
+  Kit.anim.register('winRoute', 'off', {
+    run(hexes){ hexes.forEach(hex=>hex.classList.add('route')); return 0; }
+  });
+
+  function runWinRoute(hexes, team){
+    const reduced = window.matchMedia &&
+                    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const name = reduced ? 'off' : S.get('bbWinRoute', activeGame);
+    // fall back rather than silently do nothing if the setting names one we lack
+    const impl = Kit.anim.get('winRoute', name) || Kit.anim.get('winRoute', 'off');
+    return impl.run(hexes, BB_GLOW[team] || BB_GLOW[0]) || 0;
+  }
+
+  let bbWon = null;   // set once the round has an ending; the board stops taking clicks
+
+  /* The board isn't sized to fit the screen the way the other three are, and at
+     720p it already fills nearly all of it — so the banner would cover the bottom
+     row, hiding half of a blue top-to-bottom route seconds after lighting it up.
+     Shrink the whole panel into what's left instead of sliding it, which is the
+     only move that keeps every hex of the route on screen. Purely visual and
+     reversed the moment the banner goes. */
+  function bbFitAroundBanner(){
+    const play  = document.getElementById('play-blockbusters');
+    const card  = document.getElementById('result-card');
+    const modal = document.getElementById('result-modal');
+    play.style.transform = '';
+    // the banner's top from its own offset, not its rect: it is mid-slide-in, and
+    // its rect would report wherever the animation currently has it
+    const cardTop = window.innerHeight - (parseFloat(modal.style.bottom) || 92) - card.offsetHeight;
+    const box     = play.getBoundingClientRect();
+    const room    = cardTop - box.top - 14;
+    if(box.height <= room || room <= 0) return;
+    play.style.transformOrigin = 'top center';
+    play.style.transform = 'scale(' + Math.max(0.5, room / box.height).toFixed(3) + ')';
+  }
+  function bbDropBoard(){
+    const play = document.getElementById('play-blockbusters');
+    play.style.transform = '';
+    play.style.transformOrigin = '';
+  }
+
+  function bbClearOutcome(){
+    bbWon = null;
+    bbDropBoard();
+    const wrap = document.getElementById('hexwrap');
+    wrap.classList.remove('won', 'route-shown');
+    wrap.querySelectorAll('.hex.route').forEach(hex=>{
+      hex.getAnimations().forEach(a=>a.cancel());
+      hex.classList.remove('route');
+    });
+    hideResult();
+  }
+
+  function bbFinish(outcome){
+    bbWon = outcome;
+    const wrap = document.getElementById('hexwrap');
+    wrap.classList.add('won');
+
+    if(outcome.type !== 'win'){
+      Sound.play('end');
+      showResult({
+        eyebrow:'Blockbusters',
+        title:'Board blocked',
+        sub:'Neither team can reach its far side now — nobody completes a line.',
+        actions:[{ label:'New board', primary:true, onPick:bbPlayAgain }],
+        onShow:bbFitAroundBanner, onHide:bbDropBoard
+      });
+      return;
+    }
+
+    const team  = outcome.team;
+    const hexes = outcome.path.map(cell=>bbHexAt(cell[0], cell[1])).filter(Boolean);
+    wrap.classList.add('route-shown');
+    const ms = runWinRoute(hexes, team);
+
+    setTimeout(()=>{
+      // the trace takes a couple of seconds; "New game" or "New board" in that
+      // window must not be followed by a banner for a round that's already gone
+      if(bbWon !== outcome) return;
+      Sound.play('clear');
+      showResult({
+        eyebrow:'Blockbusters',
+        title: ((teams[team] && teams[team].name) || (team===0 ? 'Yellow' : 'Blue')) + ' wins!',
+        sub: (team===0 ? 'Left to right' : 'Top to bottom') +
+             ' in ' + hexes.length + ' hexagons.',
+        tone: team===0 ? 'gold' : 'silver',
+        actions:[{ label:'New board', primary:true, onPick:bbPlayAgain },
+                 { label:'Leave it up', onPick:function(){} }],
+        onShow:bbFitAroundBanner, onHide:bbDropBoard
+      });
+    }, ms + 140);
+  }
+
+  // same sections, freshly shuffled. Scores stay — the team bar carries across
+  // games and units by design, so a new board shouldn't wipe it either.
+  function bbPlayAgain(){
+    bbClearOutcome();
+    pool = shuffle(BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(c.section))).slice(0, 18);
+    buildBlockbustersBoard();
+    bbTurn=0; renderBBTurn();
+  }
+
   /* ================= SHARED CLUE MODAL ================= */
   let currentTile=null, modalMode=null, currentClueValue=0;
 
@@ -735,6 +1036,7 @@
   }
 
   function openBlockbustersClue(clueObj, hex){
+    if(bbWon) return;                        // the round has an ending; nothing left to claim
     if(hex.classList.contains('claimed-gold') || hex.classList.contains('claimed-silver')) return;
     currentTile=hex; modalMode='blockbusters';
     document.getElementById('clue-topline').textContent = clueObj.letter;
@@ -947,7 +1249,10 @@
     else card.classList.add('flipped');
   }
 
-  function closeModal(hold){
+  /* `then` runs once the card is out of the way — a board that wants to animate
+     after a clue (Blockbusters lighting up a winning route) would otherwise do it
+     behind the card. */
+  function closeModal(hold, then){
     const modal  = document.getElementById('clue-modal');
     const card   = document.getElementById('clue-card');
     const origin = currentTile;
@@ -959,6 +1264,7 @@
       modal.style.display='none';
       card.getAnimations().forEach(a=>a.cancel());
       card.style.transform=''; card.classList.remove('flipped');
+      if(then) then();
     };
     const impl = currentFlip();
     if(!impl || !origin || !modal.style.display || modal.style.display==='none'){ done(); return; }
@@ -1014,7 +1320,10 @@
       currentTile.textContent='';
       if(teams[idx]) teams[idx].score++;
     }
-    closeModal(claimed ? flipMs(FLIP_HOLD_MS) : 0);
+    // work out the ending now, but let the card land before showing it
+    const outcome = claimed ? bbOutcome() : null;
+    closeModal(claimed ? flipMs(FLIP_HOLD_MS) : 0,
+               outcome ? ()=>bbFinish(outcome) : null);
     bbTurn = Kit.passTurn(2, bbTurn);
     renderBBTurn();
     renderScorebar();

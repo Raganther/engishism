@@ -109,16 +109,27 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 #scorebar .reset-btn:hover{ border-color:var(--yellow); color:var(--yellow); }
 
 /* --- Blockbusters play --- */
-#play-blockbusters{ display:none; padding: 18px 12px 40px; text-align:center; }
+#play-blockbusters{ display:none; padding: 18px 12px 40px; text-align:center; transition: transform .35s cubic-bezier(.2,.9,.3,1); }
 #legend{ display:flex; justify-content:center; gap:24px; margin-bottom:6px; font-family:'IBM Plex Mono', monospace; font-size:0.8rem; flex-wrap:wrap; color: var(--ink); }
 #legend span{ display:inline-flex; align-items:center; gap:6px; }
 .dot{ width:12px; height:12px; border-radius:3px; display:inline-block; }
 #hexwrap{ position:relative; margin: 14px auto 0; }
-.hex{ position:absolute; width: var(--hexw); height: calc(var(--hexw) * 1.1547); clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); background: var(--navy); display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(0.9rem, 2.6vw, 1.5rem); color: var(--cream); cursor:pointer; transition: transform .12s, background .12s; border: none; }
+.hex{ position:absolute; width: var(--hexw); height: calc(var(--hexw) * 1.1547); clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); background: var(--navy); display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(0.9rem, 2.6vw, 1.5rem); color: var(--cream); cursor:pointer; transition: transform .12s, background .12s, opacity .3s, filter .3s; border: none; }
 .hex:hover{ transform: scale(1.05); background: var(--navy3); }
 .hex.claimed-gold{ background: var(--yellow); color: var(--navy); cursor:default; }
 .hex.claimed-silver{ background: var(--blue); color: var(--white); cursor:default; }
 .hex.claimed-gold:hover, .hex.claimed-silver:hover{ transform:none; }
+
+/* the winning line. Everything off the route dims so the connected path reads from
+   the back of the room; the glow is a drop-shadow because clip-path crops a
+   box-shadow away entirely. `won` freezes the board — the round is over. */
+#hexwrap.route-shown .hex:not(.route){ opacity:0.3; }
+.hex.route{ z-index:2; }
+/* the glow is the winning team's colour — the board is on a white page, so a white
+   halo would be invisible. Kept in step with BB_GLOW in hub-engine.js. */
+.hex.route.claimed-gold{ filter: brightness(1) drop-shadow(0 0 14px rgba(255,194,14,0.95)); }
+.hex.route.claimed-silver{ filter: brightness(1) drop-shadow(0 0 14px rgba(0,160,223,0.95)); }
+#hexwrap.won .hex{ pointer-events:none; }
 
 /* --- Race to the Board: mode picker on the content screen --- */
 #race-mode{ margin: 22px 0 4px; }
@@ -198,6 +209,49 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 .race-word.found.team-1{ background: var(--blue); border-color: var(--blue); color: var(--white); }
 .race-word.found:hover{ border-color:inherit; }
 .race-word.wrong{ background:#ff5a4d; border-color:#ff5a4d; color: var(--white); }
+
+/* --- End-of-round banner ---
+   A banner rather than a full-screen modal on purpose: when a Blockbusters line
+   completes, the thing worth looking at is the lit route on the board, so this
+   parks itself above the team bar (bottom set in JS, since the bar's height
+   depends on how many teams there are) and leaves the board on show. The backdrop
+   passes clicks through; only the card catches them. */
+#result-modal{ display:none; position:fixed; left:0; right:0; z-index:45; justify-content:center; padding:0 18px; pointer-events:none; }
+#result-modal.on{ display:flex; }
+#result-card{
+  pointer-events:auto; background: var(--navy); color: var(--white);
+  border:3px solid var(--yellow); border-radius:16px;
+  padding: 16px 30px 18px; text-align:center; max-width:min(760px, 94vw);
+  box-shadow: 0 18px 50px rgba(18,38,63,0.42);
+  animation: resultIn .42s cubic-bezier(.2,.9,.3,1.15) both;
+}
+#result-card.tone-gold{ border-color: var(--gold); }
+#result-card.tone-silver{ border-color: var(--silver); }
+#result-eyebrow{ font-family:'IBM Plex Mono', monospace; font-size:0.7rem; letter-spacing:0.16em; text-transform:uppercase; color: rgba(251,243,213,0.6); }
+#result-title{ font-family:'Space Grotesk', sans-serif; font-weight:700; text-transform:uppercase; letter-spacing:-0.01em; font-size: clamp(1.6rem, 4.2vw, 2.6rem); line-height:1.1; margin-top:4px; color: var(--yellow); }
+#result-card.tone-gold #result-title{ color: var(--gold); }
+#result-card.tone-silver #result-title{ color: var(--silver); }
+#result-sub{ color: var(--cream); font-size: clamp(0.9rem, 1.7vw, 1.1rem); margin-top:6px; }
+#result-actions{ display:flex; justify-content:center; gap:10px; margin-top:14px; flex-wrap:wrap; }
+#result-actions button{
+  background:transparent; color: var(--cream); border:2px solid rgba(255,255,255,0.35); border-radius:8px;
+  padding: 9px 18px; font-family:'IBM Plex Mono', monospace; font-size:0.76rem;
+  letter-spacing:0.05em; text-transform:uppercase; cursor:pointer;
+}
+#result-actions button:hover{ border-color: var(--yellow); color: var(--yellow); }
+#result-actions button.primary{ background: var(--yellow); border-color: var(--yellow); color: var(--navy); font-weight:700; }
+#result-actions button.primary:hover{ background: var(--white); border-color: var(--white); color: var(--navy); }
+@keyframes resultIn{ from{ transform: translateY(30px); opacity:0; } to{ transform:none; opacity:1; } }
+@media (prefers-reduced-motion: reduce){ #result-card{ animation:none; } }
+/* on a shallow screen the banner is competing with the board for height, and the
+   board loses — every pixel saved here is one the board keeps at full size */
+@media (max-height: 800px){
+  #result-card{ padding:11px 24px 13px; }
+  #result-title{ font-size: clamp(1.3rem, 3.2vw, 1.9rem); }
+  #result-sub{ font-size:0.9rem; margin-top:3px; }
+  #result-actions{ margin-top:10px; }
+  #result-actions button{ padding:7px 15px; }
+}
 
 /* --- Shared clue modal --- */
 #clue-modal{ display:none; position:fixed; inset:0; background: rgba(18,38,63,0.90); align-items:center; justify-content:center; z-index:50; padding:24px; perspective: 1800px; }

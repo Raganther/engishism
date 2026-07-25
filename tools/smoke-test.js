@@ -188,8 +188,60 @@ async function testBlockbusters(browser){
   check('still spaced correctly after a resize', after.step > after.w,
         'hex ' + after.w + 'px, step ' + after.step + 'px');
 
+  /* A completed line used to do nothing at all — the teacher had to spot it. Row 0
+     runs the full width of the board, so claiming it out is a genuine yellow
+     left-to-right win. [0,0] is already gold from the claim above. */
+  for (const c of [1, 2, 3, 4]) await claimHexAt(page, 0, c, 0);
+  await page.waitForTimeout(2400);          // trace animation, then the banner lands
+
+  const win = await page.evaluate(() => ({
+    banner: document.getElementById('result-modal').classList.contains('on'),
+    title:  document.getElementById('result-title').textContent,
+    sub:    document.getElementById('result-sub').textContent,
+    tone:   document.getElementById('result-card').className,
+    route:  [...document.querySelectorAll('.hex.route')].map(h => h.dataset.row + ',' + h.dataset.col).sort(),
+    dimmed: document.getElementById('hexwrap').classList.contains('route-shown'),
+    boardBottom: Math.round(document.getElementById('hexwrap').getBoundingClientRect().bottom),
+    cardTop:     Math.round(document.getElementById('result-card').getBoundingClientRect().top)
+  }));
+  check('a completed line raises the winner banner', win.banner);
+  check('the banner names the winning team', /Team 1 wins/.test(win.title), win.title);
+  check('the banner says which way it was won', /Left to right in 5/.test(win.sub), win.sub);
+  check('the banner takes the winner\'s colour', win.tone === 'tone-gold', win.tone);
+  check('the winning route is marked', win.route.join(' ') === '0,0 0,1 0,2 0,3 0,4', win.route.join(' '));
+  check('the rest of the board dims', win.dimmed);
+  // the banner must never cover the route it just lit up
+  check('the board clears the banner', win.boardBottom < win.cardTop,
+        'board ends ' + win.boardBottom + ', banner starts ' + win.cardTop);
+
+  await page.locator('.hex[data-row="2"][data-col="0"]').click({ force: true });
+  await page.waitForTimeout(400);
+  check('the board stops taking clicks once won',
+        await page.evaluate(() => getComputedStyle(document.getElementById('clue-modal')).display) === 'none');
+
+  await page.locator('#result-actions button.primary').click();
+  await page.waitForTimeout(600);
+  const fresh = await page.evaluate(() => ({
+    route:   document.querySelectorAll('.hex.route').length,
+    claimed: document.querySelectorAll('.hex.claimed-gold, .hex.claimed-silver').length,
+    locked:  document.getElementById('hexwrap').classList.contains('won'),
+    lifted:  document.getElementById('play-blockbusters').style.transform
+  }));
+  check('New board clears the route and the claims',
+        fresh.route === 0 && fresh.claimed === 0 && !fresh.locked && !fresh.lifted,
+        JSON.stringify(fresh));
+  check('New board keeps the scores', (await scores(page))[0] === '5', (await scores(page)).join('/'));
+
   checkClean(page);
   await page.close();
+}
+
+async function claimHexAt(page, r, c, team){
+  await page.locator(`.hex[data-row="${r}"][data-col="${c}"]`).click();
+  await page.waitForTimeout(1300);
+  await claimForTeam(page, team);
+  await page.waitForFunction(() => document.getElementById('clue-modal').style.display === 'none',
+                             null, { timeout:6000 });
 }
 
 /* Blockbusters awards through its own two buttons today; after the shared team
@@ -384,6 +436,48 @@ async function testPerGameSettings(browser){
 
 /* Settings written before per-game scoping existed are flat keys. They are master
    values under the same names, so they must keep working untouched. */
+/* The winning route ships as variants for the same reason the card flip does — so
+   another way of showing it is a register() call, not a rewrite. Each must actually
+   mark the route; only the animation differs. */
+async function testWinRouteVariants(browser){
+  section('Winning route variants');
+  const page = await openHub(browser);
+  const names = await page.evaluate(() => window.HubKit.anim.names('winRoute'));
+  check('several route animations are registered', names.length >= 3, names.join(','));
+
+  for (const name of names){
+    await page.evaluate(n => window.HubSettings.set('bbWinRoute', n, 'blockbusters'), name);
+    await startGame(page, 'Blockbusters', { sections:'all' });
+    for (const c of [0,1,2,3,4]) await claimHexAt(page, 0, c, 0);
+    await page.waitForTimeout(2500);
+    const got = await page.evaluate(() => ({
+      route:  document.querySelectorAll('.hex.route').length,
+      banner: document.getElementById('result-modal').classList.contains('on')
+    }));
+    check(name + ': marks all five route hexes', got.route === 5, got.route + ' marked');
+    check(name + ': the banner still lands', got.banner);
+    await page.locator('#result-actions button.primary').click(); await page.waitForTimeout(400);
+  }
+
+  // reduced motion must not skip the answer, only the movement
+  const reduced = await browser.newContext({ reducedMotion:'reduce' });
+  const rp = await reduced.newPage();
+  await rp.goto(page.url());
+  await rp.waitForTimeout(300);
+  await rp.evaluate(() => window.HubSettings.set('bbWinRoute', 'trace', 'blockbusters'));
+  await startGame(rp, 'Blockbusters', { sections:'all' });
+  for (const c of [0,1,2,3,4]) await claimHexAt(rp, 0, c, 0);
+  await rp.waitForTimeout(1200);
+  check('reduced motion still shows the route',
+        await rp.locator('.hex.route').count() === 5 &&
+        await rp.locator('#result-modal.on').count() === 1);
+  await reduced.close();
+
+  await page.evaluate(() => window.HubSettings.clearOverride('bbWinRoute', 'blockbusters'));
+  checkClean(page);
+  await page.close();
+}
+
 async function testSettingsMigration(browser){
   section('Old settings still apply');
   const page = await openHub(browser);
@@ -583,7 +677,7 @@ async function main(){
     jeopardy: testJeopardy, blockbusters: testBlockbusters, race: testRace,
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
-    variants: testFlipVariants,
+    variants: testFlipVariants, winroute: testWinRouteVariants,
     buzzers: testBuzzers,
     degradation: testDegradation, file: testFileProtocol
   };

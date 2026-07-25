@@ -26,7 +26,7 @@ linked as `…?v=YYYYMMDDx` in the three page shells; without a bump, Chrome kee
 the cached JS/CSS and a fix looks like it never shipped (this has already cost one
 debugging round). Change it in all three shells together:
 ```bash
-sed -i '' 's/?v=[0-9a-z]*/?v=20260726a/g' game-hub.html game-hub-unit4.html game-hub-unit5.html   # macOS
+sed -i '' 's/?v=[0-9a-z]*/?v=20260728a/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
 ```
 The engine reads its own `?v=` and exposes it as `window.HUB_BUILD`; the settings panel
 footer shows it, so **"Build …" in ⚙ tells you which version is actually running.**
@@ -203,6 +203,31 @@ back to memory for the session (the panel says so).
   moving between games, units, and setup screens (nothing resets on navigation).
   Both games feed one score — Jeopardy awards the tile value to the selected team;
   Blockbusters awards +1 per claimed hex to Yellow/Blue (teams[0]/[1]).
+- **Blockbusters knows when someone has won.** A completed line used to do nothing
+  at all. `bbOutcome()` runs after every claim: BFS over the honeycomb for a
+  connected route, then the winning hexes light up and a banner names the team.
+  - **Adjacency comes from `BB_ROWS`, not hard-coded.** A row is inset by
+    `(widest − size)/2` columns — exactly what the layout does with `startX` — so a
+    hex's position across the board is `inset + col`, and two hexes touch at a
+    distance of 1 within a row or ½ between rows. Change the board shape and the
+    win logic follows.
+  - **An edge is the board's extreme, not the end of a row.** Counting a short row's
+    end hex as an edge let yellow "win" with a line floating mid-board touching
+    neither side. Restricting yellow to the long rows also restores the real game's
+    asymmetry — yellow needs 5 hexes, blue 4.
+  - **Blocked is an ending too**: when neither team can reach its far side even
+    using every unclaimed hex. Mostly catches a board short of clues.
+  - **The glow is the winning team's colour.** The board sits on a white page, so a
+    white halo is invisible and a brightness flash on yellow just washes it out.
+    `BB_GLOW` in the engine and `.hex.route.claimed-*` in the CSS must stay in step.
+  - The route animation is a **variant** (`bbWinRoute`: `trace` / `pulse` / `off`),
+    registered in `Kit.anim` under `winRoute`. Each takes the glow colour and
+    returns how long it will run, so the banner waits for it to land.
+  - `showResult({eyebrow,title,sub,tone,actions,onShow,onHide})` is the shared
+    end-of-round banner — the next game that reaches an ending writes no markup.
+    It's a banner, not a modal, so the board stays visible; Blockbusters is the one
+    board not sized to fit the screen, so `bbFitAroundBanner()` scales it into
+    what's left rather than letting the banner cover the route it just lit.
   **↺ Reset points** zeroes scores but keeps names; +/- for manual correction;
   rename + add-team; active-team / whose-turn highlight.
 - Teacher **countdown timer** in the header on the play screen (start/pause, reset,
@@ -312,8 +337,9 @@ back to memory for the session (the panel says so).
 - Measure authoring cost per unit (the number the demo pitch hinges on). Race is the
   cheapest data point so far: 36 prompts, no distractors.
 - Fill Unit 4's Jeopardy gap — the card claims 4A–4D but only 4A/4B have categories.
-- Small wins: "steal" in Blockbusters (wrong → other team claims); winner banner
-  when a Jeopardy board is cleared; self-host fonts for true offline.
+- Small wins: "steal" in Blockbusters (wrong → other team claims); a winner banner
+  when a Jeopardy board is cleared — `showResult()` already exists, so this is a
+  call site, not a feature; self-host fonts for true offline.
 - Product-line decision: is the Game Hub now the product, with #2/#3 as legacy?
 
 ## Constraints
@@ -327,7 +353,7 @@ back to memory for the session (the panel says so).
 
 ## Before you push
 ```bash
-NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~4.5 min, 74 checks
+NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~8 min, 148 checks
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=jeopardy,fit   # while iterating
 ```
 Drives all four games in a real browser and checks the things that have actually

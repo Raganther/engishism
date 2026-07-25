@@ -282,6 +282,25 @@ generalisation argument if presented as core.
 - Content fields: `letter`, `prompt`, `answer`
 - Authoring note: answers should be single words, and clues written so the initial
   letter meaningfully narrows the possibilities
+- **Winning the round — as built.** The engine now detects a completed line itself
+  rather than leaving the teacher to spot it, lights the route up, and raises a
+  banner naming the winner. Decisions taken:
+  - **An edge is the board's extreme, not the end of a row.** The short rows are
+    inset by half a hexagon, so counting their end hexes as edges would let yellow
+    "win" with a line floating in the middle of the board touching neither side.
+    Restricting yellow's entry and exit to the long rows also restores the real
+    game's asymmetry: yellow needs 5 hexes, blue 4.
+  - **A blocked board is a real ending.** When neither team can reach its far side
+    even using every unclaimed hex, the round is called there. Mostly this catches
+    a board short of clues, where no route was ever possible — better said at once
+    than discovered after eighteen questions.
+  - **The round ends on a win.** Remaining hexes stop taking clicks; *New board*
+    reshuffles the same sections, *Leave it up* dismisses the banner and leaves the
+    route on screen to talk through. Scores carry over either way, consistent with
+    the shared team bar.
+  - **A banner, not a full-screen modal**, because the point of the moment is the
+    route lit up behind it. On a shallow screen the board scales down to stay clear
+    of it — it is the only board of the four not already sized to fit.
 
 **Connecting wall**
 - 16 tiles, four hidden groups of four
