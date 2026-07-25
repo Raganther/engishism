@@ -153,6 +153,10 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
   background: var(--yellow); color: var(--navy); border-radius:6px; font-weight:700;
 }
 
+/* the shared team chooser: in the clue card for Blockbusters, on the race bar for
+   head-to-head Race. Same component, same number-key shortcuts. */
+#clue-claim{ display:flex; visibility:hidden; gap:10px; flex-wrap:wrap; justify-content:center; }
+
 /* "who touched it first?" — only in head-to-head, where the engine can't know */
 /* lives inside the status row and only toggles visibility — if it took its own row
    the word field would shift under the already-placed words and clip the bottom */
@@ -234,8 +238,6 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 #reveal-btn{ background: var(--navy); color: var(--white); }
 #correct-btn{ background: var(--blue); color: var(--white); }
 #wrong-btn{ background: var(--white); color: var(--navy); border:2px solid var(--navy); }
-#gold-btn{ background: var(--yellow); color: var(--navy); }
-#silver-btn{ background: var(--blue); color: var(--white); }
 #close-btn, #skip-btn{ background: var(--white); color: var(--navy); border:2px solid var(--navy); }
 #clue-actions button:hover{ filter: brightness(1.06); }
 

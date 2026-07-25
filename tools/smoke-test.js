@@ -331,13 +331,13 @@ async function testPerGameSettings(browser){
   await page.locator('#settings-close').click();
 
   // the whole point: off in one game, untouched in another
-  await page.evaluate(() => window.HubSettings.set('cardFlip', false, 'blockbusters'));
+  await page.evaluate(() => window.HubSettings.set('cardFlip', 'off', 'blockbusters'));
   await page.reload(); await page.waitForTimeout(400);
   const read = g => page.evaluate(x => window.HubSettings.get('cardFlip', x), g);
-  check('override survives reload', await read('blockbusters') === false);
-  check('the other game is unaffected', await read('jeopardy') === true);
-  check('the master value is unaffected',
-        await page.evaluate(() => window.HubSettings.get('cardFlip')) === true);
+  const master = await page.evaluate(() => window.HubSettings.get('cardFlip'));
+  check('override survives reload', await read('blockbusters') === 'off');
+  check('the other game is unaffected', await read('jeopardy') === master, await read('jeopardy'));
+  check('the master value is unaffected', master !== 'off', master);
 
   // and it changes behaviour, not just storage
   await startGame(page, 'Blockbusters', { sections:'all' });
@@ -348,7 +348,7 @@ async function testPerGameSettings(browser){
   await page.locator('#skip-btn').click(); await page.waitForTimeout(300);
 
   await page.evaluate(() => window.HubSettings.clearOverride('cardFlip', 'blockbusters'));
-  check('clearing an override falls back to master', await read('blockbusters') === true);
+  check('clearing an override falls back to master', await read('blockbusters') === master);
 
   // ⚙ opens on the tab for whatever is being played
   await startGame(page, 'Jeopardy', { sections:3 });
@@ -367,18 +367,50 @@ async function testSettingsMigration(browser){
   section('Old settings still apply');
   const page = await openHub(browser);
   await page.evaluate(() => localStorage.setItem('engishism.gamehub.settings',
-    JSON.stringify({ sound:false, soundVolume:'loud', cardFlip:false, raceRoundSeconds:90 })));
+    JSON.stringify({ sound:false, soundVolume:'loud', raceRoundSeconds:90 })));
   await page.reload(); await page.waitForTimeout(400);
   const got = await page.evaluate(() => ({
     sound:  window.HubSettings.get('sound','race'),
     volume: window.HubSettings.get('soundVolume','jeopardy'),
-    flip:   window.HubSettings.get('cardFlip','blockbusters'),
     round:  window.HubSettings.get('raceRoundSeconds','race')
   }));
   check('a pre-scoping value is read as the master', got.sound === false, JSON.stringify(got));
-  check('and applies to every game', got.volume === 'loud' && got.flip === false && got.round === 90,
-        JSON.stringify(got));
+  check('and applies to every game', got.volume === 'loud' && got.round === 90, JSON.stringify(got));
   await page.evaluate(() => localStorage.removeItem('engishism.gamehub.settings'));
+  checkClean(page);
+  await page.close();
+}
+
+async function testFlipVariants(browser){
+  section('Card animation variants');
+  const page = await openHub(browser);
+  const names = await page.evaluate(() => window.HubKit.anim.names('cardFlip'));
+  check('several animations are registered', names.length >= 3, names.join(','));
+
+  for (const name of names){
+    await page.evaluate(n => window.HubSettings.set('cardFlip', n), name);
+    await startGame(page, 'Jeopardy', { sections:3 });
+    const tile = page.locator('.tile').first();
+    await tile.click(); await page.waitForTimeout(120);
+    const running = await page.evaluate(() => document.getElementById('clue-card').getAnimations().length);
+    check(name + ': animates', running === 1, running + ' animations');
+    await page.waitForTimeout(1800);
+    check(name + ': lands on the clue face', await page.locator('#clue-card.flipped').count() === 1);
+    check(name + ': the clue is readable', (await page.locator('#clue-text').innerText()).length > 0);
+    await page.locator('#close-btn').click();
+    await page.waitForFunction(() => document.getElementById('clue-modal').style.display === 'none', null, { timeout:8000 });
+    check(name + ': closes cleanly', true);
+  }
+
+  // 'off' must skip animating entirely but still open
+  await page.evaluate(() => window.HubSettings.set('cardFlip', 'off'));
+  await startGame(page, 'Jeopardy', { sections:3 });
+  await page.locator('.tile').first().click(); await page.waitForTimeout(150);
+  check('off: nothing animates',
+        await page.evaluate(() => document.getElementById('clue-card').getAnimations().length) === 0);
+  check('off: the card still opens', await page.locator('#clue-modal').isVisible());
+  await page.evaluate(() => window.HubSettings.resetAll());
+
   checkClean(page);
   await page.close();
 }
@@ -488,6 +520,7 @@ async function main(){
     jeopardy: testJeopardy, blockbusters: testBlockbusters, race: testRace,
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
+    variants: testFlipVariants,
     buzzers: testBuzzers,
     degradation: testDegradation, file: testFileProtocol
   };

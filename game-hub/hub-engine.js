@@ -16,6 +16,9 @@
   const S = window.HubSettings;
   if(!S){ throw new Error('hub-engine: game-hub/hub-settings.js must load before hub-engine.js'); }
 
+  const Kit = window.HubKit;
+  if(!Kit){ throw new Error('hub-engine: game-hub/hub-kit.js must load before hub-engine.js'); }
+
   /* Which build is actually running — read from this script's own ?v= stamp, so the
      HTML stays the single source of truth. Shown in the settings panel: a cached old
      copy of the engine is otherwise invisible and looks like the fix never landed. */
@@ -34,9 +37,13 @@
     label:'Volume', help:'Classroom speakers are usually louder than they sound at your desk.',
     options:[{value:'quiet',label:'Quiet'},{value:'med',label:'Medium'},{value:'loud',label:'Loud'}] });
 
-  S.register({ id:'cardFlip', group:'Clue card', type:'toggle', default:true,
+  S.register({ id:'cardFlip', group:'Clue card', type:'variant', default:'grow-turn',
     games:['jeopardy','blockbusters'],
-    label:'Card flip animation', help:'The clue card grows out of the tile and turns over. Switch off if the classroom machine stutters.' });
+    label:'Card animation', help:'How the clue card arrives. Try them mid-game and keep whichever reads best in your room.',
+    variants:[{value:'off',       label:'None — opens instantly'},
+              {value:'grow-turn', label:'Grow, then turn over'},
+              {value:'turn-only', label:'Turn on the spot'},
+              {value:'rise',      label:'Rise up — no 3D'}] });
 
   S.register({ id:'flipSpeed', group:'Clue card', type:'select', default:'normal',
     games:['jeopardy','blockbusters'],
@@ -257,8 +264,7 @@
           <button id="reveal-btn">Reveal answer</button>
           <button id="correct-btn" style="display:none;">✓ Correct</button>
           <button id="wrong-btn" style="display:none;">✗ Wrong</button>
-          <button id="gold-btn" style="display:none;">Yellow claims it</button>
-          <button id="silver-btn" style="display:none;">Blue claims it</button>
+          <div id="clue-claim"></div>
           <button id="skip-btn" style="display:none;">No claim / close</button>
           <button id="close-btn" style="display:none;">Close</button>
         </div>
@@ -413,7 +419,7 @@
     bar.appendChild(resetBtn);
   }
 
-  function nextTurn(){ if(teams.length){ active=(active+1)%teams.length; renderScorebar(); } }
+  function nextTurn(){ if(teams.length){ active=Kit.passTurn(teams.length, active); renderScorebar(); } }
 
   /* ================= JEOPARDY ================= */
   let jeoRows = 0;
@@ -449,11 +455,7 @@
   function fitJeopardyBoard(){
     const board = document.getElementById('board');
     if(!board.children.length || !jeoRows) return;
-    const top  = board.getBoundingClientRect().top;
-    const barH = document.getElementById('scorebar').offsetHeight || 76;
-    if(top <= 0) return;                       // play screen not visible yet
-    const avail = Math.max(220, window.innerHeight - top - barH - 14);
-    board.style.height = avail + 'px';
+    if(!Kit.fitToScreen(board)) return;        // play screen not visible yet
     board.style.gridTemplateRows = `auto repeat(${jeoRows}, minmax(0, 1fr))`;
 
     const tile = board.querySelector('.tile');
@@ -688,9 +690,17 @@
   /* ================= SHARED CLUE MODAL ================= */
   let currentTile=null, modalMode=null, currentClueValue=0;
 
+  // Blockbusters' board is structurally two-team — yellow crosses, blue descends —
+  // so the shared chooser is deliberately restricted rather than generalised here.
+  const clueClaim = Kit.claimTeam({
+    mount:  document.getElementById('clue-claim'),
+    onPick: i => claimHex(i)
+  });
+
   function hideAllActionButtons(){
-    ['reveal-btn','correct-btn','wrong-btn','gold-btn','silver-btn','skip-btn','close-btn']
+    ['reveal-btn','correct-btn','wrong-btn','skip-btn','close-btn']
       .forEach(id=>{ document.getElementById(id).style.display='none'; });
+    clueClaim.hide();
   }
 
   function openJeopardyClue(cat, clue, tile){
@@ -724,8 +734,7 @@
     const ansEl=document.getElementById('clue-answer'); ansEl.style.display='none'; ansEl.textContent=clueObj.answer;
     hideAllActionButtons();
     document.getElementById('reveal-btn').style.display='inline-block';
-    document.getElementById('gold-btn').style.display='inline-block';
-    document.getElementById('silver-btn').style.display='inline-block';
+    clueClaim.show(teams, [0, 1]);
     document.getElementById('skip-btn').style.display='inline-block';
     openClueCard(hex);
   }
@@ -752,8 +761,9 @@
     return r;
   }
 
+  // 'off' is a variant like any other; reduced-motion overrides whatever is chosen
   function flipEnabled(){
-    if(!S.get('cardFlip', activeGame)) return false;
+    if(S.get('cardFlip', activeGame) === 'off') return false;
     try{ return !window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
     catch(e){ return true; }
   }
@@ -770,6 +780,89 @@
     return `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(${sx.toFixed(3)}, ${sy.toFixed(3)}) rotateY(${deg}deg)`;
   }
 
+  /* The animations are registered rather than hard-coded, so a new one is a
+     Kit.anim.register call plus a line in the `cardFlip` variants list — no
+     branching in the game code and no panel edit.
+       open(card, origin, ms, helpers)  -> Animation | null
+       close(card, origin, ms, hold, helpers)
+     `helpers.at(deg)` gives the transform that lands the card on its origin. */
+  Kit.anim.register('cardFlip', 'grow-turn', {
+    // the original, unchanged: grow out of the tile still showing its value, hold a
+    // beat, then turn. Easing per segment, not across the whole run — one curve over
+    // the lot makes the early phase rush and the hold on the value disappear. The
+    // rotation segments are linear because an eased turn puts peak angular speed
+    // exactly at the edge-on point, where the card appears to snap through.
+    open(card, origin, ms, h){
+      return card.animate([
+        { transform: h.at(0), opacity: 0.9, offset: 0, easing: 'cubic-bezier(.2,.85,.3,1)' },
+        { transform: 'translate(0px,0px) scale(1,1) rotateY(0deg)',   opacity: 1, offset: 0.46, easing: 'linear' },
+        { transform: 'translate(0px,0px) scale(1,1) rotateY(180deg)', opacity: 1, offset: 1 }
+      ], { duration: ms, easing: 'linear' });
+    },
+    // keep turning the same way rather than reversing, come back to full size showing
+    // the value, hold it a beat, then settle into the tile on a decelerating curve
+    close(card, origin, ms, hold, h){
+      return card.animate([
+        { transform:'translate(0px,0px) scale(1,1) rotateY(180deg)', opacity:1, offset:0,    easing:'linear' },
+        { transform:'translate(0px,0px) scale(1,1) rotateY(360deg)', opacity:1, offset:0.46, easing:'linear' },
+        { transform:'translate(0px,0px) scale(1,1) rotateY(360deg)', opacity:1, offset:0.58, easing:'cubic-bezier(.34,0,.2,1)' },
+        { transform: h.at(360), opacity:0.9, offset:1 }
+      ], { duration: ms, delay: hold||0, easing:'linear', fill:'forwards' });
+    }
+  });
+
+  Kit.anim.register('cardFlip', 'turn-only', {
+    // no travel: the card is already where it belongs and simply turns over. Quicker,
+    // and much less movement across the screen for a class that finds the grow busy.
+    open(card, origin, ms, h){
+      return card.animate([
+        { transform:'scale(0.94) rotateY(0deg)',   opacity:0.6, offset:0,   easing:'cubic-bezier(.3,.9,.4,1)' },
+        { transform:'scale(1) rotateY(0deg)',      opacity:1,   offset:0.3, easing:'linear' },
+        { transform:'scale(1) rotateY(180deg)',    opacity:1,   offset:1 }
+      ], { duration: Math.round(ms*0.8), easing:'linear' });
+    },
+    close(card, origin, ms, hold, h){
+      return card.animate([
+        { transform:'scale(1) rotateY(180deg)', opacity:1,   offset:0,    easing:'linear' },
+        { transform:'scale(1) rotateY(360deg)', opacity:1,   offset:0.66, easing:'cubic-bezier(.4,0,.2,1)' },
+        { transform:'scale(0.94) rotateY(360deg)', opacity:0, offset:1 }
+      ], { duration: Math.round(ms*0.7), delay: hold||0, easing:'linear', fill:'forwards' });
+    }
+  });
+
+  Kit.anim.register('cardFlip', 'rise', {
+    // no 3D at all — the card rises into place and drops back. The fallback when a
+    // classroom machine can't hold a frame rate through a rotation, and it still
+    // needs the 180deg so the clue face is the one showing.
+    open(card, origin, ms, h){
+      return card.animate([
+        { transform:'translateY(34px) scale(0.92) rotateY(180deg)', opacity:0, offset:0, easing:'cubic-bezier(.2,.9,.3,1)' },
+        { transform:'translateY(0px) scale(1) rotateY(180deg)',     opacity:1, offset:1 }
+      ], { duration: Math.round(ms*0.5), easing:'linear' });
+    },
+    close(card, origin, ms, hold, h){
+      return card.animate([
+        { transform:'translateY(0px) scale(1) rotateY(180deg)',     opacity:1, offset:0, easing:'cubic-bezier(.5,0,.75,.5)' },
+        { transform:'translateY(28px) scale(0.94) rotateY(180deg)', opacity:0, offset:1 }
+      ], { duration: Math.round(ms*0.45), delay: hold||0, easing:'linear', fill:'forwards' });
+    }
+  });
+
+  /* Snapshot the origin transforms *before* the card's own transform is touched.
+     originTransform measures via naturalRect, which forces a synchronous reflow;
+     doing that after mutating the card delays the animation start by about a frame.
+     Measuring first keeps the timing identical to the pre-kit implementation. */
+  function originHelpers(card, origin){
+    const cache = Object.create(null);
+    [0, 180, 360].forEach(d => { cache[d] = originTransform(card, origin, d); });
+    return { at: deg => (deg in cache) ? cache[deg] : originTransform(card, origin, deg) };
+  }
+
+  function currentFlip(){
+    if(!flipEnabled()) return null;
+    return Kit.anim.get('cardFlip', S.get('cardFlip', activeGame));
+  }
+
   function openClueCard(origin){
     const modal = document.getElementById('clue-modal');
     const card  = document.getElementById('clue-card');
@@ -779,23 +872,18 @@
     card.getAnimations().forEach(a=>a.cancel());
     card.classList.remove('flipped');
 
-    if(!flipEnabled() || !origin){
+    const impl = currentFlip();
+    if(!impl || !origin){
       card.style.transform = 'rotateY(180deg)';   // rest showing the clue face
       card.classList.add('flipped');
       return;
     }
-    const from = originTransform(card, origin, 0);
+    const helpers = originHelpers(card, origin);   // measure before mutating
     card.style.transform = 'rotateY(180deg)';
     Sound.play('flip');
-    // grow out of the tile still showing its value, hold a beat, then turn over
-    // easing per segment, not across the whole run — one curve over the lot makes
-    // the early phase rush and the hold on the value disappears
-    const anim = card.animate([
-      { transform: from, opacity: 0.9, offset: 0, easing: 'cubic-bezier(.2,.85,.3,1)' },
-      { transform: 'translate(0px,0px) scale(1,1) rotateY(0deg)',   opacity: 1, offset: 0.46, easing: 'linear' },
-      { transform: 'translate(0px,0px) scale(1,1) rotateY(180deg)', opacity: 1, offset: 1 }
-    ], { duration: flipMs(FLIP_OPEN_MS), easing: 'linear' });
-    anim.onfinish = ()=> card.classList.add('flipped');
+    const anim = impl.open(card, origin, flipMs(FLIP_OPEN_MS), helpers);
+    if(anim) anim.onfinish = ()=> card.classList.add('flipped');
+    else card.classList.add('flipped');
   }
 
   function closeModal(hold){
@@ -811,25 +899,17 @@
       card.getAnimations().forEach(a=>a.cancel());
       card.style.transform=''; card.classList.remove('flipped');
     };
-    if(!flipEnabled() || !origin || !modal.style.display || modal.style.display==='none'){ done(); return; }
+    const impl = currentFlip();
+    if(!impl || !origin || !modal.style.display || modal.style.display==='none'){ done(); return; }
 
     card.getAnimations().forEach(a=>a.cancel());
+    const helpers = originHelpers(card, origin);   // measure before mutating
     card.style.transform = 'rotateY(180deg)';
     card.classList.remove('flipped');          // the value has to be showable again
-    // Keep turning the same way rather than reversing, come back to full size showing
-    // the value, hold it a beat, then settle into the tile on a decelerating curve.
-    const to = originTransform(card, origin, 360);
-    const anim = card.animate([
-      { transform:'translate(0px,0px) scale(1,1) rotateY(180deg)', opacity:1, offset:0,    easing:'linear' },
-      { transform:'translate(0px,0px) scale(1,1) rotateY(360deg)', opacity:1, offset:0.46, easing:'linear' },
-      { transform:'translate(0px,0px) scale(1,1) rotateY(360deg)', opacity:1, offset:0.58, easing:'cubic-bezier(.34,0,.2,1)' },
-      { transform: to, opacity:0.9, offset:1 }
-    ], {
-      duration: flipMs(FLIP_CLOSE_MS), delay: hold||0, easing:'linear',
-      // without this the card reverts to full size for a frame before the modal
-      // hides — that one-frame pop is what reads as "it warps back in"
-      fill:'forwards'
-    });
+    // every close implementation uses fill:'forwards' — without it the card reverts
+    // to full size for a frame before the modal hides, which reads as "it warps back in"
+    const anim = impl.close(card, origin, flipMs(FLIP_CLOSE_MS), hold||0, helpers);
+    if(!anim){ done(); return; }
     anim.onfinish = done;
     anim.oncancel = ()=>{ if(!finished) done(); };
   }
@@ -865,21 +945,19 @@
   document.getElementById('close-btn').addEventListener('click', ()=>{ closeModal(); });
 
   // Blockbusters: claim (or skip) a hex, award +1 to the claiming team, pass turn.
-  function claimHex(claim){
-    if(claim) Sound.play('claim');
-    if(currentTile && modalMode==='blockbusters' && claim){
-      const idx = (claim==='gold') ? 0 : 1;
-      currentTile.classList.add(claim==='gold' ? 'claimed-gold' : 'claimed-silver');
+  function claimHex(idx){
+    const claimed = (idx === 0 || idx === 1);
+    if(claimed) Sound.play('claim');
+    if(currentTile && modalMode==='blockbusters' && claimed){
+      currentTile.classList.add(idx===0 ? 'claimed-gold' : 'claimed-silver');
       currentTile.textContent='';
       if(teams[idx]) teams[idx].score++;
     }
-    closeModal(claim ? flipMs(FLIP_HOLD_MS) : 0);
-    bbTurn = (bbTurn===0) ? 1 : 0;
+    closeModal(claimed ? flipMs(FLIP_HOLD_MS) : 0);
+    bbTurn = Kit.passTurn(2, bbTurn);
     renderBBTurn();
     renderScorebar();
   }
-  document.getElementById('gold-btn').addEventListener('click', ()=>claimHex('gold'));
-  document.getElementById('silver-btn').addEventListener('click', ()=>claimHex('silver'));
   document.getElementById('skip-btn').addEventListener('click', ()=>claimHex(null));
 
   /* ================= MILLIONAIRE =================
@@ -1005,12 +1083,7 @@
      whatever is left under the header and above the team bar, and the options and
      ladder stretch into it. */
   function fitMillionaire(){
-    const main = document.getElementById('m-main');
-    if(!main) return;
-    const top  = main.getBoundingClientRect().top;
-    const barH = document.getElementById('scorebar').offsetHeight || 76;
-    if(top <= 0) return;                       // play screen not visible yet
-    main.style.height = Math.max(260, window.innerHeight - top - barH - 12) + 'px';
+    Kit.fitToScreen(document.getElementById('m-main'), { min:260, gap:12 });
   }
 
   function renderLadder(){
@@ -1090,7 +1163,7 @@
   });
   document.getElementById('m-next').addEventListener('click', ()=>{
     timerStop();
-    if(teams.length) active = (active + 1) % teams.length;
+    active = Kit.passTurn(teams.length, active);
     renderScorebar();
     nextMillionaireQuestion();
   });
@@ -1280,14 +1353,11 @@
     if(!tiles.length) return;
 
     field.style.setProperty('--rs', 1);            // reset any previous down-scaling
-    const barH  = document.getElementById('scorebar').offsetHeight || 76;
-    const top   = field.getBoundingClientRect().top;
-    const W     = field.clientWidth;
+    const W = field.clientWidth;
     // nothing is measurable while the play screen is still hidden — the caller
     // re-runs this once the screen is up
-    if(W < 50 || top <= 0) return;
-    const avail = Math.max(240, window.innerHeight - top - barH - 10);
-    field.style.height = avail + 'px';
+    const avail = W < 50 ? 0 : Kit.fitToScreen(field, { min:240, gap:10 });
+    if(!avail) return;
 
     // Shrink the type until the grid genuinely fits. Cells are sized to the widest
     // and tallest word, so once the grid fits, no two words can overlap.
@@ -1459,31 +1529,15 @@
     nextRacePrompt();
   }
 
-  function showClaimBar(){
-    const bar  = document.getElementById('race-claim');
-    const list = document.getElementById('race-claim-teams');
-    list.innerHTML='';
-    teams.forEach((t,i)=>{
-      const b=document.createElement('button');
-      b.className='claim-team team-'+Math.min(i,3);
-      b.innerHTML = `<span class="claim-key">${i+1}</span>${t.name}`;
-      b.addEventListener('click', ()=>awardRaceWord(i));
-      list.appendChild(b);
-    });
-    bar.style.visibility='visible';
-  }
+  const raceClaim = Kit.claimTeam({
+    mount:  document.getElementById('race-claim'),
+    onPick: i => awardRaceWord(i)
+  });
+  function showClaimBar(){ raceClaim.show(teams); }
   function hideClaimBar(){
-    document.getElementById('race-claim').style.visibility='hidden';
+    raceClaim.hide();
     if(racePending && racePending.el) racePending.el.classList.remove('pending');
   }
-
-  // number keys pick the team, so you never have to look down at the laptop
-  document.addEventListener('keydown', (e)=>{
-    if(!racePending) return;
-    if(e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
-    const n = parseInt(e.key, 10);
-    if(n>=1 && n<=teams.length){ e.preventDefault(); awardRaceWord(n-1); }
-  });
 
   document.getElementById('race-start').addEventListener('click', startRaceRound);
   document.getElementById('race-skip').addEventListener('click', ()=>{

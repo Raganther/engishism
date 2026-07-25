@@ -40,8 +40,12 @@ footer shows it, so **"Build …" in ⚙ tells you which version is actually run
      unit; the engine auto-skips the unit-select step).
    - `game-hub/hub-engine.js` — all game logic + injected UI skeleton; renders the
      unit/game/section/play screens, the persistent team bar, and the timer.
+   - `game-hub/hub-kit.js` — **shared kit: solve once, use anywhere.** Stateless
+     services every game can call — `fitToScreen`, the `anim` variant registry, the
+     `claimTeam` chooser, `passTurn`. Nothing here touches engine state; it all takes
+     parameters, so a new game gets these for free.
    - `game-hub/hub-settings.js` — settings registry + panel (⚙ in the header).
-     **Must load before hub-engine.js** (the engine throws without it).
+     **Both must load before hub-engine.js** (the engine throws without either).
    - `game-hub/hub-buzzer.js` — phone-buzzer client, shared by the hub (host) and
      `join.html` (players). Optional; absent relay = absent feature, nothing breaks.
    - `tools/buzzer-relay.js` — zero-dependency Node relay **and** static server for
@@ -65,6 +69,34 @@ footer shows it, so **"Build …" in ⚙ tells you which version is actually run
      `scam-or-legit`). Reachable via the landing page's "Classic games" link.
 
 `index.html` links all three (Choose a unit / Game Hub / Classic games).
+
+## Solve once, use anywhere
+Anything more than one game needs lives in `hub-kit.js`, not in a game:
+
+| Service | Replaces | Used by |
+|---|---|---|
+| `Kit.fitToScreen(el, {min,gap})` | three separate header/team-bar measurements | Jeopardy, Race, Millionaire |
+| `Kit.anim.register/get(feature,name)` | hard-coded animation keyframes | the clue card, and whatever comes next |
+| `Kit.claimTeam({mount,onPick})` | Blockbusters' two buttons + Race's own bar | Blockbusters (`allow:[0,1]`), Race |
+| `Kit.passTurn(count,current)` | four ad hoc rotations | all four games |
+
+**Interchangeable implementations.** A feature can ship several versions and let the
+teacher choose. Register each, list them as `variants`, and the setting's value is the
+name to look up:
+
+```js
+Kit.anim.register('cardFlip', 'rise', { open(card, origin, ms, h){…}, close(…){…} });
+S.register({ id:'cardFlip', type:'variant', default:'grow-turn',
+             variants:[{value:'rise', label:'Rise up — no 3D'}, …] });
+```
+Adding another is those two lines — no branching in game code, no panel edit. `h.at(deg)`
+gives the transform landing the card on its origin; the helpers are **snapshotted before
+the card's transform is touched**, because measuring after forces a reflow that delays
+the start by about a frame.
+
+`allow` on `claimTeam` exists because some boards are structurally two-team —
+Blockbusters' yellow-across / blue-down geometry gives a third team nowhere to play — so
+it is restricted there rather than generalised.
 
 ## Authoring content (keep the question forms mixed)
 An audit of Unit 5 found **71% of all items were gap fills**, which the four different
@@ -202,6 +234,9 @@ back to memory for the session (the panel says so).
   works): rising tone for right, buzz for wrong, chime on a Blockbusters claim,
   fanfare on a cleared board, low tone when a timed round expires, a swoop on the
   card flip and a chime on the answer reveal.
+- **Card animation** is now a **variant** setting, per game: `grow-turn` (the default,
+  unchanged), `turn-only` (no travel), `rise` (no 3D at all — the fallback if a machine
+  stutters), or `off`. Switchable mid-game to compare. Registered in `Kit.anim`.
 - **Card flip** (Jeopardy + Blockbusters): clicking a tile grows the clue card out of
   that tile and turns it over — front face carries the tile's own `$400` / letter,
   back carries the clue. Uses the Web Animations API against the live element rects
