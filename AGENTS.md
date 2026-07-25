@@ -26,7 +26,7 @@ linked as `…?v=YYYYMMDDx` in the three page shells; without a bump, Chrome kee
 the cached JS/CSS and a fix looks like it never shipped (this has already cost one
 debugging round). Change it in all three shells together:
 ```bash
-sed -i '' 's/?v=[0-9a-z]*/?v=20260729a/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
+sed -i '' 's/?v=[0-9a-z]*/?v=20260729b/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
 ```
 The engine reads its own `?v=` and exposes it as `window.HUB_BUILD`; the settings panel
 footer shows it, so **"Build …" in ⚙ tells you which version is actually running.**
@@ -268,7 +268,12 @@ back to memory for the session (the panel says so).
 - **Boards fit the screen — never scroll.** Jeopardy (`fitJeopardyBoard`) and Race
   (`scatterRaceWords`) measure the space left under the header and above the team bar
   and size themselves to it, scaling their type down if needed; `body.play-fit` drops
-  the body padding while they're up. Both re-fit on resize. Jeopardy tiles used to
+  the body padding while they're up. Both re-fit on resize.
+  **`Kit.fitToScreen` subtracts ancestor bottom padding**, because that padding sits
+  *below* the element and so is space the element still needs. Skipping it slid Race's
+  last row 3px under the team bar the moment the game-show stage added its own
+  padding — visible at 1280×720 only, which is why this is measured rather than
+  covered by a bigger fudge factor. Jeopardy tiles used to
   take their height from a fixed 3:2 aspect ratio, so fewer categories meant taller
   tiles and up to 1400px of hidden board — don't reintroduce a fixed aspect ratio.
   Blockbusters is the same lesson in a different disguise: `layoutBlockbustersBoard()`

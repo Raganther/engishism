@@ -28,7 +28,16 @@ window.HubKit = (function(){
     if(top <= 0) return 0;
     const bar  = document.getElementById('scorebar');
     const barH = (bar && bar.offsetHeight) || 76;
-    const h    = Math.max(min, window.innerHeight - top - barH - gap);
+    // Bottom padding on an ancestor sits *below* this element, so the space it
+    // needs is more than its own height. Ignoring it slid Race's last row of words
+    // 3px under the team bar the moment the game show stage added padding — the
+    // sort of thing that only shows up on one screen size, so measure it rather
+    // than guessing a bigger gap.
+    let below = 0;
+    for(let p = el.parentElement; p && p !== document.body; p = p.parentElement){
+      below += parseFloat(getComputedStyle(p).paddingBottom) || 0;
+    }
+    const h = Math.max(min, window.innerHeight - top - barH - gap - below);
     el.style.height = h + 'px';
     return h;
   }
