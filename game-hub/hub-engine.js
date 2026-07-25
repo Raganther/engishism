@@ -34,6 +34,9 @@
     label:'Volume', help:'Classroom speakers are usually louder than they sound at your desk.',
     options:[{value:'quiet',label:'Quiet'},{value:'med',label:'Medium'},{value:'loud',label:'Loud'}] });
 
+  S.register({ id:'cardFlip', group:'Jeopardy & Blockbusters', type:'toggle', default:true,
+    label:'Card flip animation', help:'The clue card grows out of the tile and turns over. Switch off if the classroom machine stutters.' });
+
   S.register({ id:'raceRescatter', group:'Race to the Board', type:'toggle', default:true,
     label:'Re-scatter after every claim', help:'Moves the words each time one is won, so nobody wins on memory alone.' });
   S.register({ id:'raceRoundSeconds', group:'Race to the Board', type:'select', default:60,
@@ -50,7 +53,9 @@
       wrong:  [{f:180,d:0.16,type:'sawtooth'},{f:120,d:0.18,type:'sawtooth'}],
       claim:  [{f:523,d:0.07},{f:784,d:0.07},{f:1047,d:0.14}],
       end:    [{f:440,d:0.14},{f:330,d:0.2}],
-      clear:  [{f:523,d:0.1},{f:659,d:0.1},{f:784,d:0.1},{f:1047,d:0.28}]
+      clear:  [{f:523,d:0.1},{f:659,d:0.1},{f:784,d:0.1},{f:1047,d:0.28}],
+      flip:   [{f:240,to:820,d:0.3,type:'sine'}],
+      reveal: [{f:880,d:0.07},{f:1319,d:0.19}]
     };
     let ctx=null;
     function audio(){
@@ -71,6 +76,7 @@
         const osc=ac.createOscillator(), gain=ac.createGain();
         osc.type = n.type || 'triangle';
         osc.frequency.setValueAtTime(n.f, at);
+        if(n.to) osc.frequency.exponentialRampToValueAtTime(n.to, at+n.d);
         gain.gain.setValueAtTime(0.0001, at);
         gain.gain.exponentialRampToValueAtTime(peak, at+0.012);
         gain.gain.exponentialRampToValueAtTime(0.0001, at+n.d);
@@ -194,6 +200,8 @@
     <!-- shared clue modal -->
     <div id="clue-modal">
       <div id="clue-card">
+        <div id="clue-front"><span id="clue-front-text"></span></div>
+        <div id="clue-back">
         <div id="clue-topline"></div>
         <div id="clue-section"></div>
         <div id="clue-text"></div>
@@ -206,6 +214,7 @@
           <button id="silver-btn" style="display:none;">Blue claims it</button>
           <button id="skip-btn" style="display:none;">No claim / close</button>
           <button id="close-btn" style="display:none;">Close</button>
+        </div>
         </div>
       </div>
     </div>`;
@@ -606,7 +615,7 @@
     hideAllActionButtons();
     document.getElementById('reveal-btn').style.display='inline-block';
     document.getElementById('close-btn').style.display='inline-block';
-    document.getElementById('clue-modal').style.display='flex';
+    openClueCard(tile);
   }
 
   function openBlockbustersClue(clueObj, hex){
@@ -621,12 +630,76 @@
     document.getElementById('gold-btn').style.display='inline-block';
     document.getElementById('silver-btn').style.display='inline-block';
     document.getElementById('skip-btn').style.display='inline-block';
-    document.getElementById('clue-modal').style.display='flex';
+    openClueCard(hex);
   }
 
-  function closeModal(){ document.getElementById('clue-modal').style.display='none'; currentTile=null; modalMode=null; }
+  /* ---- the card flip ----------------------------------------------------------
+     The clue card grows out of the tile you clicked and turns over, so the tile
+     itself appears to flip rather than a dialog appearing on top of it. Done with
+     the Web Animations API against the real element rects, so it lands exactly on
+     the tile whatever the board size. Falls back to an instant open when the
+     animation is switched off or the machine asks for reduced motion. */
+  function flipEnabled(){
+    if(!S.get('cardFlip')) return false;
+    try{ return !window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    catch(e){ return true; }
+  }
+
+  // transform that maps the card onto `origin`'s position and size
+  function originTransform(card, origin, deg){
+    const c = card.getBoundingClientRect();
+    const o = origin.getBoundingClientRect();
+    if(!c.width || !c.height) return `rotateY(${deg}deg)`;
+    const sx = Math.max(0.05, o.width / c.width);
+    const sy = Math.max(0.05, o.height / c.height);
+    const dx = (o.left + o.width/2) - (c.left + c.width/2);
+    const dy = (o.top + o.height/2) - (c.top + c.height/2);
+    return `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(${sx.toFixed(3)}, ${sy.toFixed(3)}) rotateY(${deg}deg)`;
+  }
+
+  function openClueCard(origin){
+    const modal = document.getElementById('clue-modal');
+    const card  = document.getElementById('clue-card');
+    document.getElementById('clue-front-text').textContent = origin ? origin.textContent : '';
+    modal.style.display = 'flex';
+    card.getAnimations().forEach(a=>a.cancel());
+
+    if(!flipEnabled() || !origin){
+      card.style.transform = 'rotateY(180deg)';   // rest showing the clue face
+      return;
+    }
+    const from = originTransform(card, origin, 0);
+    card.style.transform = 'rotateY(180deg)';
+    Sound.play('flip');
+    card.animate(
+      [{ transform: from, opacity: 0.9 }, { transform: 'rotateY(180deg)', opacity: 1 }],
+      { duration: 520, easing: 'cubic-bezier(.2,.85,.3,1)' }
+    );
+  }
+
+  function closeModal(){
+    const modal  = document.getElementById('clue-modal');
+    const card   = document.getElementById('clue-card');
+    const origin = currentTile;
+    currentTile=null; modalMode=null;          // clear state now; the animation is cosmetic
+
+    const done = ()=>{ modal.style.display='none'; card.style.transform=''; };
+    if(!flipEnabled() || !origin || !modal.style.display || modal.style.display==='none'){ done(); return; }
+
+    card.getAnimations().forEach(a=>a.cancel());
+    card.style.transform = 'rotateY(180deg)';
+    // carry on turning rather than reversing, so it never looks like a rewind
+    const to = originTransform(card, origin, 360);
+    const anim = card.animate(
+      [{ transform:'rotateY(180deg)', opacity:1 }, { transform: to, opacity:0.85 }],
+      { duration: 380, easing: 'cubic-bezier(.5,0,.75,.4)' }
+    );
+    anim.onfinish = done;
+    anim.oncancel = done;
+  }
 
   document.getElementById('reveal-btn').addEventListener('click', ()=>{
+    Sound.play('reveal');
     document.getElementById('clue-answer').style.display='block';
     if(modalMode==='jeopardy'){
       document.getElementById('reveal-btn').style.display='none';

@@ -124,7 +124,15 @@ back to memory for the session (the panel says so).
   length, race section tag. Saved per device; **Reset to defaults** restores all.
 - **Sound effects** — synthesised with Web Audio (no audio files, so offline still
   works): rising tone for right, buzz for wrong, chime on a Blockbusters claim,
-  fanfare on a cleared board, low tone when a timed round expires.
+  fanfare on a cleared board, low tone when a timed round expires, a swoop on the
+  card flip and a chime on the answer reveal.
+- **Card flip** (Jeopardy + Blockbusters): clicking a tile grows the clue card out of
+  that tile and turns it over — front face carries the tile's own `$400` / letter,
+  back carries the clue. Uses the Web Animations API against the live element rects
+  (`openClueCard` / `closeModal` in hub-engine.js), so it lands on the right tile at
+  any board size; closing keeps rotating to 360° rather than reversing. Honours the
+  `cardFlip` setting **and** `prefers-reduced-motion`; with either off it opens
+  instantly, exactly as before.
 - DCU reskin: light theme, geometric band, uppercase grotesk, game-card icons.
 - To change unit mid-session: game screen → "New game" → "Change unit".
 

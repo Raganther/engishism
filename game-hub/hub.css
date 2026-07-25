@@ -194,12 +194,33 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 .race-word.wrong{ background:#ff5a4d; border-color:#ff5a4d; color: var(--white); }
 
 /* --- Shared clue modal --- */
-#clue-modal{ display:none; position:fixed; inset:0; background: rgba(18,38,63,0.90); align-items:center; justify-content:center; z-index:50; padding:24px; }
-#clue-card{ background: var(--white); border: 2px solid var(--blue); border-radius: 16px; max-width: 720px; width:100%; padding: 44px 40px; text-align:center; box-shadow: 0 20px 60px rgba(0,0,0,0.35); }
+#clue-modal{ display:none; position:fixed; inset:0; background: rgba(18,38,63,0.90); align-items:center; justify-content:center; z-index:50; padding:24px; perspective: 1800px; }
+/* two faces on one card: the tile's value in front, the clue behind. openClueCard
+   grows it out of the clicked tile and turns it over. */
+#clue-card{ position:relative; max-width:720px; width:100%; transform-style: preserve-3d; will-change: transform; }
+#clue-front{
+  position:absolute; inset:0; border-radius:16px;
+  background: var(--blue); color: var(--white); border:2px solid var(--blue);
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Space Grotesk', sans-serif; font-weight:700;
+  font-size: clamp(2rem, 6vw, 4.4rem); letter-spacing:-0.01em;
+  backface-visibility:hidden; -webkit-backface-visibility:hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+}
+#clue-back{
+  position:relative; transform: rotateY(180deg);
+  backface-visibility:hidden; -webkit-backface-visibility:hidden;
+  background: var(--white); border:2px solid var(--blue); border-radius:16px;
+  padding: 44px 40px; text-align:center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+}
 #clue-topline{ font-family:'Space Grotesk', sans-serif; color: var(--navy); font-size:1.6rem; font-weight:700; }
 #clue-section{ font-family:'IBM Plex Mono', monospace; color: var(--blue); font-size:0.75rem; letter-spacing:0.1em; text-transform:uppercase; margin-top:2px; }
 #clue-text{ font-family:'Space Grotesk', sans-serif; font-size: clamp(1.15rem, 2.4vw, 1.7rem); font-weight:500; line-height:1.4; margin: 24px 0; color: var(--ink); }
 #clue-answer{ display:none; font-family:'IBM Plex Sans', sans-serif; font-size:1.1rem; color: var(--navy); background: var(--cream); border: 1px dashed var(--blue); border-radius:10px; padding: 14px; margin-bottom: 22px; }
+#clue-answer[style*="block"]{ animation: answerIn .34s cubic-bezier(.2,.9,.3,1.2); }
+@keyframes answerIn{ from{ opacity:0; transform: scale(.9) translateY(-6px); } to{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce){ #clue-answer[style*="block"]{ animation:none; } }
 #clue-actions{ display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
 #clue-actions button{ font-family:'Space Grotesk', sans-serif; font-weight:700; padding: 12px 20px; border-radius:8px; border:none; cursor:pointer; font-size:0.92rem; }
 #reveal-btn{ background: var(--navy); color: var(--white); }
