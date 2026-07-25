@@ -37,6 +37,10 @@
   S.register({ id:'cardFlip', group:'Jeopardy & Blockbusters', type:'toggle', default:true,
     label:'Card flip animation', help:'The clue card grows out of the tile and turns over. Switch off if the classroom machine stutters.' });
 
+  S.register({ id:'flipSpeed', group:'Jeopardy & Blockbusters', type:'select', default:'normal',
+    label:'Flip speed', help:'How long the card takes to turn over and come back.',
+    options:[{value:'relaxed',label:'Relaxed'},{value:'normal',label:'Normal'},{value:'snappy',label:'Snappy'}] });
+
   S.register({ id:'raceRescatter', group:'Race to the Board', type:'toggle', default:true,
     label:'Re-scatter after every claim', help:'Moves the words each time one is won, so nobody wins on memory alone.' });
   S.register({ id:'raceRoundSeconds', group:'Race to the Board', type:'select', default:60,
@@ -648,9 +652,21 @@
      the Web Animations API against the real element rects, so it lands exactly on
      the tile whatever the board size. Falls back to an instant open when the
      animation is switched off or the machine asks for reduced motion. */
-  const FLIP_OPEN_MS  = 1000;   // grow, hold on the value, then turn
-  const FLIP_CLOSE_MS = 820;    // turn back to the value, then shrink to the tile
+  const FLIP_OPEN_MS  = 1150;   // grow, hold on the value, then turn
+  const FLIP_CLOSE_MS = 1000;   // turn back to the value, then settle into the tile
   const FLIP_HOLD_MS  = 550;    // beat before the card leaves, once it's been answered
+  const FLIP_SPEEDS   = { relaxed:1.35, normal:1, snappy:0.72 };
+  function flipMs(base){ return Math.round(base * (FLIP_SPEEDS[S.get('flipSpeed')] || 1)); }
+
+  // The card's own untransformed box. Measuring while a rotateY is applied gives the
+  // projected box, which skews the maths and makes the card land off its tile.
+  function naturalRect(card){
+    const prev = card.style.transform;
+    card.style.transform = 'none';
+    const r = card.getBoundingClientRect();
+    card.style.transform = prev;
+    return r;
+  }
 
   function flipEnabled(){
     if(!S.get('cardFlip')) return false;
@@ -660,7 +676,7 @@
 
   // transform that maps the card onto `origin`'s position and size
   function originTransform(card, origin, deg){
-    const c = card.getBoundingClientRect();
+    const c = naturalRect(card);
     const o = origin.getBoundingClientRect();
     if(!c.width || !c.height) return `rotateY(${deg}deg)`;
     const sx = Math.max(0.05, o.width / c.width);
@@ -692,9 +708,9 @@
     // the early phase rush and the hold on the value disappears
     const anim = card.animate([
       { transform: from, opacity: 0.9, offset: 0, easing: 'cubic-bezier(.2,.85,.3,1)' },
-      { transform: 'translate(0px,0px) scale(1,1) rotateY(0deg)',   opacity: 1, offset: 0.46, easing: 'cubic-bezier(.55,0,.3,1)' },
+      { transform: 'translate(0px,0px) scale(1,1) rotateY(0deg)',   opacity: 1, offset: 0.46, easing: 'linear' },
       { transform: 'translate(0px,0px) scale(1,1) rotateY(180deg)', opacity: 1, offset: 1 }
-    ], { duration: FLIP_OPEN_MS, easing: 'linear' });
+    ], { duration: flipMs(FLIP_OPEN_MS), easing: 'linear' });
     anim.onfinish = ()=> card.classList.add('flipped');
   }
 
@@ -704,22 +720,34 @@
     const origin = currentTile;
     currentTile=null; modalMode=null;          // clear state now; the animation is cosmetic
 
-    const done = ()=>{ modal.style.display='none'; card.style.transform=''; card.classList.remove('flipped'); };
+    let finished = false;
+    const done = ()=>{
+      if(finished) return; finished = true;
+      modal.style.display='none';
+      card.getAnimations().forEach(a=>a.cancel());
+      card.style.transform=''; card.classList.remove('flipped');
+    };
     if(!flipEnabled() || !origin || !modal.style.display || modal.style.display==='none'){ done(); return; }
 
     card.getAnimations().forEach(a=>a.cancel());
     card.style.transform = 'rotateY(180deg)';
     card.classList.remove('flipped');          // the value has to be showable again
-    // Keep turning the same way rather than reversing, and come back to full size
-    // showing the value before shrinking, so you can see what was at stake.
+    // Keep turning the same way rather than reversing, come back to full size showing
+    // the value, hold it a beat, then settle into the tile on a decelerating curve.
     const to = originTransform(card, origin, 360);
     const anim = card.animate([
-      { transform:'translate(0px,0px) scale(1,1) rotateY(180deg)', opacity:1, offset:0,    easing:'cubic-bezier(.55,0,.3,1)' },
-      { transform:'translate(0px,0px) scale(1,1) rotateY(360deg)', opacity:1, offset:0.58, easing:'cubic-bezier(.4,0,.7,.5)' },
-      { transform: to, opacity:0.85, offset:1 }
-    ], { duration: FLIP_CLOSE_MS, delay: hold||0, easing:'linear' });
+      { transform:'translate(0px,0px) scale(1,1) rotateY(180deg)', opacity:1, offset:0,    easing:'linear' },
+      { transform:'translate(0px,0px) scale(1,1) rotateY(360deg)', opacity:1, offset:0.46, easing:'linear' },
+      { transform:'translate(0px,0px) scale(1,1) rotateY(360deg)', opacity:1, offset:0.58, easing:'cubic-bezier(.34,0,.2,1)' },
+      { transform: to, opacity:0.9, offset:1 }
+    ], {
+      duration: flipMs(FLIP_CLOSE_MS), delay: hold||0, easing:'linear',
+      // without this the card reverts to full size for a frame before the modal
+      // hides — that one-frame pop is what reads as "it warps back in"
+      fill:'forwards'
+    });
     anim.onfinish = done;
-    anim.oncancel = done;
+    anim.oncancel = ()=>{ if(!finished) done(); };
   }
 
   document.getElementById('reveal-btn').addEventListener('click', ()=>{
@@ -740,13 +768,13 @@
     Sound.play('correct');
     if(currentTile){ currentTile.classList.add('used'); }   // keeps its value, faded
     if(teams.length){ teams[active].score += currentClueValue; }
-    closeModal(FLIP_HOLD_MS);
+    closeModal(flipMs(FLIP_HOLD_MS));
     nextTurn();
   });
   document.getElementById('wrong-btn').addEventListener('click', ()=>{
     Sound.play('wrong');
     if(currentTile){ currentTile.classList.add('used'); }   // keeps its value, faded
-    closeModal(FLIP_HOLD_MS);
+    closeModal(flipMs(FLIP_HOLD_MS));
     nextTurn();
   });
 
@@ -761,7 +789,7 @@
       currentTile.textContent='';
       if(teams[idx]) teams[idx].score++;
     }
-    closeModal(claim ? FLIP_HOLD_MS : 0);
+    closeModal(claim ? flipMs(FLIP_HOLD_MS) : 0);
     bbTurn = (bbTurn===0) ? 1 : 0;
     renderBBTurn();
     renderScorebar();

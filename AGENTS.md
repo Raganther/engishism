@@ -130,14 +130,23 @@ back to memory for the session (the panel says so).
   that tile and turns it over — front face carries the tile's own `$400` / letter,
   back carries the clue. Uses the Web Animations API against the live element rects
   (`openClueCard` / `closeModal` in hub-engine.js), so it lands on the right tile at
-  any board size. Shape: **grow at full value for ~460ms, then turn** (open, 1000ms);
-  answer → **550ms hold**, then turn back to the value at full size and shrink to the
-  tile (820ms). Two things that will bite if touched:
+  any board size. Shape: **grow at full value, then turn** (open, 1150ms); answer →
+  **550ms hold**, turn back to the value at full size, hold, then settle into the tile
+  (close, 1000ms). `flipSpeed` scales all three. Four things that will bite if touched:
   - **Ease each keyframe segment, not the whole run.** One curve across the lot makes
     the early phase rush and the hold on the value vanish.
+  - **Rotation segments must be `linear`.** An eased turn puts peak angular speed
+    exactly at the edge-on point, where the projected width collapses — so the card
+    snaps through. Constant rate roughly halved the worst per-frame jump (206px → 85px).
+  - **The closing animation needs `fill:'forwards'`.** Without it the card reverts to
+    full size for one frame before the modal hides, which reads as "it warps back in".
+    The landing segment must also *decelerate*; an accelerating curve there was the
+    other half of that complaint.
   - **The faces need separate z planes** (`translateZ(2px)`). Coplanar faces z-fight
     and the front bleeds through mirrored — that's what made `$500` read as `005`.
     `#clue-card.flipped #clue-front{visibility:hidden}` is the belt-and-braces.
+  - Measure with `naturalRect()`, never a live `getBoundingClientRect()` — a rotated
+    card reports its *projected* box, and the maths then lands it off its tile.
   Honours the `cardFlip` setting **and** `prefers-reduced-motion`; with either off it
   opens instantly, exactly as before.
 - **Spent Jeopardy tiles keep their value, faded, and stay clickable** — clicking one
