@@ -261,6 +261,16 @@ back to memory for the session (the panel says so).
   which isn't a touchscreen, so the teacher still does every click.)
 - Repo is **public** — don't commit anything that shouldn't be internet-visible.
 
+## Before you push
+```bash
+NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~4.5 min, 74 checks
+NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=jeopardy,fit   # while iterating
+```
+Drives all four games in a real browser and checks the things that have actually
+broken before: boards running off screen, the flip landing on the wrong tile, settings
+not persisting, buzzers not degrading when the relay is gone. Starts its own relay,
+exits non-zero on any failure. `--url=` tests a deployed copy instead.
+
 ## Verifying UI changes
 Playwright + Chromium are available (global `playwright`, browser at
 `/opt/pw-browsers`). Open a hub via `file://…` and exercise it to confirm changes
