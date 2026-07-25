@@ -42,10 +42,10 @@
     options:[{value:'relaxed',label:'Relaxed'},{value:'normal',label:'Normal'},{value:'snappy',label:'Snappy'}] });
 
   S.register({ id:'buzzers', group:'Phone buzzers', type:'toggle', default:false,
-    label:'Phone buzzers', help:'Students join on their phones and buzz to win the right to answer. Needs the relay running — see docs/buzzers.md.' });
+    label:'Phone buzzers', help:'Students join on their phones and buzz to win the right to answer. Needs a relay — this will not work from the GitHub Pages copy. See docs/buzzers.md.' });
   S.register({ id:'buzzerRelay', group:'Phone buzzers', type:'text', default:'',
     label:'Relay address', placeholder:'same site as this page',
-    help:'Leave empty when the relay is serving this page. Otherwise the https address of a hosted relay.' });
+    help:'Leave empty when the page is being served by the relay itself — which is the simplest setup. Otherwise the https address of a hosted relay.' });
 
   S.register({ id:'raceRescatter', group:'Race to the Board', type:'toggle', default:true,
     label:'Re-scatter after every claim', help:'Moves the words each time one is won, so nobody wins on memory alone.' });
@@ -859,7 +859,7 @@
     if(location.protocol === 'file:')
       return 'opened as a file — run: node tools/buzzer-relay.js, then open the address it prints';
     if(/(^|\.)github\.io$/i.test(location.hostname))
-      return 'this is the GitHub Pages copy — buzzers need the relay: run node tools/buzzer-relay.js and open the address it prints';
+      return 'this is the GitHub Pages copy, which has no relay behind it — open the hosted copy instead, or set a Relay address in the settings panel';
     return 'no relay at ' + location.host + ' — is node tools/buzzer-relay.js running?';
   }
 

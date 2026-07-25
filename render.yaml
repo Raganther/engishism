@@ -1,0 +1,22 @@
+# Deploy blueprint for the buzzer relay.
+#
+# On Render: New > Blueprint > pick this repo. It reads this file and needs no
+# further configuration. The service that comes up serves the whole site plus the
+# buzzer endpoints over https, so its address is the one to use in class:
+#
+#   https://<service>.onrender.com/game-hub.html   teacher
+#   https://<service>.onrender.com/join.html       students
+#
+# Free instances sleep when idle and take a little while to wake, so open the
+# teacher page a couple of minutes before the lesson rather than on the bell.
+#
+# Nothing here affects the games. They still run with no build step, and the
+# GitHub Pages copy is unchanged.
+services:
+  - type: web
+    name: engishism-buzzer
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /buzzer/health
+    autoDeploy: true

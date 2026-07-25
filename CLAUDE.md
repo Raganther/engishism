@@ -130,8 +130,14 @@ back to memory for the session (the panel says so).
   - Phones never talk to the laptop directly — school WiFi blocks that. Both ends
     connect out to `tools/buzzer-relay.js`, the same shape as Kahoot.
   - **The relay serves the site too, deliberately**: an https GitHub Pages page may not
-    talk to a plain-http LAN relay (mixed content). For a buzzer lesson, run the hub
-    from the relay. A hosted https relay lifts that restriction — ⚙ → Relay address.
+    talk to a plain-http LAN relay (mixed content). So the relay's own address is the
+    one to use in class — for the hub *and* the join page.
+  - **Deploying it is the intended setup** (`Dockerfile` + `render.yaml`, Render
+    blueprint): one https origin serves hub + join + relay, nothing runs on the
+    classroom laptop, and it survives WiFi that blocks phone→laptop traffic.
+    Running `node tools/buzzer-relay.js` locally is the no-account alternative.
+    **Buzzers can never work from the GitHub Pages URL** — no relay behind it; the
+    bar says so explicitly.
   - **Everything degrades**: buzzers off, relay dead, or WiFi gone → the hub behaves
     exactly as before with the manual chips / `1`-`2` keys. Verified for all three.
 - **Settings panel** (⚙ in the header, Esc or click-away to close), built from a
