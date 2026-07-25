@@ -41,6 +41,12 @@
     label:'Flip speed', help:'How long the card takes to turn over and come back.',
     options:[{value:'relaxed',label:'Relaxed'},{value:'normal',label:'Normal'},{value:'snappy',label:'Snappy'}] });
 
+  S.register({ id:'buzzers', group:'Phone buzzers', type:'toggle', default:false,
+    label:'Phone buzzers', help:'Students join on their phones and buzz to win the right to answer. Needs the relay running — see docs/buzzers.md.' });
+  S.register({ id:'buzzerRelay', group:'Phone buzzers', type:'text', default:'',
+    label:'Relay address', placeholder:'same site as this page',
+    help:'Leave empty when the relay is serving this page. Otherwise the https address of a hosted relay.' });
+
   S.register({ id:'raceRescatter', group:'Race to the Board', type:'toggle', default:true,
     label:'Re-scatter after every claim', help:'Moves the words each time one is won, so nobody wins on memory alone.' });
   S.register({ id:'raceRoundSeconds', group:'Race to the Board', type:'select', default:60,
@@ -185,6 +191,7 @@
         <div id="race-prompt"></div>
         <div id="race-bar">
           <div id="race-status"></div>
+          <div id="buzzer-chip" style="display:none;"></div>
           <div id="race-claim">
             <span class="claim-q">Who touched it first?</span>
             <div id="race-claim-teams"></div>
@@ -324,6 +331,7 @@
 
   document.getElementById('new-game-btn').addEventListener('click', ()=>{
     activeGame=null; selectedContent=[]; pool=[]; raceRunning=false;
+    closeBuzzRoom();
     document.getElementById('page-title').textContent='Game Hub';
     showScreen('screen-game-select');
   });
@@ -347,7 +355,7 @@
         if(ev.target.closest('button') || ev.target.classList.contains('tname')) return;
         active = i; renderScorebar();
       });
-      el.querySelector('.tname').addEventListener('change', e=>{ t.name = e.target.value; });
+      el.querySelector('.tname').addEventListener('change', e=>{ t.name = e.target.value; pushTeamNames(); });
       el.querySelector('.minus').addEventListener('click', ()=>{ t.score-=step; renderScorebar(); });
       el.querySelector('.plus').addEventListener('click', ()=>{ t.score+=step; renderScorebar(); });
       bar.appendChild(el);
@@ -531,6 +539,7 @@
     } else if(activeGame==='race'){
       document.getElementById('play-race').style.display='block';
       buildRaceBoard();
+      if(raceMode==='h2h') openBuzzRoom(); else closeBuzzRoom();
       timerSetDuration(Number(S.get('raceRoundSeconds')) || 60);
     }
     showScreen('screen-play');
@@ -798,6 +807,81 @@
   document.getElementById('silver-btn').addEventListener('click', ()=>claimHex('silver'));
   document.getElementById('skip-btn').addEventListener('click', ()=>claimHex(null));
 
+  /* ================= PHONE BUZZERS =================
+     Optional layer. Students join on their phones and buzz for the right to answer;
+     the buzz says which team, so a correct word can be scored without the teacher
+     deciding who was first. Everything degrades: no relay, no room, no change —
+     the manual "who touched it first?" chooser is still there underneath. */
+  let buzzHost = null;      // the room, while one is open
+  let buzzWinner = null;    // {id,name,team} — who has the floor right now
+  let buzzPlayers = 0;
+
+  function buzzersOn(){ return S.get('buzzers') && window.HubBuzzer; }
+
+  function renderBuzzChip(state){
+    const chip = document.getElementById('buzzer-chip');
+    if(!chip) return;
+    if(!buzzHost){ chip.style.display='none'; return; }
+    chip.style.display='flex';
+    chip.className = state==='won' ? 'won' : (state==='armed' ? 'armed' : '');
+    chip.innerHTML='';
+    const add=(cls,txt)=>{ const s=document.createElement('span'); s.className=cls; s.textContent=txt; chip.appendChild(s); };
+    if(buzzWinner){
+      add('buzz-name', buzzWinner.name);
+      add('buzz-team', teams[buzzWinner.team] ? teams[buzzWinner.team].name : ('Team '+(buzzWinner.team+1)));
+    } else {
+      add('buzz-code', 'code ' + buzzHost.code);
+      add('buzz-count', buzzPlayers + (buzzPlayers===1 ? ' phone' : ' phones'));
+      if(state==='armed') add('buzz-live', 'buzzers live');
+    }
+  }
+
+  function openBuzzRoom(){
+    if(!buzzersOn() || buzzHost) return;
+    const relay = S.get('buzzerRelay') || '';
+    HubBuzzer.newCode(relay).then(code=>{
+      if(!code){                     // relay unreachable — carry on without it
+        const chip=document.getElementById('buzzer-chip');
+        if(chip){ chip.style.display='flex'; chip.className='off';
+                  chip.textContent='buzzer relay not reachable'; }
+        return;
+      }
+      buzzHost = HubBuzzer.host({ relay, code });
+      buzzHost.on('ready',   d=>{ buzzPlayers=(d.players||[]).length; pushTeamNames(); renderBuzzChip(); });
+      buzzHost.on('players', list=>{ buzzPlayers=list.length; renderBuzzChip(); });
+      buzzHost.on('buzz',    onBuzz);
+      renderBuzzChip();
+    });
+  }
+
+  function closeBuzzRoom(){
+    if(buzzHost){ buzzHost.close(); buzzHost=null; }
+    buzzWinner=null; buzzPlayers=0;
+    const chip=document.getElementById('buzzer-chip');
+    if(chip) chip.style.display='none';
+  }
+
+  function pushTeamNames(){
+    if(buzzHost) buzzHost.setTeams(teams.map(t=>t.name));
+  }
+
+  function armBuzzers(prompt){
+    buzzWinner=null;
+    if(buzzHost) buzzHost.arm(prompt||'');
+    renderBuzzChip('armed');
+  }
+  function resetBuzzers(){
+    buzzWinner=null;
+    if(buzzHost) buzzHost.reset();
+    renderBuzzChip();
+  }
+
+  function onBuzz(b){
+    buzzWinner = b;
+    Sound.play('claim');
+    renderBuzzChip('won');
+  }
+
   /* ================= RACE TO THE BOARD =================
      Target words sit on screen; the teacher reads a gapped sentence and a student
      runs to the projector screen and touches the word. The screen isn't a
@@ -943,7 +1027,11 @@
     while(raceQueue.length){
       const item = raceQueue.shift();
       const w = raceWords.find(x=>x.word===item.answer);
-      if(w && !w.found){ raceCurrent=item; setRacePrompt(item); updateRaceBar(); return; }
+      if(w && !w.found){
+        raceCurrent=item; setRacePrompt(item); updateRaceBar();
+        if(raceMode==='h2h') armBuzzers(item.prompt);
+        return;
+      }
     }
     raceCurrent=null;
     endRaceRound(true);
@@ -959,6 +1047,7 @@
   function endRaceRound(cleared){
     raceRunning=false;
     hideClaimBar();
+    resetBuzzers();
     // the sentence on screen when the clock stopped hasn't been answered — put it
     // back in the queue, or its word could never be claimed and the board never clears
     if(raceCurrent){
@@ -1001,7 +1090,13 @@
       Sound.play('correct');
       el.classList.remove('wrong');
       if(raceMode==='h2h'){
-        // the engine can't know who touched first — ask, then award
+        if(buzzWinner && teams[buzzWinner.team]){
+          // a phone already told us who got in first — no need to ask
+          racePending = { w, el };
+          awardRaceWord(buzzWinner.team, el);
+          return;
+        }
+        // nobody buzzed (or no buzzers at all) — fall back to asking
         racePending = { w, el };
         el.classList.add('pending');
         showClaimBar();
@@ -1016,8 +1111,10 @@
         // keep the pace up: no penalty, but move on — the sentence returns later
         raceQueue.push(raceCurrent);
         nextRacePrompt();
+      } else {
+        // h2h: the sentence stays up, so re-open the buzzers for the steal
+        if(buzzHost) armBuzzers(raceCurrent.prompt);
       }
-      // h2h: the sentence stays up so the other team can steal it
     }
   }
 
@@ -1030,6 +1127,7 @@
     if(teams[teamIdx]) teams[teamIdx].score++;
     racePending = null;
     hideClaimBar();
+    resetBuzzers();
     renderScorebar();
     if(S.get('raceRescatter')){
       renderRaceWords();   // re-scatter, so nobody wins on remembering where a word sat

@@ -10,7 +10,7 @@
    itself from whatever has been registered, so a new feature gets its switch
    for free — there is no panel markup to keep in step.
 
-   Types: 'toggle' (boolean) and 'select' (options:[{value,label}]).
+   Types: 'toggle' (boolean), 'select' (options:[{value,label}]) and 'text'.
    Values persist per device where storage is allowed; a browser that blocks it
    on file:// just falls back to in-memory, which stays correct for the session. */
 window.HubSettings = (function(){
@@ -123,7 +123,14 @@ window.HubSettings = (function(){
         }
         row.appendChild(text);
 
-        if(d.type==='select'){
+        if(d.type==='text'){
+          const inp=document.createElement('input');
+          inp.type='text'; inp.className='settings-input';
+          inp.value = get(d.id) || '';
+          inp.placeholder = d.placeholder || '';
+          inp.addEventListener('change', ()=> set(d.id, inp.value.trim()));
+          row.appendChild(inp);
+        } else if(d.type==='select'){
           const sel=document.createElement('select');
           sel.className='settings-select';
           (d.options||[]).forEach(o=>{

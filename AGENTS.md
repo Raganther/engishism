@@ -42,6 +42,10 @@ footer shows it, so **"Build …" in ⚙ tells you which version is actually run
      unit/game/section/play screens, the persistent team bar, and the timer.
    - `game-hub/hub-settings.js` — settings registry + panel (⚙ in the header).
      **Must load before hub-engine.js** (the engine throws without it).
+   - `game-hub/hub-buzzer.js` — phone-buzzer client, shared by the hub (host) and
+     `join.html` (players). Optional; absent relay = absent feature, nothing breaks.
+   - `tools/buzzer-relay.js` — zero-dependency Node relay **and** static server for
+     buzzer lessons. `join.html` is the students' page. See `docs/buzzers.md`.
    - `game-hub/hub.css` — shared styling (DCU theme); the one place to restyle.
    - `game-hub/content/unit-4.js`, `unit-5.js` — data-only content banks; each does
      `window.UNITS.push({ id, label, card, jeopardy…, blockbusters… })`.
@@ -118,6 +122,18 @@ back to memory for the session (the panel says so).
   the body padding while they're up. Both re-fit on resize. Jeopardy tiles used to
   take their height from a fixed 3:2 aspect ratio, so fewer categories meant taller
   tiles and up to 1400px of hidden board — don't reintroduce a fixed aspect ratio.
+- **Phone buzzers (first draft, no classroom run yet).** Students open `join.html`,
+  enter a 5-digit room code + name + team, and get one big buzzer. In **Race to the
+  Board head-to-head** a sentence arms the buzzers; the first buzz takes the floor and
+  *carries the team*, so a correct word scores automatically and the "who touched it
+  first?" chooser never appears. Wrong word = no penalty, buzzers re-open for a steal.
+  - Phones never talk to the laptop directly — school WiFi blocks that. Both ends
+    connect out to `tools/buzzer-relay.js`, the same shape as Kahoot.
+  - **The relay serves the site too, deliberately**: an https GitHub Pages page may not
+    talk to a plain-http LAN relay (mixed content). For a buzzer lesson, run the hub
+    from the relay. A hosted https relay lifts that restriction — ⚙ → Relay address.
+  - **Everything degrades**: buzzers off, relay dead, or WiFi gone → the hub behaves
+    exactly as before with the manual chips / `1`-`2` keys. Verified for all three.
 - **Settings panel** (⚙ in the header, Esc or click-away to close), built from a
   registry so a new feature's switch appears by registering it — see "Adding a
   feature" above. Currently: sound on/off, volume, race re-scatter, race round
@@ -156,6 +172,11 @@ back to memory for the session (the panel says so).
 - To change unit mid-session: game screen → "New game" → "Change unit".
 
 ## Next
+- **Buzzers need a real class.** Only ever driven by scripted browsers. Unknowns:
+  latency on real handsets, whether the school WiFi allows the LAN route at all
+  (one-minute test in `docs/buzzers.md`), and whether phones are a net win or a
+  behaviour problem. Not wired into Jeopardy/Blockbusters yet — picking which team
+  answers a tile is the obvious next use.
 - **Sound is a first pass** — five synthesised cues. Worth checking on real classroom
   speakers; if they're thin, the fix is a richer envelope, not sample files (offline).
 - **Race to the Board — head-to-head + full-screen scatter shipped; awaiting a real

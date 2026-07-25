@@ -247,6 +247,21 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 #tmr-display{ font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:1.6rem; color:var(--yellow); min-width:70px; text-align:center; }
 #tmr-display.urgent{ color:#ff5a4d; }
 
+/* --- Buzzer chip, on the race bar while a room is open --- */
+#buzzer-chip{
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  font-family:'IBM Plex Mono',monospace; font-size:0.74rem; letter-spacing:0.06em; text-transform:uppercase;
+  border:2px solid rgba(18,38,63,0.18); border-radius:10px; padding:7px 12px; color:var(--muted);
+}
+#buzzer-chip .buzz-code{ font-weight:600; color:var(--navy); letter-spacing:0.16em; }
+#buzzer-chip .buzz-count{ color:var(--muted); }
+#buzzer-chip .buzz-live{ background:var(--yellow); color:var(--navy); border-radius:5px; padding:2px 8px; font-weight:600; }
+#buzzer-chip.armed{ border-color:var(--yellow); }
+#buzzer-chip.won{ border-color:var(--blue); background:rgba(0,160,223,0.10); }
+#buzzer-chip .buzz-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.98rem; text-transform:none; letter-spacing:0; color:var(--navy); }
+#buzzer-chip .buzz-team{ background:var(--blue); color:var(--white); border-radius:5px; padding:2px 8px; font-weight:600; }
+#buzzer-chip.off{ border-style:dashed; color:#b4462f; }
+
 /* --- Settings (gear in the header + panel; rows are generated from the registry) --- */
 #settings-btn{
   background: var(--white); color: var(--navy); border:2px solid var(--navy); border-radius:8px;

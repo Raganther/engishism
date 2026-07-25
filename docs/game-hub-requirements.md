@@ -395,6 +395,45 @@ saved boards and history — that still holds. Teacher **preferences** are persi
 no setting. Nothing about a game in progress is saved, and where a browser blocks
 storage the app degrades to session-only and says so in the panel.
 
+### 4.4c Phone buzzers — first draft, not yet trialled
+
+§1.3 put "student devices" out of scope for the MVP, and for the demo that still
+holds: the teacher drives everything and the games are complete without phones.
+This is an **optional layer** built on top, because the "who got there first?"
+problem in Race to the Board head-to-head has no good answer from one screen —
+the engine can't see who touched the projected image, so the teacher has been
+supplying that fact by hand.
+
+| ID | Requirement | Priority |
+|---|---|---|
+| F4c.1 | Students join with a room code, no account and no install | Must |
+| F4c.2 | The first buzz wins, judged at one place rather than on phone clocks | Must |
+| F4c.3 | A buzz identifies the team, so a correct answer scores without the teacher deciding | Must |
+| F4c.4 | With buzzers off, unreachable, or no network, every game behaves exactly as before | Must |
+| F4c.5 | A wrong answer re-opens the buzzers so the other team can steal | Should |
+| F4c.6 | The room survives a teacher page reload | Should |
+
+**Architecture.** Phones cannot reach the teacher's laptop directly: school and
+guest WiFi normally run client isolation. Both ends therefore connect *outbound*
+to a relay, which is how Kahoot works and why Kahoot works in this building. The
+relay is `tools/buzzer-relay.js` — no dependencies, no database, no accounts,
+rooms held in memory only.
+
+**Consequence for hosting.** A page served over https from GitHub Pages may not
+talk to a plain-http relay on the local network. So for a buzzer lesson the relay
+serves the site as well, and the hub is opened from the relay rather than from
+Pages. Deploying the relay to an https host removes that restriction. Full
+runbook in `docs/buzzers.md`.
+
+**Cost.** This is the one part of the product that cannot work offline, which is
+why it is strictly additive: it is switched off by default, and every failure mode
+falls back to the existing manual flow rather than to a broken screen.
+
+**Open.** No classroom run yet. Whether phones are pedagogically worth it — and
+whether they are a behaviour problem in an ESL class — is unresolved, as is the
+strategic question in §9: answer-selection on phones would put this in the same
+category as Kahoot, where the coursebook-specific content is the only advantage.
+
 ### 4.5 Display
 
 | ID | Requirement | Priority |

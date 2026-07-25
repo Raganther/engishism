@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#12263F">
+<title>Buzzer — Engishism</title>
+<style>
+  :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  body{
+    background:var(--navy); color:var(--white); min-height:100vh; min-height:100dvh;
+    font-family:'Space Grotesk', system-ui, -apple-system, sans-serif;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:22px; gap:18px; text-align:center; overflow:hidden;
+  }
+  h1{ font-size:1.05rem; letter-spacing:0.16em; text-transform:uppercase; color:var(--blue); font-weight:700; }
+  .screen{ display:none; width:100%; max-width:420px; flex-direction:column; gap:16px; align-items:center; }
+  .screen.active{ display:flex; }
+  label{ font-size:0.74rem; letter-spacing:0.12em; text-transform:uppercase; color:rgba(251,243,213,0.7); align-self:flex-start; }
+  input{
+    width:100%; padding:16px; border-radius:12px; border:2px solid rgba(255,255,255,0.25);
+    background:var(--navy2); color:var(--white); font-family:inherit; font-size:1.25rem; font-weight:700; text-align:center;
+  }
+  input:focus{ outline:none; border-color:var(--blue); }
+  #code{ font-size:2rem; letter-spacing:0.3em; }
+  .teams{ display:flex; gap:10px; width:100%; }
+  .teams button{
+    flex:1; padding:14px 8px; border-radius:12px; border:2px solid rgba(255,255,255,0.25);
+    background:var(--navy2); color:var(--white); font-family:inherit; font-weight:700; font-size:0.95rem; cursor:pointer;
+  }
+  .teams button.on{ background:var(--yellow); color:var(--navy); border-color:var(--yellow); }
+  .go{
+    width:100%; padding:17px; border:none; border-radius:12px; background:var(--blue); color:var(--white);
+    font-family:inherit; font-weight:700; font-size:1.1rem; text-transform:uppercase; letter-spacing:0.06em; cursor:pointer;
+  }
+  .go:disabled{ opacity:0.4; }
+  .note{ font-size:0.82rem; color:rgba(251,243,213,0.62); line-height:1.5; }
+  .who{ font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase; color:rgba(251,243,213,0.72); }
+
+  /* the buzzer itself — thumb-sized, unmissable, and it fills what's left */
+  #buzzer{
+    width:min(74vw, 300px); height:min(74vw, 300px); border-radius:50%; border:none;
+    background:radial-gradient(circle at 34% 30%, #ff8a7d, #e0271a 62%, #a5170e);
+    color:var(--white); font-family:inherit; font-weight:700; font-size:1.7rem;
+    text-transform:uppercase; letter-spacing:0.06em; cursor:pointer;
+    box-shadow:0 12px 0 #7d1109, 0 18px 34px rgba(0,0,0,0.5);
+    transition:transform .06s, box-shadow .06s, filter .15s;
+    touch-action:manipulation;
+  }
+  #buzzer:active{ transform:translateY(9px); box-shadow:0 3px 0 #7d1109, 0 8px 16px rgba(0,0,0,0.45); }
+  #buzzer[disabled]{ filter:grayscale(0.75) brightness(0.5); cursor:default; box-shadow:0 12px 0 #3a3a3a, 0 18px 30px rgba(0,0,0,0.4); }
+  #buzzer.won{ background:radial-gradient(circle at 34% 30%, #7de08a, #17a52f 62%, #0c6a1e); filter:none; }
+  #state{ font-size:1rem; min-height:1.6em; color:var(--cream); }
+  #status{ font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:rgba(251,243,213,0.45); }
+  .err{ color:#ff8a7d; font-size:0.85rem; min-height:1.2em; }
+</style>
+</head>
+<body>
+
+<div class="screen active" id="screen-join">
+  <h1>Engishism · Buzzer</h1>
+  <label for="code">Game code</label>
+  <input id="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="00000" autocomplete="off">
+  <label for="name">Your name</label>
+  <input id="name" maxlength="24" placeholder="Name" autocomplete="off">
+  <label>Your team</label>
+  <div class="teams" id="teams"></div>
+  <button class="go" id="join-btn" disabled>Join</button>
+  <p class="err" id="join-err"></p>
+  <p class="note">Your teacher has the code on the big screen.</p>
+</div>
+
+<div class="screen" id="screen-play">
+  <p class="who" id="who"></p>
+  <button id="buzzer" disabled>Wait</button>
+  <p id="state">Waiting for the teacher…</p>
+  <p id="status"></p>
+</div>
+
+<script src="game-hub/hub-buzzer.js?v=20260726a"></script>
+<script>
+(function(){
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+
+  // relay defaults to wherever this page came from; ?relay=https://… overrides it
+  const RELAY = params.get('relay') || '';
+
+  let team = 0, teamNames = ['Team 1','Team 2'], client = null;
+
+  function renderTeams(){
+    const wrap = $('teams'); wrap.innerHTML='';
+    teamNames.forEach((n,i)=>{
+      const b=document.createElement('button');
+      b.textContent=n; b.className = (i===team) ? 'on' : '';
+      b.addEventListener('click', ()=>{ team=i; renderTeams(); });
+      wrap.appendChild(b);
+    });
+  }
+  renderTeams();
+
+  function validate(){
+    $('join-btn').disabled = !(/^\d{4,6}$/.test($('code').value.trim()) && $('name').value.trim());
+  }
+  $('code').addEventListener('input', validate);
+  $('name').addEventListener('input', validate);
+  if(params.get('code')){ $('code').value = params.get('code'); }
+  validate();
+
+  function show(id){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    $(id).classList.add('active');
+  }
+
+  // a short tick so a buzz feels like it did something even before the screen changes
+  let audio=null;
+  function blip(){
+    try{
+      const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
+      audio = audio || new AC();
+      if(audio.state==='suspended') audio.resume();
+      const o=audio.createOscillator(), g=audio.createGain(), t=audio.currentTime;
+      o.type='square'; o.frequency.setValueAtTime(880,t);
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(0.16,t+0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+0.14);
+      o.connect(g); g.connect(audio.destination); o.start(t); o.stop(t+0.16);
+    }catch(e){}
+  }
+
+  function setBuzzer(mode, text){
+    const b=$('buzzer');
+    b.className = mode==='won' ? 'won' : '';
+    b.disabled  = mode!=='armed';
+    b.textContent = text;
+  }
+
+  $('join-btn').addEventListener('click', ()=>{
+    const code = $('code').value.trim();
+    const name = $('name').value.trim();
+    $('join-err').textContent = '';
+
+    client = HubBuzzer.player({ relay:RELAY, code, name, team });
+
+    client.on('status', s=>{
+      $('status').textContent =
+        s.state==='connected'    ? 'connected' :
+        s.state==='reconnecting' ? 'reconnecting…' : 'can’t reach the game';
+      if(s.state==='unreachable' && $('screen-join').classList.contains('active')){
+        $('join-err').textContent = 'No game with that code — check the screen.';
+      }
+    });
+
+    client.on('joined', d=>{
+      if(d.teams && d.teams.length){ teamNames = d.teams; }
+      $('who').textContent = name + ' · ' + (teamNames[team] || ('Team '+(team+1)));
+      show('screen-play');
+      if(d.locked)     { setBuzzer('off','Too late'); $('state').textContent = d.locked.name + ' got in first'; }
+      else if(d.armed) { setBuzzer('armed','Buzz'); $('state').textContent = 'Go!'; }
+      else             { setBuzzer('off','Wait');  $('state').textContent = 'Waiting for the teacher…'; }
+    });
+
+    client.on('teams', d=>{
+      if(d.teams && d.teams.length){
+        teamNames = d.teams;
+        $('who').textContent = name + ' · ' + (teamNames[team] || ('Team '+(team+1)));
+      }
+    });
+
+    client.on('armed', ()=>{ setBuzzer('armed','Buzz'); $('state').textContent='Go!';
+                             if(navigator.vibrate) navigator.vibrate(40); });
+    client.on('disarmed', ()=>{ setBuzzer('off','Wait'); $('state').textContent='Waiting for the teacher…'; });
+    client.on('reset',    ()=>{ setBuzzer('off','Wait'); $('state').textContent='Waiting for the teacher…'; });
+
+    client.on('locked', d=>{
+      const mine = d.id === client.id;
+      setBuzzer(mine ? 'won' : 'off', mine ? 'You!' : 'Too late');
+      $('state').textContent = mine ? 'You buzzed first — answer!' : (d.name + ' got in first');
+      if(navigator.vibrate) navigator.vibrate(mine ? [30,40,30] : 15);
+    });
+  });
+
+  $('buzzer').addEventListener('click', ()=>{
+    if($('buzzer').disabled || !client) return;
+    blip();
+    setBuzzer('off','Sent');
+    client.buzz();
+  });
+
+  // hitting space/enter on a laptop should work too, for testing
+  document.addEventListener('keydown', e=>{
+    if((e.code==='Space'||e.code==='Enter') && $('screen-play').classList.contains('active')){
+      e.preventDefault(); $('buzzer').click();
+    }
+  });
+})();
+</script>
+</body>
+</html>
