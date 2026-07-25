@@ -45,9 +45,21 @@ It prints two addresses:
 
 1. Open the **teacher** address on the classroom machine.
 2. Turn on **⚙ → Phone buzzers**.
-3. Start Race to the Board in **head-to-head**. A code appears on the bar.
-4. Students open the **students** address, type the code, their name, and tap
-   their team.
+3. Start Race to the Board in **head-to-head**. The bar then shows the join
+   address, the code, and how many phones are connected — read it straight off
+   the screen, no need to go back to the terminal.
+4. Students open that address, type the code, their name, and tap their team.
+
+### "buzzer relay not reachable"
+
+The bar tells you which problem it is:
+
+| Message | Meaning |
+|---|---|
+| `this is the GitHub Pages copy…` | You opened the Pages URL. Buzzers only work from the relay — go back to the address the relay printed. |
+| `opened as a file…` | You opened `game-hub.html` off the disk. Same fix. |
+| `no relay at <host>…` | Right address, but nothing is answering — the relay probably isn't running. |
+| `no relay answering at <address>` | A **Relay address** is set in ⚙ and that host isn't responding. Clear the field to use the relay serving the page. |
 
 Use `PORT=3000 node tools/buzzer-relay.js` if 8080 is taken.
 

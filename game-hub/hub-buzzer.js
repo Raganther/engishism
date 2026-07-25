@@ -95,8 +95,11 @@ window.HubBuzzer = (function(){
     };
   }
 
+  // resolves {code, lan} — lan is the address a phone can reach, which is not
+  // localhost even when that is what the teacher's browser is showing
   function newCode(relay){
-    return fetch(base(relay) + '/buzzer/newcode').then(r=>r.json()).then(d=>d.code)
+    return fetch(base(relay) + '/buzzer/newcode').then(r=>r.json())
+      .then(d=> d && d.code ? d : null)
       .catch(()=>null);
   }
 

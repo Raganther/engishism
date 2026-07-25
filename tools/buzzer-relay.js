@@ -196,7 +196,7 @@ const server = http.createServer((req, res)=>{
   if(req.method==='OPTIONS') return send(res, 204, '');
 
   if(p === '/buzzer/health')  return sendJSON(res, 200, { ok:true, rooms:rooms.size });
-  if(p === '/buzzer/newcode') return sendJSON(res, 200, { code: makeCode() });
+  if(p === '/buzzer/newcode') return sendJSON(res, 200, { code: makeCode(), lan: lanHost() });
   if(p === '/buzzer/stream')  return openStream(req, res, url.searchParams);
   if(p === '/buzzer/send' && req.method==='POST') return handleSend(req, res);
   if(p.startsWith('/buzzer/')) return sendJSON(res, 404, { error:'unknown endpoint' });
@@ -205,10 +205,17 @@ const server = http.createServer((req, res)=>{
   serveStatic(req, res, p);
 });
 
-server.listen(PORT, ()=>{
-  const nets = os.networkInterfaces();
-  const lan = Object.values(nets).flat()
+function lanAddresses(){
+  return Object.values(os.networkInterfaces()).flat()
     .filter(n=>n && n.family==='IPv4' && !n.internal).map(n=>n.address);
+}
+function lanHost(){
+  const a = lanAddresses()[0];
+  return a ? a + ':' + PORT : '';
+}
+
+server.listen(PORT, ()=>{
+  const lan = lanAddresses();
   console.log('\n  Engishism buzzer relay\n');
   console.log('  Teacher (this machine):  http://localhost:' + PORT + '/game-hub.html');
   lan.forEach(ip=>console.log('  Students (same WiFi):    http://' + ip + ':' + PORT + '/join.html'));

@@ -815,8 +815,20 @@
   let buzzHost = null;      // the room, while one is open
   let buzzWinner = null;    // {id,name,team} — who has the floor right now
   let buzzPlayers = 0;
+  let buzzLanHost = '';     // address the relay says phones can reach it on
 
   function buzzersOn(){ return S.get('buzzers') && window.HubBuzzer; }
+
+  // What students should type in. localhost is right for this machine but useless
+  // to a phone, so show the LAN address the relay reported instead.
+  function joinAddress(){
+    try{
+      const u = new URL('join.html', location.href);
+      let host = u.host;
+      if(/^(localhost|127\.0\.0\.1)/.test(host) && buzzLanHost) host = buzzLanHost;
+      return host + u.pathname;
+    }catch(e){ return 'join.html'; }
+  }
 
   function renderBuzzChip(state){
     const chip = document.getElementById('buzzer-chip');
@@ -830,20 +842,37 @@
       add('buzz-name', buzzWinner.name);
       add('buzz-team', teams[buzzWinner.team] ? teams[buzzWinner.team].name : ('Team '+(buzzWinner.team+1)));
     } else {
+      // the join address, so it can be read off the screen instead of the terminal
+      add('buzz-join', joinAddress());
       add('buzz-code', 'code ' + buzzHost.code);
       add('buzz-count', buzzPlayers + (buzzPlayers===1 ? ' phone' : ' phones'));
       if(state==='armed') add('buzz-live', 'buzzers live');
     }
   }
 
+  /* "not reachable" on its own sends you hunting. Nearly always the cause is the
+     page itself — the GitHub Pages copy has no relay behind it — so say which
+     problem this is rather than that there is one. */
+  function buzzerProblem(){
+    const relay = (S.get('buzzerRelay')||'').trim();
+    if(relay) return 'no relay answering at ' + relay;
+    if(location.protocol === 'file:')
+      return 'opened as a file — run: node tools/buzzer-relay.js, then open the address it prints';
+    if(/(^|\.)github\.io$/i.test(location.hostname))
+      return 'this is the GitHub Pages copy — buzzers need the relay: run node tools/buzzer-relay.js and open the address it prints';
+    return 'no relay at ' + location.host + ' — is node tools/buzzer-relay.js running?';
+  }
+
   function openBuzzRoom(){
     if(!buzzersOn() || buzzHost) return;
     const relay = S.get('buzzerRelay') || '';
-    HubBuzzer.newCode(relay).then(code=>{
-      if(!code){                     // relay unreachable — carry on without it
+    HubBuzzer.newCode(relay).then(info=>{
+      const code = info && info.code;
+      buzzLanHost = (info && info.lan) || '';
+      if(!code){                     // no relay — say why, and carry on without it
         const chip=document.getElementById('buzzer-chip');
         if(chip){ chip.style.display='flex'; chip.className='off';
-                  chip.textContent='buzzer relay not reachable'; }
+                  chip.textContent = buzzerProblem(); }
         return;
       }
       buzzHost = HubBuzzer.host({ relay, code });

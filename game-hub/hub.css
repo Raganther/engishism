@@ -253,7 +253,8 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
   font-family:'IBM Plex Mono',monospace; font-size:0.74rem; letter-spacing:0.06em; text-transform:uppercase;
   border:2px solid rgba(18,38,63,0.18); border-radius:10px; padding:7px 12px; color:var(--muted);
 }
-#buzzer-chip .buzz-code{ font-weight:600; color:var(--navy); letter-spacing:0.16em; }
+#buzzer-chip .buzz-join{ color:var(--navy); text-transform:none; letter-spacing:0; font-weight:600; }
+#buzzer-chip .buzz-code{ font-weight:600; color:var(--navy); letter-spacing:0.16em; background:var(--cream); border-radius:5px; padding:2px 8px; }
 #buzzer-chip .buzz-count{ color:var(--muted); }
 #buzzer-chip .buzz-live{ background:var(--yellow); color:var(--navy); border-radius:5px; padding:2px 8px; font-weight:600; }
 #buzzer-chip.armed{ border-color:var(--yellow); }
