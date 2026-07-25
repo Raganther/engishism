@@ -26,7 +26,7 @@ linked as `…?v=YYYYMMDDx` in the three page shells; without a bump, Chrome kee
 the cached JS/CSS and a fix looks like it never shipped (this has already cost one
 debugging round). Change it in all three shells together:
 ```bash
-sed -i '' 's/?v=[0-9a-z]*/?v=20260728g/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
+sed -i '' 's/?v=[0-9a-z]*/?v=20260729a/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
 ```
 The engine reads its own `?v=` and exposes it as `window.HUB_BUILD`; the settings panel
 footer shows it, so **"Build …" in ⚙ tells you which version is actually running.**
@@ -295,11 +295,20 @@ back to memory for the session (the panel says so).
     bar says so explicitly.
   - **Everything degrades**: buzzers off, relay dead, or WiFi gone → the hub behaves
     exactly as before with the manual chips / `1`-`2` keys. Verified for all three.
-- **Game show mode** — a second skin, now on **all four games**. `theme` is a variant
-  setting (`dcu` | `gameshow`); `body.theme-gameshow` goes on when a themed game
-  reaches the play screen and comes off when you leave, so the chrome never
-  half-changes (a neon board over a navy team bar reads as broken). The DCU theme
-  is the default and is untouched — the skin is pure override.
+- **Game show mode is the default**, on all four games *and* the setup screens.
+  `theme` is a variant setting (`gameshow` | `dcu`); `body.theme-gameshow` is applied
+  by `applyTheme()` from `showScreen`, so it covers unit-select, game-select and
+  section-select too — a lit board reached through a white setup screen loses the
+  moment before it starts. `themeOf()` resolves to the active game's setting once one
+  is chosen and the **master** value before that. DCU is one switch away and is pure
+  override — nothing in the base stylesheet changed.
+  - `.lit` marks *a stage being played* and is cleared on leaving the play screen, or
+    a stale one lights up again the next time that panel is shown.
+  - **The game-selector icons animate what their game does** — Jeopardy's tiles light
+    along the diagonal, Blockbusters' inner hex pulses inside the outer, Race's bars
+    run left-to-right, Millionaire's ladder climbs. Pure CSS on the existing SVG
+    children keyed off `.game-card[data-game]`, so there is no new markup and adding
+    a game's icon animation is one rule. Hover speeds up only that card's icon.
   - **`--tension` is the whole idea.** `mTension()` turns the rung the team is
     playing for into one 0–1 number on `#play-millionaire`; the CSS reads it to
     close the spotlight in and pull the wash from blue towards red, and the
@@ -452,7 +461,7 @@ back to memory for the session (the panel says so).
 
 ## Before you push
 ```bash
-NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~14 min, 208 checks
+NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~15 min, 221 checks
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=jeopardy,fit   # while iterating
 ```
 Drives all four games in a real browser and checks the things that have actually

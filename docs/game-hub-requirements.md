@@ -481,7 +481,7 @@ think music, and lighting that tightens as the stakes rise.
 
 | ID | Requirement | Priority |
 |---|---|---|
-| F4d.1 | The school-colours look stays the default and is not altered by this | Must |
+| F4d.1 | Game show is the default; the school-colours look stays available and unaltered | Must |
 | F4d.2 | The skin applies to the whole app while playing, and is removed on leaving | Must |
 | F4d.3 | The title sequence is skippable by any key or click, and capped at ~4s | Must |
 | F4d.4 | Nothing flashes faster than 3Hz; no full-screen white strobe | Must |
@@ -491,8 +491,13 @@ think music, and lighting that tightens as the stakes rise.
 
 Decisions taken:
 
-- **The skin is app-wide but chosen per game.** Themed board plus unthemed team bar
-  reads as a bug, so the body class covers the chrome too and comes off on leaving.
+- **The skin is app-wide but chosen per game**, and it covers the setup screens as
+  well as the boards: a lit board reached through a white unit-picker loses the moment
+  before it starts. Before a game is chosen there is no per-game value to read, so the
+  master setting applies.
+- **Game show became the default** once all four idents existed. This is a classroom
+  presentation tool; the lit look is what makes a class sit up, so it should not be
+  something a teacher has to go and find. DCU remains one switch away.
 - **One number drives the atmosphere.** The rung a team is playing for becomes
   `--tension` (0–1) on the stage; CSS closes the spotlight and warms the wash, and
   the music bed takes its tempo and filter from the same value. The ladder was

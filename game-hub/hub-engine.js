@@ -58,15 +58,19 @@
               {value:'pulse', label:'Flash the whole route at once'},
               {value:'off',   label:'Just mark it — no animation'}] });
 
-  /* A skin, not a rewrite: `theme` swaps the whole app's look while a game is being
-     played and puts it back on leaving, so a game-show Millionaire never sits above
-     a DCU team bar. Only Millionaire is dressed so far — adding another game is its
-     name in `games` plus an ident in INTROS. */
-  S.register({ id:'theme', group:'Presentation', type:'variant', default:'dcu',
+  /* A skin, not a rewrite. Game show is the default: the app is a classroom
+     presentation tool and the lit look is what makes a class sit up, so it should be
+     what you get without going and finding a setting. DCU remains one switch away and
+     is unchanged.
+
+     The skin covers the whole app, setup screens included — choosing a unit under
+     stage lights is part of the moment. Which value applies: the game's own setting
+     once a game is picked, the master before that. */
+  S.register({ id:'theme', group:'Presentation', type:'variant', default:'gameshow',
     games:['jeopardy','blockbusters','race','millionaire'],
-    label:'Look and feel', help:'Game show mode darkens the room, adds chase lights, an intro and music.',
-    variants:[{value:'dcu',      label:'DCU — school colours'},
-              {value:'gameshow', label:'Game show — lights, music, intro'}] });
+    label:'Look and feel', help:'Game show mode darkens the room and adds chase lights, an intro and music. DCU is the school-colours look.',
+    variants:[{value:'gameshow', label:'Game show — lights, music, intro'},
+              {value:'dcu',      label:'DCU — school colours'}] });
 
   S.register({ id:'intro', group:'Presentation', type:'select', default:'once',
     games:['jeopardy','blockbusters','race','millionaire'],
@@ -529,25 +533,29 @@
     document.body.classList.toggle('play-fit',
       id==='screen-play' && (activeGame==='race' || activeGame==='jeopardy' || activeGame==='millionaire'));
     if(id!=='screen-play') timerStop();
-    applyTheme(id==='screen-play');
-    if(id!=='screen-play') Sound.bedStop();
+    applyTheme();
+    if(id!=='screen-play'){
+      Sound.bedStop();
+      // `lit` marks a stage that is being played; leaving the play screen ends that,
+      // and a stale one would light up again the moment the panel is shown
+      ['play-jeopardy','play-blockbusters','play-race','play-millionaire']
+        .forEach(el => document.getElementById(el).classList.remove('lit'));
+    }
     renderScorebar();   // team bar is always visible; refresh its highlight/cues
   }
 
   /* ================= THEME =================
      A skin is a body class and a block of CSS overrides, not a second stylesheet —
-     the DCU look stays the default and untouched. It goes on when a themed game
-     reaches the play screen and comes off when you leave, so the chrome never
-     half-changes: a neon board above a navy team bar reads as broken. */
+     the DCU look is one switch away and entirely untouched by any of this. */
   function themeOf(game){ return S.get('theme', game || activeGame) || 'dcu'; }
-  function applyTheme(onPlayScreen){
-    document.body.classList.toggle('theme-gameshow',
-      !!onPlayScreen && themeOf() === 'gameshow');
+  /* The skin is on everywhere, not just the play screen — a lit board reached through
+     a white setup screen loses the moment before it starts. `themeOf()` resolves to
+     the active game's setting once one is chosen and the master value before that,
+     so picking a unit uses whatever the teacher's default is. */
+  function applyTheme(){
+    document.body.classList.toggle('theme-gameshow', themeOf() === 'gameshow');
   }
-  S.onChange(id=>{             // switching it in ⚙ mid-game should show immediately
-    if(id !== 'theme') return;
-    applyTheme(document.getElementById('screen-play').classList.contains('active'));
-  });
+  S.onChange(id=>{ if(id === 'theme') applyTheme(); });   // ⚙ changes show at once
 
   function motionOK(){
     try{ return !window.matchMedia('(prefers-reduced-motion: reduce)').matches; }

@@ -367,12 +367,11 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 .m-rung.here{ background:var(--yellow); border-color:var(--yellow); color:var(--navy); font-weight:700; }
 
 /* ============================================================================
-   GAME SHOW SKIN
-   A second look for the same markup: `body.theme-gameshow` goes on when a themed
-   game reaches the play screen and comes off when you leave, so the DCU theme
-   below stays the default and is never touched. Everything here is an override —
-   no element needs a second class, and a game that isn't dressed yet simply
-   doesn't get the body class.
+   GAME SHOW SKIN — the default look
+   A second look for the same markup: `body.theme-gameshow` covers the whole app,
+   setup screens included, so choosing a unit already happens under stage lights.
+   Everything here is an override — the DCU theme above is untouched and one switch
+   away, and no element needs a second class.
 
    Two rules held throughout:
    - nothing flashes faster than about 1.5Hz, and every flash is a wash of colour
@@ -408,6 +407,112 @@ body.theme-gameshow #scorebar{ background:#02030A; border-top-color: var(--gold)
 body.theme-gameshow .team{ background:rgba(255,255,255,0.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
 body.theme-gameshow .team .score{ color: var(--gold); text-shadow: 0 0 14px rgba(255,200,61,0.5); }
 body.theme-gameshow .team.active-team{ box-shadow: 0 0 0 2px var(--gold), 0 0 26px rgba(255,200,61,0.4); }
+
+/* --- the setup screens: choose a unit, choose a game, choose sections ---
+   These are the first thing a class sees, so they carry the same stage the games
+   do. Cards sit as lit panels on the dark background rather than white boxes. --- */
+body.theme-gameshow .screen .intro,
+body.theme-gameshow #screen-game-select p.intro,
+body.theme-gameshow .helptext{ color: rgba(234,240,255,0.7); }
+body.theme-gameshow .back-link{ color: var(--gold); }
+
+body.theme-gameshow .unit-card,
+body.theme-gameshow .game-card{
+  background: linear-gradient(180deg, #131A4E 0%, #070B22 100%);
+  border-color: rgba(255,255,255,0.16);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 10px 30px rgba(0,0,0,0.45);
+}
+body.theme-gameshow .unit-card:hover,
+body.theme-gameshow .game-card:hover{
+  border-color: var(--gold);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 0 34px rgba(255,200,61,0.32);
+}
+body.theme-gameshow .unit-card h2,
+body.theme-gameshow .game-card h3{ color: var(--gold); text-shadow: 0 0 22px rgba(255,200,61,0.35); }
+body.theme-gameshow .unit-card p,
+body.theme-gameshow .game-card p{ color: rgba(234,240,255,0.72); }
+body.theme-gameshow .unit-card .unit-num{ background: var(--gold); color:#0A0A14; }
+body.theme-gameshow .unit-card .games span,
+body.theme-gameshow .game-card .badge{
+  background: rgba(62,99,255,0.22); color: var(--paper);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+}
+body.theme-gameshow .game-card .game-icon{ color: var(--glow); }
+body.theme-gameshow .game-card:hover .game-icon{ color: var(--gold); }
+
+body.theme-gameshow .cat-check,
+body.theme-gameshow .mode-opt{
+  background: rgba(255,255,255,0.045); border-color: rgba(255,255,255,0.14); color: rgba(234,240,255,0.72);
+}
+body.theme-gameshow .cat-check:hover,
+body.theme-gameshow .mode-opt:hover{ border-color: var(--gold); }
+body.theme-gameshow .mode-opt:has(input:checked){ border-color: var(--gold); background: rgba(255,200,61,0.10); }
+body.theme-gameshow .cat-check input,
+body.theme-gameshow .mode-opt input{ accent-color: var(--gold); }
+body.theme-gameshow .cat-check .name,
+body.theme-gameshow .mode-opt strong{ color: var(--paper); }
+body.theme-gameshow .cat-check .tag{ background: rgba(62,99,255,0.3); color: var(--paper); }
+body.theme-gameshow #race-mode .mode-title{ color: var(--gold); }
+body.theme-gameshow .rules-note{
+  background: rgba(62,99,255,0.10); border-color: rgba(62,99,255,0.55); color: rgba(234,240,255,0.82);
+}
+body.theme-gameshow #start-btn{ background: var(--gold); color:#0A0A14; }
+body.theme-gameshow #start-btn:not(:disabled):hover{ background: var(--white); }
+
+/* the settings panel is a full-screen modal — leaving it white would be a hole
+   punched in the stage */
+body.theme-gameshow #settings-card{ background:#080C22; color: var(--paper); border:2px solid rgba(255,255,255,0.16); }
+body.theme-gameshow #settings-head h2,
+body.theme-gameshow .settings-group{ color: var(--gold); }
+body.theme-gameshow .settings-label{ color: var(--paper); }
+body.theme-gameshow .settings-help,
+body.theme-gameshow .settings-state,
+body.theme-gameshow .settings-intro,
+body.theme-gameshow .settings-note{ color: rgba(234,240,255,0.6); }
+body.theme-gameshow .settings-row{ border-bottom-color: rgba(255,255,255,0.1); }
+body.theme-gameshow .settings-tab{ color: rgba(234,240,255,0.6); }
+body.theme-gameshow .settings-tab.on{ color:#0A0A14; background: var(--gold); }
+body.theme-gameshow .settings-select,
+body.theme-gameshow .settings-input{ background: rgba(255,255,255,0.07); color: var(--paper); border-color: rgba(255,255,255,0.25); }
+body.theme-gameshow #settings-close,
+body.theme-gameshow #settings-reset{ background:transparent; color: var(--paper); border-color: rgba(255,255,255,0.3); }
+
+/* --- the game-selector icons, animated ---
+   Each icon does what its game does, so the card previews the mechanic before you
+   click it: Jeopardy's tiles light along the diagonal, Blockbusters' inner hex
+   pulses inside the outer one, Race's bars run left to right, Millionaire's ladder
+   climbs. Idle motion is slow enough to sit behind a conversation; hovering a card
+   speeds its own icon up. Pure CSS on the existing SVG children — no new markup. */
+.game-card .game-icon *{ transform-box: fill-box; transform-origin: center; }
+.game-card[data-game="jeopardy"]  .game-icon rect{ animation: iconTile 3.6s ease-in-out infinite; }
+.game-card[data-game="jeopardy"]  .game-icon rect:nth-child(3n+2){ animation-delay:.4s; }
+.game-card[data-game="jeopardy"]  .game-icon rect:nth-child(3n+3){ animation-delay:.8s; }
+.game-card[data-game="jeopardy"]  .game-icon rect:nth-child(n+4){ animation-delay:.6s; }
+.game-card[data-game="jeopardy"]  .game-icon rect:nth-child(n+7){ animation-delay:1s; }
+@keyframes iconTile{ 0%,70%,100%{ opacity:.45; } 82%{ opacity:1; } }
+
+.game-card[data-game="blockbusters"] .game-icon path:last-child{ animation: iconHex 3.2s ease-in-out infinite; }
+@keyframes iconHex{ 50%{ transform: scale(.72) rotate(30deg); } }
+
+.game-card[data-game="race"] .game-icon rect{ animation: iconRun 3.4s cubic-bezier(.5,0,.5,1) infinite; }
+.game-card[data-game="race"] .game-icon rect:nth-child(2){ animation-delay:.18s; }
+.game-card[data-game="race"] .game-icon rect:nth-child(3){ animation-delay:.36s; }
+.game-card[data-game="race"] .game-icon rect:nth-child(4){ animation-delay:.54s; }
+.game-card[data-game="race"] .game-icon path{ animation: iconArrow 3.4s ease-in-out infinite; }
+@keyframes iconRun{ 0%,100%{ transform: translateX(-3px); } 50%{ transform: translateX(3px); } }
+@keyframes iconArrow{ 0%,100%{ transform: translateY(1.5px); } 50%{ transform: translateY(-1.5px); } }
+
+/* the four uprights are the ladder; the fifth path is its base, so it stays put */
+.game-card[data-game="millionaire"] .game-icon path:not(:nth-child(5)){
+  transform-origin: bottom; animation: iconClimb 3.4s ease-in-out infinite;
+}
+.game-card[data-game="millionaire"] .game-icon path:nth-child(2){ animation-delay:.16s; }
+.game-card[data-game="millionaire"] .game-icon path:nth-child(3){ animation-delay:.32s; }
+.game-card[data-game="millionaire"] .game-icon path:nth-child(4){ animation-delay:.48s; }
+@keyframes iconClimb{ 0%,100%{ transform: scaleY(.7); opacity:.55; } 55%{ transform: scaleY(1); opacity:1; } }
+
+/* hovering a card quickens only that card's icon — the others carry on idling */
+.game-card:hover .game-icon *{ animation-duration: 1.5s; }
 
 /* --- Jeopardy's stage. Same `--tension` contract as Millionaire, but the number
    comes from what's at stake on the tile in play over a floor that rises as the
@@ -728,6 +833,7 @@ body.theme-gameshow #result-card{ background:#05060F; }
   body.theme-gameshow #play-jeopardy.lit.flash-wrong,
   #board.dealing > *, #hexwrap.dealing .hex,
   #race-words.dealing .race-word,
+  .game-card .game-icon *,
   body.theme-gameshow #play-race.lit .race-word.wrong{ animation:none; }
   body.theme-gameshow #play-race.lit .race-word{ transition:none; }
 }

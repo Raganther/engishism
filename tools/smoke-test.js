@@ -62,7 +62,7 @@ async function openHub(browser, viewport){
   return page;
 }
 
-async function startGame(page, gameTitle, { sections = 1, unit = 'Unit 5' } = {}){
+async function startGame(page, gameTitle, { sections = 1, unit = 'Unit 5', keepIntro = false } = {}){
   // callers may already be mid-game; walk back to the unit screen first
   const newGame = page.locator('#new-game-btn');
   if (await newGame.isVisible().catch(()=>false)){ await newGame.click(); await page.waitForTimeout(180); }
@@ -87,6 +87,12 @@ async function startGame(page, gameTitle, { sections = 1, unit = 'Unit 5' } = {}
   }
   await start.click();
   await page.waitForTimeout(420);
+  // game show is the default now, so a title sequence may be sitting over the board.
+  // Every test that starts a game wants to be *in* the game, so skip past it.
+  if (!keepIntro && await page.locator('#intro-overlay.on').count()){
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(320);
+  }
 }
 
 const scores = page => page.locator('.team .score').allInnerTexts();
@@ -485,17 +491,20 @@ async function testGameShow(browser){
   section('Game show mode');
   const page = await openHub(browser);
 
+  // game show is the default, so what needs guarding is that DCU still strips it
+  await page.evaluate(() => { window.HubSettings.set('theme','dcu','millionaire');
+                              window.HubSettings.set('intro','off','millionaire'); });
   await startGame(page, 'Millionaire', { sections:'all' });
-  check('the default look is unchanged',
+  check('DCU strips the skin completely',
         await page.evaluate(() => !document.body.classList.contains('theme-gameshow') &&
                                   !document.getElementById('play-millionaire').classList.contains('lit')));
-  check('no title sequence on the default look', await page.locator('#intro-overlay.on').count() === 0);
+  check('and plays no title sequence', await page.locator('#intro-overlay.on').count() === 0);
 
   await page.evaluate(() => {
     window.HubSettings.set('theme', 'gameshow', 'millionaire');
     window.HubSettings.set('intro', 'every', 'millionaire');
   });
-  await startGame(page, 'Millionaire', { sections:'all' });
+  await startGame(page, 'Millionaire', { sections:'all', keepIntro:true });
   check('the skin goes on with the game', await page.evaluate(() => document.body.classList.contains('theme-gameshow')));
   check('the title sequence plays', await page.locator('#intro-overlay.on').count() === 1);
   check('the title sequence names the game',
@@ -519,20 +528,22 @@ async function testGameShow(browser){
   const high = await tension(page);
   check('tension climbs with the rung', parseFloat(high) > parseFloat(low), low + ' → ' + high);
 
-  // and it all comes off again — a neon board over a navy team bar reads as broken
+  // the skin now covers the setup screens too, so leaving a game must NOT strip it
   await page.locator('#new-game-btn').click(); await page.waitForTimeout(300);
-  check('the skin comes off when you leave',
-        await page.evaluate(() => !document.body.classList.contains('theme-gameshow')));
+  check('the skin stays on the setup screens',
+        await page.evaluate(() => document.body.classList.contains('theme-gameshow')));
+  check('but the play stage is no longer lit',
+        await page.evaluate(() => !document.getElementById('play-millionaire').classList.contains('lit')));
 
   // "once per session" must mean once
   await page.evaluate(() => window.HubSettings.set('intro', 'once', 'millionaire'));
-  await startGame(page, 'Millionaire', { sections:'all' });
+  await startGame(page, 'Millionaire', { sections:'all', keepIntro:true });
   await page.keyboard.press('Space'); await page.waitForTimeout(250);
-  await startGame(page, 'Millionaire', { sections:'all' });
+  await startGame(page, 'Millionaire', { sections:'all', keepIntro:true });
   check('once per session plays it once', await page.locator('#intro-overlay.on').count() === 0);
 
   await page.evaluate(() => window.HubSettings.set('intro', 'off', 'millionaire'));
-  await startGame(page, 'Millionaire', { sections:'all' });
+  await startGame(page, 'Millionaire', { sections:'all', keepIntro:true });
   check('off means off', await page.locator('#intro-overlay.on').count() === 0);
 
   // the whole skin runs on the Web Audio bed; muting must not break the game
@@ -561,15 +572,16 @@ async function testGameShowJeopardy(browser){
   const stress = () => page.evaluate(() =>
     document.getElementById('play-jeopardy').style.getPropertyValue('--tension'));
 
+  await page.evaluate(() => window.HubSettings.set('theme','dcu','jeopardy'));
   await startGame(page, 'Jeopardy', { sections:'all' });
-  check('the default look is unchanged',
+  check('DCU strips the skin completely',
         await page.evaluate(() => !document.getElementById('play-jeopardy').classList.contains('lit')));
 
   await page.evaluate(() => {
     window.HubSettings.set('theme', 'gameshow', 'jeopardy');
     window.HubSettings.set('intro', 'every', 'jeopardy');
   });
-  await startGame(page, 'Jeopardy', { sections:'all' });
+  await startGame(page, 'Jeopardy', { sections:'all', keepIntro:true });
   check('the titles name this game',
         (await page.locator('#intro-title').textContent()).trim() === 'JEOPARDY');
   await page.keyboard.press('Space'); await page.waitForTimeout(200);
@@ -616,15 +628,16 @@ async function testGameShowBlockbusters(browser){
   const stress = () => page.evaluate(() =>
     document.getElementById('play-blockbusters').style.getPropertyValue('--tension'));
 
+  await page.evaluate(() => window.HubSettings.set('theme','dcu','blockbusters'));
   await startGame(page, 'Blockbusters', { sections:'all' });
-  check('the default look is unchanged',
+  check('DCU strips the skin completely',
         await page.evaluate(() => !document.getElementById('play-blockbusters').classList.contains('lit')));
 
   await page.evaluate(() => {
     window.HubSettings.set('theme', 'gameshow', 'blockbusters');
     window.HubSettings.set('intro', 'every', 'blockbusters');
   });
-  await startGame(page, 'Blockbusters', { sections:'all' });
+  await startGame(page, 'Blockbusters', { sections:'all', keepIntro:true });
   check('the titles name this game',
         (await page.locator('#intro-title').textContent()).trim() === 'BLOCKBUSTERS');
   await page.keyboard.press('Space'); await page.waitForTimeout(180);
@@ -678,15 +691,16 @@ async function testGameShowRace(browser){
   const stress = () => page.evaluate(() =>
     document.getElementById('play-race').style.getPropertyValue('--tension'));
 
+  await page.evaluate(() => window.HubSettings.set('theme','dcu','race'));
   await startGame(page, 'Race to the Board', { sections:'all' });
-  check('the default look is unchanged',
+  check('DCU strips the skin completely',
         await page.evaluate(() => !document.getElementById('play-race').classList.contains('lit')));
 
   await page.evaluate(() => {
     window.HubSettings.set('theme', 'gameshow', 'race');
     window.HubSettings.set('intro', 'every', 'race');
   });
-  await startGame(page, 'Race to the Board', { sections:'all' });
+  await startGame(page, 'Race to the Board', { sections:'all', keepIntro:true });
   check('the titles name this game',
         (await page.locator('#intro-title').textContent()).trim() === 'RACE TO THE BOARD');
   // four words at the shared 11vw cap would run off the screen. Measure only once
@@ -699,7 +713,8 @@ async function testGameShowRace(browser){
   }));
   check('a four-word title still fits the screen', title.w < title.vw, title.w + ' of ' + title.vw);
 
-  await page.keyboard.press('Space'); await page.waitForTimeout(180);
+  // the deal starts when the titles end, and lasts 1.6s — check it promptly
+  await page.keyboard.press('Space'); await page.waitForTimeout(150);
   check('the words fly in', await page.locator('#race-words.dealing').count() === 1);
   await page.waitForTimeout(1500);
   check('the stage is lit', await page.evaluate(() => document.getElementById('play-race').classList.contains('lit')));
@@ -836,6 +851,55 @@ async function testContentIntegrity(browser){
 
   if(report.problems.length) console.log('    ' + report.problems.length + ' problem(s):\n      ' +
     report.problems.slice(0, 14).map(p => p.msg).join('\n      '));
+
+  checkClean(page);
+  await page.close();
+}
+
+/* Game show is what a teacher gets without touching a setting, and it now covers
+   the setup screens as well as the boards. Both are easy to regress silently: a
+   default flipped back, or a screen left unskinned so the app flashes white between
+   choosing a unit and playing. */
+async function testDefaultLook(browser){
+  section('Default look');
+  const page = await openHub(browser);
+
+  check('game show is the default', await page.evaluate(() => window.HubSettings.get('theme')) === 'gameshow');
+  check('the very first screen is already skinned',
+        await page.evaluate(() => document.body.classList.contains('theme-gameshow')));
+
+  // the icons preview each game's mechanic, so every card must actually be moving
+  await page.getByText('Unit 5', { exact:false }).first().click();
+  await page.waitForTimeout(300);
+  const icons = await page.evaluate(() => {
+    const out = {};
+    document.querySelectorAll('.game-card').forEach(c => {
+      out[c.dataset.game] = [...c.querySelectorAll('.game-icon *')]
+        .map(k => getComputedStyle(k).animationName).filter(n => n !== 'none').length;
+    });
+    return out;
+  });
+  Object.keys(icons).forEach(g =>
+    check(g + "'s icon animates", icons[g] > 0, icons[g] + ' animated parts'));
+
+  // walking the whole setup flow must never drop back to the white theme
+  const themed = () => page.evaluate(() => document.body.classList.contains('theme-gameshow'));
+  await page.locator('h3:visible', { hasText:'Jeopardy' }).first().click();
+  await page.waitForTimeout(250);
+  check('the section-picking screen stays skinned', await themed());
+  await page.locator('#settings-btn').click(); await page.waitForTimeout(250);
+  check('the settings panel is skinned too',
+        await page.evaluate(() => getComputedStyle(document.getElementById('settings-card')).backgroundColor)
+          !== 'rgb(255, 255, 255)');
+  await page.locator('#settings-close').click(); await page.waitForTimeout(150);
+
+  // and DCU still turns the whole thing off, everywhere
+  await page.evaluate(() => window.HubSettings.set('theme', 'dcu'));
+  await page.waitForTimeout(250);
+  check('choosing DCU unskins the setup screens', !(await themed()));
+  await page.evaluate(() => window.HubSettings.set('theme', 'gameshow'));
+  await page.waitForTimeout(200);
+  check('and switching back re-skins them without a reload', await themed());
 
   checkClean(page);
   await page.close();
@@ -1116,7 +1180,7 @@ async function main(){
     jeopardy: testJeopardy, blockbusters: testBlockbusters, race: testRace,
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
-    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, content: testContentIntegrity, jfinish: testJeopardyFinish,
+    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, content: testContentIntegrity, defaultlook: testDefaultLook, jfinish: testJeopardyFinish,
     buzzers: testBuzzers,
     degradation: testDegradation, file: testFileProtocol
   };
