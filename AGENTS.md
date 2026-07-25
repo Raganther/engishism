@@ -49,7 +49,8 @@ footer shows it, so **"Build …" in ⚙ tells you which version is actually run
    - `game-hub/hub.css` — shared styling (DCU theme); the one place to restyle.
    - `game-hub/content/unit-4.js`, `unit-5.js` — data-only content banks; each does
      `window.UNITS.push({ id, label, card, jeopardy…, blockbusters… })`.
-   - Games: **Jeopardy**, **Blockbusters** and **Race to the Board**. Per-game content
+   - Games: **Jeopardy**, **Blockbusters**, **Race to the Board** and **Millionaire**.
+     Per-game content
      model (content lives in data, separate from the engine). **Adding a unit = one
      content file + a `<script>` line in game-hub.html.** A unit only shows the games
      it has a bank for (`gamesFor()`), so units can adopt a new game one at a time.
@@ -92,7 +93,9 @@ back to memory for the session (the panel says so).
 ## Current status
 - Game Hub MVP live as **one consolidated app** (`game-hub.html`): choose unit →
   game → sections → play. **2 units** (Unit 4 Consciousness, Unit 5 Fairness),
-  **3 games** (Jeopardy, Blockbusters, Race to the Board), shared engine, DCU-branded.
+  **4 games** (Jeopardy, Blockbusters, Race to the Board, Millionaire), shared engine,
+  DCU-branded. 3 of the 4 are spec Tier 1 — content-agnostic, so they transfer to any
+  unit, which is what makes the "this scales to the coursebook" claim defensible.
 - **Race to the Board** (Unit 5 only so far, 36 prompts across 5A–5C): target words
   scattered across the screen, teacher reads a **gapped sentence**, a student runs to
   the projector screen and touches the word, teacher clicks it on the laptop.
@@ -108,6 +111,21 @@ back to memory for the session (the panel says so).
     (`--rs`) if the field is too small. Claimed words carry the team's colour.
   **Distractors aren't authored** — every other word on the board is a real target
   word from the selection. Spec §4.4 updated to match as-built.
+- **Millionaire** (Unit 5 only, 36 questions across 5A–5C, 12 per section): four
+  options, rising difficulty, teams take turns. Decisions taken, all recorded in
+  spec §4.4:
+  - **Parallel ladders, interleaved turns** — settles the open question in §9.5.
+    Each team climbs its own 8 rungs (100/200/300/500/800/1200/1600/2000) so
+    everyone gets a full arc, but the turn passes every question so nobody sits out.
+  - **Additive scoring, so no safe havens.** §4.4 wanted safe havens to stop a late
+    mistake wiping a team out; never deducting solves it more simply and keeps the
+    shared team bar consistent. Wrong = lose the turn, retry that rung later with a
+    different question.
+  - **Lifelines**, one use each per team, switchable off: **50:50** (state lives on
+    `mCurrent.removed`, so a re-render can't wipe it), **Ask the class** (hands
+    tallied on screen by tapping options — the phone layer does not vote yet), and
+    **Confer** (runs the header timer).
+  - Every section covers all 8 rungs, so one section fills a ladder (§3.4).
 - **Persistent shared team bar** on every screen: team names + points survive
   moving between games, units, and setup screens (nothing resets on navigation).
   Both games feed one score — Jeopardy awards the tile value to the selected team;
@@ -195,8 +213,13 @@ back to memory for the session (the panel says so).
   reuse the same mechanic for free: definition, word-form change, collocation, odd one
   out, error correction, pronunciation/stress. Deliberately not built: continuous drifting
   words — the teacher has to click a moving target while a student shadows the beam.
-- Author Unit 4's race bank (4A–4D) once the format is settled; Unit 4 currently
-  shows only Jeopardy + Blockbusters.
+- Author Unit 4's race + millionaire banks (4A–4D); Unit 4 still shows only
+  Jeopardy + Blockbusters.
+- **Millionaire authoring cost is now measurable**: 36 four-option questions for one
+  unit — the single biggest content job so far, and the number to quote when asked
+  what a unit costs.
+- Obvious next use of the phone layer: **Ask the class as a real vote** rather than
+  counting hands, and buzzers to pick which team answers a Jeopardy tile.
 - Measure authoring cost per unit (the number the demo pitch hinges on). Race is the
   cheapest data point so far: 36 prompts, no distractors.
 - Fill Unit 4's Jeopardy gap — the card claims 4A–4D but only 4A/4B have categories.

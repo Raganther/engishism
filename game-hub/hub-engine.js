@@ -41,6 +41,12 @@
     label:'Flip speed', help:'How long the card takes to turn over and come back.',
     options:[{value:'relaxed',label:'Relaxed'},{value:'normal',label:'Normal'},{value:'snappy',label:'Snappy'}] });
 
+  S.register({ id:'mLifelines', group:'Millionaire', type:'toggle', default:true,
+    label:'Lifelines', help:'50:50, Ask the class, and Confer — one use each per team.' });
+  S.register({ id:'mConferSeconds', group:'Millionaire', type:'select', default:30,
+    label:'Confer time', help:'How long a team gets to consult when they use Confer.',
+    options:[{value:30,label:'30 seconds'},{value:45,label:'45 seconds'},{value:60,label:'60 seconds'}] });
+
   S.register({ id:'buzzers', group:'Phone buzzers', type:'toggle', default:false,
     label:'Phone buzzers', help:'Students join on their phones and buzz to win the right to answer. Needs a relay — this will not work from the GitHub Pages copy. See docs/buzzers.md.' });
   S.register({ id:'buzzerRelay', group:'Phone buzzers', type:'text', default:'',
@@ -147,6 +153,12 @@
           <p>Target words scattered on screen. Read the sentence aloud &mdash; a student runs up and touches the missing word.</p>
           <span class="badge">Best for: getting them out of their seats</span>
         </div>
+        <div class="game-card" data-game="millionaire">
+          <svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 34 L8 26"/><path d="M16 34 L16 20"/><path d="M24 34 L24 14"/><path d="M32 34 L32 7"/><path d="M4 34 L36 34"/></svg>
+          <h3>Millionaire</h3>
+          <p>Four options, rising difficulty. Teams climb their own ladder, with 50:50, Ask the class and Confer to spend.</p>
+          <span class="badge">Best for: spotting the near-miss answer</span>
+        </div>
       </div>
     </div>
 
@@ -203,6 +215,28 @@
         </div>
         <div id="race-words"></div>
       </div>
+      <div id="play-millionaire">
+        <div id="m-bar">
+          <div id="m-turn"></div>
+          <div id="m-lifelines">
+            <button class="lifeline" data-life="fifty">50:50</button>
+            <button class="lifeline" data-life="class">Ask the class</button>
+            <button class="lifeline" data-life="confer">Confer</button>
+          </div>
+        </div>
+        <div id="m-main">
+          <div id="m-stage">
+            <div id="m-question"></div>
+            <div id="m-options"></div>
+            <div id="m-foot">
+              <span id="m-hint"></span>
+              <button id="m-next" style="display:none;">Next team</button>
+              <button id="m-done-count" style="display:none;">Done counting</button>
+            </div>
+          </div>
+          <div id="m-ladder"></div>
+        </div>
+      </div>
     </div>
 
     <!-- persistent team bar (always visible, all screens) -->
@@ -241,8 +275,11 @@
   let BLOCKBUSTERS_SECTION_NAMES= {};
   let RACE_BANK                 = [];
   let RACE_SECTION_NAMES        = {};
+  let MILLIONAIRE_BANK          = [];
+  let MILLIONAIRE_SECTION_NAMES = {};
 
-  const GAME_TITLES = { jeopardy:'Jeopardy', blockbusters:'Blockbusters', race:'Race to the Board' };
+  const GAME_TITLES = { jeopardy:'Jeopardy', blockbusters:'Blockbusters',
+                        race:'Race to the Board', millionaire:'Millionaire' };
 
   // Which games a unit can actually offer — a unit without a bank for a game
   // simply doesn't show that card, so units can adopt new games one at a time.
@@ -251,6 +288,7 @@
     if((u.jeopardyCategories||[]).length) g.push('jeopardy');
     if((u.blockbustersBank||[]).length)   g.push('blockbusters');
     if((u.raceBank||[]).length)           g.push('race');
+    if((u.millionaireBank||[]).length)    g.push('millionaire');
     return g;
   }
 
@@ -262,6 +300,8 @@
     BLOCKBUSTERS_SECTION_NAMES = u.blockbustersSectionNames || {};
     RACE_BANK                  = u.raceBank || [];
     RACE_SECTION_NAMES         = u.raceSectionNames || {};
+    MILLIONAIRE_BANK           = u.millionaireBank || [];
+    MILLIONAIRE_SECTION_NAMES  = u.millionaireSectionNames || {};
     const available = gamesFor(u);
     document.querySelectorAll('.game-card').forEach(c=>{
       c.style.display = available.includes(c.dataset.game) ? 'block' : 'none';
@@ -304,7 +344,7 @@
     // these boards size themselves around the team bar, so they don't need the body
     // padding that keeps the bar clear of the other screens
     document.body.classList.toggle('play-fit',
-      id==='screen-play' && (activeGame==='race' || activeGame==='jeopardy'));
+      id==='screen-play' && (activeGame==='race' || activeGame==='jeopardy' || activeGame==='millionaire'));
     if(id!=='screen-play') timerStop();
     renderScorebar();   // team bar is always visible; refresh its highlight/cues
   }
@@ -345,7 +385,7 @@
              : (activeGame==='blockbusters') ? bbTurn
              : (activeGame==='race' && raceMode==='h2h') ? -1
              : active;
-    const step = (activeGame==='jeopardy') ? 100 : 1;   // manual +/- correction step
+    const step = (activeGame==='jeopardy' || activeGame==='millionaire') ? 100 : 1;   // manual +/- correction step
     teams.forEach((t, i)=>{
       const el=document.createElement('div'); el.className='team'+(i===hi?' active':'');
       const dot = (activeGame==='blockbusters' && i<2)
@@ -463,6 +503,19 @@
       updateStartButton();
     }
 
+    if(activeGame==='millionaire'){
+      rulesNote.style.display='none';
+      help.textContent = "Pick which sections feed the ladder. Each team climbs its own eight rungs, taking turns, and the questions get harder as they go.";
+      Object.keys(MILLIONAIRE_SECTION_NAMES).forEach(sec=>{
+        const div=document.createElement('label');
+        div.className='cat-check';
+        div.innerHTML = `<input type="checkbox" value="${sec}"><span class="tag">${sec}</span><span class="name">${MILLIONAIRE_SECTION_NAMES[sec].split('·')[1]}</span>`;
+        div.querySelector('input').addEventListener('change', onContentToggle);
+        list.appendChild(div);
+      });
+      updateStartButton();
+    }
+
     if(activeGame==='race'){
       rulesNote.style.display='none';
       raceNote.style.display='block';
@@ -502,6 +555,18 @@
       } else {
         btn.textContent = `Build board — 18 of ${total} clues, shuffled`;
       }
+    } else if(activeGame==='millionaire'){
+      const pool = MILLIONAIRE_BANK.filter(q=>selectedContent.includes(q.section));
+      const rungs = new Set(pool.map(q=>q.level));
+      const missing = M_LADDER.map((_,i)=>i+1).filter(l=>!rungs.has(l));
+      btn.disabled = selectedContent.length===0 || missing.length>0;
+      if(selectedContent.length===0){
+        btn.textContent = 'Select at least one section';
+      } else if(missing.length){
+        btn.textContent = `Not enough for a full ladder — nothing at level ${missing.join(', ')}`;
+      } else {
+        btn.textContent = `Build ladder — ${pool.length} questions across 8 rungs`;
+      }
     } else if(activeGame==='race'){
       const total = RACE_BANK.filter(c=>selectedContent.includes(c.section)).length;
       btn.disabled = total < RACE_MIN_WORDS;
@@ -522,7 +587,7 @@
   }
 
   document.getElementById('start-btn').addEventListener('click', ()=>{
-    ['play-jeopardy','play-blockbusters','play-race'].forEach(id=>{
+    ['play-jeopardy','play-blockbusters','play-race','play-millionaire'].forEach(id=>{
       document.getElementById(id).style.display='none';
     });
     if(activeGame==='jeopardy'){
@@ -536,6 +601,10 @@
       buildBlockbustersBoard();
       bbTurn=0; renderBBTurn();
       timerSetDuration(30);
+    } else if(activeGame==='millionaire'){
+      document.getElementById('play-millionaire').style.display='block';
+      buildMillionaire();
+      timerSetDuration(Number(S.get('mConferSeconds')) || 30);
     } else if(activeGame==='race'){
       document.getElementById('play-race').style.display='block';
       buildRaceBoard();
@@ -544,8 +613,9 @@
     }
     showScreen('screen-play');
     // neither board can be measured until the play screen is actually visible
-    if(activeGame==='race')     scatterRaceWords();
-    if(activeGame==='jeopardy') fitJeopardyBoard();
+    if(activeGame==='race')       scatterRaceWords();
+    if(activeGame==='jeopardy')   fitJeopardyBoard();
+    if(activeGame==='millionaire') fitMillionaire();
     timerReset();
   });
 
@@ -806,6 +876,223 @@
   document.getElementById('gold-btn').addEventListener('click', ()=>claimHex('gold'));
   document.getElementById('silver-btn').addEventListener('click', ()=>claimHex('silver'));
   document.getElementById('skip-btn').addEventListener('click', ()=>claimHex(null));
+
+  /* ================= MILLIONAIRE =================
+     Four options, rising difficulty. Every team climbs its **own** ladder and turns
+     alternate, which answers the open question in spec §9.5: parallel ladders give
+     each team a full arc, and interleaving the turns means nobody sits out for eight
+     questions the way a one-team-at-a-time run would.
+
+     Scoring is additive — a correct answer banks that rung's value and nothing is
+     ever taken away. §4.4 wanted safe havens so a late mistake doesn't wipe a team
+     out; not losing anything in the first place solves that more simply, and it
+     keeps this game consistent with the shared team bar the others feed. A wrong
+     answer costs the turn, and the team tries that rung again with a different
+     question next time round. */
+  const M_LADDER = [100, 200, 300, 500, 800, 1200, 1600, 2000];
+
+  let mState   = [];     // per team: {rung, used:Set<prompt>, lifelines:{}}
+  let mCurrent = null;   // {q, options[], team}
+  let mAnswered = false;
+  let mTally   = null;   // option -> hand count, while Ask the class is running
+
+  function mTeamState(i){
+    if(!mState[i]) mState[i] = { rung:0, used:new Set(), lifelines:{ fifty:true, class:true, confer:true } };
+    return mState[i];
+  }
+
+  function buildMillionaire(){
+    mState = []; mCurrent = null; mAnswered = false; mTally = null;
+    teams.forEach((t,i)=>mTeamState(i));
+    active = 0;
+    renderScorebar();
+    nextMillionaireQuestion();
+  }
+
+  function pickQuestion(team){
+    const st   = mTeamState(team);
+    const rung = Math.min(st.rung, M_LADDER.length-1);
+    const pool = MILLIONAIRE_BANK.filter(q=>selectedContent.includes(q.section) && q.level === rung+1);
+    if(!pool.length) return null;
+    const fresh = pool.filter(q=>!st.used.has(q.prompt));
+    return shuffle((fresh.length ? fresh : pool).slice())[0];
+  }
+
+  function nextMillionaireQuestion(){
+    mAnswered = false; mTally = null;
+    const st = mTeamState(active);
+
+    if(st.rung >= M_LADDER.length){       // this team has topped out
+      renderMillionaire();
+      showMillionaireMessage((teams[active] ? teams[active].name : 'Team') + ' has cleared the ladder!');
+      Sound.play('clear');
+      return;
+    }
+    const q = pickQuestion(active);
+    if(!q){
+      renderMillionaire();
+      showMillionaireMessage('No question left at this level for the sections you picked.');
+      return;
+    }
+    st.used.add(q.prompt);
+    mCurrent = { q, team:active, options: shuffle([q.answer, ...q.distractors].slice()) };
+    renderMillionaire();
+  }
+
+  function showMillionaireMessage(text){
+    document.getElementById('m-question').textContent = text;
+    document.getElementById('m-options').innerHTML = '';
+    document.getElementById('m-hint').textContent = '';
+    document.getElementById('m-next').style.display = 'inline-block';
+    document.getElementById('m-done-count').style.display = 'none';
+  }
+
+  function renderMillionaire(){
+    const turnEl = document.getElementById('m-turn');
+    const st = mTeamState(active);
+    const rung = Math.min(st.rung, M_LADDER.length-1);
+    turnEl.textContent = (teams[active] ? teams[active].name : 'Team') +
+                         ' · playing for ' + M_LADDER[rung];
+
+    // lifelines belong to the team whose turn it is
+    document.querySelectorAll('#m-lifelines .lifeline').forEach(btn=>{
+      const on = S.get('mLifelines');
+      btn.style.display = on ? 'inline-block' : 'none';
+      btn.disabled = !on || !st.lifelines[btn.dataset.life] || !mCurrent || mAnswered;
+      btn.classList.toggle('spent', !st.lifelines[btn.dataset.life]);
+    });
+
+    renderLadder();
+    if(!mCurrent) return;
+
+    document.getElementById('m-question').textContent = mCurrent.q.prompt;
+    const wrap = document.getElementById('m-options');
+    wrap.innerHTML = '';
+    mCurrent.options.forEach((opt, i)=>{
+      const b = document.createElement('button');
+      b.className = 'm-option';
+      b.dataset.opt = opt;
+      const letter = document.createElement('span');
+      letter.className = 'm-letter'; letter.textContent = 'ABCD'[i];
+      const text = document.createElement('span');
+      text.className = 'm-text'; text.textContent = opt;
+      b.appendChild(letter); b.appendChild(text);
+      if(mCurrent.removed && mCurrent.removed.indexOf(opt) !== -1){
+        b.classList.add('removed'); b.disabled = true;
+      }
+      if(mTally){
+        const n = document.createElement('span');
+        n.className = 'm-votes'; n.textContent = mTally[opt] || 0;
+        b.appendChild(n);
+      }
+      b.addEventListener('click', ()=>onOptionClick(opt, b));
+      wrap.appendChild(b);
+    });
+
+    document.getElementById('m-hint').textContent = mTally
+      ? 'Counting hands — tap an option for each hand, then Done counting.'
+      : '';
+    document.getElementById('m-next').style.display = 'none';
+    document.getElementById('m-done-count').style.display = mTally ? 'inline-block' : 'none';
+  }
+
+  /* Same rule as the other boards: fill the screen, never scroll. The stage takes
+     whatever is left under the header and above the team bar, and the options and
+     ladder stretch into it. */
+  function fitMillionaire(){
+    const main = document.getElementById('m-main');
+    if(!main) return;
+    const top  = main.getBoundingClientRect().top;
+    const barH = document.getElementById('scorebar').offsetHeight || 76;
+    if(top <= 0) return;                       // play screen not visible yet
+    main.style.height = Math.max(260, window.innerHeight - top - barH - 12) + 'px';
+  }
+
+  function renderLadder(){
+    const wrap = document.getElementById('m-ladder');
+    wrap.innerHTML = '';
+    for(let i = M_LADDER.length - 1; i >= 0; i--){
+      const row = document.createElement('div');
+      row.className = 'm-rung';
+      const st = mTeamState(active);
+      if(i < st.rung)  row.classList.add('cleared');
+      if(i === st.rung) row.classList.add('here');
+      const n = document.createElement('span'); n.className='m-rung-n'; n.textContent = i+1;
+      const v = document.createElement('span'); v.className='m-rung-v'; v.textContent = M_LADDER[i];
+      row.appendChild(n); row.appendChild(v);
+      wrap.appendChild(row);
+    }
+  }
+
+  function onOptionClick(opt, btn){
+    if(!mCurrent) return;
+    if(mCurrent.removed && mCurrent.removed.indexOf(opt) !== -1) return;
+    if(mTally){                          // counting hands, not answering
+      mTally[opt] = (mTally[opt] || 0) + 1;
+      btn.querySelector('.m-votes').textContent = mTally[opt];
+      return;
+    }
+    if(mAnswered) return;
+    mAnswered = true;
+
+    const correct = (opt === mCurrent.q.answer);
+    const st = mTeamState(mCurrent.team);
+    document.querySelectorAll('#m-options .m-option').forEach(b=>{
+      if(b.dataset.opt === mCurrent.q.answer) b.classList.add('right');
+      else if(b === btn) b.classList.add('picked-wrong');
+      b.disabled = true;
+    });
+
+    if(correct){
+      Sound.play('correct');
+      const value = M_LADDER[Math.min(st.rung, M_LADDER.length-1)];
+      if(teams[mCurrent.team]) teams[mCurrent.team].score += value;
+      st.rung += 1;
+      document.getElementById('m-hint').textContent = '+' + value;
+    } else {
+      Sound.play('wrong');
+      document.getElementById('m-hint').textContent = 'No points — same rung next time round.';
+    }
+    renderScorebar();
+    renderLadder();
+    document.querySelectorAll('#m-lifelines .lifeline').forEach(b=>b.disabled = true);
+    document.getElementById('m-next').style.display = 'inline-block';
+  }
+
+  /* ---- lifelines ---- */
+  function useLifeline(kind){
+    const st = mTeamState(active);
+    if(!mCurrent || mAnswered || !st.lifelines[kind]) return;
+    st.lifelines[kind] = false;
+
+    if(kind === 'fifty'){
+      const wrong = mCurrent.options.filter(o=>o !== mCurrent.q.answer);
+      mCurrent.removed = shuffle(wrong.slice()).slice(0, 2);
+      Sound.play('reveal');
+    } else if(kind === 'class'){
+      mTally = {};
+      mCurrent.options.forEach(o=>{ mTally[o] = 0; });
+      renderMillionaire();
+    } else if(kind === 'confer'){
+      timerSetDuration(Number(S.get('mConferSeconds')) || 30);
+      timerReset(); timerStart();
+    }
+    renderMillionaire();
+  }
+
+  document.querySelectorAll('#m-lifelines .lifeline').forEach(btn=>{
+    btn.addEventListener('click', ()=>useLifeline(btn.dataset.life));
+  });
+  document.getElementById('m-next').addEventListener('click', ()=>{
+    timerStop();
+    if(teams.length) active = (active + 1) % teams.length;
+    renderScorebar();
+    nextMillionaireQuestion();
+  });
+  document.getElementById('m-done-count').addEventListener('click', ()=>{
+    mTally = null;
+    renderMillionaire();
+  });
 
   /* ================= PHONE BUZZERS =================
      Optional layer. Students join on their phones and buzz for the right to answer;
@@ -1204,6 +1491,7 @@
   window.addEventListener('resize', ()=>{
     if(activeGame==='race' && raceWords.length) scatterRaceWords();
     if(activeGame==='jeopardy') fitJeopardyBoard();
+    if(activeGame==='millionaire') fitMillionaire();
   });
 
   /* ================= TIMER (teacher-controlled) ================= */

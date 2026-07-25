@@ -334,7 +334,31 @@ it as a reason to reject a shared bank. Deriving the distractors from the siblin
 answers removes that cost without sharing items between games: the race bank is still
 its own content set, authored in its own shape. The rest of §3.2 stands.
 
-**Who Wants to Be a Millionaire — teams variation**
+**Who Wants to Be a Millionaire — teams variation** — **built**, Unit 5
+
+*As built, and where it departs from the design below.*
+
+- **Parallel ladders, interleaved turns.** This settles §9.5. Each team climbs its
+  own eight rungs and the turn passes after every question, so each team gets a
+  full arc without anyone sitting out for eight questions in a row — which is what
+  a one-team-at-a-time run would cost in a 20–40 minute slot.
+- **Additive scoring, so no safe havens.** The design below wanted safe havens so a
+  late mistake could not wipe a team out. Never taking points away solves that more
+  simply: a correct answer banks the rung's value, a wrong one costs only the turn,
+  and the team tries that rung again with a different question next time round. It
+  also keeps this game consistent with the shared team bar that every other game
+  feeds.
+- **Ladder:** 100, 200, 300, 500, 800, 1200, 1600, 2000 — the same order of
+  magnitude as a Jeopardy board, so mixing games in one lesson doesn't distort the
+  scores.
+- **Lifelines** are one use each per team, and switchable off entirely.
+  **Ask the Class** is a show of hands the teacher tallies on screen by tapping the
+  options — the phone layer (§4.4c) does not do voting yet, and this works with no
+  devices at all. **Confer** simply runs the header timer.
+- Content minimum is met at **12 questions per section**, every section covering all
+  eight rungs, so a single section fills a ladder (§3.4) and repeat plays differ.
+
+*Original design:*
 - Teams take turns; each climbs its own ladder of 8–10 questions of rising difficulty
 - Four options shown per question; teacher reveals the correct one
 - Safe havens at set levels (e.g. Q5), so a late mistake does not wipe out a team's

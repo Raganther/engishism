@@ -188,6 +188,100 @@
     {section:'5C', prompt:"I think I ___ her saying she'd be late.", answer:"Remember"},
   ],
 
+  /* ---- Millionaire ----------------------------------------------------------
+     Four options, rising difficulty. `level` 1-8 maps to the rungs of the ladder;
+     each section carries 12 so a single section fills a ladder and repeat plays
+     still differ (§3.4).
+     Authoring note (§4.4): the distractors are the teaching. Each wrong option is
+     a mistake this class would plausibly make — a real word with the wrong
+     meaning, a wrong collocation, or a form error — never obvious filler.
+     Fields: section, level, prompt, answer, distractors[3]. */
+  millionaireBank: [
+    /* ---- 5A: crime & justice, relative clauses ---- */
+    {section:'5A', level:1, prompt:"Someone who saw the crime happen is called a ___.",
+      answer:"witness", distractors:["suspect","juror","victim"]},
+    {section:'5A', level:2, prompt:"The twelve ordinary citizens who decide guilt are the ___.",
+      answer:"jury", distractors:["bench","panel","tribunal"]},
+    {section:'5A', level:2, prompt:"He was held in ___ for three months before the trial.",
+      answer:"custody", distractors:["captivity","arrest","seizure"]},
+    {section:'5A', level:3, prompt:"Unpaid work given instead of prison: ___ service.",
+      answer:"community", distractors:["public","social","civil"]},
+    {section:'5A', level:3, prompt:"The lawyers who try to prove the accused is guilty are the ___.",
+      answer:"prosecution", distractors:["prosecutor","defence","plaintiff"]},
+    {section:'5A', level:4, prompt:"Which word means helping offenders return to normal life in society?",
+      answer:"rehabilitation", distractors:["retribution","restitution","probation"]},
+    {section:'5A', level:4, prompt:"'Solitary ___' — kept apart from all other prisoners.",
+      answer:"confinement", distractors:["isolation","detention","seclusion"]},
+    {section:'5A', level:5, prompt:"'She has a solid ___' — proof that she was somewhere else.",
+      answer:"alibi", distractors:["testimony","defence","affidavit"]},
+    {section:'5A', level:5, prompt:"The court's final decision on guilt is the ___.",
+      answer:"verdict", distractors:["sentence","penalty","appeal"]},
+    {section:'5A', level:6, prompt:"Complete formally: 'The prison, ___ are covered in murals, opened in 2010.'",
+      answer:"the walls of which", distractors:["which walls","whose the walls","the walls which"]},
+    {section:'5A', level:7, prompt:"Complete formally: 'Some of the inmates, ___ have committed serious crimes, work in the kitchen.'",
+      answer:"many of whom", distractors:["many of who","many of them","many whom"]},
+    {section:'5A', level:8, prompt:"Which term means hiding where illegally-earned money came from?",
+      answer:"money laundering", distractors:["money washing","money cleaning","money bleaching"]},
+
+    /* ---- 5B: employment, pay & benefits, obligation ---- */
+    {section:'5B', level:1, prompt:"Flexible working hours are known as ___.",
+      answer:"flexitime", distractors:["flexihours","freetime","flexiwork"]},
+    {section:'5B', level:2, prompt:"A long paid career break, often six months, is a ___.",
+      answer:"sabbatical", distractors:["furlough","secondment","sabbath"]},
+    {section:'5B', level:2, prompt:"Leave for new fathers is ___ leave.",
+      answer:"paternity", distractors:["maternity","parental","fraternity"]},
+    {section:'5B', level:3, prompt:"Job cuts that make workers lose their jobs are called ___.",
+      answer:"redundancies", distractors:["dismissals","resignations","retirements"]},
+    {section:'5B', level:3, prompt:"Pay linked to how well you do your job is ___-related pay.",
+      answer:"performance", distractors:["production","productive","performing"]},
+    {section:'5B', level:4, prompt:"'Safety training is ___' — you absolutely must do it.",
+      answer:"mandatory", distractors:["mandated","obliged","compulsive"]},
+    {section:'5B', level:4, prompt:"'Employers are legally ___ to provide protective clothing.'",
+      answer:"obliged", distractors:["forced","demanded","insisted"]},
+    {section:'5B', level:5, prompt:"'You'll be ___ to hold a diving certificate for this job.'",
+      answer:"required", distractors:["requested","requisite","demanded"]},
+    {section:'5B', level:5, prompt:"The training and certificates a job demands are your ___.",
+      answer:"qualifications", distractors:["qualities","credentials","competences"]},
+    {section:'5B', level:6, prompt:"Complete formally: 'Visitors are not ___ to bring food into the building.'",
+      answer:"permitted", distractors:["permissible","allowance","admitted"]},
+    {section:'5B', level:7, prompt:"'You ___ have to pay tax on it' — meaning it isn't necessary.",
+      answer:"don't", distractors:["mustn't","can't","shouldn't"]},
+    {section:'5B', level:8, prompt:"'You ___ to get some experience first' — mild advice, not an obligation.",
+      answer:"ought", distractors:["must","have","should"]},
+
+    /* ---- 5C: recalling & speculating ---- */
+    {section:'5C', level:1, prompt:"'It's ___ my mind' — I've forgotten it.",
+      answer:"slipped", distractors:["slid","escaped","dropped"]},
+    {section:'5C', level:2, prompt:"'If my memory ___ me correctly…'",
+      answer:"serves", distractors:["services","serviced","helps"]},
+    {section:'5C', level:2, prompt:"'I'd ___ a guess that it cost about two thousand euros.'",
+      answer:"hazard", distractors:["risk","chance","hazardous"]},
+    {section:'5C', level:3, prompt:"'What ___ out in my mind is how quiet the room went.'",
+      answer:"stands", distractors:["stood","sticks","comes"]},
+    {section:'5C', level:3, prompt:"'I was under the ___ that you'd already left the company.'",
+      answer:"impression", distractors:["idea","opinion","impressive"]},
+    {section:'5C', level:4, prompt:"'No ___ you've heard the news already.'",
+      answer:"doubt", distractors:["question","wonder","doubtless"]},
+    {section:'5C', level:4, prompt:"Which expression introduces something you are recalling, with slight uncertainty?",
+      answer:"If my memory serves me correctly", distractors:["I'd hazard a guess","No doubt you heard","Presuming you're right"]},
+    {section:'5C', level:5, prompt:"'___ a guess, I'd say she's about forty.'",
+      answer:"Hazarding", distractors:["Hazard","Hazarded","Hazardly"]},
+    {section:'5C', level:5, prompt:"Recalling or speculating? 'I'd hazard a guess that…'",
+      answer:"Speculating", distractors:["Recalling","Confirming","Denying"]},
+    {section:'5C', level:6, prompt:"'It's pointless to ___ about what might have happened.'",
+      answer:"speculate", distractors:["spectate","specify","speculating"]},
+    {section:'5C', level:7, prompt:"Which of these is NOT used for recalling?",
+      answer:"I'd hazard a guess", distractors:["If my memory serves me","What stands out in my mind","I think I remember"]},
+    {section:'5C', level:8, prompt:"'I was under the impression that…' suggests the speaker…",
+      answer:"believed something that may not be true", distractors:["is certain of a fact","is recalling it exactly","is asking a question"]},
+  ],
+
+  millionaireSectionNames: {
+    '5A':'5A · Crime & justice (12 questions)',
+    '5B':'5B · Employment & obligation (12 questions)',
+    '5C':'5C · Recalling & speculating (12 questions)',
+  },
+
   raceSectionNames: {
     '5A':'5A · Crime & justice (12 words)',
     '5B':'5B · Employment & obligation (12 words)',
