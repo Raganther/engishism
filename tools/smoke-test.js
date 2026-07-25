@@ -607,6 +607,69 @@ async function testGameShowJeopardy(browser){
   await page.close();
 }
 
+/* Blockbusters' ident. Its tension has no ladder and no tile value behind it —
+   it is how close anybody is to a finished line, which is the thing this game
+   actually gets tense about. */
+async function testGameShowBlockbusters(browser){
+  section('Game show — Blockbusters');
+  const page = await openHub(browser);
+  const stress = () => page.evaluate(() =>
+    document.getElementById('play-blockbusters').style.getPropertyValue('--tension'));
+
+  await startGame(page, 'Blockbusters', { sections:'all' });
+  check('the default look is unchanged',
+        await page.evaluate(() => !document.getElementById('play-blockbusters').classList.contains('lit')));
+
+  await page.evaluate(() => {
+    window.HubSettings.set('theme', 'gameshow', 'blockbusters');
+    window.HubSettings.set('intro', 'every', 'blockbusters');
+  });
+  await startGame(page, 'Blockbusters', { sections:'all' });
+  check('the titles name this game',
+        (await page.locator('#intro-title').textContent()).trim() === 'BLOCKBUSTERS');
+  await page.keyboard.press('Space'); await page.waitForTimeout(180);
+  check('the honeycomb assembles itself', await page.locator('#hexwrap.dealing').count() === 1);
+  await page.waitForTimeout(1500);
+  check('the stage is lit', await page.evaluate(() => document.getElementById('play-blockbusters').classList.contains('lit')));
+  check('an untouched board is slack', parseFloat(await stress()) === 0, await stress());
+
+  // blue walks down the middle; every hex it takes should raise the temperature
+  const seen = [];
+  for (const r of [0,1,2]){
+    await claimHexAt(page, r, 2, 1);
+    await page.waitForTimeout(900);            // the lights change once the card lands
+    seen.push(parseFloat(await stress()));
+  }
+  check('tension climbs as a line comes into reach',
+        seen[0] > 0 && seen[1] > seen[0] && seen[2] > seen[1], seen.join(' → '));
+  check('one hex from a win is as tense as it gets', seen[2] === 1, String(seen[2]));
+
+  await claimHexAt(page, 3, 2, 1);
+  await page.waitForTimeout(2600);
+  const win = await page.evaluate(() => {
+    const first = document.querySelector('.hex.route');
+    return {
+      banner: document.getElementById('result-modal').classList.contains('on'),
+      route:  document.querySelectorAll('.hex.route').length,
+      glow:   first ? getComputedStyle(first).filter : '',
+      border: getComputedStyle(document.getElementById('result-card')).borderTopColor
+    };
+  });
+  check('the winning route still lights up under the skin', win.route === 4 && win.banner,
+        JSON.stringify(win));
+  // the skin's own hex rules out-specify .route unless the route rules are scoped too
+  check('the skin does not cancel the route glow', /drop-shadow/.test(win.glow), win.glow);
+  // and setting border-color on the themed card would paint a blue win gold
+  check('the banner takes the winning team\'s colour', win.border === 'rgb(0, 160, 223)', win.border);
+
+  await page.evaluate(() => {
+    window.HubSettings.clearOverride('theme', 'blockbusters');
+    window.HubSettings.clearOverride('intro', 'blockbusters');
+  });
+  checkClean(page);
+  await page.close();
+}
+
 /* A cleared Jeopardy board used to do nothing at all — the same gap Blockbusters
    had. This is theme-independent: the banner appears either way. */
 async function testJeopardyFinish(browser){
@@ -863,7 +926,7 @@ async function main(){
     jeopardy: testJeopardy, blockbusters: testBlockbusters, race: testRace,
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
-    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, jfinish: testJeopardyFinish,
+    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, jfinish: testJeopardyFinish,
     buzzers: testBuzzers,
     degradation: testDegradation, file: testFileProtocol
   };

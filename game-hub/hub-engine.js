@@ -63,13 +63,13 @@
      a DCU team bar. Only Millionaire is dressed so far — adding another game is its
      name in `games` plus an ident in INTROS. */
   S.register({ id:'theme', group:'Presentation', type:'variant', default:'dcu',
-    games:['jeopardy','millionaire'],
+    games:['jeopardy','blockbusters','millionaire'],
     label:'Look and feel', help:'Game show mode darkens the room, adds chase lights, an intro and music.',
     variants:[{value:'dcu',      label:'DCU — school colours'},
               {value:'gameshow', label:'Game show — lights, music, intro'}] });
 
   S.register({ id:'intro', group:'Presentation', type:'select', default:'once',
-    games:['jeopardy','millionaire'],
+    games:['jeopardy','blockbusters','millionaire'],
     label:'Title sequence', help:'The lights-and-logo opening. Any key or click skips it.',
     options:[{value:'once',  label:'Once per session'},
              {value:'every', label:'Every round'},
@@ -545,7 +545,12 @@
                    accent:'#FFC83D' },
     jeopardy:    { eyebrow:'Cambridge Empower C1', title:'JEOPARDY',
                    sub:'Pick your category. Pick your price. Answer it.',
-                   accent:'#4FC3FF' }
+                   accent:'#4FC3FF' },
+    // violet, because the board's own yellow and blue are structural and both have
+    // to read against whatever the stage is
+    blockbusters:{ eyebrow:'Cambridge Empower C1', title:'BLOCKBUSTERS',
+                   sub:'Yellow goes across. Blue goes down. Build your line.',
+                   accent:'#C77DFF' }
   };
   const introShown = Object.create(null);      // per session, for the 'once' setting
 
@@ -967,6 +972,7 @@
       if(activeGame !== game) return;        // they navigated away mid-titles
       if(game === 'millionaire') mTension();
       if(game === 'jeopardy'){ jTension(); jDeal(); }
+      if(game === 'blockbusters'){ bbTension(); bbDeal(); }
     };
     if(wantsIntro(activeGame)){
       const game = activeGame;
@@ -1137,6 +1143,82 @@
     return null;
   }
 
+  /* ---- Blockbusters' tension curve ----
+     Millionaire reads the rung and Jeopardy reads what's at stake on the tile. This
+     board has neither, but it has something better: **how close anybody is to
+     winning**. Cheapest route to a finished line, where your own hexes are free,
+     an unclaimed one costs the question you'd have to answer to take it, and the
+     other team's are walls. One hex from a line is as tense as this game gets, and
+     the lights say so before the class has worked it out.
+
+     Dijkstra rather than the plain BFS `bbRoute` uses, because here the edges have
+     different costs. Eighteen cells, so a linear scan for the nearest node is the
+     right amount of machinery. */
+  function bbStepsToWin(team){
+    const last = BB_ROWS.length - 1;
+    const isStart = (r,c) => team===0 ? bbAcross(r,c)===0 : r===0;
+    const isEnd   = (r,c) => team===0 ? bbAcross(r,c)===BB_WIDEST-1 : r===last;
+    const key = (r,c) => r+','+c;
+    const stepOnto = (r,c) => {
+      const owner = bbOwner(bbHexAt(r,c));
+      if(!bbHexAt(r,c)) return null;            // board short of clues
+      return owner===team ? 0 : owner===null ? 1 : null;   // null = the other team
+    };
+
+    const dist = new Map(), settled = new Set();
+    const relax = (r,c,v) => {
+      const k = key(r,c), cur = dist.get(k);
+      if(cur === undefined || v < cur) dist.set(k, v);
+    };
+    for(let r=0; r<=last; r++) for(let c=0; c<BB_ROWS[r]; c++){
+      if(!isStart(r,c)) continue;
+      const cost = stepOnto(r,c);
+      if(cost !== null) relax(r,c,cost);
+    }
+    for(;;){
+      let bestKey = null, bestVal = Infinity;
+      dist.forEach((v,k)=>{ if(!settled.has(k) && v < bestVal){ bestVal = v; bestKey = k; } });
+      if(bestKey === null) return Infinity;     // no line left for this team
+      settled.add(bestKey);
+      const parts = bestKey.split(','), r = +parts[0], c = +parts[1];
+      if(isEnd(r,c)) return bestVal;
+      bbNeighbours(r,c).forEach(n=>{
+        const cost = stepOnto(n[0], n[1]);
+        if(cost !== null) relax(n[0], n[1], bestVal + cost);
+      });
+    }
+  }
+
+  function bbTension(clueOpen){
+    const stage = document.getElementById('play-blockbusters');
+    const on = themeOf('blockbusters')==='gameshow' && activeGame==='blockbusters';
+    stage.classList.toggle('lit', on);
+    if(!on){ stage.style.removeProperty('--tension'); Sound.bedStop(); return; }
+
+    // the shortest line anyone could ever need: blue's four rows beats yellow's five
+    const shortest = Math.min(BB_WIDEST, BB_ROWS.length);
+    const need = Math.min(bbStepsToWin(0), bbStepsToWin(1));
+    const t = !isFinite(need) ? 0
+            : need >= shortest ? 0
+            : (shortest - need) / (shortest - 1);
+    stage.style.setProperty('--tension', Math.max(0, Math.min(1, t)).toFixed(3));
+
+    if(clueOpen && motionOK()) Sound.bedStart(t);
+    else Sound.bedStop();
+  }
+
+  /* The honeycomb builds itself rather than appearing. Staggered on row+col, the
+     same diagonal wave Jeopardy deals with, so it reads as the board assembling. */
+  function bbDeal(){
+    const wrap = document.getElementById('hexwrap');
+    if(!document.getElementById('play-blockbusters').classList.contains('lit') || !motionOK()) return;
+    [...wrap.querySelectorAll('.hex')].forEach(hex=>
+      hex.style.setProperty('--i', (+hex.dataset.row) + (+hex.dataset.col)));
+    wrap.classList.remove('dealing'); void wrap.offsetWidth;
+    wrap.classList.add('dealing');
+    setTimeout(()=>wrap.classList.remove('dealing'), 1600);
+  }
+
   /* ---- lighting up the route ----
      Registered as variants, so another way of showing it is a register() call and
      one line in the setting above — see "Solve once, use anywhere" in CLAUDE.md.
@@ -1261,7 +1343,8 @@
       // the trace takes a couple of seconds; "New game" or "New board" in that
       // window must not be followed by a banner for a round that's already gone
       if(bbWon !== outcome) return;
-      Sound.play('clear');
+      if(wrap.closest('.lit')){ Sound.fanfare(); setTimeout(()=>Sound.applause(2400), 620); }
+      else Sound.play('clear');
       showResult({
         eyebrow:'Blockbusters',
         title: ((teams[team] && teams[team].name) || (team===0 ? 'Yellow' : 'Blue')) + ' wins!',
@@ -1282,6 +1365,7 @@
     pool = shuffle(BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(c.section))).slice(0, 18);
     buildBlockbustersBoard();
     bbTurn=0; renderBBTurn();
+    bbTension(); bbDeal();
   }
 
   /* ================= SHARED CLUE MODAL ================= */
@@ -1335,6 +1419,7 @@
     document.getElementById('reveal-btn').style.display='inline-block';
     clueClaim.show(teams, [0, 1]);
     document.getElementById('skip-btn').style.display='inline-block';
+    bbTension(true);                 // think music while the clue is on the table
     openClueCard(hex);
   }
 
@@ -1660,7 +1745,9 @@
   // Blockbusters: claim (or skip) a hex, award +1 to the claiming team, pass turn.
   function claimHex(idx){
     const claimed = (idx === 0 || idx === 1);
-    if(claimed) Sound.play('claim');
+    const showy = document.getElementById('play-blockbusters').classList.contains('lit');
+    Sound.bedStop();
+    if(claimed) Sound.play(showy ? 'sting' : 'claim');
     if(currentTile && modalMode==='blockbusters' && claimed){
       currentTile.classList.add(idx===0 ? 'claimed-gold' : 'claimed-silver');
       currentTile.textContent='';
@@ -1669,7 +1756,7 @@
     // work out the ending now, but let the card land before showing it
     const outcome = claimed ? bbOutcome() : null;
     closeModal(claimed ? flipMs(FLIP_HOLD_MS) : 0,
-               outcome ? ()=>bbFinish(outcome) : null);
+               outcome ? ()=>bbFinish(outcome) : ()=>bbTension());
     bbTurn = Kit.passTurn(2, bbTurn);
     renderBBTurn();
     renderScorebar();
