@@ -1326,6 +1326,27 @@ async function testFlipVariants(browser){
   const names = await page.evaluate(() => window.HubKit.anim.names('cardFlip'));
   check('several animations are registered', names.length >= 3, names.join(','));
 
+  /* The card is the one overlay the skin never covered: a lit board opened a white
+     DCU card. Assert both directions, because the skin has twice silently cancelled
+     something it was supposed to leave alone. */
+  const look = async theme => {
+    await page.evaluate(t => { window.HubSettings.set('theme', t); window.HubSettings.set('cardFlip','off'); }, theme);
+    await startGame(page, 'Jeopardy', { sections:3 });
+    await page.locator('.tile').first().click(); await page.waitForTimeout(400);
+    const out = await page.evaluate(() => ({
+      back:  getComputedStyle(document.getElementById('clue-back')).backgroundImage,
+      front: getComputedStyle(document.getElementById('clue-front')).backgroundImage
+    }));
+    await page.locator('#close-btn').click(); await page.waitForTimeout(300);
+    return out;
+  };
+  const gs  = await look('gameshow');
+  const dcu = await look('dcu');
+  check('the clue card is skinned in game show mode', gs.back !== 'none' && gs.front !== 'none',
+        gs.back.slice(0, 40));
+  check('and is left alone in DCU', dcu.back === 'none' && dcu.front === 'none', dcu.back.slice(0, 40));
+  await page.evaluate(() => window.HubSettings.set('theme', 'gameshow'));
+
   for (const name of names){
     await page.evaluate(n => window.HubSettings.set('cardFlip', n), name);
     await startGame(page, 'Jeopardy', { sections:3 });
@@ -1333,6 +1354,31 @@ async function testFlipVariants(browser){
     await tile.click(); await page.waitForTimeout(120);
     const running = await page.evaluate(() => document.getElementById('clue-card').getAnimations().length);
     check(name + ': animates', running === 1, running + ' animations');
+
+    /* The value face must never be on screen once it has turned away from the room,
+       or it is painted mirrored — "$100" reading backwards, which shipped for
+       months because the only thing that ever hid it was the .flipped class, and
+       that arrives after the turn is over. Sample the turn rather than trusting
+       backface-visibility, which was culling the wrong face of the two. */
+    const bad = await page.evaluate(async () => {
+      const card  = document.getElementById('clue-card');
+      const front = document.getElementById('clue-front');
+      const back  = document.getElementById('clue-back');
+      let mirrored = 0, blank = 0;
+      for(let i = 0; i < 30; i++){
+        const m = new DOMMatrixReadOnly(getComputedStyle(card).transform);
+        const deg = Math.atan2(-m.m13, m.m11) * 180 / Math.PI;
+        const fv = getComputedStyle(front).visibility === 'visible';
+        const bv = getComputedStyle(back).visibility === 'visible';
+        if(Math.abs(deg) > 91 && fv && !card.classList.contains('flipped')) mirrored++;
+        if(!fv && !bv) blank++;                       // neither face on screen
+        await new Promise(r => setTimeout(r, 40));
+      }
+      return { mirrored, blank };
+    });
+    check(name + ': the value never shows mirrored', bad.mirrored === 0, bad.mirrored + ' frames');
+    check(name + ': a face is on screen throughout', bad.blank === 0, bad.blank + ' blank frames');
+
     await page.waitForTimeout(1800);
     check(name + ': lands on the clue face', await page.locator('#clue-card.flipped').count() === 1);
     check(name + ': the clue is readable', (await page.locator('#clue-text').innerText()).length > 0);

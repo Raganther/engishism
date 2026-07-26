@@ -1671,6 +1671,8 @@
     // the lot makes the early phase rush and the hold on the value disappear. The
     // rotation segments are linear because an eased turn puts peak angular speed
     // exactly at the edge-on point, where the card appears to snap through.
+    // rotation is 0° at .46 and 180° at 1, so it is edge-on halfway between
+    edgeOn: { open: 0.73, close: 0.23 },
     open(card, origin, ms, h){
       return card.animate([
         { transform: h.at(0), opacity: 0.9, offset: 0, easing: 'cubic-bezier(.2,.85,.3,1)' },
@@ -1697,6 +1699,7 @@
      The shape is animated on the two faces, not the card: clip-path on an element
      with transform-style:preserve-3d flattens it, which would kill the flip. */
   Kit.anim.register('cardFlip', 'morph', {
+    edgeOn: { open: 0.73, close: 0.23 },        // same card keyframes as grow-turn
     open(card, origin, ms, h){
       morphFaces(card, origin, Math.round(ms*0.62), 0, false);
       return card.animate([
@@ -1736,6 +1739,7 @@
   Kit.anim.register('cardFlip', 'turn-only', {
     // no travel: the card is already where it belongs and simply turns over. Quicker,
     // and much less movement across the screen for a class that finds the grow busy.
+    edgeOn: { open: 0.65, close: 0.33 },
     open(card, origin, ms, h){
       return card.animate([
         { transform:'scale(0.94) rotateY(0deg)',   opacity:0.6, offset:0,   easing:'cubic-bezier(.3,.9,.4,1)' },
@@ -1756,6 +1760,7 @@
     // no 3D at all — the card rises into place and drops back. The fallback when a
     // classroom machine can't hold a frame rate through a rotation, and it still
     // needs the 180deg so the clue face is the one showing.
+    edgeOn: { open: 0, close: 1 },              // the value face never faces us at all
     open(card, origin, ms, h){
       return card.animate([
         { transform:'translateY(34px) scale(0.92) rotateY(180deg)', opacity:0, offset:0, easing:'cubic-bezier(.2,.9,.3,1)' },
@@ -1780,6 +1785,54 @@
     return { at: deg => (deg in cache) ? cache[deg] : originTransform(card, origin, deg) };
   }
 
+  /* Take the value face off the screen the moment it turns away from the room.
+     `backface-visibility:hidden` is on both faces and is *not* honoured on
+     #clue-front here — captured frame by frame, the value stays painted and
+     mirrored from about 100° to 180°, which is the "$100 reads backwards" report.
+     It was invisible for so long because the only thing that ever hid the face was
+     the `.flipped` class, and that arrives in onfinish, after the turn is over.
+
+     So don't infer it from the geometry — drive it. Each variant declares the
+     offset where its rotation is edge-on, and the face is switched at exactly that
+     point. `visibility` animates discretely, which is what is wanted: a hard cut on
+     the frame the face turns away, no fade to see through.
+
+     Both faces are driven, not just the value face. Hiding only the front revealed
+     what the mirrored face had been masking: the clue face is not painted during the
+     turn either, so the card went blank for about four frames instead. Neither face's
+     `backface-visibility` is doing anything useful here, so the swap is explicit and
+     exactly one face is on screen at every instant.
+
+     This is deliberately additive. backface-visibility and the .flipped rule both
+     stay; a fifth variant that forgets to declare `edgeOn` still animates, it just
+     falls back to the old behaviour rather than breaking. */
+  /* Take the timing from the animation the variant actually returned rather than
+     from the duration we asked for: turn-only runs at ms*0.8 and rise at ms*0.5, so
+     passing the unscaled figure put the guard on a longer timeline than the turn and
+     left one frame of mirrored value on screen. Reading it back means a variant can
+     scale its own duration however it likes and the guard still lands. */
+  function guardFace(anim, ms, at, closing){
+    const front = document.getElementById('clue-front');
+    const back  = document.getElementById('clue-back');
+    if(!front || !back || at === undefined || at === null) return null;
+    const t = anim && anim.effect && anim.effect.getTiming ? anim.effect.getTiming() : null;
+    const dur   = t && typeof t.duration === 'number' ? t.duration : ms;
+    const delay = t && typeof t.delay === 'number' ? t.delay : 0;
+    const clamp = Math.min(1, Math.max(0, at));
+
+    // one face on screen at every instant: they swap at the edge-on frame
+    const swap = (el, from, to) => {
+      const kf = clamp <= 0 ? [{ visibility:to,   offset:0 }, { visibility:to,   offset:1 }]
+               : clamp >= 1 ? [{ visibility:from, offset:0 }, { visibility:from, offset:1 }]
+               : [{ visibility:from, offset:0 }, { visibility:from, offset:clamp - 0.0001 },
+                  { visibility:to,   offset:clamp }, { visibility:to, offset:1 }];
+      return el.animate(kf, { duration: Math.max(1, dur), delay: delay, fill:'forwards' });
+    };
+    if(closing){ swap(front, 'hidden', 'visible'); return swap(back, 'visible', 'hidden'); }
+    swap(front, 'visible', 'hidden');
+    return swap(back, 'hidden', 'visible');
+  }
+
   function currentFlip(){
     if(!flipEnabled()) return null;
     // an animation chosen on the master tab may not suit this game — fall back
@@ -1795,6 +1848,15 @@
     const card  = document.getElementById('clue-card');
     document.getElementById('clue-front-text').textContent =
       origin ? (origin.dataset.face || origin.textContent) : '';
+    /* The card lives outside the stage, so it cannot inherit --tension the way the
+       boards do. Feed it the same number: a $500 clue arrives hotter than a $100,
+       reusing the contract rather than inventing a second one. */
+    let stake = 0;
+    if(activeGame === 'jeopardy' && currentClueValue){
+      const { lo, hi } = jValueRange();
+      stake = hi > lo ? (currentClueValue - lo) / (hi - lo) : 1;
+    }
+    card.style.setProperty('--tension', stake.toFixed(3));
     modal.style.display = 'flex';
     card.getAnimations().forEach(a=>a.cancel());
     ['clue-front','clue-back'].forEach(id=>{
@@ -1812,7 +1874,9 @@
     const helpers = originHelpers(card, origin);   // measure before mutating
     card.style.transform = 'rotateY(180deg)';
     Sound.play('flip');
-    const anim = impl.open(card, origin, flipMs(FLIP_OPEN_MS), helpers);
+    const ms   = flipMs(FLIP_OPEN_MS);
+    const anim = impl.open(card, origin, ms, helpers);
+    guardFace(anim, ms, impl.edgeOn && impl.edgeOn.open, false);
     if(anim) anim.onfinish = ()=> card.classList.add('flipped');
     else card.classList.add('flipped');
   }
@@ -1831,6 +1895,11 @@
       if(finished) return; finished = true;
       modal.style.display='none';
       card.getAnimations().forEach(a=>a.cancel());
+      // the face guard fills forwards on both faces, so drop it or they stay stuck
+      ['clue-front','clue-back'].forEach(id=>{
+        const f = document.getElementById(id);
+        if(f) f.getAnimations().forEach(a=>a.cancel());
+      });
       card.style.transform=''; card.classList.remove('flipped');
       if(then) then();
     };
@@ -1843,7 +1912,10 @@
     card.classList.remove('flipped');          // the value has to be showable again
     // every close implementation uses fill:'forwards' — without it the card reverts
     // to full size for a frame before the modal hides, which reads as "it warps back in"
-    const anim = impl.close(card, origin, flipMs(FLIP_CLOSE_MS), hold||0, helpers);
+    const ms = flipMs(FLIP_CLOSE_MS);
+    const anim = impl.close(card, origin, ms, hold||0, helpers);
+    // coming back, the value face must stay off screen until it is facing the room
+    guardFace(anim, ms, impl.edgeOn && impl.edgeOn.close, true);
     if(!anim){ done(); return; }
     anim.onfinish = done;
     anim.oncancel = ()=>{ if(!finished) done(); };

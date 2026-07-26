@@ -277,8 +277,13 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 /* two faces on one card: the tile's value in front, the clue behind. openClueCard
    grows it out of the clicked tile and turns it over. */
 #clue-card{ position:relative; max-width:720px; width:100%; transform-style: preserve-3d; will-change: transform; }
-/* The two faces must sit on separate z planes. Coplanar faces z-fight, and the
-   front bleeds through the back mirrored — which is what made $500 read as 005. */
+/* The two faces sit on separate z planes so they cannot z-fight — coplanar faces
+   made $500 read as 005. `backface-visibility` used to be the other half of that
+   and has been removed: captured frame by frame it culled the *clue* face through
+   the whole turn while leaving the *value* face painted and mirrored, i.e. exactly
+   backwards. guardFace() in hub-engine.js now switches the two explicitly at the
+   edge-on frame, which is deterministic and does not depend on the engine's
+   backface culling agreeing with us about which way a face points. */
 #clue-front{
   position:absolute; inset:0; border-radius:16px;
   transform: translateZ(2px);
@@ -286,12 +291,10 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
   display:flex; align-items:center; justify-content:center;
   font-family:'Space Grotesk', sans-serif; font-weight:700;
   font-size: clamp(2rem, 6vw, 4.4rem); letter-spacing:-0.01em;
-  backface-visibility:hidden; -webkit-backface-visibility:hidden;
   box-shadow: 0 20px 60px rgba(0,0,0,0.35);
 }
 #clue-back{
   position:relative; transform: rotateY(180deg) translateZ(2px);
-  backface-visibility:hidden; -webkit-backface-visibility:hidden;
   background: var(--white); border:2px solid var(--blue); border-radius:16px;
   padding: 44px 40px; text-align:center;
   box-shadow: 0 20px 60px rgba(0,0,0,0.35);
@@ -299,6 +302,9 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 /* belt and braces: once the card is at rest on the clue face, the value face is
    taken out of the picture entirely rather than trusting backface-visibility */
 #clue-card.flipped #clue-front{ visibility:hidden; }
+/* the span carrying $100 or the hexagon's letter — it had no rule of its own, so a
+   long value had nothing stopping it running past the face */
+#clue-front-text{ display:block; padding:0 14px; text-align:center; overflow-wrap:anywhere; }
 #clue-topline{ font-family:'Space Grotesk', sans-serif; color: var(--navy); font-size:1.6rem; font-weight:700; }
 #clue-section{ font-family:'IBM Plex Mono', monospace; color: var(--blue); font-size:0.75rem; letter-spacing:0.1em; text-transform:uppercase; margin-top:2px; }
 #clue-text{ font-family:'Space Grotesk', sans-serif; font-size: clamp(1.15rem, 2.4vw, 1.7rem); font-weight:500; line-height:1.4; margin: 24px 0; color: var(--ink); }
@@ -782,6 +788,46 @@ body.theme-gameshow #play-millionaire.flash-wrong{ animation: washWrong .9s ease
 /* background only — setting border-color here would out-specify .tone-silver and
    paint a blue team's winner banner gold */
 body.theme-gameshow #result-card{ background:#05060F; }
+
+/* --- the clue card under the skin ---
+   It had no theme rules at all: a lit board opened a white DCU card, which threw
+   away the moment the board had just built. The value face takes the Jeopardy
+   tile's own gradient so the card reads as that tile rising off the board rather
+   than as a different object arriving over it.
+
+   Nothing here is gated on `.lit`. #clue-modal is a sibling of the stages, not a
+   descendant, so a `.lit` selector would never match — the same reason #result-card
+   is skinned ungated. And as with #result-card, keep off any property that would
+   out-specify `#clue-card.flipped #clue-front` or `#clue-answer[style*="block"]`. */
+body.theme-gameshow #clue-modal{ background: rgba(2,3,10,0.92); }
+body.theme-gameshow #clue-front{
+  background: linear-gradient(180deg, #1B2A78 0%, #0A1140 100%);
+  color: var(--gold); border-color: rgba(255,255,255,0.16);
+  text-shadow: 0 0 calc(14px + var(--tension, 0) * 16px) rgba(255,200,61,0.55);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 24px 70px rgba(0,0,0,0.6);
+}
+body.theme-gameshow #clue-back{
+  background: linear-gradient(180deg, #131A4E 0%, #070B22 100%);
+  border-color: rgba(255,255,255,0.16);
+  box-shadow: 0 0 calc(26px + var(--tension, 0) * 36px) rgba(62,99,255,0.45),
+              inset 0 1px 0 rgba(255,255,255,0.12), 0 24px 70px rgba(0,0,0,0.6);
+}
+body.theme-gameshow #clue-topline{ color: var(--gold); letter-spacing:0.04em; }
+body.theme-gameshow #clue-section{ color: var(--glow); }
+body.theme-gameshow #clue-text{ color: var(--paper); }
+body.theme-gameshow #clue-answer{
+  color: var(--gold); background: rgba(255,200,61,0.09);
+  border:1px dashed rgba(255,200,61,0.5);
+}
+body.theme-gameshow #reveal-btn{ background: var(--gold); color:#0A0D26; }
+body.theme-gameshow #correct-btn{ background:#3DFFA8; color:#04120B; }
+body.theme-gameshow #wrong-btn,
+body.theme-gameshow #close-btn,
+body.theme-gameshow #skip-btn{
+  background: rgba(255,255,255,0.06); color: var(--paper);
+  border:2px solid rgba(255,255,255,0.3);
+}
+body.theme-gameshow #clue-actions button:hover{ filter: brightness(1.14); }
 
 /* --- title sequence --- */
 #intro-overlay{ display:none; position:fixed; inset:0; z-index:70; background:#02030A; overflow:hidden; }
