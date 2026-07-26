@@ -26,7 +26,7 @@ linked as `…?v=YYYYMMDDx` in the three page shells; without a bump, Chrome kee
 the cached JS/CSS and a fix looks like it never shipped (this has already cost one
 debugging round). Change it in all three shells together:
 ```bash
-sed -i '' 's/?v=[0-9a-z]*/?v=20260729i/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
+sed -i '' 's/?v=[0-9a-z]*/?v=20260729k/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
 ```
 The engine reads its own `?v=` and exposes it as `window.HUB_BUILD`; the settings panel
 footer shows it, so **"Build …" in ⚙ tells you which version is actually running.**
@@ -91,7 +91,7 @@ Knowing which you are touching tells you the blast radius before you start.
 |---|---|---|
 | **1 · Template** | What every game gets by existing: the skin (chrome *and* setup screens), team bar, scoring, timer, clue card + flip variants, `showResult()`, all `Sound.*`, all `Kit.*`, the content gate | Highest engineering risk, touches everything — this is what the smoke suite is for |
 | **2 · Game** | Board logic, stage CSS, its `tension()` source. Free-form within the registry contract | Low risk, isolated to one game |
-| **3 · Content** | The banks — shaped per game (§3.2), organised per unit | Near-zero engineering risk, **highest cost in your hours** — 565 items across two units |
+| **3 · Content** | The banks — shaped per game (§3.2), organised per unit | Near-zero engineering risk, **highest cost in your hours** — 589 items across two units |
 
 **Layer 1 is really two things pointing opposite ways**, and the distinction matters
 when adding a feature:
@@ -177,6 +177,36 @@ Kit.prompt.register('anagram', {
   render(mount, item){…}, reveal(mount, item){…}
 });
 ```
+
+**Four forms are registered.** `gap` is inferred from `___`; the other three need an
+explicit `type:` on the item, because inferring them would silently re-type the items
+authored before they existed. Each parses what it needs out of the prompt, exactly as
+`gap` reads `___`, so **the item shape stays `{text, answer, type}` and adding a form
+touches no game and no content field** — only the authoring convention for its own
+prompts:
+
+| Form | Author it like this | Suits | Reveal |
+|---|---|---|---|
+| `gap` | `"held in ___"` | all four | the answer drops into the blank |
+| `anagram` | `"Unscramble: the decision a jury delivers."` + `answer:"Verdict"` | jeopardy, blockbusters | the letters re-sort into the answer |
+| `oddoneout` | `"Which does NOT belong: verdict / jury / sabbatical"` | jeopardy, blockbusters | the odd chip lights, the rest stand down |
+| `errorfix` | `"You *must to* wear a helmet."` + `answer:"must"` | jeopardy, millionaire, race | the struck words swap for the answer |
+
+The separators are load-bearing: **`/` between odd-one-out candidates** (with an optional
+lead-in before a `:`), and **`*asterisks*` around the words to correct**. Get them wrong
+and the form declines to plain text rather than rendering nonsense — which is the
+intended failure, but it looks like "the type did nothing".
+
+**Millionaire never gets an anagram** — its four options hand you the letters. Race never
+gets an odd-one-out — the board gives it away. That is what `games:[…]` is for, and the
+smoke test asserts both directions.
+
+**Density is the open problem, not the mechanism.** 24 typed items against 589 is
+**4.1%**, so a Blockbusters board of 18 hexes expects ~1.6 of them and a Millionaire rung
+(filtered by section *and* level) may go a whole game without one. Playing a real round
+found the odd-one-out and never reached the anagram. If these forms are worth keeping,
+the next step is more items, not more code — Millionaire needs the most because its
+per-rung filtering makes three items nearly invisible.
 
 Three properties that make it adoptable rather than a migration:
 - **Untyped items still render.** A prompt containing `___` is recognised as a gap
@@ -386,7 +416,7 @@ back to memory for the session (the panel says so).
   activity schemas). Reference only; not required reading.
 
 ## Current status
-- **Deployed.** `main` is at `75d7ac0`, build `20260729i`, Pages green. The branch in
+- **Deployed.** `main` is at `8d5d61a`, build `20260729k`, Pages green. The branch in
   use is `claude/product-status-gxqp9l`; merging it to `main` is what deploys.
 - **Works on a phone as well as a computer**, and both are enforced by the layout
   contract above rather than assumed — see "Screens: one layout contract". Jeopardy
@@ -572,6 +602,11 @@ back to memory for the session (the panel says so).
   handles a tie, and raises the shared `showResult()` banner. Theme-independent;
   the game-show skin just adds the fanfare and applause on top. Same gap
   Blockbusters had.
+- **The clue card is skinned and flips correctly.** It had *zero* game show rules, so
+  a lit board opened a white DCU card; the value face now takes the Jeopardy tile's own
+  gradient, so the card reads as that tile rising off the board. It sits outside the
+  stage and so cannot inherit `--tension` — `openClueCard` sets it, and a `$500` clue
+  arrives hotter than a `$100`. DCU is untouched, and a check asserts both directions.
 - **Settings panel** (⚙ in the header, Esc or click-away to close), built from a
   registry so a new feature's switch appears by registering it — see "Adding a
   feature" above. Currently: sound on/off, volume, race re-scatter, race round
@@ -606,9 +641,18 @@ back to memory for the session (the panel says so).
     full size for one frame before the modal hides, which reads as "it warps back in".
     The landing segment must also *decelerate*; an accelerating curve there was the
     other half of that complaint.
-  - **The faces need separate z planes** (`translateZ(2px)`). Coplanar faces z-fight
-    and the front bleeds through mirrored — that's what made `$500` read as `005`.
-    `#clue-card.flipped #clue-front{visibility:hidden}` is the belt-and-braces.
+  - **The faces are swapped explicitly, not by `backface-visibility`.** That guard was
+    real but inactive for the whole animation — `.flipped` is added in `onfinish`,
+    after the turn is over — so captured frame by frame the value was painted
+    **mirrored from about 100° to 180°** on every variant, ~135ms each time a clue
+    opened. Hiding it then exposed what it had been covering: the clue face was not
+    painted during the turn either, so the card went **blank for four frames**.
+    `backface-visibility` was culling the face that should have shown while leaving
+    the one that should not, so it is gone from both faces. `guardFace()` swaps them
+    at the edge-on frame; each variant declares `edgeOn:{open,close}`, and the guard
+    **takes its timing from the animation the variant returned**, because `turn-only`
+    runs at `ms*0.8` and `rise` at `ms*0.5` and a fixed figure left one mirrored frame.
+    Separate z planes (`translateZ(2px)`) and the `.flipped` rule both stay.
   - Measure with `naturalRect()`, never a live `getBoundingClientRect()` — a rotated
     card reports its *projected* box, and the maths then lands it off its tile.
   Honours the `cardFlip` setting **and** `prefers-reduced-motion`; with either off it
@@ -624,6 +668,9 @@ back to memory for the session (the panel says so).
   of its own, so a browser holding it loads the previous build silently — see "Run".
   Give the shell a `Cache-Control` meta of its own. Small, and it removes a whole class
   of "it didn't deploy" confusion.
+- **More typed items, especially Millionaire's.** The three new question forms work but
+  sit at 4.1% of the content, so a round can pass without meeting one. Mechanism done,
+  content thin — see "Question forms are a registry too".
 - **A phone check on a real handset**, not Chromium emulation. Jeopardy sideways-scroll
   is the part most likely to feel wrong under a thumb.
 - **Content composability is the open architectural question**, and it is a project
@@ -689,7 +736,7 @@ back to memory for the session (the panel says so).
 
 ## Before you push
 ```bash
-NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~17 min, 331 checks, 24 suites
+NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~17 min, 353 checks, 24 suites
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=jeopardy,fit,phone   # while iterating
 ```
 Drives all four games in a real browser and checks the things that have actually
