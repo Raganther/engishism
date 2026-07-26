@@ -213,6 +213,12 @@
   S.register({ id:'soundVolume', group:'Sound', type:'select', default:'med', games:gameIds(),
     label:'Volume', help:'Classroom speakers are usually louder than they sound at your desk.',
     options:[{value:'quiet',label:'Quiet'},{value:'med',label:'Medium'},{value:'loud',label:'Loud'}] });
+  /* The music bed is the one sound that runs *continuously* under a live question,
+     so it is the one a teacher may want gone while keeping the cues. Volume alone
+     could not do that — turning it down takes the right-answer tone with it. */
+  S.register({ id:'musicBed', group:'Sound', type:'select', default:'normal', games:gameIds(),
+    label:'Think-music drone', help:'The low pulse under an unanswered question. Off leaves every other sound alone.',
+    options:[{value:'normal',label:'On'},{value:'quiet',label:'On, quieter'},{value:'off',label:'Off'}] });
 
   /* ---- competitive dynamics ----
      All per-game, so a teacher can run steal in Jeopardy and not in Blockbusters and
@@ -309,6 +315,9 @@
   /* ---- sound: synthesised, so it needs no audio files and still works offline ---- */
   const Sound = (function(){
     const LEVEL = { quiet:0.035, med:0.09, loud:0.2 };
+    // how loud the bed sits under the master volume; `off` is a real 0, so the
+    // nodes are never built rather than being built and left silent
+    const BED_MIX = { normal:0.30, quiet:0.12, off:0 };
     const VOICES = {
       correct:[{f:660,d:0.09},{f:990,d:0.13}],
       wrong:  [{f:180,d:0.16,type:'sawtooth'},{f:120,d:0.18,type:'sawtooth'}],
@@ -353,6 +362,10 @@
     }
 
     function level(){ return LEVEL[S.get('soundVolume', activeGame)] || LEVEL.med; }
+    function bedMix(){
+      const v = BED_MIX[S.get('musicBed', activeGame)];
+      return (v === undefined) ? BED_MIX.normal : v;
+    }
     function live(){
       if(!S.get('sound', activeGame)) return null;
       const ac = audio(); if(!ac) return null;
@@ -434,6 +447,7 @@
     let bed = null;
     function bedStart(tension){
       const ac = live(); if(!ac){ bedStop(); return; }
+      if(!bedMix()){ bedStop(); return; }      // switched off in ⚙ — cues still play
       if(bed){ bedSet(tension); return; }
       const out  = ac.createGain();  out.gain.value = 0;
       const lp   = ac.createBiquadFilter(); lp.type='lowpass'; lp.Q.value=7;
@@ -450,8 +464,12 @@
     function bedSet(tension){
       if(!bed) return;
       const ac = audio(); if(!ac) return;
+      const mix = bedMix();
+      // turned off mid-question: fade the running bed out rather than leaving it
+      // playing until the next beat happens to restart it
+      if(!mix){ bedStop(); return; }
       const t = Math.max(0, Math.min(1, tension || 0));
-      const base = level() * 0.30 * (0.55 + 0.45*t);
+      const base = level() * mix * (0.55 + 0.45*t);
       const now  = ac.currentTime;
       bed.out.gain.cancelScheduledValues(now);
       bed.out.gain.setTargetAtTime(base, now, 0.25);
@@ -3020,6 +3038,11 @@
 
   // settings that change what's already on screen take effect without a restart
   S.onChange((id)=>{
+    /* The bed is the only sound that is *already playing* when the panel is open,
+       so it is the only one that has to be re-decided on the spot. Re-running the
+       game's tension hook does that: it is the single place that knows whether a
+       question is live, and it starts or stops the bed accordingly. */
+    if(id==='musicBed' || id==='sound' || id==='soundVolume') hook('tension');
     if(id==='raceShowSection' && activeGame==='race' && raceCurrent) setRacePrompt(raceCurrent);
     if(id==='raceRoundSeconds' && activeGame==='race' && raceMode==='timed' && !raceRunning){
       timerSetDuration(Number(S.get('raceRoundSeconds', 'race')) || 60);
