@@ -26,10 +26,23 @@ linked as `…?v=YYYYMMDDx` in the three page shells; without a bump, Chrome kee
 the cached JS/CSS and a fix looks like it never shipped (this has already cost one
 debugging round). Change it in all three shells together:
 ```bash
-sed -i '' 's/?v=[0-9a-z]*/?v=20260729g/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
+sed -i '' 's/?v=[0-9a-z]*/?v=20260729i/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
 ```
 The engine reads its own `?v=` and exposes it as `window.HUB_BUILD`; the settings panel
 footer shows it, so **"Build …" in ⚙ tells you which version is actually running.**
+
+**The stamp busts the assets and nothing busts the shell — know this before debugging
+a "it didn't deploy" report.** `game-hub.html` carries no stamp of its own, so a browser
+holding the old shell asks for the *old* `?v=`, gets its own cached assets, and shows the
+previous build with no error anywhere. It cost a round in July 2026: a phone showed the
+pre-fix Millionaire 50 seconds after Pages finished building, and the deploy was fine.
+Two tells that you are looking at a stale shell rather than a broken fix: raw `___` in a
+prompt (means `Kit.prompt` isn't running at all) and ⚙ reporting the old build number.
+The fix from the user's side is a query string on the page URL —
+`game-hub.html?fresh=1` — which forces a fresh shell; in-app browsers (Facebook,
+Instagram) hold it hardest and often ignore pull-to-refresh. **Not yet fixed properly:**
+the shell should send `Cache-Control` of its own so a stale one cannot strand anybody
+on old assets.
 
 ## Architecture — three generations coexist
 1. **Classroom Game Hub (current focus).** The MVP demo. One consolidated app;
@@ -145,7 +158,7 @@ Anything more than one game needs lives in `hub-kit.js`, not in a game:
 
 | Service | Replaces | Used by |
 |---|---|---|
-| `Kit.fitToScreen(el, {min,gap})` | three separate header/team-bar measurements | Jeopardy, Race, Millionaire |
+| `Kit.fitToScreen(el, {min,gap,floor})` | three separate header/team-bar measurements | Jeopardy, Race, Millionaire |
 | `Kit.anim.register/get(feature,name)` | hard-coded animation keyframes | the clue card, and whatever comes next |
 | `Kit.claimTeam({mount,onPick})` | Blockbusters' two buttons + Race's own bar | Blockbusters (`allow:[0,1]`), Race |
 | `Kit.shapeOf(origin,target)` | animations assuming everything is a rectangle | the `morph` card animation |
@@ -206,6 +219,69 @@ the start by about a frame.
 `allow` on `claimTeam` exists because some boards are structurally two-team —
 Blockbusters' yellow-across / blue-down geometry gives a third team nowhere to play — so
 it is restricted there rather than generalised.
+
+## Screens: one layout contract, asked of whatever is registered
+Every game owes the room the same three things, whatever its board is made of:
+**nothing under the team bar, nothing off the right edge, no text cut off.** That is
+checked by the `fit` (computer) and `phone` (handset) suites, and neither carries a list
+of games — both ask the engine:
+
+```js
+window.HubGames.ids().map(id => ({ id, title, stage: window.HubGames.get(id).stage }))
+```
+
+Assertions run against the **stage the registry names**, so there is no per-game selector
+to drift and **a fifth game is covered the day it calls `registerGame`**. This is the
+same move as `hasBank()` and the content gate: the check finds the game rather than
+waiting to be told. CSS inheritance gives a new game the chrome; only this gives it the
+guarantee — which is the difference worth understanding before adding a game.
+
+**It earned itself immediately.** The hard-coded list it replaced had been passing for
+months while Jeopardy's category headings were **cut off mid-word on the desktop** — 12
+of them at 1280×720. The type was sized `1.05vw`, i.e. from the *viewport*, so it stayed
+at 13.4px however narrow the column got, and a 16-category board gives each heading 51px.
+`fitCategoryHeadings()` now measures the column actually rendered, on a canvas so it
+costs no reflow, with the **longest word** as the constraint (spaces wrap, words cannot).
+Two traps in that measurement:
+- **Letter-spacing is em-based and canvas does not apply it.** The game show skin triples
+  it to `0.09em`; across a ten-letter word that is 0.9em, a fifth of the column — the
+  difference between fitting and clipping, not a rounding detail. Add it back per
+  character.
+- **The floor is a legibility floor, not a fitting one.** Sizing purely to fit reached
+  8px: not clipped, not readable from the back of a room, and it *passed the assertion*.
+  It is 10.5px now, with long words breaking instead. **16 categories at 1280px is still
+  only 10.5px — the answer is picking fewer sections, not more CSS.**
+
+### Handsets — a preview device, not the projected board
+The app is for a classroom TV and that is not changing, but a teacher checks a lesson on
+their phone. Two rules invert there, deliberately:
+- **The board may scroll.** "Never scroll" exists because nobody can scroll a projected
+  image mid-game. A phone in the hand is not that, and forcing the fit is what broke
+  Millionaire.
+- **Nothing is hidden, only compacted.** The timer and the scores are what a teacher
+  reaches for. Chrome went 323px → 184px on a 390×844 screen (`@media` tiers at 760px
+  and 480px).
+
+Three fixes worth not re-deriving:
+- **`Kit.fitToScreen(el, {floor:true})`** hands the height back when the content genuinely
+  cannot fit, rather than forcing one. Millionaire asks for it; Jeopardy and Race do not,
+  because they *can* always be made to fit (one scales its type, the other re-scatters).
+  Forcing a height collapsed the option grid's rows under their own content and the
+  ladder painted straight through answers B, C and D.
+- **`grid-auto-rows: minmax(min-content, 1fr)`** on `#m-options` is the structural
+  guarantee a row can never shrink under its content. Without it the fix is only "there
+  happens to be enough room now".
+- **`--jcols` instead of an inline `repeat(n, 1fr)`.** The column count lives in a custom
+  property so the stylesheet owns the track size; an inline style cannot be overridden by
+  a media query. That is what lets a handset give Jeopardy fixed-width columns and scroll
+  the board sideways — 16 categories across 390px is 22px a column, which fits by every
+  measurement and is readable by none.
+
+**Measure the elements, never their container.** The first version of the phone test
+compared the ladder against `#m-options`, whose box had collapsed to 50px while its
+options overflowed 259px past it — so it saw no collision and called an unreadable game
+fine. It passed on the broken build. A layout assertion that has never failed on the bug
+it was written for is not yet a test.
 
 ## Authoring content (keep the question forms mixed)
 An audit of Unit 5 found **71% of all items were gap fills**, which the four different
@@ -310,6 +386,14 @@ back to memory for the session (the panel says so).
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Deployed.** `main` is at `75d7ac0`, build `20260729i`, Pages green. The branch in
+  use is `claude/product-status-gxqp9l`; merging it to `main` is what deploys.
+- **Works on a phone as well as a computer**, and both are enforced by the layout
+  contract above rather than assumed — see "Screens: one layout contract". Jeopardy
+  scrolls sideways on a handset with legible columns; Millionaire's ladder is a
+  horizontal strip; chrome is 184px instead of 323px. **Verified only in Chromium's
+  device emulation** — real handset browser chrome (URL bar, gesture area) shrinks the
+  visible height further and changes it as you scroll, which nothing here models.
 - Game Hub MVP live as **one consolidated app** (`game-hub.html`): choose unit →
   game → sections → play. **2 units** (Unit 4 Consciousness, Unit 5 Fairness),
   **4 games** (Jeopardy, Blockbusters, Race to the Board, Millionaire), shared engine,
@@ -536,6 +620,25 @@ back to memory for the session (the panel says so).
 - To change unit mid-session: game screen → "New game" → "Change unit".
 
 ## Next
+- **The shell can strand a user on old assets.** `game-hub.html` carries no cache stamp
+  of its own, so a browser holding it loads the previous build silently — see "Run".
+  Give the shell a `Cache-Control` meta of its own. Small, and it removes a whole class
+  of "it didn't deploy" confusion.
+- **A phone check on a real handset**, not Chromium emulation. Jeopardy sideways-scroll
+  is the part most likely to feel wrong under a thumb.
+- **Content composability is the open architectural question**, and it is a project
+  rather than a refactor. Today each game has its own bank shape (`jeopardyBank`,
+  `blockbustersBank`, `raceBank`, `millionaireBank`) and the content gate *enforces* no
+  shared prompts — deliberate, because answer shape genuinely differs (Blockbusters needs
+  a one-word answer whose initial matches its hexagon, Race needs unique single words,
+  Millionaire needs four options). The composable version is one pool per unit with items
+  declaring what they are (`{text, answer, options?, forms:[…]}`) and each game declaring
+  what it can consume, so the engine matches items to games instead of four banks being
+  authored by hand. That roughly halves authoring cost — the metric the demo pitch hinges
+  on — but it migrates 565 items, so extend the content gate first.
+- **Jeopardy at 16 categories is legible, not comfortable** (10.5px headings at 1280px).
+  Either cap the categories per board or nudge the teacher toward fewer sections on the
+  content screen. Not a CSS problem.
 - **Buzzers need a real class.** Only ever driven by scripted browsers. Unknowns:
   latency on real handsets, whether the school WiFi allows the LAN route at all
   (one-minute test in `docs/buzzers.md`), and whether phones are a net win or a
@@ -586,15 +689,44 @@ back to memory for the session (the panel says so).
 
 ## Before you push
 ```bash
-NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~15 min, 240 checks
-NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=jeopardy,fit   # while iterating
+NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~17 min, 331 checks, 24 suites
+NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=jeopardy,fit,phone   # while iterating
 ```
 Drives all four games in a real browser and checks the things that have actually
-broken before: boards running off screen, the flip landing on the wrong tile, settings
-not persisting, buzzers not degrading when the relay is gone. Starts its own relay,
-exits non-zero on any failure. `--url=` tests a deployed copy instead.
+broken before: boards running off screen, text cut off, the flip landing on the wrong
+tile, settings not persisting, buzzers not degrading when the relay is gone. Starts its
+own relay, exits non-zero on any failure. `--url=` tests a deployed copy instead.
+
+**Do not pipe it through `tail` in a way that swallows the exit code** — `node … | tail`
+reports the *pipe's* status, so a red run looks green. Redirect to a file instead; you
+also get progress while it runs, which `tail` denies you for 15 minutes.
+
+**A partial run is not evidence for a change to anything shared.** Three separate helpers
+in the suite compared `#m-question`'s text against the raw prompt, and `Kit.prompt`
+rendering `___` as a blank broke all three. They were found and fixed one at a time
+across three full runs, because each was treated as a one-off instead of prompting a
+search for the same pattern elsewhere. **When a shared behaviour changes, grep for the
+assumption before re-running.**
 
 ## Verifying UI changes
 Playwright + Chromium are available (global `playwright`, browser at
 `/opt/pw-browsers`). Open a hub via `file://…` and exercise it to confirm changes
 render and play before committing.
+
+**Screenshot it, don't only measure it.** Numbers said Millionaire's ladder cleared the
+options by 22px; the screenshot showed `100` stranded alone on a second row reading
+`200…2000` then `100`. Both facts were true — the assertion was answering a question
+nobody had asked. A layout change is not verified until it has been looked at, at the
+size it broke.
+
+**Prove a new layout test fails on the bug it was written for**, by reverting the fix and
+re-running. Twice this session a test passed on the broken build: once measuring a
+container instead of the elements overflowing it, once because a different change had
+already freed enough room. The second case also showed a "fix" that did nothing —
+`floor:true` never fired until a 360×560 viewport was added, and only then earned
+its place.
+
+What the agent can and cannot check: stills, layout and text, yes. **Motion is not
+visible to it** — animation is inferred from computed styles and timings, never watched.
+**Audio is entirely unverifiable**; every `Sound.*` claim in this file rests on the code
+being correct, not on anyone having heard it.
