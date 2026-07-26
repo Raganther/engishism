@@ -2600,6 +2600,15 @@
   }
 
   function onBuzz(b){
+    /* A team that has already missed this sentence cannot buzz back in on it. Just
+       ignoring the buzz is not enough: the relay locks the room on the *first* buzz
+       whoever it came from, so a locked-out team pressing again would hold the lock
+       and the team entitled to the steal could never get in. Re-arm, which clears
+       the relay's lock and puts the floor back. */
+    if(activeGame === 'race' && b && !raceCanTry(b.team)){
+      armBuzzers(raceCurrent ? raceCurrent.prompt : '');
+      return;
+    }
     buzzWinner = b;
     Sound.play('claim');
     renderBuzzChip('won');
@@ -2764,7 +2773,7 @@
       const item = raceQueue.shift();
       const w = raceWords.find(x=>x.word===item.answer);
       if(w && !w.found){
-        raceCurrent=item; setRacePrompt(item); updateRaceBar();
+        raceCurrent=item; raceFailed = new Set(); setRacePrompt(item); updateRaceBar();
         if(raceMode==='h2h') armBuzzers(item.prompt);
         // the sentence going up is the starting gun — that is the moment they run
         if(document.getElementById('play-race').classList.contains('lit')) Sound.crack();
@@ -2868,6 +2877,16 @@
     else Sound.bedStop();
   }
 
+  /* Who has already missed the sentence currently up. Head-to-head re-opened the
+     buzzers after a wrong touch but recorded nothing, so the team that had just got
+     it wrong could buzz straight back in and try again — which is not a steal, it is
+     a retry, and it left the other team with nothing to win. */
+  let raceFailed = new Set();
+
+  function raceCanTry(teamIdx){
+    return !S.get('stealOnWrong', 'race') || !raceFailed.has(teamIdx);
+  }
+
   function onRaceWordClick(w, el){
     if(!raceRunning || !raceCurrent || w.found || racePending) return;
     const showy = document.getElementById('play-race').classList.contains('lit');
@@ -2881,7 +2900,8 @@
           awardRaceWord(buzzWinner.team, el);
           return;
         }
-        // nobody buzzed (or no buzzers at all) — fall back to asking
+        // nobody buzzed (or no buzzers at all) — fall back to asking, minus anyone
+        // who has already had their shot at this sentence
         racePending = { w, el };
         el.classList.add('pending');
         showClaimBar();
@@ -2897,7 +2917,12 @@
         raceQueue.push(raceCurrent);
         nextRacePrompt();
       } else {
-        // h2h: the sentence stays up, so re-open the buzzers for the steal
+        /* h2h: the sentence stays up so the other team can steal it. Only record a
+           failure when a phone actually told us who it was — head-to-head has no
+           team on turn (both are at the board at once, which is why the engine asks
+           after a correct touch). Blaming `active` here would invent a fact the app
+           does not have and lock a team out of a sentence they may never have tried. */
+        if(buzzWinner && teams[buzzWinner.team]) raceFailed.add(buzzWinner.team);
         if(buzzHost) armBuzzers(raceCurrent.prompt);
       }
     }
@@ -2929,7 +2954,10 @@
     mount:  document.getElementById('race-claim'),
     onPick: i => awardRaceWord(i)
   });
-  function showClaimBar(){ raceClaim.show(teams); }
+  function showClaimBar(){
+    const allow = teams.map((_, i) => i).filter(raceCanTry);
+    raceClaim.show(teams, allow.length ? allow : null);
+  }
   function hideClaimBar(){
     raceClaim.hide();
     if(racePending && racePending.el) racePending.el.classList.remove('pending');

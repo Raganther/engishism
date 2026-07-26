@@ -1706,6 +1706,25 @@ async function testBuzzers(browser){
   check('a buzz scores its team with no chooser', await host.locator('#race-claim').isVisible() === false);
   check('the buzzing team got the point', (await scores(host))[1] === '1', (await scores(host)).join('/'));
 
+  /* A team that buzzed and missed must not be able to buzz straight back in — that
+     is a retry, not a steal, and it leaves the other team nothing to win. */
+  await host.waitForTimeout(700);
+  const next = await currentRaceAnswer(host);
+  check('a fresh sentence armed the buzzers again', !(await bruno.locator('#buzzer').isDisabled()));
+  await bruno.locator('#buzzer').click(); await host.waitForTimeout(500);
+  await host.locator('.race-word')
+            .filter({ hasNotText: new RegExp('^' + next + '$','i') }).first().click();
+  await host.waitForTimeout(600);
+
+  await bruno.locator('#buzzer').click(); await host.waitForTimeout(600);
+  check('the team that missed cannot buzz back in',
+        !(await host.locator('#buzzer-chip').innerText()).includes('Bruno'),
+        (await host.locator('#buzzer-chip').innerText()).replace(/\n/g,' '));
+  await alina.locator('#buzzer').click(); await host.waitForTimeout(600);
+  check('but the other team can still take the steal',
+        (await host.locator('#buzzer-chip').innerText()).includes('Alina'),
+        (await host.locator('#buzzer-chip').innerText()).replace(/\n/g,' '));
+
   for (const p of [alina, bruno]) { check('phone had no errors', p.__errors.length === 0, p.__errors[0]); await p.close(); }
   checkClean(host, 'host');
   await host.close();
