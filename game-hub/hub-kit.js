@@ -196,6 +196,10 @@ window.HubKit = (function(){
         if(i < parts.length - 1){
           const gap = document.createElement('span');
           gap.className = 'prompt-gap';
+          // real text, not a CSS ::after — a blank that isn't in the DOM can't be
+          // read by anything that inspects the sentence, and Race's own renderer
+          // put it there for that reason
+          gap.textContent = '?';
           mount.appendChild(gap);
         }
       });
@@ -203,9 +207,13 @@ window.HubKit = (function(){
     reveal(mount, item){
       const gaps = [...mount.querySelectorAll('.prompt-gap')];
       const answer = String((item && item.answer) || '').trim();
-      // a long or explanatory answer ("he was made REDUNDANT (adjective)") doesn't
-      // belong in a blank — say so, and let the caller print it in full instead
-      if(!gaps.length || !answer || answer.length > 26) return 0;
+      /* An answer only belongs in a blank if it is the word the sentence is
+         missing. Three kinds aren't: too long to fit, alternatives ("forbidden /
+         not permitted"), and ones carrying a teacher's note ("he was made
+         REDUNDANT (adjective)"). Decline those and let the caller print them on
+         its own answer line, which is what that line is for. */
+      if(!gaps.length || !answer) return 0;
+      if(answer.length > 26 || /[\/(]/.test(answer)) return 0;
       const words = answer.split(/\s+/);
       // two blanks and two words means one word each; anything else repeats the
       // whole answer, which is right for "it slipped my ___ / it crossed my ___"

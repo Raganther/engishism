@@ -26,7 +26,7 @@ linked as `…?v=YYYYMMDDx` in the three page shells; without a bump, Chrome kee
 the cached JS/CSS and a fix looks like it never shipped (this has already cost one
 debugging round). Change it in all three shells together:
 ```bash
-sed -i '' 's/?v=[0-9a-z]*/?v=20260729f/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
+sed -i '' 's/?v=[0-9a-z]*/?v=20260729g/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
 ```
 The engine reads its own `?v=` and exposes it as `window.HUB_BUILD`; the settings panel
 footer shows it, so **"Build …" in ⚙ tells you which version is actually running.**
@@ -172,10 +172,15 @@ Three properties that make it adoptable rather than a migration:
 - **A type names the games it suits.** Not every form survives every board — an
   anagram in Millionaire is given away by its own four options, odd-one-out in Race
   is given away by the board. Declare it rather than discover it.
-- **`reveal()` returns how long it runs, or 0 if it declined.** The gap type declines
-  an answer over 26 characters rather than cramming an explanation into a blank, and
-  the caller then prints it on the answer line as before. On a clue that *did* fill,
-  the answer line stands down instead of showing the same word twice.
+- **`reveal()` returns how long it runs, or 0 if it declined.** An answer only belongs
+  in a blank if it is the word the sentence is missing, so the gap type declines three
+  kinds: over 26 characters, alternatives (`forbidden / not permitted`), and ones
+  carrying a teacher's note (`he was made REDUNDANT (adjective)`). Those print on the
+  answer line, which is what that line is for; when the blank *did* fill, the answer
+  line stands down rather than showing the same word twice.
+- **The blank's `?` is real text, not a CSS `::after`.** Race's original renderer put
+  it in the DOM and that was right — a placeholder that only exists in CSS can't be
+  read by anything inspecting the sentence, which broke a test the moment it moved.
 
 Items arrive normalised as `{text, answer, type?}`, so the kit never learns that
 Jeopardy calls it `q` and Blockbusters calls it `clue`.

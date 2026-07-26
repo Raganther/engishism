@@ -139,7 +139,10 @@ async function testJeopardy(browser){
         (await page.locator('#clue-front-text').textContent()).includes(String(value)));
   check('card rests on the clue face', await page.locator('#clue-card.flipped').count() === 1);
   await page.locator('#reveal-btn').click(); await page.waitForTimeout(200);
-  check('answer reveals', await page.locator('#clue-answer').isVisible());
+  // the answer now appears either in the blank or on the answer line, depending on
+  // whether it is the word the sentence was missing — assert that it is visible
+  // somewhere, not which element happens to carry it
+  check('answer reveals', await answerIsShowing(page));
   await page.locator('#correct-btn').click();
   await page.waitForFunction(() => document.getElementById('clue-modal').style.display === 'none', null, { timeout:6000 });
   const after = await scores(page);
@@ -148,7 +151,7 @@ async function testJeopardy(browser){
 
   // a spent tile reopens for review and must not score again
   await page.locator('.tile.used').first().click(); await page.waitForTimeout(1400);
-  check('review shows the answer already', await page.locator('#clue-answer').isVisible());
+  check('review shows the answer already', await answerIsShowing(page));
   check('review offers no scoring', await page.locator('#correct-btn').isVisible() === false);
   await page.locator('#close-btn').click(); await page.waitForTimeout(1300);
   check('review changed no score', (await scores(page))[0] === after[0]);
@@ -298,6 +301,12 @@ async function testRace(browser){
   checkClean(page);
   await page.close();
 }
+
+/* The answer is visible either filled into the sentence's blank or printed on the
+   clue card's answer line — both count. */
+const answerIsShowing = async page =>
+  (await page.locator('#clue-answer').isVisible()) ||
+  (await page.locator('#clue-text .prompt-gap.filled').count()) > 0;
 
 const currentRaceAnswer = page => page.evaluate(() => {
   const s = document.querySelector('#race-prompt .race-sentence'); if (!s) return null;
