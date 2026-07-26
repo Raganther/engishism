@@ -4,13 +4,14 @@
 (window.UNITS = window.UNITS || []).push({
   id: "unit-5",
   label: "Cambridge Empower C1 · Unit 5 · Fairness",
-  card: { num: "Unit 5", title: "Fairness", blurb: "Crime & justice, relative clauses, employment, obligation, recalling & speculating (5A–5C).", sections: "5A–5C" },
-  intro: "Choose a template. You'll pick the content next — mix and match any of 5A–5C.",
+  card: { num: "Unit 5", title: "Fairness", blurb: "Crime & justice, relative clauses, employment, obligation, recalling & speculating, opinion essays (5A–5D).", sections: "5A–5D" },
+  intro: "Choose a template. You'll pick the content next — mix and match any of 5A–5D.",
 
   jeopardySectionLabels: {
     '5A': "5A · A place where you have to look over your shoulder",
     '5B': "5B · It's essential to have the right qualifications",
     '5C': "5C · I'd hazard a guess",
+    '5D': "5D · It's a way of making the application process more efficient",
   },
 
   jeopardyCategories: [
@@ -119,6 +120,23 @@
       {v:400, q:"Which adjective does NOT go with 'memory'? vague / painful / lasting / heavy", a:"heavy"},
       {v:500, q:"Which does NOT introduce something you recall? if my memory serves / what stands out in my mind / I'd hazard a guess", a:"I'd hazard a guess (that's speculating)"},
     ]},
+    /* 5D, Skills for Writing (pp.64-65). The writing lesson is as gameable as any
+       other section once you stop treating it as "an essay": the linkers are
+       vocabulary, and the paragraph functions are a fixed, testable structure. */
+    { id:'essay-structure', section:'5D', name:'Essay Structure', clues:[
+      {v:100, q:"Which paragraph outlines the topic and gets the reader interested?", a:"the introduction"},
+      {v:200, q:"What do paragraphs 2 and 3 of an opinion essay do?", a:"present each side of the argument"},
+      {v:300, q:"What belongs in the last paragraph of an opinion essay?", a:"the writer's balanced opinion of both sides"},
+      {v:400, q:"Name one good way to open an essay introduction.", a:"facts and figures / a surprising statement / outlining the issue"},
+      {v:500, q:"Which must NOT go in a conclusion: a course of action, a summary, or new information?", a:"new information"},
+    ]},
+    { id:'linking-addition', section:'5D', name:'Linking: Addition', clues:[
+      {v:100, q:"One-word linker meaning 'in addition', used to start a new sentence.", a:"moreover / furthermore"},
+      {v:200, q:"Complete: '___ addition, they complain that companies go trawling.'", a:"In"},
+      {v:300, q:"Which joins two ideas inside ONE sentence — 'as well as' or 'in addition'?", a:"as well as"},
+      {v:400, q:"Which two-word phrase marks your single most important argument?", a:"above all"},
+      {v:500, q:"Start with 'Beyond': 'Employers research applicants online and also contact referees.'", a:"Beyond researching applicants online, employers contact referees"},
+    ]},
   ],
 
   blockbustersBank: [
@@ -178,6 +196,22 @@
     {section:'5C', letter:'D', clue:"'No ___ you heard that from…' — a confident assumption.", answer:"Doubt"},
     {section:'5C', letter:'R', clue:"To ___ something is to bring a past event back to mind.", answer:"Recall"},
     {section:'5C', letter:'S', clue:"To ___ is to guess about something you're not sure of.", answer:"Speculate"},
+
+    /* ---- 5D: opinion essays & linking (single-word answers) ---- */
+    {section:'5D', letter:'M', clue:"A one-word linker meaning 'in addition', used to start a new sentence.", answer:"Moreover"},
+    {section:'5D', letter:'F', clue:"Another one-word linker meaning 'what is more' — often the final point.", answer:"Furthermore"},
+    {section:'5D', letter:'B', clue:"'___, time saved is money saved' — adds a reinforcing point.", answer:"Besides"},
+    {section:'5D', letter:'A', clue:"'___ all' — the phrase marking your most important argument.", answer:"Above"},
+    {section:'5D', letter:'P', clue:"'In ___' — a linker that narrows to one specific case.", answer:"Particular"},
+    {section:'5D', letter:'I', clue:"The paragraph that outlines the topic and catches the reader's interest.", answer:"Introduction"},
+    {section:'5D', letter:'C', clue:"The final paragraph, where you give your balanced opinion.", answer:"Conclusion"},
+    {section:'5D', letter:'B', clue:"A good conclusion gives a ___ opinion of both arguments.", answer:"Balanced"},
+    {section:'5D', letter:'T', clue:"Employers going '___' are actively hunting for negative posts.", answer:"Trawling"},
+    {section:'5D', letter:'D', clue:"To treat someone unfairly because of their age or medical history.", answer:"Discriminate"},
+    {section:'5D', letter:'P', clue:"Applicants have voiced ___ concerns about social media checks.", answer:"Privacy"},
+    {section:'5D', letter:'S', clue:"The ___ process is how a company chooses between applicants.", answer:"Selection"},
+    {section:'5D', letter:'T', clue:"Checks need to be fair and ___ — open and easy to see.", answer:"Transparent"},
+    {section:'5D', letter:'G', clue:"'___ or laws' are needed to restrict what employers may research.", answer:"Guidelines"},
     {section:'5C', letter:'M', clue:"'It's slipped my ___' — I've forgotten it.", answer:"Mind"},
 
     /* ---- added later: transformations and opposites, to vary the clue types ---- */
@@ -199,6 +233,7 @@
     '5A':'5A · Crime & justice (22 clues)',
     '5B':'5B · Employment & obligation (24 clues)',
     '5C':'5C · Recalling & speculating (14 clues)',
+    '5D':'5D · Opinion essays & linking (14 clues)',
   },
 
   /* ---- Race to the Board ----------------------------------------------------
@@ -292,6 +327,25 @@
     {section:'5C', prompt:"The whole plan rests on the ___ that prices will keep falling.", answer:"Assumption"},
     {section:'5C', prompt:"I've only a ___ memory of the meeting — it was years ago.", answer:"Vague"},
     {section:'5C', prompt:"Which noun completes both 'it slipped my ___' and 'it crossed my ___'?", answer:"Mind"},
+
+    /* ---- 5D: opinion essays & linking ----
+       The linkers make good tiles for the same reason the relative pronouns did:
+       one word each, none repeating, and choosing between 'Moreover' and 'Besides'
+       is a real judgement rather than a recall test. */
+    {section:'5D', prompt:"___, social media also tells applicants about the company they're applying to.", answer:"Moreover"},
+    {section:'5D', prompt:"___, checks need to be made that employers' decisions are fair.", answer:"Furthermore"},
+    {section:'5D', prompt:"___ actively seeking negative posts, the system lets employers discriminate.", answer:"Besides"},
+    {section:'5D', prompt:"___ all, employers claim the process becomes more efficient.", answer:"Above"},
+    {section:'5D', prompt:"In ___, I understand applicants' concerns about 'trawling'.", answer:"Particular"},
+    {section:'5D', prompt:"___ researching applicants online, employers contact previous employers.", answer:"Beyond"},
+    {section:'5D', prompt:"The ___ outlines the topic and gets the reader interested.", answer:"Introduction"},
+    {section:'5D', prompt:"The ___ states your final, balanced opinion of both sides.", answer:"Conclusion"},
+    {section:'5D', prompt:"A good essay ending gives a ___ opinion rather than a one-sided one.", answer:"Balanced"},
+    {section:'5D', prompt:"Applicants object to employers ___ for negative information about them.", answer:"Trawling"},
+    {section:'5D', prompt:"Some fear that employers will ___ against them on the basis of age.", answer:"Discriminate"},
+    {section:'5D', prompt:"Job applicants have voiced ___ concerns about these checks.", answer:"Privacy"},
+    {section:'5D', prompt:"Companies examine profiles for information to use in the ___ process.", answer:"Selection"},
+    {section:'5D', prompt:"Employers' decisions need to be fair and ___.", answer:"Transparent"},
   ],
 
   /* ---- Millionaire ----------------------------------------------------------
@@ -469,17 +523,82 @@
       answer:"If my memory serves me correctly…", distractors:["If my memory serves me correct…","If my memory serves to me correctly…","If my memory is serving me correct…"]},
     {section:'5C', level:7, prompt:"Which syllable carries the main stress in 're-ha-bi-li-ta-tion'?",
       answer:"the 5th — TA", distractors:["the 1st — re","the 3rd — bi","the 6th — tion"]},
+
+    /* ---- 5D: opinion essays & linking ----
+       Four options suit this section particularly well: the linkers differ by
+       *where they can sit in a sentence*, not by meaning, so the wrong options are
+       real errors rather than different words. */
+    {section:'5D', level:1, prompt:"Which linker adds an idea in a NEW sentence?",
+      answer:"In addition,", distractors:["as well as","in addition to","beyond"]},
+    {section:'5D', level:2, prompt:"'___, time saved is money saved.'",
+      answer:"Besides", distractors:["Beyond","As well as","In addition to"]},
+    {section:'5D', level:3, prompt:"Which phrase marks your single most important argument?",
+      answer:"Above all", distractors:["In particular","What's more","In addition"]},
+    {section:'5D', level:4, prompt:"What is the job of an opinion essay's introduction?",
+      answer:"To outline the topic and interest the reader",
+      distractors:["To state your final opinion","To present one side of the argument",
+                   "To summarise the key points"]},
+    {section:'5D', level:5, prompt:"Which must NOT appear in a conclusion?",
+      answer:"Interesting new information",
+      distractors:["A balanced opinion of both sides","A brief summary of key points",
+                   "A possible course of action"]},
+    {section:'5D', level:6, prompt:"'___ researching the applicant online, employers contact previous employers.'",
+      answer:"Beyond", distractors:["Besides that","Moreover","Furthermore"]},
+    {section:'5D', level:7, prompt:"Which sentence uses the linker correctly?",
+      answer:"As well as being a valuable tool for employers, social media informs applicants.",
+      distractors:["As well as it is a valuable tool, social media informs applicants.",
+                   "In addition being a valuable tool, social media informs applicants.",
+                   "Moreover being a valuable tool, social media informs applicants."]},
+    {section:'5D', level:8, prompt:"'It is standard to search criminal records ___ the methods mentioned above.'",
+      answer:"in addition to", distractors:["in addition of","in addition with","in addition than"]},
+
+    /* A second question at every 5D rung, and the two 5C rungs that had only one.
+       The ladder is per team, so with one question per rung both teams meet the
+       identical question on the way up. */
+    {section:'5D', level:1, prompt:"Which one-word linker starts a new sentence and means 'what is more'?",
+      answer:"Furthermore", distractors:["As well as","Beyond","In addition to"]},
+    {section:'5D', level:2, prompt:"'___, as well as being useful to employers, social media informs applicants.'",
+      answer:"Moreover", distractors:["Whereas","However","Nevertheless"]},
+    {section:'5D', level:3, prompt:"'In ___, I understand applicants' concerns about trawling.'",
+      answer:"particular", distractors:["general","addition","short"]},
+    {section:'5D', level:4, prompt:"Which is NOT a good way to open an essay introduction?",
+      answer:"Stating your own final opinion",
+      distractors:["Referring to facts and figures","Making a surprising statement",
+                   "Clearly outlining the issue"]},
+    {section:'5D', level:5, prompt:"How many paragraphs does the model opinion essay use?",
+      answer:"four — intro, one side, the other side, conclusion",
+      distractors:["three — intro, argument, conclusion","two — for and against",
+                   "five — intro, three arguments, conclusion"]},
+    {section:'5D', level:6, prompt:"'___ actively seeking negative posts, the system lets employers discriminate.'",
+      answer:"Besides", distractors:["Beside","Besides of","Beside from"]},
+    {section:'5D', level:7, prompt:"Which word means employers actively hunting for bad information?",
+      answer:"trawling", distractors:["trailing","tracking","trialling"]},
+    {section:'5D', level:8, prompt:"Which sentence is correctly punctuated?",
+      answer:"Moreover, employers claim the process is more efficient.",
+      distractors:["Moreover employers claim the process is more efficient.",
+                   "Moreover; employers claim the process is more efficient.",
+                   "Moreover: employers claim the process is more efficient."]},
+
+    {section:'5C', level:1, prompt:"Which phrase introduces something you are remembering?",
+      answer:"What stands out in my mind…",
+      distractors:["I'd hazard a guess…","I'm presuming…","No doubt…"]},
+    {section:'5C', level:8, prompt:"Which is the most tentative way of putting it?",
+      answer:"I'd hazard a guess that it was around 2015.",
+      distractors:["It was around 2015.","I'm certain it was 2015.",
+                   "It was definitely about 2015."]},
   ],
 
   millionaireSectionNames: {
     '5A':'5A · Crime, justice & relative clauses (25 questions)',
     '5B':'5B · Employment & obligation (25 questions)',
-    '5C':'5C · Recalling & speculating (18 questions)',
+    '5C':'5C · Recalling & speculating (20 questions)',
+    '5D':'5D · Opinion essays & linking (16 questions)',
   },
 
   raceSectionNames: {
     '5A':'5A · Crime, justice & relative clauses (25 words)',
     '5B':'5B · Employment & obligation (24 words)',
     '5C':'5C · Recalling & speculating (16 words)',
+    '5D':'5D · Opinion essays & linking (14 words)',
   },
 });

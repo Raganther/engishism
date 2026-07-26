@@ -15,8 +15,8 @@ is to say which parts of this document are specification and which are descripti
 | | |
 |---|---|
 | Games | Jeopardy, Blockbusters, Race to the Board, Millionaire (4 of the 3–5 in §1.3; **Bullseye not built**) |
-| Units | **2** — Unit 5 (Fairness) and Unit 4 (Consciousness), against §1.3's planned 1 |
-| Content | Unit 5: **263 items** across 5A–5C. **5D is entirely unauthored.** Unit 4: Jeopardy + Blockbusters only |
+| Units | **2** — Unit 5 (Fairness) and Unit 4 (Consciousness), against §1.3's planned 1. Both complete across all four sections |
+| Content | **565 items.** Unit 5: 319 across 5A–5D. Unit 4: 246 across 4A–4D. Both units carry all four games |
 | Beyond spec | Per-game settings panel (§4.4b), phone buzzers (§4.4c), game show mode (§4.4d), content-integrity gate (§4.4a), a 240-check regression suite |
 
 **Not yet true of any of it:** none of this has been run in front of a class. Every
@@ -61,7 +61,9 @@ hypothetical one.
   → **Four built** (all but Bullseye). Authoring cost is now measured, and four is
   the honest answer — see §9.2.
 - Content coverage of Unit 5, selectable by lesson section (5A / 5B / 5C / 5D)
-  → **5A–5C complete; 5D not authored at all.** This is the largest content gap.
+  → **Complete, 5A–5D.** 5D (the opinion-essay lesson) was the last gap and turned out
+  to suit the formats well: linkers make excellent Race tiles, and paragraph function
+  is a fixed structure that tests cleanly in Jeopardy and Millionaire.
 - Teacher-facing setup: choose game, choose content, play
 - Runs on classroom display via projector or large screen
 
@@ -70,8 +72,8 @@ hypothetical one.
 - Additional units beyond Unit 5
   → **Departed from deliberately.** Unit 4 was added because a second unit is what
   turns "it works for this unit" into "it transfers", which is success criterion
-  §1.4.3. Unit 4 carries Jeopardy and Blockbusters only, which is itself the point:
-  a unit adopts games one at a time (F3.7.4).
+  §1.4.3. Unit 4 began with Jeopardy and Blockbusters only — which was itself the
+  point, since a unit adopts games one at a time (F3.7.4) — and now carries all four.
 - Any data persistence (scores, saved games, history)
 - Student devices / individual logins
 - Accounts, cloud sync, or backend services

@@ -26,7 +26,7 @@ linked as `…?v=YYYYMMDDx` in the three page shells; without a bump, Chrome kee
 the cached JS/CSS and a fix looks like it never shipped (this has already cost one
 debugging round). Change it in all three shells together:
 ```bash
-sed -i '' 's/?v=[0-9a-z]*/?v=20260729c/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
+sed -i '' 's/?v=[0-9a-z]*/?v=20260729d/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
 ```
 The engine reads its own `?v=` and exposes it as `window.HUB_BUILD`; the settings panel
 footer shows it, so **"Build …" in ⚙ tells you which version is actually running.**
@@ -78,7 +78,7 @@ Knowing which you are touching tells you the blast radius before you start.
 |---|---|---|
 | **1 · Template** | What every game gets by existing: the skin (chrome *and* setup screens), team bar, scoring, timer, clue card + flip variants, `showResult()`, all `Sound.*`, all `Kit.*`, the content gate | Highest engineering risk, touches everything — this is what the smoke suite is for |
 | **2 · Game** | Board logic, stage CSS, its `tension()` source. Free-form within the registry contract | Low risk, isolated to one game |
-| **3 · Content** | The banks — shaped per game (§3.2), organised per unit | Near-zero engineering risk, **highest cost in your hours** — Unit 5 is 263 items |
+| **3 · Content** | The banks — shaped per game (§3.2), organised per unit | Near-zero engineering risk, **highest cost in your hours** — 565 items across two units |
 
 **Layer 1 is really two things pointing opposite ways**, and the distinction matters
 when adding a feature:
@@ -227,9 +227,18 @@ for one tile, a Millionaire rung with no question behind it, and section labels 
 counts have drifted from the bank. **It found eight real defects in Unit 4 the day it
 was written** — including a hexagon showing `U` whose answer was *Irresistible*.
 
-Still missing for Unit 5: **5D entirely** (the writing lesson — opinion essay and
-linking for addition/reinforcement, both very gameable), pronunciation beyond one
-item, the p66 crime idioms, and anything from the reading texts.
+**Both units now carry all four games across all four sections.** Unit 5 is 319 items,
+Unit 4 is 246 — **565 in total**. Two things learned filling the gaps:
+- **The writing lesson was as gameable as any other section**, once you stop treating
+  it as "an essay". The linkers are vocabulary (and make excellent Race tiles, like
+  the relative pronouns), and the paragraph functions are a fixed, testable structure.
+  5D was skipped for months on the assumption it wouldn't fit; that was wrong.
+- **A ladder needs two questions per rung, not one.** Millionaire's ladder is *per
+  team*, so with one question per rung both teams meet the identical question on the
+  way up. Every section now carries at least two at every rung.
+
+Still missing: Unit 5's pronunciation beyond one item, the p66 crime idioms, and
+anything from the reading texts; Unit 4's p54 review page.
 
 ## Adding a feature (settings-first)
 Every new feature gets a switch. Register it at the top of `hub-engine.js` and the
