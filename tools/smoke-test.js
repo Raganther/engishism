@@ -446,6 +446,31 @@ async function testSettings(browser){
   await page.reload(); await page.waitForTimeout(400);
   check('a changed setting survives reload', await page.evaluate(() => window.HubSettings.get('sound')) === false);
 
+  /* The trap this covers: change a value on "All games" while a per-game override
+     already exists and nothing on the master row said so — the master read Off,
+     a game kept its own value of On, and there was no way to see why short of
+     clicking through every tab. The master row must name the game and jump to it. */
+  await page.evaluate(() => {
+    window.HubSettings.set('musicBed', 'off');
+    window.HubSettings.set('musicBed', 'normal', 'millionaire');
+  });
+  await page.locator('#settings-btn').click(); await page.waitForTimeout(250);
+  await page.locator('.settings-tab', { hasText:'All games' }).click(); await page.waitForTimeout(150);
+  const masterRow = page.locator('.settings-row', { hasText:'Think-music drone' });
+  check('the master row names the game overriding it',
+        /overridden in millionaire/i.test(await masterRow.innerText()),
+        await masterRow.innerText());
+  await masterRow.locator('.settings-undo').click(); await page.waitForTimeout(200);
+  check('clicking the name jumps straight to that game\'s tab',
+        (await page.locator('.settings-tab.on').innerText()).toLowerCase() === 'millionaire');
+  check('and the row there confirms the override, matching what the master claimed',
+        /set for this game/i.test(await page.locator('.settings-row', { hasText:'Think-music drone' }).innerText()));
+  await page.locator('.settings-undo', { hasText:/match all games/i }).click(); await page.waitForTimeout(200);
+  await page.locator('.settings-tab', { hasText:'All games' }).click(); await page.waitForTimeout(150);
+  check('clearing the override removes the master-row warning',
+        !/overridden/i.test(await masterRow.innerText()));
+  await page.keyboard.press('Escape'); await page.waitForTimeout(150);
+
   await page.locator('#settings-btn').click(); await page.waitForTimeout(200);
   await page.locator('#settings-reset').click(); await page.waitForTimeout(250);
   check('reset restores the default', await page.evaluate(() => window.HubSettings.get('sound')) === true);

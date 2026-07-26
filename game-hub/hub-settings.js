@@ -260,6 +260,31 @@ window.HubSettings = (function(){
             state.textContent='Matching All games';
           }
           text.appendChild(state);
+        } else if(scoped(d)){
+          /* On the master tab, changing this value silently does nothing for a game
+             that already has its own — and there was no way to tell, which is
+             exactly the trap that cost a real debugging session: "All games" was
+             set to Off and the drone kept playing, because whichever game had been
+             played with the panel open (it opens on the current game's tab) had
+             quietly picked up its own value the first time a control was touched
+             there. Naming the game and linking straight to its tab turns that from
+             a silent mismatch into one click to fix. */
+          const overriding = d.games.filter(g => hasOverride(d.id, g));
+          if(overriding.length){
+            const state=document.createElement('div');
+            state.className='settings-state overridden';
+            state.appendChild(document.createTextNode(
+              (overriding.length === 1 ? 'Overridden in ' : overriding.length + ' games have their own value: ')));
+            overriding.forEach((g, i)=>{
+              if(i) state.appendChild(document.createTextNode(', '));
+              const jump=document.createElement('button');
+              jump.type='button'; jump.className='settings-undo';
+              jump.textContent=gameLabel(g);
+              jump.addEventListener('click', ()=>{ activeTab=g; render(); });
+              state.appendChild(jump);
+            });
+            text.appendChild(state);
+          }
         }
         row.appendChild(text);
         row.appendChild(buildControl(d, game));
