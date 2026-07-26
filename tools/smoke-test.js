@@ -359,17 +359,69 @@ const currentMillionaireAnswer = page => page.evaluate(() => {
   return null;
 });
 
+/* Ask the engine which games exist rather than listing them here. A hard-coded
+   list is how a fifth game silently goes untested — the same failure the registry
+   was built to end — so the layout contract finds the game, the way hasBank() and
+   the content gate already do. Anything that registers is covered the day it does. */
+const registeredGames = page => page.evaluate(() =>
+  window.HubGames.ids().map(id => ({
+    id, title: window.HubGames.get(id).title, stage: window.HubGames.get(id).stage })));
+
+/* The layout contract every game owes the room, whatever its board is made of.
+   Measured against the stage the registry names, so no per-game selector is
+   needed and none can drift. */
+async function stageReport(page, stage){
+  return page.evaluate(sel => {
+    const stageEl = document.getElementById(sel);
+    if (!stageEl) return { missing:true };
+    const bar   = document.getElementById('scorebar').getBoundingClientRect();
+    const kids  = [...stageEl.querySelectorAll('*')].filter(e => {
+      const r = e.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden';
+    });
+    // text that its own box cuts off: the box clips, and the content is wider
+    const clipped = kids.filter(e => {
+      const cs = getComputedStyle(e);
+      if (!/hidden|clip/.test(cs.overflowX) && !/hidden|clip/.test(cs.overflowY)) return false;
+      if (!e.textContent.trim()) return false;
+      return e.scrollWidth > e.clientWidth + 2 || e.scrollHeight > e.clientHeight + 2;
+    });
+    const withText = kids.filter(e =>
+      [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()));
+    const tiny = withText.filter(e => parseFloat(getComputedStyle(e).fontSize) < 11);
+    return {
+      missing:false,
+      offRight: Math.round(Math.max(0, document.documentElement.scrollWidth - window.innerWidth)),
+      underBar: Math.round(Math.max(0, Math.max(...kids.map(e => e.getBoundingClientRect().bottom)) - bar.top)),
+      clipped: clipped.length,
+      clippedSample: clipped.length ? (clipped[0].className || clipped[0].tagName) + ' "' +
+                     clipped[0].textContent.trim().slice(0, 18) + '"' : '',
+      tiny: tiny.length,
+      tinySample: tiny.length ? Math.round(parseFloat(getComputedStyle(tiny[0]).fontSize)) + 'px' : '',
+      chrome: Math.round(document.querySelector('header').getBoundingClientRect().height + bar.height)
+    };
+  }, stage);
+}
+
 async function testBoardFitAcrossScreens(browser){
-  section('Boards fit every screen');
+  section('Every registered game fits a computer screen');
+  const probe = await openHub(browser);
+  const games = await registeredGames(probe);
+  await probe.close();
+
   for (const vp of [{width:1280,height:720},{width:1920,height:1080}]){
-    for (const [game, sel, sections] of [['Jeopardy','.tile',1], ['Jeopardy','.tile','all'],
-                                         ['Race to the Board','.race-word','all'],
-                                         ['Millionaire','.m-option','all']]){
-      const page = await openHub(browser, vp);
-      await startGame(page, game, { sections });
-      const fit = await boardFits(page, sel);
-      check(`${game} @ ${vp.width}x${vp.height} (${sections === 'all' ? 'all' : sections} section)`, fit.ok, fit.why);
-      await page.close();
+    for (const g of games){
+      for (const sections of [1, 'all']){
+        const page = await openHub(browser, vp);
+        await startGame(page, g.title, { sections });
+        const r = await stageReport(page, g.stage);
+        const at = `${g.title} @ ${vp.width}x${vp.height} (${sections === 'all' ? 'all' : '1'} section)`;
+        if (r.missing){ check(at + ': stage exists', false, g.stage + ' not found'); await page.close(); continue; }
+        check(at + ': nothing under the team bar', r.underBar === 0, r.underBar + 'px');
+        check(at + ': nothing off the right edge', r.offRight === 0, r.offRight + 'px');
+        check(at + ': no text is cut off', r.clipped === 0, r.clipped + '× e.g. ' + r.clippedSample);
+        await page.close();
+      }
     }
   }
 }
@@ -1144,6 +1196,36 @@ async function testJeopardyFinish(browser){
    scrolls" is fine on a handset and "you cannot read option C" is not. */
 async function testPhoneLayout(browser){
   section('Usable on a phone');
+
+  /* Same contract as the desktop suite, asked of whatever the registry holds, so
+     a fifth game is covered the day it registers rather than the day someone
+     remembers to add it here. Jeopardy is why this is not Millionaire-only: it
+     passed every fit assertion while being unreadable, because "does not overflow"
+     and "can be read" are different properties. */
+  const probe = await openHub(browser);
+  const games = await registeredGames(probe);
+  await probe.close();
+
+  for (const g of games){
+    const page = await browser.newPage({
+      viewport:{ width:390, height:844 }, deviceScaleFactor:2, isMobile:true, hasTouch:true });
+    page.__errors = []; page.__console = [];
+    page.on('pageerror', e => page.__errors.push(String(e)));
+    await page.goto(BASE + '/game-hub.html');
+    await page.waitForTimeout(350);
+    await startGame(page, g.title, { sections:'all' });
+    const r = await stageReport(page, g.stage);
+    check(`${g.title} @ 390x844: no text is cut off`, r.clipped === 0,
+          r.clipped + '× e.g. ' + r.clippedSample);
+    /* Deliberately no minimum type size here. A handset is read at arm's length,
+       so 10px on Race's words and 10.9px on Millionaire's ladder strip are fine;
+       the legibility floor that matters is the projected screen, and that is a
+       content decision (pick fewer sections) rather than a layout one. Asserting
+       it here would only have taught us to loosen it. */
+    check(`${g.title} @ 390x844: chrome leaves the board its space`, r.chrome <= 200, r.chrome + 'px');
+    await page.close();
+  }
+
   // 360x560 is the squeeze case: a small Android with the browser's own chrome
   // taking a bite. The content genuinely cannot fit, which is what `floor:true`
   // on Kit.fitToScreen is for — it hands the height back rather than forcing one.

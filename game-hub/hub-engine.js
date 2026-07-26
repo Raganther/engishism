@@ -892,7 +892,11 @@
   function buildJeopardyBoard(){
     const cats = JEOPARDY_CATEGORIES.filter(c=>selectedContent.includes(c.id));
     const board = document.getElementById('board');
-    board.style.gridTemplateColumns = `repeat(${cats.length}, 1fr)`;
+    /* The count goes in a custom property and the stylesheet owns the track size.
+       Writing `repeat(n, 1fr)` inline meant no media query could change it — a
+       handset needs a fixed column width and a board that scrolls sideways, and
+       an inline style cannot be overridden from CSS without !important. */
+    board.style.setProperty('--jcols', cats.length);
     board.innerHTML='';
     cats.forEach(cat=>{
       const h=document.createElement('div');
@@ -984,6 +988,48 @@
       const th = tile.getBoundingClientRect().height;
       board.style.setProperty('--jt', Math.max(0.5, Math.min(1.3, th/84)).toFixed(3));
     }
+    fitCategoryHeadings(board);
+  }
+
+  /* A category name has to fit the column it sits in, not the viewport. The type
+     was sized with `1.05vw`, which holds it at 13px however narrow the column
+     gets, so a 16-category board at 1280px gave each heading 51px of room and cut
+     "Employment & Sectors" off mid-word — on the projected screen, where the
+     heading is how the class knows what the column is.
+
+     The longest *word* is the constraint: spaces can wrap, a word cannot break
+     without becoming unreadable. Measured on a canvas rather than by growing the
+     text and re-reading the layout, so it costs no reflow. If the webfont hasn't
+     loaded (offline, which is a supported way to run this) the fallback face
+     measures slightly differently, hence the 0.96 margin. */
+  function fitCategoryHeadings(board){
+    const heads = [...board.querySelectorAll('.cat-header')];
+    if(!heads.length) return;
+    const cs   = getComputedStyle(heads[0]);
+    const ctx  = fitCategoryHeadings._ctx ||
+                (fitCategoryHeadings._ctx = document.createElement('canvas').getContext('2d'));
+    ctx.font = `${cs.fontWeight} 100px ${cs.fontFamily}`;
+    /* Letter-spacing is em-based (the game show skin triples it to 0.09em) and
+       canvas does not apply it, so add it back per character. Across a ten-letter
+       word that is 0.9em — a fifth of a 51px column, the difference between
+       fitting and clipping rather than a rounding detail. Being em-based it
+       scales with the answer, so the ratio holds whatever size we land on. */
+    const fs      = parseFloat(cs.fontSize) || 12;
+    const trackEm = (parseFloat(cs.letterSpacing) || 0) / fs;
+    let widest = 1;
+    heads.forEach(h => h.textContent.trim().toUpperCase().split(/\s+/).forEach(w => {
+      widest = Math.max(widest, ctx.measureText(w).width + w.length * trackEm * 100);
+    }));
+    const padding = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+    const avail   = Math.max(10, heads[0].clientWidth - padding);
+    /* The floor is a legibility floor, not a fitting one. Sizing purely to make
+       the longest word fit reached 8px on a 16-category board — not clipped, and
+       not readable from the back of a room either, which is the requirement that
+       actually matters. Below 10.5px the word is allowed to break instead
+       (overflow-wrap in the stylesheet), because two readable lines beat one
+       unreadable one. A board this crowded is a sign to pick fewer sections. */
+    const px = (avail / (widest / 100)) * 0.96;
+    board.style.setProperty('--jch', Math.max(10.5, Math.min(14.1, px)).toFixed(2) + 'px');
   }
 
   /* ================= CONTENT SCREEN ================= */

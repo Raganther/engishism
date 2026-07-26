@@ -89,8 +89,12 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 #play-jeopardy{ display:none; padding: 12px 24px 6px; }
 /* --jt is the type scale fitJeopardyBoard works out from the row height it ends up
    with; height and rows are set there too, so the board always fits the screen */
-#board{ display:grid; gap:8px; margin-top: 10px; --jt:1; }
-.cat-header{ background: var(--navy); border-radius:8px; padding: 8px; text-align:center; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(0.68rem, 1.05vw, 0.88rem); text-transform:uppercase; letter-spacing:0.03em; line-height:1.2; min-height:0; overflow:hidden; display:flex; align-items:center; justify-content:center; color: var(--yellow); }
+#board{ display:grid; gap:8px; margin-top: 10px; --jt:1;
+        grid-template-columns: repeat(var(--jcols, 6), 1fr); }
+/* --jch is set by fitCategoryHeadings() from the column actually rendered; the
+   clamp is the fallback for before the board has been measured. overflow-wrap is
+   the safety net for a single word longer than any column can hold. */
+.cat-header{ background: var(--navy); border-radius:8px; padding: 8px; text-align:center; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: var(--jch, clamp(0.68rem, 1.05vw, 0.88rem)); text-transform:uppercase; letter-spacing:0.03em; line-height:1.2; min-height:0; overflow:hidden; overflow-wrap:anywhere; display:flex; align-items:center; justify-content:center; color: var(--yellow); }
 .tile{ background: var(--blue); border-radius:8px; min-height:0; overflow:hidden; display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: calc(clamp(1rem, 2vw, 1.6rem) * var(--jt)); color: var(--white); cursor:pointer; transition: transform .12s, background .12s; }
 .tile:hover{ transform: scale(1.03); background: #0089c0; }
 /* spent tiles keep their value, faded — you can still see what was at stake, and
@@ -961,6 +965,14 @@ body.theme-gameshow #result-card{ background:#05060F; }
   #scorebar .reset-btn{ padding:0 10px; height:30px; font-size:0.62rem; }
 
   body.play-fit{ overflow:auto; padding-bottom:104px; }
+
+  /* Jeopardy is the one board a handset genuinely cannot hold: 16 categories
+     across 390px is 22px a column, which fits by any measurement and is readable
+     by none. Give each column a floor and let the board scroll sideways instead —
+     the columns stay legible and the value column keeps its meaning. Sideways
+     scrolling is wrong on the projected screen and right in the hand. */
+  #play-jeopardy{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  #board{ grid-template-columns: repeat(var(--jcols, 6), 108px); width:max-content; }
 
   #play-millionaire,
   body.theme-gameshow #play-millionaire.lit{ padding:10px 12px 8px; }
