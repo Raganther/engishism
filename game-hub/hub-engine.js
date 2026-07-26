@@ -2083,7 +2083,7 @@
      whatever is left under the header and above the team bar, and the options and
      ladder stretch into it. */
   function fitMillionaire(){
-    Kit.fitToScreen(document.getElementById('m-main'), { min:260, gap:12 });
+    Kit.fitToScreen(document.getElementById('m-main'), { min:260, gap:12, floor:true });
   }
 
   function renderLadder(){

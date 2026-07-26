@@ -311,7 +311,7 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 #clue-actions button:hover{ filter: brightness(1.06); }
 
 /* --- Timer widget (teacher-controlled, both games) — lives in the header bar --- */
-.header-right{ display:flex; align-items:center; gap:12px; }
+.header-right{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end; }
 #timer-widget{ display:none; align-items:center; gap:6px; background:var(--navy); border:2px solid var(--yellow); border-radius:12px; padding:6px 9px; }
 #timer-widget button{ background:var(--navy3); color:var(--white); border:none; width:30px; height:30px; border-radius:7px; cursor:pointer; font-size:1rem; line-height:1; font-family:'Space Grotesk',sans-serif; }
 #timer-widget button:hover{ background:var(--blue); }
@@ -340,7 +340,11 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
   font-family:'Space Grotesk',sans-serif; font-weight:500; line-height:1.35;
   font-size: clamp(1.1rem, 2.3vw, 1.8rem); display:flex; align-items:center; justify-content:center; min-height:96px;
 }
-#m-options{ display:grid; grid-template-columns:1fr 1fr; gap:12px; flex:1; min-height:0; }
+/* Rows stretch to share the space but never shrink under their own content: an
+   option carries a 34px letter circle, so a collapsed row overflows and the next
+   element paints over the top of it. */
+#m-options{ display:grid; grid-template-columns:1fr 1fr; gap:12px; flex:1; min-height:0;
+            grid-auto-rows: minmax(min-content, 1fr); }
 @media(max-width:720px){ #m-options{ grid-template-columns:1fr; } }
 .m-option{
   display:flex; align-items:center; gap:14px; text-align:left; cursor:pointer;
@@ -922,6 +926,80 @@ body.theme-gameshow #result-card{ background:#05060F; }
 .settings-note{ color:var(--muted); font-size:0.78rem; line-height:1.4; }
 #settings-reset{ background:transparent; color:var(--muted); border:1px solid rgba(18,38,63,0.25); border-radius:8px; padding:8px 14px; font-family:'IBM Plex Mono',monospace; font-size:0.7rem; letter-spacing:0.04em; text-transform:uppercase; cursor:pointer; flex-shrink:0; }
 #settings-reset:hover{ border-color:var(--navy); color:var(--navy); }
+
+/* ============================================================================
+   HANDSETS — a preview device, not the projected board
+   The app is built for a classroom TV and that is not changing. But a teacher
+   checks a lesson on their phone, and on a 390×844 screen the chrome alone ate
+   38% (header 146px + team bar 177px) before the game got a pixel.
+
+   Two rules differ here, deliberately:
+   - **The board may scroll.** "Never scroll" exists because a teacher cannot
+     scroll a projected image mid-game. A phone in your hand is not that, and a
+     forced fit is what collapsed Millionaire's options in the first place.
+   - **Nothing is hidden, only compacted.** The timer and the scores are what a
+     teacher actually reaches for, so they shrink rather than disappear.
+   ============================================================================ */
+@media (max-width: 760px){
+  header{ padding:10px 14px 8px; gap:8px; }
+  h1{ font-size:1.15rem; }
+  .eyebrow{ font-size:0.62rem; letter-spacing:0.1em; }
+  .header-right{ gap:8px; }
+  #timer-widget{ padding:4px 6px; gap:4px; }
+  #timer-widget button{ width:26px; height:26px; font-size:0.9rem; }
+  #tmr-display{ font-size:1.15rem; }
+  #settings-btn{ width:34px; height:34px; font-size:1rem; }
+  #new-game-btn{ padding:6px 10px; font-size:0.66rem; }
+
+  /* two teams on one row instead of three stacked rows */
+  #scorebar{ gap:8px; padding:8px 10px; }
+  .team{ gap:6px; padding:6px 8px; }
+  .team input.tname{ width:58px; font-size:0.82rem; }
+  .team .score{ min-width:32px; font-size:0.9rem; }
+  .team button{ width:22px; height:22px; font-size:0.9rem; }
+  #add-team-btn{ padding:0 10px; font-size:0.8rem; }
+  #scorebar .reset-btn{ padding:0 10px; height:30px; font-size:0.62rem; }
+
+  body.play-fit{ overflow:auto; padding-bottom:104px; }
+
+  #play-millionaire,
+  body.theme-gameshow #play-millionaire.lit{ padding:10px 12px 8px; }
+  #m-bar{ gap:8px; min-height:0; }
+  .lifeline{ padding:7px 11px; font-size:0.74rem; }
+  #m-stage{ gap:10px; }
+  #m-question{ padding:14px 16px; min-height:0; font-size:1.05rem; }
+  #m-main{ gap:12px; margin-top:8px; }
+  .m-option{ padding:10px 12px; gap:10px; }
+  .m-letter{ width:28px; height:28px; font-size:0.85rem; }
+  #m-foot{ min-height:0; gap:10px; }
+  #m-next, #m-done-count{ padding:9px 14px; font-size:0.84rem; }
+
+  /* the ladder is a reference, not the game — a horizontal strip of values keeps
+     it glanceable instead of pushing the answers off the screen. DOM order runs
+     top rung first, so row-reverse puts 100 on the left where it belongs.
+     Wrapping is wrong here even though it looks safe: the rungs are built top-down,
+     so a wrapped line strands 100 — the rung actually in play — on a row of its own
+     under the others. One row that shrinks keeps the climb readable left to right. */
+  #m-ladder{ flex-direction:row-reverse; flex-wrap:nowrap; justify-content:center; gap:4px; }
+  .m-rung{ flex:1 1 0; min-width:0; justify-content:center; padding:5px 4px;
+           font-size:0.68rem; min-height:0; }
+  .m-rung-n{ display:none; }
+}
+
+/* Small handsets (an iPhone SE is 375px): the gear, the five-button timer and
+   New game together overflow, and .header-right wraps them onto three lines,
+   which costs more height than the timer saves. Shrink the timer instead. */
+@media (max-width: 480px){
+  #timer-widget{ padding:3px 5px; gap:3px; }
+  #timer-widget button{ width:22px; height:22px; font-size:0.82rem; }
+  #tmr-display{ font-size:1rem; }
+  #new-game-btn{ padding:5px 8px; font-size:0.6rem; }
+  /* two teams came to 344px against 340px of room at 360 wide, so the bar wrapped
+     to a second row and cost 42px of board to miss by four pixels */
+  #scorebar{ gap:6px; padding:8px; }
+  .team{ gap:5px; padding:6px 7px; }
+  .team input.tname{ width:50px; }
+}
 
 /* --- Active team + turn highlight --- */
 .team.active{ outline:2px solid var(--yellow); box-shadow:0 0 0 3px rgba(255,194,14,0.25); }

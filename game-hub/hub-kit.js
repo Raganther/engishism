@@ -27,6 +27,14 @@ window.HubKit = (function(){
     const gap  = o.gap  === undefined ? 14  : o.gap;
     const top  = el.getBoundingClientRect().top;
     if(top <= 0) return 0;
+    /* `floor:true` says this board has a hard minimum it cannot scale below.
+       Jeopardy shrinks its type and Race re-scatters, so they can always be made
+       to fit; Millionaire's four options each carry a 34px letter circle, so
+       below a certain height there is no honest fit and forcing one collapses
+       the grid rows underneath their own content — which is what painted the
+       ladder straight through the answers on a phone. Measure what the content
+       actually needs, and when the screen can't give it, hand the height back
+       and let the page scroll instead of lying about the fit. */
     const bar  = document.getElementById('scorebar');
     const barH = (bar && bar.offsetHeight) || 76;
     // Bottom padding on an ancestor sits *below* this element, so the space it
@@ -39,6 +47,10 @@ window.HubKit = (function(){
       below += parseFloat(getComputedStyle(p).paddingBottom) || 0;
     }
     const h = Math.max(min, window.innerHeight - top - barH - gap - below);
+    if(o.floor){
+      el.style.height = '';
+      if(el.scrollHeight > h + 1){ el.style.removeProperty('height'); return 0; }
+    }
     el.style.height = h + 'px';
     return h;
   }

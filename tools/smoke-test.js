@@ -1136,6 +1136,70 @@ async function testJeopardyFinish(browser){
   await page.close();
 }
 
+/* A phone is a preview device, not the projected board, but it has to be usable:
+   a teacher checks a lesson on the way in. This is here because it shipped broken —
+   Kit.fitToScreen forced #m-main to a height the content could not fit in, the
+   option grid's rows collapsed under their own content, and the ladder painted
+   straight through answers B, C and D. Overlap is the assertion, because "it
+   scrolls" is fine on a handset and "you cannot read option C" is not. */
+async function testPhoneLayout(browser){
+  section('Usable on a phone');
+  // 360x560 is the squeeze case: a small Android with the browser's own chrome
+  // taking a bite. The content genuinely cannot fit, which is what `floor:true`
+  // on Kit.fitToScreen is for — it hands the height back rather than forcing one.
+  for (const vp of [{ width:390, height:844, name:'390x844' },
+                    { width:375, height:667, name:'375x667' },
+                    { width:360, height:560, name:'360x560' }]){
+    const page = await browser.newPage({
+      viewport:{ width:vp.width, height:vp.height }, deviceScaleFactor:2, isMobile:true, hasTouch:true });
+    page.__errors = []; page.__console = [];
+    page.on('pageerror', e => page.__errors.push(String(e)));
+    await page.goto(BASE + '/game-hub.html');
+    await page.waitForTimeout(350);
+    await startGame(page, 'Millionaire', { sections:'all' });
+
+    const r = await page.evaluate(() => {
+      const rect = s => { const e = document.querySelector(s); return e && e.getBoundingClientRect(); };
+      const overlap = (a, b) => a && b &&
+        Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1 &&
+        Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1;
+      const opts = [...document.querySelectorAll('.m-option')].map(e => e.getBoundingClientRect());
+      let optOverlap = 0;
+      for (let i = 0; i < opts.length; i++)
+        for (let j = i + 1; j < opts.length; j++) if (overlap(opts[i], opts[j])) optOverlap++;
+      /* Measure the options themselves, never their container: when the grid rows
+         collapsed, #m-options stayed a 50px box while its four options overflowed
+         320px past it. Comparing the ladder to that box saw no overlap and called
+         a game you literally could not read "fine". */
+      const box = rect('#m-options');
+      return {
+        options: opts.length,
+        optOverlap,
+        spill: Math.round(Math.max(0, Math.max(...opts.map(o => o.bottom)) - box.bottom)),
+        ladderOverOptions: opts.some(o => overlap(rect('#m-ladder'), o)),
+        offRight: Math.round(Math.max(0, document.documentElement.scrollWidth - window.innerWidth)),
+        chrome: Math.round(rect('header').height + rect('#scorebar').height),
+        shortest: Math.round(Math.min(...opts.map(o => o.height)))
+      };
+    });
+
+    check(`${vp.name}: four options are on screen`, r.options === 4, String(r.options));
+    check(`${vp.name}: no option overlaps another`, r.optOverlap === 0, r.optOverlap + ' pairs');
+    check(`${vp.name}: the ladder does not cover the answers`, !r.ladderOverOptions);
+    check(`${vp.name}: the options stay inside their grid`, r.spill === 0, r.spill + 'px past it');
+    check(`${vp.name}: every option keeps its full height`, r.shortest >= 40, r.shortest + 'px');
+    check(`${vp.name}: nothing runs off the right edge`, r.offRight === 0, r.offRight + 'px');
+    // An absolute cap, not a fraction of the viewport: the header and team bar
+    // cost the same pixels whatever the screen, and on the shortest handset a
+    // fraction would pass at 33% while stealing 40% of a 560px screen. This was
+    // 323px — header 146 + team bar 177 — before the handset tier existed.
+    check(`${vp.name}: chrome leaves the board its space`,
+          r.chrome <= 200, r.chrome + 'px of ' + vp.height);
+    checkClean(page, vp.name);
+    await page.close();
+  }
+}
+
 const tension = page =>
   page.evaluate(() => document.getElementById('play-millionaire').style.getPropertyValue('--tension'));
 
@@ -1353,7 +1417,7 @@ async function main(){
   const started = Date.now();
   const suites = {
     jeopardy: testJeopardy, blockbusters: testBlockbusters, race: testRace,
-    millionaire: testMillionaire, fit: testBoardFitAcrossScreens,
+    millionaire: testMillionaire, fit: testBoardFitAcrossScreens, phone: testPhoneLayout,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
     variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, defaultlook: testDefaultLook, jfinish: testJeopardyFinish,
     buzzers: testBuzzers,
