@@ -346,10 +346,14 @@ async function testMillionaire(browser){
   await page.close();
 }
 
+/* The question on screen is *rendered*, not printed: Kit.prompt draws a `___` as a
+   real blank showing '?'. So match the way Race's lookup does, against the prompt
+   with its gaps normalised — comparing to the raw string silently found nothing. */
 const currentMillionaireAnswer = page => page.evaluate(() => {
   const q = document.getElementById('m-question').textContent;
   for (const u of window.UNITS){
-    const hit = (u.millionaireBank||[]).find(i => i.prompt === q);
+    const hit = (u.millionaireBank||[]).find(i =>
+      i.prompt === q || i.prompt.replace(/___+/g, '?') === q);
     if (hit) return hit.answer;
   }
   return null;
