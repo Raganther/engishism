@@ -1254,6 +1254,14 @@ async function testJeopardyFinish(browser){
     // alternate right and wrong so the two teams do not finish level
     await page.locator(i % 3 === 0 ? '#wrong-btn' : '#correct-btn').click();
     await page.waitForTimeout(1450);
+    /* A wrong answer no longer burns the tile on its own — it offers the room a
+       steal, and the card stays up until someone takes it or the teacher declines.
+       Decline it here so this suite keeps testing what it is for: that a board
+       played to the end raises the banner. */
+    const declineSteal = page.locator('#skip-btn');
+    if (await declineSteal.isVisible().catch(()=>false)){
+      await declineSteal.click(); await page.waitForTimeout(1200);
+    }
   }
   await page.waitForTimeout(700);
   const fin = await page.evaluate(() => ({
@@ -1363,6 +1371,140 @@ async function testPhoneLayout(browser){
     checkClean(page, vp.name);
     await page.close();
   }
+}
+
+/* ---- competitive dynamics ----
+   Every mechanic is asserted in BOTH switch positions. "Off reproduces exactly what
+   the app did before" is the promise that lets a teacher try these mid-term without
+   risking a lesson, so it is the more important half of each pair. */
+async function testCompetition(browser){
+  section('Competitive dynamics');
+
+  const activeTeam = page => page.evaluate(() =>
+    [...document.querySelectorAll('.team')].findIndex(e => e.classList.contains('active')));
+  const openFirstClue = async page => {
+    await page.locator('#board .tile:not(.used)').first().click(); await page.waitForTimeout(500);
+    await page.locator('#reveal-btn').click(); await page.waitForTimeout(200);
+  };
+
+  // ---- steal on, in Jeopardy
+  let page = await openHub(browser);
+  await page.evaluate(() => {
+    window.HubSettings.set('cardFlip', 'off'); window.HubSettings.set('intro', 'off');
+    window.HubSettings.set('stealOnWrong', true, 'jeopardy');
+  });
+  await startGame(page, 'Jeopardy', { sections:3 });
+  await openFirstClue(page);
+  await page.locator('#wrong-btn').click(); await page.waitForTimeout(400);
+
+  check('a miss keeps the question up instead of burning it',
+        await page.locator('#clue-modal').isVisible());
+  check('the team that missed it is not offered the steal',
+        await page.locator('#clue-claim .claim-team').count() === 1,
+        String(await page.locator('#clue-claim .claim-team').count()));
+  check('the card says what the steal is worth',
+        /steal for 50/.test(await page.locator('#clue-topline').innerText()),
+        await page.locator('#clue-topline').innerText());
+  check('and the answer is put away again so it can still be earned',
+        await page.locator('#clue-text .prompt-gap.filled').count() === 0 &&
+        !(await page.locator('#clue-answer').isVisible()));
+
+  await page.locator('#clue-claim .claim-team').first().click(); await page.waitForTimeout(250);
+  await page.locator('#reveal-btn').click(); await page.waitForTimeout(200);
+  await page.locator('#correct-btn').click(); await page.waitForTimeout(900);
+  check('a steal scores half the tile', (await scores(page))[1] === '50', (await scores(page)).join('/'));
+
+  // a second miss on the same clue has nowhere left to go, so it closes as before
+  await openFirstClue(page);
+  await page.locator('#wrong-btn').click(); await page.waitForTimeout(400);
+  await page.locator('#clue-claim .claim-team').first().click(); await page.waitForTimeout(250);
+  await page.locator('#reveal-btn').click(); await page.waitForTimeout(200);
+  await page.locator('#wrong-btn').click(); await page.waitForTimeout(1300);
+  check('a second miss ends the question rather than going round the table',
+        !(await page.locator('#clue-modal').isVisible()));
+  checkClean(page, 'steal on');
+  await page.close();
+
+  // ---- steal off: exactly the old behaviour
+  page = await openHub(browser);
+  await page.evaluate(() => {
+    window.HubSettings.set('cardFlip', 'off'); window.HubSettings.set('intro', 'off');
+    window.HubSettings.set('stealOnWrong', false, 'jeopardy');
+    window.HubSettings.set('keepControl', false, 'jeopardy');
+  });
+  await startGame(page, 'Jeopardy', { sections:3 });
+  const before = await activeTeam(page);
+  await openFirstClue(page);
+  await page.locator('#wrong-btn').click(); await page.waitForTimeout(1300);
+  check('switched off, a miss closes the question', !(await page.locator('#clue-modal').isVisible()));
+  check('switched off, a miss burns the tile', await page.locator('#board .tile.used').count() === 1);
+  check('switched off, a miss passes the turn', await activeTeam(page) !== before);
+  check('and nothing was scored', (await scores(page)).every(v => v === '0'), (await scores(page)).join('/'));
+
+  // ---- keep control, both ways
+  await page.evaluate(() => window.HubSettings.set('keepControl', false, 'jeopardy'));
+  await startGame(page, 'Jeopardy', { sections:3 });
+  const heldBefore = await activeTeam(page);
+  await openFirstClue(page);
+  await page.locator('#correct-btn').click(); await page.waitForTimeout(1300);
+  check('with keep-control off, a correct answer hands over', await activeTeam(page) !== heldBefore);
+
+  await page.evaluate(() => window.HubSettings.set('keepControl', true, 'jeopardy'));
+  await startGame(page, 'Jeopardy', { sections:3 });
+  const keptBefore = await activeTeam(page);
+  await openFirstClue(page);
+  await page.locator('#correct-btn').click(); await page.waitForTimeout(1300);
+  check('with it on, the team keeps the board', await activeTeam(page) === keptBefore);
+  checkClean(page, 'steal off');
+  await page.close();
+
+  // ---- streak: three in a row for one team
+  page = await openHub(browser);
+  await page.evaluate(() => {
+    window.HubSettings.set('cardFlip', 'off'); window.HubSettings.set('intro', 'off');
+    window.HubSettings.set('keepControl', true, 'jeopardy');
+    window.HubSettings.set('streak', true, 'jeopardy');
+  });
+  await startGame(page, 'Jeopardy', { sections:3 });
+  const paid = [];
+  for (let i = 0; i < 3; i++){
+    const tile = page.locator('#board .tile:not(.used)').first();
+    const value = parseInt((await tile.innerText()).replace(/\D/g, ''), 10);
+    await tile.click(); await page.waitForTimeout(450);
+    await page.locator('#reveal-btn').click(); await page.waitForTimeout(180);
+    const was = parseInt((await scores(page))[0], 10);
+    await page.locator('#correct-btn').click(); await page.waitForTimeout(1200);
+    paid.push({ value, gained: parseInt((await scores(page))[0], 10) - was });
+  }
+  check('the first answer of a run pays face value', paid[0].gained === paid[0].value,
+        JSON.stringify(paid[0]));
+  check('the second pays one and a half', paid[1].gained === paid[1].value * 1.5,
+        JSON.stringify(paid[1]));
+  check('the third pays double', paid[2].gained === paid[2].value * 2, JSON.stringify(paid[2]));
+  checkClean(page, 'streak');
+  await page.close();
+
+  // ---- Millionaire hands a missed rung to the other team
+  page = await openHub(browser);
+  await page.evaluate(() => {
+    window.HubSettings.set('intro', 'off');
+    window.HubSettings.set('stealOnWrong', true, 'millionaire');
+  });
+  await startGame(page, 'Millionaire', { sections:'all' });
+  const right = await currentMillionaireAnswer(page);
+  const wrong = await page.evaluate(r => {
+    const b = [...document.querySelectorAll('#m-options .m-option')].find(x => x.dataset.opt !== r);
+    return b ? b.dataset.opt : null;
+  }, right);
+  await page.locator('.m-option', { hasText: wrong }).first().click(); await page.waitForTimeout(900);
+  check('a missed rung is offered to the other team',
+        /steal it for 50/i.test(await page.locator('#m-hint').innerText()),
+        await page.locator('#m-hint').innerText());
+  await page.locator('.m-option', { hasText: right }).first().click(); await page.waitForTimeout(900);
+  check('and the stealing team banks half the rung',
+        (await scores(page))[1] === '50', (await scores(page)).join('/'));
+  checkClean(page, 'millionaire steal');
+  await page.close();
 }
 
 const tension = page =>
@@ -1630,7 +1772,7 @@ async function main(){
     jeopardy: testJeopardy, blockbusters: testBlockbusters, race: testRace,
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens, phone: testPhoneLayout,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
-    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, defaultlook: testDefaultLook, jfinish: testJeopardyFinish,
+    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, defaultlook: testDefaultLook, jfinish: testJeopardyFinish, competition: testCompetition,
     buzzers: testBuzzers,
     degradation: testDegradation, file: testFileProtocol
   };

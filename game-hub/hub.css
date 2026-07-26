@@ -477,7 +477,9 @@ body.theme-gameshow #timer-widget{ background:rgba(0,0,0,0.5); border-color:var(
 body.theme-gameshow #scorebar{ background:#02030A; border-top-color: var(--gold); }
 body.theme-gameshow .team{ background:rgba(255,255,255,0.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
 body.theme-gameshow .team .score{ color: var(--gold); text-shadow: 0 0 14px rgba(255,200,61,0.5); }
-body.theme-gameshow .team.active-team{ box-shadow: 0 0 0 2px var(--gold), 0 0 26px rgba(255,200,61,0.4); }
+/* the engine sets `.active`, never `.active-team` — this rule matched nothing at all,
+   so the gold whose-turn ring has never once appeared in game show mode */
+body.theme-gameshow .team.active{ box-shadow: 0 0 0 2px var(--gold), 0 0 26px rgba(255,200,61,0.4); }
 
 /* --- the setup screens: choose a unit, choose a game, choose sections ---
    These are the first thing a class sees, so they carry the same stage the games

@@ -57,6 +57,9 @@
        tension()             set `--tension` and drive the music bed
        onResize()            re-fit after a window resize
        onTimerEnd()          the header countdown reached zero
+       onWrong(teamIdx)      a team missed it — return true if the game opened a
+                             steal and will finish the beat itself, false to let
+                             the shared path close the question as before
 
      Hooks run only while their game is the active one, so none of them needs to
      check. Registration order is the order the cards appear on the game screen. */
@@ -78,7 +81,7 @@
       hasBank: function(){ return false; },
       load: NO_OP, renderContent: NO_OP, startButton: NO_OP,
       start: NO_OP, fit: NO_OP, deal: NO_OP, tension: NO_OP,
-      onResize: NO_OP, onTimerEnd: NO_OP
+      onResize: NO_OP, onTimerEnd: NO_OP, onWrong: NO_OP
     }, def);
     GAMES.push(g);
     GAME_BY_ID[g.id] = g;
@@ -102,9 +105,9 @@
   const gameIds  = () => GAMES.map(g => g.id);
   /* Run a hook on the game being played. Every call site used to be an if-chain
      that a new game had to be threaded into by hand. */
-  function hook(name){
+  function hook(name, ...args){
     const g = gameDef();
-    if(g && typeof g[name] === 'function') g[name]();
+    return (g && typeof g[name] === 'function') ? g[name](...args) : undefined;
   }
 
   /* The four games. Hooks call functions defined further down the file — they run
@@ -127,7 +130,8 @@
     fit:      fitJeopardyBoard,
     deal:     jDeal,
     tension(){ jTension(); },
-    onResize: fitJeopardyBoard
+    onResize: fitJeopardyBoard,
+    onWrong:  jOfferSteal
   });
 
   registerGame({
@@ -209,6 +213,31 @@
   S.register({ id:'soundVolume', group:'Sound', type:'select', default:'med', games:gameIds(),
     label:'Volume', help:'Classroom speakers are usually louder than they sound at your desk.',
     options:[{value:'quiet',label:'Quiet'},{value:'med',label:'Medium'},{value:'loud',label:'Loud'}] });
+
+  /* ---- competitive dynamics ----
+     All per-game, so a teacher can run steal in Jeopardy and not in Blockbusters and
+     compare. **Nothing here ever deducts points**: a steal transfers the chance, not
+     the score, which keeps the decision recorded in the Millionaire section below
+     (never taking anything away) true of the whole app.
+
+     Steal and keep-control default ON — they only add ways to score, and between
+     them they fix the thing that most flattens a room: nothing being at stake when
+     it is not your turn. The streak defaults off because it changes how big the
+     numbers get, which is a taste question. */
+  S.register({ id:'stealOnWrong', group:'Competition', type:'toggle', default:true,
+    games:['jeopardy','blockbusters','millionaire','race'],
+    label:'Steal on a wrong answer',
+    help:'A missed question passes to the other team for one shot at half the points. Off: a wrong answer simply ends the question, as before.' });
+
+  S.register({ id:'keepControl', group:'Competition', type:'toggle', default:true,
+    games:['jeopardy','blockbusters'],
+    label:'Keep the board on a correct answer',
+    help:'A team that answers correctly picks again instead of handing over. Runs build, which is what steal is there to punish.' });
+
+  S.register({ id:'streak', group:'Competition', type:'toggle', default:false,
+    games:['jeopardy','blockbusters','millionaire','race'],
+    label:'Streak bonus',
+    help:'Two in a row scores 1.5×, three or more scores 2×. A wrong answer resets it.' });
 
   S.register({ id:'promptForms', group:'Questions', type:'toggle', default:true,
     games:['jeopardy','blockbusters','race','millionaire'],
@@ -652,8 +681,13 @@
   let selectedContent = [];
   let pool = [];
 
+  /* A team is data, never DOM: renderScorebar() tears the whole bar down and
+     rebuilds it on every score change, so anything held in an element is destroyed.
+     `run` is the current unbroken streak of correct answers. */
+  function newTeam(name){ return { name, score:0, run:0 }; }
+
   // shared team roster — persists across games AND unit switches until Reset
-  let teams = [{name:'Team 1',score:0},{name:'Team 2',score:0}];
+  let teams = [newTeam('Team 1'), newTeam('Team 2')];
   let active = 0;   // jeopardy: selected/active team index
   let bbTurn = 0;   // blockbusters: whose turn (0 = Yellow/teams[0], 1 = Blue/teams[1])
 
@@ -882,14 +916,55 @@
       bar.appendChild(el);
     });
     const addBtn=document.createElement('button'); addBtn.id='add-team-btn'; addBtn.textContent='+ Team';
-    addBtn.addEventListener('click', ()=>{ teams.push({name:'Team '+(teams.length+1), score:0}); renderScorebar(); });
+    addBtn.addEventListener('click', ()=>{ teams.push(newTeam('Team '+(teams.length+1))); renderScorebar(); });
     bar.appendChild(addBtn);
     const resetBtn=document.createElement('button'); resetBtn.className='reset-btn'; resetBtn.textContent='↺ Reset points';
-    resetBtn.addEventListener('click', ()=>{ teams.forEach(t=>t.score=0); renderScorebar(); });
+    resetBtn.addEventListener('click', ()=>{ teams.forEach(t=>{ t.score=0; t.run=0; }); renderScorebar(); });
     bar.appendChild(resetBtn);
   }
 
   function nextTurn(){ if(teams.length){ active=Kit.passTurn(teams.length, active); renderScorebar(); } }
+
+  /* ---------- one scoring path, so a mechanic is written once ----------
+     Every award in the app goes through here. `opts.steal` halves the value (you
+     get the chance the other team dropped, not the full prize) and `opts.streak`
+     applies the run multiplier. Nothing ever subtracts: a missed question costs the
+     opportunity, never the score. Returns what was actually awarded so the caller
+     can say so on screen. */
+  function award(teamIdx, base, opts){
+    const t = teams[teamIdx];
+    if(!t || !base) return 0;
+    const o = opts || {};
+    let value = o.steal ? base / 2 : base;
+    /* The run is counted *before* this answer, so award() is always called before
+       markRun(): the first answer of a streak pays face value, the second 1.5x and
+       the third double. Marking first made the very first answer pay a bonus for a
+       run that had not happened yet. */
+    if(o.streak !== false && S.get('streak', activeGame)) value *= runMultiplier(t.run);
+    /* Round to 50s, not 100s, in the games that score in hundreds. Half of a $100
+       tile is 50, and rounding that to the nearest 100 hands back the full value —
+       the steal was silently paying the same as answering it correctly. Every value
+       these two games produce (halves of 100–500 and of the ladder, times 1.5 or 2)
+       is already a multiple of 50, so this rounds nothing away. */
+    const step = (activeGame==='jeopardy' || activeGame==='millionaire') ? 50 : 1;
+    value = Math.max(step, Math.round(value / step) * step);
+    t.score += value;
+    renderScorebar();
+    return value;
+  }
+
+  // two in a row is worth a little, three or more is worth doubling — and it has to
+  // be visible in the moment or it is just arithmetic nobody notices
+  function runMultiplier(run){ return run >= 2 ? 2 : run === 1 ? 1.5 : 1; }
+
+  /* A correct answer extends that team's run and breaks everyone else's; a wrong one
+     breaks their own. Kept in one place because four games would otherwise each get
+     it slightly wrong. */
+  function markRun(teamIdx, correct){
+    if(!teams[teamIdx]) return;
+    if(!correct){ teams[teamIdx].run = 0; return; }
+    teams.forEach((t, i)=>{ t.run = (i === teamIdx) ? t.run + 1 : 0; });
+  }
 
   /* ================= JEOPARDY ================= */
   let jeoRows = 0;
@@ -1570,9 +1645,12 @@
 
   // Blockbusters' board is structurally two-team — yellow crosses, blue descends —
   // so the shared chooser is deliberately restricted rather than generalised here.
+  /* One chooser, two callers: Blockbusters claims a hex with it, and Jeopardy now
+     offers a steal with it. Route on the mode rather than giving Jeopardy a second
+     instance — each instance registers its own document keydown listener. */
   const clueClaim = Kit.claimTeam({
     mount:  document.getElementById('clue-claim'),
-    onPick: i => claimHex(i)
+    onPick: i => (modalMode === 'jeopardy' && jSteal) ? jTakeSteal(i) : claimHex(i)
   });
 
   function hideAllActionButtons(){
@@ -1584,6 +1662,7 @@
   function openJeopardyClue(cat, clue, tile){
     const review = tile.classList.contains('used');
     currentTile=tile; modalMode = review ? 'review' : 'jeopardy'; currentClueValue=clue.v;
+    jSteal = null;
     document.getElementById('clue-topline').textContent =
       cat.name + ' · $' + clue.v + (review ? '  ·  review' : '');
     document.getElementById('clue-section').textContent = cat.section;
@@ -1618,7 +1697,9 @@
     hideAllActionButtons();
     document.getElementById('reveal-btn').style.display='inline-block';
     clueClaim.show(teams, [0, 1]);
-    document.getElementById('skip-btn').style.display='inline-block';
+    const bbSkip = document.getElementById('skip-btn');
+    bbSkip.textContent = 'No claim / close';
+    bbSkip.style.display='inline-block';
     bbTension(true);                 // think music while the clue is on the table
     openClueCard(hex);
   }
@@ -1956,6 +2037,62 @@
   });
 
   // Jeopardy: award the tile's value to the selected team, then pass the turn.
+  /* ---------- the steal ----------
+     A missed clue used to burn the tile and pass the turn, so a team had no reason
+     to listen while the other one answered. Now the card stays open, the answer
+     stays hidden, and the room is offered the question for half the points. The
+     team that just missed it is excluded — `allow` on the shared chooser exists for
+     exactly this kind of restriction.
+
+     Returns true when it has taken the beat, which tells the shared wrong-answer
+     path to stand down; false means "close it as before" and covers the switch
+     being off, a two-team board where nobody is left to offer, and the second miss. */
+  let jSteal = null;               // { from, to } while a stolen clue is live
+
+  function jOfferSteal(teamIdx){
+    if(!S.get('stealOnWrong', 'jeopardy')) return false;
+    if(jSteal) return false;                       // one steal per clue, then it's gone
+    const others = teams.map((_, i) => i).filter(i => i !== teamIdx);
+    if(!others.length) return false;
+    jSteal = { from: teamIdx, to: others[0] };
+
+    /* Put the answer away again. Correct/Wrong only appear *after* Reveal, so by the
+       time a miss is recorded the answer is on screen — offering the steal from
+       there just invites the other team to read it out. Redraw the question
+       unanswered; the stealing team gets the same question the first team had. */
+    drawPrompt(document.getElementById('clue-text'), currentClueItem, 'jeopardy');
+    document.getElementById('clue-answer').style.display = 'none';
+
+    hideAllActionButtons();
+    const line = document.getElementById('clue-topline');
+    line.textContent = line.textContent.replace(/ · steal.*$/, '') + '  ·  steal for ' +
+                       Math.round(currentClueValue / 2);
+    clueClaim.show(teams, others);
+    const skip = document.getElementById('skip-btn');
+    skip.textContent = 'No steal / close';
+    skip.style.display = 'inline-block';
+    return true;
+  }
+
+  /* Nobody wanted it: burn the tile and pass the turn, exactly as a miss did before
+     any of this existed. */
+  function jDeclineSteal(){
+    jSteal = null;
+    if(currentTile) currentTile.classList.add('used');
+    clueClaim.hide();
+    closeModal(0, jAfterClue);
+    nextTurn();
+  }
+
+  /* Someone claimed the steal: that team now owns the question, so re-open the
+     normal reveal path with them on the hook. */
+  function jTakeSteal(teamIdx){
+    jSteal.to = teamIdx;
+    clueClaim.hide();
+    document.getElementById('reveal-btn').style.display = 'inline-block';
+    document.getElementById('close-btn').style.display  = 'inline-block';
+  }
+
   document.getElementById('correct-btn').addEventListener('click', ()=>{
     const showy = document.getElementById('play-jeopardy').classList.contains('lit');
     const value = currentClueValue;
@@ -1968,16 +2105,26 @@
       Sound.play('correct');
     }
     if(currentTile){ currentTile.classList.add('used'); }   // keeps its value, faded
-    if(teams.length){ teams[active].score += value; }
+    if(teams.length){
+      award(jSteal ? jSteal.to : active, value, { steal: !!jSteal });
+      markRun(jSteal ? jSteal.to : active, true);
+    }
+    jSteal = null;
     closeModal(flipMs(FLIP_HOLD_MS), jAfterClue);
-    nextTurn();
+    // a team that answers keeps the board; steal is what stops that running away
+    if(!S.get('keepControl', 'jeopardy')) nextTurn();
   });
   document.getElementById('wrong-btn').addEventListener('click', ()=>{
     const showy = document.getElementById('play-jeopardy').classList.contains('lit');
     Sound.bedStop();
     if(showy){ Sound.play('klaxon'); jFlash('wrong'); }
     else Sound.play('wrong');
+    markRun(jSteal ? jSteal.to : active, false);
+    // hand it to the room before burning the tile — if a game opens a steal it owns
+    // the rest of the beat and the shared path stands down
+    if(hook('onWrong', jSteal ? jSteal.to : active)) return;
     if(currentTile){ currentTile.classList.add('used'); }   // keeps its value, faded
+    jSteal = null;
     closeModal(flipMs(FLIP_HOLD_MS), jAfterClue);
     nextTurn();
   });
@@ -2039,17 +2186,30 @@
     if(currentTile && modalMode==='blockbusters' && claimed){
       currentTile.classList.add(idx===0 ? 'claimed-gold' : 'claimed-silver');
       currentTile.textContent='';
-      if(teams[idx]) teams[idx].score++;
+      // a hex taken by the team that wasn't on turn is a steal, and scores as one
+      award(idx, 1, { steal: idx !== bbTurn });
+      markRun(idx, true);
     }
     // work out the ending now, but let the card land before showing it
     const outcome = claimed ? bbOutcome() : null;
     closeModal(claimed ? flipMs(FLIP_HOLD_MS) : 0,
                outcome ? ()=>bbFinish(outcome) : ()=>bbTension());
-    bbTurn = Kit.passTurn(2, bbTurn);
+    /* Keeping the board on a correct answer: the team on turn that claims its own
+       hex goes again. A steal or a skip always hands over — otherwise a team that
+       lost the question would keep the turn it just failed to use. */
+    const kept = claimed && idx === bbTurn && S.get('keepControl', 'blockbusters');
+    if(!kept) bbTurn = Kit.passTurn(2, bbTurn);
     renderBBTurn();
     renderScorebar();
   }
-  document.getElementById('skip-btn').addEventListener('click', ()=>claimHex(null));
+  /* Skip belongs to whichever game put the card up. Blockbusters uses it to leave a
+     hex unclaimed; Jeopardy now uses it to decline a steal, which it must have —
+     offering the question with no way to say "nobody wants it" strands the teacher
+     on a card with every other button hidden. */
+  document.getElementById('skip-btn').addEventListener('click', ()=>{
+    if(modalMode === 'jeopardy' && jSteal){ jDeclineSteal(); return; }
+    claimHex(null);
+  });
 
   /* ================= MILLIONAIRE =================
      Four options, rising difficulty. Every team climbs its **own** ladder and turns
@@ -2269,12 +2429,32 @@
       } else {
         Sound.play('correct');
       }
-      if(teams[mCurrent.team]) teams[mCurrent.team].score += value;
+      const paid = award(mCurrent.team, value, { steal: !!mCurrent.stolen });
+      markRun(mCurrent.team, true);
       st.rung += 1;
-      document.getElementById('m-hint').textContent = '+' + value;
+      document.getElementById('m-hint').textContent = '+' + paid;
     } else {
       if(showy){ Sound.play('klaxon'); mFlash('wrong'); }
       else Sound.play('wrong');
+      markRun(mCurrent.team, false);
+      /* Offer the same question to the next team for half the rung — once. Without
+         this a wrong answer is dead air for everyone else in the room. `stolen`
+         also stops it being offered round and round the table. */
+      const others = teams.map((_, i) => i).filter(i => i !== mCurrent.team);
+      if(S.get('stealOnWrong', 'millionaire') && !mCurrent.stolen && others.length){
+        mCurrent.stolen = true;
+        mCurrent.team = others[0];
+        mAnswered = false;
+        document.getElementById('m-hint').textContent =
+          (teams[mCurrent.team] ? teams[mCurrent.team].name : 'The other team') +
+          ' can steal it for ' + Math.round(M_LADDER[Math.min(st.rung, M_LADDER.length-1)] / 2);
+        document.querySelectorAll('#m-options .m-option').forEach(b=>{
+          b.classList.remove('right','picked-wrong');
+          b.disabled = (mCurrent.removed || []).indexOf(b.dataset.opt) !== -1;
+        });
+        renderScorebar();
+        return;
+      }
       document.getElementById('m-hint').textContent = 'No points — same rung next time round.';
     }
     renderScorebar();
@@ -2729,7 +2909,8 @@
     if(!hit.w) return;
     hit.w.found = true;
     hit.w.by    = teamIdx;
-    if(teams[teamIdx]) teams[teamIdx].score++;
+    award(teamIdx, 1, {});
+    markRun(teamIdx, true);
     racePending = null;
     hideClaimBar();
     resetBuzzers();
