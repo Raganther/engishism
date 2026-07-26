@@ -1144,14 +1144,10 @@ const tension = page =>
    before it is given (deliberately), so look the prompt up in the loaded content
    bank instead and climb the ladder deterministically. */
 async function answerCorrectly(page){
-  const answer = await page.evaluate(() => {
-    const q = document.getElementById('m-question').textContent;
-    for (const u of (window.UNITS || [])){
-      const hit = (u.millionaireBank || []).find(x => x.prompt === q);
-      if (hit) return hit.answer;
-    }
-    return null;
-  });
+  // one lookup, not a second copy of it: this had its own raw-string version and
+  // silently stopped finding anything the moment Kit.prompt started rendering `___`
+  // as a blank, which read as "tension never climbs" rather than "lookup broke"
+  const answer = await currentMillionaireAnswer(page);
   if (!answer) return false;
   const opt = page.locator('#m-options .m-option[data-opt="' + answer.replace(/"/g,'\\"') + '"]');
   if (!(await opt.count())) return false;
