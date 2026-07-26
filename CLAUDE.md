@@ -26,7 +26,7 @@ linked as `…?v=YYYYMMDDx` in the three page shells; without a bump, Chrome kee
 the cached JS/CSS and a fix looks like it never shipped (this has already cost one
 debugging round). Change it in all three shells together:
 ```bash
-sed -i '' 's/?v=[0-9a-z]*/?v=20260729d/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
+sed -i '' 's/?v=[0-9a-z]*/?v=20260729e/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
 ```
 The engine reads its own `?v=` and exposes it as `window.HUB_BUILD`; the settings panel
 footer shows it, so **"Build …" in ⚙ tells you which version is actually running.**
@@ -294,6 +294,13 @@ back to memory for the session (the panel says so).
   - Board caps at 18 words and **re-scatters after every claim** so position can't be
     memorised; a jittered-grid layout guarantees no overlap and shrinks the type
     (`--rs`) if the field is too small. Claimed words carry the team's colour.
+    **One word per cell is not sufficient on its own** — two things broke it once
+    the banks grew longer words. The ±1.5° tilt makes a 288px-wide tile ~8px
+    *taller* than its layout box (the growth is proportional to **width**, so it is
+    the long words that collide vertically), and unrestricted jitter lets one word
+    sit hard against its cell's right edge and the next hard against the following
+    cell's left edge. Cells are now sized to the **rotated** box and a 12px gutter
+    is withheld from the jitter. Verified over 240 randomised scatters at four sizes.
   **Distractors aren't authored** — every other word on the board is a real target
   word from the selection. Spec §4.4 updated to match as-built.
 - **Millionaire** (Unit 5 only, 52 questions across 5A–5C): four
