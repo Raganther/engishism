@@ -586,12 +586,20 @@ async function testGameShowJeopardy(browser){
         (await page.locator('#intro-title').textContent()).trim() === 'JEOPARDY');
   await page.keyboard.press('Space'); await page.waitForTimeout(200);
   check('the board deals itself in', await page.locator('#board.dealing').count() === 1);
-  // a flat stagger over a 12x6 board runs for three seconds; the diagonal caps it
-  const wave = await page.evaluate(() => {
+  /* A flat stagger over this board runs for three seconds with the class waiting on
+     it; the diagonal caps the wave at rows+columns. Assert the thing that actually
+     matters — how long the deal takes — rather than a step count, which moves every
+     time a category is added. */
+  const deal = await page.evaluate(() => {
     const kids = [...document.getElementById('board').children];
-    return Math.max(...kids.map(k => +k.style.getPropertyValue('--i') || 0));
+    const step = Math.max(...kids.map(k => +k.style.getPropertyValue('--i') || 0));
+    const cs   = getComputedStyle(kids[kids.length-1]);
+    return { step, cells: kids.length, ms: step * parseFloat(cs.animationDelay) / (step || 1) * step };
   });
-  check('the deal is a diagonal wave, not a queue', wave < 20, 'longest delay step ' + wave);
+  check('the deal is a diagonal wave, not a queue', deal.step < deal.cells / 2,
+        deal.step + ' steps for ' + deal.cells + ' cells');
+  check('and the whole board is dealt inside a second',
+        deal.step * 46 + 420 <= 1400, Math.round(deal.step * 46 + 420) + 'ms');
   await page.waitForTimeout(1500);
   check('the stage is lit', await page.evaluate(() => document.getElementById('play-jeopardy').classList.contains('lit')));
 

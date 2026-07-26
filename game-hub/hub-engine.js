@@ -2363,17 +2363,32 @@
     const avail = W < 50 ? 0 : Kit.fitToScreen(field, { min:240, gap:10 });
     if(!avail) return;
 
-    // Shrink the type until the grid genuinely fits. Cells are sized to the widest
-    // and tallest word, so once the grid fits, no two words can overlap.
+    /* Shrink the type until the grid genuinely fits, then place one word per cell.
+       Two things make "one per cell" insufficient on its own, and both bit at
+       1280x720 with the longest words in the bank:
+
+       - **The tilt grows the box.** Each word is rotated up to TILT degrees, and a
+         rotated element occupies more room than its layout size — a 288px-wide tile
+         at 1.5 degrees is about 8px taller. That is proportional to the tile's
+         *width*, so it is the long words that collide vertically.
+       - **The jitter can eat the whole margin.** Placing anywhere in the cell means
+         one word can sit hard against the right edge of its cell and the next hard
+         against the left edge of the next, leaving nothing between them.
+
+       So: size the cells to the *grown* box, and keep a gutter the jitter can't
+       spend. */
+    const TILT = 1.5, SIN_T = Math.sin(TILT * Math.PI / 180), GUTTER = 12;
     let cols=1, rows=tiles.length, maxW=0, maxH=0, scale=1;
     for(let attempt=0; attempt<7; attempt++){
       field.style.setProperty('--rs', scale.toFixed(3));
       maxW = Math.max(...tiles.map(t=>t.offsetWidth));
       maxH = Math.max(...tiles.map(t=>t.offsetHeight));
-      cols = Math.min(tiles.length, Math.max(1, Math.floor(W / (maxW + 20))));
+      const boxW = maxW + maxH*SIN_T + GUTTER + 8;
+      const boxH = maxH + maxW*SIN_T + GUTTER + 6;
+      cols = Math.min(tiles.length, Math.max(1, Math.floor(W / boxW)));
       rows = Math.ceil(tiles.length / cols);
-      if(rows * (maxH + 18) <= avail || scale <= 0.6) break;
-      scale = Math.max(0.6, scale * Math.sqrt(avail / (rows * (maxH + 18))) * 0.97);
+      if(rows * boxH <= avail || scale <= 0.6) break;
+      scale = Math.max(0.6, scale * Math.sqrt(avail / (rows * boxH)) * 0.97);
     }
 
     const cellW = W / cols, cellH = avail / rows;
@@ -2384,11 +2399,15 @@
     tiles.forEach((el, i)=>{
       const s = slots[i]; if(!s) return;
       const tw = el.offsetWidth, th = el.offsetHeight;
-      const x = s.c*cellW + Math.random()*Math.max(0, cellW - tw);
-      const y = s.r*cellH + Math.random()*Math.max(0, cellH - th);
-      el.style.left = Math.round(Math.max(0, Math.min(W - tw, x))) + 'px';
-      el.style.top  = Math.round(Math.max(0, Math.min(avail - th, y))) + 'px';
-      el.style.transform = `rotate(${(Math.random()*3-1.5).toFixed(2)}deg)`;
+      // the tilt is about the centre, so half its growth hangs off each side
+      const padX = (th * SIN_T) / 2, padY = (tw * SIN_T) / 2;
+      const freeX = Math.max(0, cellW - tw - GUTTER - 2*padX);
+      const freeY = Math.max(0, cellH - th - GUTTER - 2*padY);
+      const x = s.c*cellW + GUTTER/2 + padX + Math.random()*freeX;
+      const y = s.r*cellH + GUTTER/2 + padY + Math.random()*freeY;
+      el.style.left = Math.round(Math.max(padX, Math.min(W - tw - padX, x))) + 'px';
+      el.style.top  = Math.round(Math.max(padY, Math.min(avail - th - padY, y))) + 'px';
+      el.style.transform = `rotate(${(Math.random()*2*TILT - TILT).toFixed(2)}deg)`;
     });
   }
 
