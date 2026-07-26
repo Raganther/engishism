@@ -1515,6 +1515,7 @@
 
   /* ================= SHARED CLUE MODAL ================= */
   let currentTile=null, modalMode=null, currentClueValue=0;
+  let currentClueItem=null;      // what the shared renderer needs to answer in place
 
   // Blockbusters' board is structurally two-team — yellow crosses, blue descends —
   // so the shared chooser is deliberately restricted rather than generalised here.
@@ -1535,13 +1536,15 @@
     document.getElementById('clue-topline').textContent =
       cat.name + ' · $' + clue.v + (review ? '  ·  review' : '');
     document.getElementById('clue-section').textContent = cat.section;
-    document.getElementById('clue-text').textContent = clue.q;
+    currentClueItem = { text:clue.q, answer:clue.a, type:clue.type };
+    Kit.prompt.render(document.getElementById('clue-text'), currentClueItem, 'jeopardy');
     const ansEl=document.getElementById('clue-answer');
     ansEl.textContent=clue.a;
     hideAllActionButtons();
     if(review){
       // already played — show everything, score nothing
-      ansEl.style.display='block';
+      ansEl.style.display =
+        Kit.prompt.reveal(document.getElementById('clue-text'), currentClueItem) ? 'none' : 'block';
       document.getElementById('close-btn').style.display='inline-block';
     } else {
       ansEl.style.display='none';
@@ -1558,7 +1561,8 @@
     currentTile=hex; modalMode='blockbusters';
     document.getElementById('clue-topline').textContent = clueObj.letter;
     document.getElementById('clue-section').textContent = clueObj.section;
-    document.getElementById('clue-text').textContent = clueObj.clue;
+    currentClueItem = { text:clueObj.clue, answer:clueObj.answer, type:clueObj.type };
+    Kit.prompt.render(document.getElementById('clue-text'), currentClueItem, 'blockbusters');
     const ansEl=document.getElementById('clue-answer'); ansEl.style.display='none'; ansEl.textContent=clueObj.answer;
     hideAllActionButtons();
     document.getElementById('reveal-btn').style.display='inline-block';
@@ -1801,7 +1805,12 @@
 
   document.getElementById('reveal-btn').addEventListener('click', ()=>{
     Sound.play('reveal');
-    document.getElementById('clue-answer').style.display='block';
+    // The word drops into the blank rather than only appearing underneath it —
+    // the sentence completing itself is the moment a class actually watches. When
+    // the renderer managed that, the separate answer line is just the same word
+    // twice; when it couldn't (a long or explanatory answer) it is still needed.
+    const inPlace = Kit.prompt.reveal(document.getElementById('clue-text'), currentClueItem);
+    document.getElementById('clue-answer').style.display = inPlace ? 'none' : 'block';
     if(modalMode==='jeopardy'){
       document.getElementById('reveal-btn').style.display='none';
       document.getElementById('close-btn').style.display='none';
@@ -2002,7 +2011,9 @@
     mTension();          // one place keeping the lights and the music in step
     if(!mCurrent) return;
 
-    document.getElementById('m-question').textContent = mCurrent.q.prompt;
+    Kit.prompt.render(document.getElementById('m-question'),
+                      { text:mCurrent.q.prompt, answer:mCurrent.q.answer, type:mCurrent.q.type },
+                      'millionaire');
     const wrap = document.getElementById('m-options');
     wrap.innerHTML = '';
     mCurrent.options.forEach((opt, i)=>{
@@ -2427,13 +2438,10 @@
     const sec=document.createElement('span'); sec.className='race-sec';
     sec.textContent = S.get('raceShowSection', 'race') ? item.section : '';
     const sent=document.createElement('span'); sent.className='race-sentence';
-    item.prompt.split(/___+/).forEach((part,i,arr)=>{
-      sent.appendChild(document.createTextNode(part));
-      if(i<arr.length-1){
-        const gap=document.createElement('span'); gap.className='gap'; gap.textContent='?';
-        sent.appendChild(gap);
-      }
-    });
+    // this used to build its own gap span — the shared renderer is that idea
+    // generalised, so every game draws a blank the same way. Never revealed here:
+    // the answer is a word on the board for a student to find.
+    Kit.prompt.render(sent, { text:item.prompt, answer:item.answer, type:item.type }, 'race');
     el.appendChild(sec); el.appendChild(sent);
   }
 

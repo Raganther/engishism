@@ -159,10 +159,26 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 #race-prompt .race-idle{ font-family:'IBM Plex Mono',monospace; font-size:0.9rem; letter-spacing:0.05em; color: rgba(251,243,213,0.65); text-transform:uppercase; }
 #race-prompt .race-sec{ font-family:'IBM Plex Mono',monospace; font-size:0.72rem; letter-spacing:0.12em; text-transform:uppercase; color: var(--blue); }
 #race-prompt .race-sentence{ font-family:'Space Grotesk',sans-serif; font-weight:500; font-size: clamp(1.15rem, 2.5vw, 1.95rem); line-height:1.3; color: var(--white); }
-#race-prompt .gap{
-  display:inline-block; min-width: 2.2em; margin: 0 0.12em; padding: 0 0.2em;
-  background: var(--yellow); color: var(--navy); border-radius:6px; font-weight:700;
+/* --- the shared blank (Kit.prompt's 'gap' type) ---
+   Every game draws a blank the same way now. Race keeps the filled-chip look it
+   always had, because there the blank IS the question — the word is on the board
+   for a student to find, and it is never filled in. */
+.prompt-gap{
+  display:inline-block; min-width:2.6em; margin:0 0.14em; padding:0 0.28em;
+  border-bottom:3px solid currentColor; font-weight:700; text-align:center;
+  line-height:1.15; vertical-align:baseline;
 }
+#race-prompt .prompt-gap{
+  min-width:2.2em; padding:0 0.2em; border-bottom:none; border-radius:6px;
+  background: var(--yellow); color: var(--navy);
+}
+#race-prompt .prompt-gap::after{ content:'?'; }
+/* the answer arriving in the blank — the sentence finishes itself */
+.prompt-gap.filled{
+  border-bottom-color: transparent; background: var(--yellow); color: var(--navy);
+  border-radius:6px; animation: gapFill .5s cubic-bezier(.2,.9,.3,1.1) both;
+}
+@keyframes gapFill{ from{ opacity:0; transform: translateY(-0.45em) scale(.9); } }
 
 /* the shared team chooser: in the clue card for Blockbusters, on the race bar for
    head-to-head Race. Same component, same number-key shortcuts. */
@@ -596,7 +612,7 @@ body.theme-gameshow #play-race.lit #race-prompt{
   box-shadow: 0 0 calc(16px + var(--tension) * 30px) rgba(61,255,168,0.35);
 }
 body.theme-gameshow #play-race.lit .race-sec{ color: #3DFFA8; }
-body.theme-gameshow #play-race.lit .gap{ background:#3DFFA8; color:#04120B; }
+body.theme-gameshow #play-race.lit .prompt-gap{ background:#3DFFA8; color:#04120B; }
 body.theme-gameshow #play-race.lit #race-bar{ color: rgba(234,240,255,0.8); }
 body.theme-gameshow #play-race.lit #race-status{ color: rgba(234,240,255,0.72); }
 body.theme-gameshow #play-race.lit #race-start,
@@ -831,6 +847,7 @@ body.theme-gameshow #result-card{ background:#05060F; }
   body.theme-gameshow #play-millionaire.flash-wrong,
   body.theme-gameshow #play-jeopardy.lit.flash-right,
   body.theme-gameshow #play-jeopardy.lit.flash-wrong,
+  .prompt-gap.filled,
   #board.dealing > *, #hexwrap.dealing .hex,
   #race-words.dealing .race-word,
   .game-card .game-icon *,

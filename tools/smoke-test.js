@@ -979,6 +979,98 @@ async function testGameRegistry(browser){
   await page.close();
 }
 
+/* ---- question forms ----
+   Kit.prompt makes a question's *form* something every game can draw, the way
+   Kit.anim did for animations. The two properties worth guarding are the ones that
+   make it adoptable: content authored before it existed must render unchanged, and
+   a type must be able to say which games it suits. */
+async function testPromptTypes(browser){
+  section('Question forms');
+  const page = await openHub(browser);
+
+  check('a type registry exists', await page.evaluate(() => typeof window.HubKit.prompt.register) === 'function');
+  check('the gap form is registered',
+        (await page.evaluate(() => window.HubKit.prompt.types())).indexOf('gap') !== -1);
+
+  // an unlabelled prompt containing ___ is recognised without being labelled, which
+  // is what lets hundreds of existing items gain a real blank with no edits
+  const inferred = await page.evaluate(() => {
+    const el = document.createElement('div');
+    window.HubKit.prompt.render(el, { text:'The jury returned a ___ of not guilty.', answer:'verdict' });
+    return { type: el.dataset.promptType, blanks: el.querySelectorAll('.prompt-gap').length };
+  });
+  check('an untyped prompt with ___ is drawn as a gap', inferred.type === 'gap' && inferred.blanks === 1,
+        JSON.stringify(inferred));
+
+  const plain = await page.evaluate(() => {
+    const el = document.createElement('div');
+    const t = window.HubKit.prompt.render(el, { text:'The formal word for a crime.', answer:'offence' });
+    return { t, text: el.textContent, blanks: el.querySelectorAll('.prompt-gap').length };
+  });
+  check('a prompt with no gap still renders as plain text',
+        plain.t === null && plain.blanks === 0 && /formal word/.test(plain.text), JSON.stringify(plain));
+
+  // filling: one blank takes the answer; two blanks and two words take one each
+  const fills = await page.evaluate(() => {
+    const run = (text, answer) => {
+      const el = document.createElement('div');
+      window.HubKit.prompt.render(el, { text, answer });
+      const ms = window.HubKit.prompt.reveal(el, { text, answer });
+      return { ms, out: el.textContent };
+    };
+    return {
+      one:  run("being 'held in ___'.", 'custody'),
+      two:  run("You ___ ___ be early tomorrow!", 'had better'),
+      same: run("it slipped my ___ and it crossed my ___", 'Mind'),
+      long: run("Correct it: 'He was made redundancy.' ___", 'he was made REDUNDANT (adjective)')
+    };
+  });
+  check('one blank takes the whole answer', /held in custody/.test(fills.one.out), fills.one.out);
+  check('two blanks and two words take one each', /You had better be early/.test(fills.two.out), fills.two.out);
+  check('two blanks and one word repeat it', (fills.same.out.match(/Mind/g) || []).length === 2, fills.same.out);
+  check('an answer too long for a blank is declined, not crammed in',
+        fills.long.ms === 0, 'returned ' + fills.long.ms);
+
+  // a type can rule itself out of a game whose board would give it away
+  const gated = await page.evaluate(() => {
+    window.HubKit.prompt.register('testonly', {
+      games: ['jeopardy'],
+      render(mount){ mount.textContent = 'RENDERED'; }
+    });
+    const yes = document.createElement('div'), no = document.createElement('div');
+    window.HubKit.prompt.render(yes, { type:'testonly', text:'x' }, 'jeopardy');
+    window.HubKit.prompt.render(no,  { type:'testonly', text:'x' }, 'millionaire');
+    return { yes: yes.textContent, no: no.textContent,
+             suitsJ: window.HubKit.prompt.suits('testonly','jeopardy'),
+             suitsM: window.HubKit.prompt.suits('testonly','millionaire') };
+  });
+  check('a type renders in a game it suits', gated.yes === 'RENDERED' && gated.suitsJ);
+  check('and falls back to text in one it does not', gated.no === 'x' && !gated.suitsM,
+        JSON.stringify(gated));
+
+  // and the whole point: it works on the real content, in a real game
+  await startGame(page, 'Jeopardy', { sections:'all' });
+  let opened = false;
+  for (const tile of (await page.locator('.tile:not(.used)').all()).slice(0, 14)){
+    await tile.click(); await page.waitForTimeout(1250);
+    if (await page.locator('#clue-text .prompt-gap').count()){
+      await page.locator('#reveal-btn').click(); await page.waitForTimeout(600);
+      const filled = await page.locator('#clue-text .prompt-gap.filled').count();
+      const dupe   = await page.locator('#clue-answer').isVisible();
+      check('a real clue fills its blank on reveal', filled === 1, filled + ' filled');
+      check('and the answer line stands down rather than repeating it', !dupe);
+      opened = true;
+      await page.locator('#correct-btn').click(); await page.waitForTimeout(1500);
+      break;
+    }
+    await page.locator('#close-btn').click(); await page.waitForTimeout(1400);
+  }
+  check('a gapped clue was found in the bank', opened);
+
+  checkClean(page);
+  await page.close();
+}
+
 /* Every game now has an ident, and they must stay distinct — one accent reused
    twice would make two games look like the same show. */
 async function testIdentsAreDistinct(browser){
@@ -1254,7 +1346,7 @@ async function main(){
     jeopardy: testJeopardy, blockbusters: testBlockbusters, race: testRace,
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
-    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, content: testContentIntegrity, defaultlook: testDefaultLook, jfinish: testJeopardyFinish,
+    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, defaultlook: testDefaultLook, jfinish: testJeopardyFinish,
     buzzers: testBuzzers,
     degradation: testDegradation, file: testFileProtocol
   };

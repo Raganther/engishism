@@ -26,7 +26,7 @@ linked as `…?v=YYYYMMDDx` in the three page shells; without a bump, Chrome kee
 the cached JS/CSS and a fix looks like it never shipped (this has already cost one
 debugging round). Change it in all three shells together:
 ```bash
-sed -i '' 's/?v=[0-9a-z]*/?v=20260729e/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
+sed -i '' 's/?v=[0-9a-z]*/?v=20260729f/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
 ```
 The engine reads its own `?v=` and exposes it as `window.HUB_BUILD`; the settings panel
 footer shows it, so **"Build …" in ⚙ tells you which version is actually running.**
@@ -150,6 +150,35 @@ Anything more than one game needs lives in `hub-kit.js`, not in a game:
 | `Kit.claimTeam({mount,onPick})` | Blockbusters' two buttons + Race's own bar | Blockbusters (`allow:[0,1]`), Race |
 | `Kit.shapeOf(origin,target)` | animations assuming everything is a rectangle | the `morph` card animation |
 | `Kit.passTurn(count,current)` | four ad hoc rotations | all four games |
+| `Kit.prompt.register/render/reveal` | a question's *form* being a convention in how the prompt was worded | all four games |
+
+### Question forms are a registry too
+A question's *form* — gap fill, anagram, odd one out — used to exist only in how the
+prompt happened to be worded; every game pushed the string through `textContent`, and
+the one exception proved it (Race hand-rolled a `.gap` span in its own renderer).
+`Kit.prompt` makes the form something any game can draw:
+
+```js
+Kit.prompt.register('anagram', {
+  games:['jeopardy','blockbusters','race'],    // omit for "suits all"
+  render(mount, item){…}, reveal(mount, item){…}
+});
+```
+
+Three properties that make it adoptable rather than a migration:
+- **Untyped items still render.** A prompt containing `___` is recognised as a gap
+  fill without being labelled one, so **336 of the 565 authored items gained a real
+  blank with no content edits at all.** Anything else falls back to plain text.
+- **A type names the games it suits.** Not every form survives every board — an
+  anagram in Millionaire is given away by its own four options, odd-one-out in Race
+  is given away by the board. Declare it rather than discover it.
+- **`reveal()` returns how long it runs, or 0 if it declined.** The gap type declines
+  an answer over 26 characters rather than cramming an explanation into a blank, and
+  the caller then prints it on the answer line as before. On a clue that *did* fill,
+  the answer line stands down instead of showing the same word twice.
+
+Items arrive normalised as `{text, answer, type?}`, so the kit never learns that
+Jeopardy calls it `q` and Blockbusters calls it `clue`.
 
 **Interchangeable implementations.** A feature can ship several versions and let the
 teacher choose. Register each, list them as `variants`, and the setting's value is the

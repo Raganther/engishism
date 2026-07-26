@@ -6,6 +6,7 @@
      Kit.fitToScreen(el)          fill the space between the header and team bar
      Kit.anim.register(...)       add an interchangeable animation
      Kit.anim.get(feature, name)  look one up by the setting's current value
+     Kit.prompt.register(...)     add a question form every game can draw
      Kit.claimTeam({...})         "which team gets this?" chips + number keys
      Kit.shapeOf(origin, target)  the shape a clicked element is drawn with
 
@@ -113,6 +114,108 @@ window.HubKit = (function(){
     return out.some(p => p === null) ? null : 'polygon(' + out.join(', ') + ')';
   }
 
+  /* ---------- how a question is drawn ----------
+     Question *forms* — gap fill, anagram, odd one out — were only ever a
+     convention: they existed in how a prompt happened to be worded, and every game
+     pushed the string through `textContent`. The one exception proved the point,
+     Race hand-rolling a `.gap` span inside its own prompt renderer.
+
+     This makes the form a first-class thing any game can draw. A type registers
+     once and every game can use it, exactly as `anim` works for animations:
+
+       Kit.prompt.register('anagram', {
+         games:['jeopardy','blockbusters','race'],   // omit for "suits all"
+         render(mount, item){…}, reveal(mount, item){…}
+       });
+
+     Two rules that make this safe to adopt gradually:
+     - **An item with no `type` still renders.** The items authored before this
+       existed are untouched, and a prompt containing `___` is recognised as a gap
+       fill without being labelled one — so the majority get the better rendering
+       for free.
+     - **A type may name the games it suits.** Not every form survives every board:
+       an anagram in Millionaire is given away by its own four options, and odd-one-
+       out in Race is given away by the board. Declaring that beats discovering it.
+
+     Items arrive normalised as `{ text, answer, type? }`, so the kit never learns
+     that Jeopardy calls it `q` and Blockbusters calls it `clue`. */
+  const prompt = (function(){
+    const impls = Object.create(null);
+
+    function typeOf(item){
+      if(item && item.type) return item.type;
+      return /___+/.test(String((item && item.text) || '')) ? 'gap' : null;
+    }
+    function suits(type, game){
+      const impl = impls[type];
+      if(!impl) return false;
+      return !Array.isArray(impl.games) || !game || impl.games.indexOf(game) !== -1;
+    }
+
+    /* Draw `item` into `mount`, falling back to plain text for anything with no
+       renderer. Returns the type used, or null when it fell back. */
+    function render(mount, item, game){
+      if(!mount) return null;
+      const type = typeOf(item);
+      const impl = type && impls[type];
+      if(impl && impl.render && suits(type, game)){
+        mount.innerHTML = '';
+        mount.dataset.promptType = type;
+        impl.render(mount, item);
+        return type;
+      }
+      mount.textContent = String((item && item.text) || '');
+      delete mount.dataset.promptType;
+      return null;
+    }
+
+    /* Answer the question in place — the word dropping into the blank rather than
+       appearing underneath it. Returns how long it runs, or 0 when the type can't
+       (or shouldn't), which tells the caller to fall back to its own answer line. */
+    function reveal(mount, item){
+      const type = mount && mount.dataset.promptType;
+      const impl = type && impls[type];
+      return (impl && impl.reveal) ? (impl.reveal(mount, item) || 0) : 0;
+    }
+
+    return {
+      register(type, impl){ impls[type] = impl; return impl; },
+      render, reveal, suits,
+      types(){ return Object.keys(impls); }
+    };
+  })();
+
+  /* The first type, and the one that pays for the mechanism on its own: most of the
+     authored items already contain `___`, so they gain a real blank without a single
+     edit to the content. */
+  prompt.register('gap', {
+    render(mount, item){
+      const parts = String((item && item.text) || '').split(/___+/);
+      parts.forEach((part, i)=>{
+        if(part) mount.appendChild(document.createTextNode(part));
+        if(i < parts.length - 1){
+          const gap = document.createElement('span');
+          gap.className = 'prompt-gap';
+          mount.appendChild(gap);
+        }
+      });
+    },
+    reveal(mount, item){
+      const gaps = [...mount.querySelectorAll('.prompt-gap')];
+      const answer = String((item && item.answer) || '').trim();
+      // a long or explanatory answer ("he was made REDUNDANT (adjective)") doesn't
+      // belong in a blank — say so, and let the caller print it in full instead
+      if(!gaps.length || !answer || answer.length > 26) return 0;
+      const words = answer.split(/\s+/);
+      // two blanks and two words means one word each; anything else repeats the
+      // whole answer, which is right for "it slipped my ___ / it crossed my ___"
+      const fill = (gaps.length > 1 && words.length === gaps.length)
+                 ? words : gaps.map(()=>answer);
+      gaps.forEach((g, i)=>{ g.textContent = fill[i]; g.classList.add('filled'); });
+      return 520;
+    }
+  });
+
   /* ---------- "which team gets this?" ----------
      One screen can't tell the engine who spoke, buzzed or touched first, so the
      teacher supplies that one fact. Chips plus number keys, so it can be answered
@@ -169,5 +272,5 @@ window.HubKit = (function(){
     return count ? (current + 1) % count : 0;
   }
 
-  return { fitToScreen, anim, claimTeam, passTurn, shapeOf };
+  return { fitToScreen, anim, prompt, claimTeam, passTurn, shapeOf };
 })();
