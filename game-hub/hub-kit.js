@@ -170,6 +170,7 @@ window.HubKit = (function(){
       if(!mount) return null;
       const type = typeOf(item);
       const impl = type && impls[type];
+      mount.classList.remove('prompt-revealed');
       if(impl && impl.render && suits(type, game)){
         mount.innerHTML = '';
         mount.dataset.promptType = type;
@@ -187,7 +188,11 @@ window.HubKit = (function(){
     function reveal(mount, item){
       const type = mount && mount.dataset.promptType;
       const impl = type && impls[type];
-      return (impl && impl.reveal) ? (impl.reveal(mount, item) || 0) : 0;
+      const ms = (impl && impl.reveal) ? (impl.reveal(mount, item) || 0) : 0;
+      // one marker every form sets, so anything asking "has this been answered?"
+      // needs to know about forms in general, not about any particular one
+      if(ms) mount.classList.add('prompt-revealed');
+      return ms;
     }
 
     return {
@@ -233,6 +238,154 @@ window.HubKit = (function(){
                  ? words : gaps.map(()=>answer);
       gaps.forEach((g, i)=>{ g.textContent = fill[i]; g.classList.add('filled'); });
       return 520;
+    }
+  });
+
+  /* Every form below parses what it needs out of the prompt it was given, exactly
+     as `gap` reads `___`. That keeps the item shape at `{text, answer, type}`, so
+     adding a form touches no game and no content field — only the authoring
+     convention for that form's own prompts. Each declines to plain text when the
+     prompt or answer isn't shaped for it, because a form that renders nonsense in
+     front of a class is worse than one that renders as an ordinary sentence. */
+
+  /* Unscramble the answer. Blockbusters is the natural home — its answers are
+     already single words with a known initial — and Millionaire is excluded because
+     its four options hand you the letters. */
+  const scramble = word => {
+    const letters = word.split('');
+    for(let i = letters.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [letters[i], letters[j]] = [letters[j], letters[i]];
+    }
+    // a "scramble" that lands on the answer is not a question
+    return letters.join('') === word && word.length > 1 ? scramble(word) : letters.join('');
+  };
+
+  prompt.register('anagram', {
+    games:['jeopardy','blockbusters'],
+    render(mount, item){
+      const answer = String((item && item.answer) || '').trim();
+      const text   = String((item && item.text) || '');
+      if(!/^[A-Za-z'-]{2,14}$/.test(answer)){ mount.textContent = text; return; }
+      if(text){
+        const lead = document.createElement('span');
+        lead.className = 'prompt-lead';
+        lead.textContent = text;
+        mount.appendChild(lead);
+      }
+      const row = document.createElement('span');
+      row.className = 'prompt-anagram';
+      scramble(answer).split('').forEach(ch => {
+        const t = document.createElement('span');
+        t.className = 'prompt-tile';
+        t.textContent = ch;
+        row.appendChild(t);
+      });
+      // the order to land in, so reveal can sort without re-reading the answer
+      [...row.children].forEach(t => t.dataset.ch = t.textContent.toLowerCase());
+      mount.appendChild(row);
+    },
+    reveal(mount, item){
+      const row = mount.querySelector('.prompt-anagram');
+      const answer = String((item && item.answer) || '').trim();
+      if(!row || !answer) return 0;
+      const tiles = [...row.children];
+      if(tiles.length !== answer.length) return 0;
+
+      /* FLIP: measure, reorder, then animate each tile from where it was to where
+         it now is. Animating positions directly would fight the layout. */
+      const before = tiles.map(t => t.getBoundingClientRect().left);
+      const pool = tiles.slice();
+      const ordered = answer.toLowerCase().split('').map(ch => {
+        const i = pool.findIndex(t => t.dataset.ch === ch);
+        return i === -1 ? null : pool.splice(i, 1)[0];
+      });
+      if(ordered.some(t => !t)) return 0;
+      ordered.forEach(t => row.appendChild(t));
+      // the tiles move via the Web Animations API, which the stylesheet's
+      // reduced-motion block cannot reach — so honour it here instead
+      const still = window.matchMedia &&
+                    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if(still){ ordered.forEach(t => t.classList.add('landed')); return 1; }
+      ordered.forEach((t, i) => {
+        const delta = before[tiles.indexOf(t)] - t.getBoundingClientRect().left;
+        t.classList.add('landed');
+        if(!delta) return;
+        t.animate([{ transform:`translateX(${delta}px)` }, { transform:'none' }],
+                  { duration: 620, delay: i * 26, easing:'cubic-bezier(.2,.85,.3,1)', fill:'both' });
+      });
+      return 620 + tiles.length * 26;
+    }
+  });
+
+  /* Odd one out. The candidates live in the prompt separated by `/`, which is how
+     these were already being written by hand. Not offered to Race, where the board
+     itself would give the answer away. */
+  const oddCandidates = text => {
+    const tail = String(text || '').split(':').pop();
+    const parts = tail.split('/').map(s => s.trim()).filter(Boolean);
+    return parts.length >= 3 ? parts : null;
+  };
+
+  prompt.register('oddoneout', {
+    games:['jeopardy','blockbusters'],
+    render(mount, item){
+      const text  = String((item && item.text) || '');
+      const parts = oddCandidates(text);
+      if(!parts){ mount.textContent = text; return; }
+      if(text.indexOf(':') !== -1){
+        const lead = document.createElement('span');
+        lead.className = 'prompt-lead';
+        lead.textContent = text.slice(0, text.indexOf(':') + 1);
+        mount.appendChild(lead);
+      }
+      const row = document.createElement('span');
+      row.className = 'prompt-odd';
+      parts.forEach(p => {
+        const chip = document.createElement('span');
+        chip.className = 'prompt-chip';
+        chip.textContent = p;
+        row.appendChild(chip);
+      });
+      mount.appendChild(row);
+    },
+    reveal(mount, item){
+      const chips = [...mount.querySelectorAll('.prompt-chip')];
+      const answer = String((item && item.answer) || '').trim().toLowerCase();
+      if(!chips.length || !answer) return 0;
+      const hit = chips.filter(c => c.textContent.trim().toLowerCase() === answer);
+      if(hit.length !== 1) return 0;          // the answer must be one of the chips
+      chips.forEach(c => c.classList.add(c === hit[0] ? 'odd' : 'belongs'));
+      return 620;
+    }
+  });
+
+  /* Error correction. The wrong words are marked in the prompt with *asterisks*,
+     and the answer replaces them. Millionaire suits this one — its options are
+     candidate corrections, not a give-away. */
+  prompt.register('errorfix', {
+    games:['jeopardy','millionaire','race'],
+    render(mount, item){
+      const text  = String((item && item.text) || '');
+      const parts = text.split(/\*([^*]+)\*/);
+      if(parts.length < 3){ mount.textContent = text; return; }
+      parts.forEach((part, i) => {
+        if(!part) return;
+        if(i % 2 === 0){ mount.appendChild(document.createTextNode(part)); return; }
+        const bad = document.createElement('span');
+        bad.className = 'prompt-error';
+        bad.textContent = part;
+        mount.appendChild(bad);
+      });
+    },
+    reveal(mount, item){
+      const bad = mount.querySelector('.prompt-error');
+      const answer = String((item && item.answer) || '').trim();
+      if(!bad || !answer) return 0;
+      if(answer.length > 30 || /[\/(]/.test(answer)) return 0;   // same declines as `gap`
+      bad.textContent = answer;
+      bad.classList.add('fixed');
+      return 560;
     }
   });
 

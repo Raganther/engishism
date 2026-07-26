@@ -302,17 +302,26 @@ async function testRace(browser){
   await page.close();
 }
 
-/* The answer is visible either filled into the sentence's blank or printed on the
-   clue card's answer line — both count. */
+/* The answer is visible either answered in place by whatever form the question is,
+   or printed on the clue card's answer line — both count. Keyed on the shared
+   `.prompt-revealed` marker rather than the gap type's own class, so a new form is
+   covered without editing this. */
 const answerIsShowing = async page =>
   (await page.locator('#clue-answer').isVisible()) ||
-  (await page.locator('#clue-text .prompt-gap.filled').count()) > 0;
+  (await page.locator('#clue-text.prompt-revealed').count()) > 0;
 
+/* Don't reconstruct the sentence — render each candidate through the same registry
+   the engine used and compare. Rebuilding it as `prompt.replace(/___+/g,'?')`
+   hard-coded the gap type's placeholder, so it silently found nothing the moment a
+   question was drawn any other way. */
 const currentRaceAnswer = page => page.evaluate(() => {
   const s = document.querySelector('#race-prompt .race-sentence'); if (!s) return null;
+  const probe = document.createElement('div');
   for (const u of window.UNITS){
-    const hit = (u.raceBank||[]).find(i => i.prompt.replace(/___+/g,'?') === s.textContent);
-    if (hit) return hit.answer;
+    for (const i of (u.raceBank || [])){
+      window.HubKit.prompt.render(probe, { text:i.prompt, answer:i.answer, type:i.type }, 'race');
+      if (probe.textContent === s.textContent) return i.answer;
+    }
   }
   return null;
 });
@@ -1112,6 +1121,80 @@ async function testPromptTypes(browser){
   check('a type renders in a game it suits', gated.yes === 'RENDERED' && gated.suitsJ);
   check('and falls back to text in one it does not', gated.no === 'x' && !gated.suitsM,
         JSON.stringify(gated));
+
+  /* Each form draws the task rather than describing it: scattered letters mean
+     unscramble, chips mean pick the odd one, a struck word means find the mistake.
+     Assert the shape, the answer landing, and — for each — that it declines to
+     plain text rather than rendering nonsense when the item isn't shaped for it. */
+  const forms = await page.evaluate(() => {
+    const run = (item, game) => {
+      const el = document.createElement('div');
+      document.body.appendChild(el);
+      const type = window.HubKit.prompt.render(el, item, game);
+      const before = { type, tiles: el.querySelectorAll('.prompt-tile').length,
+                       chips: el.querySelectorAll('.prompt-chip').length,
+                       errors: el.querySelectorAll('.prompt-error').length,
+                       text: el.textContent };
+      const ms = window.HubKit.prompt.reveal(el, item);
+      const after = { ms, text: el.textContent, marked: el.classList.contains('prompt-revealed'),
+                      odd: el.querySelectorAll('.prompt-chip.odd').length,
+                      dim: el.querySelectorAll('.prompt-chip.belongs').length,
+                      fixed: el.querySelectorAll('.prompt-error.fixed').length };
+      el.remove();
+      return { before, after };
+    };
+    return {
+      anagram:  run({ type:'anagram', text:'The jury decision.', answer:'verdict' }, 'jeopardy'),
+      anaLong:  run({ type:'anagram', text:'A long one.', answer:'beyond a doubt' }, 'jeopardy'),
+      anaGated: run({ type:'anagram', text:'Given away by the options.', answer:'verdict' }, 'millionaire'),
+      odd:      run({ type:'oddoneout', text:'Which does NOT belong: verdict / jury / sabbatical',
+                      answer:'sabbatical' }, 'jeopardy'),
+      oddBad:   run({ type:'oddoneout', text:'No candidates here at all.', answer:'x' }, 'jeopardy'),
+      err:      run({ type:'errorfix', text:'You *must to* wear a helmet.', answer:'must' }, 'jeopardy'),
+      errBad:   run({ type:'errorfix', text:'Nothing is marked in this one.', answer:'must' }, 'jeopardy')
+    };
+  });
+
+  check('an anagram scatters the answer\'s letters',
+        forms.anagram.before.tiles === 7 && forms.anagram.before.text.indexOf('verdict') === -1,
+        JSON.stringify(forms.anagram.before));
+  check('and the letters land in order on reveal',
+        forms.anagram.after.ms > 0 && /verdict/i.test(forms.anagram.after.text.replace(/\s+/g,'')),
+        forms.anagram.after.text);
+  check('an answer that is not one word declines to plain text',
+        forms.anaLong.before.tiles === 0 && forms.anaLong.before.type === 'anagram',
+        JSON.stringify(forms.anaLong.before));
+  check('and Millionaire never gets an anagram to give away',
+        forms.anaGated.before.tiles === 0, JSON.stringify(forms.anaGated.before));
+
+  check('odd one out draws its candidates as chips', forms.odd.before.chips === 3,
+        String(forms.odd.before.chips));
+  check('and reveal lights one and stands the others down',
+        forms.odd.after.ms > 0 && forms.odd.after.odd === 1 && forms.odd.after.dim === 2,
+        JSON.stringify(forms.odd.after));
+  check('a prompt with no candidates falls back to plain text',
+        forms.oddBad.before.chips === 0 && forms.oddBad.after.ms === 0,
+        JSON.stringify(forms.oddBad.before));
+
+  check('error correction marks the wrong words', forms.err.before.errors === 1,
+        forms.err.before.text);
+  check('and swaps them for the right one', forms.err.after.ms > 0 &&
+        forms.err.after.fixed === 1 && /You must wear/.test(forms.err.after.text),
+        forms.err.after.text);
+  check('an unmarked prompt is left as plain text',
+        forms.errBad.before.errors === 0 && forms.errBad.after.ms === 0,
+        JSON.stringify(forms.errBad.before));
+
+  check('every form that answered in place set the shared marker',
+        forms.anagram.after.marked && forms.odd.after.marked && forms.err.after.marked);
+
+  // the switch turns all of it back into plain sentences
+  const off = await page.evaluate(() => {
+    window.HubSettings.set('promptForms', false);
+    return window.HubSettings.get('promptForms', 'jeopardy');
+  });
+  check('the question forms can be switched off', off === false);
+  await page.evaluate(() => window.HubSettings.set('promptForms', true));
 
   // and the whole point: it works on the real content, in a real game
   await startGame(page, 'Jeopardy', { sections:'all' });

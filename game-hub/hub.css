@@ -183,6 +183,48 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 }
 @keyframes gapFill{ from{ opacity:0; transform: translateY(-0.45em) scale(.9); } }
 
+/* --- the other question forms ---
+   Each is a shape the class can read from the back of the room before anyone has
+   said a word: scattered letters mean unscramble, three chips mean pick the odd
+   one, a struck word means find the mistake. The form announces the task, which is
+   the whole reason it is drawn rather than described. */
+.prompt-lead{ display:block; margin-bottom:0.6em; }
+
+/* anagram: the answer's letters, out of order, landing one at a time on reveal */
+.prompt-anagram{ display:flex; flex-wrap:wrap; gap:0.3em; justify-content:center; }
+.prompt-tile{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:1.5em; padding:0.16em 0.24em; border-radius:8px;
+  background: var(--cream); color: var(--navy); border:2px solid var(--blue);
+  font-weight:700; text-transform:uppercase; line-height:1.1;
+}
+.prompt-tile.landed{ background: var(--yellow); border-color: var(--yellow); }
+
+/* odd one out: candidates as chips, the odd one lit and the rest standing down */
+.prompt-odd{ display:flex; flex-wrap:wrap; gap:0.45em; justify-content:center; }
+.prompt-chip{
+  padding:0.2em 0.7em; border-radius:999px; border:2px solid var(--blue);
+  color: var(--navy); background: var(--white); font-weight:600; line-height:1.3;
+  transition: opacity .3s, background .3s, border-color .3s;
+}
+.prompt-chip.belongs{ opacity:0.32; }
+.prompt-chip.odd{
+  background: var(--yellow); border-color: var(--yellow); color: var(--navy);
+  animation: oddPick .6s cubic-bezier(.2,.9,.3,1.1) both;
+}
+@keyframes oddPick{ 40%{ transform: scale(1.13); } to{ transform:none; } }
+
+/* error correction: the wrong words struck through, then replaced by the right one */
+.prompt-error{
+  padding:0 0.22em; border-radius:5px; font-weight:700;
+  background: rgba(255,90,77,0.16); color:#c0392b; text-decoration: line-through;
+}
+.prompt-error.fixed{
+  background: var(--yellow); color: var(--navy); text-decoration:none;
+  animation: errFix .56s cubic-bezier(.2,.9,.3,1.1) both;
+}
+@keyframes errFix{ from{ opacity:0; transform: translateY(-0.3em) scale(.92); } }
+
 /* the shared team chooser: in the clue card for Blockbusters, on the race bar for
    head-to-head Race. Same component, same number-key shortcuts. */
 #clue-claim{ display:flex; visibility:hidden; gap:10px; flex-wrap:wrap; justify-content:center; }
@@ -626,6 +668,17 @@ body.theme-gameshow #play-race.lit #race-prompt{
 }
 body.theme-gameshow #play-race.lit .race-sec{ color: #3DFFA8; }
 body.theme-gameshow #play-race.lit .prompt-gap{ background:#3DFFA8; color:#04120B; }
+/* the other forms under the skin: same shapes, stage colours */
+body.theme-gameshow .prompt-tile{
+  background: rgba(255,255,255,0.07); color: var(--paper); border-color: rgba(255,255,255,0.28);
+}
+body.theme-gameshow .prompt-tile.landed{ background: var(--gold); color:#0A0D26; border-color: var(--gold); }
+body.theme-gameshow .prompt-chip{
+  background: rgba(255,255,255,0.07); color: var(--paper); border-color: rgba(255,255,255,0.28);
+}
+body.theme-gameshow .prompt-chip.odd{ background: var(--gold); color:#0A0D26; border-color: var(--gold); }
+body.theme-gameshow .prompt-error{ background: rgba(255,46,126,0.22); color:#FF8FB4; }
+body.theme-gameshow .prompt-error.fixed{ background: var(--gold); color:#0A0D26; }
 body.theme-gameshow #play-race.lit #race-bar{ color: rgba(234,240,255,0.8); }
 body.theme-gameshow #play-race.lit #race-status{ color: rgba(234,240,255,0.72); }
 body.theme-gameshow #play-race.lit #race-start,
@@ -900,7 +953,7 @@ body.theme-gameshow #clue-actions button:hover{ filter: brightness(1.14); }
   body.theme-gameshow #play-millionaire.flash-wrong,
   body.theme-gameshow #play-jeopardy.lit.flash-right,
   body.theme-gameshow #play-jeopardy.lit.flash-wrong,
-  .prompt-gap.filled,
+  .prompt-gap.filled, .prompt-chip.odd, .prompt-error.fixed,
   #board.dealing > *, #hexwrap.dealing .hex,
   #race-words.dealing .race-word,
   .game-card .game-icon *,

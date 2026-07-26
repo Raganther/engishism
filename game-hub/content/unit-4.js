@@ -103,6 +103,15 @@
   ],
 
   blockbustersBank: [
+    /* ---- typed forms: the shape of the question is the task (Kit.prompt) ---- */
+    {section:'4A', type:'anagram', letter:'I', clue:"Unscramble: acting suddenly, without planning it.", answer:"Impulse"},
+    {section:'4B', type:'anagram', letter:'W', clue:"Unscramble: someone who saw it happen.", answer:"Witness"},
+    {section:'4C', type:'anagram', letter:'T', clue:"Unscramble: skill in not causing offence.", answer:"Tact"},
+    {section:'4D', type:'anagram', letter:'M', clue:"Unscramble: the point at which everything changed.", answer:"Moment"},
+    {section:'4A', type:'oddoneout', letter:'K', clue:"Which does NOT belong: hunch / instinct / kettle", answer:"Kettle"},
+    {section:'4B', type:'oddoneout', letter:'H', clue:"Which does NOT belong: recall / memory / hedge", answer:"Hedge"},
+    {section:'4C', type:'oddoneout', letter:'S', clue:"Which does NOT belong: tactful / diplomatic / sarcastic", answer:"Sarcastic"},
+    {section:'4D', type:'oddoneout', letter:'C', clue:"Which does NOT belong: eventually / meanwhile / cautious", answer:"Cautious"},
     {section:'4A', letter:'R', clue:"The opposite of emotional — deciding with your head, not your heart.", answer:"Rational"},
     {section:'4A', letter:'I', clue:"Doing something suddenly, without planning it — 'on ___'.", answer:"Impulse"},
     {section:'4A', letter:'S', clue:"'We ___ pick up on tiny changes in someone's face' — below conscious awareness.", answer:"Subconsciously"},
@@ -182,10 +191,10 @@
   ],
 
   blockbustersSectionNames: {
-    '4A':'4A · Instinct & reason (16 clues)',
-    '4B':'4B · Memory, eyewitnesses & have/get (24 clues)',
-    '4C':'4C · Tact & idioms (14 clues)',
-    '4D':'4D · Profile writing & time expressions (12 clues)',
+    '4A':'4A · Instinct & reason (18 clues)',
+    '4B':'4B · Memory, eyewitnesses & have/get (26 clues)',
+    '4C':'4C · Tact & idioms (16 clues)',
+    '4D':'4D · Profile writing & time expressions (14 clues)',
   },
 
   /* ---- Race to the Board ----------------------------------------------------
@@ -193,6 +202,7 @@
      single word and none repeats. Distractors aren't authored — every other word
      on screen is a real target word from the chosen sections. */
   raceBank: [
+    {section:'4C', type:'errorfix', prompt:"Correct it: 'She gave a very *tactic* reply.'", answer:"Tactful"},
     /* ---- 4A: instinct & reason ---- */
     {section:'4A', prompt:"She's completely ___ — she'd never decide anything on a feeling.", answer:"Rational"},
     {section:'4A', prompt:"He bought the tickets on ___, without thinking it through.", answer:"Impulse"},
@@ -261,7 +271,7 @@
   raceSectionNames: {
     '4A':'4A · Instinct & reason (14 words)',
     '4B':'4B · Memory & have/get (14 words)',
-    '4C':'4C · Tact & idioms (14 words)',
+    '4C':'4C · Tact & idioms (15 words)',
     '4D':'4D · Profile writing & time expressions (14 words)',
   },
 
@@ -271,6 +281,13 @@
      an error this class would plausibly make — a real word with the wrong meaning,
      a wrong collocation, or a form error — never filler. */
   millionaireBank: [
+    /* ---- typed forms: error correction, marked with *asterisks* ---- */
+    {section:'4A', type:'errorfix', level:3, prompt:"Correct the error: 'She decided *on impulsive*.'",
+      answer:"on impulse", distractors:["in impulse","by impulsive","on the impulsive"]},
+    {section:'4B', type:'errorfix', level:4, prompt:"Correct the error: 'I *had cut* my hair at the salon.'",
+      answer:"had my hair cut", distractors:["have cut my hair","did cut my hair","had cutting my hair"]},
+    {section:'4C', type:'errorfix', level:5, prompt:"Correct the error: 'He was very *tactic* about the news.'",
+      answer:"tactful", distractors:["tactics","tactical","tacted"]},
     /* ---- 4A: instinct & reason ---- */
     {section:'4A', level:1, prompt:"An informal word for instinct: 'trust your ___'.",
       answer:"gut", distractors:["stomach","belly","heart"]},
@@ -443,9 +460,9 @@
   ],
 
   millionaireSectionNames: {
-    '4A':'4A · Instinct & reason (16 questions)',
-    '4B':'4B · Memory & have/get (16 questions)',
-    '4C':'4C · Tact & idioms (16 questions)',
+    '4A':'4A · Instinct & reason (17 questions)',
+    '4B':'4B · Memory & have/get (17 questions)',
+    '4C':'4C · Tact & idioms (17 questions)',
     '4D':'4D · Profile writing & time expressions (16 questions)',
   },
 });

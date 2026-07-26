@@ -210,6 +210,11 @@
     label:'Volume', help:'Classroom speakers are usually louder than they sound at your desk.',
     options:[{value:'quiet',label:'Quiet'},{value:'med',label:'Medium'},{value:'loud',label:'Loud'}] });
 
+  S.register({ id:'promptForms', group:'Questions', type:'toggle', default:true,
+    games:['jeopardy','blockbusters','race','millionaire'],
+    label:'Draw the question type',
+    help:'Gap fills show a real blank, anagrams show letter tiles, odd-one-out shows chips. Off prints every question as plain text.' });
+
   S.register({ id:'cardFlip', group:'Clue card', type:'variant', default:'morph',
     games:['jeopardy','blockbusters'],
     label:'Card animation', help:'How the clue card arrives. Try them mid-game and keep whichever reads best in your room.',
@@ -1583,7 +1588,7 @@
       cat.name + ' · $' + clue.v + (review ? '  ·  review' : '');
     document.getElementById('clue-section').textContent = cat.section;
     currentClueItem = { text:clue.q, answer:clue.a, type:clue.type };
-    Kit.prompt.render(document.getElementById('clue-text'), currentClueItem, 'jeopardy');
+    drawPrompt(document.getElementById('clue-text'), currentClueItem, 'jeopardy');
     const ansEl=document.getElementById('clue-answer');
     ansEl.textContent=clue.a;
     hideAllActionButtons();
@@ -1608,7 +1613,7 @@
     document.getElementById('clue-topline').textContent = clueObj.letter;
     document.getElementById('clue-section').textContent = clueObj.section;
     currentClueItem = { text:clueObj.clue, answer:clueObj.answer, type:clueObj.type };
-    Kit.prompt.render(document.getElementById('clue-text'), currentClueItem, 'blockbusters');
+    drawPrompt(document.getElementById('clue-text'), currentClueItem, 'blockbusters');
     const ansEl=document.getElementById('clue-answer'); ansEl.style.display='none'; ansEl.textContent=clueObj.answer;
     hideAllActionButtons();
     document.getElementById('reveal-btn').style.display='inline-block';
@@ -1831,6 +1836,17 @@
     if(closing){ swap(front, 'hidden', 'visible'); return swap(back, 'visible', 'hidden'); }
     swap(front, 'visible', 'hidden');
     return swap(back, 'hidden', 'visible');
+  }
+
+  /* Every game draws its questions through here so the switch is read in one place.
+     Off means plain text — which is exactly what the fallback path already does for
+     an unrecognised form, so nothing special-cases it. */
+  function drawPrompt(mount, item, game){
+    if(S.get('promptForms', game)) return Kit.prompt.render(mount, item, game);
+    mount.classList.remove('prompt-revealed');
+    mount.textContent = String((item && item.text) || '');
+    delete mount.dataset.promptType;
+    return null;
   }
 
   function currentFlip(){
@@ -2129,7 +2145,7 @@
     mTension();          // one place keeping the lights and the music in step
     if(!mCurrent) return;
 
-    Kit.prompt.render(document.getElementById('m-question'),
+    drawPrompt(document.getElementById('m-question'),
                       { text:mCurrent.q.prompt, answer:mCurrent.q.answer, type:mCurrent.q.type },
                       'millionaire');
     const wrap = document.getElementById('m-options');
@@ -2559,7 +2575,7 @@
     // this used to build its own gap span — the shared renderer is that idea
     // generalised, so every game draws a blank the same way. Never revealed here:
     // the answer is a word on the board for a student to find.
-    Kit.prompt.render(sent, { text:item.prompt, answer:item.answer, type:item.type }, 'race');
+    drawPrompt(sent, { text:item.prompt, answer:item.answer, type:item.type }, 'race');
     el.appendChild(sec); el.appendChild(sent);
   }
 

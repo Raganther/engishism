@@ -140,6 +140,15 @@
   ],
 
   blockbustersBank: [
+    /* ---- typed forms: the shape of the question is the task (Kit.prompt) ---- */
+    {section:'5A', type:'anagram', letter:'V', clue:"Unscramble: the decision a jury delivers.", answer:"Verdict"},
+    {section:'5B', type:'anagram', letter:'W', clue:"Unscramble: the money paid for a week's work.", answer:"Wages"},
+    {section:'5C', type:'anagram', letter:'H', clue:"Unscramble: a guess based on very little evidence.", answer:"Hunch"},
+    {section:'5D', type:'anagram', letter:'C', clue:"Unscramble: the paragraph that closes an essay.", answer:"Conclusion"},
+    {section:'5A', type:'oddoneout', letter:'S', clue:"Which does NOT belong: verdict / jury / sabbatical", answer:"Sabbatical"},
+    {section:'5B', type:'oddoneout', letter:'T', clue:"Which does NOT belong: salary / bonus / testimony", answer:"Testimony"},
+    {section:'5C', type:'oddoneout', letter:'B', clue:"Which does NOT belong: reckon / suspect / burgle", answer:"Burgle"},
+    {section:'5D', type:'oddoneout', letter:'A', clue:"Which does NOT belong: however / moreover / arrest", answer:"Arrest"},
     /* ---- 5A: crime & justice (single-word answers) ---- */
     {section:'5A', letter:'F', clue:"A financial crime of deception for personal gain.", answer:"Fraud"},
     {section:'5A', letter:'M', clue:"The most serious crime — unlawful killing.", answer:"Murder"},
@@ -230,10 +239,10 @@
   ],
 
   blockbustersSectionNames: {
-    '5A':'5A · Crime & justice (22 clues)',
-    '5B':'5B · Employment & obligation (24 clues)',
-    '5C':'5C · Recalling & speculating (14 clues)',
-    '5D':'5D · Opinion essays & linking (14 clues)',
+    '5A':'5A · Crime & justice (24 clues)',
+    '5B':'5B · Employment & obligation (26 clues)',
+    '5C':'5C · Recalling & speculating (16 clues)',
+    '5D':'5D · Opinion essays & linking (16 clues)',
   },
 
   /* ---- Race to the Board ----------------------------------------------------
@@ -244,6 +253,7 @@
      word from the selected sections, so wrong taps are still teachable.
      Fields: section, prompt (use ___ for the gap), answer (one word). */
   raceBank: [
+    {section:'5B', type:'errorfix', prompt:"Correct it: 'Helmets are *compulsary* on this site.'", answer:"Compulsory"},
     /* ---- 5A: crime & justice ---- */
     {section:'5A', prompt:"The jury returned a ___ of not guilty after six hours.", answer:"Verdict"},
     {section:'5A', prompt:"He was held in ___ for three months before the trial began.", answer:"Custody"},
@@ -357,6 +367,13 @@
      meaning, a wrong collocation, or a form error — never obvious filler.
      Fields: section, level, prompt, answer, distractors[3]. */
   millionaireBank: [
+    /* ---- typed forms: error correction, marked with *asterisks* ---- */
+    {section:'5A', type:'errorfix', level:3, prompt:"Correct the error: 'He was *accused for* the robbery.'",
+      answer:"accused of", distractors:["accused with","accused by","accused on"]},
+    {section:'5B', type:'errorfix', level:4, prompt:"Correct the error: 'You *must to* wear protective clothing.'",
+      answer:"must", distractors:["must to be","have must","must been"]},
+    {section:'5C', type:'errorfix', level:5, prompt:"Correct the error: 'I *reckon to be* she is right.'",
+      answer:"reckon", distractors:["reckon to","reckoning","reckons to"]},
     /* ---- 5A: crime & justice, relative clauses ---- */
     {section:'5A', level:1, prompt:"Someone who saw the crime happen is called a ___.",
       answer:"witness", distractors:["suspect","juror","victim"]},
@@ -589,15 +606,15 @@
   ],
 
   millionaireSectionNames: {
-    '5A':'5A · Crime, justice & relative clauses (25 questions)',
-    '5B':'5B · Employment & obligation (25 questions)',
-    '5C':'5C · Recalling & speculating (20 questions)',
+    '5A':'5A · Crime, justice & relative clauses (26 questions)',
+    '5B':'5B · Employment & obligation (26 questions)',
+    '5C':'5C · Recalling & speculating (21 questions)',
     '5D':'5D · Opinion essays & linking (16 questions)',
   },
 
   raceSectionNames: {
     '5A':'5A · Crime, justice & relative clauses (25 words)',
-    '5B':'5B · Employment & obligation (24 words)',
+    '5B':'5B · Employment & obligation (25 words)',
     '5C':'5C · Recalling & speculating (16 words)',
     '5D':'5D · Opinion essays & linking (14 words)',
   },
