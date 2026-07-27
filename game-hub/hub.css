@@ -485,9 +485,13 @@ body.theme-gameshow .settings-range input[type=range]{ accent-color:var(--gold);
    at a glance while still running the room. */
 #phone-replies{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin: 4px 0 18px; }
 .replies-head{
-  width:100%; font-family:'IBM Plex Mono',monospace; font-size:0.72rem;
+  width:100%; text-align:center;
+  font-family:'IBM Plex Mono',monospace; font-size:0.72rem;
   letter-spacing:0.08em; text-transform:uppercase; color:var(--muted);
 }
+/* On a lit stage the panel sits on the board rather than on the clue card, and
+   --muted is a light-theme grey. */
+body.theme-gameshow .replies-head{ color:rgba(255,255,255,0.55); }
 .reply{
   font-size:0.92rem; padding:4px 10px; border-radius:999px;
   background:var(--cream); color:var(--navy); border:1px solid rgba(18,38,63,0.18);

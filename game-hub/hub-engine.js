@@ -2489,6 +2489,9 @@
     st.used.add(q.prompt);
     mCurrent = { q, team:active, options: shuffle([q.answer, ...q.distractors].slice()) };
     renderMillionaire();
+    // 'vote' is the Ask-the-class lifeline and arms itself; the other modes belong
+    // to the question going up, exactly as in the tile games
+    if(S.get('phoneMode','millionaire') !== 'vote') askPhones(q.prompt, 'millionaire');
   }
 
   function showMillionaireMessage(text){
@@ -2836,9 +2839,13 @@
   /* Which games want a phone room is now a question of what is switched on, not a
      hard-coded "race only". Asked on every game start, so turning a prototype on
      mid-lesson takes effect at the next round rather than needing a reload. */
+  /* The mode decides, in every game. Race head-to-head used to open a room and arm
+     buzzers whatever the setting said — a leftover from when buzzers were a
+     Race-only feature — which made "Nothing — phones idle" a lie in the one game
+     phones were actually used in, and made every other mode unreachable there.
+     One rule now: off means no room. */
   function phonesWanted(){
     if(!activeGame) return false;
-    if(activeGame === 'race' && raceMode === 'h2h') return true;
     return S.get('phoneMode', activeGame) !== 'off';
   }
   function syncBuzzRoom(){ if(phonesWanted()) openBuzzRoom(); else closeBuzzRoom(); }
@@ -2856,7 +2863,8 @@
         return;
       }
       buzzHost = HubBuzzer.host({ relay, code });
-      buzzHost.on('ready',   d=>{ buzzPlayers=(d.players||[]).length; pushTeamNames(); renderBuzzChip(); renderJoinCount(); });
+      buzzHost.on('ready',   d=>{ buzzPlayers=(d.players||[]).length; pushTeamNames();
+                                  renderBuzzChip(); renderJoinCount(); reaskPhones(); });
       buzzHost.on('players', list=>{ buzzPlayers=list.length; renderBuzzChip(); renderJoinCount(); });
       buzzHost.on('buzz',    onBuzz);
       buzzHost.on('response', onResponse);
@@ -2918,24 +2926,59 @@
     else if(mode === 'type') armBuzzers(prompt, { mode:'type' });
   }
 
+  /* Opening the room is asynchronous — it fetches a code — so a game that deals its
+     first question during start() has already asked the phones before there were any
+     phones to ask. Millionaire deals on start, so its opening question reached
+     nobody. Re-ask whatever is live the moment the room is up. */
+  function reaskPhones(){
+    if(!buzzHost || !activeGame) return;
+    const modal = document.getElementById('clue-modal');
+    const live = (activeGame === 'millionaire' && mCurrent && !mAnswered)
+              || (activeGame === 'race' && raceCurrent)
+              || (currentClueItem && modal && modal.style.display === 'flex');
+    if(live) askPhones(currentPhonePrompt(), activeGame);
+  }
+
   function clearReplies(){
     classReplies = null;
     const el = document.getElementById('phone-replies');
     if(el) el.remove();
   }
 
-  /* Show what came back. Deliberately plain and on the clue card itself — the point
-     of collecting thirty answers is that the teacher can read them at a glance. */
+  /* Where thirty answers should appear depends on what is on screen: the clue card
+     when a clue is open, otherwise under the question the game itself is showing.
+     This was hard-coded to the clue card, so Race and Millionaire collected answers
+     and had nowhere to put them — the phones worked and the room saw nothing. */
+  function repliesHost(){
+    const modal = document.getElementById('clue-modal');
+    if(modal && modal.style.display && modal.style.display !== 'none')
+      return { parent: document.getElementById('clue-back'),
+               before: document.getElementById('clue-actions') };
+    if(activeGame === 'race'){
+      const p = document.getElementById('race-prompt');
+      return p ? { parent: p.parentNode, before: p.nextSibling } : null;
+    }
+    if(activeGame === 'millionaire'){
+      const q = document.getElementById('m-question');
+      return q ? { parent: q.parentNode, before: q.nextSibling } : null;
+    }
+    const back = document.getElementById('clue-back');
+    return back ? { parent: back, before: document.getElementById('clue-actions') } : null;
+  }
+
+  /* Show what came back. Deliberately plain — the point of collecting thirty
+     answers is that the teacher can read them at a glance. */
   function renderReplies(){
-    const card = document.getElementById('clue-back');
-    if(!card) return;
+    const host = repliesHost();
+    if(!host || !host.parent) return;
     let el = document.getElementById('phone-replies');
     if(!classReplies || !classReplies.all.length){ if(el) el.remove(); return; }
     if(!el){
       el = document.createElement('div');
       el.id = 'phone-replies';
-      card.insertBefore(el, document.getElementById('clue-actions'));
     }
+    // the panel follows the screen: a clue opening mid-round moves it to the card
+    if(el.parentNode !== host.parent) host.parent.insertBefore(el, host.before);
     el.innerHTML = '';
     const head = document.createElement('div');
     head.className = 'replies-head';
@@ -2947,6 +2990,10 @@
       chip.textContent = r.name + ': ' + r.value;
       el.appendChild(chip);
     });
+    /* On a board this panel is *in* the layout, and a full class makes it several
+       rows tall — so the board has to give up the height rather than slide under
+       the team bar. Free on the clue card, where the panel floats over the board. */
+    if(el.parentNode && !el.closest('#clue-back')) hook('onResize');
   }
 
   /* `opts.mode` picks the shape ('type' carries a typed answer with the buzz);
@@ -2962,6 +3009,11 @@
     renderBuzzChip('armed');
   }
   function typingRace(){ return !!activeGame && S.get('phoneMode', activeGame) === 'type'; }
+  // the modes where one phone takes the floor, as opposed to the whole room answering
+  function phoneRaces(){
+    const m = activeGame ? S.get('phoneMode', activeGame) : 'off';
+    return m === 'buzz' || m === 'type';
+  }
   function resetBuzzers(){
     buzzWinner=null;
     if(buzzHost) buzzHost.reset();
@@ -3014,7 +3066,7 @@
   function currentPhonePrompt(){
     if(!S.get('phonePrompt', activeGame)) return '';
     if(activeGame === 'race')        return (raceCurrent && raceCurrent.prompt) || '';
-    if(activeGame === 'millionaire') return (mCurrent && mCurrent.q && mCurrent.q.text) || '';
+    if(activeGame === 'millionaire') return (mCurrent && mCurrent.q && mCurrent.q.prompt) || '';
     return (currentClueItem && currentClueItem.text) || '';
   }
 
@@ -3214,7 +3266,10 @@
       const w = raceWords.find(x=>x.word===item.answer);
       if(w && !w.found){
         raceCurrent=item; raceFailed = new Set(); setRacePrompt(item); updateRaceBar();
-        if(raceMode==='h2h') armBuzzers(item.prompt);
+        /* Through askPhones, not armBuzzers: Race used to arm a buzzer directly,
+           which meant `phoneMode` had no effect here at all — picking "everyone
+           types" for Race silently kept giving the room a buzzer. */
+        if(raceMode==='h2h') askPhones(item.prompt, 'race');
         // the sentence going up is the starting gun — that is the moment they run
         if(document.getElementById('play-race').classList.contains('lit')) Sound.crack();
         rTension();
@@ -3363,7 +3418,9 @@
            after a correct touch). Blaming `active` here would invent a fact the app
            does not have and lock a team out of a sentence they may never have tried. */
         if(buzzWinner && teams[buzzWinner.team]) raceFailed.add(buzzWinner.team);
-        if(buzzHost) armBuzzers(raceCurrent.prompt);
+        // only the racing modes have a floor to hand back; in 'write' the whole
+        // class is answering and there is nothing to re-open
+        if(buzzHost && phoneRaces()) armBuzzers(raceCurrent.prompt);
       }
     }
   }

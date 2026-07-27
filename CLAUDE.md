@@ -584,6 +584,29 @@ what a teacher set deliberately**, so it must be translated rather than silently
     takes the floor and *carries the team*, so a correct word scores automatically and the
     "who touched it first?" chooser never appears. Wrong word = no penalty, buzzers
     re-open for a steal.
+  - **The mode decides in every game — including Race, which used to be exempt.**
+    Race head-to-head opened a room and armed buzzers *whatever the setting said*, a
+    leftover from when buzzers were a Race-only feature. That made "Nothing — phones
+    idle" a lie in the one game phones were actually used in, and made every other
+    mode unreachable there. **Behaviour change:** Race now needs `phoneMode` set to
+    `buzz` (or `type`) before phones do anything, the same as the other three.
+  - **Every mode reaches every game through `askPhones`, and that took a bug to
+    establish.** Race armed a buzzer *directly*, so `phoneMode` had no effect on the
+    one game phones were actually being used in — picking "everyone types" kept
+    handing the room a buzzer. Millionaire never called `askPhones` at all. Two
+    things that had to follow:
+    - **The replies panel goes where the question is.** It was hard-coded to the clue
+      card, which Race and Millionaire do not have, so those games collected answers
+      and the room saw nothing. `repliesHost()` picks the card when a clue is open and
+      the game's own question area otherwise, and the board re-fits, because thirty
+      answers is several rows of panel.
+    - **Opening a room is asynchronous.** Millionaire deals its first question inside
+      `start()`, before the code has come back — so that question was asked before
+      there was anybody to ask. `reaskPhones()` runs when the room is ready.
+  - **A student who joins mid-question lands in it.** The relay sends the room's live
+    state with the `joined` event and the phone runs the same path an arm does.
+    Students trickle in — late, wrong WiFi, locked phone — so "you see nothing until
+    the next question" is the common case, not the edge case.
   - **The teacher sees what was typed, right or wrong** — the chip carries the name, the
     word in quotes, and a verdict. A miss is the most useful thing on that chip: who is
     nearly there, and how, is exactly what you would want mid-round. It survives the

@@ -69,7 +69,7 @@ function getRoom(code, create){
        points: that player alone is out until their timestamp passes, while the
        room stays open for everyone else. */
     r = { host:null, players:new Map(), teams:[], armed:false, locked:null,
-          mode:'buzz', options:[], responses:new Map(), spent:new Set(),
+          mode:'buzz', prompt:'', options:[], responses:new Map(), spent:new Set(),
           cooling:new Map(), emptiedAt:0 };
     rooms.set(code, r);
   }
@@ -129,7 +129,16 @@ function openStream(req, res, q){
   room.players.set(id, { id, name, team, res });
   room.emptiedAt = 0;
 
-  pushEvent(res, 'joined', { id, name, team, teams:room.teams, armed:room.armed, locked:room.locked });
+  /* A student joining mid-question has to arrive into that question, not into a
+     blank screen until the next one. Students trickle in — somebody's phone is
+     always locked, or on the wrong WiFi, or joining thirty seconds late — so the
+     room's current state travels with the join. */
+  pushEvent(res, 'joined', {
+    id, name, team, teams:room.teams, armed:room.armed, locked:room.locked,
+    mode:room.mode, prompt:room.prompt, options:room.options,
+    spent:[...room.spent],
+    cooling:[...room.cooling].map(([pid,until])=>({ id:pid, until }))
+  });
   toHost(room, 'join', { id, name, team, players:roster(room) });
 
   req.on('close', ()=>{
@@ -200,18 +209,19 @@ function handleSend(req, res){
         const now = Date.now();
         if(msg.reopen){ room.cooling.forEach((t,id)=>{ if(t <= now) room.cooling.delete(id); }); }
         else room.cooling = new Map();
-        toPlayers(room, 'armed', { prompt: String(msg.prompt||'').slice(0,200),
+        room.prompt = String(msg.prompt||'').slice(0,200);
+        toPlayers(room, 'armed', { prompt: room.prompt,
                                    mode: room.mode, options: room.options,
                                    spent: [...room.spent], reopen: !!msg.reopen,
                                    cooling: [...room.cooling].map(([id,until])=>({ id, until })) });
         return sendJSON(res, 200, { ok:true });
       }
       case 'disarm':
-        room.armed = false;
+        room.armed = false; room.prompt = '';
         toPlayers(room, 'disarmed', {});
         return sendJSON(res, 200, { ok:true });
       case 'reset':
-        room.armed = false; room.locked = null;
+        room.armed = false; room.locked = null; room.prompt = '';
         room.responses = new Map(); room.spent = new Set(); room.cooling = new Map();
         toPlayers(room, 'reset', {});
         return sendJSON(res, 200, { ok:true });

@@ -112,7 +112,7 @@
   <p id="status"></p>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260729u"></script>
+<script src="game-hub/hub-buzzer.js?v=20260729v"></script>
 <script>
 (function(){
   'use strict';
@@ -282,9 +282,13 @@
       if(d.teams && d.teams.length){ teamNames = d.teams; }
       $('who').textContent = name + ' · ' + (teamNames[team] || ('Team '+(team+1)));
       show('screen-play');
-      if(d.locked)     { setBuzzer('off','Too late'); $('state').textContent = d.locked.name + ' got in first'; }
-      else if(d.armed) { setBuzzer('armed','Buzz'); $('state').textContent = 'Go!'; }
-      else             { setBuzzer('off','Wait');  $('state').textContent = 'Waiting for the teacher…'; }
+      /* Students trickle in — late, on the wrong WiFi, phone locked — so a join
+         lands in whatever is currently being asked rather than on a blank screen
+         until the next question. The relay sends the room's state with the join,
+         and this is the same path an arm takes. */
+      if(d.armed){ applyArmed(d); return; }
+      if(d.locked){ setBuzzer('off','Too late'); $('state').textContent = d.locked.name + ' got in first'; }
+      else        { setBuzzer('off','Wait');    $('state').textContent = 'Waiting for the teacher…'; }
     });
 
     client.on('teams', d=>{
@@ -294,7 +298,7 @@
       }
     });
 
-    client.on('armed', d=>{
+    function applyArmed(d){
       // the question has always been sent with the arm; it used to be thrown away
       $('qtext').textContent = (d && d.prompt) || '';
       const spent = (d && d.spent) || [];
@@ -325,7 +329,8 @@
         : mode==='vote' ? 'Pick one'
         : mode==='type' ? 'Type it, then buzz' : 'Type your answer');
       if(navigator.vibrate) navigator.vibrate(40);
-    });
+    }
+    client.on('armed', applyArmed);
     /* Both go through say(), because a claimed word resets the room immediately —
        and "waiting for the teacher" landing on top of "you got it" takes the win
        away from the student who just earned it. */

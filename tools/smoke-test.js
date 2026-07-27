@@ -1963,7 +1963,10 @@ async function testFlipVariants(browser){
 async function testBuzzers(browser){
   section('Phone buzzers');
   const host = await openHub(browser);
-  await host.evaluate(() => window.HubSettings.set('buzzers', true));
+  // 'buzzers' is the infrastructure switch; phoneMode is what the phones are asked
+  // to *do*, and it decides in every game now — Race no longer buzzes by default
+  await host.evaluate(() => { window.HubSettings.set('buzzers', true);
+                              window.HubSettings.set('phoneMode', 'buzz', 'race'); });
   await startGame(host, 'Race to the Board', { sections: 1 });
   await host.waitForTimeout(700);
 
@@ -2153,13 +2156,89 @@ async function testPhoneModes(browser){
   checkClean(q.host, 'join lobby');
   await q.host.close();
 
-  // ---- switched off, a tile game opens no room at all
+  /* Race armed a buzzer directly instead of going through askPhones, so picking
+     "everyone types" for Race silently kept handing the room a buzzer — the mode
+     had no effect on the one game phones were actually used in. */
+  const rw = await openRoom('Race to the Board', { __g:'race', phoneMode:'write' });
+  if (rw.code){
+    const ana = await join(rw.code, 'Ana', 0), ben = await join(rw.code, 'Ben', 1);
+    await rw.host.locator('#race-start').click(); await rw.host.waitForTimeout(900);
+    check('Race honours the mode instead of always buzzing',
+          await ana.locator('#reply').isVisible() && !(await ana.locator('#buzzer').isVisible()));
+    for (const [p, t] of [[ana,'compulsory'],[ben,'banned']]){
+      await p.fill('#reply', t); await p.locator('#send').click(); await p.waitForTimeout(300);
+    }
+    await rw.host.waitForTimeout(800);
+    /* And the answers need somewhere to go: this panel was hard-coded to the clue
+       card, which Race does not have, so the phones worked and the room saw
+       nothing. */
+    const shown = await rw.host.locator('#phone-replies').innerText().catch(()=>'');
+    check('and the answers appear on the board, not on a card it has not got',
+          /Ana: compulsory/.test(shown) && /Ben: banned/.test(shown), shown.replace(/\n/g,' | '));
+    check('the panel sits on the stage', await rw.host.locator('#play-race #phone-replies').count() === 1);
+    for (const p of [ana, ben]) await p.close();
+  }
+  checkClean(rw.host, 'race typing');
+  await rw.host.close();
+
+  /* Millionaire deals its first question inside start(), and opening the room is a
+     fetch — so that question was asked before there were any phones to ask, and
+     never reached them. It also never called askPhones at all. */
+  const mw = await openRoom('Millionaire', { __g:'millionaire', phoneMode:'write' });
+  if (mw.code){
+    const ana = await join(mw.code, 'Ana', 0);
+    await mw.host.waitForTimeout(700);
+    check('Millionaire asks the room when it deals a question',
+          await ana.locator('#reply').isVisible());
+    check('and the question travels with it',
+          (await ana.locator('#qtext').innerText()).trim().length > 0);
+    await ana.fill('#reply', 'furthermore'); await ana.locator('#send').click();
+    await mw.host.waitForTimeout(700);
+    check('the answers land between the question and the options',
+          await mw.host.locator('#m-stage #phone-replies').count() === 1,
+          await mw.host.locator('#phone-replies').innerText().catch(()=>'none'));
+    await ana.close();
+  }
+  checkClean(mw.host, 'millionaire typing');
+  await mw.host.close();
+
+  /* Students trickle in. One who joins mid-question has to arrive into that
+     question rather than watch a blank screen until the next one. */
+  const late = await openRoom('Jeopardy', { __g:'jeopardy', phoneMode:'write' });
+  if (late.code){
+    await late.host.locator('#board .tile').first().click(); await late.host.waitForTimeout(800);
+    const cara = await join(late.code, 'Cara', 0);
+    await late.host.waitForTimeout(600);
+    check('a student joining mid-question arrives into it',
+          await cara.locator('#reply').isVisible() &&
+          (await cara.locator('#qtext').innerText()).trim().length > 0,
+          await cara.locator('#qtext').innerText());
+    await cara.fill('#reply','custody'); await cara.locator('#send').click();
+    await late.host.waitForTimeout(600);
+    check('and their answer counts like anyone else\'s',
+          /Cara: custody/.test(await late.host.locator('#phone-replies').innerText().catch(()=>'')));
+    await cara.close();
+  }
+  checkClean(late.host, 'late joiner');
+  await late.host.close();
+
+  // ---- switched off, no room at all — in any game
   const off = await openHub(browser);
   await off.evaluate(() => { window.HubSettings.set('intro','off'); window.HubSettings.set('buzzers', true); });
   await startGame(off, 'Jeopardy', { sections:3 });
   await off.waitForTimeout(700);
-  check('with every phone switch off, no room is opened',
+  check('with the phones set to nothing, no room is opened',
         await off.locator('#buzzer-chip').isVisible() === false);
+  /* Race used to be exempt: it opened a room and armed buzzers whatever the setting
+     said, which made "Nothing" a lie in the one game phones were used in — and made
+     every other mode unreachable there. */
+  await startGame(off, 'Race to the Board', { sections:'all' });
+  await off.waitForTimeout(700);
+  check('and Race is no longer an exception to that',
+        await off.locator('#buzzer-chip').isVisible() === false);
+  await off.locator('#race-start').click(); await off.waitForTimeout(400);
+  check('the game plays exactly as it does with no relay at all',
+        await off.locator('#race-prompt .race-sentence').isVisible());
   checkClean(off, 'switched off');
   await off.close();
 }
@@ -2367,6 +2446,7 @@ async function testDegradation(browser){
   // relay pointed somewhere dead — the game must still be playable
   const dead = await openHub(browser);
   await dead.evaluate(() => { window.HubSettings.set('buzzers', true);
+                              window.HubSettings.set('phoneMode', 'buzz', 'race');
                               window.HubSettings.set('buzzerRelay', 'http://127.0.0.1:9'); });
   await startGame(dead, 'Race to the Board', { sections: 1 });
   await dead.waitForTimeout(700);
