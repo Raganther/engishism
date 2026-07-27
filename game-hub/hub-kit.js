@@ -3,7 +3,8 @@
    anything that needs game state takes it as a parameter, so the kit never
    reaches into the engine's closure and can be used by whatever comes next.
 
-     Kit.fitToScreen(el)          fill the space between the header and team bar
+     Kit.fitToScreen(el)          fill the space between the header and the floor
+     Kit.floorTop()               the y a board may not cross — one definition
      Kit.anim.register(...)       add an interchangeable animation
      Kit.anim.get(feature, name)  look one up by the setting's current value
      Kit.prompt.register(...)     add a question form every game can draw
@@ -13,6 +14,20 @@
    Loads after hub-settings.js and before hub-engine.js. =================== */
 window.HubKit = (function(){
   'use strict';
+
+  /* ---------- where the floor is ----------
+     The bottom edge a board may not cross. This used to be "the top of the team
+     bar", hard-coded into the fit in one place and into the layout tests in three
+     others — so moving the bar meant four separate right answers and any one of
+     them could be missed. It is one function now: the bar only takes space away
+     from a board while it is actually *below* it, which since it moved into the
+     header it no longer is. Ask, don't assume, and the next move is an edit here. */
+  function floorTop(){
+    const bar = document.getElementById('scorebar');
+    if(bar && bar.offsetHeight && getComputedStyle(bar).position === 'fixed')
+      return bar.getBoundingClientRect().top;
+    return window.innerHeight;
+  }
 
   /* ---------- fill the screen, never scroll ----------
      A board that runs off the bottom is useless: a teacher can't scroll the
@@ -35,8 +50,6 @@ window.HubKit = (function(){
        ladder straight through the answers on a phone. Measure what the content
        actually needs, and when the screen can't give it, hand the height back
        and let the page scroll instead of lying about the fit. */
-    const bar  = document.getElementById('scorebar');
-    const barH = (bar && bar.offsetHeight) || 76;
     // Bottom padding on an ancestor sits *below* this element, so the space it
     // needs is more than its own height. Ignoring it slid Race's last row of words
     // 3px under the team bar the moment the game show stage added padding — the
@@ -46,7 +59,7 @@ window.HubKit = (function(){
     for(let p = el.parentElement; p && p !== document.body; p = p.parentElement){
       below += parseFloat(getComputedStyle(p).paddingBottom) || 0;
     }
-    const h = Math.max(min, window.innerHeight - top - barH - gap - below);
+    const h = Math.max(min, floorTop() - top - gap - below);
     if(o.floor){
       el.style.height = '';
       if(el.scrollHeight > h + 1){ el.style.removeProperty('height'); return 0; }
@@ -574,5 +587,5 @@ window.HubKit = (function(){
     }
   };
 
-  return { fitToScreen, anim, prompt, claimTeam, passTurn, shapeOf, answer };
+  return { fitToScreen, floorTop, anim, prompt, claimTeam, passTurn, shapeOf, answer };
 })();

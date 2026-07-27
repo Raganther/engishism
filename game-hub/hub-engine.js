@@ -582,6 +582,10 @@
         <h1 id="page-title">Game Hub</h1>
       </div>
       <div class="header-right">
+        <!-- persistent team bar: rides in the header, visible on every screen. It
+             was fixed to the bottom of the screen and got in the way of the boards,
+             which is the one thing a classroom display cannot afford. -->
+        <div id="scorebar"></div>
         <div id="timer-widget">
           <button id="tmr-minus" title="−15 seconds">−</button>
           <span id="tmr-display">0:30</span>
@@ -685,9 +689,6 @@
         </div>
       </div>
     </div>
-
-    <!-- persistent team bar (always visible, all screens) -->
-    <div id="scorebar"></div>
 
     <!-- title sequence. Empty and inert unless a game show themed game opens it. -->
     <div id="intro-overlay" aria-hidden="true">
@@ -959,9 +960,9 @@
       acts.appendChild(b);
     });
 
-    // clear the team bar, whose height depends on how many teams there are
-    const bar = document.getElementById('scorebar');
-    modal.style.bottom = (((bar && bar.offsetHeight) || 76) + 16) + 'px';
+    // sit above whatever the floor is — the team bar when it was down here, the
+    // bottom of the screen now that it isn't. Same question every fit asks.
+    modal.style.bottom = (window.innerHeight - Kit.floorTop() + 16) + 'px';
     modal.classList.add('on');
     if(cfg.onShow) cfg.onShow();
   }
@@ -1049,7 +1050,10 @@
     const addBtn=document.createElement('button'); addBtn.id='add-team-btn'; addBtn.textContent='+ Team';
     addBtn.addEventListener('click', ()=>{ teams.push(newTeam('Team '+(teams.length+1))); renderScorebar(); });
     bar.appendChild(addBtn);
-    const resetBtn=document.createElement('button'); resetBtn.className='reset-btn'; resetBtn.textContent='↺ Reset points';
+    // icon-only in the header: the words cost more room than the button is worth,
+    // and the tooltip still says what it does
+    const resetBtn=document.createElement('button'); resetBtn.className='reset-btn';
+    resetBtn.textContent='↺'; resetBtn.title='Reset points';
     resetBtn.addEventListener('click', ()=>{ teams.forEach(t=>{ t.score=0; t.run=0; }); renderScorebar(); });
     bar.appendChild(resetBtn);
   }

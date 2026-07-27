@@ -253,7 +253,9 @@ it is restricted there rather than generalised.
 
 ## Screens: one layout contract, asked of whatever is registered
 Every game owes the room the same three things, whatever its board is made of:
-**nothing under the team bar, nothing off the right edge, no text cut off.** That is
+**nothing below the floor, nothing off the right edge, no text cut off.** The floor is
+`Kit.floorTop()` — it was the top of the team bar until the bar moved into the header,
+and the tests ask for it rather than restating it. That is
 checked by the `fit` (computer) and `phone` (handset) suites, and neither carries a list
 of games — both ask the engine:
 
@@ -429,10 +431,11 @@ there is **an override for that game**, never the master, which is what makes tr
 idea mid-round safe.
 
 Three things it has to do, each of which was a bug first:
-- **Stop short of the header and the team bar.** Both hold controls a teacher reaches for
-  *while* it is open — New game, the timer, ⚙, the ± score buttons — and a full-height
-  panel swallowed every one. `fitLab()` measures both edges (the header wraps at narrow
-  widths, the team bar grows a row when a team is added, so neither is a constant).
+- **Stop short of the header.** It holds every control a teacher reaches for *while* the
+  drawer is open — New game, the timer, ⚙, and now the ± score buttons too — and a
+  full-height panel swallowed the lot. `fitLab()` measures both edges rather than
+  assuming either; it already asked whether the team bar was `fixed` before subtracting
+  it, which is why it needed no change when the bar moved.
 - **Make the board give up the width rather than covering it.** `body.lab-open` insets
   the screen and `hook('onResize')` re-fits; without it the drawer hid two of
   Millionaire's four options, which defeats the point of changing a rule and watching the
@@ -462,6 +465,35 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The team bar rides in the header now, not across the bottom of the board.** It
+  was `position:fixed` at the foot of the screen and covered the one thing a
+  classroom display cannot spare. It now sits in `.header-right` beside the timer,
+  styled to match it, above the geo-band. **Measured, not assumed** (Millionaire,
+  1280×720): chrome 163px → **80px**, and the header itself went 94px → 80px, so the
+  board gained 83px and the strip got *smaller*. On a 390px handset chrome went
+  185px → 139px. The timer, Lab and New game each gave up a few pixels to pay for it.
+  - **`Kit.floorTop()` is the one definition of the bottom edge**, and it exists
+    because this fact was written down in four places — the fit, and three separate
+    layout assertions — so moving the bar meant four right answers and any one could
+    be missed. It returns the bar's top only while the bar is actually `fixed`, and
+    the viewport bottom otherwise. `fitToScreen`, `showResult`'s clearance and every
+    layout test ask it.
+  - **Nothing in the header may wrap; everything shrinks.** Wrapping is precisely how
+    the strip grew — title 384px + cluster 883px is 45px over, so the cluster dropped
+    to a second row and the header went 72px → 130px. The title absorbs the whole
+    shrink (`flex:1 1 auto`) and the cluster none (`flex:0 0 auto`); the eyebrow
+    ellipsises, the bar scrolls sideways. Sharing the shrink even 20:1 still took 4px
+    off the cluster, which was enough for the bar to clip its own Reset button.
+  - **Below 1100px the cluster takes its own header row**, and below 760px the bar
+    takes one within it. A percentage `flex-basis` on a child of a shrink-to-fit
+    parent is circular — that threw the page **679px off its right edge** on a phone
+    and read as "the bar overflows" when it was "the bar asked its parent how wide it
+    was while the parent was asking the bar". `min-width:100%` breaks the loop.
+  - **A malformed CSS comment silently deleted the rule that mattered** and cost a
+    debugging round: an edit left a paragraph outside its `/* */`, the parser
+    discarded everything up to the stray `*/`, and the header behaved as though the
+    rule had never been written. CSS fails silently — there is no syntax error to
+    see. If a rule appears to do nothing, check the comment above it before the rule.
 - **Millionaire answers in two beats: pick, then "Final answer?".** A click nominates
   an option — yellow, pulsing, nothing revealed and nothing scored — and the reveal
   waits for the button. Until then another click *moves* the nomination and any
@@ -567,7 +599,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
 - Teacher **countdown timer** in the header on the play screen (start/pause, reset,
   ±15s, red under 10s).
 - **Boards fit the screen — never scroll.** Jeopardy (`fitJeopardyBoard`) and Race
-  (`scatterRaceWords`) measure the space left under the header and above the team bar
+  (`scatterRaceWords`) measure the space left between the header and `Kit.floorTop()`
   and size themselves to it, scaling their type down if needed; `body.play-fit` drops
   the body padding while they're up. Both re-fit on resize.
   **`Kit.fitToScreen` subtracts ancestor bottom padding**, because that padding sits

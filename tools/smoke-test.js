@@ -103,16 +103,20 @@ function checkClean(page, who){
   check(w + 'no console errors', page.__console.length === 0, page.__console[0]);
 }
 
-// nothing may sit under the team bar, and the page must never scroll while playing
+/* Nothing may cross the floor, and the page must never scroll while playing.
+   The floor was the top of the team bar; the bar now rides in the header, so it is
+   the bottom of the viewport. The test asks Kit.floorTop() rather than restating
+   either fact — that is the whole reason floorTop() exists, and it means a bar that
+   moves again cannot leave this passing against the wrong line. */
 async function boardFits(page, selector){
   return page.evaluate(sel => {
     const els = [...document.querySelectorAll(sel)];
     if (!els.length) return { ok:false, why:'no elements' };
-    const barTop = document.getElementById('scorebar').getBoundingClientRect().top;
+    const floor  = window.HubKit.floorTop();
     const lowest = Math.max(...els.map(e => e.getBoundingClientRect().bottom));
     return {
-      ok: lowest <= barTop + 1 && document.body.scrollHeight <= window.innerHeight,
-      why: 'lowest=' + Math.round(lowest) + ' barTop=' + Math.round(barTop) +
+      ok: lowest <= floor + 1 && document.body.scrollHeight <= window.innerHeight,
+      why: 'lowest=' + Math.round(lowest) + ' floor=' + Math.round(floor) +
            ' scrollH=' + document.body.scrollHeight + ' innerH=' + window.innerHeight
     };
   }, selector);
@@ -440,7 +444,7 @@ async function stageReport(page, stage){
   return page.evaluate(sel => {
     const stageEl = document.getElementById(sel);
     if (!stageEl) return { missing:true };
-    const bar   = document.getElementById('scorebar').getBoundingClientRect();
+    const floor = window.HubKit.floorTop();
     const kids  = [...stageEl.querySelectorAll('*')].filter(e => {
       const r = e.getBoundingClientRect();
       return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden';
@@ -458,13 +462,19 @@ async function stageReport(page, stage){
     return {
       missing:false,
       offRight: Math.round(Math.max(0, document.documentElement.scrollWidth - window.innerWidth)),
-      underBar: Math.round(Math.max(0, Math.max(...kids.map(e => e.getBoundingClientRect().bottom)) - bar.top)),
+      underBar: Math.round(Math.max(0, Math.max(...kids.map(e => e.getBoundingClientRect().bottom)) - floor)),
       clipped: clipped.length,
       clippedSample: clipped.length ? (clipped[0].className || clipped[0].tagName) + ' "' +
                      clipped[0].textContent.trim().slice(0, 18) + '"' : '',
       tiny: tiny.length,
       tinySample: tiny.length ? Math.round(parseFloat(getComputedStyle(tiny[0]).fontSize)) + 'px' : '',
-      chrome: Math.round(document.querySelector('header').getBoundingClientRect().height + bar.height)
+      /* Chrome is whatever vertical space the board does not get: the header above
+         it plus anything below the floor. Adding the team bar's own height was the
+         right sum only while the bar was a separate strip — now that it lives inside
+         the header it would be counted twice. */
+      chrome: Math.round(document.querySelector('header').getBoundingClientRect().height +
+                         (window.innerHeight - floor)),
+      header: Math.round(document.querySelector('header').getBoundingClientRect().height)
     };
   }, stage);
 }
@@ -483,8 +493,12 @@ async function testBoardFitAcrossScreens(browser){
         const r = await stageReport(page, g.stage);
         const at = `${g.title} @ ${vp.width}x${vp.height} (${sections === 'all' ? 'all' : '1'} section)`;
         if (r.missing){ check(at + ': stage exists', false, g.stage + ' not found'); await page.close(); continue; }
-        check(at + ': nothing under the team bar', r.underBar === 0, r.underBar + 'px');
+        check(at + ': nothing below the floor', r.underBar === 0, r.underBar + 'px');
         check(at + ': nothing off the right edge', r.offRight === 0, r.offRight + 'px');
+        /* The team bar moved into the header on the condition that the strip did
+           not grow to hold it — the timer, Lab and New game paid for the room. A
+           cap rather than an exact number, because the title wraps by unit name. */
+        check(at + ': the header strip did not grow', r.header <= 120, r.header + 'px');
         check(at + ': no text is cut off', r.clipped === 0, r.clipped + '× e.g. ' + r.clippedSample);
         await page.close();
       }
@@ -1205,10 +1219,25 @@ async function testGameRegistry(browser){
     teambar: !!document.getElementById('scorebar'),
     timer:   !!document.getElementById('tmr-display'),
     banner:  !!document.getElementById('result-card'),
-    kit:     typeof window.HubKit.fitToScreen === 'function'
+    kit:     typeof window.HubKit.fitToScreen === 'function',
+    floor:   typeof window.HubKit.floorTop === 'function'
   }));
   check('a new game inherits the skin, team bar, timer, banner and kit',
         Object.values(inherits).every(Boolean), JSON.stringify(inherits));
+
+  /* Where the team bar lives is a layer-1 fact every game depends on, so pin it.
+     It sits in the header beside the timer and takes nothing off the bottom of the
+     board — which is the whole point of having moved it. */
+  const barPlace = await page.evaluate(() => {
+    const bar = document.getElementById('scorebar');
+    const hdr = document.querySelector('header');
+    return { inHeader: hdr.contains(bar),
+             withTimer: bar.parentElement === document.getElementById('timer-widget').parentElement,
+             notFixed: getComputedStyle(bar).position !== 'fixed',
+             floorIsViewport: Math.abs(window.HubKit.floorTop() - window.innerHeight) < 1 };
+  });
+  check('the team bar rides in the header beside the timer, not over the board',
+        Object.values(barPlace).every(Boolean), JSON.stringify(barPlace));
 
   checkClean(page);
   await page.close();
@@ -1541,7 +1570,8 @@ async function testPhoneLayout(browser){
         spill: Math.round(Math.max(0, Math.max(...opts.map(o => o.bottom)) - box.bottom)),
         ladderOverOptions: opts.some(o => overlap(rect('#m-ladder'), o)),
         offRight: Math.round(Math.max(0, document.documentElement.scrollWidth - window.innerWidth)),
-        chrome: Math.round(rect('header').height + rect('#scorebar').height),
+        // header above the board, plus anything below the floor — see stageReport
+        chrome: Math.round(rect('header').height + (window.innerHeight - window.HubKit.floorTop())),
         shortest: Math.round(Math.min(...opts.map(o => o.height)))
       };
     });
@@ -1552,10 +1582,11 @@ async function testPhoneLayout(browser){
     check(`${vp.name}: the options stay inside their grid`, r.spill === 0, r.spill + 'px past it');
     check(`${vp.name}: every option keeps its full height`, r.shortest >= 40, r.shortest + 'px');
     check(`${vp.name}: nothing runs off the right edge`, r.offRight === 0, r.offRight + 'px');
-    // An absolute cap, not a fraction of the viewport: the header and team bar
-    // cost the same pixels whatever the screen, and on the shortest handset a
-    // fraction would pass at 33% while stealing 40% of a 560px screen. This was
-    // 323px — header 146 + team bar 177 — before the handset tier existed.
+    // An absolute cap, not a fraction of the viewport: the chrome costs the same
+    // pixels whatever the screen, and on the shortest handset a fraction would pass
+    // at 33% while stealing 40% of a 560px screen. This was 323px — header 146 +
+    // team bar 177 — before the handset tier existed, and the tier brought it to
+    // 200. Folding the bar into the header should take it down again, not up.
     check(`${vp.name}: chrome leaves the board its space`,
           r.chrome <= 200, r.chrome + 'px of ' + vp.height);
     checkClean(page, vp.name);
