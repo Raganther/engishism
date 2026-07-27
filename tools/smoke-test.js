@@ -1843,16 +1843,26 @@ async function testBuzzers(browser){
      is a retry, not a steal, and it leaves the other team nothing to win. */
   await host.waitForTimeout(700);
   const next = await currentRaceAnswer(host);
-  check('a fresh sentence armed the buzzers again', !(await bruno.locator('#buzzer').isDisabled()));
+  /* Wait for the arm to actually reach the phone rather than assuming it has.
+     The relay pushes over SSE, so "the host re-armed" and "this handset's button
+     is live again" are not the same instant — clicking on that gap made this test
+     fail on timing while the feature was working correctly. */
+  const armed = async (phone, who) => {
+    try { await phone.locator('#buzzer:not([disabled])').waitFor({ timeout: 8000 }); return true; }
+    catch(e){ return false; }
+  };
+  check('a fresh sentence armed the buzzers again', await armed(bruno));
   await bruno.locator('#buzzer').click(); await host.waitForTimeout(500);
   await host.locator('.race-word')
             .filter({ hasNotText: new RegExp('^' + next + '$','i') }).first().click();
   await host.waitForTimeout(600);
 
+  check('the steal re-opens the buzzers', await armed(bruno));
   await bruno.locator('#buzzer').click(); await host.waitForTimeout(600);
   check('the team that missed cannot buzz back in',
         !(await host.locator('#buzzer-chip').innerText()).includes('Bruno'),
         (await host.locator('#buzzer-chip').innerText()).replace(/\n/g,' '));
+  await armed(alina);
   await alina.locator('#buzzer').click(); await host.waitForTimeout(600);
   check('but the other team can still take the steal',
         (await host.locator('#buzzer-chip').innerText()).includes('Alina'),
