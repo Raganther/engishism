@@ -2878,11 +2878,34 @@
     renderBuzzChip();
   }
 
+  /* The code outlives the *page*, not just the game. Reloading the hub — which is
+     the standard fix for a stale shell, and the first thing anyone does when
+     something looks wrong — would otherwise mint a new code and throw the class
+     out mid-lesson. Remembered per device with the relay it belongs to, and only
+     for as long as a lesson could plausibly run. */
+  const ROOM_KEY = 'engishism.gamehub.room';
+  const ROOM_TTL = 6 * 60 * 60 * 1000;
+  function rememberedRoom(relay){
+    try{
+      const r = JSON.parse(window.localStorage.getItem(ROOM_KEY) || 'null');
+      if(!r || r.relay !== relay || !/^\d{4,6}$/.test(String(r.code))) return null;
+      return (Date.now() - r.at < ROOM_TTL) ? String(r.code) : null;
+    }catch(e){ return null; }
+  }
+  function rememberRoom(code, relay){
+    try{ window.localStorage.setItem(ROOM_KEY, JSON.stringify({ code, relay, at:Date.now() })); }
+    catch(e){}
+  }
+  function forgetRoom(){ try{ window.localStorage.removeItem(ROOM_KEY); }catch(e){} }
+
   function openBuzzRoom(){
     if(!buzzersOn() || buzzHost) return;
     const relay = S.get('buzzerRelay') || '';
+    /* Still asks the relay for a code even when reusing one: the reply also carries
+       the LAN address the join link needs, and an unclaimed code costs nothing —
+       a room only exists once a host connects to it. */
     HubBuzzer.newCode(relay).then(info=>{
-      const code = info && info.code;
+      const code = (info && info.code) ? (rememberedRoom(relay) || info.code) : null;
       buzzLanHost = (info && info.lan) || '';
       if(!code){                     // no relay — say why, and carry on without it
         const chip=document.getElementById('buzzer-chip');
@@ -2890,6 +2913,7 @@
                   chip.textContent = buzzerProblem(); }
         return;
       }
+      rememberRoom(code, relay);
       buzzHost = HubBuzzer.host({ relay, code });
       buzzHost.on('ready',   d=>{ buzzPlayers=(d.players||[]).length; pushTeamNames();
                                   renderBuzzChip(); renderJoinCount(); reaskPhones(); });
@@ -2902,6 +2926,7 @@
 
   function dropBuzzRoom(){
     hideJoinPanel();
+    forgetRoom();
     if(buzzHost){ buzzHost.close(); buzzHost=null; }
     buzzWinner=null; buzzPlayers=0; lastTyped=null;
     const chip=document.getElementById('buzzer-chip');

@@ -2268,6 +2268,18 @@ async function testPhoneModes(browser){
           /waiting/i.test(await dee.locator('#state').innerText()),
           await dee.locator('#state').innerText());
 
+    /* And it outlives the page, not just the game. Reloading the hub is the
+       standard fix for a stale shell and the first thing anyone tries when
+       something looks wrong — minting a new code there would throw the class out
+       for the one reason they would never guess. */
+    await lesson.host.reload(); await lesson.host.waitForTimeout(500);
+    await lesson.host.evaluate(() => window.HubSettings.set('phoneMode','buzz','race'));
+    await startGame(lesson.host, 'Race to the Board', { sections:'all' });
+    await lesson.host.waitForTimeout(900);
+    const reloaded = await lesson.host.locator('#buzzer-chip').innerText().catch(()=>'');
+    check('and it survives the teacher reloading the page',
+          new RegExp('CODE\\s+' + lesson.code).test(reloaded), reloaded.replace(/\n/g,' | '));
+
     check('phone had no errors', dee.__errors.length === 0, dee.__errors[0]);
     await dee.close();
   }
