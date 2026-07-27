@@ -99,7 +99,7 @@
   <p id="status"></p>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260729q"></script>
+<script src="game-hub/hub-buzzer.js?v=20260729r"></script>
 <script>
 (function(){
   'use strict';
@@ -193,6 +193,24 @@
     $('state').textContent = 'Answer sent';
     client.respond(v);
   }
+
+  /* Scanned in? The code is in the URL, so fill it and get out of the way — the
+     whole point of the QR is that a student types nothing but their name. */
+  (function(){
+    try{
+      const code = new URLSearchParams(location.search).get('code');
+      if(code && /^\d{4,6}$/.test(code)){
+        $('code').value = code;
+        // hide the field and its own label only — the label is a sibling, so
+        // reaching for parentElement here would hide the whole join form
+        const lab = document.querySelector('label[for="code"]');
+        if(lab) lab.style.display = 'none';
+        $('code').style.display = 'none';
+        setTimeout(()=>$('name').focus(), 60);
+        validate();
+      }
+    }catch(e){}
+  })();
 
   $('join-btn').addEventListener('click', ()=>{
     const code = $('code').value.trim();

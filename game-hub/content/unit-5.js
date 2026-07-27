@@ -36,6 +36,18 @@
       {v:400, q:"Complete (formal): 'the prison, the walls ___ which are covered in art'.", a:"of"},
       {v:500, q:"Make it formal: 'some of the prisoners, who have committed serious crimes' → 'some ___ ___ …'.", a:"of whom"},
     ]},
+    /* Word order, which neither of the other two 5A grammar categories can ask.
+       A gap fill hands the student a finished sentence and asks for the pronoun;
+       only a scramble asks where the clause interrupts the main clause, whether
+       the preposition fronts, and where the commas fall — the actual C1 difficulty
+       on p146. Sentences are the book's own, put back out of order. */
+    { id:'rel-sentence-order', section:'5A', name:'Sentence Order', clues:[
+      {v:100, type:'scramble', q:"Word order — defining clause with 'that':", a:"The law that was recently passed makes no sense"},
+      {v:200, type:'scramble', q:"Word order — the clause interrupts the main clause:", a:"The officer who arrested him has since retired"},
+      {v:300, type:'scramble', q:"Word order — preposition before 'whom':", a:"The witness to whom we spoke has disappeared"},
+      {v:400, type:'scramble', q:"Word order — non-defining, so mind the commas:", a:"Halden prison, which opened in 2010, is humane"},
+      {v:500, type:'scramble', q:"Word order — 'of which' in formal writing:", a:"The prison, the walls of which are covered in art"},
+    ]},
     /* The second half of Grammar Focus 5A (p146). The first category covers who /
        where / defining-vs-non-defining; this one takes the parts a C1 class actually
        gets wrong — whom after a preposition, whose, which for a whole clause, the

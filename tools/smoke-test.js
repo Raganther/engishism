@@ -1210,6 +1210,35 @@ async function testPromptTypes(browser){
         forms.errBad.before.errors === 0 && forms.errBad.after.ms === 0,
         JSON.stringify(forms.errBad.before));
 
+  /* Sentence scramble: the words of the answer, out of order. The form that tests
+     word order, which is the one thing a gap fill structurally cannot ask. */
+  const scr = await page.evaluate(() => {
+    const item = { type:'scramble', text:'Word order:',
+                   answer:'The law that was recently passed makes no sense' };
+    const el = document.createElement('div'); document.body.appendChild(el);
+    window.HubKit.prompt.render(el, item, 'jeopardy');
+    const asked = [...el.querySelectorAll('.prompt-word')].map(w=>w.textContent).join(' ');
+    const ms = window.HubKit.prompt.reveal(el, item);
+    const landed = [...el.querySelectorAll('.prompt-word')].map(w=>w.textContent).join(' ');
+    const inRace = document.createElement('div');
+    window.HubKit.prompt.render(inRace, item, 'race');
+    const short = document.createElement('div');
+    window.HubKit.prompt.render(short, { type:'scramble', text:'x', answer:'two words' }, 'jeopardy');
+    el.remove();
+    return { asked, landed, ms, target:item.answer,
+             raceChips: inRace.querySelectorAll('.prompt-word').length,
+             shortChips: short.querySelectorAll('.prompt-word').length };
+  });
+  check('a scramble breaks the sentence into words',
+        scr.asked.split(' ').length === 9, scr.asked);
+  check('and never hands back the sentence already in order',
+        scr.asked !== scr.target, scr.asked);
+  check('reveal puts every word back in the right place',
+        scr.ms > 0 && scr.landed === scr.target, scr.landed);
+  check('a sentence answer is not offered to Race, whose answers are board tiles',
+        scr.raceChips === 0);
+  check('and too short a sentence declines to plain text', scr.shortChips === 0);
+
   check('every form that answered in place set the shared marker',
         forms.anagram.after.marked && forms.odd.after.marked && forms.err.after.marked);
 
@@ -1842,6 +1871,38 @@ async function testPhoneModes(browser){
   }
   checkClean(bz.host, 'buzzing');
   await bz.host.close();
+
+  /* The join lobby: a QR that carries the code, so a class scans in rather than
+     typing a 5-digit code and a URL. The encoder is vendored, so this also proves
+     hub-qr.js is actually being loaded by the shells. */
+  const q = await openRoom('Jeopardy', { __g:'jeopardy', phoneWrite:true });
+  if (q.code){
+    check('the QR encoder is loaded, not fetched',
+          await q.host.evaluate(() => typeof window.qrcode) === 'function');
+    await q.host.locator('#buzzer-chip').click(); await q.host.waitForTimeout(400);
+    check('the chip opens a join lobby', await q.host.locator('#join-modal.on').count() === 1);
+    check('with a QR drawn in it', await q.host.locator('#join-qr svg').count() === 1);
+    check('and the code shown for anyone who cannot scan',
+          (await q.host.locator('#join-code').innerText()).trim() === q.code);
+
+    // scanning is just opening that URL
+    const url = BASE + '/join.html?code=' + q.code;
+    const scanned = await browser.newPage({ viewport:{ width:390, height:844 } });
+    scanned.__errors = []; scanned.on('pageerror', e => scanned.__errors.push(String(e)));
+    await scanned.goto(url); await scanned.waitForTimeout(400);
+    check('a scanned link fills the code in', await scanned.locator('#code').inputValue() === q.code);
+    check('and takes the code field out of the way',
+          !(await scanned.locator('#code').isVisible()));
+    check('leaving only the name to type', await scanned.locator('#name').isVisible());
+    await scanned.fill('#name', 'Ana');
+    await scanned.locator('.teams button').nth(0).click();
+    await scanned.locator('#join-btn').click(); await scanned.waitForTimeout(600);
+    check('a scanned student reaches the game', await scanned.locator('#screen-play').isVisible());
+    check('scanned phone had no errors', scanned.__errors.length === 0, scanned.__errors[0]);
+    await scanned.close();
+  }
+  checkClean(q.host, 'join lobby');
+  await q.host.close();
 
   // ---- switched off, a tile game opens no room at all
   const off = await openHub(browser);

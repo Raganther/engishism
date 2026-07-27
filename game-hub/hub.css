@@ -200,6 +200,21 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 }
 .prompt-tile.landed{ background: var(--yellow); border-color: var(--yellow); }
 
+/* sentence scramble: the words out of order, landing into the right order on
+   reveal. Wider chips than the anagram's letters, and they wrap — a C1 relative
+   clause sentence is a dozen words, not seven letters. */
+.prompt-scramble{ display:flex; flex-wrap:wrap; gap:0.35em; justify-content:center; }
+.prompt-word{
+  display:inline-flex; align-items:center; padding:0.18em 0.5em; border-radius:8px;
+  background: var(--cream); color: var(--navy); border:2px solid var(--blue);
+  font-weight:600; line-height:1.25;
+}
+.prompt-word.landed{ background: var(--yellow); border-color: var(--yellow); }
+body.theme-gameshow .prompt-word{
+  background: rgba(255,255,255,0.07); color: var(--paper); border-color: rgba(255,255,255,0.28);
+}
+body.theme-gameshow .prompt-word.landed{ background: var(--gold); color:#0a0d26; border-color: var(--gold); }
+
 /* odd one out: candidates as chips, the odd one lit and the rest standing down */
 .prompt-odd{ display:flex; flex-wrap:wrap; gap:0.45em; justify-content:center; }
 .prompt-chip{
@@ -361,6 +376,39 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 #wrong-btn{ background: var(--white); color: var(--navy); border:2px solid var(--navy); }
 #close-btn, #skip-btn{ background: var(--white); color: var(--navy); border:2px solid var(--navy); }
 #clue-actions button:hover{ filter: brightness(1.06); }
+
+/* --- the join lobby ---
+   Thrown on the projector so a class can scan in rather than typing a 5-digit code
+   and a URL. Sized for the back of a room: the QR is the biggest thing on screen,
+   and the code stays underneath for anyone whose camera won't play. */
+#join-modal{
+  display:none; position:fixed; inset:0; z-index:65; padding:24px;
+  background:rgba(2,3,10,0.94); align-items:center; justify-content:center;
+}
+#join-modal.on{ display:flex; }
+#join-card{ text-align:center; max-width:min(90vw, 620px); }
+#join-eyebrow{
+  font-family:'IBM Plex Mono',monospace; font-size:0.8rem; letter-spacing:0.18em;
+  text-transform:uppercase; color:var(--blue); margin-bottom:14px;
+}
+#join-qr{ background:#fff; padding:16px; border-radius:16px; display:inline-block; line-height:0; }
+#join-qr svg{ width:min(46vh, 320px); height:min(46vh, 320px); display:block; }
+#join-code{
+  font-family:'IBM Plex Mono',monospace; font-weight:600; color:var(--yellow);
+  font-size:clamp(2.4rem, 7vw, 4.2rem); letter-spacing:0.22em; margin:16px 0 2px;
+}
+#join-url{ font-family:'IBM Plex Mono',monospace; color:#cfe0ff; font-size:clamp(0.85rem,2vw,1.15rem); }
+#join-count{ font-family:'IBM Plex Sans',sans-serif; color:#8fa6c8; margin-top:12px; font-size:0.95rem; }
+#join-close{
+  margin-top:20px; background:transparent; color:#cfe0ff; cursor:pointer;
+  border:2px solid rgba(255,255,255,0.35); border-radius:10px; padding:10px 22px;
+  font-family:'IBM Plex Mono',monospace; font-size:0.78rem; letter-spacing:0.06em; text-transform:uppercase;
+}
+#join-close:hover{ border-color:var(--yellow); color:var(--yellow); }
+#buzzer-chip{
+  cursor:pointer; margin: 0 auto 8px; width:max-content; max-width:100%;
+}
+#buzzer-chip .buzz-scan{ background:var(--blue); color:var(--white); border-radius:5px; padding:2px 8px; font-weight:600; }
 
 /* --- typed answers coming back from the class (phones prototype) ---
    Plain on purpose: thirty answers are only useful if the teacher can read them
@@ -974,7 +1022,7 @@ body.theme-gameshow #clue-actions button:hover{ filter: brightness(1.14); }
   body.theme-gameshow #play-millionaire.flash-wrong,
   body.theme-gameshow #play-jeopardy.lit.flash-right,
   body.theme-gameshow #play-jeopardy.lit.flash-wrong,
-  .prompt-gap.filled, .prompt-chip.odd, .prompt-error.fixed,
+  .prompt-gap.filled, .prompt-chip.odd, .prompt-error.fixed, .prompt-word.landed,
   #board.dealing > *, #hexwrap.dealing .hex,
   #race-words.dealing .race-word,
   .game-card .game-icon *,

@@ -318,6 +318,79 @@ window.HubKit = (function(){
     }
   });
 
+  /* Sentence scramble: the words of the answer, out of order. The anagram type
+     does this to the letters of a word; this does it to the words of a sentence,
+     which is the form that actually tests **word order** — where a relative clause
+     interrupts the main clause, whether a preposition fronts (`of which`, `to
+     whom`), where the commas fall. A gap fill cannot ask any of that, because the
+     sentence is already built.
+
+     Jeopardy only: the answer is a whole sentence, so Blockbusters (one word, fixed
+     initial) and Race (single-word board tiles) structurally cannot host it. */
+  prompt.register('scramble', {
+    games:['jeopardy'],
+    render(mount, item){
+      const answer = String((item && item.answer) || '').trim();
+      const text   = String((item && item.text) || '');
+      const words  = answer.split(/\s+/).filter(Boolean);
+      if(words.length < 3 || words.length > 14){ mount.textContent = text; return; }
+      if(text){
+        const lead = document.createElement('span');
+        lead.className = 'prompt-lead';
+        lead.textContent = text;
+        mount.appendChild(lead);
+      }
+      const row = document.createElement('span');
+      row.className = 'prompt-scramble';
+      // shuffle, and never hand back the sentence already in order
+      let order = words.slice(), tries = 0;
+      do {
+        for(let i = order.length - 1; i > 0; i--){
+          const j = Math.floor(Math.random() * (i + 1));
+          [order[i], order[j]] = [order[j], order[i]];
+        }
+      } while(order.join(' ') === answer && ++tries < 8);
+      order.forEach(w=>{
+        const chip = document.createElement('span');
+        chip.className = 'prompt-word';
+        chip.textContent = w;
+        chip.dataset.w = w;
+        row.appendChild(chip);
+      });
+      mount.appendChild(row);
+    },
+    reveal(mount, item){
+      const row = mount.querySelector('.prompt-scramble');
+      const answer = String((item && item.answer) || '').trim();
+      if(!row || !answer) return 0;
+      const chips = [...row.children];
+      const words = answer.split(/\s+/).filter(Boolean);
+      if(chips.length !== words.length) return 0;
+
+      // same FLIP as the anagram, one level up: measure, reorder, animate the gap
+      const before = chips.map(c => c.getBoundingClientRect());
+      const pool = chips.slice();
+      const ordered = words.map(w=>{
+        const i = pool.findIndex(c => c.dataset.w === w);
+        return i === -1 ? null : pool.splice(i, 1)[0];
+      });
+      if(ordered.some(c => !c)) return 0;
+      ordered.forEach(c => row.appendChild(c));
+      const still = window.matchMedia &&
+                    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      ordered.forEach((c, i)=>{
+        c.classList.add('landed');
+        if(still) return;
+        const was = before[chips.indexOf(c)], now = c.getBoundingClientRect();
+        const dx = was.left - now.left, dy = was.top - now.top;
+        if(!dx && !dy) return;
+        c.animate([{ transform:`translate(${dx}px, ${dy}px)` }, { transform:'none' }],
+                  { duration: 640, delay: i * 28, easing:'cubic-bezier(.2,.85,.3,1)', fill:'both' });
+      });
+      return still ? 1 : 640 + chips.length * 28;
+    }
+  });
+
   /* Odd one out. The candidates live in the prompt separated by `/`, which is how
      these were already being written by hand. Not offered to Race, where the board
      itself would give the answer away. */

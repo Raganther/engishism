@@ -576,6 +576,7 @@
 
     <!-- SCREEN 3: play -->
     <div class="screen" id="screen-play">
+      <div id="buzzer-chip" style="display:none;"></div>
       <div id="play-jeopardy">
         <div id="board"></div>
       </div>
@@ -590,7 +591,6 @@
         <div id="race-prompt"></div>
         <div id="race-bar">
           <div id="race-status"></div>
-          <div id="buzzer-chip" style="display:none;"></div>
           <div id="race-claim">
             <span class="claim-q">Who touched it first?</span>
             <div id="race-claim-teams"></div>
@@ -650,6 +650,18 @@
         <h2 id="result-title"></h2>
         <p id="result-sub"></p>
         <div id="result-actions"></div>
+      </div>
+    </div>
+
+    <!-- the join lobby: thrown on the projector so a class can scan in -->
+    <div id="join-modal">
+      <div id="join-card">
+        <div id="join-eyebrow">Scan to join</div>
+        <div id="join-qr"></div>
+        <div id="join-code"></div>
+        <div id="join-url"></div>
+        <div id="join-count"></div>
+        <button id="join-close" type="button">Close</button>
       </div>
     </div>
 
@@ -2252,6 +2264,14 @@
      hex unclaimed; Jeopardy now uses it to decline a steal, which it must have —
      offering the question with no way to say "nobody wants it" strands the teacher
      on a card with every other button hidden. */
+  document.getElementById('buzzer-chip').addEventListener('click', ()=>{
+    if(buzzHost) joinPanelOpen() ? hideJoinPanel() : showJoinPanel();
+  });
+  document.getElementById('join-close').addEventListener('click', hideJoinPanel);
+  document.getElementById('join-modal').addEventListener('click', e=>{
+    if(e.target.id === 'join-modal') hideJoinPanel();      // click the backdrop to dismiss
+  });
+
   document.getElementById('skip-btn').addEventListener('click', ()=>{
     if(modalMode === 'jeopardy' && jSteal){ jDeclineSteal(); return; }
     claimHex(null);
@@ -2574,6 +2594,51 @@
     }catch(e){ return 'join.html'; }
   }
 
+  /* The full join URL, code included, so a scan lands a student on the name screen
+     with nothing left to type. Built from the same address the chip shows, which is
+     the relay's own origin — the one address phones can actually reach. */
+  function joinURL(){
+    try{
+      const u = new URL('join.html', location.href);
+      if(/^(localhost|127\.0\.0\.1)/.test(u.host) && buzzLanHost) u.host = buzzLanHost;
+      if(buzzHost) u.searchParams.set('code', buzzHost.code);
+      return u.toString();
+    }catch(e){ return 'join.html'; }
+  }
+
+  /* Draw the QR into the lobby. The encoder is vendored (hub-qr.js) rather than
+     fetched, because this has to work with no internet at all. Error correction 'M'
+     and an auto type number: a classroom projector is a forgiving scanning target,
+     but a phone at the back of the room is not. */
+  function renderJoinQR(){
+    const box = document.getElementById('join-qr');
+    if(!box) return;
+    box.innerHTML = '';
+    const make = window.qrcode;
+    if(typeof make !== 'function'){ box.textContent = ''; return; }   // no encoder, code still shown
+    try{
+      const q = make(0, 'M');
+      q.addData(joinURL());
+      q.make();
+      box.innerHTML = q.createSvgTag({ cellSize: 8, margin: 0, scalable: true });
+    }catch(e){ box.textContent = ''; }
+  }
+
+  function showJoinPanel(){
+    if(!buzzHost) return;
+    document.getElementById('join-code').textContent = buzzHost.code;
+    document.getElementById('join-url').textContent  = joinAddress();
+    renderJoinQR();
+    renderJoinCount();
+    document.getElementById('join-modal').classList.add('on');
+  }
+  function hideJoinPanel(){ document.getElementById('join-modal').classList.remove('on'); }
+  function joinPanelOpen(){ return document.getElementById('join-modal').classList.contains('on'); }
+  function renderJoinCount(){
+    const el = document.getElementById('join-count');
+    if(el) el.textContent = buzzPlayers + (buzzPlayers === 1 ? ' phone joined' : ' phones joined');
+  }
+
   function renderBuzzChip(state){
     const chip = document.getElementById('buzzer-chip');
     if(!chip) return;
@@ -2589,6 +2654,7 @@
       // the join address, so it can be read off the screen instead of the terminal
       add('buzz-join', joinAddress());
       add('buzz-code', 'code ' + buzzHost.code);
+      add('buzz-scan', 'show QR');
       add('buzz-count', buzzPlayers + (buzzPlayers===1 ? ' phone' : ' phones'));
       if(state==='armed') add('buzz-live', 'buzzers live');
       // while the class is answering, the count is the thing the teacher watches
@@ -2636,8 +2702,8 @@
         return;
       }
       buzzHost = HubBuzzer.host({ relay, code });
-      buzzHost.on('ready',   d=>{ buzzPlayers=(d.players||[]).length; pushTeamNames(); renderBuzzChip(); });
-      buzzHost.on('players', list=>{ buzzPlayers=list.length; renderBuzzChip(); });
+      buzzHost.on('ready',   d=>{ buzzPlayers=(d.players||[]).length; pushTeamNames(); renderBuzzChip(); renderJoinCount(); });
+      buzzHost.on('players', list=>{ buzzPlayers=list.length; renderBuzzChip(); renderJoinCount(); });
       buzzHost.on('buzz',    onBuzz);
       buzzHost.on('response', onResponse);
       renderBuzzChip();
@@ -2645,6 +2711,7 @@
   }
 
   function closeBuzzRoom(){
+    hideJoinPanel();
     if(buzzHost){ buzzHost.close(); buzzHost=null; }
     buzzWinner=null; buzzPlayers=0;
     const chip=document.getElementById('buzzer-chip');
