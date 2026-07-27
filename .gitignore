@@ -1,5 +1,11 @@
 # Copyrighted syllabus materials (local only)
 material/Everest - General English/
 
+# Unrelated creative work that happens to live in this folder. Kept out because the
+# repo is public and GitHub Pages serves whatever is in it — and because 29MB of PNGs
+# would sit in the history for good, where deleting them later reclaims nothing.
+storybook-draft/
+storyboard-contact-sheet.png
+
 # OS files
 .DS_Store
