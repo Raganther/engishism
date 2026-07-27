@@ -603,6 +603,14 @@ what a teacher set deliberately**, so it must be translated rather than silently
     - **Opening a room is asynchronous.** Millionaire deals its first question inside
       `start()`, before the code has come back — so that question was asked before
       there was anybody to ask. `reaskPhones()` runs when the room is ready.
+  - **One room per lesson, not per game.** A room used to be torn down with the game,
+    because that is where its code happened to be created — so changing games minted a
+    new 5-digit code and the whole class had to rejoin, rescan and retype their names
+    mid-lesson. There are two different things and only one of them is "close":
+    **park** (nothing for the phones in *this* game — disarm, keep everyone joined,
+    and the chip says `idle here` rather than showing a live-looking code above a room
+    with nothing to do) and **drop** (the feature is switched off or the relay address
+    changed, which is the only thing that ends a room). Leaving a game parks.
   - **A student who joins mid-question lands in it.** The relay sends the room's live
     state with the `joined` event and the phone runs the same path an arm does.
     Students trickle in — late, wrong WiFi, locked phone — so "you see nothing until

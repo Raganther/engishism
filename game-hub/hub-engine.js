@@ -1008,7 +1008,8 @@
   document.getElementById('new-game-btn').addEventListener('click', ()=>{
     activeGame=null; selectedContent=[]; pool=[]; raceRunning=false;
     S.setContext(null);
-    closeBuzzRoom();
+    // park, don't close: the class stays joined on the same code for the next game
+    parkBuzzRoom();
     document.getElementById('page-title').textContent='Game Hub';
     showScreen('screen-game-select');
   });
@@ -2813,6 +2814,9 @@
       // the join address, so it can be read off the screen instead of the terminal
       add('buzz-join', joinAddress());
       add('buzz-code', 'code ' + buzzHost.code);
+      /* The room outlives the game, so it is on screen in games that do not use it.
+         Say so, rather than leaving a live-looking code above an idle class. */
+      if(activeGame && S.get('phoneMode', activeGame) === 'off') add('buzz-idle', 'idle here');
       add('buzz-scan', 'show QR');
       add('buzz-count', buzzPlayers + (buzzPlayers===1 ? ' phone' : ' phones'));
       if(state==='armed') add('buzz-live', 'buzzers live');
@@ -2848,7 +2852,31 @@
     if(!activeGame) return false;
     return S.get('phoneMode', activeGame) !== 'off';
   }
-  function syncBuzzRoom(){ if(phonesWanted()) openBuzzRoom(); else closeBuzzRoom(); }
+  /* ---- one room per lesson ----
+     A room used to be torn down with the game, because that is where its code
+     happened to be created — so changing games minted a new 5-digit code and the
+     whole class had to rejoin, rescan and retype their names. A lesson is two or
+     three games; the room outlives all of them.
+
+     So there are two different things, and only one of them is "close":
+       park  — nothing for the phones in *this* game. Disarm, keep the room, keep
+               everyone joined; their screens say the teacher is between questions.
+       drop  — the buzzer feature itself is off, or the relay is being changed.
+               Only then does the code go. */
+  function syncBuzzRoom(){
+    if(!phonesWanted()){ parkBuzzRoom(); return; }
+    // an existing room is reused, so ask it for whatever this game has already
+    // dealt — Millionaire deals its first question inside start()
+    if(buzzHost) reaskPhones(); else openBuzzRoom();
+  }
+
+  function parkBuzzRoom(){
+    hideJoinPanel();
+    clearReplies();
+    buzzWinner = null; lastTyped = null;
+    if(buzzHost) buzzHost.disarm();
+    renderBuzzChip();
+  }
 
   function openBuzzRoom(){
     if(!buzzersOn() || buzzHost) return;
@@ -2872,13 +2900,21 @@
     });
   }
 
-  function closeBuzzRoom(){
+  function dropBuzzRoom(){
     hideJoinPanel();
     if(buzzHost){ buzzHost.close(); buzzHost=null; }
-    buzzWinner=null; buzzPlayers=0;
+    buzzWinner=null; buzzPlayers=0; lastTyped=null;
     const chip=document.getElementById('buzzer-chip');
     if(chip) chip.style.display='none';
   }
+
+  /* Switching the feature off, or pointing it at a different relay, is the one
+     thing that genuinely ends a room — everything else parks it. */
+  S.onChange(id=>{
+    if(id !== 'buzzers' && id !== 'buzzerRelay') return;
+    dropBuzzRoom();
+    syncBuzzRoom();
+  });
 
   function pushTeamNames(){
     if(buzzHost) buzzHost.setTeams(teams.map(t=>t.name));

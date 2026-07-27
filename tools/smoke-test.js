@@ -2222,6 +2222,58 @@ async function testPhoneModes(browser){
   checkClean(late.host, 'late joiner');
   await late.host.close();
 
+  /* ---- one room per lesson ----
+     The room used to be torn down with the game, because that is where its code was
+     created — so changing games minted a new code and thirty students had to
+     rejoin, rescan and retype their names mid-lesson. A lesson is two or three
+     games; the room has to outlive all of them. */
+  const lesson = await openRoom('Jeopardy', { __g:'jeopardy', phoneMode:'buzz' });
+  if (lesson.code){
+    const dee = await join(lesson.code, 'Dee', 0);
+    await lesson.host.waitForTimeout(400);
+
+    await lesson.host.locator('#new-game-btn').click(); await lesson.host.waitForTimeout(400);
+    check('leaving a game does not throw the class out',
+          await dee.locator('#screen-play').isVisible());
+
+    await lesson.host.evaluate(() => window.HubSettings.set('phoneMode','buzz','race'));
+    await startGame(lesson.host, 'Race to the Board', { sections:'all' });
+    await lesson.host.waitForTimeout(900);
+    const after = (await lesson.host.locator('#buzzer-chip').innerText().catch(()=>''));
+    check('and the next game keeps the same code',
+          new RegExp('CODE\\s+' + lesson.code).test(after), after.replace(/\n/g,' | '));
+    check('so the phone is still in the room it joined',
+          (await lesson.host.locator('#buzzer-chip').innerText()).includes('1'),
+          after.replace(/\n/g,' | '));
+
+    // and it still works, which is the only thing that proves the room is live
+    await lesson.host.locator('#race-start').click(); await lesson.host.waitForTimeout(700);
+    await dee.locator('#buzzer:not([disabled])').waitFor({ timeout:8000 }).catch(()=>{});
+    await dee.locator('#buzzer').click(); await lesson.host.waitForTimeout(600);
+    check('a phone that never rejoined can still buzz',
+          (await lesson.host.locator('#buzzer-chip').innerText()).includes('Dee'),
+          (await lesson.host.locator('#buzzer-chip').innerText()).replace(/\n/g,' | '));
+
+    /* A game that does not use phones parks the room rather than ending it: the
+       class stays joined, and the chip says the phones are idle here instead of
+       showing a live-looking code above a room with nothing to do. */
+    await lesson.host.locator('#new-game-btn').click(); await lesson.host.waitForTimeout(300);
+    await startGame(lesson.host, 'Blockbusters', { sections:'all' });
+    await lesson.host.waitForTimeout(700);
+    const parked = await lesson.host.locator('#buzzer-chip').innerText().catch(()=>'');
+    check('a game with phones off keeps the room and says so',
+          new RegExp('CODE\\s+' + lesson.code).test(parked) && /idle here/i.test(parked),
+          parked.replace(/\n/g,' | '));
+    check('and the phone is told the teacher has moved on',
+          /waiting/i.test(await dee.locator('#state').innerText()),
+          await dee.locator('#state').innerText());
+
+    check('phone had no errors', dee.__errors.length === 0, dee.__errors[0]);
+    await dee.close();
+  }
+  checkClean(lesson.host, 'one room per lesson');
+  await lesson.host.close();
+
   // ---- switched off, no room at all — in any game
   const off = await openHub(browser);
   await off.evaluate(() => { window.HubSettings.set('intro','off'); window.HubSettings.set('buzzers', true); });

@@ -1113,6 +1113,7 @@ body.theme-gameshow #clue-actions button:hover{ filter: brightness(1.14); }
 #buzzer-chip .buzz-join{ color:var(--navy); text-transform:none; letter-spacing:0; font-weight:600; }
 #buzzer-chip .buzz-code{ font-weight:600; color:var(--navy); letter-spacing:0.16em; background:var(--cream); border-radius:5px; padding:2px 8px; }
 #buzzer-chip .buzz-count{ color:var(--muted); }
+#buzzer-chip .buzz-idle{ color:var(--muted); font-style:italic; letter-spacing:0.04em; }
 #buzzer-chip .buzz-live{ background:var(--yellow); color:var(--navy); border-radius:5px; padding:2px 8px; font-weight:600; }
 #buzzer-chip.armed{ border-color:var(--yellow); }
 #buzzer-chip.won{ border-color:var(--blue); background:rgba(0,160,223,0.10); }
