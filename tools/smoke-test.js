@@ -967,6 +967,85 @@ async function testContentIntegrity(browser){
    the setup screens as well as the boards. Both are easy to regress silently: a
    default flipped back, or a screen left unskinned so the app flashes white between
    choosing a unit and playing. */
+/* ---- topic picking ----
+   Jeopardy always offered named categories; the other three offered only "5A",
+   which bundled 25 crime words with 9 relative pronouns and no way to pick the
+   half you taught. Items now carry a `topic` and the picker groups on it.
+
+   The assertion that matters most is the last one: every bank filter must select
+   on the same key the picker hands out. One filter was left keyed to `section`
+   and the ladder silently drew from nothing. */
+async function testTopicPicking(browser){
+  section('Topic picking');
+  const page = await openHub(browser);
+  await page.evaluate(() => window.HubSettings.set('intro','off'));
+
+  const openPicker = async game => {
+    // reload rather than walk back: the content screen has no route to the game
+    // list, and settings live in storage so nothing is lost by starting over
+    await page.goto(BASE + '/game-hub.html'); await page.waitForTimeout(300);
+    await page.getByText('Unit 5', { exact:false }).first().click(); await page.waitForTimeout(180);
+    await page.locator('h3:visible', { hasText: game }).first().click(); await page.waitForTimeout(250);
+    return page.locator('#content-list .cat-check').allInnerTexts();
+  };
+
+  for (const game of ['Race to the Board', 'Blockbusters', 'Millionaire']){
+    const rows = await openPicker(game);
+    /* Not every game splits every section: Blockbusters has no relative-clause
+       topic because its answers must be single words keyed to a hexagon letter,
+       and a pronoun cannot be that. So assert the general property — some section
+       offers two strands — rather than naming one that only suits two games. */
+    const bySection = {};
+    rows.forEach(r => { const m = r.match(/(\d[A-D])/); if(m) bySection[m[1]] = (bySection[m[1]]||0) + 1; });
+    check(game + ': at least one section is split into its two strands',
+          Object.values(bySection).some(n => n > 1), rows.join(' / '));
+    check(game + ': each topic shows how much is in it',
+          rows.every(r => /\(\d+\)/.test(r)), rows.find(r => !/\(\d+\)/.test(r)) || '');
+  }
+
+  /* Pick one narrow topic and confirm the game either builds from exactly that
+     topic or refuses with a reason — never builds an empty board. */
+  await openPicker('Race to the Board');
+  await page.locator('#content-list .cat-check', { hasText:'Relative clauses' }).locator('input').check();
+  await page.waitForTimeout(200);
+  const narrow = await page.locator('#start-btn').innerText();
+  check('one small topic is refused with a reason, not silently broken',
+        await page.locator('#start-btn').isDisabled() && /need|add/i.test(narrow), narrow);
+
+  await page.locator('#content-list .cat-check', { hasText:'Crime & justice' }).locator('input').check();
+  await page.waitForTimeout(200);
+  check('adding a second topic makes it playable',
+        !(await page.locator('#start-btn').isDisabled()), await page.locator('#start-btn').innerText());
+  await page.locator('#start-btn').click(); await page.waitForTimeout(900);
+  const words = (await page.locator('.race-word').allInnerTexts()).map(w => w.toLowerCase());
+  check('the board is built only from the topics ticked', words.length > 0 && await page.evaluate(ws => {
+    const want = new Set(['5A-grammar','5A-vocab']);
+    // look the word up in the unit being played only — Race answers are unique
+    // within a unit but not across them, so searching every unit finds the wrong
+    // item and calls a perfectly good board foreign
+    const u = window.UNITS.find(x => x.id === 'unit-5');
+    return ws.every(w => {
+      const hit = (u.raceBank||[]).find(i => i.answer.toLowerCase() === w);
+      return !hit || want.has(hit.topic);
+    });
+  }, words), words.slice(0,6).join(','));
+
+  /* Millionaire is the one that failed silently: its per-rung filter was keyed to
+     section while the picker handed out topics, so the ladder drew from nothing. */
+  await openPicker('Millionaire');
+  const boxes = page.locator('#content-list input');
+  const n = await boxes.count();
+  for (let i = 0; i < n; i++) await boxes.nth(i).check();
+  await page.waitForTimeout(250);
+  await page.locator('#start-btn').click(); await page.waitForTimeout(900);
+  check('Millionaire still fills a ladder when picked by topic',
+        await page.locator('.m-option').count() === 4,
+        String(await page.locator('.m-option').count()));
+
+  checkClean(page);
+  await page.close();
+}
+
 async function testDefaultLook(browser){
   section('Default look');
   const page = await openHub(browser);
@@ -1976,7 +2055,7 @@ async function main(){
     jeopardy: testJeopardy, blockbusters: testBlockbusters, race: testRace,
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens, phone: testPhoneLayout,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
-    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, defaultlook: testDefaultLook, jfinish: testJeopardyFinish, competition: testCompetition,
+    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, topics: testTopicPicking, defaultlook: testDefaultLook, jfinish: testJeopardyFinish, competition: testCompetition,
     buzzers: testBuzzers, phonemodes: testPhoneModes,
     degradation: testDegradation, file: testFileProtocol
   };

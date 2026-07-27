@@ -144,11 +144,12 @@
             sub:'Yellow goes across. Blue goes down. Build your line.', accent:'#C77DFF' },
     hasBank: u => (u.blockbustersBank||[]).length > 0,
     load(u){ BLOCKBUSTERS_BANK          = u.blockbustersBank || [];
-             BLOCKBUSTERS_SECTION_NAMES = u.blockbustersSectionNames || {}; },
+             BLOCKBUSTERS_SECTION_NAMES = u.blockbustersSectionNames || {};
+             BLOCKBUSTERS_TOPIC_NAMES   = u.topicNames || {}; },
     renderContent: renderBlockbustersContent,
     startButton:   blockbustersStartButton,
     start(){
-      pool = shuffle(BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(c.section)));
+      pool = shuffle(BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(groupOf(c))));
       pool = pool.slice(0, 18);          // classic 5/4/5/4 board holds 18
       buildBlockbustersBoard();
       bbTurn=0; renderBBTurn(); bbClearOutcome();
@@ -171,7 +172,8 @@
             accent:'#3DFFA8', titleVw:'6.4vw' },
     hasBank: u => (u.raceBank||[]).length > 0,
     load(u){ RACE_BANK          = u.raceBank || [];
-             RACE_SECTION_NAMES = u.raceSectionNames || {}; },
+             RACE_SECTION_NAMES = u.raceSectionNames || {};
+             RACE_TOPIC_NAMES   = u.topicNames || {}; },
     renderContent: renderRaceContent,
     startButton:   raceStartButton,
     start(){
@@ -196,7 +198,8 @@
             sub:'Eight rungs. One team at a time. No safety net.', accent:'#FFC83D' },
     hasBank: u => (u.millionaireBank||[]).length > 0,
     load(u){ MILLIONAIRE_BANK          = u.millionaireBank || [];
-             MILLIONAIRE_SECTION_NAMES = u.millionaireSectionNames || {}; },
+             MILLIONAIRE_SECTION_NAMES = u.millionaireSectionNames || {};
+             MILLIONAIRE_TOPIC_NAMES   = u.topicNames || {}; },
     renderContent: renderMillionaireContent,
     startButton:   millionaireStartButton,
     start(){ buildMillionaire();
@@ -695,10 +698,13 @@
   let JEOPARDY_CATEGORIES       = [];
   let BLOCKBUSTERS_BANK         = [];
   let BLOCKBUSTERS_SECTION_NAMES= {};
+  let BLOCKBUSTERS_TOPIC_NAMES  = {};
   let RACE_BANK                 = [];
   let RACE_SECTION_NAMES        = {};
+  let RACE_TOPIC_NAMES          = {};
   let MILLIONAIRE_BANK          = [];
   let MILLIONAIRE_SECTION_NAMES = {};
+  let MILLIONAIRE_TOPIC_NAMES   = {};
 
   // Which games a unit can actually offer — a unit without a bank for a game
   // simply doesn't show that card, so units can adopt new games one at a time.
@@ -1186,6 +1192,37 @@
 
   /* Most games pick whole sections; Jeopardy picks named categories. Both end up
      as `.cat-check` rows, so one builder covers them. */
+  /* What a teacher can tick. Jeopardy has always offered its named categories;
+     the other three offered only the section, so "5A" meant 25 crime words *and*
+     nine relative pronouns in one lump with no way to pick the half you taught.
+
+     An item's group is its `topic` when it has one and its `section` otherwise, so
+     a bank that has not been tagged behaves exactly as before. Counts are computed
+     from the bank at render time rather than written into the label by hand —
+     the hand-written ones have drifted before, and the content gate exists to
+     catch that. */
+  const groupOf = item => (item && item.topic) || (item && item.section) || '';
+
+  function groupCheckboxes(list, bank, topicNames, sectionNames){
+    const seen = [];
+    bank.forEach(i=>{ const g = groupOf(i); if(g && seen.indexOf(g) === -1) seen.push(g); });
+    // keep the reading order of the bank, which is section order
+    seen.sort();
+    seen.forEach(g=>{
+      const n = bank.filter(i => groupOf(i) === g).length;
+      const label = (topicNames && topicNames[g]) ||
+                    (sectionNames && sectionNames[g] && sectionNames[g].split('·').slice(1).join('·').replace(/\s*\(\d+[^)]*\)\s*$/, '')) ||
+                    g;
+      const sec = String(g).split('-')[0];
+      const div = document.createElement('label');
+      div.className = 'cat-check';
+      div.innerHTML = `<input type="checkbox" value="${g}"><span class="tag">${sec}</span>` +
+                      `<span class="name">${label} <em>(${n})</em></span>`;
+      div.querySelector('input').addEventListener('change', onContentToggle);
+      list.appendChild(div);
+    });
+  }
+
   function sectionCheckboxes(list, names){
     Object.keys(names).forEach(sec=>{
       const div=document.createElement('label');
@@ -1217,21 +1254,21 @@
 
   function renderBlockbustersContent(list, help){
     document.getElementById('blockbusters-rules').style.display='block';
-    help.textContent = "Pick which sections feed the board. Each clue's answer starts with the letter shown on its hexagon.";
-    sectionCheckboxes(list, BLOCKBUSTERS_SECTION_NAMES);
+    help.textContent = "Pick the topics that feed the board. Each clue's answer starts with the letter shown on its hexagon.";
+    groupCheckboxes(list, BLOCKBUSTERS_BANK, BLOCKBUSTERS_TOPIC_NAMES, BLOCKBUSTERS_SECTION_NAMES);
   }
 
   function renderMillionaireContent(list, help){
-    help.textContent = "Pick which sections feed the ladder. Each team climbs its own eight rungs, taking turns, and the questions get harder as they go.";
-    sectionCheckboxes(list, MILLIONAIRE_SECTION_NAMES);
+    help.textContent = "Pick the topics that feed the ladder. Each team climbs its own eight rungs, taking turns, and the questions get harder as they go.";
+    groupCheckboxes(list, MILLIONAIRE_BANK, MILLIONAIRE_TOPIC_NAMES, MILLIONAIRE_SECTION_NAMES);
   }
 
   function renderRaceContent(list, help){
     document.getElementById('race-rules').style.display='block';
     document.getElementById('race-mode').style.display='block';
     renderRaceRules();
-    help.textContent = "Pick which sections feed the board. Every word on screen is a target word from your selection, so a wrong tap is still worth talking about.";
-    sectionCheckboxes(list, RACE_SECTION_NAMES);
+    help.textContent = "Pick the topics that feed the board \u2014 the vocabulary and the grammar of each section are separate, so you can drill just what you taught. Every word on screen is a target word from your selection.";
+    groupCheckboxes(list, RACE_BANK, RACE_TOPIC_NAMES, RACE_SECTION_NAMES);
   }
 
   function onContentToggle(){
@@ -1256,15 +1293,15 @@
   }
 
   function blockbustersStartButton(btn){
-    const total = BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(c.section)).length;
+    const total = BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(groupOf(c))).length;
     btn.disabled = selectedContent.length===0 || total < 18;
     btn.textContent = selectedContent.length===0 ? 'Select at least one section'
-      : total < 18 ? `Need 18 clues for a full board — ${total} selected, add another section`
+      : total < 18 ? `Need 18 clues for a full board — ${total} selected, add another topic`
       : `Build board — 18 of ${total} clues, shuffled`;
   }
 
   function millionaireStartButton(btn){
-    const pool = MILLIONAIRE_BANK.filter(q=>selectedContent.includes(q.section));
+    const pool = MILLIONAIRE_BANK.filter(q=>selectedContent.includes(groupOf(q)));
     const rungs = new Set(pool.map(q=>q.level));
     const missing = M_LADDER.map((_,i)=>i+1).filter(l=>!rungs.has(l));
     btn.disabled = selectedContent.length===0 || missing.length>0;
@@ -1274,10 +1311,10 @@
   }
 
   function raceStartButton(btn){
-    const total = RACE_BANK.filter(c=>selectedContent.includes(c.section)).length;
+    const total = RACE_BANK.filter(c=>selectedContent.includes(groupOf(c))).length;
     btn.disabled = total < RACE_MIN_WORDS;
     btn.textContent = selectedContent.length===0 ? 'Select at least one section'
-      : total < RACE_MIN_WORDS ? `Need ${RACE_MIN_WORDS} words for a board — ${total} selected, add another section`
+      : total < RACE_MIN_WORDS ? `Need ${RACE_MIN_WORDS} words for a board — ${total} selected, add another topic`
       : `Build board — ${Math.min(total, RACE_MAX_WORDS)} of ${total} words, shuffled`;
   }
 
@@ -1689,7 +1726,7 @@
   // games and units by design, so a new board shouldn't wipe it either.
   function bbPlayAgain(){
     bbClearOutcome();
-    pool = shuffle(BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(c.section))).slice(0, 18);
+    pool = shuffle(BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(groupOf(c)))).slice(0, 18);
     buildBlockbustersBoard();
     bbTurn=0; renderBBTurn();
     bbTension(); bbDeal();
@@ -2312,7 +2349,7 @@
   function pickQuestion(team){
     const st   = mTeamState(team);
     const rung = Math.min(st.rung, M_LADDER.length-1);
-    const pool = MILLIONAIRE_BANK.filter(q=>selectedContent.includes(q.section) && q.level === rung+1);
+    const pool = MILLIONAIRE_BANK.filter(q=>selectedContent.includes(groupOf(q)) && q.level === rung+1);
     if(!pool.length) return null;
     const fresh = pool.filter(q=>!st.used.has(q.prompt));
     return shuffle((fresh.length ? fresh : pool).slice())[0];
@@ -2862,7 +2899,7 @@
   });
 
   function buildRaceBoard(){
-    const picked = shuffle(RACE_BANK.filter(c=>selectedContent.includes(c.section)))
+    const picked = shuffle(RACE_BANK.filter(c=>selectedContent.includes(groupOf(c))))
                      .slice(0, RACE_MAX_WORDS);
     raceWords   = picked.map(p=>({ word:p.answer, section:p.section, found:false, by:-1 }));
     raceQueue   = shuffle(picked.slice());
