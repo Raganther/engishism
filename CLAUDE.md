@@ -521,10 +521,22 @@ what a teacher set deliberately**, so it must be translated rather than silently
   off restores the old one-click reveal. Implementation note: `onOptionClick` now only
   nominates, and `revealMillionaire(opt)` holds everything that used to follow it —
   so the steal path, which reopens the question, gets both beats for free.
-  **Not verified in a browser:** Playwright is not installed on the local machine, so
-  the updated Millionaire/gameshow/competition checks have not been run.
-- **Deployed.** Build `20260729y`, 529 checks green. The branch in use is
-  `claude/product-status-gxqp9l`; merging it to `main` is what deploys.
+- **A buzz means whatever `mBuzzRole` says it means, in Millionaire.** The tile games
+  (Jeopardy, Blockbusters) already let a buzz pick the answering team; Millionaire's
+  ladder is per-team with a fixed turn order so every team gets a full arc, and
+  "fastest thumb wins" cuts against that on purpose. Three behaviours, all offered:
+  `speaker` (default) — the buzz picks who answers for the team already on turn, and
+  a buzz from the other team is refused and the room re-armed so the entitled team can
+  still get in; `floor` — whoever buzzes first takes the question onto their own
+  ladder, like the tile games; `off` — the buzz is shown on the chip and changes
+  nothing, which is what buzzing in Millionaire did before this setting existed.
+- **Race timed rounds now actually ask the phones.** `nextRacePrompt()` had
+  `if(raceMode==='h2h') askPhones(...)`, so a timed round ignored `phoneMode`
+  entirely — picking "everyone types" for a timed round left the phones idle with
+  nothing saying why. Timed rounds ask now too; `raceCanTry()` restricts a timed
+  round's buzz to the team whose round it is, so a phone on the bench can't steal a
+  word off someone else's score.
+- **Deployed.** Build `20260730c`, phone-modes suite at 76 checks green (8 new).
 - **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
   the game being played, and only that game, without leaving the board — see "The Lab"
   above. It exists because prototyping was the bottleneck: comparing two ideas meant

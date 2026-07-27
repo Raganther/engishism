@@ -377,6 +377,26 @@
   S.register({ id:'mFinalAnswer', group:'Millionaire', type:'toggle', default:true, games:['millionaire'],
     label:'Final answer?',
     help:'A picked option locks in highlighted and waits for "Final answer?" before the reveal. The team can change their mind until then. Off reveals on the first click.' });
+  /* What a buzz is *for* is a different question in Millionaire than in the tile
+     games, and it has no single right answer — which is why it is a variant rather
+     than a decision taken here. The ladder is per team and the turn order is fixed
+     so that everyone gets a full arc (§9.5), and "fastest thumb wins" cuts straight
+     across that. So: does the buzz pick the student, or take the turn?
+       speaker — names who answers for the team already on turn; a buzz from the
+                 other team is refused and the room re-armed, so the entitled team
+                 can still get in. Turn order and both ladders are untouched.
+       floor   — whoever buzzes first takes the question and plays it on their own
+                 ladder. Fastest thumb, like Jeopardy. Gives up the even arc.
+       off     — the buzz shows on the chip and changes nothing on the board. What
+                 it did before this setting existed. */
+  S.register({ id:'mBuzzRole', group:'Millionaire', type:'variant', default:'speaker',
+    games:['millionaire'],
+    label:'What a buzz wins',
+    help:'Millionaire has a fixed turn order so every team gets a full ladder. This decides whether a buzz picks who speaks for the team on turn, or takes the turn outright.',
+    variants:[{value:'speaker', label:'Picks who answers for the team on turn'},
+              {value:'floor',   label:'Takes the question — played on their ladder'},
+              {value:'off',     label:'Nothing — the buzz is just shown'}] });
+
   S.register({ id:'mConferSeconds', group:'Millionaire', type:'select', default:30, games:['millionaire'],
     label:'Confer time', help:'How long a team gets to consult when they use Confer.',
     options:[{value:30,label:'30 seconds'},{value:45,label:'45 seconds'},{value:60,label:'60 seconds'}] });
@@ -3213,6 +3233,26 @@
       armBuzzers(raceCurrent ? raceCurrent.prompt : '');
       return;
     }
+    /* Millionaire's turn order is deliberate, so a buzz means whatever mBuzzRole
+       says it means. `speaker` refuses a buzz from a team that isn't on turn — and
+       has to re-arm rather than ignore it, for the same reason Race does: the relay
+       locks the room on the first buzz whoever sent it, so a refused phone would
+       otherwise hold the lock and keep the entitled team out. */
+    if(activeGame === 'millionaire' && b && teams[b.team]){
+      const role = S.get('mBuzzRole', 'millionaire');
+      const onTurn = mCurrent ? mCurrent.team : active;
+      if(role === 'speaker' && b.team !== onTurn){
+        armBuzzers(currentPhonePrompt());
+        return;
+      }
+      if(role === 'floor' && mCurrent && !mAnswered){
+        mCurrent.team = b.team;
+        active = b.team;               // the turn strip, lifelines and ladder follow
+        mPicked = null;                // a new team decides for itself
+        renderScorebar();
+        renderMillionaire();
+      }
+    }
     if(b && b.value != null && !judgeTypedBuzz(b)) return;
     buzzWinner = b;
     /* In the tile games the buzz decides who answers, so it selects that team —
@@ -3402,6 +3442,11 @@
         /* Through askPhones, not armBuzzers: Race used to arm a buzzer directly,
            which meant `phoneMode` had no effect here at all — picking "everyone
            types" for Race silently kept giving the room a buzzer. */
+        /* Timed rounds ask the room too. This was `if(raceMode==='h2h')`, so half of
+           Race ignored `phoneMode` entirely — pick "everyone types" for a timed round
+           and the phones sat idle with nothing saying why. One team is on the clock
+           rather than two racing, so a buzz from anyone else is refused below; what
+           the phones are *for* here is typing the word before the runner finds it. */
         if(raceMode==='h2h') askPhones(item.prompt, 'race');
         // the sentence going up is the starting gun — that is the moment they run
         if(document.getElementById('play-race').classList.contains('lit')) Sound.crack();
@@ -3512,6 +3557,11 @@
   let raceFailed = new Set();
 
   function raceCanTry(teamIdx){
+    /* In a timed round only the team whose round it is may buzz. Head-to-head is the
+       mode where both teams are at the board at once; timed is explicitly one team
+       against the clock, so a buzz from the bench would steal a word off someone
+       else's score. */
+    if(raceMode === 'timed' && teamIdx !== active) return false;
     return !S.get('stealOnWrong', 'race') || !raceFailed.has(teamIdx);
   }
 

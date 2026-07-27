@@ -62,7 +62,7 @@ async function openHub(browser, viewport){
   return page;
 }
 
-async function startGame(page, gameTitle, { sections = 1, unit = 'Unit 5', keepIntro = false } = {}){
+async function startGame(page, gameTitle, { sections = 1, unit = 'Unit 5', keepIntro = false, raceMode = null } = {}){
   // callers may already be mid-game; walk back to the unit screen first
   const newGame = page.locator('#new-game-btn');
   if (await newGame.isVisible().catch(()=>false)){ await newGame.click(); await page.waitForTimeout(180); }
@@ -84,6 +84,15 @@ async function startGame(page, gameTitle, { sections = 1, unit = 'Unit 5', keepI
   for (let i = want; i < total && await start.isDisabled(); i++){
     await boxes.nth(i).check();
     await page.waitForTimeout(80);
+  }
+  /* Race's mode is a radio on the content screen, so it has to be chosen *before*
+     Start — setting it afterwards silently does nothing, and a test that did so was
+     asserting about head-to-head while believing it was testing timed rounds. It
+     passed on the broken build, which is the only way that mistake announces itself. */
+  if (raceMode){
+    const radio = page.locator(`#race-mode input[value="${raceMode}"]`);
+    if (await radio.count()) await radio.check();
+    await page.waitForTimeout(120);
   }
   await start.click();
   await page.waitForTimeout(420);
@@ -2153,14 +2162,14 @@ async function testBuzzers(browser){
 async function testPhoneModes(browser){
   section('Phones — ask the room');
 
-  const openRoom = async (game, prefs) => {
+  const openRoom = async (game, prefs, opts) => {
     const host = await openHub(browser);
     await host.evaluate(p => {
       window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
       window.HubSettings.set('buzzers', true);
       Object.keys(p).forEach(k => { if(k !== '__g') window.HubSettings.set(k, p[k], p.__g); });
     }, prefs);
-    await startGame(host, game, { sections:'all' });
+    await startGame(host, game, Object.assign({ sections:'all' }, opts || {}));
     await host.waitForTimeout(700);
     const chip = await host.locator('#buzzer-chip').innerText().catch(()=>'');
     return { host, code:(chip.match(/CODE\s+(\d{5})/i)||[])[1] };
@@ -2249,6 +2258,94 @@ async function testPhoneModes(browser){
   }
   checkClean(bz.host, 'buzzing');
   await bz.host.close();
+
+  /* ---- what a buzz wins in Millionaire ----
+     Its ladder is per team and its turn order is fixed so everyone gets a full arc,
+     so "fastest thumb wins" is not automatically the right answer here. All three
+     answers are offered; each has to actually do what its label says. */
+  const mTurn = host => host.evaluate(() =>
+    [...document.querySelectorAll('.team')].findIndex(e => e.classList.contains('active')));
+
+  // speaker: the buzz names who answers for the team already on turn, and a phone
+  // from the other team cannot take the turn off them
+  const sp = await openRoom('Millionaire', { __g:'millionaire', phoneMode:'buzz', mBuzzRole:'speaker' });
+  if (sp.code){
+    const before = await mTurn(sp.host);
+    const other  = await join(sp.code, 'Bea', before === 0 ? 1 : 0);
+    await sp.host.waitForTimeout(500);
+    await other.locator('#buzzer').click(); await sp.host.waitForTimeout(700);
+    check('speaker: a buzz from off-turn does not take the turn',
+          await mTurn(sp.host) === before, 'turn moved to ' + await mTurn(sp.host));
+    /* And it must re-arm rather than swallow the buzz: the relay locks the room on
+       the first buzz whoever sent it, so a refused phone left holding the lock would
+       keep the team that *is* entitled from ever getting in. */
+    const onTurn = await join(sp.code, 'Ali', before);
+    await sp.host.waitForTimeout(500);
+    check('speaker: the room re-armed, so the team on turn can still buzz',
+          !(await onTurn.locator('#buzzer').isDisabled()));
+    await onTurn.locator('#buzzer').click(); await sp.host.waitForTimeout(600);
+    check('speaker: their buzz is the one that shows',
+          (await sp.host.locator('#buzzer-chip').innerText()).includes('Ali'),
+          (await sp.host.locator('#buzzer-chip').innerText()).replace(/\n/g,' '));
+    for (const p of [other, onTurn]) await p.close();
+  }
+  checkClean(sp.host, 'millionaire buzz speaker');
+  await sp.host.close();
+
+  // floor: whoever buzzes first takes the question, on their own ladder
+  const fl = await openRoom('Millionaire', { __g:'millionaire', phoneMode:'buzz', mBuzzRole:'floor' });
+  if (fl.code){
+    const before = await mTurn(fl.host);
+    const want   = before === 0 ? 1 : 0;
+    const bea    = await join(fl.code, 'Bea', want);
+    await fl.host.waitForTimeout(500);
+    await bea.locator('#buzzer').click(); await fl.host.waitForTimeout(700);
+    check('floor: a buzz takes the question for that team',
+          await mTurn(fl.host) === want, 'turn is ' + await mTurn(fl.host) + ', wanted ' + want);
+    check('floor: and the board says so', (await fl.host.locator('#m-turn').innerText()).length > 0);
+    await bea.close();
+  }
+  checkClean(fl.host, 'millionaire buzz floor');
+  await fl.host.close();
+
+  // off: the buzz is shown and changes nothing — what it did before the setting
+  const bo = await openRoom('Millionaire', { __g:'millionaire', phoneMode:'buzz', mBuzzRole:'off' });
+  if (bo.code){
+    const before = await mTurn(bo.host);
+    const bea    = await join(bo.code, 'Bea', before === 0 ? 1 : 0);
+    await bo.host.waitForTimeout(500);
+    await bea.locator('#buzzer').click(); await bo.host.waitForTimeout(700);
+    check('off: the buzz shows on the chip',
+          (await bo.host.locator('#buzzer-chip').innerText()).includes('Bea'),
+          (await bo.host.locator('#buzzer-chip').innerText()).replace(/\n/g,' '));
+    check('off: and the turn is untouched', await mTurn(bo.host) === before);
+    await bea.close();
+  }
+  checkClean(bo.host, 'millionaire buzz off');
+  await bo.host.close();
+
+  /* ---- Race timed rounds ask the phones too ----
+     This was `if(raceMode==='h2h')`, so half of Race ignored phoneMode entirely and
+     the phones sat idle whatever the teacher had picked. */
+  const rt = await openRoom('Race to the Board', { __g:'race', phoneMode:'buzz' },
+                            { raceMode:'timed' });
+  if (rt.code){
+    /* Prove the mode took before asserting anything about it. Head-to-head's status
+       line reads "first touch wins"; timed rounds never do. Without this the test
+       below silently ran in h2h — where phones have always worked — and passed on
+       the very build it was written to catch. */
+    check('the timed round really is timed',
+          !/first touch/i.test(await rt.host.locator('#race-status').innerText()),
+          await rt.host.locator('#race-status').innerText());
+    const ana = await join(rt.code, 'Ana', 0);
+    await rt.host.locator('#race-start').click(); await rt.host.waitForTimeout(900);
+    check('a timed Race round arms the phones as well',
+          !(await ana.locator('#buzzer').isDisabled()),
+          'buzzer still disabled');
+    await ana.close();
+  }
+  checkClean(rt.host, 'race timed phones');
+  await rt.host.close();
 
   /* The join lobby: a QR that carries the code, so a class scans in rather than
      typing a 5-digit code and a URL. The encoder is vendored, so this also proves
