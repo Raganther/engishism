@@ -1811,7 +1811,12 @@ async function testSettingsMigration(browser){
   }));
   check('an old master phone switch becomes the mode', ph.master === 'write', JSON.stringify(ph));
   check('and an old per-game one becomes that game\'s mode',
-        ph.race === 'buzz' && ph.mill === 'vote', JSON.stringify(ph));
+        ph.race === 'buzz', JSON.stringify(ph));
+  /* `phoneVote` translates to nothing at all: voting stopped being a mode and became
+     what Ask the class does with whatever room is open, so the teacher who had only
+     that switched on wants no per-question dynamic — and still gets the vote. */
+  check('the old vote switch leaves no mode behind, because voting is not one',
+        ph.mill === 'write', ph.mill);
   check('a game with no override still follows the master', ph.jeo === 'write', ph.jeo);
   check('the replaced keys are cleared, so it runs once', ph.left.length === 0, ph.left.join(','));
 
@@ -1821,6 +1826,25 @@ async function testSettingsMigration(browser){
   await page.reload(); await page.waitForTimeout(400);
   check('a mode chosen after the migration survives a reload',
         await page.evaluate(() => window.HubSettings.get('phoneMode','race')) === 'off');
+
+  /* `vote` shipped as a phoneMode value, so it is in real localStorage — and a value
+     naming a variant that no longer exists is the worst kind: nothing matches it, so
+     the phones go quiet while the panel still claims a dynamic is running. */
+  await page.evaluate(() => localStorage.setItem('engishism.gamehub.settings',
+    JSON.stringify({ phoneMode:'vote', 'phoneMode@millionaire':'vote',
+                     'phoneMode@race':'buzz' })));
+  await page.reload(); await page.waitForTimeout(400);
+  const vm = await page.evaluate(() => ({
+    master: window.HubSettings.get('phoneMode'),
+    mill:   window.HubSettings.get('phoneMode','millionaire'),
+    race:   window.HubSettings.get('phoneMode','race')
+  }));
+  check('a mode that no longer exists becomes off, not a dead value',
+        vm.master === 'off' && vm.mill === 'off', JSON.stringify(vm));
+  check('and a mode that still exists is left alone', vm.race === 'buzz', vm.race);
+  check('vote is no longer offered as something the phones do',
+        await page.evaluate(() => window.HubSettings.variantsFor('phoneMode','millionaire')
+          .every(v => v.value !== 'vote')));
 
   await page.evaluate(() => localStorage.removeItem('engishism.gamehub.settings'));
   checkClean(page);
@@ -2209,11 +2233,21 @@ async function testPhoneModes(browser){
   checkClean(w.host, 'typing');
   await w.host.close();
 
-  // ---- voting: Ask the class as a real poll
-  const v = await openRoom('Millionaire', { __g:'millionaire', phoneMode:'vote' });
+  /* ---- voting: Ask the class as a real poll ----
+     Not a mode any more — the lifeline borrows whatever room is open. So this runs
+     with the phones set to do *nothing* during a question, which is both the
+     hardest case (the room has to exist before anyone asks for it) and the one a
+     teacher who has not touched the settings actually gets. */
+  const v = await openRoom('Millionaire', { __g:'millionaire', phoneMode:'off' });
+  check('a room opens for Ask the class even with the phones idle', !!v.code, v.code || 'none');
   if (v.code){
+    check('and the chip says the phones are for voting, not that they are useless',
+          /votes only/i.test(await v.host.locator('#buzzer-chip').innerText()),
+          (await v.host.locator('#buzzer-chip').innerText()).replace(/\n/g,' '));
     const ana = await join(v.code, 'Ana', 0), ben = await join(v.code, 'Ben', 1);
     await v.host.waitForTimeout(400);
+    check('the phone is idle until the lifeline is used',
+          !(await ana.locator('#opts').isVisible()) && await ana.locator('#buzzer').isDisabled());
     await v.host.locator('.lifeline[data-life="class"]').click(); await v.host.waitForTimeout(700);
     check('the phone offers the four options', await ana.locator('#opts button').count() === 4);
     await ana.locator('#opts button').first().click(); await v.host.waitForTimeout(300);
@@ -2223,9 +2257,11 @@ async function testPhoneModes(browser){
           (await v.host.locator('.m-votes').allInnerTexts()).join('/'));
     /* And the board stays answerable. With phones voting there are no hands to tap,
        so turning the options into a tally pad only dead-ends the round: the counts
-       arrive over the wire and the teacher's next click is the team's answer. */
-    check('no hand-counting when the phones are doing the voting',
-          await v.host.locator('#m-done-count').isVisible() === false);
+       arrive over the wire and the teacher's next click is the team's answer. The
+       button is there, but it closes the vote — it is not a tally pad. */
+    check('the vote is closed, not counted, when the phones are doing it',
+          (await v.host.locator('#m-done-count').innerText()).trim() === 'Done voting',
+          await v.host.locator('#m-done-count').innerText());
     /* Answer it correctly on purpose. Clicking whichever option the shuffle put
        first made this a coin toss: a wrong one is legitimately answered *and* then
        handed to the other team by stealOnWrong, which reopens the question — so
@@ -2242,6 +2278,35 @@ async function testPhoneModes(browser){
   }
   checkClean(v.host, 'voting');
   await v.host.close();
+
+  /* The borrowing has to end as explicitly as it starts. A class set to buzz for
+     the floor must get its buzzer back when the vote closes — otherwise using a
+     lifeline silently costs the room its dynamic for the rest of the question. */
+  const vb = await openRoom('Millionaire', { __g:'millionaire', phoneMode:'buzz' });
+  if (vb.code){
+    const ana = await join(vb.code, 'Ana', 0);
+    await vb.host.waitForTimeout(500);
+    check('the phone is a buzzer while the question is live',
+          await ana.locator('#buzzer').isVisible() && !(await ana.locator('#opts').isVisible()));
+    await vb.host.locator('.lifeline[data-life="class"]').click(); await vb.host.waitForTimeout(700);
+    check('the vote borrows the buzzer',
+          await ana.locator('#opts').isVisible() && !(await ana.locator('#buzzer').isVisible()));
+    await vb.host.locator('#m-done-count').click(); await vb.host.waitForTimeout(700);
+    /* Visibility, not the option buttons: the vote leaves its four buttons in the
+       phone's DOM and only hides them, so counting them says nothing about what the
+       student is looking at. */
+    check('and closing the vote gives it back',
+          !(await ana.locator('#opts').isVisible()) &&
+          await ana.locator('#buzzer').isVisible() &&
+          !(await ana.locator('#buzzer').isDisabled()),
+          await ana.locator('#state').innerText().catch(()=>''));
+    check('the counts stay on the board after the vote closes',
+          (await vb.host.locator('.m-votes').count()) === 4);
+    check('phone had no errors', ana.__errors.length === 0, ana.__errors[0]);
+    await ana.close();
+  }
+  checkClean(vb.host, 'vote hands the phones back');
+  await vb.host.close();
 
   // ---- buzzing for the floor in a tile game
   const bz = await openRoom('Jeopardy', { __g:'jeopardy', phoneMode:'buzz' });

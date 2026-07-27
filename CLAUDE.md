@@ -465,6 +465,45 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Voting is not a mode — it is what Ask the class does with whatever room is
+  open.** `vote` was one of `phoneMode`'s values, which made it a *choice against*
+  buzzing and typing: a Millionaire round could have a class that buzzes or a class
+  that votes, never both, and the vote was unreachable unless the teacher had set
+  that one value. But the two answer different questions. **A mode says what a phone
+  is for during a question; the lifeline borrows every phone in the room for the few
+  seconds it runs, then gives them back.** So `phoneMode` is now `off` / `buzz` /
+  `write` / `type` and the lifeline votes whenever `buzzHost` exists — including at
+  `off`, which is what a teacher who has never opened ⚙ is running.
+  - **`off` had to stop meaning "no room".** `phonesWanted()` returned false at
+    `off`, so the room a vote needs would not exist — and one opened *by* the
+    lifeline is a room nobody has joined, with a class that cannot scan a code while
+    the question is on screen. Millionaire now keeps a room open whenever lifelines
+    are on, and the chip says `votes only` rather than `idle here`, which would read
+    as "don't bother joining" to a room about to be asked something.
+  - **The borrowing ends as explicitly as it starts**, and that is what `mVoting` is
+    for — distinct from `mCounting` (the board behaves oppositely: a click answers)
+    and from `mTally` (the counts outlive the vote being open). **Done voting** hands
+    the phones back via `askPhones`; without it a class set to buzz lost its buzzer
+    for the rest of the question the moment a lifeline was used. Answering closes it
+    too. `reaskPhones()` declines while a vote is live, or a phone joining mid-vote
+    would replace four options with a buzzer on every handset and only the votes
+    already cast would count.
+  - **`off` is a state to put the phones *into*, not the absence of one.** Now that a
+    room outlives the mode, `askPhones` disarms at `off` — otherwise closing a vote,
+    or leaving a game that was buzzing, left thirty handsets showing a live button
+    for a question that had gone.
+  - **A value naming a variant that no longer exists is worse than a wrong one** —
+    nothing matches it, so the phones go quiet while the panel still claims a dynamic
+    is running. `migrateVoteMode` rewrites any stored `vote` to `off`. It needs no
+    dropped key to run once: after it, nothing reads `vote` and nothing can write it.
+  - Changing `phoneMode` or `mLifelines` now re-syncs the room on the spot rather
+    than at the next game, which is the point of the Lab. Never a drop — the room is
+    the lesson's, and switching a dynamic must not make thirty people rejoin.
+- **A comment can ship without the line it describes.** `nextRacePrompt()` still read
+  `if(raceMode==='h2h') askPhones(…)` under a paragraph explaining that timed rounds
+  ask too — the previous commit's prose landed and its one-line change did not, and
+  the suite caught it only because a *different* test run happened to include it.
+  Fixed; timed rounds ask now.
 - **Anything above the board must re-fit it, and the buzzer chip wasn't.** The chip
   sits *in* the layout above the stage, and it changes height on its own schedule:
   opening a room is asynchronous, so it appears **after** the board has been fitted,
@@ -536,7 +575,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   nothing saying why. Timed rounds ask now too; `raceCanTry()` restricts a timed
   round's buzz to the team whose round it is, so a phone on the bench can't steal a
   word off someone else's score.
-- **Deployed.** Build `20260730c`, phone-modes suite at 76 checks green (8 new).
+- **Deployed.** Build `20260730d`, phone-modes suite at 86 checks green (10 new).
 - **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
   the game being played, and only that game, without leaving the board — see "The Lab"
   above. It exists because prototyping was the bottleneck: comparing two ideas meant
@@ -595,6 +634,8 @@ what a teacher set deliberately**, so it must be translated rather than silently
     sit on screen with no way to play them. Two consequences: with phones voting
     there is no tapping at all, so the board is never a tally pad; and **Done
     counting keeps the numbers**, because they are what the team is deciding on.
+    **Ask the class is a phone vote whenever there is a room** — not a `phoneMode`
+    to pick, see Current status — and hands in the air when there isn't.
   - Every section covers all 8 rungs, so one section fills a ladder (§3.4).
 - **Persistent shared team bar** on every screen: team names + points survive
   moving between games, units, and setup screens (nothing resets on navigation).
@@ -651,8 +692,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   dynamic itself was the problem — a room of buzzers **just makes everyone mash the
   button as fast as possible**, which is a reflex test, not a language one. So what the
   phones do is now **one `phoneMode` variant, not several toggles**: `off` / `buzz` /
-  `write` / `vote` (vote only in Millionaire, which is the only board with four options
-  to vote on). They began as independent booleans and immediately contradicted each
+  `write` / `type`. They began as independent booleans and immediately contradicted each
   other — with typing and buzzing both on, one had to silently win, decided by a
   hard-coded precedence nobody could see. **A dynamic is a choice between iterations**,
   which is a variant. `phonePrompt` decides whether the question appears on the handset
@@ -915,8 +955,9 @@ what a teacher set deliberately**, so it must be translated rather than silently
 - **Millionaire authoring cost is now measurable**: 36 four-option questions for one
   unit — the single biggest content job so far, and the number to quote when asked
   what a unit costs.
-- Obvious next use of the phone layer: **Ask the class as a real vote** rather than
-  counting hands, and buzzers to pick which team answers a Jeopardy tile.
+- Obvious next use of the phone layer: buzzers to pick which team answers a Jeopardy
+  tile. (Ask the class as a real vote is done — it is now what the lifeline does
+  whenever a room is open.)
 - Measure authoring cost per unit (the number the demo pitch hinges on). Race is the
   cheapest data point so far: 36 prompts, no distractors.
 - Fill Unit 4's Jeopardy gap — the card claims 4A–4D but only 4A/4B have categories.

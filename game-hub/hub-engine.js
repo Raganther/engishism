@@ -230,8 +230,15 @@
      between iterations, so it is one variant with named values: pick one, compare
      it against another next round, no combination that means nothing.
 
-     A variant may name the games it suits, so voting is offered only where there
-     are four options to vote on. */
+     A variant may name the games it suits, so a dynamic only appears on the boards
+     it works on.
+
+     Voting is *not* one of these values, deliberately. It is not an alternative to
+     buzzing or typing — it is what the phones do for the few seconds Ask the class
+     is running, and then they go back to whatever mode says. Making it a mode meant
+     choosing between a class that can buzz and a class that can vote, when the
+     Millionaire round wants both at different moments. So the mode is what the
+     phones do *for a question*, and the lifeline borrows the room. */
   S.register({ id:'phoneMode', group:'Phones (prototype)', type:'variant', default:'off',
     games:gameIds(),
     label:'What the phones do',
@@ -244,8 +251,7 @@
          the four options hand you the word, so typing it is a typing race rather
          than a language one. */
       {value:'type',  label:'Type it, then buzz — a race to produce the word',
-       games:['jeopardy','blockbusters','race']},
-      {value:'vote',  label:'Class votes on the options', games:['millionaire']}
+       games:['jeopardy','blockbusters','race']}
     ] });
 
   /* Two weights for the typing race, both here rather than in the source because
@@ -274,17 +280,16 @@
   /* The three booleans that became `phoneMode` are still sitting in anyone's
      localStorage, including per-game overrides they set deliberately — so
      translate rather than let them be silently ignored. Precedence is the one
-     the old code actually used at question time (write beat buzz); vote only
-     wins when it was the only thing switched on, because it fired from a
-     lifeline rather than from the question. Dropping the old keys is what makes
-     this run once. */
+     the old code actually used at question time (write beat buzz). `phoneVote`
+     translates to nothing at all now: voting is no longer something to switch on,
+     so a teacher who had only that switched on wants the default, and gets class
+     voting anyway. Dropping the old keys is what makes this run once. */
   (function migratePhoneModes(){
     const suffixes = [''].concat(gameIds().map(g => '@' + g));
     const dead = [];
     suffixes.forEach(sfx => {
       const pick = S.raw('phoneWrite'+sfx) ? 'write'
-                 : S.raw('phoneBuzzGames'+sfx) ? 'buzz'
-                 : S.raw('phoneVote'+sfx) ? 'vote' : null;
+                 : S.raw('phoneBuzzGames'+sfx) ? 'buzz' : null;
       /* An old key still being here *is* the signal that nothing has chosen a
          mode yet — the drop below removes them the first time this build loads,
          which is before anyone can have picked one. Asking whether `phoneMode`
@@ -294,6 +299,20 @@
       ['phoneWrite','phoneBuzzGames','phoneVote'].forEach(id => dead.push(id + sfx));
     });
     S.drop(dead);
+  })();
+
+  /* `vote` was a phoneMode for one build, so it is sitting in real localStorage —
+     as a master value and as a Millionaire override. A value naming a variant that
+     no longer exists is worse than a wrong one: nothing matches it, so the phones
+     go quiet with the panel still claiming a dynamic is running. It becomes `off`,
+     which is what that teacher had in effect for everything except the lifeline —
+     and the lifeline now votes regardless. Unlike the block above there is no dead
+     key to drop, so the translation is its own guard: after it runs, nothing reads
+     `vote` and nothing can write it. */
+  (function migrateVoteMode(){
+    [''].concat(gameIds().map(g => '@' + g)).forEach(sfx => {
+      if(S.raw('phoneMode'+sfx) === 'vote') S.set('phoneMode', 'off', sfx ? sfx.slice(1) : null);
+    });
   })();
 
   /* ---- competitive dynamics ----
@@ -2481,6 +2500,12 @@
      and no way to play them. With phones voting there is no tapping at all, so the
      board is never a tally pad in the first place. */
   let mCounting = false;
+  /* A phone vote is open: the counts are arriving over the wire rather than off
+     the teacher's fingers. Distinct from `mCounting` because the board behaves
+     oppositely — clicking an option answers the question — and distinct from
+     `mTally` because the votes outlive the vote being open. It is what says the
+     phones are borrowed, so closing it hands them back to `phoneMode`. */
+  let mVoting = false;
   /* The option the team has said out loud but not locked in. Held separately from
      the answer because it is reversible: until "Final answer?" it can move to any
      other option, or be thrown away entirely by a lifeline. */
@@ -2492,7 +2517,8 @@
   }
 
   function buildMillionaire(){
-    mState = []; mCurrent = null; mAnswered = false; mTally = null; mCounting = false; mPicked = null;
+    mState = []; mCurrent = null; mAnswered = false; mTally = null; mCounting = false;
+    mVoting = false; mPicked = null;
     teams.forEach((t,i)=>mTeamState(i));
     active = 0;
     renderScorebar();
@@ -2509,7 +2535,7 @@
   }
 
   function nextMillionaireQuestion(){
-    mAnswered = false; mTally = null; mCounting = false; mPicked = null;
+    mAnswered = false; mTally = null; mCounting = false; mVoting = false; mPicked = null;
     const st = mTeamState(active);
 
     if(st.rung >= M_LADDER.length){       // this team has topped out
@@ -2532,9 +2558,10 @@
     st.used.add(q.prompt);
     mCurrent = { q, team:active, options: shuffle([q.answer, ...q.distractors].slice()) };
     renderMillionaire();
-    // 'vote' is the Ask-the-class lifeline and arms itself; the other modes belong
-    // to the question going up, exactly as in the tile games
-    if(S.get('phoneMode','millionaire') !== 'vote') askPhones(q.prompt, 'millionaire');
+    /* A new question ends any borrowing: the phones go back to whatever the mode
+       says, the same as in the tile games. Voting is not a mode any more, so there
+       is nothing to exempt here — it comes and goes inside a question. */
+    askPhones(q.prompt, 'millionaire');
   }
 
   function showMillionaireMessage(text){
@@ -2595,10 +2622,17 @@
     document.getElementById('m-hint').textContent =
       mPicked   ? 'Locked on ' + mPicked + ' — or pick another option to change it.'
       : mCounting ? 'Counting hands — tap an option for each hand, then Done counting.'
+      : mVoting ? 'The class is voting on their phones. Pick the answer when the team decides.'
       : mTally  ? 'The class has voted. Pick the answer when the team decides.'
       : '';
     document.getElementById('m-next').style.display = 'none';
-    document.getElementById('m-done-count').style.display = mCounting ? 'inline-block' : 'none';
+    /* One button closes whichever kind of vote is running, and says which — the
+       teacher is either counting hands or waiting on phones, never both. Closing a
+       phone vote is what hands the room back, so it is a real control here rather
+       than the tidy-up it is when the hands are in the air. */
+    const done = document.getElementById('m-done-count');
+    done.textContent = mCounting ? 'Done counting' : 'Done voting';
+    done.style.display = (mCounting || mVoting) ? 'inline-block' : 'none';
     document.getElementById('m-final').style.display = mPicked ? 'inline-block' : 'none';
   }
 
@@ -2687,6 +2721,12 @@
     if(!mCurrent || mAnswered) return;
     mAnswered = true;
     mPicked   = null;
+    /* Answering closes the vote whether or not anyone pressed Done: there is
+       nothing left to vote on. The phones are re-armed by the next question, so
+       this only has to stop the board offering a control that would do nothing. */
+    mVoting   = false;
+    mCounting = false;
+    document.getElementById('m-done-count').style.display = 'none';
 
     const correct = (opt === mCurrent.q.answer);
     const st = mTeamState(mCurrent.team);
@@ -2765,11 +2805,16 @@
     } else if(kind === 'class'){
       mTally = {};
       mCurrent.options.forEach(o=>{ mTally[o] = 0; });
-      /* With phones on, the class votes for real and the counts arrive over the
-         wire — so the board must stay answerable. Only the hands-in-the-air version
-         turns the options into a tally pad. */
-      const byPhone = S.get('phoneMode', 'millionaire') === 'vote' && buzzHost;
+      /* If there is a room, the class votes for real — whatever the phones were
+         doing a second ago. That is the whole shape of this: the mode says what a
+         phone is for during a question, and Ask the class borrows every phone in
+         the room for as long as the vote is open. No room, no phones: it falls back
+         to hands in the air, which is what the lifeline always was.
+         The counts arrive over the wire, so the board stays answerable — only the
+         hands-in-the-air version turns the options into a tally pad. */
+      const byPhone = !!buzzHost;
       mCounting = !byPhone;
+      mVoting   = byPhone;
       if(byPhone) askClass(mCurrent.q.prompt, 'vote', mCurrent.options.slice());
       renderMillionaire();
     } else if(kind === 'confer'){
@@ -2795,7 +2840,15 @@
      are what the team is deciding on. Clearing them was the other half of the
      dead end — the only way out of tally mode also threw away the vote. */
   document.getElementById('m-done-count').addEventListener('click', ()=>{
+    const wasVoting = mVoting;
     mCounting = false;
+    mVoting   = false;
+    /* Give the phones back. Without this the room stays on the four options for the
+       rest of the question, so a class set to buzz for the floor lost the buzzer the
+       moment a lifeline was used — the borrowing has to end as explicitly as it
+       started. `askPhones` re-arms whatever the mode is, including disarming when
+       it is off. */
+    if(wasVoting && mCurrent && !mAnswered) askPhones(currentPhonePrompt(), 'millionaire');
     renderMillionaire();
   });
 
@@ -2908,7 +2961,11 @@
       add('buzz-code', 'code ' + buzzHost.code);
       /* The room outlives the game, so it is on screen in games that do not use it.
          Say so, rather than leaving a live-looking code above an idle class. */
-      if(activeGame && S.get('phoneMode', activeGame) === 'off') add('buzz-idle', 'idle here');
+      /* And say *how* idle. In Millionaire the phones still vote when Ask the class
+         is used, so "idle here" would read as "don't bother joining" to a room that
+         is about to be asked something. */
+      if(activeGame && S.get('phoneMode', activeGame) === 'off')
+        add('buzz-idle', classVotes() ? 'votes only' : 'idle here');
       add('buzz-scan', 'show QR');
       add('buzz-count', buzzPlayers + (buzzPlayers===1 ? ' phone' : ' phones'));
       if(state==='armed') add('buzz-live', 'buzzers live');
@@ -2939,10 +2996,23 @@
      buzzers whatever the setting said — a leftover from when buzzers were a
      Race-only feature — which made "Nothing — phones idle" a lie in the one game
      phones were actually used in, and made every other mode unreachable there.
-     One rule now: off means no room. */
+     One rule now: off means no room.
+
+     With one exception, and it is the reason voting stopped being a mode: Ask the
+     class votes on the phones whenever there are phones, so Millionaire wants a
+     room even at `off`. "Nothing during a question" is still honest there — the
+     phones sit idle until a lifeline is used — but a room that only opens once
+     somebody presses the lifeline is a room nobody has joined yet, and a class
+     cannot scan, type a code and pick a team while the question is on screen. */
   function phonesWanted(){
     if(!activeGame) return false;
-    return S.get('phoneMode', activeGame) !== 'off';
+    if(S.get('phoneMode', activeGame) !== 'off') return true;
+    return classVotes();
+  }
+  // Millionaire's Ask the class is a phone vote, so the room is worth having open
+  // even when nothing else on the board wants one.
+  function classVotes(){
+    return activeGame === 'millionaire' && !!S.get('mLifelines', 'millionaire');
   }
   /* ---- one room per lesson ----
      A room used to be torn down with the game, because that is where its code
@@ -3033,6 +3103,16 @@
     syncBuzzRoom();
   });
 
+  /* Changing what the phones do is exactly the thing the Lab exists for, so it has
+     to take effect on this question rather than the next game. Never a drop: the
+     room is the lesson's, and switching a dynamic must not make thirty people
+     rejoin. `syncBuzzRoom` opens, re-asks or parks as the new value requires —
+     including opening one for Ask the class when the mode itself is off. */
+  S.onChange(id=>{
+    if(id !== 'phoneMode' && id !== 'mLifelines') return;
+    syncBuzzRoom();
+  });
+
   function pushTeamNames(){
     if(buzzHost) buzzHost.setTeams(teams.map(t=>t.name));
   }
@@ -3077,6 +3157,11 @@
     if(mode === 'write')     askClass(prompt, 'answer');
     else if(mode === 'buzz') armBuzzers(prompt);
     else if(mode === 'type') armBuzzers(prompt, { mode:'type' });
+    /* `off` is a state to put the phones *into*, not an absence of one. A room now
+       outlives the mode — Millionaire keeps one open for Ask the class — so leaving
+       a game that was buzzing, or closing a vote with the mode off, would otherwise
+       leave thirty handsets showing a live button for a question that has gone. */
+    else if(buzzHost){ buzzWinner = null; buzzHost.disarm(); renderBuzzChip(); }
   }
 
   /* Opening the room is asynchronous — it fetches a code — so a game that deals its
@@ -3085,6 +3170,10 @@
      nobody. Re-ask whatever is live the moment the room is up. */
   function reaskPhones(){
     if(!buzzHost || !activeGame) return;
+    /* A vote in progress outranks the mode: re-asking here would replace the four
+       options on every phone with a buzzer, mid-vote, and the votes already cast
+       would be the only ones counted. Whoever closes the vote re-asks. */
+    if(mVoting) return;
     const modal = document.getElementById('clue-modal');
     const live = (activeGame === 'millionaire' && mCurrent && !mAnswered)
               || (activeGame === 'race' && raceCurrent)
@@ -3447,7 +3536,7 @@
            and the phones sat idle with nothing saying why. One team is on the clock
            rather than two racing, so a buzz from anyone else is refused below; what
            the phones are *for* here is typing the word before the runner finds it. */
-        if(raceMode==='h2h') askPhones(item.prompt, 'race');
+        askPhones(item.prompt, 'race');
         // the sentence going up is the starting gun — that is the moment they run
         if(document.getElementById('play-race').classList.contains('lit')) Sound.crack();
         rTension();
