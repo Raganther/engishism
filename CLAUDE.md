@@ -929,11 +929,35 @@ what a teacher set deliberately**, so it must be translated rather than silently
   which isn't a touchscreen, so the teacher still does every click.)
 - Repo is **public** — don't commit anything that shouldn't be internet-visible.
 
-## Before you push
+## Before you push — gate by blast radius, not by habit
+**Match the check to what the change can break.** A 25-minute gate on every change is
+a gate that gets skipped or truncated, which is worse than a smaller one that actually
+runs. Pick the row, run it, push.
+
+| What you changed | Run this | Costs |
+|---|---|---|
+| **Content** (a bank, a unit file) | `--only=content` | ~20s |
+| **One game's own logic** (board, its `tension()`, its stage CSS) | `--only=<game>` | ~40s |
+| **Shared layer 1** — `hub-kit.js`, the header, `hub.css` outside one stage, settings, the fit | `--only=millionaire,fit,phone,gameshow,lab,registry,competition` | ~3 min |
+| **Phones / relay** | add `,buzzers,phonemodes,degradation` | +3 min |
+| **Before a lesson you will actually teach from**, or on request | the full suite | ~25 min |
+
 ```bash
-NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~25 min, 529 checks, 31 suites
-NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=jeopardy,fit,phone   # while iterating
+NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=millionaire,fit,phone   # the usual
+NODE_PATH=$(npm root -g) node tools/smoke-test.js                                # 31 suites
 ```
+
+**Two cheap pre-flights that cost seconds and have each already paid for themselves:**
+```bash
+node tools/check-syntax.js          # JS parses, CSS comments/braces balance
+```
+A malformed CSS comment **silently deletes every rule after it** — the parser skips to
+the next `*/` and there is no error anywhere. That cost a debugging round on the team
+bar: the header behaved as though the rule had never been written. CSS has no compiler
+to catch this, so this stands in for one.
+
+**Push straight to `main`.** Render redeploys in ~40s and GitHub Pages follows, so the
+phone can check it immediately. Bump the cache stamp or the phone will not see it.
 Drives all four games in a real browser and checks the things that have actually
 broken before: boards running off screen, text cut off, the flip landing on the wrong
 tile, settings not persisting, buzzers not degrading when the relay is gone. Starts its
@@ -943,12 +967,14 @@ own relay, exits non-zero on any failure. `--url=` tests a deployed copy instead
 reports the *pipe's* status, so a red run looks green. Redirect to a file instead; you
 also get progress while it runs, which `tail` denies you for 15 minutes.
 
-**A partial run is not evidence for a change to anything shared.** Three separate helpers
-in the suite compared `#m-question`'s text against the raw prompt, and `Kit.prompt`
-rendering `___` as a blank broke all three. They were found and fixed one at a time
-across three full runs, because each was treated as a one-off instead of prompting a
-search for the same pattern elsewhere. **When a shared behaviour changes, grep for the
-assumption before re-running.**
+**When a shared behaviour changes, grep for the assumption before re-running.** Three
+separate helpers in the suite compared `#m-question`'s text against the raw prompt, and
+`Kit.prompt` rendering `___` as a blank broke all three. They were found one at a time
+across three full runs, because each was treated as a one-off. The lesson is *search
+for the duplicate*, not *run everything* — three full runs did not find them any faster
+than one grep would have. Better still, give the fact **one home** so it cannot be
+duplicated: that is what `Kit.floorTop()` is, after the same thing happened again with
+the bottom of the board written down in four places.
 
 ## Verifying UI changes
 Playwright + Chromium are available (global `playwright`, browser at
