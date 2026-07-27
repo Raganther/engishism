@@ -465,6 +465,25 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Anything above the board must re-fit it, and the buzzer chip wasn't.** The chip
+  sits *in* the layout above the stage, and it changes height on its own schedule:
+  opening a room is asynchronous, so it appears **after** the board has been fitted,
+  and it grows again as phones join and as buzzers go live. Nothing re-fitted, so the
+  board kept the height it had when the chip wasn't there and everything below was
+  pushed 19px off the bottom — Millionaire's "Final answer?" and the last rung of the
+  ladder — with `body.play-fit`'s `overflow:hidden` making it unscrollable. Found in
+  class, not by a test. `renderBuzzChip` now measures around its own redraw and calls
+  `hook('onResize')` only when the height actually moved. The replies panel already
+  did this (`repliesHost`); the chip is the same case and was simply missed — **so the
+  rule is the layout, not the widget: anything that can occupy vertical space above a
+  board owes it a re-fit.**
+- **Hover was out-specifying the locked-in answer.** `.m-option:hover:not(:disabled)`
+  beats `.m-option.picked` on specificity, so the option a teacher had just clicked
+  kept its hover paint for as long as the pointer stayed on it — which is precisely
+  when they are looking at it. Both hover rules now carry `:not(.picked)`. The check
+  compares **hovered-and-picked against hovered-and-not-picked**: comparing a picked
+  option against a resting one passed on the broken build, because a hovered option
+  always differs from an unhovered one.
 - **The team bar rides in the header now, not across the bottom of the board.** It
   was `position:fixed` at the foot of the screen and covered the one thing a
   classroom display cannot spare. It now sits in `.header-right` beside the timer,

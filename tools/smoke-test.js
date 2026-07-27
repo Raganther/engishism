@@ -355,6 +355,23 @@ async function testMillionaire(browser){
     ([...document.querySelectorAll('#m-options .m-option:not(.removed)')]
       .find(x => x.dataset.opt !== r) || {}).dataset.opt || null, right);
   await page.locator('.m-option', { hasText: wrongFirst }).first().click(); await page.waitForTimeout(200);
+  /* Still the locked colour with the pointer resting on it. `:hover:not(:disabled)`
+     out-specifies `.picked`, so the option the teacher just clicked went back to
+     looking merely hovered — while they were looking straight at it. */
+  /* Compare hovered-and-picked against hovered-and-not-picked, not against a resting
+     option: a hovered option always differs from an unhovered one, so that pair passed
+     on the broken build. The claim is that hovering does not overwrite the lock. */
+  const paintOf = sel => page.evaluate(s => {
+    const e = document.querySelector(s);
+    return getComputedStyle(e).backgroundImage + '|' + getComputedStyle(e).backgroundColor;
+  }, sel);
+  await page.locator('.m-option:not(.picked):not(.removed)').first().hover();
+  await page.waitForTimeout(120);
+  const hoveredPlain = await paintOf('.m-option:not(.picked):not(.removed)');
+  await page.locator('.m-option.picked').hover(); await page.waitForTimeout(120);
+  const hoveredPicked = await paintOf('.m-option.picked');
+  check('the locked option keeps its colour under the pointer',
+        hoveredPicked !== hoveredPlain, hoveredPicked + '  vs  ' + hoveredPlain);
   check('picking an option locks it in without revealing',
         await page.locator('.m-option.picked').count() === 1 &&
         await page.locator('.m-option.right').count() === 0 &&
@@ -2200,7 +2217,14 @@ async function testPhoneModes(browser){
        arrive over the wire and the teacher's next click is the team's answer. */
     check('no hand-counting when the phones are doing the voting',
           await v.host.locator('#m-done-count').isVisible() === false);
-    await playMillionaireOption(v.host, v.host.locator('#m-options .m-option'));
+    /* Answer it correctly on purpose. Clicking whichever option the shuffle put
+       first made this a coin toss: a wrong one is legitimately answered *and* then
+       handed to the other team by stealOnWrong, which reopens the question — so
+       there is no "Next team" and the reveal classes are cleared again. Neither
+       outcome is a bug, and neither is what this check is about. */
+    const vAnswer = await currentMillionaireAnswer(v.host);
+    await playMillionaireOption(v.host,
+      v.host.locator('#m-options .m-option[data-opt="' + vAnswer.replace(/"/g,'\\"') + '"]'));
     await v.host.waitForTimeout(500);
     check('clicking an option answers instead of adding a phantom hand',
           await v.host.locator('#m-next').isVisible(),

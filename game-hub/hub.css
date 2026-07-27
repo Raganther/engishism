@@ -580,7 +580,11 @@ body.theme-gameshow .reply.team-1{ background:#00A0DF; color:#fff; }
   padding:14px 18px; font-family:'Space Grotesk',sans-serif; font-weight:600;
   font-size: clamp(0.95rem, 1.7vw, 1.3rem); transition:background .12s, border-color .12s, opacity .2s;
 }
-.m-option:hover:not(:disabled){ background:var(--cream); border-color:var(--blue); }
+/* `:not(.picked)` is load-bearing, not tidiness: `:hover:not(:disabled)` out-specifies
+   `.picked`, so the option the teacher just clicked kept its hover paint for as long as
+   the pointer stayed on it — which is exactly when they are looking at it, and exactly
+   when it is supposed to be reading as locked in. */
+.m-option:hover:not(:disabled):not(.picked){ background:var(--cream); border-color:var(--blue); }
 .m-letter{
   flex-shrink:0; width:34px; height:34px; border-radius:50%; background:var(--navy); color:var(--yellow);
   display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.95rem;
@@ -992,7 +996,7 @@ body.theme-gameshow .m-option{
   background: linear-gradient(180deg, #10163F 0%, #070B22 100%);
   color:var(--paper); border-color: rgba(255,255,255,0.22);
 }
-body.theme-gameshow .m-option:hover:not(:disabled){
+body.theme-gameshow .m-option:hover:not(:disabled):not(.picked){
   background: linear-gradient(180deg, #1C2668 0%, #0B1130 100%);
   border-color: var(--gold);
 }

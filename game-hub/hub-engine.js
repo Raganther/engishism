@@ -2847,9 +2847,24 @@
     if(el) el.textContent = buzzPlayers + (buzzPlayers === 1 ? ' phone joined' : ' phones joined');
   }
 
+  /* The chip is *in* the layout above the board, exactly like the replies panel —
+     and it changes height on its own schedule. Opening a room is asynchronous, so it
+     appears *after* the board has been fitted; then it grows again as phones join, as
+     buzzers go live, as a typed answer arrives. Nothing re-fitted, so the board kept
+     the height it had when the chip wasn't there and everything below was pushed off
+     the bottom of the screen — Millionaire's "Final answer?" and the last rung of the
+     ladder, with `body.play-fit` hiding the overflow so you couldn't even scroll to
+     them. Measure around the redraw and re-fit only when the height actually moved;
+     most renders change text alone and must not cost a reflow of every board. */
   function renderBuzzChip(state){
     const chip = document.getElementById('buzzer-chip');
     if(!chip) return;
+    const before = chip.getBoundingClientRect().height;
+    drawBuzzChip(chip, state);
+    if(Math.abs(chip.getBoundingClientRect().height - before) > 0.5) hook('onResize');
+  }
+
+  function drawBuzzChip(chip, state){
     if(!buzzHost){ chip.style.display='none'; return; }
     chip.style.display='flex';
     chip.className = state==='won' ? 'won' : (state==='armed' || state==='asking' ? 'armed' : '');
