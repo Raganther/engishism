@@ -54,6 +54,21 @@
   #state{ font-size:1rem; min-height:1.6em; color:var(--cream); }
   #status{ font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:rgba(251,243,213,0.45); }
   .err{ color:#ff8a7d; font-size:0.85rem; min-height:1.2em; }
+  /* the question the teacher is asking, pushed from the host — the back of the
+     room can read its own phone even when it cannot read the board */
+  .qtext{ font-size:1.15rem; line-height:1.4; margin:0 0 18px; color:#e8eefc; min-height:1.4em; }
+  .opts{ display:none; flex-direction:column; gap:10px; width:100%; }
+  .opts button{
+    font: inherit; font-size:1.1rem; padding:16px; border-radius:12px; cursor:pointer;
+    background:#16204f; color:#eaf0ff; border:2px solid rgba(255,255,255,0.22);
+  }
+  .opts button:disabled{ opacity:0.4; }
+  .opts button.picked{ background:#ffc83d; color:#0a0d26; border-color:#ffc83d; }
+  .write{ display:none; width:100%; gap:10px; flex-direction:column; }
+  .write input{
+    font: inherit; font-size:1.1rem; padding:14px; border-radius:12px; width:100%;
+    background:#0c1130; color:#eaf0ff; border:2px solid rgba(255,255,255,0.22);
+  }
 </style>
 </head>
 <body>
@@ -73,12 +88,18 @@
 
 <div class="screen" id="screen-play">
   <p class="who" id="who"></p>
+  <p class="qtext" id="qtext"></p>
   <button id="buzzer" disabled>Wait</button>
+  <div class="opts" id="opts"></div>
+  <div class="write" id="write">
+    <input id="reply" maxlength="60" placeholder="Type your answer" autocomplete="off" autocapitalize="off">
+    <button class="go" id="send">Send</button>
+  </div>
   <p id="state">Waiting for the teacher…</p>
   <p id="status"></p>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260729p"></script>
+<script src="game-hub/hub-buzzer.js?v=20260729q"></script>
 <script>
 (function(){
   'use strict';
@@ -137,6 +158,42 @@
     b.textContent = text;
   }
 
+  /* The phone is three things depending on what the teacher is asking for:
+     a buzzer racing for the floor, a set of options to pick one of, or a box to
+     type into. Only one is ever on screen. */
+  let mode = 'buzz', answered = false;
+  function setMode(m, opts){
+    mode = m || 'buzz';
+    answered = false;
+    $('buzzer').style.display = mode==='buzz'   ? '' : 'none';
+    $('opts').style.display   = mode==='vote'   ? 'flex' : 'none';
+    $('write').style.display  = mode==='answer' ? 'flex' : 'none';
+    if(mode==='vote'){
+      const box=$('opts'); box.innerHTML='';
+      (opts||[]).forEach(o=>{
+        const b=document.createElement('button');
+        b.type='button'; b.textContent=o;
+        b.addEventListener('click', ()=>{
+          if(answered || !client) return;
+          answered = true; blip();
+          [...box.children].forEach(x=>{ x.disabled=true; if(x===b) x.classList.add('picked'); });
+          $('state').textContent = 'Answer sent';
+          client.respond(o);
+        });
+        box.appendChild(b);
+      });
+    }
+    if(mode==='answer'){ $('reply').value=''; $('reply').disabled=false; $('send').disabled=false; }
+  }
+  function sendWritten(){
+    const v = $('reply').value.trim();
+    if(answered || !client || !v) return;
+    answered = true; blip();
+    $('reply').disabled = true; $('send').disabled = true;
+    $('state').textContent = 'Answer sent';
+    client.respond(v);
+  }
+
   $('join-btn').addEventListener('click', ()=>{
     const code = $('code').value.trim();
     const name = $('name').value.trim();
@@ -169,10 +226,29 @@
       }
     });
 
-    client.on('armed', ()=>{ setBuzzer('armed','Buzz'); $('state').textContent='Go!';
-                             if(navigator.vibrate) navigator.vibrate(40); });
-    client.on('disarmed', ()=>{ setBuzzer('off','Wait'); $('state').textContent='Waiting for the teacher…'; });
-    client.on('reset',    ()=>{ setBuzzer('off','Wait'); $('state').textContent='Waiting for the teacher…'; });
+    client.on('armed', d=>{
+      // the question has always been sent with the arm; it used to be thrown away
+      $('qtext').textContent = (d && d.prompt) || '';
+      const spent = (d && d.spent) || [];
+      setMode(d && d.mode, d && d.options);
+      if(spent.indexOf(client.id) !== -1){
+        // already had a go this round — see the question, but no second answer
+        answered = true;
+        setBuzzer('off','Done');
+        $('opts').querySelectorAll('button').forEach(b=>b.disabled=true);
+        $('reply').disabled = true; $('send').disabled = true;
+        $('state').textContent = 'You have already answered this one';
+        return;
+      }
+      if(mode==='buzz') setBuzzer('armed','Buzz');
+      $('state').textContent = mode==='buzz' ? 'Go!'
+                             : mode==='vote' ? 'Pick one' : 'Type your answer';
+      if(navigator.vibrate) navigator.vibrate(40);
+    });
+    client.on('disarmed', ()=>{ setBuzzer('off','Wait'); $('qtext').textContent='';
+                                setMode('buzz'); $('state').textContent='Waiting for the teacher…'; });
+    client.on('reset',    ()=>{ setBuzzer('off','Wait'); $('qtext').textContent='';
+                                setMode('buzz'); $('state').textContent='Waiting for the teacher…'; });
 
     client.on('locked', d=>{
       const mine = d.id === client.id;
@@ -181,6 +257,9 @@
       if(navigator.vibrate) navigator.vibrate(mine ? [30,40,30] : 15);
     });
   });
+
+  $('send').addEventListener('click', sendWritten);
+  $('reply').addEventListener('keydown', e=>{ if(e.key==='Enter') sendWritten(); });
 
   $('buzzer').addEventListener('click', ()=>{
     if($('buzzer').disabled || !client) return;

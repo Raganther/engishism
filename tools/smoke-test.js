@@ -1755,6 +1755,105 @@ async function testBuzzers(browser){
   await host.close();
 }
 
+/* ---- phones: the prototype modes ----
+   The channel can ask the room three different things: race for the floor (buzz),
+   pick one (vote), or type it (answer). Each is asserted end to end with real
+   phones, plus the two properties that make them safe to leave in: switched off
+   nothing changes, and with no relay the games play exactly as before. */
+async function testPhoneModes(browser){
+  section('Phones — ask the room');
+
+  const openRoom = async (game, prefs) => {
+    const host = await openHub(browser);
+    await host.evaluate(p => {
+      window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
+      window.HubSettings.set('buzzers', true);
+      Object.keys(p).forEach(k => { if(k !== '__g') window.HubSettings.set(k, p[k], p.__g); });
+    }, prefs);
+    await startGame(host, game, { sections:'all' });
+    await host.waitForTimeout(700);
+    const chip = await host.locator('#buzzer-chip').innerText().catch(()=>'');
+    return { host, code:(chip.match(/CODE\s+(\d{5})/i)||[])[1] };
+  };
+  const join = async (code, name, team) => {
+    const p = await browser.newPage({ viewport:{ width:390, height:844 } });
+    p.__errors = []; p.on('pageerror', e => p.__errors.push(String(e)));
+    await p.goto(BASE + '/join.html'); await p.waitForTimeout(250);
+    await p.fill('#code', code); await p.fill('#name', name);
+    await p.locator('.teams button').nth(team).click();
+    await p.locator('#join-btn').click(); await p.waitForTimeout(500);
+    return p;
+  };
+
+  // ---- typing: the whole class answers, not one student
+  const w = await openRoom('Jeopardy', { __g:'jeopardy', phoneWrite:true, phoneOneEach:true });
+  check('a room opens for a game that wants phones', !!w.code, w.code || 'none');
+  if (w.code){
+    const ana = await join(w.code, 'Ana', 0), ben = await join(w.code, 'Ben', 1);
+    await w.host.waitForTimeout(400);
+    await w.host.locator('#board .tile').first().click(); await w.host.waitForTimeout(800);
+    check('the question reaches the phone',
+          (await ana.locator('#qtext').innerText()).trim().length > 0);
+    check('the phone becomes a text box, not a buzzer',
+          await ana.locator('#write').isVisible() && !(await ana.locator('#buzzer').isVisible()));
+    for (const [p, t] of [[ana,'custody'],[ben,'prison']]){
+      await p.fill('#reply', t); await p.locator('#send').click(); await p.waitForTimeout(350);
+    }
+    await w.host.waitForTimeout(700);
+    const replies = await w.host.locator('#phone-replies').innerText();
+    check('every answer comes back with who wrote it',
+          /Ana: custody/.test(replies) && /Ben: prison/.test(replies), replies.replace(/\n/g,' | '));
+    check('a student who has answered cannot answer twice',
+          await ana.locator('#reply').isDisabled());
+    for (const p of [ana, ben]){ check('phone had no errors', p.__errors.length === 0, p.__errors[0]); await p.close(); }
+  }
+  checkClean(w.host, 'typing');
+  await w.host.close();
+
+  // ---- voting: Ask the class as a real poll
+  const v = await openRoom('Millionaire', { __g:'millionaire', phoneVote:true });
+  if (v.code){
+    const ana = await join(v.code, 'Ana', 0), ben = await join(v.code, 'Ben', 1);
+    await v.host.waitForTimeout(400);
+    await v.host.locator('.lifeline[data-life="class"]').click(); await v.host.waitForTimeout(700);
+    check('the phone offers the four options', await ana.locator('#opts button').count() === 4);
+    await ana.locator('#opts button').first().click(); await v.host.waitForTimeout(300);
+    await ben.locator('#opts button').first().click(); await v.host.waitForTimeout(600);
+    check('the votes land on the board',
+          (await v.host.locator('.m-votes').allInnerTexts())[0] === '2',
+          (await v.host.locator('.m-votes').allInnerTexts()).join('/'));
+    for (const p of [ana, ben]) await p.close();
+  }
+  checkClean(v.host, 'voting');
+  await v.host.close();
+
+  // ---- buzzing for the floor in a tile game
+  const bz = await openRoom('Jeopardy', { __g:'jeopardy', phoneBuzzGames:true });
+  if (bz.code){
+    const ben = await join(bz.code, 'Ben', 1);
+    await bz.host.waitForTimeout(400);
+    await bz.host.locator('#board .tile').first().click(); await bz.host.waitForTimeout(800);
+    check('the phone arms as a buzzer', !(await ben.locator('#buzzer').isDisabled()));
+    await ben.locator('#buzzer').click(); await bz.host.waitForTimeout(600);
+    check('buzzing picks that team to answer',
+          await bz.host.evaluate(() =>
+            [...document.querySelectorAll('.team')].findIndex(e => e.classList.contains('active'))) === 1);
+    await ben.close();
+  }
+  checkClean(bz.host, 'buzzing');
+  await bz.host.close();
+
+  // ---- switched off, a tile game opens no room at all
+  const off = await openHub(browser);
+  await off.evaluate(() => { window.HubSettings.set('intro','off'); window.HubSettings.set('buzzers', true); });
+  await startGame(off, 'Jeopardy', { sections:3 });
+  await off.waitForTimeout(700);
+  check('with every phone switch off, no room is opened',
+        await off.locator('#buzzer-chip').isVisible() === false);
+  checkClean(off, 'switched off');
+  await off.close();
+}
+
 async function testDegradation(browser){
   section('Degrades without buzzers');
 
@@ -1817,7 +1916,7 @@ async function main(){
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens, phone: testPhoneLayout,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
     variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, defaultlook: testDefaultLook, jfinish: testJeopardyFinish, competition: testCompetition,
-    buzzers: testBuzzers,
+    buzzers: testBuzzers, phonemodes: testPhoneModes,
     degradation: testDegradation, file: testFileProtocol
   };
   const toRun = onlyArg ? onlyArg.split(',').map(s => s.trim()).filter(k => suites[k])

@@ -53,12 +53,13 @@ window.HubBuzzer = (function(){
     const src   = stream(relay, { room:code, role:'host' }, ev);
     let players = [];
 
-    ['ready','join','leave','buzz'].forEach(name=>{
+    ['ready','join','leave','buzz','response'].forEach(name=>{
       src.addEventListener(name, e=>{
         let d = {}; try{ d = JSON.parse(e.data); }catch(_){}
         if(d.players) players = d.players;
         if(name==='ready') ev.emit('ready', d);
         else if(name==='buzz') ev.emit('buzz', d);
+        else if(name==='response') ev.emit('response', d);
         else ev.emit('players', players);
       });
     });
@@ -66,7 +67,11 @@ window.HubBuzzer = (function(){
     return {
       code, on: ev.on,
       players: ()=>players.slice(),
-      arm:      prompt => post(relay, { room:code, type:'arm', prompt }),
+      /* `arm(text)` still races for the floor. `arm(text, {mode:'vote', options})`
+         or `{mode:'answer'}` asks the whole class instead, and the answers arrive
+         on the 'response' event rather than 'buzz'. */
+      arm:      (prompt, opts) => post(relay, Object.assign(
+                  { room:code, type:'arm', prompt }, opts || {})),
       disarm:   ()     => post(relay, { room:code, type:'disarm' }),
       reset:    ()     => post(relay, { room:code, type:'reset' }),
       setTeams: names  => post(relay, { room:code, type:'teams', teams:names }),
@@ -90,7 +95,8 @@ window.HubBuzzer = (function(){
 
     return {
       id, code, on: ev.on,
-      buzz:  ()=> post(relay, { room:code, type:'buzz', id }),
+      buzz:    ()=> post(relay, { room:code, type:'buzz', id }),
+      respond: v => post(relay, { room:code, type:'respond', id, value:v }),
       close: ()=>{ try{ src.close(); }catch(e){} }
     };
   }

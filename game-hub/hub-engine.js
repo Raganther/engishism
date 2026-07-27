@@ -176,7 +176,7 @@
     startButton:   raceStartButton,
     start(){
       buildRaceBoard();
-      if(raceMode==='h2h') openBuzzRoom(); else closeBuzzRoom();
+      syncBuzzRoom();
       timerSetDuration(Number(S.get('raceRoundSeconds', 'race')) || 60);
     },
     fit:      scatterRaceWords,
@@ -219,6 +219,31 @@
   S.register({ id:'musicBed', group:'Sound', type:'select', default:'normal', games:gameIds(),
     label:'Think-music drone', help:'The low pulse under an unanswered question. Off leaves every other sound alone.',
     options:[{value:'normal',label:'On'},{value:'quiet',label:'On, quieter'},{value:'off',label:'Off'}] });
+
+  /* ---- phones: prototypes ----
+     All off by default. These are being explored, not shipped, and each is a
+     different *shape* of asking the room something rather than a variation on
+     buzzing: broadcast (the question), race (buzz), poll (vote), produce (type).
+     Everything degrades to exactly today's behaviour with no relay. */
+  S.register({ id:'phoneBuzzGames', group:'Phones (prototype)', type:'toggle', default:false,
+    games:['jeopardy','blockbusters'],
+    label:'Buzz for the right to answer',
+    help:'Opens a phone room in this game. Students buzz for the floor instead of the teacher choosing who answers.' });
+
+  S.register({ id:'phoneVote', group:'Phones (prototype)', type:'toggle', default:false,
+    games:['millionaire'],
+    label:'Ask the class votes on phones',
+    help:'The lifeline collects a real vote from every phone instead of counting hands.' });
+
+  S.register({ id:'phoneWrite', group:'Phones (prototype)', type:'toggle', default:false,
+    games:['jeopardy','blockbusters','race'],
+    label:'Everyone types an answer',
+    help:'Instead of one student answering, the whole class types. You see every answer and who wrote it.' });
+
+  S.register({ id:'phoneOneEach', group:'Phones (prototype)', type:'toggle', default:true,
+    games:['jeopardy','blockbusters','race','millionaire'],
+    label:'One answer each per question',
+    help:'A student who has answered cannot answer again until the next question. Stops the fastest thumbs owning the game.' });
 
   /* ---- competitive dynamics ----
      All per-game, so a teacher can run steal in Jeopardy and not in Blockbusters and
@@ -1255,6 +1280,7 @@
     GAMES.forEach(x => { document.getElementById(x.stage).style.display='none'; });
     document.getElementById(g.stage).style.display='block';
     g.start();
+    syncBuzzRoom();
     showScreen('screen-play');
     g.fit();          // no board can be measured until the play screen is visible
     timerReset();
@@ -1686,6 +1712,7 @@
     document.getElementById('clue-section').textContent = cat.section;
     currentClueItem = { text:clue.q, answer:clue.a, type:clue.type };
     drawPrompt(document.getElementById('clue-text'), currentClueItem, 'jeopardy');
+    if(!review) askPhones(clue.q, 'jeopardy');   // a replayed tile asks nobody
     const ansEl=document.getElementById('clue-answer');
     ansEl.textContent=clue.a;
     hideAllActionButtons();
@@ -1710,6 +1737,7 @@
     document.getElementById('clue-topline').textContent = clueObj.letter;
     document.getElementById('clue-section').textContent = clueObj.section;
     currentClueItem = { text:clueObj.clue, answer:clueObj.answer, type:clueObj.type };
+    askPhones(clueObj.clue, 'blockbusters');
     drawPrompt(document.getElementById('clue-text'), currentClueItem, 'blockbusters');
     const ansEl=document.getElementById('clue-answer'); ansEl.style.display='none'; ansEl.textContent=clueObj.answer;
     hideAllActionButtons();
@@ -2497,6 +2525,10 @@
     } else if(kind === 'class'){
       mTally = {};
       mCurrent.options.forEach(o=>{ mTally[o] = 0; });
+      // with phones on, the class votes for real; without, the teacher taps hands
+      if(S.get('phoneVote', 'millionaire')){
+        askClass(mCurrent.q.prompt, 'vote', mCurrent.options.slice());
+      }
       renderMillionaire();
     } else if(kind === 'confer'){
       timerSetDuration(Number(S.get('mConferSeconds', 'millionaire')) || 30);
@@ -2547,7 +2579,7 @@
     if(!chip) return;
     if(!buzzHost){ chip.style.display='none'; return; }
     chip.style.display='flex';
-    chip.className = state==='won' ? 'won' : (state==='armed' ? 'armed' : '');
+    chip.className = state==='won' ? 'won' : (state==='armed' || state==='asking' ? 'armed' : '');
     chip.innerHTML='';
     const add=(cls,txt)=>{ const s=document.createElement('span'); s.className=cls; s.textContent=txt; chip.appendChild(s); };
     if(buzzWinner){
@@ -2559,6 +2591,10 @@
       add('buzz-code', 'code ' + buzzHost.code);
       add('buzz-count', buzzPlayers + (buzzPlayers===1 ? ' phone' : ' phones'));
       if(state==='armed') add('buzz-live', 'buzzers live');
+      // while the class is answering, the count is the thing the teacher watches
+      if(state==='asking' && classReplies){
+        add('buzz-live', classReplies.total + ' of ' + (classReplies.of || buzzPlayers) + ' in');
+      }
     }
   }
 
@@ -2574,6 +2610,18 @@
       return 'this is the GitHub Pages copy, which has no relay behind it — open the hosted copy instead, or set a Relay address in the settings panel';
     return 'no relay at ' + location.host + ' — is node tools/buzzer-relay.js running?';
   }
+
+  /* Which games want a phone room is now a question of what is switched on, not a
+     hard-coded "race only". Asked on every game start, so turning a prototype on
+     mid-lesson takes effect at the next round rather than needing a reload. */
+  function phonesWanted(){
+    if(!activeGame) return false;
+    if(activeGame === 'race' && raceMode === 'h2h') return true;
+    return !!(S.get('phoneBuzzGames', activeGame) ||
+              S.get('phoneVote', activeGame) ||
+              S.get('phoneWrite', activeGame));
+  }
+  function syncBuzzRoom(){ if(phonesWanted()) openBuzzRoom(); else closeBuzzRoom(); }
 
   function openBuzzRoom(){
     if(!buzzersOn() || buzzHost) return;
@@ -2591,6 +2639,7 @@
       buzzHost.on('ready',   d=>{ buzzPlayers=(d.players||[]).length; pushTeamNames(); renderBuzzChip(); });
       buzzHost.on('players', list=>{ buzzPlayers=list.length; renderBuzzChip(); });
       buzzHost.on('buzz',    onBuzz);
+      buzzHost.on('response', onResponse);
       renderBuzzChip();
     });
   }
@@ -2604,6 +2653,74 @@
 
   function pushTeamNames(){
     if(buzzHost) buzzHost.setTeams(teams.map(t=>t.name));
+  }
+
+  /* Ask the whole class rather than racing for the floor. `mode` is 'vote' (pick
+     one of the options) or 'answer' (type it). Replies arrive on onResponse. */
+  let classReplies = null;         // {mode, tally, all, of} while a round is open
+
+  function askClass(prompt, mode, options){
+    if(!buzzHost) return false;
+    classReplies = { mode, tally:{}, all:[], total:0, of:buzzPlayers };
+    buzzWinner = null;
+    buzzHost.arm(prompt || '', { mode, options: options || [],
+                                 keepSpent: !S.get('phoneOneEach', activeGame) });
+    renderBuzzChip('asking');
+    return true;
+  }
+
+  function onResponse(d){
+    if(!d) return;
+    classReplies = { mode:(classReplies && classReplies.mode) || 'answer',
+                     tally:d.tally || {}, all:d.all || [], total:d.total || 0, of:d.of || 0 };
+    // Millionaire's Ask-the-class shows the count on the options themselves
+    if(activeGame === 'millionaire' && mTally){
+      Object.keys(mTally).forEach(k=>{ mTally[k] = classReplies.tally[k] || 0; });
+      renderMillionaire();
+    }
+    renderReplies();
+    renderBuzzChip('asking');
+  }
+
+  /* One entry point for "a question just went up, ask the room". Typing wins over
+     buzzing when both are on: producing language beats racing for it, which is the
+     whole argument for these being different shapes rather than one feature. */
+  function askPhones(prompt, game){
+    if(!buzzHost) return;
+    clearReplies();
+    if(S.get('phoneWrite', game))      askClass(prompt, 'answer');
+    else if(S.get('phoneBuzzGames', game)) armBuzzers(prompt);
+  }
+
+  function clearReplies(){
+    classReplies = null;
+    const el = document.getElementById('phone-replies');
+    if(el) el.remove();
+  }
+
+  /* Show what came back. Deliberately plain and on the clue card itself — the point
+     of collecting thirty answers is that the teacher can read them at a glance. */
+  function renderReplies(){
+    const card = document.getElementById('clue-back');
+    if(!card) return;
+    let el = document.getElementById('phone-replies');
+    if(!classReplies || !classReplies.all.length){ if(el) el.remove(); return; }
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'phone-replies';
+      card.insertBefore(el, document.getElementById('clue-actions'));
+    }
+    el.innerHTML = '';
+    const head = document.createElement('div');
+    head.className = 'replies-head';
+    head.textContent = classReplies.total + ' of ' + (classReplies.of || '?') + ' answered';
+    el.appendChild(head);
+    classReplies.all.forEach(r=>{
+      const chip = document.createElement('span');
+      chip.className = 'reply team-' + Math.min(r.team, 3);
+      chip.textContent = r.name + ': ' + r.value;
+      el.appendChild(chip);
+    });
   }
 
   function armBuzzers(prompt){
@@ -2628,6 +2745,12 @@
       return;
     }
     buzzWinner = b;
+    /* In the tile games the buzz decides who answers, so it selects that team —
+       the teacher stops being the one who chooses, which is the whole point. */
+    if((activeGame === 'jeopardy' || activeGame === 'blockbusters') && teams[b.team]){
+      active = b.team;
+      renderScorebar();
+    }
     Sound.play('claim');
     renderBuzzChip('won');
   }
