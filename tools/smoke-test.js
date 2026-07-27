@@ -351,6 +351,28 @@ async function testMillionaire(browser){
   await page.locator('#m-next').click(); await page.waitForTimeout(350);
   check('turn passes to team 2', /team 2/i.test(await page.locator('#m-turn').innerText()));
 
+  /* Ask the class, with no phones: the teacher taps hands, and then has to be able
+     to play the question. Counting used to be the only state — a click always added
+     a hand — and the one way out also wiped the numbers the team was deciding on. */
+  await page.locator('.lifeline[data-life="class"]').click(); await page.waitForTimeout(300);
+  check('asking the class starts a hand count', await page.locator('#m-done-count').isVisible());
+  await page.locator('#m-options .m-option').nth(1).click();
+  await page.locator('#m-options .m-option').nth(1).click(); await page.waitForTimeout(200);
+  check('tapping an option counts a hand rather than answering',
+        (await page.locator('.m-votes').allInnerTexts())[1] === '2' &&
+        !(await page.locator('#m-next').isVisible()),
+        (await page.locator('.m-votes').allInnerTexts()).join('/'));
+
+  await page.locator('#m-done-count').click(); await page.waitForTimeout(250);
+  check('done counting keeps the numbers on screen',
+        (await page.locator('.m-votes').allInnerTexts())[1] === '2',
+        (await page.locator('.m-votes').allInnerTexts()).join('/'));
+  const right2 = await currentMillionaireAnswer(page);
+  await page.locator('.m-option', { hasText: right2 }).first().click(); await page.waitForTimeout(400);
+  check('and the question can then actually be answered',
+        await page.locator('#m-next').isVisible(),
+        await page.locator('#m-hint').innerText());
+
   checkClean(page);
   await page.close();
 }
@@ -2103,6 +2125,15 @@ async function testPhoneModes(browser){
     check('the votes land on the board',
           (await v.host.locator('.m-votes').allInnerTexts())[0] === '2',
           (await v.host.locator('.m-votes').allInnerTexts()).join('/'));
+    /* And the board stays answerable. With phones voting there are no hands to tap,
+       so turning the options into a tally pad only dead-ends the round: the counts
+       arrive over the wire and the teacher's next click is the team's answer. */
+    check('no hand-counting when the phones are doing the voting',
+          await v.host.locator('#m-done-count').isVisible() === false);
+    await v.host.locator('#m-options .m-option').first().click(); await v.host.waitForTimeout(500);
+    check('clicking an option answers instead of adding a phantom hand',
+          await v.host.locator('#m-next').isVisible(),
+          await v.host.locator('#m-hint').innerText());
     for (const p of [ana, ben]) await p.close();
   }
   checkClean(v.host, 'voting');

@@ -462,7 +462,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
-- **Deployed.** Build `20260729v`, 519 checks green. The branch in use is
+- **Deployed.** Build `20260729y`, 529 checks green. The branch in use is
   `claude/product-status-gxqp9l`; merging it to `main` is what deploys.
 - **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
   the game being played, and only that game, without leaving the board — see "The Lab"
@@ -514,9 +514,14 @@ what a teacher set deliberately**, so it must be translated rather than silently
     shared team bar consistent. Wrong = lose the turn, retry that rung later with a
     different question.
   - **Lifelines**, one use each per team, switchable off: **50:50** (state lives on
-    `mCurrent.removed`, so a re-render can't wipe it), **Ask the class** (hands
-    tallied on screen by tapping options — the phone layer does not vote yet), and
+    `mCurrent.removed`, so a re-render can't wipe it), **Ask the class**, and
     **Confer** (runs the header timer).
+    **Counting is not the same as having counts** — `mCounting` vs `mTally`, and
+    conflating them dead-ended the round in class. While the teacher taps hands a
+    click adds a hand; once the count is in, a click has to *answer*, or the votes
+    sit on screen with no way to play them. Two consequences: with phones voting
+    there is no tapping at all, so the board is never a tally pad; and **Done
+    counting keeps the numbers**, because they are what the team is deciding on.
   - Every section covers all 8 rungs, so one section fills a ladder (§3.4).
 - **Persistent shared team bar** on every screen: team names + points survive
   moving between games, units, and setup screens (nothing resets on navigation).
@@ -865,7 +870,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
 
 ## Before you push
 ```bash
-NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~24 min, 519 checks, 31 suites
+NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~25 min, 529 checks, 31 suites
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=jeopardy,fit,phone   # while iterating
 ```
 Drives all four games in a real browser and checks the things that have actually

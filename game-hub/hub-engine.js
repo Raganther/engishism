@@ -2442,7 +2442,13 @@
   let mState   = [];     // per team: {rung, used:Set<prompt>, lifelines:{}}
   let mCurrent = null;   // {q, options[], team}
   let mAnswered = false;
-  let mTally   = null;   // option -> hand count, while Ask the class is running
+  let mTally   = null;   // option -> vote count, once Ask the class has run
+  /* Counting is not the same thing as having counts. While the teacher is tapping
+     hands, a click on an option adds a hand; once the count is in, a click has to
+     answer the question — otherwise the round dead-ends with the votes on screen
+     and no way to play them. With phones voting there is no tapping at all, so the
+     board is never a tally pad in the first place. */
+  let mCounting = false;
 
   function mTeamState(i){
     if(!mState[i]) mState[i] = { rung:0, used:new Set(), lifelines:{ fifty:true, class:true, confer:true } };
@@ -2450,7 +2456,7 @@
   }
 
   function buildMillionaire(){
-    mState = []; mCurrent = null; mAnswered = false; mTally = null;
+    mState = []; mCurrent = null; mAnswered = false; mTally = null; mCounting = false;
     teams.forEach((t,i)=>mTeamState(i));
     active = 0;
     renderScorebar();
@@ -2467,7 +2473,7 @@
   }
 
   function nextMillionaireQuestion(){
-    mAnswered = false; mTally = null;
+    mAnswered = false; mTally = null; mCounting = false;
     const st = mTeamState(active);
 
     if(st.rung >= M_LADDER.length){       // this team has topped out
@@ -2548,11 +2554,12 @@
       wrap.appendChild(b);
     });
 
-    document.getElementById('m-hint').textContent = mTally
-      ? 'Counting hands — tap an option for each hand, then Done counting.'
+    document.getElementById('m-hint').textContent =
+      mCounting ? 'Counting hands — tap an option for each hand, then Done counting.'
+      : mTally  ? 'The class has voted. Pick the answer when the team decides.'
       : '';
     document.getElementById('m-next').style.display = 'none';
-    document.getElementById('m-done-count').style.display = mTally ? 'inline-block' : 'none';
+    document.getElementById('m-done-count').style.display = mCounting ? 'inline-block' : 'none';
   }
 
   /* ---- how tense it should feel right now ----
@@ -2616,7 +2623,7 @@
   function onOptionClick(opt, btn){
     if(!mCurrent) return;
     if(mCurrent.removed && mCurrent.removed.indexOf(opt) !== -1) return;
-    if(mTally){                          // counting hands, not answering
+    if(mCounting){                       // tapping hands, not answering
       mTally[opt] = (mTally[opt] || 0) + 1;
       btn.querySelector('.m-votes').textContent = mTally[opt];
       return;
@@ -2696,10 +2703,12 @@
     } else if(kind === 'class'){
       mTally = {};
       mCurrent.options.forEach(o=>{ mTally[o] = 0; });
-      // with phones on, the class votes for real; without, the teacher taps hands
-      if(S.get('phoneMode', 'millionaire') === 'vote'){
-        askClass(mCurrent.q.prompt, 'vote', mCurrent.options.slice());
-      }
+      /* With phones on, the class votes for real and the counts arrive over the
+         wire — so the board must stay answerable. Only the hands-in-the-air version
+         turns the options into a tally pad. */
+      const byPhone = S.get('phoneMode', 'millionaire') === 'vote' && buzzHost;
+      mCounting = !byPhone;
+      if(byPhone) askClass(mCurrent.q.prompt, 'vote', mCurrent.options.slice());
       renderMillionaire();
     } else if(kind === 'confer'){
       timerSetDuration(Number(S.get('mConferSeconds', 'millionaire')) || 30);
@@ -2717,8 +2726,11 @@
     renderScorebar();
     nextMillionaireQuestion();
   });
+  /* Done counting stops the *counting*, and deliberately keeps the numbers: they
+     are what the team is deciding on. Clearing them was the other half of the
+     dead end — the only way out of tally mode also threw away the vote. */
   document.getElementById('m-done-count').addEventListener('click', ()=>{
-    mTally = null;
+    mCounting = false;
     renderMillionaire();
   });
 
