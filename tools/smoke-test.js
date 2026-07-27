@@ -344,9 +344,32 @@ async function testMillionaire(browser){
   check('50:50 keeps the correct option', removedRight === 0);
   check('50:50 is spent', await page.locator('.lifeline[data-life="fifty"]').isDisabled());
 
-  await page.locator('.m-option', { hasText: right }).first().click(); await page.waitForTimeout(350);
+  /* The show's beat: a click is the team saying a letter, and nothing is revealed
+     until the host asks. What makes it worth a test rather than a flourish is that
+     it must be *reversible* — the room shouting "no, C!" has to be able to land. */
+  const wrongFirst = await page.evaluate(r =>
+    ([...document.querySelectorAll('#m-options .m-option:not(.removed)')]
+      .find(x => x.dataset.opt !== r) || {}).dataset.opt || null, right);
+  await page.locator('.m-option', { hasText: wrongFirst }).first().click(); await page.waitForTimeout(200);
+  check('picking an option locks it in without revealing',
+        await page.locator('.m-option.picked').count() === 1 &&
+        await page.locator('.m-option.right').count() === 0 &&
+        await page.locator('#m-final').isVisible(),
+        await page.locator('#m-hint').innerText());
+  check('nothing is scored until the answer is final', (await scores(page))[0] === '0',
+        (await scores(page)).join('/'));
+
+  await page.locator('.m-option', { hasText: right }).first().click(); await page.waitForTimeout(200);
+  check('picking another option moves the lock rather than answering',
+        await page.locator('.m-option.picked').count() === 1 &&
+        (await page.locator('.m-option.picked').getAttribute('data-opt')) === right,
+        await page.locator('.m-option.picked').getAttribute('data-opt'));
+
+  await page.locator('#m-final').click(); await page.waitForTimeout(350);
   check('correct answer scores 100', (await scores(page))[0] === '100', (await scores(page)).join('/'));
   check('correct option is marked', await page.locator('.m-option.right').count() === 1);
+  check('the lock clears on the reveal', await page.locator('.m-option.picked').count() === 0);
+  check('and "Final answer?" goes away with it', !(await page.locator('#m-final').isVisible()));
 
   await page.locator('#m-next').click(); await page.waitForTimeout(350);
   check('turn passes to team 2', /team 2/i.test(await page.locator('#m-turn').innerText()));
@@ -368,13 +391,25 @@ async function testMillionaire(browser){
         (await page.locator('.m-votes').allInnerTexts())[1] === '2',
         (await page.locator('.m-votes').allInnerTexts()).join('/'));
   const right2 = await currentMillionaireAnswer(page);
-  await page.locator('.m-option', { hasText: right2 }).first().click(); await page.waitForTimeout(400);
+  await playMillionaireOption(page, page.locator('.m-option', { hasText: right2 }));
+  await page.waitForTimeout(400);
   check('and the question can then actually be answered',
         await page.locator('#m-next').isVisible(),
         await page.locator('#m-hint').innerText());
 
   checkClean(page);
   await page.close();
+}
+
+/* Answering is two beats now, not one: a click nominates and "Final answer?" reveals.
+   Every test that just wants the question *played* goes through here, so the tests
+   assert outcomes and stay indifferent to whether the confirm step is switched on.
+   `locator` picks the option; anything the caller passes must resolve to one button. */
+async function playMillionaireOption(page, locator){
+  await locator.first().click();
+  await page.waitForTimeout(150);
+  const final = page.locator('#m-final');
+  if(await final.isVisible()) await final.click();
 }
 
 /* The question on screen is *rendered*, not printed: Kit.prompt draws a `___` as a
@@ -670,7 +705,7 @@ async function testGameShow(browser){
   // the whole skin runs on the Web Audio bed; muting must not break the game
   await page.evaluate(() => window.HubSettings.set('sound', false));
   await startGame(page, 'Millionaire', { sections:'all' });
-  await page.locator('#m-options .m-option').first().click();
+  await playMillionaireOption(page, page.locator('#m-options .m-option'));
   await page.waitForTimeout(1200);
   check('muted, the game still scores', (await page.locator('#m-hint').innerText()).length > 0);
 
@@ -1651,11 +1686,15 @@ async function testCompetition(browser){
     const b = [...document.querySelectorAll('#m-options .m-option')].find(x => x.dataset.opt !== r);
     return b ? b.dataset.opt : null;
   }, right);
-  await page.locator('.m-option', { hasText: wrong }).first().click(); await page.waitForTimeout(900);
+  await playMillionaireOption(page, page.locator('.m-option', { hasText: wrong }));
+  await page.waitForTimeout(900);
   check('a missed rung is offered to the other team',
         /steal it for 50/i.test(await page.locator('#m-hint').innerText()),
         await page.locator('#m-hint').innerText());
-  await page.locator('.m-option', { hasText: right }).first().click(); await page.waitForTimeout(900);
+  /* The stealing team gets the same two beats, not a shortcut — the steal reopens
+     the question rather than resuming a half-answered one. */
+  await playMillionaireOption(page, page.locator('.m-option', { hasText: right }));
+  await page.waitForTimeout(900);
   check('and the stealing team banks half the rung',
         (await scores(page))[1] === '50', (await scores(page)).join('/'));
   checkClean(page, 'millionaire steal');
@@ -1677,7 +1716,7 @@ async function answerCorrectly(page){
   if (!answer) return false;
   const opt = page.locator('#m-options .m-option[data-opt="' + answer.replace(/"/g,'\\"') + '"]');
   if (!(await opt.count())) return false;
-  await opt.first().click();
+  await playMillionaireOption(page, opt);
   await page.waitForTimeout(900);
   return true;
 }
@@ -2130,7 +2169,8 @@ async function testPhoneModes(browser){
        arrive over the wire and the teacher's next click is the team's answer. */
     check('no hand-counting when the phones are doing the voting',
           await v.host.locator('#m-done-count').isVisible() === false);
-    await v.host.locator('#m-options .m-option').first().click(); await v.host.waitForTimeout(500);
+    await playMillionaireOption(v.host, v.host.locator('#m-options .m-option'));
+    await v.host.waitForTimeout(500);
     check('clicking an option answers instead of adding a phantom hand',
           await v.host.locator('#m-next').isVisible(),
           await v.host.locator('#m-hint').innerText());

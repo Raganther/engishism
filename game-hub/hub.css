@@ -552,6 +552,14 @@ body.theme-gameshow .reply.team-1{ background:#00A0DF; color:#fff; }
 }
 .m-text{ flex:1; min-width:0; }
 .m-votes{ flex-shrink:0; background:var(--blue); color:var(--white); border-radius:8px; padding:2px 10px; font-family:'IBM Plex Mono',monospace; font-size:0.9rem; }
+/* Locked on, not revealed. Yellow because that is the show's own signal for "you've
+   said it, I haven't told you yet" — and because it is the one board colour that
+   means neither right (blue) nor wrong (red). */
+.m-option.picked{ background:var(--yellow); border-color:var(--yellow); color:var(--navy);
+                  animation:m-lock 1.6s ease-in-out infinite; }
+.m-option.picked .m-letter{ background:var(--navy); color:var(--yellow); }
+@keyframes m-lock{ 0%,100%{ box-shadow:0 0 0 rgba(255,194,14,0); }
+                   50%    { box-shadow:0 0 26px rgba(255,194,14,0.75); } }
 .m-option.right{ background:var(--blue); border-color:var(--blue); color:var(--white); }
 .m-option.right .m-letter{ background:var(--white); color:var(--blue); }
 .m-option.picked-wrong{ background:#ff5a4d; border-color:#ff5a4d; color:var(--white); }
@@ -561,11 +569,15 @@ body.theme-gameshow .reply.team-1{ background:#00A0DF; color:#fff; }
 
 #m-foot{ display:flex; align-items:center; justify-content:space-between; gap:14px; min-height:44px; }
 #m-hint{ font-family:'Space Grotesk',sans-serif; font-weight:700; color:var(--navy); font-size:1rem; }
-#m-next, #m-done-count{
+#m-next, #m-done-count, #m-final{
   font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.95rem; cursor:pointer;
   border:none; border-radius:10px; padding:12px 22px; background:var(--blue); color:var(--white);
 }
 #m-next:hover, #m-done-count:hover{ background:#0089c0; }
+/* The one button in the round the whole class is waiting on — it should not look
+   like the housekeeping buttons it sits beside. */
+#m-final{ background:var(--navy); color:var(--yellow); border:3px solid var(--yellow); padding:9px 22px; }
+#m-final:hover{ background:var(--yellow); color:var(--navy); }
 
 #m-ladder{ display:flex; flex-direction:column-reverse; justify-content:stretch; gap:5px; min-height:0; }
 .m-rung{
@@ -950,6 +962,13 @@ body.theme-gameshow .m-option:hover:not(:disabled){
   border-color: var(--gold);
 }
 body.theme-gameshow .m-letter{ background:transparent; color:var(--gold); border:2px solid var(--gold); }
+body.theme-gameshow .m-option.picked{
+  background: linear-gradient(180deg, #C79400 0%, #8A6600 100%); color:#0A0A14;
+  border-color:var(--gold); animation:m-lock-show 1.6s ease-in-out infinite;
+}
+body.theme-gameshow .m-option.picked .m-letter{ background:#0A0A14; color:var(--gold); border-color:#0A0A14; }
+@keyframes m-lock-show{ 0%,100%{ box-shadow:0 0 12px rgba(255,194,14,0.35); }
+                        50%    { box-shadow:0 0 38px rgba(255,194,14,0.85); } }
 body.theme-gameshow .m-option.right{
   background: linear-gradient(180deg, #16833E 0%, #0B4D24 100%); border-color:#39E27A;
   box-shadow: 0 0 30px rgba(57,226,122,0.5);
@@ -963,6 +982,8 @@ body.theme-gameshow .m-option.picked-wrong .m-letter{ background:var(--hot); col
 body.theme-gameshow .m-votes{ background:var(--glow); }
 body.theme-gameshow #m-hint{ color: var(--gold); }
 body.theme-gameshow #m-next, body.theme-gameshow #m-done-count{ background:var(--gold); color:#0A0A14; }
+body.theme-gameshow #m-final{ background:transparent; color:var(--gold); border-color:var(--gold); }
+body.theme-gameshow #m-final:hover{ background:var(--gold); color:#0A0A14; }
 body.theme-gameshow .lifeline{ background:rgba(255,255,255,0.07); color:var(--paper); border-color:rgba(255,255,255,0.32); }
 body.theme-gameshow .lifeline:hover:not(:disabled){ background:var(--gold); color:#0A0A14; border-color:var(--gold); }
 
@@ -1091,6 +1112,7 @@ body.theme-gameshow #clue-actions button:hover{ filter: brightness(1.14); }
   body.theme-gameshow #play-millionaire.lit::before,
   body.theme-gameshow #play-millionaire.lit::after,
   body.theme-gameshow .m-rung.here,
+  .m-option.picked,
   .intro-sweep, .intro-bulbs{ animation:none; }
   body.theme-gameshow #play-millionaire.flash-right,
   body.theme-gameshow #play-millionaire.flash-wrong,
@@ -1242,6 +1264,7 @@ body.theme-gameshow #buzzer-chip .buzz-verdict{ background:rgba(255,200,61,0.18)
   .m-letter{ width:28px; height:28px; font-size:0.85rem; }
   #m-foot{ min-height:0; gap:10px; }
   #m-next, #m-done-count{ padding:9px 14px; font-size:0.84rem; }
+  #m-final{ padding:6px 14px; font-size:0.84rem; }
 
   /* the ladder is a reference, not the game — a horizontal strip of values keeps
      it glanceable instead of pushing the answers off the screen. DOM order runs

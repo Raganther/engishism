@@ -462,6 +462,16 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Millionaire answers in two beats: pick, then "Final answer?".** A click nominates
+  an option — yellow, pulsing, nothing revealed and nothing scored — and the reveal
+  waits for the button. Until then another click *moves* the nomination and any
+  lifeline throws it away, which is the point: the pause is where the room gets to
+  talk the team out of it. Setting `mFinalAnswer` (Millionaire group, default on);
+  off restores the old one-click reveal. Implementation note: `onOptionClick` now only
+  nominates, and `revealMillionaire(opt)` holds everything that used to follow it —
+  so the steal path, which reopens the question, gets both beats for free.
+  **Not verified in a browser:** Playwright is not installed on the local machine, so
+  the updated Millionaire/gameshow/competition checks have not been run.
 - **Deployed.** Build `20260729y`, 529 checks green. The branch in use is
   `claude/product-status-gxqp9l`; merging it to `main` is what deploys.
 - **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens

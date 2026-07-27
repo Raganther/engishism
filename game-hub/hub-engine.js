@@ -370,6 +370,13 @@
 
   S.register({ id:'mLifelines', group:'Millionaire', type:'toggle', default:true, games:['millionaire'],
     label:'Lifelines', help:'50:50, Ask the class, and Confer — one use each per team.' });
+  /* The show's beat, not a confirmation dialog: picking an option is the team saying
+     a letter out loud, and the reveal waits for the host to ask. The pause is where
+     the room gets to shout at them to change it — which is the whole point, so this
+     defaults on. Off restores the one-click reveal for a class that needs the pace. */
+  S.register({ id:'mFinalAnswer', group:'Millionaire', type:'toggle', default:true, games:['millionaire'],
+    label:'Final answer?',
+    help:'A picked option locks in highlighted and waits for "Final answer?" before the reveal. The team can change their mind until then. Off reveals on the first click.' });
   S.register({ id:'mConferSeconds', group:'Millionaire', type:'select', default:30, games:['millionaire'],
     label:'Confer time', help:'How long a team gets to consult when they use Confer.',
     options:[{value:30,label:'30 seconds'},{value:45,label:'45 seconds'},{value:60,label:'60 seconds'}] });
@@ -669,6 +676,7 @@
             <div id="m-options"></div>
             <div id="m-foot">
               <span id="m-hint"></span>
+              <button id="m-final" style="display:none;">Final answer?</button>
               <button id="m-next" style="display:none;">Next team</button>
               <button id="m-done-count" style="display:none;">Done counting</button>
             </div>
@@ -2449,6 +2457,10 @@
      and no way to play them. With phones voting there is no tapping at all, so the
      board is never a tally pad in the first place. */
   let mCounting = false;
+  /* The option the team has said out loud but not locked in. Held separately from
+     the answer because it is reversible: until "Final answer?" it can move to any
+     other option, or be thrown away entirely by a lifeline. */
+  let mPicked  = null;
 
   function mTeamState(i){
     if(!mState[i]) mState[i] = { rung:0, used:new Set(), lifelines:{ fifty:true, class:true, confer:true } };
@@ -2456,7 +2468,7 @@
   }
 
   function buildMillionaire(){
-    mState = []; mCurrent = null; mAnswered = false; mTally = null; mCounting = false;
+    mState = []; mCurrent = null; mAnswered = false; mTally = null; mCounting = false; mPicked = null;
     teams.forEach((t,i)=>mTeamState(i));
     active = 0;
     renderScorebar();
@@ -2473,7 +2485,7 @@
   }
 
   function nextMillionaireQuestion(){
-    mAnswered = false; mTally = null; mCounting = false;
+    mAnswered = false; mTally = null; mCounting = false; mPicked = null;
     const st = mTeamState(active);
 
     if(st.rung >= M_LADDER.length){       // this team has topped out
@@ -2507,6 +2519,7 @@
     document.getElementById('m-hint').textContent = '';
     document.getElementById('m-next').style.display = 'inline-block';
     document.getElementById('m-done-count').style.display = 'none';
+    document.getElementById('m-final').style.display = 'none';
   }
 
   function renderMillionaire(){
@@ -2545,6 +2558,7 @@
       if(mCurrent.removed && mCurrent.removed.indexOf(opt) !== -1){
         b.classList.add('removed'); b.disabled = true;
       }
+      if(opt === mPicked) b.classList.add('picked');
       if(mTally){
         const n = document.createElement('span');
         n.className = 'm-votes'; n.textContent = mTally[opt] || 0;
@@ -2555,11 +2569,13 @@
     });
 
     document.getElementById('m-hint').textContent =
-      mCounting ? 'Counting hands — tap an option for each hand, then Done counting.'
+      mPicked   ? 'Locked on ' + mPicked + ' — or pick another option to change it.'
+      : mCounting ? 'Counting hands — tap an option for each hand, then Done counting.'
       : mTally  ? 'The class has voted. Pick the answer when the team decides.'
       : '';
     document.getElementById('m-next').style.display = 'none';
     document.getElementById('m-done-count').style.display = mCounting ? 'inline-block' : 'none';
+    document.getElementById('m-final').style.display = mPicked ? 'inline-block' : 'none';
   }
 
   /* ---- how tense it should feel right now ----
@@ -2629,15 +2645,34 @@
       return;
     }
     if(mAnswered) return;
+
+    /* Say the letter, then lock it in. A click only nominates; the reveal waits for
+       "Final answer?", and until then another click moves the nomination. */
+    if(S.get('mFinalAnswer', 'millionaire')){
+      if(mPicked !== opt){
+        mPicked = opt;
+        Sound.play('flip');
+        renderMillionaire();
+      }
+      return;
+    }
+    revealMillionaire(opt);
+  }
+
+  function revealMillionaire(opt){
+    if(!mCurrent || mAnswered) return;
     mAnswered = true;
+    mPicked   = null;
 
     const correct = (opt === mCurrent.q.answer);
     const st = mTeamState(mCurrent.team);
     document.querySelectorAll('#m-options .m-option').forEach(b=>{
+      b.classList.remove('picked');
       if(b.dataset.opt === mCurrent.q.answer) b.classList.add('right');
-      else if(b === btn) b.classList.add('picked-wrong');
+      else if(b.dataset.opt === opt) b.classList.add('picked-wrong');
       b.disabled = true;
     });
+    document.getElementById('m-final').style.display = 'none';
 
     const showy = document.getElementById('play-millionaire').classList.contains('lit');
     Sound.bedStop();                     // the bed never runs over the result
@@ -2695,6 +2730,9 @@
     const st = mTeamState(active);
     if(!mCurrent || mAnswered || !st.lifelines[kind]) return;
     st.lifelines[kind] = false;
+    /* Reaching for a lifeline is reconsidering, so it throws away the nomination —
+       which also means 50:50 can never remove the option that is currently locked on. */
+    mPicked = null;
 
     if(kind === 'fifty'){
       const wrong = mCurrent.options.filter(o=>o !== mCurrent.q.answer);
@@ -2719,6 +2757,9 @@
 
   document.querySelectorAll('#m-lifelines .lifeline').forEach(btn=>{
     btn.addEventListener('click', ()=>useLifeline(btn.dataset.life));
+  });
+  document.getElementById('m-final').addEventListener('click', ()=>{
+    if(mPicked) revealMillionaire(mPicked);
   });
   document.getElementById('m-next').addEventListener('click', ()=>{
     timerStop();
