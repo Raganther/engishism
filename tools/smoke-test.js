@@ -1673,7 +1673,167 @@ async function testSettingsMigration(browser){
   }));
   check('a pre-scoping value is read as the master', got.sound === false, JSON.stringify(got));
   check('and applies to every game', got.volume === 'loud' && got.round === 90, JSON.stringify(got));
+
+  /* The three phone booleans became one `phoneMode`. A per-game override is
+     exactly what a teacher sets deliberately, so it must be translated rather
+     than silently ignored — and the dead keys must go, or the translation runs
+     again over a choice since changed. */
+  await page.evaluate(() => localStorage.setItem('engishism.gamehub.settings',
+    JSON.stringify({ phoneWrite:true,
+                     'phoneBuzzGames@race':true,
+                     'phoneVote@millionaire':true })));
+  await page.reload(); await page.waitForTimeout(400);
+  const ph = await page.evaluate(() => ({
+    master: window.HubSettings.get('phoneMode'),
+    race:   window.HubSettings.get('phoneMode','race'),
+    mill:   window.HubSettings.get('phoneMode','millionaire'),
+    jeo:    window.HubSettings.get('phoneMode','jeopardy'),
+    left:   Object.keys(JSON.parse(localStorage.getItem('engishism.gamehub.settings')))
+              .filter(k => /^phone(Write|Vote|BuzzGames)/.test(k))
+  }));
+  check('an old master phone switch becomes the mode', ph.master === 'write', JSON.stringify(ph));
+  check('and an old per-game one becomes that game\'s mode',
+        ph.race === 'buzz' && ph.mill === 'vote', JSON.stringify(ph));
+  check('a game with no override still follows the master', ph.jeo === 'write', ph.jeo);
+  check('the replaced keys are cleared, so it runs once', ph.left.length === 0, ph.left.join(','));
+
+  /* Once translated, a later choice must stand: reloading again cannot resurrect
+     the old value, because there is nothing left to translate from. */
+  await page.evaluate(() => window.HubSettings.set('phoneMode','off','race'));
+  await page.reload(); await page.waitForTimeout(400);
+  check('a mode chosen after the migration survives a reload',
+        await page.evaluate(() => window.HubSettings.get('phoneMode','race')) === 'off');
+
   await page.evaluate(() => localStorage.removeItem('engishism.gamehub.settings'));
+  checkClean(page);
+  await page.close();
+}
+
+/* ---- the Lab drawer ----
+   Settings for one game, reachable without leaving the board. The point is
+   comparing iterations *between rounds*, so the thing to assert is that it shows
+   the active game's switches and nothing else, that changing one there writes a
+   per-game override rather than the master, and that it cannot be left open over
+   a screen it does not belong to. */
+async function testLabDrawer(browser){
+  section('Lab drawer — per-game switches in the game');
+  const page = await openHub(browser);
+  await page.evaluate(() => window.HubSettings.set('intro','off'));
+
+  check('no lab button before a game is chosen',
+        await page.locator('#lab-btn').isVisible() === false);
+
+  await startGame(page, 'Race to the Board', { sections:'all' });
+  await page.waitForTimeout(400);
+  check('the lab button is there while playing', await page.locator('#lab-btn').isVisible());
+
+  await page.locator('#lab-btn').click(); await page.waitForTimeout(300);
+  check('it opens', await page.locator('#lab-drawer.on').count() === 1);
+  check('titled with the game being played',
+        /race to the board/i.test(await page.locator('#lab-title').innerText()),
+        await page.locator('#lab-title').innerText());
+
+  const rows = await page.locator('#lab-body .settings-row').count();
+  check('it carries that game\'s switches', rows > 0, String(rows));
+  const labels = (await page.locator('#lab-body .settings-row').allInnerTexts()).join(' | ');
+  check('including one this game has and another game does not',
+        /re-scatter|round length/i.test(labels), labels.slice(0,160));
+  check('and not one that belongs to a different game only',
+        !/lifelines/i.test(labels), labels.slice(0,160));
+
+  /* Changing it here is an override for this game, not a change to every game —
+     otherwise trying an idea mid-round quietly rewrites the other three. */
+  const before = await page.evaluate(() => window.HubSettings.get('phoneMode'));
+  const modeSel = page.locator('#lab-body [data-setting="phoneMode"]');
+  check('the phone dynamic is one picker, not a row of switches',
+        await modeSel.count() === 1 && await modeSel.evaluate(e => e.tagName) === 'SELECT',
+        String(await modeSel.count()));
+  await modeSel.selectOption('write'); await page.waitForTimeout(200);
+  check('a change in the lab is scoped to this game',
+        await page.evaluate(() => window.HubSettings.get('phoneMode','race')) === 'write');
+  check('and leaves every other game alone',
+        await page.evaluate(() => window.HubSettings.get('phoneMode')) === before,
+        String(await page.evaluate(() => window.HubSettings.get('phoneMode'))));
+
+  /* A drawer you cannot see past is a drawer you cannot use mid-round: the header
+     holds New game, the timer and ⚙, the team bar holds the ± score buttons, and
+     a full-height panel covered all of them. This failed the first time it ran. */
+  const clear = async (sel) => {
+    const [box, drawer] = await Promise.all([
+      page.locator(sel).boundingBox(), page.locator('#lab-drawer').boundingBox()
+    ]);
+    return !!box && !!drawer && (box.y + box.height <= drawer.y + 1 || box.y >= drawer.y + drawer.height - 1);
+  };
+  check('the header stays reachable with the drawer open', await clear('#new-game-btn'));
+  check('so does the timer', await clear('#timer-widget'));
+  check('and the team bar', await clear('#scorebar'));
+
+  /* And the board gives up the width rather than hiding under the panel — the
+     first version covered two of Millionaire's four options, which makes the
+     drawer useless for the thing it is for: changing a rule and watching the
+     next question play under it. Measured on the stage the registry names, and
+     on its contents, because a stage whose box stops at the drawer can still
+     have children overflowing past it. */
+  const drawerBox = await page.locator('#lab-drawer').boundingBox();
+  const over = await page.evaluate(edge => {
+    const stage = window.HubGames.get('race').stage;   // an element id, not a selector
+    const root = document.getElementById(stage);
+    if(!root) return ['no stage'];
+    return [root, ...root.querySelectorAll('*')]
+      .filter(el => { const r = el.getBoundingClientRect();
+                      return r.width > 4 && r.height > 4 && r.right > edge + 2; })
+      .slice(0,3).map(el => el.className + ' ' + Math.round(el.getBoundingClientRect().right));
+  }, drawerBox.x);
+  check('the board re-fits into what is left, rather than hiding under it',
+        over.length === 0, over.join(' | '));
+
+  await page.keyboard.press('l'); await page.waitForTimeout(250);
+  check('L closes it', await page.locator('#lab-drawer.on').count() === 0);
+  await page.keyboard.press('l'); await page.waitForTimeout(250);
+  check('and opens it again', await page.locator('#lab-drawer.on').count() === 1);
+
+  /* Leaving the board must take the drawer with it — a panel about Race hanging
+     over the game-select screen is a bug the user would meet immediately. */
+  await page.locator('#new-game-btn').click(); await page.waitForTimeout(400);
+  check('leaving the play screen closes it', await page.locator('#lab-drawer.on').count() === 0);
+  check('and the button goes with it', await page.locator('#lab-btn').isVisible() === false);
+
+  await page.evaluate(() => window.HubSettings.clearOverride('phoneMode','race'));
+  checkClean(page);
+  await page.close();
+}
+
+/* A weight is only tunable if it can be tuned — `type:'range'` is the control that
+   makes "change the weights" a slider rather than an edit to the source. */
+async function testRangeSetting(browser){
+  section('Tunable weights');
+  const page = await openHub(browser);
+  const has = await page.evaluate(() => {
+    window.HubSettings.register({ id:'__testWeight', group:'Competition', type:'range',
+      default:2, min:1, max:5, step:0.5, unit:'×', games:window.HubGames.ids(),
+      label:'Test weight', help:'Only registered by the smoke test.' });
+    return window.HubSettings.get('__testWeight');
+  });
+  check('a range setting reads its default', has === 2, String(has));
+  await page.locator('#settings-btn').click(); await page.waitForTimeout(300);
+  const box = page.locator('[data-setting="__testWeight"]');
+  const input = box.locator('input[type=range]');
+  check('it renders as a slider', await input.count() === 1);
+  check('with its bounds from the registration',
+        await input.getAttribute('min') === '1' && await input.getAttribute('max') === '5',
+        (await input.getAttribute('min')) + '-' + (await input.getAttribute('max')));
+  check('and reads its value back before it is touched',
+        /^2×/.test((await box.innerText()).trim()), (await box.innerText()).trim());
+  await input.fill('4'); await input.dispatchEvent('input'); await input.dispatchEvent('change');
+  await page.waitForTimeout(200);
+  /* A weight arriving as the string "4" would compare, concatenate and multiply
+     wrongly everywhere it is used — the whole reason for a typed control. */
+  check('dragging it stores a number, not a string',
+        await page.evaluate(() => window.HubSettings.get('__testWeight')) === 4,
+        JSON.stringify(await page.evaluate(() => window.HubSettings.get('__testWeight'))));
+  check('and says where it now sits', /^4×/.test((await box.innerText()).trim()),
+        (await box.innerText()).trim());
+  await page.locator('#settings-close').click();
   checkClean(page);
   await page.close();
 }
@@ -1904,7 +2064,7 @@ async function testPhoneModes(browser){
   };
 
   // ---- typing: the whole class answers, not one student
-  const w = await openRoom('Jeopardy', { __g:'jeopardy', phoneWrite:true, phoneOneEach:true });
+  const w = await openRoom('Jeopardy', { __g:'jeopardy', phoneMode:'write', phoneOneEach:true });
   check('a room opens for a game that wants phones', !!w.code, w.code || 'none');
   if (w.code){
     const ana = await join(w.code, 'Ana', 0), ben = await join(w.code, 'Ben', 1);
@@ -1929,7 +2089,7 @@ async function testPhoneModes(browser){
   await w.host.close();
 
   // ---- voting: Ask the class as a real poll
-  const v = await openRoom('Millionaire', { __g:'millionaire', phoneVote:true });
+  const v = await openRoom('Millionaire', { __g:'millionaire', phoneMode:'vote' });
   if (v.code){
     const ana = await join(v.code, 'Ana', 0), ben = await join(v.code, 'Ben', 1);
     await v.host.waitForTimeout(400);
@@ -1946,7 +2106,7 @@ async function testPhoneModes(browser){
   await v.host.close();
 
   // ---- buzzing for the floor in a tile game
-  const bz = await openRoom('Jeopardy', { __g:'jeopardy', phoneBuzzGames:true });
+  const bz = await openRoom('Jeopardy', { __g:'jeopardy', phoneMode:'buzz' });
   if (bz.code){
     const ben = await join(bz.code, 'Ben', 1);
     await bz.host.waitForTimeout(400);
@@ -1964,7 +2124,7 @@ async function testPhoneModes(browser){
   /* The join lobby: a QR that carries the code, so a class scans in rather than
      typing a 5-digit code and a URL. The encoder is vendored, so this also proves
      hub-qr.js is actually being loaded by the shells. */
-  const q = await openRoom('Jeopardy', { __g:'jeopardy', phoneWrite:true });
+  const q = await openRoom('Jeopardy', { __g:'jeopardy', phoneMode:'write' });
   if (q.code){
     check('the QR encoder is loaded, not fetched',
           await q.host.evaluate(() => typeof window.qrcode) === 'function');
@@ -2065,7 +2225,7 @@ async function main(){
     jeopardy: testJeopardy, blockbusters: testBlockbusters, race: testRace,
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens, phone: testPhoneLayout,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
-    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, topics: testTopicPicking, defaultlook: testDefaultLook, jfinish: testJeopardyFinish, competition: testCompetition,
+    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, topics: testTopicPicking, defaultlook: testDefaultLook, jfinish: testJeopardyFinish, competition: testCompetition, lab: testLabDrawer, range: testRangeSetting,
     buzzers: testBuzzers, phonemodes: testPhoneModes,
     degradation: testDegradation, file: testFileProtocol
   };

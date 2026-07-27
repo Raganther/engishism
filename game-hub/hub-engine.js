@@ -223,30 +223,60 @@
     label:'Think-music drone', help:'The low pulse under an unanswered question. Off leaves every other sound alone.',
     options:[{value:'normal',label:'On'},{value:'quiet',label:'On, quieter'},{value:'off',label:'Off'}] });
 
-  /* ---- phones: prototypes ----
-     All off by default. These are being explored, not shipped, and each is a
-     different *shape* of asking the room something rather than a variation on
-     buzzing: broadcast (the question), race (buzz), poll (vote), produce (type).
-     Everything degrades to exactly today's behaviour with no relay. */
-  S.register({ id:'phoneBuzzGames', group:'Phones (prototype)', type:'toggle', default:false,
-    games:['jeopardy','blockbusters'],
-    label:'Buzz for the right to answer',
-    help:'Opens a phone room in this game. Students buzz for the floor instead of the teacher choosing who answers.' });
+  /* ---- phones: one mode, not four switches ----
+     These began as four independent toggles and immediately contradicted each
+     other — with typing and buzzing both on, one had to silently win, and it was
+     decided by a hard-coded precedence nobody could see. A dynamic is a *choice*
+     between iterations, so it is one variant with named values: pick one, compare
+     it against another next round, no combination that means nothing.
 
-  S.register({ id:'phoneVote', group:'Phones (prototype)', type:'toggle', default:false,
-    games:['millionaire'],
-    label:'Ask the class votes on phones',
-    help:'The lifeline collects a real vote from every phone instead of counting hands.' });
-
-  S.register({ id:'phoneWrite', group:'Phones (prototype)', type:'toggle', default:false,
-    games:['jeopardy','blockbusters','race'],
-    label:'Everyone types an answer',
-    help:'Instead of one student answering, the whole class types. You see every answer and who wrote it.' });
+     A variant may name the games it suits, so voting is offered only where there
+     are four options to vote on. */
+  S.register({ id:'phoneMode', group:'Phones (prototype)', type:'variant', default:'off',
+    games:gameIds(),
+    label:'What the phones do',
+    help:'Pick one dynamic to try. Switch between them between rounds and see which your class learns more from.',
+    variants:[
+      {value:'off',   label:'Nothing — phones idle'},
+      {value:'buzz',  label:'Buzz for the floor — fastest thumb wins'},
+      {value:'write', label:'Everyone types — no race, you see every answer'},
+      {value:'vote',  label:'Class votes on the options', games:['millionaire']}
+    ] });
 
   S.register({ id:'phoneOneEach', group:'Phones (prototype)', type:'toggle', default:true,
-    games:['jeopardy','blockbusters','race','millionaire'],
+    games:gameIds(),
     label:'One answer each per question',
     help:'A student who has answered cannot answer again until the next question. Stops the fastest thumbs owning the game.' });
+
+  S.register({ id:'phonePrompt', group:'Phones (prototype)', type:'toggle', default:true,
+    games:gameIds(),
+    label:'Show the question on the phones',
+    help:'The back of the room reads its own screen. Off keeps their eyes on the board.' });
+
+  /* The three booleans that became `phoneMode` are still sitting in anyone's
+     localStorage, including per-game overrides they set deliberately — so
+     translate rather than let them be silently ignored. Precedence is the one
+     the old code actually used at question time (write beat buzz); vote only
+     wins when it was the only thing switched on, because it fired from a
+     lifeline rather than from the question. Dropping the old keys is what makes
+     this run once. */
+  (function migratePhoneModes(){
+    const suffixes = [''].concat(gameIds().map(g => '@' + g));
+    const dead = [];
+    suffixes.forEach(sfx => {
+      const pick = S.raw('phoneWrite'+sfx) ? 'write'
+                 : S.raw('phoneBuzzGames'+sfx) ? 'buzz'
+                 : S.raw('phoneVote'+sfx) ? 'vote' : null;
+      /* An old key still being here *is* the signal that nothing has chosen a
+         mode yet — the drop below removes them the first time this build loads,
+         which is before anyone can have picked one. Asking whether `phoneMode`
+         is unset instead would never fire on the master value, because
+         register() seeds every master with its default. */
+      if(pick) S.set('phoneMode', pick, sfx ? sfx.slice(1) : null);
+      ['phoneWrite','phoneBuzzGames','phoneVote'].forEach(id => dead.push(id + sfx));
+    });
+    S.drop(dead);
+  })();
 
   /* ---- competitive dynamics ----
      All per-game, so a teacher can run steal in Jeopardy and not in Blockbusters and
@@ -534,6 +564,7 @@
           <button id="tmr-reset" title="Reset">↺</button>
           <button id="tmr-plus" title="+15 seconds">+</button>
         </div>
+        <button id="lab-btn" title="Tune this game (L)">Lab</button>
         <button id="new-game-btn">↺ New game</button>
       </div>
     </header>
@@ -656,6 +687,16 @@
       </div>
     </div>
 
+    <!-- Lab: the current game's controls, reachable without leaving the round -->
+    <div id="lab-drawer">
+      <div id="lab-head">
+        <span id="lab-title">Lab</span>
+        <button id="lab-close" type="button">Close</button>
+      </div>
+      <div id="lab-body"></div>
+      <div id="lab-foot">Changes apply to this game only, and take effect on the next question.</div>
+    </div>
+
     <!-- the join lobby: thrown on the projector so a class can scan in -->
     <div id="join-modal">
       <div id="join-card">
@@ -757,6 +798,8 @@
     document.getElementById(id).classList.add('active');
     hideResult();                       // a banner belongs to the round that raised it
     document.getElementById('new-game-btn').style.display = (id==='screen-play') ? 'inline-block' : 'none';
+    document.getElementById('lab-btn').style.display      = (id==='screen-play') ? 'inline-block' : 'none';
+    if(id!=='screen-play') closeLab();
     document.getElementById('timer-widget').style.display = (id==='screen-play') ? 'flex' : 'none';
     // these boards size themselves around the team bar, so they don't need the body
     // padding that keeps the bar clear of the other screens
@@ -2301,6 +2344,55 @@
      hex unclaimed; Jeopardy now uses it to decline a steal, which it must have —
      offering the question with no way to say "nobody wants it" strands the teacher
      on a card with every other button hidden. */
+  /* The Lab: only the game being played, changeable mid-round. ⚙ still shows
+     everything at once; this exists so trying a different dynamic is two taps
+     rather than a hunt through other games' tabs. */
+  /* The drawer stops short of the header and the team bar rather than covering
+     them. That is not tidiness: both hold controls a teacher reaches for *while*
+     the drawer is open — New game, the timer, ⚙, and the ± score buttons — and a
+     full-height panel swallowed every one of them. Both edges are measured
+     because the header wraps at narrow widths and the team bar grows a row when
+     a team is added, so neither height is a constant. */
+  function fitLab(){
+    const d = document.getElementById('lab-drawer');
+    if(!d) return;
+    const band = document.querySelector('.geo-band');
+    const bar  = document.getElementById('scorebar');
+    const top  = band ? Math.max(0, band.getBoundingClientRect().bottom) : 0;
+    const barFixed = bar && getComputedStyle(bar).position === 'fixed';
+    const bottom = barFixed
+      ? Math.max(0, window.innerHeight - bar.getBoundingClientRect().top) : 0;
+    d.style.top = top + 'px';
+    d.style.bottom = bottom + 'px';
+  }
+
+  function openLab(){
+    if(!activeGame) return;
+    document.getElementById('lab-title').textContent =
+      (window.HUB_GAME_TITLES && window.HUB_GAME_TITLES[activeGame]) || 'Lab';
+    S.renderFor(document.getElementById('lab-body'), activeGame);
+    fitLab();
+    document.getElementById('lab-drawer').classList.add('on');
+    document.body.classList.add('lab-open');
+    hook('onResize');
+  }
+  function closeLab(){
+    document.getElementById('lab-drawer').classList.remove('on');
+    document.body.classList.remove('lab-open');
+    hook('onResize');
+  }
+  function labOpen(){ return document.getElementById('lab-drawer').classList.contains('on'); }
+
+  document.getElementById('lab-btn').addEventListener('click', ()=> labOpen() ? closeLab() : openLab());
+  document.getElementById('lab-close').addEventListener('click', closeLab);
+  document.addEventListener('keydown', e=>{
+    if(e.key !== 'l' && e.key !== 'L') return;
+    if(e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    if(document.getElementById('screen-play').classList.contains('active')){
+      e.preventDefault(); labOpen() ? closeLab() : openLab();
+    }
+  });
+
   document.getElementById('buzzer-chip').addEventListener('click', ()=>{
     if(buzzHost) joinPanelOpen() ? hideJoinPanel() : showJoinPanel();
   });
@@ -2583,7 +2675,7 @@
       mTally = {};
       mCurrent.options.forEach(o=>{ mTally[o] = 0; });
       // with phones on, the class votes for real; without, the teacher taps hands
-      if(S.get('phoneVote', 'millionaire')){
+      if(S.get('phoneMode', 'millionaire') === 'vote'){
         askClass(mCurrent.q.prompt, 'vote', mCurrent.options.slice());
       }
       renderMillionaire();
@@ -2720,9 +2812,7 @@
   function phonesWanted(){
     if(!activeGame) return false;
     if(activeGame === 'race' && raceMode === 'h2h') return true;
-    return !!(S.get('phoneBuzzGames', activeGame) ||
-              S.get('phoneVote', activeGame) ||
-              S.get('phoneWrite', activeGame));
+    return S.get('phoneMode', activeGame) !== 'off';
   }
   function syncBuzzRoom(){ if(phonesWanted()) openBuzzRoom(); else closeBuzzRoom(); }
 
@@ -2792,8 +2882,12 @@
   function askPhones(prompt, game){
     if(!buzzHost) return;
     clearReplies();
-    if(S.get('phoneWrite', game))      askClass(prompt, 'answer');
-    else if(S.get('phoneBuzzGames', game)) armBuzzers(prompt);
+    // the question only travels if the teacher wants it to — sometimes the point
+    // is that they read the board, not their hand
+    if(!S.get('phonePrompt', game)) prompt = '';
+    const mode = S.get('phoneMode', game);
+    if(mode === 'write')     askClass(prompt, 'answer');
+    else if(mode === 'buzz') armBuzzers(prompt);
   }
 
   function clearReplies(){
@@ -3218,7 +3312,7 @@
 
   // one listener for every board, now and later — a new game gets re-fitted on
   // resize by declaring onResize, not by being added to a list here
-  window.addEventListener('resize', ()=>hook('onResize'));
+  window.addEventListener('resize', ()=>{ hook('onResize'); if(labOpen()) fitLab(); });
 
   /* ================= TIMER (teacher-controlled) ================= */
   let tmrDuration=30, tmrLeft=30, tmrTick=null;

@@ -377,6 +377,76 @@ body.theme-gameshow .prompt-word.landed{ background: var(--gold); color:#0a0d26;
 #close-btn, #skip-btn{ background: var(--white); color: var(--navy); border:2px solid var(--navy); }
 #clue-actions button:hover{ filter: brightness(1.06); }
 
+/* --- Lab: tune the game you are in, without leaving it ---
+   A drawer rather than a modal on purpose: the board stays visible behind it, so
+   a change can be judged against what is on screen. */
+#lab-drawer{
+  position:fixed; top:0; right:0; bottom:0; width:min(92vw, 420px); z-index:66;
+  background:#080B1E; border-left:2px solid rgba(255,255,255,0.14);
+  box-shadow:-18px 0 50px rgba(0,0,0,0.5);
+  transform:translateX(100%); transition:transform .22s cubic-bezier(.2,.9,.3,1);
+  display:flex; flex-direction:column;
+}
+#lab-drawer.on{ transform:none; }
+/* The board gives up the width rather than being covered by it. A drawer you open
+   mid-round is only useful if you can still see the question you are changing the
+   rules of — the first version hid option B and D behind the panel. The screen is
+   re-fitted on open and close, so every board re-measures into what is left. */
+body.lab-open .screen{ margin-right: min(92vw, 420px); }
+@media (max-width: 760px){ body.lab-open .screen{ margin-right:0; } }
+@media (prefers-reduced-motion: reduce){ #lab-drawer{ transition:none; } }
+#lab-head{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:16px 18px; border-bottom:2px solid rgba(255,255,255,0.12);
+}
+#lab-title{
+  font-family:'Space Grotesk',sans-serif; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.04em; color:var(--yellow); font-size:1.05rem;
+}
+#lab-close{
+  background:transparent; color:#cfe0ff; border:2px solid rgba(255,255,255,0.3);
+  border-radius:8px; padding:7px 14px; cursor:pointer;
+  font-family:'IBM Plex Mono',monospace; font-size:0.7rem; letter-spacing:0.05em; text-transform:uppercase;
+}
+#lab-close:hover{ border-color:var(--yellow); color:var(--yellow); }
+#lab-body{ padding:4px 18px 12px; overflow-y:auto; flex:1; }
+#lab-body .settings-label{ color:#eaf0ff; }
+#lab-body .settings-help{ color:#8fa6c8; }
+#lab-body .settings-group{ color:var(--blue); }
+#lab-body .settings-row{ border-bottom-color:rgba(255,255,255,0.1); }
+#lab-body .settings-select{ background:#0c1130; color:#eaf0ff; border-color:rgba(255,255,255,0.25); }
+/* A 420px drawer cannot do label-beside-control: a variant's option text is a
+   sentence, so the control was squeezing the label to one word per line and
+   still overflowing. Stack them instead. */
+#lab-body .settings-row{ flex-direction:column; align-items:stretch; gap:9px; }
+#lab-body .settings-select,
+#lab-body .settings-input{ width:100%; max-width:100%; }
+#lab-body .settings-switch{ align-self:flex-end; }
+#lab-body .settings-range{ width:100%; }
+#lab-body .settings-range input[type=range]{ flex:1; width:auto; }
+#lab-foot{
+  padding:12px 18px 16px; border-top:2px solid rgba(255,255,255,0.12);
+  color:#8fa6c8; font-size:0.78rem; line-height:1.4;
+}
+#lab-btn{
+  background:var(--white); color:var(--navy); border:2px solid var(--navy); border-radius:6px;
+  padding:8px 14px; font-family:'IBM Plex Mono',monospace; font-size:0.75rem;
+  letter-spacing:0.05em; text-transform:uppercase; cursor:pointer; display:none;
+}
+#lab-btn:hover{ background:var(--navy); color:var(--white); }
+body.theme-gameshow #lab-btn{ background:rgba(255,255,255,0.06); color:var(--paper); border-color:rgba(255,255,255,0.3); }
+body.theme-gameshow #lab-btn:hover{ background:var(--gold); color:#000; border-color:var(--gold); }
+
+/* a weight you can move while you play */
+.settings-range{ display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.settings-range input[type=range]{ width:130px; accent-color:var(--blue); }
+.settings-range output{
+  font-family:'IBM Plex Mono',monospace; font-size:0.85rem; color:var(--ink);
+  min-width:3.2em; text-align:right;
+}
+#lab-body .settings-range output{ color:#eaf0ff; }
+body.theme-gameshow .settings-range input[type=range]{ accent-color:var(--gold); }
+
 /* --- the join lobby ---
    Thrown on the projector so a class can scan in rather than typing a 5-digit code
    and a URL. Sized for the back of a room: the QR is the biggest thing on screen,
@@ -1122,6 +1192,9 @@ body.theme-gameshow #clue-actions button:hover{ filter: brightness(1.14); }
   #tmr-display{ font-size:1.15rem; }
   #settings-btn{ width:34px; height:34px; font-size:1rem; }
   #new-game-btn{ padding:6px 10px; font-size:0.66rem; }
+  /* Square, like ⚙ — a full-width "LAB" pushed New game onto a third header row
+     and took 31px off every board on a 390px screen. */
+  #lab-btn{ width:34px; height:34px; padding:0; font-size:0.55rem; letter-spacing:0; }
 
   /* two teams on one row instead of three stacked rows */
   #scorebar{ gap:8px; padding:8px 10px; }
@@ -1170,10 +1243,16 @@ body.theme-gameshow #clue-actions button:hover{ filter: brightness(1.14); }
    New game together overflow, and .header-right wraps them onto three lines,
    which costs more height than the timer saves. Shrink the timer instead. */
 @media (max-width: 480px){
-  #timer-widget{ padding:3px 5px; gap:3px; }
-  #timer-widget button{ width:22px; height:22px; font-size:0.82rem; }
-  #tmr-display{ font-size:1rem; }
+  /* Measured, not guessed: at 360px the right-hand group has 332px to play with,
+     and gear + timer + Lab + New game came to 353 — so it wrapped to a second row
+     and cost 34px of board. The timer is the biggest single item, so it gives up
+     the pixels. */
+  .header-right{ gap:5px; }
+  #timer-widget{ padding:3px 4px; gap:2px; }
+  #timer-widget button{ width:20px; height:20px; font-size:0.75rem; }
+  #tmr-display{ font-size:0.95rem; }
   #new-game-btn{ padding:5px 8px; font-size:0.6rem; }
+  #lab-btn{ width:26px; height:26px; font-size:0.48rem; }
   /* two teams came to 344px against 340px of room at 360 wide, so the bar wrapped
      to a second row and cost 42px of board to miss by four pixels */
   #scorebar{ gap:6px; padding:8px; }

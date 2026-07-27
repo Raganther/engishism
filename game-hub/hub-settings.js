@@ -107,6 +107,21 @@ window.HubSettings = (function(){
   function onChange(fn){ listeners.push(fn); }
   function setContext(game){ context = game || null; }
 
+  /* ---------- migration ----------
+     A setting that gets replaced leaves values behind under keys nothing reads
+     any more, and a per-game override is exactly the thing a teacher would have
+     set deliberately — so it must not be lost silently. `raw()` hands the stored
+     value over by its full key (`id` or `id@game`) so the feature that replaced
+     it can translate; `drop()` clears the dead keys so the translation runs once.
+     Neither goes through the registry, because the old id is no longer in it. */
+  function raw(k){ return values[k]; }
+  function drop(keys){
+    let touched = false;
+    keys.forEach(k => { if(k in values){ delete values[k]; touched = true; } });
+    if(touched) save();
+    return touched;
+  }
+
   function resetAll(){
     Object.keys(values).forEach(k=>{ if(k.indexOf('@') !== -1) delete values[k]; });
     defs.forEach(d=>{ values[d.id] = d.default; });
@@ -169,8 +184,18 @@ window.HubSettings = (function(){
     });
   }
 
-  /* One control builder for both scopes. `game` is null on the master tab. */
+  /* Every control carries the id it writes to. The panel doesn't need it — it
+     holds the definition in a closure — but anything looking *at* the panel does:
+     a test, and the Lab drawer's own "what did I just change?" reading. Without
+     it the only handle on a control is the label text, which is prose. */
   function buildControl(d, game){
+    const el = makeControl(d, game);
+    if(el) el.setAttribute('data-setting', d.id);
+    return el;
+  }
+
+  /* One control builder for both scopes. `game` is null on the master tab. */
+  function makeControl(d, game){
     const value = get(d.id, game);
 
     if(d.type==='text'){
@@ -197,6 +222,29 @@ window.HubSettings = (function(){
         if(game) render();          // refresh the matching-master state
       });
       return sel;
+    }
+    if(d.type==='range'){
+      /* A weight you tune rather than a choice you make: cooldowns, points, the
+         length of a round. Prototyping needs these movable from the interface,
+         not from the source. */
+      const box=document.createElement('span');
+      box.className='settings-range';
+      const out=document.createElement('output');
+      const inp=document.createElement('input');
+      inp.type='range';
+      inp.min = d.min === undefined ? 0 : d.min;
+      inp.max = d.max === undefined ? 10 : d.max;
+      inp.step = d.step || 1;
+      inp.value = value;
+      const show = v => out.textContent = v + (d.unit || '');
+      show(value);
+      inp.addEventListener('input', ()=> show(inp.value));
+      inp.addEventListener('change', ()=>{
+        const v = d.step && String(d.step).indexOf('.') !== -1 ? parseFloat(inp.value) : parseInt(inp.value,10);
+        set(d.id, v, game); if(game) render();
+      });
+      box.appendChild(inp); box.appendChild(out);
+      return box;
     }
     const wrap=document.createElement('label');
     wrap.className='settings-switch';
@@ -295,6 +343,48 @@ window.HubSettings = (function(){
 
   function render(){ renderTabs(); renderBody(); }
 
+  /* Render one game's settings into any element — used by the in-game Lab drawer,
+     which deliberately shows *only* the game being played. The ⚙ panel exists to
+     see everything at once; this exists to change one thing mid-round without
+     hunting through tabs for other games' switches. */
+  function renderFor(mount, game, opts){
+    if(!mount) return;
+    const o = opts || {};
+    mount.innerHTML = '';
+    const shown = defs.filter(d => scoped(d) && d.games.indexOf(game) !== -1 &&
+                                   (!o.groups || o.groups.indexOf(d.group || 'General') !== -1));
+    const groups = [];
+    shown.forEach(d => { const g = d.group || 'General'; if(!groups.includes(g)) groups.push(g); });
+    groups.forEach(g=>{
+      const h=document.createElement('div');
+      h.className='settings-group'; h.textContent=g;
+      mount.appendChild(h);
+      shown.filter(d => (d.group||'General') === g).forEach(d=>{
+        const row=document.createElement('div');
+        row.className='settings-row';
+        const text=document.createElement('div');
+        text.className='settings-text';
+        const lab=document.createElement('div');
+        lab.className='settings-label'; lab.textContent=d.label;
+        text.appendChild(lab);
+        if(d.help){
+          const hp=document.createElement('div');
+          hp.className='settings-help'; hp.textContent=d.help;
+          text.appendChild(hp);
+        }
+        row.appendChild(text);
+        row.appendChild(buildControl(d, game));
+        mount.appendChild(row);
+      });
+    });
+    if(!shown.length){
+      const none=document.createElement('p');
+      none.className='settings-intro';
+      none.textContent = 'Nothing to tune for this game yet.';
+      mount.appendChild(none);
+    }
+  }
+
   function open(){
     if(!panel) return;
     // land on the tab for whatever is being played, so ⚙ during a game shows that
@@ -324,7 +414,8 @@ window.HubSettings = (function(){
     });
   }
 
-  return { register, get, set, clearOverride, hasOverride, onChange, variantsFor,
-           mount, open, close, resetAll, setContext,
+  return {
+    renderFor, register, get, set, clearOverride, hasOverride, onChange, variantsFor,
+           raw, drop, mount, open, close, resetAll, setContext,
            get storageAvailable(){ return storageOK; } };
 })();

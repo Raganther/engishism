@@ -289,8 +289,13 @@ their phone. Two rules invert there, deliberately:
   image mid-game. A phone in the hand is not that, and forcing the fit is what broke
   Millionaire.
 - **Nothing is hidden, only compacted.** The timer and the scores are what a teacher
-  reaches for. Chrome went 323px → 184px on a 390×844 screen (`@media` tiers at 760px
-  and 480px).
+  reaches for. Chrome went 323px → 198px on a 390×844 screen (`@media` tiers at 760px
+  and 480px), against a hard cap of 200 in the `phone` suite. **The cap is two pixels
+  away, and the thing that eats it is another header button**: the Lab button cost 31px
+  the day it was added, because `.header-right` wrapped onto a third row rather than
+  overflowing. Measure the group, not the button — at 360px it has 332px to fill and the
+  four controls came to 353. The timer gave up the difference; it is the biggest item
+  there.
 
 Three fixes worth not re-deriving:
 - **`Kit.fitToScreen(el, {floor:true})`** hands the height back when the content genuinely
@@ -401,10 +406,50 @@ Storage: `id` is the master, `id@game` is an override. Settings written before s
 existed are master values under the same keys, so nothing needed migrating — there is a
 smoke test pinning that.
 
-`type:'select'` takes `options:[{value,label}]`. `S.onChange(fn)` is for settings that
-should change what's already on screen without restarting the game. Values persist in
-`localStorage` per device; a browser that blocks storage on `file://` silently falls
-back to memory for the session (the panel says so).
+`type:'select'` takes `options:[{value,label}]`; `type:'range'` takes
+`{min,max,step,unit}` and is what makes a **weight** tunable from the interface rather
+than from the source — cooldowns, point values, round lengths. It stores a number, not
+a string (a `step` with a decimal point parses as a float), because a weight arriving as
+`"4"` compares and concatenates wrongly everywhere it is used. `S.onChange(fn)` is for
+settings that should change what's already on screen without restarting the game. Values
+persist in `localStorage` per device; a browser that blocks storage on `file://` silently
+falls back to memory for the session (the panel says so).
+
+**Every control carries `data-setting="id"`.** The panel doesn't need it — it holds the
+definition in a closure — but anything looking *at* the panel does, and without it the
+only handle on a control is its label, which is prose.
+
+### The Lab: this game's switches, inside this game
+⚙ exists to see everything at once; the **Lab drawer** (`Lab` in the header, or `L`)
+exists to change one thing mid-round without hunting through other games' tabs. It is
+`S.renderFor(mount, game)` — the same rows the panel builds, filtered to one game — so a
+new setting appears in it by being registered, exactly as in the panel. A change made
+there is **an override for that game**, never the master, which is what makes trying an
+idea mid-round safe.
+
+Three things it has to do, each of which was a bug first:
+- **Stop short of the header and the team bar.** Both hold controls a teacher reaches for
+  *while* it is open — New game, the timer, ⚙, the ± score buttons — and a full-height
+  panel swallowed every one. `fitLab()` measures both edges (the header wraps at narrow
+  widths, the team bar grows a row when a team is added, so neither is a constant).
+- **Make the board give up the width rather than covering it.** `body.lab-open` insets
+  the screen and `hook('onResize')` re-fits; without it the drawer hid two of
+  Millionaire's four options, which defeats the point of changing a rule and watching the
+  next question play under it. Dropped on handsets, where there is no width to give.
+- **Stack its rows.** At 420px a variant's option text is a sentence, so label-beside-
+  control squeezed the label to one word per line and still overflowed.
+
+### Replacing a setting
+`S.raw(key)` and `S.drop(keys)` exist for one job: a setting that gets replaced leaves
+values behind under keys nothing reads any more, and **a per-game override is exactly
+what a teacher set deliberately**, so it must be translated rather than silently ignored.
+`migratePhoneModes` in `hub-engine.js` is the worked example — three booleans became one
+`phoneMode` variant. Two traps it paid for:
+- **The old key still being present *is* the signal that nothing has chosen yet.** Asking
+  whether the new id is unset never fires on the master value, because `register()` seeds
+  every master with its default.
+- **`drop()` is what makes it run once**, and it runs before anyone can have picked a new
+  value, so a later choice can't be overwritten.
 
 ## Source material & specs
 - `material/empower-c1-unit-4/`, `material/empower-c1-unit-5/` — Cambridge Empower
@@ -416,12 +461,18 @@ back to memory for the session (the panel says so).
   activity schemas). Reference only; not required reading.
 
 ## Current status
-- **Deployed.** `main` is at `8d5d61a`, build `20260729k`, Pages green. The branch in
-  use is `claude/product-status-gxqp9l`; merging it to `main` is what deploys.
+- **Deployed.** Build `20260729t`, 467 checks green. The branch in use is
+  `claude/product-status-gxqp9l`; merging it to `main` is what deploys.
+- **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
+  the game being played, and only that game, without leaving the board — see "The Lab"
+  above. It exists because prototyping was the bottleneck: comparing two ideas meant
+  ⚙ → find the right tab → change → close → restart, and by then the round was over.
+  Everything registered shows up in it for free, so the next dynamic is a `S.register`
+  call and nothing else.
 - **Works on a phone as well as a computer**, and both are enforced by the layout
   contract above rather than assumed — see "Screens: one layout contract". Jeopardy
   scrolls sideways on a handset with legible columns; Millionaire's ladder is a
-  horizontal strip; chrome is 184px instead of 323px. **Verified only in Chromium's
+  horizontal strip; chrome is 198px instead of 323px. **Verified only in Chromium's
   device emulation** — real handset browser chrome (URL bar, gesture area) shrinks the
   visible height further and changes it as you scroll, which nothing here models.
 - Game Hub MVP live as **one consolidated app** (`game-hub.html`): choose unit →
@@ -516,11 +567,26 @@ back to memory for the session (the panel says so).
   to a hard-coded 90px step, and the hexes overlapped by 21px at 1440px wide. Building
   and laying out are separate, and positions come from `data-row`/`data-col`, so a
   resize repositions without rebuilding and claimed hexes keep their colour.
-- **Phone buzzers (first draft, no classroom run yet).** Students open `join.html`,
-  enter a 5-digit room code + name + team, and get one big buzzer. In **Race to the
-  Board head-to-head** a sentence arms the buzzers; the first buzz takes the floor and
-  *carries the team*, so a correct word scores automatically and the "who touched it
-  first?" chooser never appears. Wrong word = no penalty, buzzers re-open for a steal.
+- **Phones — run one class, learned one thing.** Students open `join.html` (or scan the
+  QR), enter a 5-digit room code + name + team. Everyone connected first time; the
+  dynamic itself was the problem — a room of buzzers **just makes everyone mash the
+  button as fast as possible**, which is a reflex test, not a language one. So what the
+  phones do is now **one `phoneMode` variant, not several toggles**: `off` / `buzz` /
+  `write` / `vote` (vote only in Millionaire, which is the only board with four options
+  to vote on). They began as independent booleans and immediately contradicted each
+  other — with typing and buzzing both on, one had to silently win, decided by a
+  hard-coded precedence nobody could see. **A dynamic is a choice between iterations**,
+  which is a variant. `phonePrompt` decides whether the question appears on the handset
+  at all (off keeps their eyes on the board), and `phoneOneEach` stops the fastest thumbs
+  owning it.
+  - In **Race to the Board head-to-head** a sentence arms the buzzers; the first buzz
+    takes the floor and *carries the team*, so a correct word scores automatically and the
+    "who touched it first?" chooser never appears. Wrong word = no penalty, buzzers
+    re-open for a steal.
+  - **Next, from that class**: type the answer, *then* buzz — a race to complete the word
+    that still needs them watching the board. Not built yet; three things to settle first
+    (what a wrong answer costs, how forgiving the matching is, and turning off the
+    handset's autocorrect so it isn't the phone spelling it).
   - Phones never talk to the laptop directly — school WiFi blocks that. Both ends
     connect out to `tools/buzzer-relay.js`, the same shape as Kahoot.
   - **The relay serves the site too, deliberately**: an https GitHub Pages page may not
@@ -664,6 +730,14 @@ back to memory for the session (the panel says so).
 - To change unit mid-session: game screen → "New game" → "Change unit".
 
 ## Next
+- **Type the answer, then buzz.** The one thing a real class taught us: a buzzer alone is
+  a reflex test. Typing first makes it a race to *produce* the word while still watching
+  the board. The Lab drawer exists so this can ship as another `phoneMode` value and be
+  compared against `buzz` between rounds rather than argued about. Open decisions: what a
+  wrong answer costs (a retry after ~3s reads best — nothing here deducts points), how
+  forgiving the matching is (suggestion: accept it, but say "close — check your
+  spelling"), and `autocorrect="off" autocapitalize="off" spellcheck="false"` on the
+  input, or the phone spells it for them.
 - **The shell can strand a user on old assets.** `game-hub.html` carries no cache stamp
   of its own, so a browser holding it loads the previous build silently — see "Run".
   Give the shell a `Cache-Control` meta of its own. Small, and it removes a whole class
@@ -736,7 +810,7 @@ back to memory for the session (the panel says so).
 
 ## Before you push
 ```bash
-NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~17 min, 353 checks, 24 suites
+NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~23 min, 467 checks, 29 suites
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=jeopardy,fit,phone   # while iterating
 ```
 Drives all four games in a real browser and checks the things that have actually
