@@ -164,6 +164,7 @@ Anything more than one game needs lives in `hub-kit.js`, not in a game:
 | `Kit.shapeOf(origin,target)` | animations assuming everything is a rectangle | the `morph` card animation |
 | `Kit.passTurn(count,current)` | four ad hoc rotations | all four games |
 | `Kit.prompt.register/render/reveal` | a question's *form* being a convention in how the prompt was worded | all four games |
+| `Kit.answer.judge(typed, expected)` | `===` deciding whether a student produced the word | the typing race; any game that ever accepts typed input |
 
 ### Question forms are a registry too
 A question's *form* — gap fill, anagram, odd one out — used to exist only in how the
@@ -461,7 +462,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
-- **Deployed.** Build `20260729t`, 467 checks green. The branch in use is
+- **Deployed.** Build `20260729u`, 503 checks green. The branch in use is
   `claude/product-status-gxqp9l`; merging it to `main` is what deploys.
 - **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
   the game being played, and only that game, without leaving the board — see "The Lab"
@@ -583,10 +584,35 @@ what a teacher set deliberately**, so it must be translated rather than silently
     takes the floor and *carries the team*, so a correct word scores automatically and the
     "who touched it first?" chooser never appears. Wrong word = no penalty, buzzers
     re-open for a steal.
-  - **Next, from that class**: type the answer, *then* buzz — a race to complete the word
-    that still needs them watching the board. Not built yet; three things to settle first
-    (what a wrong answer costs, how forgiving the matching is, and turning off the
-    handset's autocorrect so it isn't the phone spelling it).
+  - **The teacher sees what was typed, right or wrong** — the chip carries the name, the
+    word in quotes, and a verdict. A miss is the most useful thing on that chip: who is
+    nearly there, and how, is exactly what you would want mid-round. It survives the
+    re-arm for the same reason.
+  - **`type` is the answer to that class.** The student writes the word, *then* buzzes:
+    the button is dead until the box has something in it, so the race is to **produce**
+    the word while still reading the board. Judged on the host and only there — the relay
+    never learns the answer, so it can never be asked for it. Three decisions, all
+    switchable:
+    - **A miss costs time, not points** (`typeCooldown`, default 3s). That phone alone
+      waits it out while the room stays open, which is why the re-arm is a **`reopen`**:
+      a plain arm clears the box, and clearing it throws away the half-word somebody else
+      was racing to finish.
+    - **Three verdicts, not two.** `Kit.answer.judge` returns `right` / `close` / `wrong`;
+      `close` takes the floor and tells the phone to check its spelling, unless
+      `typeStrict` is on. "Produced the word but mis-spelled it" is a different fact
+      about a student from "didn't know it", and the room should hear it differently.
+      Tolerance scales with length (0 under 5 letters, 1, then 2 from 9), and **no two
+      answers in either Race bank are within it** — a smoke check, because a collision
+      would hand somebody the wrong word.
+    - **The phone does not spell it for them** — `autocorrect`, `autocapitalize` and
+      `spellcheck` are all off, or the handset finishes the word.
+    - **In Race the typed word is the claim**: the student named it, so it scores without
+      the teacher clicking. A plain buzz still needs the click, because a raised thumb
+      doesn't say which word they meant. Not offered in Millionaire, for the same reason
+      it never gets an anagram — four options hand you the word.
+    - **A verdict has to outlive the next question.** Race re-arms the instant a word is
+      claimed, so "Yes!" lasted about a frame; it now holds for 1.5s over anything the
+      next arm wants to say.
   - Phones never talk to the laptop directly — school WiFi blocks that. Both ends
     connect out to `tools/buzzer-relay.js`, the same shape as Kahoot.
   - **The relay serves the site too, deliberately**: an https GitHub Pages page may not
@@ -730,14 +756,12 @@ what a teacher set deliberately**, so it must be translated rather than silently
 - To change unit mid-session: game screen → "New game" → "Change unit".
 
 ## Next
-- **Type the answer, then buzz.** The one thing a real class taught us: a buzzer alone is
-  a reflex test. Typing first makes it a race to *produce* the word while still watching
-  the board. The Lab drawer exists so this can ship as another `phoneMode` value and be
-  compared against `buzz` between rounds rather than argued about. Open decisions: what a
-  wrong answer costs (a retry after ~3s reads best — nothing here deducts points), how
-  forgiving the matching is (suggestion: accept it, but say "close — check your
-  spelling"), and `autocorrect="off" autocapitalize="off" spellcheck="false"` on the
-  input, or the phone spells it for them.
+- **Type-then-buzz has never met a class.** It is built, switchable and tested, but every
+  number in it is a guess: 3 seconds for a miss, one letter of tolerance at five letters,
+  spelling forgiven by default. Run it against plain `buzz` from the Lab between rounds —
+  that is what the drawer is for. The specific unknowns: whether thirty phones typing
+  kills the pace, whether the cooldown feels like a punishment or a pause, and whether
+  students look at the board at all once there is a box in their hand.
 - **The shell can strand a user on old assets.** `game-hub.html` carries no cache stamp
   of its own, so a browser holding it loads the previous build silently — see "Run".
   Give the shell a `Cache-Control` meta of its own. Small, and it removes a whole class
@@ -810,7 +834,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
 
 ## Before you push
 ```bash
-NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~23 min, 467 checks, 29 suites
+NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~23 min, 503 checks, 31 suites
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=jeopardy,fit,phone   # while iterating
 ```
 Drives all four games in a real browser and checks the things that have actually

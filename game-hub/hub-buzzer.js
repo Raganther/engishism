@@ -3,7 +3,7 @@
    Talks to tools/buzzer-relay.js: an EventSource downstream, fetch POST upstream.
 
      const host = HubBuzzer.host({ relay:'', code:'12345' });
-     host.on('buzz', b => …);      // {id, name, team, at}
+     host.on('buzz', b => …);      // {id, name, team, at, value?}
      host.arm('the sentence');     // let them buzz
      host.reset();                 // clear the lock, nobody armed
 
@@ -72,6 +72,10 @@ window.HubBuzzer = (function(){
          on the 'response' event rather than 'buzz'. */
       arm:      (prompt, opts) => post(relay, Object.assign(
                   { room:code, type:'arm', prompt }, opts || {})),
+      /* Tell one phone what its typed answer was worth. Only the host can do this:
+         the relay never learns the answer, so it cannot be asked for it. */
+      judge:    (id, verdict, opts) => post(relay, Object.assign(
+                  { room:code, type:'judge', id, verdict }, opts || {})),
       disarm:   ()     => post(relay, { room:code, type:'disarm' }),
       reset:    ()     => post(relay, { room:code, type:'reset' }),
       setTeams: names  => post(relay, { room:code, type:'teams', teams:names }),
@@ -86,7 +90,7 @@ window.HubBuzzer = (function(){
     const ev    = emitter();
     const src   = stream(relay, { room:code, role:'player', id, name:opts.name||'Player', team:opts.team||0 }, ev);
 
-    ['joined','armed','disarmed','locked','reset','teams'].forEach(name=>{
+    ['joined','armed','disarmed','locked','reset','teams','judged'].forEach(name=>{
       src.addEventListener(name, e=>{
         let d = {}; try{ d = JSON.parse(e.data); }catch(_){}
         ev.emit(name, d);
@@ -95,7 +99,10 @@ window.HubBuzzer = (function(){
 
     return {
       id, code, on: ev.on,
-      buzz:    ()=> post(relay, { room:code, type:'buzz', id }),
+      // in 'type' rounds the buzz carries what they wrote — the race is to produce
+      // the word, so pressing the button without it would be the old reflex game
+      buzz:    v => post(relay, { room:code, type:'buzz', id,
+                                  value: v == null ? undefined : String(v) }),
       respond: v => post(relay, { room:code, type:'respond', id, value:v }),
       close: ()=>{ try{ src.close(); }catch(e){} }
     };

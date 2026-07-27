@@ -2164,6 +2164,190 @@ async function testPhoneModes(browser){
   await off.close();
 }
 
+/* ---- type it, then buzz ----
+   The dynamic a real class asked for: a buzzer on its own is a reflex test, so the
+   student has to *produce* the word before the button does anything. Driven with
+   two real handsets against the relay, because the three properties that make it
+   work are all timing: a wrong answer costs seconds and not points, the question
+   stays open for everybody else while one phone waits out its miss, and a phone
+   that was mid-word when somebody else guessed wrong does not lose what it typed. */
+async function testTypeToBuzz(browser){
+  section('Type it, then buzz');
+
+  const host = await openHub(browser);
+  await host.evaluate(() => {
+    window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
+    window.HubSettings.set('buzzers', true);
+    window.HubSettings.set('phoneMode','type','race');
+    window.HubSettings.set('typeCooldown', 2, 'race');
+  });
+  await startGame(host, 'Race to the Board', { sections:'all' });
+  await host.waitForTimeout(800);
+  const chip = await host.locator('#buzzer-chip').innerText().catch(()=>'');
+  const code = (chip.match(/CODE\s+(\d{5})/i)||[])[1];
+  check('a room opens for the typing race', !!code, code || 'none');
+  if(!code){ await host.close(); return; }
+
+  const join = async (name, team) => {
+    const p = await browser.newPage({ viewport:{ width:390, height:844 } });
+    p.__errors = []; p.on('pageerror', e => p.__errors.push(String(e)));
+    await p.goto(BASE + '/join.html?code=' + code); await p.waitForTimeout(250);
+    await p.fill('#name', name);
+    await p.locator('.teams button').nth(team).click();
+    await p.locator('#join-btn').click(); await p.waitForTimeout(500);
+    return p;
+  };
+  const ana = await join('Ana', 0), ben = await join('Ben', 1);
+  await host.waitForTimeout(500);
+
+  // a sentence goes up: both phones get a box, and the button is dead until they write
+  await host.locator('#race-start').click(); await host.waitForTimeout(700);
+  const answer = await currentRaceAnswer(host);
+  check('a sentence is up', !!answer, String(answer));
+  check('the phone is a box and a buzzer, not one or the other',
+        await ana.locator('#reply').isVisible() && await ana.locator('#buzzer').isVisible());
+  check('the phone is not spelling it for them',
+        await ana.locator('#reply').getAttribute('autocorrect') === 'off' &&
+        await ana.locator('#reply').getAttribute('spellcheck') === 'false');
+  check('the button does nothing until a word is typed',
+        await ana.locator('#buzzer').isDisabled());
+
+  // Ben types the wrong word and buzzes: no floor, no points, and a wait
+  await ben.fill('#reply', 'nonsenseword');
+  await ben.waitForTimeout(150);
+  check('typing arms the button', !(await ben.locator('#buzzer').isDisabled()));
+  await ben.locator('#buzzer').click(); await host.waitForTimeout(700);
+  const missChip = (await host.locator('#buzzer-chip').innerText()).replace(/\n/g,' ');
+  check('the teacher sees what was written', /nonsenseword/i.test(missChip), missChip);
+  check('a wrong answer costs no points',
+        (await scores(host)).every(v => v === '0'), (await scores(host)).join('/'));
+  check('and the phone is told to wait', /\d/.test(await ben.locator('#buzzer').innerText()),
+        await ben.locator('#buzzer').innerText());
+
+  /* The point of a per-player cooldown: everyone else is still racing. Ana was
+     mid-word when Ben missed, and must not have lost it. */
+  await ana.fill('#reply', 'hal');
+  await host.waitForTimeout(400);
+  check('the room stays open for everyone else',
+        !(await ana.locator('#buzzer').isDisabled()));
+  check('and a phone mid-word keeps what it typed',
+        await ana.locator('#reply').inputValue() === 'hal',
+        await ana.locator('#reply').inputValue());
+
+  // Ana types it correctly: the floor, the point, and the word claimed without a click
+  await ana.fill('#reply', answer);
+  await ana.locator('#buzzer').click(); await host.waitForTimeout(900);
+  check('the typed word scores without the teacher clicking it',
+        (await scores(host))[0] === '1', (await scores(host)).join('/'));
+  check('and the phone is told it got it',
+        await ana.evaluate(() => document.body.dataset.verdict) === 'right',
+        await ana.evaluate(() => document.body.dataset.verdict));
+  /* Race arms the next sentence the instant a word is claimed, so a verdict that
+     did not outlive it would be a message nobody could read. */
+  check('and can still read that a second later',
+        /got it/i.test(await ana.locator('#state').innerText()),
+        await ana.locator('#state').innerText());
+
+  /* Spelling. Off (the default) a near miss still takes the floor and the phone is
+     told to check it — the word was produced. On, only the exact word counts. This
+     is the setting most likely to be argued about, so both directions are pinned. */
+  await host.waitForTimeout(900);
+  const next = await currentRaceAnswer(host);
+  const typo = next ? next.slice(0, -1) + (next.slice(-1) === 'x' ? 'y' : 'x') : '';
+  check('a fresh sentence is up to try a typo on', !!next && next.length >= 5, String(next));
+  if(next && next.length >= 5){
+    await ben.locator('#reply:not([disabled])').waitFor({ timeout:8000 }).catch(()=>{});
+    await ben.fill('#reply', typo);
+    await ben.locator('#buzzer').click(); await host.waitForTimeout(900);
+    check('a near miss still takes the floor', (await scores(host))[1] === '1',
+          (await scores(host)).join('/'));
+    check('and the phone is told to check its spelling',
+          /spelling/i.test(await ben.locator('#state').innerText()) &&
+          await ben.evaluate(() => document.body.dataset.verdict) === 'close',
+          await ben.locator('#state').innerText());
+
+    await host.evaluate(() => window.HubSettings.set('typeStrict', true, 'race'));
+    await host.waitForTimeout(900);
+    const third = await currentRaceAnswer(host);
+    if(third && third.length >= 5){
+      const typo3 = third.slice(0, -1) + (third.slice(-1) === 'x' ? 'y' : 'x');
+      const before = await scores(host);
+      await ana.locator('#reply:not([disabled])').waitFor({ timeout:8000 }).catch(()=>{});
+      await ana.fill('#reply', typo3);
+      await ana.locator('#buzzer').click(); await host.waitForTimeout(900);
+      check('with exact spelling on, the same near miss scores nothing',
+            (await scores(host)).join('/') === before.join('/'),
+            before.join('/') + ' → ' + (await scores(host)).join('/'));
+    }
+  }
+
+  for(const p of [ana, ben]){ check('phone had no errors', p.__errors.length === 0, p.__errors[0]); await p.close(); }
+  checkClean(host, 'typing race');
+  await host.close();
+}
+
+/* The judgement itself, away from the wires. Three verdicts rather than two,
+   because "produced the word but mis-spelled it" is a different fact about a
+   student from "did not know it", and the room should hear it differently. */
+async function testAnswerJudging(browser){
+  section('Judging a typed answer');
+  const page = await openHub(browser);
+  const r = await page.evaluate(() => {
+    const j = window.HubKit.answer.judge;
+    return {
+      exact:    j('verdict', 'verdict'),
+      spaced:   j('  Verdict. ', 'verdict'),
+      article:  j('the verdict', 'verdict'),
+      accent:   j('cafe', 'café'),
+      typo:     j('verdct', 'verdict'),
+      longTypo: j('incarcaration', 'incarceration'),
+      short:    j('jurt', 'jury'),
+      other:    j('sentence', 'verdict'),
+      empty:    j('', 'verdict')
+    };
+  });
+  check('the word itself is right', r.exact === 'right');
+  check('so is the word with punctuation and case around it', r.spaced === 'right', r.spaced);
+  check('an article does not make it wrong', r.article === 'right', r.article);
+  check('nor does an accent', r.accent === 'right', r.accent);
+  check('one letter out is close, not wrong', r.typo === 'close', r.typo);
+  check('a long word forgives two', r.longTypo === 'close', r.longTypo);
+  /* Short words get no tolerance on purpose: one letter in a four-letter word is
+     usually a different word, not a slip, and accepting it would hand the floor to
+     somebody who typed something else. */
+  check('a short word forgives nothing', r.short === 'wrong', r.short);
+  check('a different word is wrong', r.other === 'wrong', r.other);
+  check('and nothing typed is wrong', r.empty === 'wrong', r.empty);
+
+  /* The tolerance is only safe while no two answers on one board are within it —
+     otherwise "close" could hand somebody the wrong word. Checked over the real
+     banks, so authoring a near-collision fails here rather than in a classroom. */
+  const clash = await page.evaluate(() => {
+    const j = window.HubKit.answer.judge, out = [];
+    (window.UNITS||[]).forEach(u => {
+      const words = [...new Set((u.raceBank||[]).map(i => i.answer))];
+      for(let a=0;a<words.length;a++) for(let b=a+1;b<words.length;b++)
+        if(j(words[a], words[b]) !== 'wrong') out.push(u.id + ': ' + words[a] + ' ~ ' + words[b]);
+    });
+    return out;
+  });
+  check('no two words on a Race board are within the tolerance',
+        clash.length === 0, clash.slice(0,3).join(' | '));
+
+  /* Where the dynamic is offered is a judgement, and it is declared rather than
+     discovered — the same call as never giving Millionaire an anagram. */
+  const where = await page.evaluate(() => ({
+    race: window.HubSettings.variantsFor('phoneMode','race').map(v=>v.value),
+    mill: window.HubSettings.variantsFor('phoneMode','millionaire').map(v=>v.value)
+  }));
+  check('typing to buzz is offered where the board hides the word',
+        where.race.indexOf('type') !== -1, where.race.join(','));
+  check('and not where four options hand it over',
+        where.mill.indexOf('type') === -1, where.mill.join(','));
+  checkClean(page);
+  await page.close();
+}
+
 async function testDegradation(browser){
   section('Degrades without buzzers');
 
@@ -2227,6 +2411,7 @@ async function main(){
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
     variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, topics: testTopicPicking, defaultlook: testDefaultLook, jfinish: testJeopardyFinish, competition: testCompetition, lab: testLabDrawer, range: testRangeSetting,
     buzzers: testBuzzers, phonemodes: testPhoneModes,
+    typetobuzz: testTypeToBuzz, judging: testAnswerJudging,
     degradation: testDegradation, file: testFileProtocol
   };
   const toRun = onlyArg ? onlyArg.split(',').map(s => s.trim()).filter(k => suites[k])

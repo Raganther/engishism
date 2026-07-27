@@ -518,5 +518,61 @@ window.HubKit = (function(){
     return count ? (current + 1) % count : 0;
   }
 
-  return { fitToScreen, anim, prompt, claimTeam, passTurn, shapeOf };
+  /* ---------- judging a typed answer ----------
+     A phone that types the answer needs the app to decide whether it is right, and
+     "=== the bank's string" is not that decision: a C1 student typing `judgement`
+     for `judgment`, or `the verdict` for `verdict`, has produced the word. Three
+     verdicts rather than two, because **a near miss is information the teacher
+     wants** — it is the difference between not knowing the word and not being able
+     to spell it, and those need different responses in the room.
+
+       Kit.answer.judge('verdct', 'verdict')   // 'close'
+
+     Deliberately not a fuzzy search: it compares one typed string against one
+     expected string, so it is safe to run on every buzz. */
+  function normAnswer(s){
+    return String(s == null ? '' : s)
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')   // café → cafe
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g,' ')                       // punctuation is not the point
+      .replace(/\b(a|an|the)\b/g,' ')                    // "the verdict" answers "verdict"
+      .replace(/\s+/g,' ').trim();
+  }
+
+  /* Levenshtein, bounded: anything past `max` stops early, because the only
+     question asked of it is "within one or two?" */
+  function editDistance(a, b, max){
+    if(a === b) return 0;
+    if(Math.abs(a.length - b.length) > max) return max + 1;
+    let prev = Array.from({length:b.length+1}, (_,i)=>i);
+    for(let i=1;i<=a.length;i++){
+      const row = [i];
+      let best = i;
+      for(let j=1;j<=b.length;j++){
+        const cost = a.charCodeAt(i-1) === b.charCodeAt(j-1) ? 0 : 1;
+        row[j] = Math.min(prev[j] + 1, row[j-1] + 1, prev[j-1] + cost);
+        if(row[j] < best) best = row[j];
+      }
+      if(best > max) return max + 1;      // every path is already too expensive
+      prev = row;
+    }
+    return prev[b.length];
+  }
+
+  const answer = {
+    normalise: normAnswer,
+    /* 'right' | 'close' | 'wrong'. The tolerance scales with the word, because one
+       wrong letter in `jury` is a different kind of error from one in
+       `incarceration` — three letters and twelve are not the same guess. */
+    judge(typed, expected){
+      const t = normAnswer(typed), e = normAnswer(expected);
+      if(!t || !e) return 'wrong';
+      if(t === e) return 'right';
+      const tol = e.length >= 9 ? 2 : e.length >= 5 ? 1 : 0;
+      if(!tol) return 'wrong';
+      return editDistance(t, e, tol) <= tol ? 'close' : 'wrong';
+    }
+  };
+
+  return { fitToScreen, anim, prompt, claimTeam, passTurn, shapeOf, answer };
 })();

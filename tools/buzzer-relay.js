@@ -59,12 +59,18 @@ function getRoom(code, create){
   let r = rooms.get(code);
   if(!r && create){
     /* `mode` is what the phones are being asked for this round: 'buzz' races for
-       the floor, 'vote' collects one choice each, 'answer' collects typed text.
-       `responses` holds one entry per player for the collecting modes — the buzz
-       mode keeps using `locked`, which is a different thing: first past the post
-       rather than everybody's answer. */
+       the floor, 'vote' collects one choice each, 'answer' collects typed text,
+       'type' races for the floor *carrying* a typed answer. `responses` holds one
+       entry per player for the collecting modes — the racing modes keep using
+       `locked`, which is a different thing: first past the post rather than
+       everybody's answer.
+
+       `cooling` is what makes a wrong typed answer cost something without costing
+       points: that player alone is out until their timestamp passes, while the
+       room stays open for everyone else. */
     r = { host:null, players:new Map(), teams:[], armed:false, locked:null,
-          mode:'buzz', options:[], responses:new Map(), spent:new Set(), emptiedAt:0 };
+          mode:'buzz', options:[], responses:new Map(), spent:new Set(),
+          cooling:new Map(), emptiedAt:0 };
     rooms.set(code, r);
   }
   return r;
@@ -148,25 +154,56 @@ function handleSend(req, res){
         if(!p) return sendJSON(res, 404, { error:'not in room' });
         if(!room.armed) return sendJSON(res, 200, { ok:true, ignored:'not armed' });
         if(room.locked) return sendJSON(res, 200, { ok:true, ignored:'already locked' });
+        const until = room.cooling.get(p.id) || 0;
+        if(until > Date.now())
+          return sendJSON(res, 200, { ok:true, ignored:'cooling', until });
         // stamped here so every buzz is judged at the same point on the wire —
         // fairer than trusting phone clocks or whoever the host hears from first
         room.locked = { id:p.id, name:p.name, team:p.team, at:Date.now() };
+        // in 'type' the buzz carries what they wrote; the relay never judges it,
+        // because only the host knows the answer — and a phone that could ask the
+        // relay would be a phone that could be asked for the answer
+        if(room.mode === 'type') room.locked.value = String(msg.value == null ? '' : msg.value).slice(0,120);
         room.armed  = false;
         toHost(room, 'buzz', room.locked);
         toPlayers(room, 'locked', room.locked);
         return sendJSON(res, 200, { ok:true, locked:true });
       }
+
+      /* The host's verdict on one typed answer. Wrong puts that player on ice for
+         `coolMs` and nobody else, so the room can stay open — which is the whole
+         shape of this dynamic: everyone keeps typing, a miss costs you time rather
+         than costing your team points. */
+      case 'judge': {
+        const p = room.players.get(msg.id);
+        if(!p) return sendJSON(res, 404, { error:'not in room' });
+        const cool = Math.max(0, Math.min(30000, Number(msg.coolMs) || 0));
+        const until = cool ? Date.now() + cool : 0;
+        if(until) room.cooling.set(p.id, until); else room.cooling.delete(p.id);
+        pushEvent(p.res, 'judged', { verdict:String(msg.verdict||'wrong'),
+                                     note:String(msg.note||'').slice(0,120), until });
+        return sendJSON(res, 200, { ok:true, until });
+      }
       case 'arm': {
         room.armed = true; room.locked = null;
-        room.mode  = ['buzz','vote','answer'].indexOf(msg.mode) !== -1 ? msg.mode : 'buzz';
+        room.mode  = ['buzz','vote','answer','type'].indexOf(msg.mode) !== -1 ? msg.mode : 'buzz';
         room.options = Array.isArray(msg.options) ? msg.options.slice(0,6).map(o=>String(o).slice(0,80)) : [];
         room.responses = new Map();
         // a new round clears who has already had a go, unless the host is
         // deliberately continuing one (spending is how "one each" is enforced)
         if(!msg.keepSpent) room.spent = new Set();
+        /* `reopen` is the same question coming back after a wrong answer, not a new
+           one. It matters on the handset: a fresh arm clears the box, and clearing
+           it would throw away what somebody was halfway through typing when
+           somebody else guessed wrong. Cooling timers survive a reopen and are
+           cleared by a genuinely new question. */
+        const now = Date.now();
+        if(msg.reopen){ room.cooling.forEach((t,id)=>{ if(t <= now) room.cooling.delete(id); }); }
+        else room.cooling = new Map();
         toPlayers(room, 'armed', { prompt: String(msg.prompt||'').slice(0,200),
                                    mode: room.mode, options: room.options,
-                                   spent: [...room.spent] });
+                                   spent: [...room.spent], reopen: !!msg.reopen,
+                                   cooling: [...room.cooling].map(([id,until])=>({ id, until })) });
         return sendJSON(res, 200, { ok:true });
       }
       case 'disarm':
@@ -175,7 +212,7 @@ function handleSend(req, res){
         return sendJSON(res, 200, { ok:true });
       case 'reset':
         room.armed = false; room.locked = null;
-        room.responses = new Map(); room.spent = new Set();
+        room.responses = new Map(); room.spent = new Set(); room.cooling = new Map();
         toPlayers(room, 'reset', {});
         return sendJSON(res, 200, { ok:true });
 

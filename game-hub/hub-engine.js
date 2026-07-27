@@ -240,8 +240,26 @@
       {value:'off',   label:'Nothing — phones idle'},
       {value:'buzz',  label:'Buzz for the floor — fastest thumb wins'},
       {value:'write', label:'Everyone types — no race, you see every answer'},
+      /* Not offered in Millionaire for the same reason it never gets an anagram:
+         the four options hand you the word, so typing it is a typing race rather
+         than a language one. */
+      {value:'type',  label:'Type it, then buzz — a race to produce the word',
+       games:['jeopardy','blockbusters','race']},
       {value:'vote',  label:'Class votes on the options', games:['millionaire']}
     ] });
+
+  /* Two weights for the typing race, both here rather than in the source because
+     the right numbers are a classroom question. A wrong answer costs *time*, never
+     points — long enough to hurt, short enough that they stay in the round. */
+  S.register({ id:'typeCooldown', group:'Phones (prototype)', type:'range', default:3,
+    min:0, max:10, step:0.5, unit:'s', games:gameIds(),
+    label:'Wait after a wrong answer',
+    help:'How long that phone is out before it can buzz again. Nobody loses points; they lose the race.' });
+
+  S.register({ id:'typeStrict', group:'Phones (prototype)', type:'toggle', default:false,
+    games:gameIds(),
+    label:'Spelling has to be exact',
+    help:'Off: a near miss takes the floor and the phone is told to check its spelling. On: only the exact word counts.' });
 
   S.register({ id:'phoneOneEach', group:'Phones (prototype)', type:'toggle', default:true,
     games:gameIds(),
@@ -2779,6 +2797,15 @@
     if(buzzWinner){
       add('buzz-name', buzzWinner.name);
       add('buzz-team', teams[buzzWinner.team] ? teams[buzzWinner.team].name : ('Team '+(buzzWinner.team+1)));
+      // what they wrote, so the teacher can read the spelling out rather than
+      // taking the app's word for it
+      if(buzzWinner.value != null) add('buzz-typed', '“' + buzzWinner.value + '”');
+    } else if(lastTyped){
+      /* A miss is worth showing: it is the most useful thing on this chip. Who is
+         nearly there, and how, is exactly what you would want to see mid-round. */
+      add('buzz-name', lastTyped.name);
+      add('buzz-typed', '“' + lastTyped.value + '”');
+      add('buzz-verdict', lastTyped.verdict === 'close' ? 'spelling' : 'no');
     } else {
       // the join address, so it can be read off the screen instead of the terminal
       add('buzz-join', joinAddress());
@@ -2876,9 +2903,9 @@
     renderBuzzChip('asking');
   }
 
-  /* One entry point for "a question just went up, ask the room". Typing wins over
-     buzzing when both are on: producing language beats racing for it, which is the
-     whole argument for these being different shapes rather than one feature. */
+  /* One entry point for "a question just went up, ask the room". One mode is live
+     at a time — that is what `phoneMode` being a variant rather than four switches
+     buys — so this is a lookup, not a precedence. */
   function askPhones(prompt, game){
     if(!buzzHost) return;
     clearReplies();
@@ -2888,6 +2915,7 @@
     const mode = S.get('phoneMode', game);
     if(mode === 'write')     askClass(prompt, 'answer');
     else if(mode === 'buzz') armBuzzers(prompt);
+    else if(mode === 'type') armBuzzers(prompt, { mode:'type' });
   }
 
   function clearReplies(){
@@ -2921,15 +2949,73 @@
     });
   }
 
-  function armBuzzers(prompt){
+  /* `opts.mode` picks the shape ('type' carries a typed answer with the buzz);
+     `opts.reopen` says this is the same question coming back after a wrong answer,
+     which is what stops every other phone losing what it was halfway through
+     typing. */
+  function armBuzzers(prompt, opts){
     buzzWinner=null;
-    if(buzzHost) buzzHost.arm(prompt||'');
+    // a reopen is the same question, so the miss that caused it stays on the chip —
+    // clearing it here wiped the one piece of information the teacher wanted
+    if(!(opts && opts.reopen)) lastTyped=null;
+    if(buzzHost) buzzHost.arm(prompt||'', Object.assign({ mode: typingRace() ? 'type' : 'buzz' }, opts||{}));
     renderBuzzChip('armed');
   }
+  function typingRace(){ return !!activeGame && S.get('phoneMode', activeGame) === 'type'; }
   function resetBuzzers(){
     buzzWinner=null;
     if(buzzHost) buzzHost.reset();
     renderBuzzChip();
+  }
+
+  /* What the room is being asked for right now, so a typed answer can be judged
+     against it. Each game already holds it; this is the one place that knows where.
+     Returns '' when nothing is open, which declines the buzz rather than guessing. */
+  function expectedAnswer(){
+    if(activeGame === 'race')        return (raceCurrent && raceCurrent.answer) || '';
+    if(activeGame === 'millionaire') return (mCurrent && mCurrent.q && mCurrent.q.answer) || '';
+    return (currentClueItem && currentClueItem.answer) || '';   // jeopardy, blockbusters
+  }
+
+  let lastTyped = null;      // {name, value, verdict} — what the chip shows the teacher
+
+  /* A buzz carrying text is the typing race: the floor goes to the first student to
+     *produce* the word, not the first to hit a button. Judged here and only here —
+     the relay never learns the answer, so it can never be asked for it.
+
+     A miss costs time, not points. That is the same decision every other mechanic
+     in this app makes, and it matters more here: the student who is closest to the
+     word is the one most likely to buzz early and get it slightly wrong. */
+  function judgeTypedBuzz(b){
+    const expected = expectedAnswer();
+    const verdict  = expected ? Kit.answer.judge(b.value, expected) : 'wrong';
+    const strict   = S.get('typeStrict', activeGame);
+    const accepted = verdict === 'right' || (verdict === 'close' && !strict);
+    lastTyped = { name:b.name, value:b.value, verdict };
+
+    if(accepted){
+      if(buzzHost) buzzHost.judge(b.id, verdict, { coolMs:0,
+        note: verdict === 'close' ? 'Close — check your spelling' : 'You got it!' });
+      return true;
+    }
+    const coolMs = Math.round((Number(S.get('typeCooldown', activeGame)) || 0) * 1000);
+    if(buzzHost) buzzHost.judge(b.id, 'wrong', { coolMs,
+      note: verdict === 'close' ? 'Not quite — check your spelling' : 'Not quite' });
+    Sound.play('wrong');
+    // the question is still live for everybody else, so put the floor back — as a
+    // reopen, or every other phone loses the word it was halfway through typing
+    armBuzzers(currentPhonePrompt(), { mode:'type', reopen:true });
+    renderBuzzChip('armed');
+    return false;
+  }
+
+  /* The prompt as the phones currently have it, for a re-arm. Re-deriving it would
+     mean each game answering the same question twice. */
+  function currentPhonePrompt(){
+    if(!S.get('phonePrompt', activeGame)) return '';
+    if(activeGame === 'race')        return (raceCurrent && raceCurrent.prompt) || '';
+    if(activeGame === 'millionaire') return (mCurrent && mCurrent.q && mCurrent.q.text) || '';
+    return (currentClueItem && currentClueItem.text) || '';
   }
 
   function onBuzz(b){
@@ -2942,6 +3028,7 @@
       armBuzzers(raceCurrent ? raceCurrent.prompt : '');
       return;
     }
+    if(b && b.value != null && !judgeTypedBuzz(b)) return;
     buzzWinner = b;
     /* In the tile games the buzz decides who answers, so it selects that team —
        the teacher stops being the one who chooses, which is the whole point. */
@@ -2951,6 +3038,20 @@
     }
     Sound.play('claim');
     renderBuzzChip('won');
+
+    /* In Race the typed word *is* the claim: the student named it, so there is
+       nothing left for the teacher to confirm. (A plain buzz still needs the click,
+       because a raised thumb doesn't say which word they meant.) */
+    if(activeGame === 'race' && b && b.value != null && raceCurrent && teams[b.team]){
+      const w  = raceWords.find(x => x.word === raceCurrent.answer);
+      const el = w ? [...document.querySelectorAll('#race-words .race-word')]
+                       .find(n => n.textContent === w.word) : null;
+      if(w && !w.found){
+        Sound.play(document.getElementById('play-race').classList.contains('lit') ? 'sting' : 'correct');
+        racePending = { w, el:el||null };
+        awardRaceWord(b.team, el||null);
+      }
+    }
   }
 
   /* ================= RACE TO THE BOARD =================

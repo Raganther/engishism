@@ -1114,7 +1114,18 @@ body.theme-gameshow #clue-actions button:hover{ filter: brightness(1.14); }
 #buzzer-chip.won{ border-color:var(--blue); background:rgba(0,160,223,0.10); }
 #buzzer-chip .buzz-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.98rem; text-transform:none; letter-spacing:0; color:var(--navy); }
 #buzzer-chip .buzz-team{ background:var(--blue); color:var(--white); border-radius:5px; padding:2px 8px; font-weight:600; }
+/* what a phone actually typed — the teacher reads the spelling out, so it is set in
+   the reading face rather than the mono chrome face */
+#buzzer-chip .buzz-typed{ font-family:'Space Grotesk',sans-serif; text-transform:none; letter-spacing:0; color:var(--navy); }
+#buzzer-chip .buzz-verdict{ background:var(--cream); color:#8a5a00; border-radius:5px; padding:2px 8px; font-weight:600; }
 #buzzer-chip.off{ border-style:dashed; color:#b4462f; }
+
+/* The chip is transparent, so on a lit stage every navy label in it disappears —
+   which is how a student's name came to be printed in navy on near-black. */
+body.theme-gameshow #buzzer-chip .buzz-name,
+body.theme-gameshow #buzzer-chip .buzz-join{ color:var(--paper); }
+body.theme-gameshow #buzzer-chip .buzz-typed{ color:var(--paper); }
+body.theme-gameshow #buzzer-chip .buzz-verdict{ background:rgba(255,200,61,0.18); color:var(--gold); }
 
 /* --- Settings (gear in the header + panel; rows are generated from the registry) --- */
 #settings-btn{
