@@ -462,7 +462,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
-- **Deployed.** Build `20260729u`, 503 checks green. The branch in use is
+- **Deployed.** Build `20260729v`, 519 checks green. The branch in use is
   `claude/product-status-gxqp9l`; merging it to `main` is what deploys.
 - **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
   the game being played, and only that game, without leaving the board — see "The Lab"
@@ -857,7 +857,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
 
 ## Before you push
 ```bash
-NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~23 min, 503 checks, 31 suites
+NODE_PATH=$(npm root -g) node tools/smoke-test.js        # ~24 min, 519 checks, 31 suites
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=jeopardy,fit,phone   # while iterating
 ```
 Drives all four games in a real browser and checks the things that have actually
