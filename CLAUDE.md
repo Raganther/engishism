@@ -496,6 +496,27 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Three bugs from the first real run of the four-team build.**
+  - **A reset board overlapped its own hexagons.** The won board is scaled down to
+    sit above the banner, and `#play-blockbusters` carries a **350ms transform
+    transition** — so "New board" cleared the scale and laid out one frame later,
+    mid-transition, measuring the hexes at 0.84 of their real size through
+    `getBoundingClientRect()`. They were spaced for a 92px hex and rendered at 110.
+    `offsetWidth` is the layout width and ignores ancestor transforms *and* the
+    hexes' own deal animation. **A resize fixed it, which is exactly why leaving the
+    game and coming back looked fine** — and why it read as a rendering glitch
+    rather than a measurement one. Same lesson as `naturalRect()` on the card flip:
+    **a rect is what is painted, not what is laid out.**
+  - **Teams could be added and never removed**, so a class that split four ways one
+    lesson carried four teams into the next. A team's *index* is its identity in
+    three other places — `active`, Millionaire's per-team `mState`, and `bbSideAt` —
+    so `removeTeam` is not a splice. Two is the floor: every board is built for at
+    least two sides, and the buttons disappear there. Points are a lesson's work, so
+    removing a team that has any asks first.
+  - **Six teams ran off the side of the join screen.** The team buttons were a flex
+    row, so on a 360px handset each got 50px and the last sat past the edge — a
+    student on Sharks could not pick Sharks. It is a wrapping grid now; checked at
+    320/360/390px.
 - **One strip for everything the class does — `#phone-bar`.** Where a student's name
   appeared used to depend on the game *and* the mode: a buzz went on the room chip
   (replacing the join address the class was still reading), a typed answer went into
@@ -715,7 +736,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   nothing saying why. Timed rounds ask now too; `raceCanTry()` restricts a timed
   round's buzz to the team whose round it is, so a phone on the bench can't steal a
   word off someone else's score.
-- **Deployed.** Build `20260731a`; new `strip` and `bbteams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
+- **Deployed.** Build `20260731b`; new `strip`, `bbteams` and `jointeams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
 - **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
   the game being played, and only that game, without leaving the board — see "The Lab"
   above. It exists because prototyping was the bottleneck: comparing two ideas meant

@@ -2025,8 +2025,101 @@ async function testBlockbustersTeams(browser){
   check('the hexagon takes that team\'s side colour', /claimed-gold/.test(after.hex), after.hex);
   check('and the turn moves on within the alliance', after.turn === 2, String(after.turn));
 
+  /* ---- the board after a reset ----
+     A won board is scaled down to sit above the banner, and `#play-blockbusters`
+     carries a 350ms transform transition — so "New board" cleared the scale and laid
+     the hexes out one frame later, mid-transition, measuring them at 0.84 of their
+     real size through `getBoundingClientRect()`. They were spaced for a 92px hex and
+     rendered at 110. A resize fixed it, which is why leaving the game and coming
+     back looked fine and made it read as a rendering glitch rather than a
+     measurement one. */
+  const geom = pg => pg.evaluate(() => {
+    const hx = [...document.querySelectorAll('#hexwrap .hex')];
+    const row0 = hx.filter(h => h.dataset.row === '0').map(h => Math.round(h.getBoundingClientRect().left));
+    return { wrap: Math.round(document.getElementById('hexwrap').getBoundingClientRect().width),
+             step: row0.length > 1 ? row0[1] - row0[0] : 0,
+             hex:  Math.round(hx[0].getBoundingClientRect().width) };
+  });
+  const fresh = await geom(page);
+  check('a fresh board spaces the hexagons wider than they are',
+        fresh.step > fresh.hex, JSON.stringify(fresh));
+
+  // yellow takes the whole top row — left to right, which is a win. Bears already
+  // hold col 0 from the claim above, and Bears are a yellow-side team.
+  for (let c = 1; c < 5; c++){
+    await page.locator('#hexwrap .hex[data-row="0"][data-col="' + c + '"]').click();
+    await page.waitForTimeout(450);
+    await page.locator('#clue-claim button').first().click();
+    await page.waitForTimeout(650);
+  }
+  await page.waitForTimeout(3600);
+  check('a completed line ends the round',
+        /wins/i.test(await page.locator('#result-card').innerText().catch(()=>'')),
+        (await page.locator('#result-card').innerText().catch(()=>'none')).replace(/\n/g,' '));
+
+  await page.locator('#result-card button', { hasText:'New board' }).click();
+  await page.waitForTimeout(1500);
+  const reset = await geom(page);
+  check('and the new board is laid out exactly like a fresh one',
+        reset.wrap === fresh.wrap && reset.step === fresh.step,
+        JSON.stringify(reset) + ' vs ' + JSON.stringify(fresh));
+  check('so the hexagons are not overlapping', reset.step > reset.hex,
+        'step ' + reset.step + ' vs hex ' + reset.hex);
+
+  /* ---- teams could be added and never removed ----
+     A class that split four ways one lesson carried four teams into the next. The
+     index is a team's identity in three other places, so this is more than a splice.
+  */
+  await page.evaluate(() => { for (let i = 0; i < 3; i++) document.getElementById('add-team-btn').click(); });
+  await page.waitForTimeout(200);
+  check('above two teams, each one can be removed',
+        await page.locator('.team .tdel').count() === 7, String(await page.locator('.team .tdel').count()));
+  page.on('dialog', d => d.accept());
+  await page.locator('.team').nth(1).locator('.plus').click();
+  await page.waitForTimeout(100);
+  await page.locator('.team').nth(1).locator('.tdel').click();
+  await page.waitForTimeout(300);
+  check('removing one takes it off the bar',
+        await page.locator('.team').count() === 6, String(await page.locator('.team').count()));
+  check('and the names that are left are the right ones',
+        !(await page.locator('#scorebar').innerText()).includes('Tigers'),
+        (await page.locator('#scorebar').innerText()).replace(/\n/g,' '));
+  while (await page.locator('.team .tdel').count()){
+    await page.locator('.team .tdel').first().click(); await page.waitForTimeout(150);
+  }
+  check('two is the floor — every board is built for two sides',
+        await page.locator('.team').count() === 2, String(await page.locator('.team').count()));
+  check('and the remove buttons go away at the floor',
+        await page.locator('.team .tdel').count() === 0);
+
   checkClean(page);
   await page.close();
+}
+
+/* ---- the join screen with a class split more than two ways ----
+   The team buttons were a flex row, so six teams on a 360px handset got 50px each
+   and the last of them sat off the edge of the screen — a student on Sharks could
+   not pick Sharks. */
+async function testJoinTeams(browser){
+  section('The join screen with six teams');
+  for (const w of [320, 360, 390]){
+    const ph = await browser.newPage({ viewport:{ width:w, height:780 } });
+    await ph.goto(BASE + '/join.html'); await ph.waitForTimeout(250);
+    const r = await ph.evaluate(() => {
+      const host = document.querySelector('.teams'); host.innerHTML = '';
+      ['Lions','Tigers','Bears','Wolves','Falcons','Sharks'].forEach(n => {
+        const b = document.createElement('button'); b.textContent = n; host.appendChild(b);
+      });
+      const bs = [...host.querySelectorAll('button')];
+      return { off: bs.filter(b => b.getBoundingClientRect().right > window.innerWidth + 1).length,
+               clipped: bs.filter(b => b.scrollWidth > b.clientWidth + 1).length,
+               page: document.documentElement.scrollWidth - window.innerWidth };
+    });
+    check(w + 'px: every team is on the screen', r.off === 0, JSON.stringify(r));
+    check(w + 'px: and none of the names are cut off', r.clipped === 0, JSON.stringify(r));
+    check(w + 'px: and the page does not scroll sideways', r.page <= 0, String(r.page));
+    await ph.close();
+  }
 }
 
 async function testCompetition(browser){
@@ -3419,7 +3512,7 @@ async function main(){
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens, phone: testPhoneLayout,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
     card: testFloatingCard, turns: testTurnsAndPoints, phoneteams: testPhoneTeams,
-    strip: testPhoneStrip, bbteams: testBlockbustersTeams,
+    strip: testPhoneStrip, bbteams: testBlockbustersTeams, jointeams: testJoinTeams,
     variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, topics: testTopicPicking, defaultlook: testDefaultLook, jfinish: testJeopardyFinish, competition: testCompetition, lab: testLabDrawer, range: testRangeSetting,
     buzzers: testBuzzers, phonemodes: testPhoneModes, teamvote: testTeamVote,
     typetobuzz: testTypeToBuzz, judging: testAnswerJudging,

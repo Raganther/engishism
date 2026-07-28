@@ -881,6 +881,28 @@
      `run` is the current unbroken streak of correct answers. */
   function newTeam(name){ return { name, score:0, run:0 }; }
 
+  /* Teams could be added and never removed, so a class that split four ways one
+     lesson carried four teams into the next one. Removing is more than a splice,
+     because a team's *index* is its identity in three other places:
+       - `active`, which has to follow the team it pointed at rather than the slot;
+       - `mState`, Millionaire's per-team ladder, which is a parallel array;
+       - `bbSideAt`, which team is up within each Blockbusters alliance.
+     Two is the floor: every board is built for at least two sides. */
+  function removeTeam(i){
+    if(teams.length <= 2 || !teams[i]) return;
+    // points are a lesson's worth of work — a mis-tap must not silently bin them
+    if(teams[i].score !== 0 &&
+       !confirm('Remove ' + teams[i].name + '? They have ' + teams[i].score + ' points.')) return;
+    teams.splice(i, 1);
+    if(Array.isArray(mState)) mState.splice(i, 1);
+    if(active > i) active--;
+    if(active >= teams.length) active = teams.length - 1;
+    bbSideAt = [0, 0];
+    renderScorebar();
+    if(activeGame === 'blockbusters'){ renderBBTurn(); renderBBVote(); }
+    hook('onResize');
+  }
+
   // shared team roster — persists across games AND unit switches until Reset
   let teams = [newTeam('Team 1'), newTeam('Team 2')];
   let active = 0;   // jeopardy: selected/active team index
@@ -1103,9 +1125,13 @@
     const step = (activeGame==='jeopardy' || activeGame==='millionaire') ? 100 : 1;   // manual +/- correction step
     teams.forEach((t, i)=>{
       const el=document.createElement('div'); el.className='team'+(i===hi?' active':'');
-      const dot = (activeGame==='blockbusters' && i<2)
-        ? `<span class="dot" style="background:${i===0?'var(--yellow)':'var(--blue)'}"></span>` : '';
-      el.innerHTML = `${dot}<input class="tname" value="${t.name}"><button class="minus">−</button><span class="score">${t.score}</span><button class="plus">+</button>`;
+      // in Blockbusters every team wears its *side's* colour, not just the first two
+      const dot = (activeGame==='blockbusters')
+        ? `<span class="dot" style="background:${bbSideOf(i)===0?'var(--yellow)':'var(--blue)'}"></span>` : '';
+      // two is the floor — every board is built for at least two sides — so the
+      // remove button only appears above it, and it never appears on the last two
+      const del = teams.length > 2 ? `<button class="tdel" title="Remove team">×</button>` : '';
+      el.innerHTML = `${dot}<input class="tname" value="${t.name}"><button class="minus">−</button><span class="score">${t.score}</span><button class="plus">+</button>${del}`;
       el.addEventListener('click', (ev)=>{
         if(ev.target.closest('button') || ev.target.classList.contains('tname')) return;
         active = i; renderScorebar();
@@ -1113,6 +1139,8 @@
       el.querySelector('.tname').addEventListener('change', e=>{ t.name = e.target.value; pushTeamNames(); });
       el.querySelector('.minus').addEventListener('click', ()=>{ t.score-=step; renderScorebar(); });
       el.querySelector('.plus').addEventListener('click', ()=>{ t.score+=step; renderScorebar(); });
+      const delBtn = el.querySelector('.tdel');
+      if(delBtn) delBtn.addEventListener('click', ()=> removeTeam(i));
       bar.appendChild(el);
     });
     const addBtn=document.createElement('button'); addBtn.id='add-team-btn'; addBtn.textContent='+ Team';
@@ -1688,7 +1716,15 @@
     const hexes = [...wrap.querySelectorAll('.hex')];
     if(!hexes.length) return false;
 
-    const w = hexes[0].getBoundingClientRect().width;
+    /* `offsetWidth`, not `getBoundingClientRect()`: the rect is the *painted* width,
+       so an ancestor's scale is baked into it. `#play-blockbusters` carries a 350ms
+       transform transition, and the banner scales the board to sit above it — so
+       "New board" cleared the scale and measured one frame later, mid-transition,
+       at 0.84 of the real size. The hexes were then spaced for a 92px hex and
+       rendered at 110, overlapping by 41px; a resize fixed it, which is exactly why
+       leaving and coming back looked fine. Layout width ignores both that and the
+       hexes' own deal animation. */
+    const w = hexes[0].offsetWidth || hexes[0].getBoundingClientRect().width;
     if(!w) return false;                 // not on screen yet — caller re-runs later
 
     const h       = w * 1.1547;

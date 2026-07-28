@@ -24,10 +24,14 @@
   }
   input:focus{ outline:none; border-color:var(--blue); }
   #code{ font-size:2rem; letter-spacing:0.3em; }
-  .teams{ display:flex; gap:10px; width:100%; }
+  /* A grid, not a row: six teams across a 360px handset gave each button 50px and
+     pushed the last ones off the edge, so a class split more than about four ways
+     could not pick the team they were actually on. Wraps instead. */
+  .teams{ display:grid; grid-template-columns:repeat(auto-fit, minmax(88px, 1fr)); gap:10px; width:100%; }
   .teams button{
-    flex:1; padding:14px 8px; border-radius:12px; border:2px solid rgba(255,255,255,0.25);
+    padding:14px 8px; border-radius:12px; border:2px solid rgba(255,255,255,0.25);
     background:var(--navy2); color:var(--white); font-family:inherit; font-weight:700; font-size:0.95rem; cursor:pointer;
+    min-width:0; overflow-wrap:anywhere;   /* a team called something long stays inside its button */
   }
   .teams button.on{ background:var(--yellow); color:var(--navy); border-color:var(--yellow); }
   .go{
@@ -126,7 +130,7 @@
   <p id="status"></p>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260731a"></script>
+<script src="game-hub/hub-buzzer.js?v=20260731b"></script>
 <script>
 (function(){
   'use strict';

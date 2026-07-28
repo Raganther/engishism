@@ -137,6 +137,10 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 .team button{ background: var(--navy3); color: var(--white); border:none; width:22px; height:22px; border-radius:5px; cursor:pointer; font-size:0.9rem; line-height:1; }
 .team button.minus{ color: var(--yellow); }
 .team button:hover{ background: var(--blue); }
+/* Removing a team is rarer than correcting a score and more destructive, so it is
+   quieter than the ± buttons until you are on it. */
+.team button.tdel{ background:transparent; color:rgba(251,243,213,0.45); width:18px; font-size:0.95rem; margin-left:2px; }
+.team button.tdel:hover{ background:#C0392B; color:var(--white); }
 #add-team-btn{ background:var(--yellow);color:var(--navy);border:none;border-radius:7px;padding:0 9px;height:28px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:0.78rem;cursor:pointer;flex:0 0 auto; }
 #scorebar .reset-btn{ background:transparent; color:var(--cream); border:1px solid rgba(255,255,255,0.35); border-radius:7px; width:28px; height:28px; padding:0; font-family:'IBM Plex Mono',monospace; font-size:0.9rem; line-height:1; cursor:pointer; flex:0 0 auto; }
 #scorebar .reset-btn:hover{ border-color:var(--yellow); color:var(--yellow); }
