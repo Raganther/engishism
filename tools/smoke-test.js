@@ -2540,7 +2540,9 @@ async function testBuzzers(browser){
   check('buzzers arm when a sentence goes up', !(await alina.locator('#buzzer').isDisabled()));
 
   await bruno.locator('#buzzer').click(); await host.waitForTimeout(600);
-  check('the winner is shown on the host', (await host.locator('#buzzer-chip').innerText()).includes('Bruno'));
+  /* Who buzzed is on the strip, not the chip: the chip is the room's identity and a
+     class is still reading the join address off it while the first student buzzes. */
+  check('the winner is shown on the host', (await host.locator('#phone-bar').innerText()).includes('Bruno'));
   check('the loser is locked out', await alina.locator('#buzzer').isDisabled());
 
   const answer = await currentRaceAnswer(host);
@@ -2570,13 +2572,13 @@ async function testBuzzers(browser){
   check('the steal re-opens the buzzers', await armed(bruno));
   await bruno.locator('#buzzer').click(); await host.waitForTimeout(600);
   check('the team that missed cannot buzz back in',
-        !(await host.locator('#buzzer-chip').innerText()).includes('Bruno'),
-        (await host.locator('#buzzer-chip').innerText()).replace(/\n/g,' '));
+        !(await host.locator('#phone-bar').innerText()).includes('Bruno'),
+        (await host.locator('#phone-bar').innerText()).replace(/\n/g,' '));
   await armed(alina);
   await alina.locator('#buzzer').click(); await host.waitForTimeout(600);
   check('but the other team can still take the steal',
-        (await host.locator('#buzzer-chip').innerText()).includes('Alina'),
-        (await host.locator('#buzzer-chip').innerText()).replace(/\n/g,' '));
+        (await host.locator('#phone-bar').innerText()).includes('Alina'),
+        (await host.locator('#phone-bar').innerText()).replace(/\n/g,' '));
 
   /* A live buzz must survive the room being re-asked. `reaskPhones` runs on every
      `ready` from the relay — which is every reconnection of the host's stream, not
@@ -2588,8 +2590,8 @@ async function testBuzzers(browser){
   await host.evaluate(() => window.HubSettings.set('phoneMode', 'buzz', 'race'));
   await host.waitForTimeout(700);
   check('re-asking the room does not throw away a live buzz',
-        (await host.locator('#buzzer-chip').innerText()).includes('Alina'),
-        (await host.locator('#buzzer-chip').innerText()).replace(/\n/g,' '));
+        (await host.locator('#phone-bar').innerText()).includes('Alina'),
+        (await host.locator('#phone-bar').innerText()).replace(/\n/g,' '));
   check('and the phone that lost the race is still locked out',
         await bruno.locator('#buzzer').isDisabled());
 
@@ -2770,8 +2772,8 @@ async function testPhoneModes(browser){
           !(await onTurn.locator('#buzzer').isDisabled()));
     await onTurn.locator('#buzzer').click(); await sp.host.waitForTimeout(600);
     check('speaker: their buzz is the one that shows',
-          (await sp.host.locator('#buzzer-chip').innerText()).includes('Ali'),
-          (await sp.host.locator('#buzzer-chip').innerText()).replace(/\n/g,' '));
+          (await sp.host.locator('#phone-bar').innerText()).includes('Ali'),
+          (await sp.host.locator('#phone-bar').innerText()).replace(/\n/g,' '));
     for (const p of [other, onTurn]) await p.close();
   }
   checkClean(sp.host, 'millionaire buzz speaker');
@@ -2801,8 +2803,8 @@ async function testPhoneModes(browser){
     await bo.host.waitForTimeout(500);
     await bea.locator('#buzzer').click(); await bo.host.waitForTimeout(700);
     check('off: the buzz shows on the chip',
-          (await bo.host.locator('#buzzer-chip').innerText()).includes('Bea'),
-          (await bo.host.locator('#buzzer-chip').innerText()).replace(/\n/g,' '));
+          (await bo.host.locator('#phone-bar').innerText()).includes('Bea'),
+          (await bo.host.locator('#phone-bar').innerText()).replace(/\n/g,' '));
     check('off: and the turn is untouched', await mTurn(bo.host) === before);
     await bea.close();
   }
@@ -2961,8 +2963,8 @@ async function testPhoneModes(browser){
     await dee.locator('#buzzer:not([disabled])').waitFor({ timeout:8000 }).catch(()=>{});
     await dee.locator('#buzzer').click(); await lesson.host.waitForTimeout(600);
     check('a phone that never rejoined can still buzz',
-          (await lesson.host.locator('#buzzer-chip').innerText()).includes('Dee'),
-          (await lesson.host.locator('#buzzer-chip').innerText()).replace(/\n/g,' | '));
+          (await lesson.host.locator('#phone-bar').innerText()).includes('Dee'),
+          (await lesson.host.locator('#phone-bar').innerText()).replace(/\n/g,' | '));
 
     /* A game that does not use phones parks the room rather than ending it: the
        class stays joined, and the chip says the phones are idle here instead of
@@ -3082,7 +3084,7 @@ async function testTypeToBuzz(browser){
   await ben.waitForTimeout(150);
   check('typing arms the button', !(await ben.locator('#buzzer').isDisabled()));
   await ben.locator('#buzzer').click(); await host.waitForTimeout(700);
-  const missChip = (await host.locator('#buzzer-chip').innerText()).replace(/\n/g,' ');
+  const missChip = (await host.locator('#phone-bar').innerText()).replace(/\n/g,' ');
   check('the teacher sees what was written', /nonsenseword/i.test(missChip), missChip);
   check('a wrong answer costs no points',
         (await scores(host)).every(v => v === '0'), (await scores(host)).join('/'));
