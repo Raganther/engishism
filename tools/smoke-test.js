@@ -3519,6 +3519,65 @@ async function testFileProtocol(browser){
   await page.close();
 }
 
+/* ---- a phone that reconnects must stay in the room ----
+   Reported from a real round: "the button on the phone oscillates between being on
+   and off, like it's disconnecting then reconnecting." It was. An event stream
+   re-registers the phone under the same id, but the *old* stream's close arrives
+   afterwards — and the close handler deleted by id without checking whether the
+   stream being closed was still the live one. So the phone that had just come back
+   was removed, found itself out of the room, reconnected, and was removed again.
+   The host stream had this guard from the start; the player path never did.
+
+   Driven over raw HTTP rather than through a browser: the race is between two
+   connections and a browser's EventSource will not let a test hold both. */
+async function testRelayReconnect(){
+  section('A phone reconnecting keeps its place');
+  const http = require('http');
+  const post = (body) => new Promise(r => {
+    const d = JSON.stringify(body);
+    const q = http.request({ port:PORT, path:'/buzzer/send', method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Content-Length':Buffer.byteLength(d) } },
+      res => { let o=''; res.on('data',c=>o+=c); res.on('end',()=>r({ status:res.statusCode, body:o })); });
+    q.on('error', () => r({ status:0, body:'' }));
+    q.write(d); q.end();
+  });
+  const stream = (qs) => new Promise(r => {
+    const q = http.get({ port:PORT, path:'/buzzer/stream?' + qs }, res => r({ res, req:q }));
+    q.on('error', () => r({ res:null, req:q }));
+  });
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+
+  const code = '54321';
+  const host = await stream('role=host&room=' + code);
+  let seen = '';
+  if (host.res) host.res.on('data', c => seen += c);
+  await wait(300);
+
+  const a = await stream('room=' + code + '&id=abc&name=Ana&team=0');
+  await wait(250);
+  const b = await stream('room=' + code + '&id=abc&name=Ana&team=0');   // same phone, new stream
+  await wait(200);
+  a.req.destroy();                       // the old one closes *after* the new one registered
+  await wait(600);
+
+  const roster = (seen.match(/"players":\[[^\]]*\]/g) || []).pop() || '';
+  check('the reconnected phone is still in the room', /Ana/.test(roster), roster || 'empty');
+  check('and the host is not told it left', !/event: leave/.test(seen));
+
+  await post({ type:"arm", room:code, mode:'buzz', prompt:'test' });
+  await wait(200);
+  const buzz = await post({ type:"buzz", room:code, id:'abc' });
+  check('and it can still buzz', buzz.status === 200 && !/not in room/.test(buzz.body),
+        buzz.status + ' ' + buzz.body);
+
+  // a phone that really does leave is still removed
+  b.req.destroy();
+  await wait(500);
+  const after = (seen.match(/"players":\[[^\]]*\]/g) || []).pop() || '';
+  check('a phone that actually leaves is dropped', !/Ana/.test(after), after || 'empty');
+  if (host.req) host.req.destroy();
+}
+
 /* ---------- run ---------- */
 async function main(){
   let relay = null;
@@ -3538,7 +3597,8 @@ async function main(){
     variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, topics: testTopicPicking, defaultlook: testDefaultLook, jfinish: testJeopardyFinish, competition: testCompetition, lab: testLabDrawer, range: testRangeSetting,
     buzzers: testBuzzers, phonemodes: testPhoneModes, teamvote: testTeamVote,
     typetobuzz: testTypeToBuzz, judging: testAnswerJudging,
-    degradation: testDegradation, file: testFileProtocol
+    degradation: testDegradation, file: testFileProtocol,
+    reconnect: testRelayReconnect
   };
   const toRun = onlyArg ? onlyArg.split(',').map(s => s.trim()).filter(k => suites[k])
                         : Object.keys(suites);

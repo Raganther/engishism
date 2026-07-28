@@ -130,6 +130,12 @@ function openStream(req, res, q){
   const id   = (q.get('id')||'').slice(0,40) || String(Math.random()).slice(2,10);
   const name = ((q.get('name')||'').trim() || 'Player').slice(0,24);
   const team = Math.max(0, Math.min(7, parseInt(q.get('team'),10) || 0));
+  /* A phone that reconnects arrives with the same id, so this replaces its entry.
+     End the stream it is replacing rather than leaving it open — the host does the
+     same with its own stream, and without it a flapping connection leaks one
+     response object per reconnect. */
+  const prev = room.players.get(id);
+  if(prev && prev.res && prev.res !== res){ try{ prev.res.end(); }catch(e){} }
   room.players.set(id, { id, name, team, res });
   room.emptiedAt = 0;
 
@@ -147,6 +153,15 @@ function openStream(req, res, q){
 
   req.on('close', ()=>{
     clearInterval(beat);
+    /* Only if this is still *this* stream. A reconnecting phone re-registers under
+       the same id, and the old stream's close arrives *after* the new one has been
+       stored — so an unguarded delete removed the connection that had just come
+       back. The phone then found itself out of the room, reconnected, and was
+       removed again: the buzzer flickering on and off on a handset with nothing
+       wrong with it. The host stream has always had this guard; the player path
+       was missing it. */
+    const cur = room.players.get(id);
+    if(!cur || cur.res !== res) return;
     room.players.delete(id);
     toHost(room, 'leave', { id, name, players:roster(room) });
   });

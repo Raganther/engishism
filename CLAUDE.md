@@ -525,6 +525,17 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A reconnecting phone was being thrown out of the room it had just rejoined.**
+  Reported from a real round as "the buzzer oscillates between on and off, like
+  it's disconnecting and reconnecting" — it was, in a loop. An event stream
+  re-registers the phone under the same id, but the **old stream's `close` fires
+  after the new one is stored**, and the handler deleted by id without checking
+  whether the stream closing was still the live one. So the phone that had just
+  come back was removed, found itself out of the room, reconnected, and was removed
+  again. **The host stream has had this guard since it was written; the player path
+  never did** — one line apart, and only the host's was ever exercised by a test.
+  The `reconnect` suite drives it over raw HTTP, because the race is between two
+  connections and a browser's `EventSource` will not let a test hold both.
 - **The phone contract: six hooks, and the branch points are gone.** Buzzing,
   everyone-types, type-then-buzz and the class vote used to reach a board through
   `if (activeGame === …)` chains inside four functions — `expectedAnswer`,
@@ -819,7 +830,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   nothing saying why. Timed rounds ask now too; `raceCanTry()` restricts a timed
   round's buzz to the team whose round it is, so a phone on the bench can't steal a
   word off someone else's score.
-- **Deployed.** Build `20260731d`; new `strip`, `bbteams` and `jointeams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
+- **Deployed.** Build `20260731e`; new `strip`, `bbteams` and `jointeams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
 - **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
   the game being played, and only that game, without leaving the board — see "The Lab"
   above. It exists because prototyping was the bottleneck: comparing two ideas meant
@@ -1245,7 +1256,7 @@ runs. Pick the row, run it, push.
 | **Content** (a bank, a unit file) | `--only=content` | ~20s |
 | **One game's own logic** (board, its `tension()`, its stage CSS) | `--only=<game>` | ~40s |
 | **Shared layer 1** — `hub-kit.js`, the header, the team bar, the clue card, `hub.css` outside one stage, settings, the fit | `--only=millionaire,fit,phone,card,turns,gameshow,lab,registry,competition` | ~4 min |
-| **Phones / relay** | add `,buzzers,phonemodes,teamvote,phoneteams,degradation` | +5 min |
+| **Phones / relay** | add `,buzzers,phonemodes,teamvote,phoneteams,degradation,reconnect` | +5 min |
 | **Before a lesson you will actually teach from**, or on request | the full suite | ~25 min |
 
 ```bash
