@@ -84,7 +84,29 @@
       fitsScreen: true,
       load: NO_OP, renderContent: NO_OP, startButton: NO_OP,
       start: NO_OP, fit: NO_OP, deal: NO_OP, tension: NO_OP,
-      onResize: NO_OP, onTimerEnd: NO_OP, onWrong: NO_OP
+      onResize: NO_OP, onTimerEnd: NO_OP, onWrong: NO_OP,
+      /* ---- the phone contract ----
+         These six are what a game owes the room, and they are the reason every
+         phone dynamic reaches every board. They were `if (activeGame === …)` chains
+         inside the phone layer until a fifth game proved the point: buzzing,
+         everyone-types, type-then-buzz and the class vote each had to be threaded
+         through four functions by hand, and nothing complained if one was missed.
+         Declare these and a new game inherits all of it, including modes that do
+         not exist yet. Leave them out and its phones are simply idle — a visible,
+         correct state rather than a half-wired one. */
+      expects:      function(){ return ''; },    // what a typed answer is judged against
+      phonePrompt:  function(){ return ''; },    // what the handset shows
+      askingNow:    function(){ return false; }, // is a question open right now
+      buzzEntitled: function(){ return true; },  // false = refuse this buzz, engine re-arms
+      onBuzzTaken:  NO_OP,                       // somebody has the floor
+      onTypedWin:   function(){ return null; },  // typed and correct: score it, return the points
+      /* The vote is the second half of the contract. A vote is not a phone *mode* —
+         it borrows every phone in the room for the few seconds it runs and then
+         gives them back — so a game says whether it ever asks the room something
+         (which is what keeps a room open at `phoneMode:off`), and what to do with
+         the replies as they land. */
+      wantsVote:    function(){ return false; },
+      onVoteReply:  NO_OP
     }, def);
     GAMES.push(g);
     GAME_BY_ID[g.id] = g;
@@ -130,6 +152,15 @@
     renderContent: renderJeopardyContent,
     startButton:   jeopardyStartButton,
     start(){ buildJeopardyBoard(); timerSetDuration(30); },
+    /* The clue card is the question in both tile games, so both answer these the
+       same way — shared by coincidence of mechanism, not by inheritance. */
+    expects:     () => (currentClueItem && currentClueItem.answer) || '',
+    phonePrompt: () => (currentClueItem && currentClueItem.text) || '',
+    askingNow:   () => clueIsOpen(),
+    // the buzz decides who answers, so it selects that team: the teacher stops
+    // being the one who chooses, which is the whole point of buzzing for a tile
+    onBuzzTaken(b){ if(teams[b.team]){ active = b.team; renderScorebar(); } },
+    onTypedWin(b){ return currentClueItem ? (jCorrect(b.team) || 1) : null; },
     fit:      fitJeopardyBoard,
     deal:     jDeal,
     tension(){ jTension(); },
@@ -160,6 +191,13 @@
       bbVote=null; bbVoting=false; renderBBVote();
       timerSetDuration(30);
     },
+    expects:     () => (currentClueItem && currentClueItem.answer) || '',
+    phonePrompt: () => (currentClueItem && currentClueItem.text) || '',
+    askingNow:   () => clueIsOpen(),
+    onBuzzTaken(b){ if(teams[b.team]){ active = b.team; renderScorebar(); } },
+    onTypedWin(b){ return currentClueItem ? (claimHex(b.team) || 1) : null; },
+    wantsVote:   () => !!S.get('bbTeamVote', 'blockbusters'),
+    onVoteReply(all){ if(bbVote){ bbVote.apply(all); renderBBVote(); } },
     fit:      layoutBlockbustersBoard,
     deal:     bbDeal,
     tension(){ bbTension(); },
@@ -186,6 +224,25 @@
       syncBuzzRoom();
       timerSetDuration(Number(S.get('raceRoundSeconds', 'race')) || 60);
     },
+    expects:     () => (raceCurrent && raceCurrent.answer) || '',
+    phonePrompt: () => (raceCurrent && raceCurrent.prompt) || '',
+    askingNow:   () => !!raceCurrent,
+    // a team that has already missed this sentence cannot buzz back in on it
+    buzzEntitled: b => raceCanTry(b.team),
+    /* The typed word is the claim here too, and awarding it deals the next sentence
+       — so this returns *after* the award and the engine names the student on the
+       strip, which outlives the re-arm. */
+    onTypedWin(b){
+      if(!raceCurrent) return null;
+      const w = raceWords.find(x => x.word === raceCurrent.answer);
+      if(!w || w.found) return null;
+      const el = [...document.querySelectorAll('#race-words .race-word')]
+                   .find(n => n.textContent === w.word) || null;
+      Sound.play(document.getElementById('play-race').classList.contains('lit') ? 'sting' : 'correct');
+      racePending = { w, el };
+      awardRaceWord(b.team, el);
+      return 1;
+    },
     fit:      scatterRaceWords,
     deal:     rDeal,
     tension(){ rTension(); },
@@ -209,6 +266,31 @@
     startButton:   millionaireStartButton,
     start(){ buildMillionaire();
              timerSetDuration(Number(S.get('mConferSeconds', 'millionaire')) || 30); },
+    expects:     () => (mCurrent && mCurrent.q && mCurrent.q.answer) || '',
+    phonePrompt: () => (mCurrent && mCurrent.q && mCurrent.q.prompt) || '',
+    askingNow:   () => !!(mCurrent && !mAnswered),
+    /* The ladder is per team with a fixed turn order so everyone gets a full arc,
+       and "fastest thumb wins" cuts against that on purpose — so a buzz means
+       whatever `mBuzzRole` says it means. `speaker` refuses a buzz from a team that
+       is not on turn; the engine re-arms so the entitled team can still get in. */
+    buzzEntitled(b){
+      if(!teams[b.team]) return true;
+      if(S.get('mBuzzRole', 'millionaire') !== 'speaker') return true;
+      return b.team === (mCurrent ? mCurrent.team : active);
+    },
+    onBuzzTaken(b){
+      if(!teams[b.team] || S.get('mBuzzRole', 'millionaire') !== 'floor') return;
+      if(!mCurrent || mAnswered) return;
+      mCurrent.team = b.team;
+      active = b.team;               // the turn strip, lifelines and ladder follow
+      mPicked = null;                // a new team decides for itself
+      renderScorebar();
+      renderMillionaire();
+    },
+    // no onTypedWin: typing is not offered here, for the same reason it never gets
+    // an anagram — the four options hand you the word
+    wantsVote:   () => !!S.get('mLifelines', 'millionaire'),
+    onVoteReply(all){ if(mVote){ mVote.apply(all); renderMillionaire(); } },
     fit:      fitMillionaire,
     tension(){ mTension(); },
     onResize: fitMillionaire
@@ -901,6 +983,18 @@
              BINGO_TOPIC_NAMES   = u.topicNames || {}; },
     renderContent: renderBingoContent,
     startButton:   bingoStartButton,
+    expects:     () => (bingoCurrent && bingoCurrent.answer) || '',
+    phonePrompt: () => (bingoCurrent && (bingoCurrent.clue || bingoCurrent.prompt)) || '',
+    askingNow:   () => !!bingoCurrent && !bingoWon,
+    /* Typed and correct marks their square, the way it claims a tile elsewhere. A
+       word that is not on their card is still a right answer — the strip says so —
+       but there is nothing to mark, so it pays nothing rather than declining. */
+    onTypedWin(b){
+      const card = bingoCards[b.team];
+      if(!bingoCurrent || !card) return null;
+      const ci = card.words.findIndex((w, i) => !card.marked[i] && w.answer === bingoCurrent.answer);
+      return ci >= 0 ? (markBingoCell(b.team, ci) || 1) : 0;
+    },
     start(){ startBingo(); },
     fit:      fitBingoCards,
     deal:     bingoDeal,
@@ -3767,11 +3861,7 @@
   /* Both votes are worth a room even when nothing else on the board wants one:
      Millionaire's Ask the class, and Blockbusters asking the team on turn which
      hexagon to attack. */
-  function classVotes(){
-    if(activeGame === 'millionaire')   return !!S.get('mLifelines', 'millionaire');
-    if(activeGame === 'blockbusters')  return !!S.get('bbTeamVote', 'blockbusters');
-    return false;
-  }
+  function classVotes(){ return !!hook('wantsVote'); }
   /* ---- one room per lesson ----
      A room used to be torn down with the game, because that is where its code
      happened to be created — so changing games minted a new 5-digit code and the
@@ -3924,17 +4014,10 @@
     if(!d) return;
     classReplies = { mode:(classReplies && classReplies.mode) || 'answer',
                      tally:d.tally || {}, all:d.all || [], total:d.total || 0, of:d.of || 0 };
-    // Millionaire's Ask-the-class shows the count on the options themselves
-    if(activeGame === 'millionaire' && mVote){
-      mVote.apply(classReplies.all);
-      renderMillionaire();
-    }
-    /* Blockbusters draws its counts on the hexagons. Same vote object, same recount
-       — the only difference is where the numbers are painted. */
-    if(activeGame === 'blockbusters' && bbVote){
-      bbVote.apply(classReplies.all);
-      renderBBVote();
-    }
+    /* Where the numbers go is the game's business — Millionaire paints them on its
+       four options, Blockbusters counts letters in a strip beside the legend. Same
+       vote object, same recount, different board. */
+    hook('onVoteReply', classReplies.all);
     renderReplies();
     renderBuzzChip('asking');
   }
@@ -3982,12 +4065,15 @@
        is in progress". The relay still holds the lock, so a phone reconnecting
        mid-buzz is told who got in. */
     if(buzzWinner) return;
-    const modal = document.getElementById('clue-modal');
-    const live = (activeGame === 'millionaire' && mCurrent && !mAnswered)
-              || (activeGame === 'race' && raceCurrent)
-              || (activeGame === 'bingo' && bingoCurrent && !bingoWon)
-              || (currentClueItem && modal && modal.style.display === 'flex');
-    if(live) askPhones(currentPhonePrompt(), activeGame);
+    /* The same rule, for the mode where nobody takes the floor. In `write` the whole
+       room answers, so what a re-ask would destroy is not one student's buzz but
+       every answer already given — the relay clears its responses on `arm`. Two of
+       four vanished in the strip suite and it looked like the strip losing them; the
+       host had asked twice, because a `ready` arrives on *every* reconnection of its
+       stream. A class on school wifi reconnects all lesson, so half the room's
+       answers disappearing is the normal case, not the edge one. */
+    if(classReplies && classReplies.all && classReplies.all.length) return;
+    if(hook('askingNow')) askPhones(currentPhonePrompt(), activeGame);
   }
 
   /* Both games' votes, asked as one question — the fact lives here rather than in
@@ -4036,12 +4122,15 @@
   /* What the room is being asked for right now, so a typed answer can be judged
      against it. Each game already holds it; this is the one place that knows where.
      Returns '' when nothing is open, which declines the buzz rather than guessing. */
-  function expectedAnswer(){
-    if(activeGame === 'race')        return (raceCurrent && raceCurrent.answer) || '';
-    if(activeGame === 'millionaire') return (mCurrent && mCurrent.q && mCurrent.q.answer) || '';
-    if(activeGame === 'bingo')       return (bingoCurrent && bingoCurrent.answer) || '';
-    return (currentClueItem && currentClueItem.answer) || '';   // jeopardy, blockbusters
+  /* Both tile games ask this, and it used to be written out at the one call site
+     that needed it — `modal.style.display === 'flex'`. A game should not have to
+     know how the shared modal is hidden. */
+  function clueIsOpen(){
+    const modal = document.getElementById('clue-modal');
+    return !!(currentClueItem && modal && modal.style.display === 'flex');
   }
+
+  function expectedAnswer(){ return hook('expects') || ''; }
 
   let lastTyped = null;      // {name, value, verdict} — what the chip shows the teacher
 
@@ -4078,51 +4167,25 @@
   /* The prompt as the phones currently have it, for a re-arm. Re-deriving it would
      mean each game answering the same question twice. */
   function currentPhonePrompt(){
+    // the question only travels if the teacher wants it to — sometimes the point is
+    // that they read the board, not their hand
     if(!S.get('phonePrompt', activeGame)) return '';
-    if(activeGame === 'race')        return (raceCurrent && raceCurrent.prompt) || '';
-    if(activeGame === 'millionaire') return (mCurrent && mCurrent.q && mCurrent.q.prompt) || '';
-    if(activeGame === 'bingo')       return (bingoCurrent && (bingoCurrent.clue || bingoCurrent.prompt)) || '';
-    return (currentClueItem && currentClueItem.text) || '';
+    return hook('phonePrompt') || '';
   }
 
   function onBuzz(b){
-    /* A team that has already missed this sentence cannot buzz back in on it. Just
-       ignoring the buzz is not enough: the relay locks the room on the *first* buzz
-       whoever it came from, so a locked-out team pressing again would hold the lock
-       and the team entitled to the steal could never get in. Re-arm, which clears
-       the relay's lock and puts the floor back. */
-    if(activeGame === 'race' && b && !raceCanTry(b.team)){
-      armBuzzers(raceCurrent ? raceCurrent.prompt : '');
-      return;
-    }
-    /* Millionaire's turn order is deliberate, so a buzz means whatever mBuzzRole
-       says it means. `speaker` refuses a buzz from a team that isn't on turn — and
-       has to re-arm rather than ignore it, for the same reason Race does: the relay
-       locks the room on the first buzz whoever sent it, so a refused phone would
-       otherwise hold the lock and keep the entitled team out. */
-    if(activeGame === 'millionaire' && b && teams[b.team]){
-      const role = S.get('mBuzzRole', 'millionaire');
-      const onTurn = mCurrent ? mCurrent.team : active;
-      if(role === 'speaker' && b.team !== onTurn){
-        armBuzzers(currentPhonePrompt());
-        return;
-      }
-      if(role === 'floor' && mCurrent && !mAnswered){
-        mCurrent.team = b.team;
-        active = b.team;               // the turn strip, lifelines and ladder follow
-        mPicked = null;                // a new team decides for itself
-        renderScorebar();
-        renderMillionaire();
-      }
-    }
+    /* Refusing a buzz is not the same as ignoring one: the relay locks the room on
+       the *first* buzz whoever it came from, so a phone that is not entitled would
+       hold the lock and the team that is could never get in. Re-arming clears the
+       lock and puts the floor back. Race's steal rule and Millionaire's `speaker`
+       role are both this, and both used to be written out here by name. */
+    if(b && hook('buzzEntitled', b) === false){ armBuzzers(currentPhonePrompt()); return; }
+
     if(b && b.value != null && !judgeTypedBuzz(b)) return;
     buzzWinner = b;
-    /* In the tile games the buzz decides who answers, so it selects that team —
-       the teacher stops being the one who chooses, which is the whole point. */
-    if((activeGame === 'jeopardy' || activeGame === 'blockbusters') && teams[b.team]){
-      active = b.team;
-      renderScorebar();
-    }
+    // the game reacts to who has the floor — the tile games select that team, and
+    // Millionaire's `floor` role moves the question onto their ladder
+    if(b) hook('onBuzzTaken', b);
     Sound.play('claim');
     renderBuzzChip('won');
 
@@ -4132,52 +4195,17 @@
        floor, the answer is spoken in the room, and the teacher marks it. That is the
        whole difference between the two modes at the scoring end.
 
-       Race had this from the start; the tile games did not, so the same student
-       doing the same thing scored automatically on one board and waited for a click
-       on the other. */
-    if((activeGame === 'jeopardy' || activeGame === 'blockbusters') &&
-       b && b.value != null && teams[b.team] && currentClueItem){
-      /* Say who did it, before the clue closes. The award itself was already
-         automatic, but nothing on screen named the student — the card shut and the
-         board moved on, so from the back of the room somebody's team just gained
-         points for no visible reason. `notePhoneScore` outlives the re-arm. */
-      const paid = (activeGame === 'jeopardy') ? jCorrect(b.team) : claimHex(b.team);
-      /* The floor is given up as part of scoring: the question is over, so leaving
-         a winner standing would keep the strip saying "got it" instead of what they
-         got — and Race already reads this way because awarding resets the buzzers. */
-      buzzWinner = null;
-      notePhoneScore(b.name, b.team, b.value, paid || 1);
-      return;
-    }
-    /* Typed and correct: the student produced the word, so it marks their square
-       the way it claims a tile in the other games. If the word is not on their card
-       it is still a right answer — the strip says so — but there is nothing to mark. */
-    if(activeGame === 'bingo' && b && b.value != null && bingoCurrent && teams[b.team]){
-      const card = bingoCards[b.team];
-      const ci   = card ? card.words.findIndex((w, i) => !card.marked[i] && w.answer === bingoCurrent.answer) : -1;
-      buzzWinner = null;
-      if(ci >= 0){
-        const paid = markBingoCell(b.team, ci);
-        notePhoneScore(b.name, b.team, b.value, paid || 1);
-      } else {
-        notePhoneScore(b.name, b.team, b.value, 0);
-      }
-      return;
-    }
-    if(activeGame === 'race' && b && b.value != null && raceCurrent && teams[b.team]){
-      const w  = raceWords.find(x => x.word === raceCurrent.answer);
-      const el = w ? [...document.querySelectorAll('#race-words .race-word')]
-                       .find(n => n.textContent === w.word) : null;
-      if(w && !w.found){
-        Sound.play(document.getElementById('play-race').classList.contains('lit') ? 'sting' : 'correct');
-        racePending = { w, el:el||null };
-        const who = { name:b.name, team:b.team, value:b.value };
-        awardRaceWord(b.team, el||null);
-        /* After the award, not before: awarding deals the next sentence, which
-           re-arms the phones and wipes anything the strip was showing. This is the
-           bug from the other end — the word was scored and the board moved on
-           without ever naming the student who produced it. */
-        notePhoneScore(who.name, who.team, who.value, 1);
+       The game says what scoring means on its board and hands back what it paid;
+       `null` means it did not score, so the floor stays where it is. */
+    if(b && b.value != null && teams[b.team]){
+      const paid = hook('onTypedWin', b);
+      if(paid != null){
+        /* The floor is given up as part of scoring: the question is over, so leaving
+           a winner standing would keep the strip saying "got it" instead of what
+           they got. `notePhoneScore` outlives the re-arm, which matters because
+           several games deal the next question immediately. */
+        buzzWinner = null;
+        notePhoneScore(b.name, b.team, b.value, paid);
       }
     }
   }

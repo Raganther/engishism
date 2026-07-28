@@ -1211,6 +1211,24 @@ async function testGameRegistry(browser){
         shape.titles.length === shape.ids.length, shape.titles.join(','));
   ['load','hasBank','renderContent','startButton','start','fit','deal','tension','onResize','onTimerEnd']
     .forEach(h => check('the contract exposes ' + h + '()', shape.hooks.indexOf(h) !== -1));
+  /* The phone half of the contract. These were `if (activeGame === …)` chains in
+     four functions until a fifth game proved they had to be hooks: every phone
+     dynamic reaches every board through exactly these. */
+  ['expects','phonePrompt','askingNow','buzzEntitled','onBuzzTaken','onTypedWin','wantsVote','onVoteReply']
+    .forEach(h => check('the phone contract exposes ' + h + '()', shape.hooks.indexOf(h) !== -1));
+  /* And it has to be answered, not merely present: a game that leaves these at
+     their defaults has idle phones, which is a correct state but not a wired one. */
+  const answered = await page.evaluate(() => {
+    const out = {};
+    window.HubGames.ids().forEach(id => {
+      const g = window.HubGames.get(id);
+      out[id] = ['expects','phonePrompt','askingNow'].filter(h => g[h].toString().indexOf("return ''") === -1
+                                                              && g[h].toString().indexOf('return false') === -1).length;
+    });
+    return out;
+  });
+  Object.keys(answered).forEach(id => check(id + ' answers the phone contract itself',
+    answered[id] === 3, id + ': ' + answered[id] + '/3'));
 
   // a bare-minimum game: an id and a bank, nothing else
   const bare = await page.evaluate(() => {

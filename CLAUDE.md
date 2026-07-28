@@ -140,7 +140,36 @@ Hooks only fire while their game is active, so none of them checks `activeGame`.
 
 | Free, no code | One declaration | Genuinely per-game |
 |---|---|---|
-| skin (chrome + setup screens), team bar, scoring, timer, clue card + flip variants, `showResult()` banner, every `Sound.*`, every `Kit.*`, content-integrity gate | `card` (icon/blurb/badge), `intro` ident, `hasBank`, the settings `games` arrays via `gameIds()` | board logic, stage CSS, `tension()` source, content bank shape |
+| skin (chrome + setup screens), team bar, scoring, timer, clue card + flip variants, `showResult()` banner, every `Sound.*`, every `Kit.*`, content-integrity gate, the phone strip, the layout contract | `card` (icon/blurb/badge), `intro` ident, `hasBank`, `fitsScreen`, the settings `games` arrays via `gameIds()`, **the phone contract's six hooks** | board logic, stage CSS, `tension()` source, content bank shape |
+
+**Register before init, or the game is invisible.** `renderGameCards()` runs during
+init, so a `registerGame` call placed after it leaves a game that is in
+`HubGames.ids()`, passes `hasBank`, and has no card on the game screen. Nothing
+errors. Keep registrations in the cluster at the top of `hub-engine.js`.
+
+### The phone contract — what a game owes the room
+Phones reach a board through six hooks, not through the engine knowing the game's
+name. Declare them and the game inherits buzzing, everyone-types, type-then-buzz,
+the class vote and the activity strip; leave them out and its phones are idle,
+which is a correct state rather than a broken one.
+
+```js
+expects()        // what a typed answer is judged against
+phonePrompt()    // what the handset shows
+askingNow()      // is a question open right now
+buzzEntitled(b)  // false refuses this buzz — the engine re-arms, see below
+onBuzzTaken(b)   // somebody has the floor
+onTypedWin(b)    // typed and correct: score it, return the points (null = it didn't)
+wantsVote()      // does this game ever ask the room something
+onVoteReply(all) // where the counts get painted
+```
+
+**Refusing a buzz is not ignoring one.** The relay locks the room on the *first*
+buzz whoever sent it, so a phone that isn't entitled would hold the lock and the
+team that is could never get in — `buzzEntitled` returning false makes the engine
+re-arm, which clears it. Race's steal rule and Millionaire's `speaker` role are both
+this, and were both written out by name in `onBuzz` until the fifth game proved the
+point.
 
 `window.HubGames.register(...)` is exposed so a game can eventually live in its own
 file the way units do via `window.UNITS`; the four built-ins still declare themselves
@@ -496,6 +525,60 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The phone contract: six hooks, and the branch points are gone.** Buzzing,
+  everyone-types, type-then-buzz and the class vote used to reach a board through
+  `if (activeGame === …)` chains inside four functions — `expectedAnswer`,
+  `currentPhonePrompt`, `reaskPhones`'s liveness check and `onBuzz`. **The phone
+  layer now has zero of them** (32 `activeGame` branches across the engine became
+  21, and none of the survivors are in the phone code). A game declares:
+
+  | Hook | What it answers |
+  |---|---|
+  | `expects()` | what a typed answer is judged against |
+  | `phonePrompt()` | what the handset shows |
+  | `askingNow()` | is a question open right now |
+  | `buzzEntitled(b)` | `false` refuses this buzz — the engine re-arms |
+  | `onBuzzTaken(b)` | somebody has the floor |
+  | `onTypedWin(b)` | typed and correct: score it, return the points (`null` = didn't) |
+  | `wantsVote()` / `onVoteReply(all)` | the vote half — whether the game ever asks the room, and where the counts are painted |
+
+  - **Every hook defaults to a no-op**, so a game that declares none has idle
+    phones — a visible, correct state rather than a half-wired one.
+  - **Refusing is not ignoring**, and that fact now lives in one place: the relay
+    locks the room on the *first* buzz whoever sent it, so a phone that isn't
+    entitled would hold the lock and keep the entitled team out. Race's steal rule
+    and Millionaire's `speaker` role are both `buzzEntitled` returning false.
+  - **`onTypedWin` returns what it paid**, so the engine can name the student on the
+    strip without knowing what scoring means on that board — a tile, a hexagon, a
+    word, a bingo square.
+  - The registry suite asserts both that the hooks exist **and that every game
+    answers them itself**, so a sixth game with idle phones fails rather than
+    quietly shipping.
+- **Bingo — the fifth game, built as a test of the framework.** 3x3 cards per team
+  from a shared 12-word pool; read the clue, the first team to answer marks it off,
+  three in a row wins. It has **no bank of its own** — it consumes
+  `blockbustersBank` through a predicate (single-word, unique answers with a clue
+  each), so **both units gained a fifth game with zero authoring**. That is the
+  pooled-content idea working in miniature, on real content.
+  - **172 of 173 shared checks covered it without being told it exists**, because
+    `fit`, `phone`, `gameshow` and `lab` ask the registry rather than carrying a
+    list. The one failure was a test asserting *four* games are registered — now
+    registry-driven, since a suite that breaks when you add a game is the opposite
+    of what it is for.
+  - **A game registered after init is invisible.** Bingo registered fine, appeared
+    in `HubGames.ids()`, and never got a card, because `renderGameCards()` had
+    already run. Silent, and it cost a debugging round: **registration order is
+    load-bearing and nothing says so.**
+  - Two lists that were hard-coded became registry-driven on the spot: clearing
+    `.lit` from every stage, and which boards get `body.play-fit` (now a
+    `fitsScreen` flag, false only for Blockbusters).
+- **A re-ask was destroying answers the room had already given.** The rule that
+  protects a live buzz — *re-asking means "the room came back, tell it what is being
+  asked", never "cancel what is in progress"* — had no equivalent for `write`, where
+  nobody takes the floor. The relay clears its responses on `arm`, and `ready`
+  arrives on **every reconnection of the host's stream**, so two of four answers
+  vanished. It looked like the strip losing them; the host had asked twice. A class
+  on school wifi reconnects all lesson, so this is the normal case, not the edge one.
 - **Three bugs from the first real run of the four-team build.**
   - **A reset board overlapped its own hexagons.** The won board is scaled down to
     sit above the banner, and `#play-blockbusters` carries a **350ms transform
