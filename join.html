@@ -63,6 +63,10 @@
     background:#16204f; color:#eaf0ff; border:2px solid rgba(255,255,255,0.22);
   }
   .opts button:disabled{ opacity:0.4; }
+  /* Single letters are not a list, they are a keypad: eighteen full-width buttons
+     would need scrolling to vote, which is the one thing a vote cannot afford. */
+  .opts.grid{ flex-direction:row; flex-wrap:wrap; justify-content:center; }
+  .opts.grid button{ flex:0 0 auto; min-width:62px; padding:15px 0; font-size:1.35rem; font-weight:800; }
   .opts button.picked{ background:#ffc83d; color:#0a0d26; border-color:#ffc83d; }
   .write{ display:none; width:100%; gap:10px; flex-direction:column; }
   /* Typing comes before buzzing, so the box sits between the question and the
@@ -112,7 +116,7 @@
   <p id="status"></p>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260730d"></script>
+<script src="game-hub/hub-buzzer.js?v=20260730e"></script>
 <script>
 (function(){
   'use strict';
@@ -177,9 +181,18 @@
   let mode = 'buzz', answered = false, coolTimer = null, verdictUntil = 0;
   // the state line, unless a verdict is still being read
   function say(text){ if(Date.now() > verdictUntil) $('state').textContent = text; }
-  function setMode(m, opts){
+  /* Some rounds belong to one team: Blockbusters asks the team on turn which
+     hexagon to attack, and the rest of the room is watching, not choosing. A phone
+     that is not entitled shows the question and no controls, rather than a live
+     button whose press would be thrown away on arrival. */
+  function myRound(d){
+    const t = d && d.turnTeam;
+    return t == null || Number(t) === Number(team);
+  }
+  function setMode(m, opts, mine){
     mode = m || 'buzz';
     answered = false;
+    if(mine === false) mode = 'watch';
     // 'type' is both at once: the box to write in and the button to claim the floor
     $('buzzer').style.display = (mode==='buzz' || mode==='type') ? '' : 'none';
     $('opts').style.display   = mode==='vote'   ? 'flex' : 'none';
@@ -188,6 +201,8 @@
     $('screen-play').classList.toggle('mode-type', mode==='type');
     if(mode==='vote'){
       const box=$('opts'); box.innerHTML='';
+      box.classList.toggle('grid', (opts||[]).length > 4 &&
+                                   (opts||[]).every(o=>String(o).length <= 2));
       (opts||[]).forEach(o=>{
         const b=document.createElement('button');
         b.type='button'; b.textContent=o;
@@ -268,6 +283,11 @@
     $('join-err').textContent = '';
 
     client = HubBuzzer.player({ relay:RELAY, code, name, team });
+    /* The joined handset, exposed the same way the hub exposes HubSettings and
+       HubGames: it is the only handle on this phone from outside, and the checks
+       that matter here are ones a click cannot reach — sending a vote a phone is
+       not entitled to send, for one. */
+    window.HubPlayer = client;
 
     client.on('status', s=>{
       $('status').textContent =
@@ -313,7 +333,12 @@
         say('Still open — go!');
         return;
       }
-      setMode(d && d.mode, d && d.options);
+      setMode(d && d.mode, d && d.options, myRound(d));
+      if(!myRound(d)){
+        const who = teamNames[Number(d.turnTeam)] || ('Team ' + (Number(d.turnTeam)+1));
+        say(who + ' is choosing');
+        return;
+      }
       if(spent.indexOf(client.id) !== -1){
         // already had a go this round — see the question, but no second answer
         answered = true;

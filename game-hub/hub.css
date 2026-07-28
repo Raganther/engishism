@@ -162,6 +162,51 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 .hex.route.claimed-silver{ filter: brightness(1) drop-shadow(0 0 14px rgba(0,160,223,0.95)); }
 #hexwrap.won .hex{ pointer-events:none; }
 
+/* --- the team's phones choosing a hexagon ---
+   The count sits on the hexagon rather than in a panel: the question is "which of
+   these", so the answer belongs where the room is already looking. Positioned by
+   percentage inside the clip path, which is why it survives the hex resizing with
+   the viewport. */
+#bb-ask{
+  font: inherit; font-size:0.78rem; font-family:'Space Grotesk',sans-serif; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.04em;
+  padding:4px 12px; border-radius:999px; cursor:pointer;
+  border:2px solid var(--navy); background:var(--white); color:var(--navy);
+}
+#bb-ask:hover{ background:var(--cream); }
+#bb-ask.voting{ background:var(--navy); color:var(--cream); }
+#bb-tally{ display:none; gap:6px; align-items:center; }
+.bb-vote-count{
+  padding:2px 9px; border-radius:999px; background:var(--cream); color:var(--navy);
+  font-family:'IBM Plex Mono',monospace; font-size:0.78rem; font-weight:700;
+}
+.bb-vote-count.lead{ background:var(--navy); color:var(--cream); }
+/* The leader glows, never fills: a filled hexagon is what *claimed* means on this
+   board, and a vote has claimed nothing. It cannot be an outline or a box-shadow
+   either — clip-path crops both away entirely, which is the same reason the
+   winning route is drawn with a drop-shadow filter. */
+.hex.pick{ background:var(--navy3); filter:drop-shadow(0 0 12px rgba(18,38,63,0.75)); }
+body.theme-gameshow #play-blockbusters.lit #bb-ask{
+  background:transparent; color:rgba(234,240,255,0.85); border-color:rgba(199,125,255,0.6);
+}
+body.theme-gameshow #play-blockbusters.lit #bb-ask.voting{
+  background:#C77DFF; color:#140A26; border-color:#C77DFF;
+}
+body.theme-gameshow #play-blockbusters.lit .bb-vote-count{
+  background:rgba(199,125,255,0.22); color:#E7D8FF;
+}
+body.theme-gameshow #play-blockbusters.lit .bb-vote-count.lead{
+  background:#C77DFF; color:#140A26;
+}
+/* The skin's own .hex rule already glows violet, so a slightly bigger violet glow
+   marks nothing — the pick has to change the *fill*, and it has to out-specify
+   that rule to do it. Brighter than hover, so it survives a pointer moving over
+   the board while the class is still voting. */
+body.theme-gameshow #play-blockbusters.lit .hex.pick{
+  background: linear-gradient(180deg, #6D34C6 0%, #34125F 100%);
+  filter: drop-shadow(0 0 22px rgba(199,125,255,1));
+}
+
 /* --- Race to the Board: mode picker on the content screen --- */
 #race-mode{ margin: 22px 0 4px; }
 #race-mode .mode-title{ font-family:'Space Grotesk',sans-serif; font-size:1.02rem; text-transform:uppercase; color:var(--navy); margin-bottom:12px; }

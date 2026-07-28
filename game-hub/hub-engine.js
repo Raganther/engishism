@@ -153,6 +153,7 @@
       pool = pool.slice(0, 18);          // classic 5/4/5/4 board holds 18
       buildBlockbustersBoard();
       bbTurn=0; renderBBTurn(); bbClearOutcome();
+      bbVote=null; bbVoting=false; renderBBVote();
       timerSetDuration(30);
     },
     fit:      layoutBlockbustersBoard,
@@ -358,6 +359,15 @@
     games:['jeopardy','blockbusters'],
     label:'Flip speed', help:'How long the card takes to turn over and come back.',
     options:[{value:'relaxed',label:'Relaxed'},{value:'normal',label:'Normal'},{value:'snappy',label:'Snappy'}] });
+
+  /* Blockbusters' weakness is that two students play and twenty-eight watch. The
+     bench choosing the hexagon is the cheapest fix for that, and it needs a room
+     rather than a mode — like Ask the class, it borrows the phones for a moment
+     and hands them straight back. */
+  S.register({ id:'bbTeamVote', group:'Blockbusters', type:'toggle', default:true,
+    games:['blockbusters'],
+    label:'The team picks its hexagon on their phones',
+    help:'Adds a button that asks the team on turn which letter to attack. Their votes land on the hexagons; you still click the one that plays. Needs a buzzer room; with no phones the button stays hidden.' });
 
   S.register({ id:'bbWinRoute', group:'Blockbusters', type:'variant', default:'trace',
     games:['blockbusters'],
@@ -686,6 +696,8 @@
         <div id="legend">
           <span class="legend-gold"><span class="dot" style="background:var(--gold)"></span> Yellow: left &rarr; right</span>
           <span class="legend-silver"><span class="dot" style="background:var(--silver)"></span> Blue: top &rarr; bottom</span>
+          <button id="bb-ask" style="display:none;">Team picks</button>
+          <span id="bb-tally" style="display:none;"></span>
         </div>
         <div id="hexwrap"></div>
       </div>
@@ -1472,6 +1484,103 @@
     if(s) s.classList.toggle('active-turn', bbTurn===1);
   }
 
+  /* ---- the bench votes for the hexagon ----
+     Blockbusters' weakness is that two students play and the rest watch: one
+     person picks the hex, one person answers, and a class of thirty has nothing to
+     do between clues. So the team on turn chooses its next hexagon on their phones
+     — every one of them, not the loudest one — and the counts land on the board.
+
+     Deliberately advisory. The teacher still clicks the hex, because that is the
+     app's constraint everywhere (students never touch the device) and because a
+     vote that opened a clue by itself would make a mis-tap unrecoverable. The
+     leading hexagon is outlined; taking their advice is one click, ignoring it is
+     a different click. */
+  let bbVote = null;      // Kit.vote while the team is choosing
+  let bbVoting = false;   // ...and whether it is still open
+
+  // What is left to attack. Two hexes can carry the same letter, so the options are
+  // the *distinct* letters — a vote names a letter and the board shows every hex
+  // holding it, which is also how a student reading the board would say it.
+  function bbOpenLetters(){
+    const out = [];
+    document.querySelectorAll('#hexwrap .hex').forEach(h=>{
+      if(h.classList.contains('claimed-gold') || h.classList.contains('claimed-silver')) return;
+      const l = (h.dataset.letter || h.textContent || '').trim();
+      if(l && out.indexOf(l) === -1) out.push(l);
+    });
+    return out;
+  }
+
+  function bbAskTeam(){
+    if(!buzzHost || bbWon) return;
+    const letters = bbOpenLetters();
+    if(!letters.length) return;
+    bbVote   = Kit.vote.open({ options:letters, team:bbTurn });
+    bbVoting = true;
+    const who = teams[bbTurn] ? teams[bbTurn].name : (bbTurn === 0 ? 'Yellow' : 'Blue');
+    askClass(who + ' — which letter next?', 'vote', letters, bbTurn);
+    renderBBVote();
+  }
+
+  /* Closing hands the phones back — the vote borrows the room, it does not own it.
+     Unlike Millionaire's Done voting there is no question live to hand them back
+     *to*: the team has chosen, and the clue they chose has not been opened yet. So
+     the phones go quiet and the next hexagon arms them, which is what `phoneMode`
+     already does on every other board.
+
+     `keep` leaves the numbers up: they are the team's decision, and the teacher is
+     about to click on the hexagon they name. */
+  function bbCloseVote(keep){
+    if(!bbVoting) return;
+    bbVoting = false;
+    if(bbVote) bbVote.close();
+    if(!keep) bbVote = null;
+    if(activeGame === 'blockbusters') parkBuzzRoom();
+    renderBBVote();
+  }
+
+  /* Where the numbers go was the one thing here that had to be got wrong first.
+     A count drawn *on* the hexagon reads perfectly until two hexagons share a
+     letter — and they nearly always do, because a board of eighteen from a vocab
+     bank clusters on common initials. One vote for R then painted "1" on three
+     separate hexagons, which any room would read as three votes.
+
+     So the vote is for a **letter**, and the letters are counted once, in a strip
+     beside the legend. The board's job is to show where that lands: every hexagon
+     carrying the leading letter lights up, which is also the honest picture —
+     the team said R, there are three, and the teacher picks which. */
+  function renderBBVote(){
+    const btn = document.getElementById('bb-ask');
+    const on  = activeGame === 'blockbusters' && !!buzzHost && !bbWon &&
+                S.get('bbTeamVote', 'blockbusters');
+    if(btn){
+      btn.style.display = on ? 'inline-block' : 'none';
+      btn.textContent = bbVoting ? 'Done choosing'
+                                 : ((teams[bbTurn] ? teams[bbTurn].name : 'Team') + ' picks');
+      btn.className = bbVoting ? 'voting' : '';
+    }
+    const lead  = bbVote && bbVote.leader();
+    const strip = document.getElementById('bb-tally');
+    if(strip){
+      const rows = bbVote ? bbVote.options.filter(o=>bbVote.counts[o] > 0)
+                                 .sort((a,b)=>bbVote.counts[b] - bbVote.counts[a]) : [];
+      strip.innerHTML = '';
+      strip.style.display = rows.length ? 'inline-flex' : 'none';
+      rows.forEach(o=>{
+        const el = document.createElement('span');
+        el.className = 'bb-vote-count' + (lead && !lead.tied && o === lead.option ? ' lead' : '');
+        el.dataset.letter = o;
+        el.textContent = o + ' ' + bbVote.counts[o];
+        strip.appendChild(el);
+      });
+    }
+    document.querySelectorAll('#hexwrap .hex').forEach(h=>{
+      const letter = (h.dataset.letter || h.textContent || '').trim();
+      const claimed = h.classList.contains('claimed-gold') || h.classList.contains('claimed-silver');
+      h.classList.toggle('pick', !!lead && !lead.tied && !claimed && letter === lead.option);
+    });
+  }
+
   function buildBlockbustersBoard(){
     const wrap=document.getElementById('hexwrap');
     wrap.innerHTML='';
@@ -1483,6 +1592,9 @@
         const hex=document.createElement('div');
         hex.className='hex';
         hex.textContent=clueObj.letter;
+        /* The letter also lives in a data attribute: claiming a hex empties its
+           text, and the vote still has to know which letter that hex was. */
+        hex.dataset.letter=clueObj.letter;
         hex.dataset.row=r; hex.dataset.col=c;
         hex.addEventListener('click', ()=> openBlockbustersClue(clueObj, hex));
         wrap.appendChild(hex);
@@ -1796,6 +1908,9 @@
 
   function bbFinish(outcome){
     bbWon = outcome;
+    // the round has an ending: there is nothing left to choose, so the vote goes
+    // and the phones go back to the mode
+    bbCloseVote(false);
     const wrap = document.getElementById('hexwrap');
     wrap.classList.add('won');
 
@@ -1842,6 +1957,7 @@
     pool = shuffle(BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(groupOf(c)))).slice(0, 18);
     buildBlockbustersBoard();
     bbTurn=0; renderBBTurn();
+    bbVote=null; bbVoting=false; renderBBVote();
     bbTension(); bbDeal();
   }
 
@@ -1899,6 +2015,10 @@
     document.getElementById('clue-topline').textContent = clueObj.letter;
     document.getElementById('clue-section').textContent = clueObj.section;
     currentClueItem = { text:clueObj.clue, answer:clueObj.answer, type:clueObj.type };
+    /* Opening a hex answers the vote's question, so it ends there rather than
+       waiting for the button — and it must end *before* askPhones, or the arm
+       below would be overwritten by a vote nobody is still taking. */
+    bbVoting = false; bbVote = null; renderBBVote();
     askPhones(clueObj.clue, 'blockbusters');
     drawPrompt(document.getElementById('clue-text'), currentClueItem, 'blockbusters');
     const ansEl=document.getElementById('clue-answer'); ansEl.style.display='none'; ansEl.textContent=clueObj.answer;
@@ -2408,6 +2528,7 @@
     const kept = claimed && idx === bbTurn && S.get('keepControl', 'blockbusters');
     if(!kept) bbTurn = Kit.passTurn(2, bbTurn);
     renderBBTurn();
+    renderBBVote();      // the button names the team whose turn it now is
     renderScorebar();
   }
   /* Skip belongs to whichever game put the card up. Blockbusters uses it to leave a
@@ -2493,6 +2614,11 @@
   let mState   = [];     // per team: {rung, used:Set<prompt>, lifelines:{}}
   let mCurrent = null;   // {q, options[], team}
   let mAnswered = false;
+  /* The vote itself (Kit.vote), once Ask the class has run — and `mTally` is its
+     counts, kept as a name because the board renders them. One implementation now
+     serves this and Blockbusters' hexagon vote; what differs between them is who
+     may vote and what the numbers are drawn on, which is all the kit takes. */
+  let mVote    = null;
   let mTally   = null;   // option -> vote count, once Ask the class has run
   /* Counting is not the same thing as having counts. While the teacher is tapping
      hands, a click on an option adds a hand; once the count is in, a click has to
@@ -2517,7 +2643,7 @@
   }
 
   function buildMillionaire(){
-    mState = []; mCurrent = null; mAnswered = false; mTally = null; mCounting = false;
+    mState = []; mCurrent = null; mAnswered = false; mVote = null; mTally = null; mCounting = false;
     mVoting = false; mPicked = null;
     teams.forEach((t,i)=>mTeamState(i));
     active = 0;
@@ -2535,7 +2661,7 @@
   }
 
   function nextMillionaireQuestion(){
-    mAnswered = false; mTally = null; mCounting = false; mVoting = false; mPicked = null;
+    mAnswered = false; mVote = null; mTally = null; mCounting = false; mVoting = false; mPicked = null;
     const st = mTeamState(active);
 
     if(st.rung >= M_LADDER.length){       // this team has topped out
@@ -2698,8 +2824,7 @@
     if(!mCurrent) return;
     if(mCurrent.removed && mCurrent.removed.indexOf(opt) !== -1) return;
     if(mCounting){                       // tapping hands, not answering
-      mTally[opt] = (mTally[opt] || 0) + 1;
-      btn.querySelector('.m-votes').textContent = mTally[opt];
+      btn.querySelector('.m-votes').textContent = mVote ? mVote.hand(opt) : 0;
       return;
     }
     if(mAnswered) return;
@@ -2803,8 +2928,8 @@
       mCurrent.removed = shuffle(wrong.slice()).slice(0, 2);
       Sound.play('reveal');
     } else if(kind === 'class'){
-      mTally = {};
-      mCurrent.options.forEach(o=>{ mTally[o] = 0; });
+      mVote  = Kit.vote.open({ options: mCurrent.options.slice() });
+      mTally = mVote.counts;
       /* If there is a room, the class votes for real — whatever the phones were
          doing a second ago. That is the whole shape of this: the mode says what a
          phone is for during a question, and Ask the class borrows every phone in
@@ -2823,6 +2948,10 @@
     }
     renderMillionaire();
   }
+
+  document.getElementById('bb-ask').addEventListener('click', ()=>{
+    if(bbVoting) bbCloseVote(true); else bbAskTeam();
+  });
 
   document.querySelectorAll('#m-lifelines .lifeline').forEach(btn=>{
     btn.addEventListener('click', ()=>useLifeline(btn.dataset.life));
@@ -3009,10 +3138,13 @@
     if(S.get('phoneMode', activeGame) !== 'off') return true;
     return classVotes();
   }
-  // Millionaire's Ask the class is a phone vote, so the room is worth having open
-  // even when nothing else on the board wants one.
+  /* Both votes are worth a room even when nothing else on the board wants one:
+     Millionaire's Ask the class, and Blockbusters asking the team on turn which
+     hexagon to attack. */
   function classVotes(){
-    return activeGame === 'millionaire' && !!S.get('mLifelines', 'millionaire');
+    if(activeGame === 'millionaire')   return !!S.get('mLifelines', 'millionaire');
+    if(activeGame === 'blockbusters')  return !!S.get('bbTeamVote', 'blockbusters');
+    return false;
   }
   /* ---- one room per lesson ----
      A room used to be torn down with the game, because that is where its code
@@ -3038,6 +3170,7 @@
     buzzWinner = null; lastTyped = null;
     if(buzzHost) buzzHost.disarm();
     renderBuzzChip();
+    renderBBVote();
   }
 
   /* The code outlives the *page*, not just the game. Reloading the hub — which is
@@ -3078,7 +3211,10 @@
       rememberRoom(code, relay);
       buzzHost = HubBuzzer.host({ relay, code });
       buzzHost.on('ready',   d=>{ buzzPlayers=(d.players||[]).length; pushTeamNames();
-                                  renderBuzzChip(); renderJoinCount(); reaskPhones(); });
+                                  renderBuzzChip(); renderJoinCount(); reaskPhones();
+                                  // the room arrives after the board is built, so the
+                                  // button that needs one has to be painted here
+                                  renderBBVote(); });
       buzzHost.on('players', list=>{ buzzPlayers=list.length; renderBuzzChip(); renderJoinCount(); });
       buzzHost.on('buzz',    onBuzz);
       buzzHost.on('response', onResponse);
@@ -3091,6 +3227,7 @@
     forgetRoom();
     if(buzzHost){ buzzHost.close(); buzzHost=null; }
     buzzWinner=null; buzzPlayers=0; lastTyped=null;
+    bbVote=null; bbVoting=false; renderBBVote();
     const chip=document.getElementById('buzzer-chip');
     if(chip) chip.style.display='none';
   }
@@ -3109,8 +3246,9 @@
      rejoin. `syncBuzzRoom` opens, re-asks or parks as the new value requires —
      including opening one for Ask the class when the mode itself is off. */
   S.onChange(id=>{
-    if(id !== 'phoneMode' && id !== 'mLifelines') return;
+    if(id !== 'phoneMode' && id !== 'mLifelines' && id !== 'bbTeamVote') return;
     syncBuzzRoom();
+    renderBBVote();
   });
 
   function pushTeamNames(){
@@ -3118,14 +3256,18 @@
   }
 
   /* Ask the whole class rather than racing for the floor. `mode` is 'vote' (pick
-     one of the options) or 'answer' (type it). Replies arrive on onResponse. */
+     one of the options) or 'answer' (type it). Replies arrive on onResponse.
+     `team` narrows it to one side of the room — Blockbusters asks the team on turn
+     which hexagon to attack — and the phones that are not entitled show the
+     question with no controls rather than a button that would be discarded. */
   let classReplies = null;         // {mode, tally, all, of} while a round is open
 
-  function askClass(prompt, mode, options){
+  function askClass(prompt, mode, options, team){
     if(!buzzHost) return false;
     classReplies = { mode, tally:{}, all:[], total:0, of:buzzPlayers };
     buzzWinner = null;
     buzzHost.arm(prompt || '', { mode, options: options || [],
+                                 team: (team == null ? null : Number(team)),
                                  keepSpent: !S.get('phoneOneEach', activeGame) });
     renderBuzzChip('asking');
     return true;
@@ -3136,9 +3278,15 @@
     classReplies = { mode:(classReplies && classReplies.mode) || 'answer',
                      tally:d.tally || {}, all:d.all || [], total:d.total || 0, of:d.of || 0 };
     // Millionaire's Ask-the-class shows the count on the options themselves
-    if(activeGame === 'millionaire' && mTally){
-      Object.keys(mTally).forEach(k=>{ mTally[k] = classReplies.tally[k] || 0; });
+    if(activeGame === 'millionaire' && mVote){
+      mVote.apply(classReplies.all);
       renderMillionaire();
+    }
+    /* Blockbusters draws its counts on the hexagons. Same vote object, same recount
+       — the only difference is where the numbers are painted. */
+    if(activeGame === 'blockbusters' && bbVote){
+      bbVote.apply(classReplies.all);
+      renderBBVote();
     }
     renderReplies();
     renderBuzzChip('asking');
@@ -3173,13 +3321,17 @@
     /* A vote in progress outranks the mode: re-asking here would replace the four
        options on every phone with a buzzer, mid-vote, and the votes already cast
        would be the only ones counted. Whoever closes the vote re-asks. */
-    if(mVoting) return;
+    if(voteLive()) return;
     const modal = document.getElementById('clue-modal');
     const live = (activeGame === 'millionaire' && mCurrent && !mAnswered)
               || (activeGame === 'race' && raceCurrent)
               || (currentClueItem && modal && modal.style.display === 'flex');
     if(live) askPhones(currentPhonePrompt(), activeGame);
   }
+
+  /* Both games' votes, asked as one question — the fact lives here rather than in
+     each caller, the same reason `Kit.floorTop()` exists. */
+  function voteLive(){ return mVoting || bbVoting; }
 
   function clearReplies(){
     classReplies = null;

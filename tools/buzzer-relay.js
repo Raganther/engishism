@@ -67,10 +67,14 @@ function getRoom(code, create){
 
        `cooling` is what makes a wrong typed answer cost something without costing
        points: that player alone is out until their timestamp passes, while the
-       room stays open for everyone else. */
+       room stays open for everyone else.
+
+       `team` is set when a round belongs to one team rather than the room —
+       Blockbusters asks the team on turn which hexagon to attack, and the other
+       side of the room is watching, not choosing. Null means everybody. */
     r = { host:null, players:new Map(), teams:[], armed:false, locked:null,
-          mode:'buzz', prompt:'', options:[], responses:new Map(), spent:new Set(),
-          cooling:new Map(), emptiedAt:0 };
+          mode:'buzz', prompt:'', options:[], team:null, responses:new Map(),
+          spent:new Set(), cooling:new Map(), emptiedAt:0 };
     rooms.set(code, r);
   }
   return r;
@@ -135,7 +139,7 @@ function openStream(req, res, q){
      room's current state travels with the join. */
   pushEvent(res, 'joined', {
     id, name, team, teams:room.teams, armed:room.armed, locked:room.locked,
-    mode:room.mode, prompt:room.prompt, options:room.options,
+    mode:room.mode, prompt:room.prompt, options:room.options, turnTeam:room.team,
     spent:[...room.spent],
     cooling:[...room.cooling].map(([pid,until])=>({ id:pid, until }))
   });
@@ -196,7 +200,12 @@ function handleSend(req, res){
       case 'arm': {
         room.armed = true; room.locked = null;
         room.mode  = ['buzz','vote','answer','type'].indexOf(msg.mode) !== -1 ? msg.mode : 'buzz';
-        room.options = Array.isArray(msg.options) ? msg.options.slice(0,6).map(o=>String(o).slice(0,80)) : [];
+        /* Was six, which is right for a question with four answers and wrong for
+           "which of the letters still on the board" — a Blockbusters board opens
+           with eighteen. The phone lays short options out as a keypad rather than a
+           list, so the cap is about what fits a hand, not what fits a question. */
+        room.options = Array.isArray(msg.options) ? msg.options.slice(0,20).map(o=>String(o).slice(0,80)) : [];
+        room.team  = (msg.team === 0 || Number(msg.team) > 0) ? Number(msg.team) : null;
         room.responses = new Map();
         // a new round clears who has already had a go, unless the host is
         // deliberately continuing one (spending is how "one each" is enforced)
@@ -212,16 +221,20 @@ function handleSend(req, res){
         room.prompt = String(msg.prompt||'').slice(0,200);
         toPlayers(room, 'armed', { prompt: room.prompt,
                                    mode: room.mode, options: room.options,
+                                   /* `turnTeam`, not `team`: the join payload already
+                                      carries the player's own team under that name, and
+                                      the phone runs both through the same handler. */
+                                   turnTeam: room.team,
                                    spent: [...room.spent], reopen: !!msg.reopen,
                                    cooling: [...room.cooling].map(([id,until])=>({ id, until })) });
         return sendJSON(res, 200, { ok:true });
       }
       case 'disarm':
-        room.armed = false; room.prompt = '';
+        room.armed = false; room.prompt = ''; room.team = null;
         toPlayers(room, 'disarmed', {});
         return sendJSON(res, 200, { ok:true });
       case 'reset':
-        room.armed = false; room.locked = null; room.prompt = '';
+        room.armed = false; room.locked = null; room.prompt = ''; room.team = null;
         room.responses = new Map(); room.spent = new Set(); room.cooling = new Map();
         toPlayers(room, 'reset', {});
         return sendJSON(res, 200, { ok:true });
@@ -235,6 +248,11 @@ function handleSend(req, res){
         if(!room.armed) return sendJSON(res, 200, { ok:true, ignored:'not armed' });
         if(room.mode === 'buzz') return sendJSON(res, 200, { ok:true, ignored:'buzz round' });
         if(room.spent.has(p.id)) return sendJSON(res, 200, { ok:true, ignored:'already answered' });
+        /* A round can belong to one team. The phone is told and shows no controls,
+           so this only catches the ones that cannot have been told — a handset that
+           joined mid-round, or one still holding the previous question. */
+        if(room.team != null && p.team !== room.team)
+          return sendJSON(res, 200, { ok:true, ignored:'not your team' });
         const value = String(msg.value == null ? '' : msg.value).slice(0, 120);
         room.responses.set(p.id, { id:p.id, name:p.name, team:p.team, value });
         room.spent.add(p.id);

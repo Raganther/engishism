@@ -165,6 +165,7 @@ Anything more than one game needs lives in `hub-kit.js`, not in a game:
 | `Kit.passTurn(count,current)` | four ad hoc rotations | all four games |
 | `Kit.prompt.register/render/reveal` | a question's *form* being a convention in how the prompt was worded | all four games |
 | `Kit.answer.judge(typed, expected)` | `===` deciding whether a student produced the word | the typing race; any game that ever accepts typed input |
+| `Kit.vote.open({options,team})` | Millionaire's Ask the class being the only way to ask the room to choose | Ask the class; Blockbusters' hexagon vote |
 
 ### Question forms are a registry too
 A question's *form* — gap fill, anagram, odd one out — used to exist only in how the
@@ -250,6 +251,36 @@ the start by about a frame.
 `allow` on `claimTeam` exists because some boards are structurally two-team —
 Blockbusters' yellow-across / blue-down geometry gives a third team nowhere to play — so
 it is restricted there rather than generalised.
+
+### Asking the room to choose
+`Kit.vote` is the counting half of a vote — options, a live count against each, a
+leader, and **who is entitled**. The transport is not in it (that is the engine's
+room), so it takes replies as a parameter and hands back numbers. Two games use it
+for opposite questions: Millionaire asks the whole class *what the answer is*,
+Blockbusters asks **one team** *which hexagon to attack*.
+
+`team` is why it is a service rather than four lines copied twice. A round can
+belong to one side of the room, and that has to be true in three places at once —
+the relay stores it, the phones that are not entitled show the question with no
+controls (`turnTeam`, deliberately not `team`: the join payload already uses that
+name for the player's own team, and the handset runs both through one handler), and
+the count drops anything that arrives anyway. The third is not paranoia: a phone
+that joined mid-vote, or one still holding the previous question, has been told
+nothing.
+
+**Where the numbers go is a content question, not a styling one.** Millionaire draws
+its counts on the four options, which is exactly right there. Blockbusters cannot:
+two hexagons routinely carry the same letter — a board of eighteen from a vocabulary
+bank clusters on common initials — so one vote for `R` painted "1" on three
+hexagons, which any room reads as three votes. The vote is for a *letter*, so the
+letters are counted once in a strip beside the legend, and the board's job is to
+show where that lands: every hexagon carrying the leading letter lights up. That is
+also the honest picture — the team said R, there are three, the teacher picks which.
+
+**The hexagon's `clip-path` crops an outline and a box-shadow away entirely**, so the
+leading hex is marked with a `drop-shadow` filter and a fill change, the same reason
+the winning route uses one. And in the game show skin the fill has to change: the
+skin already glows violet, so a slightly bigger violet glow marks nothing.
 
 ## Screens: one layout contract, asked of whatever is registered
 Every game owes the room the same three things, whatever its board is made of:
@@ -465,6 +496,24 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The bench picks the hexagon.** Blockbusters' real weakness was never the board,
+  it was that two students play and the rest watch. The team on turn now chooses its
+  next hexagon on their phones — `Team picks` in the legend row asks them, their
+  votes land in a strip beside it, and every hexagon carrying the leading letter
+  lights up. Setting `bbTeamVote`, on by default; no room, no button.
+  - **Advisory on purpose.** The teacher still clicks the hexagon. Students never
+    touch the device is the app's constraint everywhere, and a vote that opened a
+    clue by itself would make a mis-tap unrecoverable.
+  - **A vote can belong to one team**, which is new and reaches three places: the
+    relay stores it, the phones that are not entitled show the question with no
+    controls, and `Kit.vote` drops what arrives anyway — see "Asking the room to
+    choose". Millionaire's Ask the class went onto the same service, so there is one
+    implementation rather than two.
+  - **Opening a hexagon ends the vote**, before `askPhones`, or the clue's arm is
+    immediately overwritten by a vote nobody is still taking.
+  - The relay's option cap was **6, now 20**: right for a question with four answers,
+    wrong for "which letter is still on the board". The phone lays short options out
+    as a keypad rather than a list, so the cap is what fits a hand.
 - **Voting is not a mode — it is what Ask the class does with whatever room is
   open.** `vote` was one of `phoneMode`'s values, which made it a *choice against*
   buzzing and typing: a Millionaire round could have a class that buzzes or a class
@@ -575,7 +624,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   nothing saying why. Timed rounds ask now too; `raceCanTry()` restricts a timed
   round's buzz to the team whose round it is, so a phone on the bench can't steal a
   word off someone else's score.
-- **Deployed.** Build `20260730d`, phone-modes suite at 86 checks green (10 new).
+- **Deployed.** Build `20260730e`; new `teamvote` suite at 29 checks green.
 - **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
   the game being played, and only that game, without leaving the board — see "The Lab"
   above. It exists because prototyping was the bottleneck: comparing two ideas meant
@@ -955,9 +1004,17 @@ what a teacher set deliberately**, so it must be translated rather than silently
 - **Millionaire authoring cost is now measurable**: 36 four-option questions for one
   unit — the single biggest content job so far, and the number to quote when asked
   what a unit costs.
-- Obvious next use of the phone layer: buzzers to pick which team answers a Jeopardy
-  tile. (Ask the class as a real vote is done — it is now what the lifeline does
-  whenever a room is open.)
+- **The phone dynamics still to try**, now that a vote is a shared service and can
+  belong to one team: a **confidence wager** in Jeopardy (1/2/3 before the clue turns
+  over, paid at that multiple — a vote, quiet, and individual rather than a race);
+  **buzzers to pick which team answers a tile**; an **exit ticket** at the end-of-round
+  banner, which would be one `onFinish` hook plus `write` mode and would reach every
+  game including future ones; and **personal scorecards**, the big one, because it
+  means the relay holds state across questions.
+- **The Race "director" dynamic is the highest language value and the least code** —
+  the sentence goes only to the seated students' phones, never the board, so they
+  have to talk the runner onto the word without saying it. Worth running verbally in
+  one lesson before building anything.
 - Measure authoring cost per unit (the number the demo pitch hinges on). Race is the
   cheapest data point so far: 36 prompts, no distractors.
 - Fill Unit 4's Jeopardy gap — the card claims 4A–4D but only 4A/4B have categories.
@@ -992,12 +1049,12 @@ runs. Pick the row, run it, push.
 | **Content** (a bank, a unit file) | `--only=content` | ~20s |
 | **One game's own logic** (board, its `tension()`, its stage CSS) | `--only=<game>` | ~40s |
 | **Shared layer 1** — `hub-kit.js`, the header, `hub.css` outside one stage, settings, the fit | `--only=millionaire,fit,phone,gameshow,lab,registry,competition` | ~3 min |
-| **Phones / relay** | add `,buzzers,phonemodes,degradation` | +3 min |
+| **Phones / relay** | add `,buzzers,phonemodes,teamvote,degradation` | +4 min |
 | **Before a lesson you will actually teach from**, or on request | the full suite | ~25 min |
 
 ```bash
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=millionaire,fit,phone   # the usual
-NODE_PATH=$(npm root -g) node tools/smoke-test.js                                # 31 suites
+NODE_PATH=$(npm root -g) node tools/smoke-test.js                                # 32 suites
 ```
 
 **Two cheap pre-flights that cost seconds and have each already paid for themselves:**

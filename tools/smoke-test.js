@@ -2779,6 +2779,147 @@ async function testAnswerJudging(browser){
   await page.close();
 }
 
+/* ---- the bench picks the hexagon ----
+   Blockbusters' weakness is that two students play and the rest watch, so the team
+   on turn chooses its next hexagon on their phones. Two properties are the whole
+   feature and both were bugs first: only the team on turn may vote, and a letter is
+   counted once however many hexagons happen to carry it. */
+async function testTeamVote(browser){
+  section('Blockbusters — the team picks the hexagon');
+
+  /* Kit.vote is the shared service under both this and Ask the class, so its rules
+     are asserted directly rather than inferred from two boards. */
+  const page0 = await openHub(browser);
+  const kit = await page0.evaluate(() => {
+    const v = window.HubKit.vote.open({ options:['A','B','C'], team:1 });
+    const before = JSON.stringify(v.apply([{team:0, value:'A'}, {team:1, value:'B'}]));
+    v.apply([{team:1, value:'B'}, {team:1, value:'B'}, {team:1, value:'ZZ'}]);
+    const lead = v.leader();
+    const tie = window.HubKit.vote.open({ options:['A','B'] });
+    tie.apply([{team:0, value:'A'}, {team:1, value:'B'}]);
+    return { before, lead, tied: tie.leader().tied, total: v.total(),
+             empty: window.HubKit.vote.open({ options:['A'] }).leader() };
+  });
+  check('a vote counts only the team it belongs to',
+        JSON.parse(kit.before).A === 0 && JSON.parse(kit.before).B === 1, kit.before);
+  check('a reply naming something not on the ballot is dropped', kit.total === 2, String(kit.total));
+  check('the leader is the option in front', kit.lead && kit.lead.option === 'B', JSON.stringify(kit.lead));
+  check('a draw says so rather than picking one', kit.tied === true);
+  check('and no votes at all is no leader, not a zero', kit.empty === null, JSON.stringify(kit.empty));
+  checkClean(page0, 'kit vote');
+  await page0.close();
+
+  // ---- on the board, with the phones otherwise idle
+  const host = await openHub(browser);
+  await host.evaluate(() => {
+    window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
+    window.HubSettings.set('buzzers', true);
+    window.HubSettings.set('phoneMode','off','blockbusters');
+  });
+  await startGame(host, 'Blockbusters', { sections:'all' });
+  await host.waitForTimeout(900);
+  const chip = await host.locator('#buzzer-chip').innerText().catch(()=>'');
+  const code = (chip.match(/CODE\s+(\d{5})/i)||[])[1];
+  check('a room opens for the vote even with the phones idle', !!code, chip.replace(/\n/g,' '));
+  check('the button offers it to the team on turn',
+        /picks/i.test(await host.locator('#bb-ask').innerText()),
+        await host.locator('#bb-ask').innerText());
+
+  if (code){
+    const join = async (name, team) => {
+      const p = await browser.newPage({ viewport:{ width:390, height:844 } });
+      p.__errors = []; p.on('pageerror', e => p.__errors.push(String(e)));
+      await p.goto(BASE + '/join.html'); await p.waitForTimeout(200);
+      await p.fill('#code', code); await p.fill('#name', name);
+      await p.locator('.teams button').nth(team).click();
+      await p.locator('#join-btn').click(); await p.waitForTimeout(500);
+      return p;
+    };
+    const ana = await join('Ana', 0), cara = await join('Cara', 0), ben = await join('Ben', 1);
+    await host.waitForTimeout(400);
+    await host.locator('#bb-ask').click(); await host.waitForTimeout(800);
+
+    const letters = await ana.locator('#opts button').allInnerTexts();
+    check('the team on turn gets the letters still on the board', letters.length > 4, letters.join(''));
+    check('and every letter is offered once, not once per hexagon',
+          new Set(letters).size === letters.length, letters.join('/'));
+    /* The other side of the room is watching, not choosing — and is told whose
+       choice it is rather than shown a dead button. */
+    check('the team not on turn has nothing to press',
+          await ben.locator('#opts').isVisible() === false &&
+          await ben.locator('#buzzer').isVisible() === false);
+    check('and is told who is choosing',
+          /choosing/i.test(await ben.locator('#state').innerText()),
+          await ben.locator('#state').innerText());
+
+    const pick = letters[0];
+    for (const p of [ana, cara]){
+      await p.locator('#opts button', { hasText:new RegExp('^' + pick + '$') }).first().click();
+      await host.waitForTimeout(300);
+    }
+    await host.waitForTimeout(500);
+    /* The count is per *letter*. Painting it on the hexagons instead read as three
+       votes for one, because a board of eighteen clusters on common initials —
+       so the numbers are counted once and the board shows where they land. */
+    check('both votes land on one letter',
+          (await host.locator('#bb-tally').innerText()).trim() === pick + ' 2',
+          await host.locator('#bb-tally').innerText());
+    const lit = await host.locator('#hexwrap .hex.pick').count();
+    const same = await host.evaluate(l => [...document.querySelectorAll('#hexwrap .hex')]
+      .filter(h => h.dataset.letter === l).length, pick);
+    check('and every hexagon carrying it lights up', lit === same && lit >= 1, lit + ' of ' + same);
+
+    /* A phone from the other team cannot vote even if it tries: it is told, the
+       relay drops it, and the kit would not count it either. */
+    /* Not a click — the button is not there to click. This sends the vote the way a
+       handset that had been told nothing would send it, which is what the relay's
+       team gate is actually for: a phone that joined mid-round, or one still
+       holding the last question. */
+    await ben.evaluate(l => window.HubPlayer && window.HubPlayer.respond(l), pick).catch(()=>{});
+    await host.waitForTimeout(400);
+    check('a vote from the other team changes nothing',
+          (await host.locator('#bb-tally').innerText()).trim() === pick + ' 2',
+          await host.locator('#bb-tally').innerText());
+
+    await host.locator('#bb-ask').click(); await host.waitForTimeout(600);
+    check('closing keeps the numbers — the team is about to play them',
+          await host.locator('#bb-tally').isVisible());
+    check('and the phones are handed back',
+          await ana.locator('#opts').isVisible() === false);
+
+    await host.locator('#hexwrap .hex.pick').first().click(); await host.waitForTimeout(900);
+    check('opening the chosen hexagon ends the vote',
+          await host.locator('#bb-tally').isVisible() === false);
+    check('and the clue is up', (await host.locator('#clue-text').innerText()).trim().length > 0);
+
+    for (const p of [ana, cara, ben]){
+      check('phone had no errors', p.__errors.length === 0, p.__errors[0]);
+      await p.close();
+    }
+  }
+  checkClean(host, 'team vote');
+  await host.close();
+
+  // ---- switched off, and with no relay at all: no button, no change
+  const off = await openHub(browser);
+  await off.evaluate(() => {
+    window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
+    window.HubSettings.set('buzzers', true);
+    window.HubSettings.set('bbTeamVote', false, 'blockbusters');
+    window.HubSettings.set('phoneMode','off','blockbusters');
+  });
+  await startGame(off, 'Blockbusters', { sections:'all' });
+  await off.waitForTimeout(900);
+  check('switched off, there is no button and no room',
+        await off.locator('#bb-ask').isVisible() === false &&
+        await off.locator('#buzzer-chip').isVisible() === false);
+  await off.locator('#hexwrap .hex').first().click(); await off.waitForTimeout(1300);
+  check('and the game plays exactly as before',
+        (await off.locator('#clue-text').innerText()).trim().length > 0);
+  checkClean(off, 'team vote off');
+  await off.close();
+}
+
 async function testDegradation(browser){
   section('Degrades without buzzers');
 
@@ -2842,7 +2983,7 @@ async function main(){
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens, phone: testPhoneLayout,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
     variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, topics: testTopicPicking, defaultlook: testDefaultLook, jfinish: testJeopardyFinish, competition: testCompetition, lab: testLabDrawer, range: testRangeSetting,
-    buzzers: testBuzzers, phonemodes: testPhoneModes,
+    buzzers: testBuzzers, phonemodes: testPhoneModes, teamvote: testTeamVote,
     typetobuzz: testTypeToBuzz, judging: testAnswerJudging,
     degradation: testDegradation, file: testFileProtocol
   };

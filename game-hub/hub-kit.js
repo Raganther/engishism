@@ -587,5 +587,73 @@ window.HubKit = (function(){
     }
   };
 
-  return { fitToScreen, floorTop, anim, prompt, claimTeam, passTurn, shapeOf, answer };
+  /* ---------- asking the room to choose ----------
+     Millionaire's Ask the class was the first vote, and everything about it that
+     is not Millionaire is here: a fixed set of options, a live count against each,
+     and the question of who is entitled to vote. The transport is not — that is the
+     engine's room — so this takes replies as a parameter and returns numbers.
+
+       const v = Kit.vote.open({ options:['A','B'], team:1 });
+       v.apply(replies);        // [{name, team, value}] straight off the wire
+       v.hand('A');             // or a hand in the air, counted by the teacher
+       v.leader();              // {option, n, tied}
+
+     `team` is the reason this is a service and not a copy of Millionaire's four
+     lines: Blockbusters asks *one* team which hexagon to attack, so a reply from
+     the other side of the room is not a vote. The phones are told as well, but a
+     phone that joined mid-vote, or an old one still holding the last question,
+     would otherwise be counted. Whoever owns the vote decides what it means; this
+     only ever counts.
+
+     Deliberately not a tally of everything that arrives: `apply` recounts from the
+     full reply list every time rather than incrementing, because the relay resends
+     the whole list and a student may change their mind before the vote closes. */
+  const vote = {
+    open({ options, team = null } = {}){
+      const opts = (options || []).map(String);
+      const counts = {};
+      opts.forEach(o => { counts[o] = 0; });
+      let live = true;
+
+      const mayVote = r => team == null || Number(r && r.team) === Number(team);
+
+      return {
+        options: opts,
+        team,
+        counts,
+        get live(){ return live; },
+        /* Recount from the wire. Replies naming an option that is not on the ballot
+           are dropped rather than added — 50:50 can remove an option after a phone
+           has already been shown it. */
+        apply(replies){
+          opts.forEach(o => { counts[o] = 0; });
+          (replies || []).forEach(r => {
+            const v = String((r && r.value) != null ? r.value : '');
+            if(mayVote(r) && v in counts) counts[v] += 1;
+          });
+          return counts;
+        },
+        // hands in the air: the teacher taps, so there is no reply to filter
+        hand(option){
+          const o = String(option);
+          if(o in counts) counts[o] += 1;
+          return counts[o];
+        },
+        total(){ return opts.reduce((n, o) => n + counts[o], 0); },
+        /* The option in front, and whether it is actually in front — a tie is the
+           interesting case for a teacher, not a rounding detail to hide. */
+        leader(){
+          let best = null, n = -1, tied = false;
+          opts.forEach(o => {
+            if(counts[o] > n){ best = o; n = counts[o]; tied = false; }
+            else if(counts[o] === n && n > 0) tied = true;
+          });
+          return n > 0 ? { option:best, n, tied } : null;
+        },
+        close(){ live = false; return counts; }
+      };
+    }
+  };
+
+  return { fitToScreen, floorTop, anim, prompt, claimTeam, passTurn, shapeOf, answer, vote };
 })();
