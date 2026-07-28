@@ -116,7 +116,7 @@
   <p id="status"></p>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260730e"></script>
+<script src="game-hub/hub-buzzer.js?v=20260730f"></script>
 <script>
 (function(){
   'use strict';
@@ -139,13 +139,38 @@
   }
   renderTeams();
 
+  /* The real teams, before joining. This screen used to offer a hard-coded two, so
+     a class split into four could only pick from the first half — and a team the
+     teacher had renamed to something the room actually answers to still read
+     "Team 2" here. The room knows; ask it as soon as there is a code to ask about.
+
+     Failure is silent on purpose: a wrong code, a relay that has not heard of this
+     room yet, no network. The default pair stays and the student can still join —
+     the code is validated by the connection attempt, not by this. */
+  let teamsFor = '';
+  function loadTeams(){
+    const code = $('code').value.trim();
+    if(!/^\d{4,6}$/.test(code) || code === teamsFor) return;
+    teamsFor = code;
+    fetch((RELAY || '') + '/buzzer/room?code=' + encodeURIComponent(code))
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if(!d || !d.teams || !d.teams.length || $('code').value.trim() !== code) return;
+        teamNames = d.teams;
+        if(team >= teamNames.length) team = 0;   // the choice has to stay on the list
+        renderTeams();
+      })
+      .catch(()=>{});
+  }
+
   function validate(){
     $('join-btn').disabled = !(/^\d{4,6}$/.test($('code').value.trim()) && $('name').value.trim());
   }
-  $('code').addEventListener('input', validate);
+  $('code').addEventListener('input', ()=>{ validate(); loadTeams(); });
   $('name').addEventListener('input', validate);
   if(params.get('code')){ $('code').value = params.get('code'); }
   validate();
+  loadTeams();               // scanned in? then the code is already there
 
   function show(id){
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -311,9 +336,12 @@
       else        { setBuzzer('off','Wait');    $('state').textContent = 'Waiting for the teacher…'; }
     });
 
+    /* Renaming a team mid-lesson, or adding a fifth, has to reach the phones — the
+       name on the handset is how a student knows the score on the board is theirs. */
     client.on('teams', d=>{
       if(d.teams && d.teams.length){
         teamNames = d.teams;
+        renderTeams();
         $('who').textContent = name + ' · ' + (teamNames[team] || ('Team '+(team+1)));
       }
     });

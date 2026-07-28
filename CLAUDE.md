@@ -496,6 +496,47 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The clue card floats over the board instead of blacking it out.** It carried a
+  90%-opaque backdrop across the whole screen, so opening a clue hid the thing the
+  room was playing on — which tiles were gone, which hexagons were still open, the
+  score. No scrim now, and **the card can be dragged** by grabbing anywhere that
+  isn't a control.
+  - **The drag is written to `translate`, never `transform`.** The flip animates
+    transform through the Web Animations API, so an offset in the same property is
+    wiped by the next keyframe or fights the landing. They are separate longhands
+    and compose, so a card can be dragged mid-flip and still land on its tile.
+  - **Visible and clickable are different requests.** The scrim was also what
+    stopped a stray click opening a second clue over the first, so `body.clue-open`
+    drops pointer events on the play screen — the card and the team bar keep theirs,
+    because correcting a score mid-clue is a real thing a teacher does.
+  - The offset resets on every open: an old drag was a decision about the previous
+    question, and the opening animation has to land on its own tile.
+- **The team bar is back under the board; the timer stays in the header.** The
+  header is the teacher's instruments; the bar is the game's state and the room
+  reads it. It keeps the compact styling it grew while it lived in the header, so
+  the strip costs ~37px rather than the 84px it did originally.
+  - **`Kit.floorTop()` earned itself twice now.** The bar has moved out of the
+    boards' way and back again, and neither move needed a single fit or layout
+    assertion edited — they all ask for the floor rather than restating where it is.
+- **Who the points belong to, per mode.** The three phone modes answer that question
+  differently and now actually do:
+  - **`write`** — the whole room answers, so nobody won the question. `keepControl`
+    is a reward for winning it, so applying it here left one team picking every tile
+    for a whole game. The turn rotates instead.
+  - **`buzz`** — the buzz says who wants the floor and highlights that team; the
+    answer is spoken in the room, so the teacher still marks it. Unchanged, and now
+    pinned by a test.
+  - **`type`** — the student produced the answer in writing and the host judged it,
+    so **it scores automatically**, to that team, in every game. Race had this from
+    the start; the tile games did not, so the same student doing the same thing
+    scored on one board and waited for a click on the other.
+- **The phones offer the teams that exist.** The join screen hard-coded two buttons,
+  so a class split into four could only pick from the first half, and a team renamed
+  to something the room answers to still read "Team 2" on every handset. The phone
+  asks the relay (`GET /buzzer/room?code=…`, team names only) as soon as there is a
+  code to ask about, and `pushTeamNames` now runs from `renderScorebar` — the one
+  place that runs on any change to the list — skipping when nothing moved, because
+  that render also fires on every point scored.
 - **The bench picks the hexagon.** Blockbusters' real weakness was never the board,
   it was that two students play and the rest watch. The team on turn now chooses its
   next hexagon on their phones — `Team picks` in the legend row asks them, their
@@ -624,7 +665,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   nothing saying why. Timed rounds ask now too; `raceCanTry()` restricts a timed
   round's buzz to the team whose round it is, so a phone on the bench can't steal a
   word off someone else's score.
-- **Deployed.** Build `20260730e`; new `teamvote` suite at 29 checks green.
+- **Deployed.** Build `20260730f`; new `card`, `turns`, `phoneteams` and `teamvote` suites.
 - **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
   the game being played, and only that game, without leaving the board — see "The Lab"
   above. It exists because prototyping was the bottleneck: comparing two ideas meant
@@ -1048,13 +1089,13 @@ runs. Pick the row, run it, push.
 |---|---|---|
 | **Content** (a bank, a unit file) | `--only=content` | ~20s |
 | **One game's own logic** (board, its `tension()`, its stage CSS) | `--only=<game>` | ~40s |
-| **Shared layer 1** — `hub-kit.js`, the header, `hub.css` outside one stage, settings, the fit | `--only=millionaire,fit,phone,gameshow,lab,registry,competition` | ~3 min |
-| **Phones / relay** | add `,buzzers,phonemodes,teamvote,degradation` | +4 min |
+| **Shared layer 1** — `hub-kit.js`, the header, the team bar, the clue card, `hub.css` outside one stage, settings, the fit | `--only=millionaire,fit,phone,card,turns,gameshow,lab,registry,competition` | ~4 min |
+| **Phones / relay** | add `,buzzers,phonemodes,teamvote,phoneteams,degradation` | +5 min |
 | **Before a lesson you will actually teach from**, or on request | the full suite | ~25 min |
 
 ```bash
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=millionaire,fit,phone   # the usual
-NODE_PATH=$(npm root -g) node tools/smoke-test.js                                # 32 suites
+NODE_PATH=$(npm root -g) node tools/smoke-test.js                                # 35 suites
 ```
 
 **Two cheap pre-flights that cost seconds and have each already paid for themselves:**

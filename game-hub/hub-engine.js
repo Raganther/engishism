@@ -361,13 +361,19 @@
     options:[{value:'relaxed',label:'Relaxed'},{value:'normal',label:'Normal'},{value:'snappy',label:'Snappy'}] });
 
   /* Blockbusters' weakness is that two students play and twenty-eight watch. The
-     bench choosing the hexagon is the cheapest fix for that, and it needs a room
-     rather than a mode — like Ask the class, it borrows the phones for a moment
-     and hands them straight back. */
-  S.register({ id:'bbTeamVote', group:'Blockbusters', type:'toggle', default:true,
+     bench choosing the hexagon is the cheapest fix for that.
+
+     It lives in the phones group rather than the Blockbusters one because that is
+     where a teacher looks for "what do the phones do" — but it is deliberately not
+     a `phoneMode` *value*. A mode is a choice between things that cannot both be
+     true during a question; this is a button that borrows the room for ten seconds
+     between questions and hands it straight back, exactly like Ask the class. Making
+     it a mode would mean a Blockbusters class could pick the hexagon or buzz on the
+     clue, never both, when the round wants both at different moments. */
+  S.register({ id:'bbTeamVote', group:'Phones (prototype)', type:'toggle', default:true,
     games:['blockbusters'],
     label:'The team picks its hexagon on their phones',
-    help:'Adds a button that asks the team on turn which letter to attack. Their votes land on the hexagons; you still click the one that plays. Needs a buzzer room; with no phones the button stays hidden.' });
+    help:'Adds a button that asks the team on turn which letter to attack. Their votes land beside the legend and the hexagons light up; you still click the one that plays. Works alongside whatever the phones are doing during a clue. Needs a room; with no phones the button stays hidden.' });
 
   S.register({ id:'bbWinRoute', group:'Blockbusters', type:'variant', default:'trace',
     games:['blockbusters'],
@@ -631,10 +637,6 @@
         <h1 id="page-title">Game Hub</h1>
       </div>
       <div class="header-right">
-        <!-- persistent team bar: rides in the header, visible on every screen. It
-             was fixed to the bottom of the screen and got in the way of the boards,
-             which is the one thing a classroom display cannot afford. -->
-        <div id="scorebar"></div>
         <div id="timer-widget">
           <button id="tmr-minus" title="−15 seconds">−</button>
           <span id="tmr-display">0:30</span>
@@ -752,6 +754,12 @@
       </div>
       <div id="intro-skip">Press any key to skip</div>
     </div>
+
+    <!-- Persistent team bar, under the board and visible on every screen. It rode
+         in the header for one build; back down here because the header is for the
+         teacher's instruments and the bar is the game's state — the room reads it,
+         not just the teacher. Kit.floorTop() is what keeps boards off it. -->
+    <div id="scorebar"></div>
 
     <!-- end-of-round banner. Deliberately a banner and not a full-screen modal: the
          whole point of a Blockbusters win is the route lit up on the board behind it,
@@ -1107,6 +1115,9 @@
     resetBtn.textContent='↺'; resetBtn.title='Reset points';
     resetBtn.addEventListener('click', ()=>{ teams.forEach(t=>{ t.score=0; t.run=0; }); renderScorebar(); });
     bar.appendChild(resetBtn);
+    // adding a team, or renaming one, has to reach the phones — this is the one
+    // place that runs on any change to the list, and the push skips a no-op
+    pushTeamNames();
   }
 
   function nextTurn(){ if(teams.length){ active=Kit.passTurn(teams.length, active); renderScorebar(); } }
@@ -2268,9 +2279,67 @@
     return Kit.anim.get('cardFlip', name);
   }
 
+  /* ---- dragging the card out of the way ----
+     The card is centred on the screen, and the thing the teacher needs to see is
+     sometimes exactly behind it — the tile they are about to take, a hexagon the
+     other team is one answer from. Now that the board is visible through the layer,
+     being able to shove the card aside is the other half of that.
+
+     Written into `translate`, not `transform`: the flip animates transform through
+     the Web Animations API, and an offset living in the same property would be
+     overwritten by the next keyframe — or would fight the landing. They are
+     separate longhands and compose, so a card can be dragged mid-flip and still
+     land on its tile. */
+  let cardOffset = { x:0, y:0 };
+  function setCardOffset(x, y){
+    cardOffset = { x, y };
+    const card = document.getElementById('clue-card');
+    if(card) card.style.translate = (x || y) ? (x + 'px ' + y + 'px') : '';
+  }
+  (function makeCardDraggable(){
+    const card = document.getElementById('clue-card');
+    if(!card) return;
+    let from = null;
+    card.addEventListener('pointerdown', e=>{
+      // never steal a press meant for a control: the answer buttons and the team
+      // chips live on this card, and they are what it is for
+      if(e.target.closest('button, input, select, textarea, a, #clue-claim')) return;
+      if(e.button !== 0 && e.pointerType === 'mouse') return;
+      from = { px:e.clientX, py:e.clientY, x:cardOffset.x, y:cardOffset.y };
+      document.body.classList.add('clue-dragging');
+      try{ card.setPointerCapture(e.pointerId); }catch(_){}
+    });
+    card.addEventListener('pointermove', e=>{
+      if(!from) return;
+      /* Clamp so it can never be dragged off the screen entirely. Measured from the
+         card's own rect rather than a guessed size, because the card is 720px on a
+         TV and the width of a handset. */
+      const r = card.getBoundingClientRect();
+      const keep = 80;                       // this much of it stays reachable
+      let x = from.x + (e.clientX - from.px);
+      let y = from.y + (e.clientY - from.py);
+      const left = r.left - cardOffset.x, top = r.top - cardOffset.y;
+      x = Math.max(keep - left - r.width, Math.min(window.innerWidth - left - keep, x));
+      y = Math.max(keep - top - r.height,  Math.min(window.innerHeight - top - keep, y));
+      setCardOffset(x, y);
+    });
+    const end = e=>{
+      if(!from) return;
+      from = null;
+      document.body.classList.remove('clue-dragging');
+      try{ card.releasePointerCapture(e.pointerId); }catch(_){}
+    };
+    card.addEventListener('pointerup', end);
+    card.addEventListener('pointercancel', end);
+  })();
+
   function openClueCard(origin){
     const modal = document.getElementById('clue-modal');
     const card  = document.getElementById('clue-card');
+    /* A new clue arrives centred. Keeping the last drag would land the flip's
+       opening animation somewhere the tile is not, and the offset was a decision
+       about the *previous* question. */
+    setCardOffset(0, 0);
     document.getElementById('clue-front-text').textContent =
       origin ? (origin.dataset.face || origin.textContent) : '';
     /* The card lives outside the stage, so it cannot inherit --tension the way the
@@ -2283,6 +2352,11 @@
     }
     card.style.setProperty('--tension', stake.toFixed(3));
     modal.style.display = 'flex';
+    /* The board is visible again but it is not *live*: every action while a clue is
+       open belongs to the card, and the 90% scrim used to be what stopped a stray
+       click opening a second clue over the first. Seeing the board and being able to
+       click it are different requests; this keeps the first and refuses the second. */
+    document.body.classList.add('clue-open');
     card.getAnimations().forEach(a=>a.cancel());
     ['clue-front','clue-back'].forEach(id=>{
       const f=document.getElementById(id);
@@ -2326,6 +2400,7 @@
         if(f) f.getAnimations().forEach(a=>a.cancel());
       });
       card.style.transform=''; card.classList.remove('flipped');
+      document.body.classList.remove('clue-open');
       if(then) then();
     };
     const impl = currentFlip();
@@ -2421,9 +2496,14 @@
     document.getElementById('close-btn').style.display  = 'inline-block';
   }
 
-  document.getElementById('correct-btn').addEventListener('click', ()=>{
+  /* Paying a tile out, as a function rather than only as a button handler: a typed
+     answer judged right on the host is the same event as the teacher pressing
+     ✓ Correct, and the two must not drift. `to` names the team when something other
+     than the turn decides it — a steal, or the phone that produced the word. */
+  function jCorrect(to){
     const showy = document.getElementById('play-jeopardy').classList.contains('lit');
     const value = currentClueValue;
+    const team  = (to != null) ? to : (jSteal ? jSteal.to : active);
     Sound.bedStop();
     if(showy){
       Sound.play('sting'); jFlash('right');
@@ -2434,14 +2514,18 @@
     }
     if(currentTile){ currentTile.classList.add('used'); }   // keeps its value, faded
     if(teams.length){
-      award(jSteal ? jSteal.to : active, value, { steal: !!jSteal });
-      markRun(jSteal ? jSteal.to : active, true);
+      award(team, value, { steal: !!jSteal && team === jSteal.to });
+      markRun(team, true);
     }
     jSteal = null;
     closeModal(flipMs(FLIP_HOLD_MS), jAfterClue);
-    // a team that answers keeps the board; steal is what stops that running away
-    if(!S.get('keepControl', 'jeopardy')) nextTurn();
-  });
+    /* A team that answers keeps the board, and steal is what stops that running
+       away — but "keep the board" is a reward for winning the question, and in
+       `write` there is no winning it: the whole room answered. Nobody has earned
+       the next pick, so the turn rotates and everyone gets one. */
+    if(!S.get('keepControl', 'jeopardy') || everyoneAnswers()) nextTurn();
+  }
+  document.getElementById('correct-btn').addEventListener('click', ()=>jCorrect(null));
   document.getElementById('wrong-btn').addEventListener('click', ()=>{
     const showy = document.getElementById('play-jeopardy').classList.contains('lit');
     Sound.bedStop();
@@ -3259,8 +3343,21 @@
     renderBBVote();
   });
 
+  /* The phones need the team list, not just at the start: a team renamed mid-lesson
+     or a fifth added has to reach every handset, because the name on the phone is
+     how a student knows which score on the board is theirs. Called from
+     renderScorebar, which is the one place that runs on any change to the teams —
+     and skipped when nothing about the list actually moved, because that render
+     also runs on every point scored and a POST per point is a waste of the room's
+     wifi. */
+  let lastPushedTeams = null;
   function pushTeamNames(){
-    if(buzzHost) buzzHost.setTeams(teams.map(t=>t.name));
+    if(!buzzHost) return;
+    const names = teams.map(t=>t.name);
+    const key = names.join('\u0000');
+    if(key === lastPushedTeams) return;
+    lastPushedTeams = key;
+    buzzHost.setTeams(names);
   }
 
   /* Ask the whole class rather than racing for the floor. `mode` is 'vote' (pick
@@ -3411,6 +3508,10 @@
     renderBuzzChip('armed');
   }
   function typingRace(){ return !!activeGame && S.get('phoneMode', activeGame) === 'type'; }
+  /* The mode where the whole room answers rather than one phone taking the floor.
+     Nobody wins the question, so nothing about the round should behave as if
+     somebody had — the turn rotates instead of being kept. */
+  function everyoneAnswers(){ return !!activeGame && S.get('phoneMode', activeGame) === 'write'; }
   // the modes where one phone takes the floor, as opposed to the whole room answering
   function phoneRaces(){
     const m = activeGame ? S.get('phoneMode', activeGame) : 'off';
@@ -3513,9 +3614,21 @@
     Sound.play('claim');
     renderBuzzChip('won');
 
-    /* In Race the typed word *is* the claim: the student named it, so there is
-       nothing left for the teacher to confirm. (A plain buzz still needs the click,
-       because a raised thumb doesn't say which word they meant.) */
+    /* A typed word *is* the claim, in every game — the student produced the answer
+       and the host judged it, so there is nothing left for the teacher to confirm.
+       A plain buzz is the opposite case and stays a two-step: it says who wants the
+       floor, the answer is spoken in the room, and the teacher marks it. That is the
+       whole difference between the two modes at the scoring end.
+
+       Race had this from the start; the tile games did not, so the same student
+       doing the same thing scored automatically on one board and waited for a click
+       on the other. */
+    if((activeGame === 'jeopardy' || activeGame === 'blockbusters') &&
+       b && b.value != null && teams[b.team] && currentClueItem){
+      if(activeGame === 'jeopardy') jCorrect(b.team);
+      else claimHex(b.team);
+      return;
+    }
     if(activeGame === 'race' && b && b.value != null && raceCurrent && teams[b.team]){
       const w  = raceWords.find(x => x.word === raceCurrent.answer);
       const el = w ? [...document.querySelectorAll('#race-words .race-word')]

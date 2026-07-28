@@ -113,10 +113,10 @@ function checkClean(page, who){
 }
 
 /* Nothing may cross the floor, and the page must never scroll while playing.
-   The floor was the top of the team bar; the bar now rides in the header, so it is
-   the bottom of the viewport. The test asks Kit.floorTop() rather than restating
-   either fact — that is the whole reason floorTop() exists, and it means a bar that
-   moves again cannot leave this passing against the wrong line. */
+   The floor is the top of the team bar while the bar is a fixed strip, and the
+   bottom of the viewport when it is not. The bar has now been in both places and
+   this test needed no edit either time, because it asks Kit.floorTop() rather than
+   restating the fact — which is the whole reason floorTop() exists. */
 async function boardFits(page, selector){
   return page.evaluate(sel => {
     const els = [...document.querySelectorAll(sel)];
@@ -495,9 +495,9 @@ async function stageReport(page, stage){
       tiny: tiny.length,
       tinySample: tiny.length ? Math.round(parseFloat(getComputedStyle(tiny[0]).fontSize)) + 'px' : '',
       /* Chrome is whatever vertical space the board does not get: the header above
-         it plus anything below the floor. Adding the team bar's own height was the
-         right sum only while the bar was a separate strip — now that it lives inside
-         the header it would be counted twice. */
+         it plus anything below the floor. Written this way it survived the team bar
+         moving into the header and back out again — `innerHeight - floor` is the
+         bar's height when there is a strip and zero when there is not. */
       chrome: Math.round(document.querySelector('header').getBoundingClientRect().height +
                          (window.innerHeight - floor)),
       header: Math.round(document.querySelector('header').getBoundingClientRect().height)
@@ -1252,17 +1252,21 @@ async function testGameRegistry(browser){
         Object.values(inherits).every(Boolean), JSON.stringify(inherits));
 
   /* Where the team bar lives is a layer-1 fact every game depends on, so pin it.
-     It sits in the header beside the timer and takes nothing off the bottom of the
-     board — which is the whole point of having moved it. */
+     It is a fixed strip under the board — the header is the teacher's instruments,
+     the bar is the game's state and the room reads it. What matters is not the
+     choice but that `Kit.floorTop()` agrees with it: every board sizes itself to
+     that number, so a bar the floor does not know about is a bar the boards run
+     underneath. */
   const barPlace = await page.evaluate(() => {
     const bar = document.getElementById('scorebar');
     const hdr = document.querySelector('header');
-    return { inHeader: hdr.contains(bar),
-             withTimer: bar.parentElement === document.getElementById('timer-widget').parentElement,
-             notFixed: getComputedStyle(bar).position !== 'fixed',
-             floorIsViewport: Math.abs(window.HubKit.floorTop() - window.innerHeight) < 1 };
+    return { belowHeader: !hdr.contains(bar),
+             fixed: getComputedStyle(bar).position === 'fixed',
+             atTheFoot: Math.abs(bar.getBoundingClientRect().bottom - window.innerHeight) < 1,
+             floorIsTheBar: Math.abs(window.HubKit.floorTop() -
+                                     bar.getBoundingClientRect().top) < 1 };
   });
-  check('the team bar rides in the header beside the timer, not over the board',
+  check('the team bar is a fixed strip under the board, and the floor knows it',
         Object.values(barPlace).every(Boolean), JSON.stringify(barPlace));
 
   checkClean(page);
@@ -1610,9 +1614,9 @@ async function testPhoneLayout(browser){
     check(`${vp.name}: nothing runs off the right edge`, r.offRight === 0, r.offRight + 'px');
     // An absolute cap, not a fraction of the viewport: the chrome costs the same
     // pixels whatever the screen, and on the shortest handset a fraction would pass
-    // at 33% while stealing 40% of a 560px screen. This was 323px — header 146 +
-    // team bar 177 — before the handset tier existed, and the tier brought it to
-    // 200. Folding the bar into the header should take it down again, not up.
+    // at 33% while stealing 40% of a 560px screen. It was 323px — header 146 + team
+    // bar 177 — before the handset tier existed; the tier brought it to 200, and the
+    // compact bar the header move bought keeps it there now the bar is back below.
     check(`${vp.name}: chrome leaves the board its space`,
           r.chrome <= 200, r.chrome + 'px of ' + vp.height);
     checkClean(page, vp.name);
@@ -1624,6 +1628,229 @@ async function testPhoneLayout(browser){
    Every mechanic is asserted in BOTH switch positions. "Off reproduces exactly what
    the app did before" is the promise that lets a teacher try these mid-term without
    risking a lesson, so it is the more important half of each pair. */
+/* ---- the clue card floats, and moves ----
+   It used to sit behind a 90%-opaque backdrop across the whole screen, so opening a
+   clue hid the thing the room was playing on: the tiles already taken, the hexagons
+   still open, the score. Now it floats. Two properties come with that and both are
+   easy to lose: the board must be *visible* but not *clickable*, and a card that
+   covers the one tile you need to see must be movable. */
+async function testFloatingCard(browser){
+  section('The clue card floats over the board');
+  const page = await openHub(browser, { width:1280, height:720 });
+  await page.evaluate(() => { window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off'); });
+  await startGame(page, 'Jeopardy', { sections:'all' });
+  await page.locator('#board .tile').nth(5).click(); await page.waitForTimeout(900);
+
+  const look = await page.evaluate(() => {
+    const m = document.getElementById('clue-modal');
+    const bg = getComputedStyle(m).backgroundColor;
+    const clear = bg === 'transparent' || /rgba\(0, 0, 0, 0\)/.test(bg) || /, 0\)$/.test(bg);
+    return { clear, bg,
+             layerIgnoresClicks: getComputedStyle(m).pointerEvents === 'none',
+             cardTakesClicks: getComputedStyle(document.getElementById('clue-card')).pointerEvents === 'auto',
+             boardNotClickable: getComputedStyle(document.getElementById('screen-play')).pointerEvents === 'none' };
+  });
+  check('there is no backdrop over the board', look.clear, look.bg);
+  check('the layer does not eat clicks, only the card does',
+        look.layerIgnoresClicks && look.cardTakesClicks, JSON.stringify(look));
+  /* Visible is not the same as live. Every control that matters while a clue is up
+     is on the card, and the scrim was what stopped a stray click opening a second
+     clue over the first — so that has to be kept by other means. */
+  check('the board behind is visible but not clickable', look.boardNotClickable);
+
+  const card = page.locator('#clue-card');
+  const before = await card.boundingBox();
+  await page.mouse.move(before.x + before.width/2, before.y + 30);
+  await page.mouse.down();
+  await page.mouse.move(before.x + before.width/2 - 260, before.y + 30 + 140, { steps:10 });
+  await page.mouse.up(); await page.waitForTimeout(150);
+  const after = await card.boundingBox();
+  check('the card can be dragged out of the way',
+        Math.round(after.x - before.x) === -260 && Math.round(after.y - before.y) === 140,
+        Math.round(after.x - before.x) + ',' + Math.round(after.y - before.y));
+  /* Written to `translate`, not `transform`: the flip animates transform through the
+     Web Animations API, and a drag in the same property would be wiped by the next
+     keyframe — or would fight the landing. */
+  /* The drag must not be written into `transform`: the flip animates that property
+     through the Web Animations API, so an offset living there would be wiped by the
+     next keyframe. They are separate longhands and compose. Asserted by reading the
+     drag back out of `translate` rather than by the absence of a transform — the
+     flip legitimately leaves one behind. */
+  check('the offset lives in translate, so it cannot fight the flip',
+        /-?\d+px/.test(await page.evaluate(() => document.getElementById('clue-card').style.translate)),
+        await page.evaluate(() => document.getElementById('clue-card').style.translate + ' | transform: ' +
+                                  document.getElementById('clue-card').style.transform));
+
+  // dragged hard off-screen, some of it must stay reachable
+  const r = await card.boundingBox();
+  await page.mouse.move(r.x + r.width/2, r.y + 30);
+  await page.mouse.down(); await page.mouse.move(-4000, -4000, { steps:8 }); await page.mouse.up();
+  await page.waitForTimeout(150);
+  const off = await card.boundingBox();
+  check('it cannot be thrown off the screen entirely',
+        off.x + off.width >= 60 && off.y + off.height >= 60,
+        Math.round(off.x + off.width) + ',' + Math.round(off.y + off.height));
+
+  // a press on a control is a press, not the start of a drag
+  await page.evaluate(() => { document.getElementById('clue-card').style.translate = ''; });
+  await page.waitForTimeout(120);
+  await page.locator('#reveal-btn').click(); await page.waitForTimeout(300);
+  check('a button on the card still works rather than dragging it',
+        await page.locator('#clue-answer').isVisible());
+
+  await page.locator('#correct-btn').click(); await page.waitForTimeout(1000);
+  check('the board is live again once the clue is gone',
+        await page.evaluate(() => getComputedStyle(document.getElementById('screen-play')).pointerEvents) === 'auto');
+  await page.locator('#board .tile').nth(9).click(); await page.waitForTimeout(900);
+  const next = await card.boundingBox();
+  check('and the next clue arrives centred, not where the last one was dragged',
+        Math.abs((next.x + next.width/2) - 640) < 3, Math.round(next.x + next.width/2) + '');
+  checkClean(page);
+  await page.close();
+}
+
+/* ---- who the points belong to ----
+   Three modes, three different answers, and the difference is the whole point of
+   having modes at all. */
+async function testTurnsAndPoints(browser){
+  section('Turns and points across the phone modes');
+
+  const openJeopardy = async (mode) => {
+    const page = await openHub(browser);
+    await page.evaluate(m => {
+      window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
+      window.HubSettings.set('buzzers', true); window.HubSettings.set('phoneMode', m, 'jeopardy');
+    }, mode);
+    await startGame(page, 'Jeopardy', { sections:'all' });
+    await page.waitForTimeout(700);
+    const chip = await page.locator('#buzzer-chip').innerText().catch(()=>'');
+    return { page, code:(chip.match(/CODE\s+(\d{5})/i)||[])[1] };
+  };
+  const join = async (code, name, team) => {
+    const p = await browser.newPage({ viewport:{ width:390, height:844 } });
+    p.__errors = []; p.on('pageerror', e => p.__errors.push(String(e)));
+    await p.goto(BASE + '/join.html'); await p.waitForTimeout(200);
+    await p.fill('#code', code); await p.fill('#name', name);
+    await p.locator('.teams button').nth(team).click();
+    await p.locator('#join-btn').click(); await p.waitForTimeout(500);
+    return p;
+  };
+  const turn   = pg => pg.evaluate(() => [...document.querySelectorAll('.team')].findIndex(e => e.classList.contains('active')));
+  const scores = pg => pg.evaluate(() => [...document.querySelectorAll('.team .score')].map(e => e.textContent));
+
+  /* `write`: the whole room answers, so nobody won the question — "keep the board"
+     is a reward for winning it, and applying it here left one team picking every
+     tile for the entire game. */
+  const w = await openJeopardy('write');
+  check('the first team is on turn', await turn(w.page) === 0);
+  await w.page.locator('#board .tile').first().click(); await w.page.waitForTimeout(700);
+  await w.page.locator('#reveal-btn').click(); await w.page.waitForTimeout(200);
+  await w.page.locator('#correct-btn').click(); await w.page.waitForTimeout(900);
+  check('when everyone types, the turn moves on its own', await turn(w.page) === 1, String(await turn(w.page)));
+  checkClean(w.page, 'write turns');
+  await w.page.close();
+
+  /* `buzz`: the buzz says who *wants* the floor. The answer is spoken in the room,
+     so the teacher still marks it — the phone cannot hear it. */
+  const z = await openJeopardy('buzz');
+  if (z.code){
+    const ben = await join(z.code, 'Ben', 1);
+    await z.page.locator('#board .tile').first().click(); await z.page.waitForTimeout(800);
+    await ben.locator('#buzzer').click(); await z.page.waitForTimeout(700);
+    check('a buzz highlights the team that got in', await turn(z.page) === 1, String(await turn(z.page)));
+    check('but nothing is scored yet — the answer is still in the room',
+          (await scores(z.page)).every(v => v === '0'), (await scores(z.page)).join('/'));
+    await z.page.locator('#reveal-btn').click(); await z.page.waitForTimeout(200);
+    await z.page.locator('#correct-btn').click(); await z.page.waitForTimeout(900);
+    check('and the teacher marking it pays the team that buzzed',
+          (await scores(z.page))[1] !== '0', (await scores(z.page)).join('/'));
+    check('phone had no errors', ben.__errors.length === 0, ben.__errors[0]);
+    await ben.close();
+  }
+  checkClean(z.page, 'buzz turns');
+  await z.page.close();
+
+  /* `type`: the student produced the answer in writing and the host judged it, so
+     there is nothing left to confirm. Race had this from the start; the tile games
+     did not, so the same student doing the same thing scored on one board and
+     waited for a click on the other. */
+  const t = await openJeopardy('type');
+  if (t.code){
+    const ana = await join(t.code, 'Ana', 1);
+    await t.page.locator('#board .tile').first().click(); await t.page.waitForTimeout(800);
+    const answer = await t.page.evaluate(() => document.getElementById('clue-answer').textContent);
+    await ana.fill('#reply', answer); await t.page.waitForTimeout(150);
+    await ana.locator('#buzzer').click(); await t.page.waitForTimeout(1000);
+    check('a typed answer highlights the team that produced it', await turn(t.page) === 1, String(await turn(t.page)));
+    check('and scores it without waiting for a click',
+          (await scores(t.page))[1] !== '0', (await scores(t.page)).join('/'));
+    check('the clue closes, like any answered clue',
+          await t.page.evaluate(() => document.getElementById('clue-modal').style.display === 'none'));
+    check('phone had no errors', ana.__errors.length === 0, ana.__errors[0]);
+    await ana.close();
+  }
+  checkClean(t.page, 'type turns');
+  await t.page.close();
+}
+
+/* ---- the phone offers the teams that exist ----
+   The join screen used to hard-code two buttons, so a class split into four could
+   only pick from the first half — and a team renamed to something the room answers
+   to still read "Team 2" on every handset. */
+async function testPhoneTeams(browser){
+  section('Phones know the real teams');
+  const host = await openHub(browser);
+  await host.evaluate(() => {
+    window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
+    window.HubSettings.set('buzzers', true); window.HubSettings.set('phoneMode','buzz','jeopardy');
+    document.getElementById('add-team-btn').click();
+    document.getElementById('add-team-btn').click();
+  });
+  await host.waitForTimeout(200);
+  const names = ['Lions','Tigers','Bears','Wolves'];
+  for (let i = 0; i < names.length; i++){
+    await host.locator('.team .tname').nth(i).fill(names[i]);
+    await host.locator('.team .tname').nth(i).dispatchEvent('change');
+  }
+  await startGame(host, 'Jeopardy', { sections:'all' });
+  await host.waitForTimeout(900);
+  const chip = await host.locator('#buzzer-chip').innerText().catch(()=>'');
+  const code = (chip.match(/CODE\s+(\d{5})/i)||[])[1];
+  check('a room opens', !!code, chip.replace(/\n/g,' '));
+  if (code){
+    const p = await browser.newPage({ viewport:{ width:390, height:844 } });
+    p.__errors = []; p.on('pageerror', e => p.__errors.push(String(e)));
+    await p.goto(BASE + '/join.html'); await p.waitForTimeout(200);
+    await p.fill('#code', code); await p.waitForTimeout(900);
+    const offered = await p.locator('.teams button').allInnerTexts();
+    check('the phone offers every team, by the name the teacher gave it',
+          offered.join('/').toLowerCase() === names.join('/').toLowerCase(), offered.join('/'));
+    await p.fill('#name','Ana');
+    await p.locator('.teams button').nth(2).click();
+    await p.locator('#join-btn').click(); await p.waitForTimeout(600);
+    check('and joining the third team lands on the third team',
+          /bears/i.test(await p.locator('#who').innerText()), await p.locator('#who').innerText());
+
+    /* Renaming mid-lesson has to reach the handset: the name on the phone is how a
+       student knows which score on the board is theirs. */
+    await host.locator('.team .tname').nth(2).fill('Grizzlies');
+    await host.locator('.team .tname').nth(2).dispatchEvent('change');
+    await host.waitForTimeout(800);
+    check('a rename reaches the phones that already joined',
+          /grizzlies/i.test(await p.locator('#who').innerText()), await p.locator('#who').innerText());
+
+    await host.locator('#board .tile').first().click(); await host.waitForTimeout(700);
+    await p.locator('#buzzer').click(); await host.waitForTimeout(700);
+    check('and a buzz from that phone selects that team, not one of the first two',
+          await host.evaluate(() => [...document.querySelectorAll('.team')]
+            .findIndex(e => e.classList.contains('active'))) === 2);
+    check('phone had no errors', p.__errors.length === 0, p.__errors[0]);
+    await p.close();
+  }
+  checkClean(host, 'phone teams');
+  await host.close();
+}
+
 async function testCompetition(browser){
   section('Competitive dynamics');
 
@@ -2994,6 +3221,7 @@ async function main(){
     jeopardy: testJeopardy, blockbusters: testBlockbusters, race: testRace,
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens, phone: testPhoneLayout,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
+    card: testFloatingCard, turns: testTurnsAndPoints, phoneteams: testPhoneTeams,
     variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, topics: testTopicPicking, defaultlook: testDefaultLook, jfinish: testJeopardyFinish, competition: testCompetition, lab: testLabDrawer, range: testRangeSetting,
     buzzers: testBuzzers, phonemodes: testPhoneModes, teamvote: testTeamVote,
     typetobuzz: testTypeToBuzz, judging: testAnswerJudging,

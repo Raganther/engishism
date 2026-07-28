@@ -299,6 +299,16 @@ const server = http.createServer((req, res)=>{
 
   if(p === '/buzzer/health')  return sendJSON(res, 200, { ok:true, rooms:rooms.size });
   if(p === '/buzzer/newcode') return sendJSON(res, 200, { code: makeCode(), lan: lanHost() });
+  /* What a phone needs *before* it joins: which teams there are. The join screen
+     used to offer a hard-coded two, so a class split into four could only pick from
+     the first half — and the names, which the teacher had renamed to something the
+     room recognises, never reached the phone until after the choice was made.
+     Team names are the only thing here; a room's questions and answers are not. */
+  if(p === '/buzzer/room'){
+    const room = rooms.get(String(url.searchParams.get('code') || ''));
+    if(!room) return sendJSON(res, 404, { error:'no such room' });
+    return sendJSON(res, 200, { ok:true, teams:room.teams, players:room.players.size });
+  }
   if(p === '/buzzer/stream')  return openStream(req, res, url.searchParams);
   if(p === '/buzzer/send' && req.method==='POST') return handleSend(req, res);
   if(p.startsWith('/buzzer/')) return sendJSON(res, 404, { error:'unknown endpoint' });

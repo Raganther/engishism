@@ -14,15 +14,16 @@
 body{
   background: var(--white);
   color: var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; min-height:100vh;
-  padding-bottom: 24px;   /* the team bar used to be down here and needed 84px of it */
+  padding-bottom: 76px;   /* clearance for the always-present team bar */
 }
 body.play-fit{ padding-bottom:0; overflow:hidden; }   /* boards that measure their own fit */
 .eyebrow{ font-family:'IBM Plex Mono', monospace; letter-spacing:0.14em; text-transform:uppercase; font-size:0.72rem; color: var(--blue); }
-/* The header now carries the team bar as well as the timer and buttons, so it buys
-   the extra content back out of its own padding and keeps the strip the height it
-   was. `align-items:center` rather than flex-end: the right-hand cluster is three
-   instruments of different heights and hanging them off a shared baseline made the
-   tallest one define the strip. */
+/* The header carries the teacher's instruments — timer, Lab, ⚙, New game. The team
+   bar is not one of those: it is the game's state and the room reads it, so it sits
+   under the board. `align-items:center` rather than flex-end: the cluster is
+   instruments of different heights and a shared baseline made the tallest one
+   define the strip. The tight padding is kept from when the bar lived here, because
+   a shorter header is worth having either way. */
 header{ padding: 12px 24px 10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:nowrap; gap:10px; }
 /* `nowrap` is the whole guarantee. Wrapping was how the strip grew: title 384px +
    cluster 883px is 45px over the content width, so the cluster dropped to a second
@@ -119,14 +120,15 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
    clicking one reopens the clue for review without scoring */
 .tile.used{ background: var(--cream); color: rgba(18,38,63,0.30); cursor:pointer; }
 .tile.used:hover{ transform:none; background:#F3E9C7; color: rgba(18,38,63,0.55); }
-/* The team bar rides in the header beside the timer, styled to match it so the two
-   read as one instrument cluster rather than a widget someone parked there. It
-   scrolls sideways instead of wrapping: a sixth team must cost horizontal room, not
-   a second header row, because a taller header is exactly what moving it here was
-   meant to stop. */
-#scorebar{ display:flex; align-items:center; gap:7px; background: var(--navy);
-           border:2px solid var(--yellow); border-radius:12px; padding:4px 6px;
-           min-width:0; max-width:min(50vw, 680px); overflow-x:auto; overflow-y:hidden;
+/* Fixed to the foot of the screen, full width. It stays compact — the sizes it grew
+   while it lived in the header are kept, because every pixel here is a pixel off
+   the board. It scrolls sideways rather than wrapping: a sixth team costs horizontal
+   room, never a second row, or the floor moves under a board that has already fitted
+   itself to it. */
+#scorebar{ position:fixed; bottom:0; left:0; right:0; z-index:40;
+           display:flex; align-items:center; justify-content:center; gap:10px;
+           background: var(--navy); border-top:3px solid var(--yellow);
+           padding:8px 14px; overflow-x:auto; overflow-y:hidden;
            scrollbar-width:none; }
 #scorebar::-webkit-scrollbar{ display:none; }
 .team{ display:flex; align-items:center; gap:5px; background: var(--navy2); border-radius:8px; padding: 3px 6px; flex:0 0 auto; }
@@ -402,7 +404,31 @@ body.theme-gameshow .prompt-word.landed{ background: var(--gold); color:#0a0d26;
 }
 
 /* --- Shared clue modal --- */
-#clue-modal{ display:none; position:fixed; inset:0; background: rgba(18,38,63,0.90); align-items:center; justify-content:center; z-index:50; padding:24px; perspective: 1800px; }
+/* The card floats over the board rather than blacking it out. It used to carry a
+   90%-opaque backdrop across the whole screen, which meant a clue hid the very thing
+   the room was playing on — the tiles already taken, the hexagons still open, the
+   score. There is no scrim now and the layer does not take clicks; only the card
+   does, so the board underneath stays live. */
+#clue-modal{ display:none; position:fixed; inset:0; background:transparent; pointer-events:none;
+             align-items:center; justify-content:center; z-index:50; padding:24px; perspective: 1800px; }
+#clue-card{ pointer-events:auto; }
+/* Visible, not clickable. Every control that matters while a clue is up is on the
+   card, and a stray click on the board behind used to be impossible because the
+   scrim ate it. The team bar stays live: correcting a score mid-clue is a real
+   thing a teacher does. */
+body.clue-open #screen-play{ pointer-events:none; }
+/* Not the modal — that layer is the whole screen, and turning it back on would eat
+   every click outside the card as surely as the scrim did. The card opts back in on
+   its own (`#clue-card`), which is all that should be clickable. The team bar stays
+   live because correcting a score mid-clue is a real thing a teacher does. */
+body.clue-open #scorebar{ pointer-events:auto; }
+/* Drag it out of the way: the card is centred, and sometimes the thing you need to
+   see is behind the middle of the screen. `translate` is deliberately not
+   `transform` — the flip animates transform, and a drag written into the same
+   property would be wiped by the next keyframe. They compose instead. */
+#clue-back{ cursor:grab; }
+body.clue-dragging #clue-back{ cursor:grabbing; }
+body.clue-dragging #clue-card{ touch-action:none; user-select:none; }
 /* two faces on one card: the tile's value in front, the clue behind. openClueCard
    grows it out of the clicked tile and turns it over. */
 #clue-card{ position:relative; max-width:720px; width:100%; transform-style: preserve-3d; will-change: transform; }
@@ -711,7 +737,7 @@ body.theme-gameshow #settings-btn{ background:rgba(255,255,255,0.06); color:var(
 body.theme-gameshow #new-game-btn:hover{ background:var(--gold); color:#000; border-color:var(--gold); }
 body.theme-gameshow #timer-widget{ background:rgba(0,0,0,0.5); border-color:var(--gold); }
 
-body.theme-gameshow #scorebar{ background:#02030A; border-color: var(--gold); }
+body.theme-gameshow #scorebar{ background:#02030A; border-top-color: var(--gold); }
 body.theme-gameshow .team{ background:rgba(255,255,255,0.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
 body.theme-gameshow .team .score{ color: var(--gold); text-shadow: 0 0 14px rgba(255,200,61,0.5); }
 /* the engine sets `.active`, never `.active-team` — this rule matched nothing at all,
@@ -1100,7 +1126,9 @@ body.theme-gameshow #result-card{ background:#05060F; }
    descendant, so a `.lit` selector would never match — the same reason #result-card
    is skinned ungated. And as with #result-card, keep off any property that would
    out-specify `#clue-card.flipped #clue-front` or `#clue-answer[style*="block"]`. */
-body.theme-gameshow #clue-modal{ background: rgba(2,3,10,0.92); }
+/* The skin used to black the board out even harder than the base theme did. Same
+   answer: the card floats, the lit board stays visible behind it. */
+body.theme-gameshow #clue-modal{ background: transparent; }
 body.theme-gameshow #clue-front{
   background: linear-gradient(180deg, #1B2A78 0%, #0A1140 100%);
   color: var(--gold); border-color: rgba(255,255,255,0.16);
@@ -1328,7 +1356,9 @@ body.theme-gameshow #buzzer-chip .buzz-verdict{ background:rgba(255,200,61,0.18)
      cannot hold the team names and the four controls side by side. Both strips are
      still at the top, and the board below them is one contiguous piece. */
   .header-right{ gap:8px; flex-wrap:wrap; }
-  #scorebar{ order:2; flex:1 1 100%; min-width:100%; max-width:100%; justify-content:flex-start; }
+  /* the bar is its own strip at the foot of the screen, so it starts from the left
+     and scrolls rather than centring three teams into an unreadable squeeze */
+  #scorebar{ justify-content:flex-start; padding:6px 10px; gap:7px; }
   #timer-widget{ padding:4px 6px; gap:4px; }
   #timer-widget button{ width:26px; height:26px; font-size:0.9rem; }
   #tmr-display{ font-size:1.15rem; }
