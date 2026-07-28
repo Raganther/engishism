@@ -79,6 +79,9 @@
       card:  { icon:'', blurb:'', badge:'' },
       intro: null,                 // no ident = no title sequence, and that's fine
       hasBank: function(){ return false; },
+      // is this board sized to the screen? every one so far is except Blockbusters,
+      // which scales itself around the end-of-round banner instead
+      fitsScreen: true,
       load: NO_OP, renderContent: NO_OP, startButton: NO_OP,
       start: NO_OP, fit: NO_OP, deal: NO_OP, tension: NO_OP,
       onResize: NO_OP, onTimerEnd: NO_OP, onWrong: NO_OP
@@ -143,6 +146,7 @@
     intro:{ eyebrow:'Cambridge Empower C1', title:'BLOCKBUSTERS',
             sub:'Yellow goes across. Blue goes down. Build your line.', accent:'#C77DFF' },
     hasBank: u => (u.blockbustersBank||[]).length > 0,
+    fitsScreen: false,        // this board scales around the banner rather than fitting
     load(u){ BLOCKBUSTERS_BANK          = u.blockbustersBank || [];
              BLOCKBUSTERS_SECTION_NAMES = u.blockbustersSectionNames || {};
              BLOCKBUSTERS_TOPIC_NAMES   = u.topicNames || {}; },
@@ -335,6 +339,13 @@
     games:['jeopardy','blockbusters'],
     label:'Keep the board on a correct answer',
     help:'A team that answers correctly picks again instead of handing over. Runs build, which is what steal is there to punish.' });
+
+  /* Registered exactly like every other weight, which is the point: the panel and
+     the Lab both grow a row for it without either being edited. */
+  S.register({ id:'bingoPoints', group:'Bingo', type:'range', default:1,
+    min:1, max:5, step:1, unit:' pts', games:['bingo'],
+    label:'Points per square',
+    help:'What marking a word off is worth. A line ends the round whatever this is.' });
 
   S.register({ id:'streak', group:'Competition', type:'toggle', default:false,
     games:['jeopardy','blockbusters','millionaire','race'],
@@ -725,6 +736,17 @@
         </div>
         <div id="race-words"></div>
       </div>
+      <div id="play-bingo">
+        <div id="bingo-prompt"></div>
+        <div id="bingo-bar">
+          <div id="bingo-status"></div>
+          <div class="bingo-actions">
+            <button id="bingo-start">&#9654; First word</button>
+            <button id="bingo-skip" style="display:none;">Nobody had it</button>
+          </div>
+        </div>
+        <div id="bingo-cards"></div>
+      </div>
       <div id="play-millionaire">
         <div id="m-bar">
           <div id="m-turn"></div>
@@ -856,6 +878,36 @@
     if(u.label){ document.title = u.label + ' — Game Hub'; }
   }
 
+  /* Bingo is the fifth game and it was built as a test of the framework: how much
+     of what the other four needed does a new board get for free? It consumes the
+     **Blockbusters bank** rather than one of its own — the answers there are
+     already single words with a clue each, which is exactly a bingo call — so both
+     units gained a fifth game with no authoring at all. That is a preview of the
+     pooled-content idea: a game declaring what it can consume, instead of a bank
+     being written for it. */
+  registerGame({
+    id:'bingo', title:'Bingo',
+    card:{
+      icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="30" height="30" rx="2"/><path d="M15 5 L15 35 M25 5 L25 35 M5 15 L35 15 M5 25 L35 25"/><path d="M7 17 L13 23 M13 17 L7 23" stroke-width="2.4"/><path d="M27 27 L33 33 M33 27 L27 33" stroke-width="2.4"/></svg>',
+      blurb:'Every team gets a card of words. Read a clue &mdash; the first team to answer marks it off. Three in a row wins.',
+      badge:'Best for: whole-class listening, everyone in at once' },
+    intro:{ eyebrow:'Cambridge Empower C1', title:'BINGO',
+            sub:'Nine words each. Listen for yours. Three in a row.', accent:'#FF7AC8' },
+    /* Same bank Blockbusters uses: single-word answers with a clue apiece. A card
+       needs nine distinct words and the call list wants a few spare. */
+    hasBank: u => bingoWordsIn(u.blockbustersBank || []).length >= BINGO_POOL,
+    load(u){ BINGO_BANK          = u.blockbustersBank || [];
+             BINGO_SECTION_NAMES = u.blockbustersSectionNames || {};
+             BINGO_TOPIC_NAMES   = u.topicNames || {}; },
+    renderContent: renderBingoContent,
+    startButton:   bingoStartButton,
+    start(){ startBingo(); },
+    fit:      fitBingoCards,
+    deal:     bingoDeal,
+    tension(){ bingoTension(); },
+    onResize: fitBingoCards
+  });
+
   /* ================= UNIT SELECT ================= */
   function renderUnitSelect(){
     const grid=document.getElementById('unit-grid'); grid.innerHTML='';
@@ -919,15 +971,19 @@
     // these boards size themselves around the team bar, so they don't need the body
     // padding that keeps the bar clear of the other screens
     document.body.classList.toggle('play-fit',
-      id==='screen-play' && (activeGame==='race' || activeGame==='jeopardy' || activeGame==='millionaire'));
+      id==='screen-play' && !!(gameDef() && gameDef().fitsScreen));
     if(id!=='screen-play') timerStop();
     applyTheme();
     if(id!=='screen-play'){
       Sound.bedStop();
       // `lit` marks a stage that is being played; leaving the play screen ends that,
       // and a stale one would light up again the moment the panel is shown
-      ['play-jeopardy','play-blockbusters','play-race','play-millionaire']
-        .forEach(el => document.getElementById(el).classList.remove('lit'));
+      // ask the registry for the stages rather than restating them: a fifth game
+      // was otherwise a stage that never got its `.lit` cleared
+      gameIds().forEach(id => {
+        const el = document.getElementById(gameDef(id).stage);
+        if(el) el.classList.remove('lit');
+      });
     }
     renderScorebar();   // team bar is always visible; refresh its highlight/cues
   }
@@ -2068,6 +2124,295 @@
     bbTurn=0; bbSideAt=[0,0]; renderBBTurn();
     bbVote=null; bbVoting=false; renderBBVote();
     bbTension(); bbDeal();
+  }
+
+  /* ================= BINGO =================
+     The fifth game, and deliberately the first one written *after* the framework
+     settled — so what it had to reach into is the measure of how well the framework
+     ports. It scores, times, skins, fits, ends and talks to the phones through the
+     shared layer; what it owns is a card, a call and a line.
+
+     Its content is not its own. `blockbustersBank` is already a list of
+     single-word answers with a clue each, which is exactly what a bingo call is,
+     so both units gained this game with no authoring. */
+  let BINGO_BANK = [], BINGO_SECTION_NAMES = {}, BINGO_TOPIC_NAMES = {};
+  const BINGO_SIZE = 3;                 // 3x3 card, so a line is three
+  const BINGO_POOL = 12;                // shared words in play: 9 per card + spares
+  let bingoWords   = [];                // the words in play this round
+  let bingoCards   = [];                // per team: { words:[…], marked:[bool…] }
+  let bingoCurrent = null;              // the call on the table
+  let bingoQueue   = [];
+  let bingoWon     = null;
+  let bingoRunning = false;
+
+  /* A word can only be a bingo call if it is one word and unique in the round —
+     two cells reading the same thing makes "mark it off" ambiguous. Same class of
+     constraint as Race's board, and it lives with the game that needs it rather
+     than in the content. */
+  function bingoWordsIn(bank){
+    const seen = new Set();
+    return bank.filter(c => {
+      const a = String(c.answer || '').trim();
+      if(!a || /\s/.test(a)) return false;
+      const k = a.toLowerCase();
+      if(seen.has(k)) return false;
+      seen.add(k); return true;
+    });
+  }
+
+  function renderBingoContent(list, help){
+    help.textContent = "Pick the topics that feed the cards. Every team gets nine of the same pool of words, so the same clue can be worth marking for more than one of them — the first to answer takes it.";
+    groupCheckboxes(list, bingoWordsIn(BINGO_BANK), BINGO_TOPIC_NAMES, BINGO_SECTION_NAMES);
+  }
+
+  function bingoStartButton(btn){
+    const total = bingoWordsIn(BINGO_BANK).filter(c => selectedContent.includes(groupOf(c))).length;
+    btn.disabled = selectedContent.length === 0 || total < BINGO_POOL;
+    btn.textContent = selectedContent.length === 0 ? 'Select at least one section'
+      : total < BINGO_POOL ? `Need ${BINGO_POOL} words — ${total} selected, add another topic`
+      : `Deal the cards — ${BINGO_POOL} of ${total} words`;
+  }
+
+  function startBingo(){
+    const pool = shuffle(bingoWordsIn(BINGO_BANK).filter(c => selectedContent.includes(groupOf(c))));
+    bingoWords = pool.slice(0, BINGO_POOL);
+    dealBingoCards();
+    bingoQueue   = shuffle(bingoWords.slice());
+    bingoCurrent = null;
+    bingoWon     = null;
+    bingoRunning = false;
+    buildBingoCards();
+    setBingoMessage('Press First word when the class is ready.');
+    document.getElementById('bingo-start').style.display = 'inline-block';
+    document.getElementById('bingo-skip').style.display  = 'none';
+    document.getElementById('bingo-prompt').classList.remove('live');
+    document.getElementById('bingo-prompt').textContent = '';
+    syncBuzzRoom();
+    timerSetDuration(30);
+  }
+
+  /* Every team gets nine of the same pool, shuffled — so the cards overlap and a
+     call is usually live for more than one team, which is what makes it a race
+     rather than a set of parallel solitaires. Re-dealt on a team being added or
+     removed, because a card without a team is not a thing. */
+  function dealBingoCards(){
+    bingoCards = teams.map(() => {
+      const words = shuffle(bingoWords.slice()).slice(0, BINGO_SIZE * BINGO_SIZE);
+      return { words, marked: words.map(() => false) };
+    });
+  }
+
+  function buildBingoCards(){
+    const wrap = document.getElementById('bingo-cards');
+    wrap.innerHTML = '';
+    if(bingoCards.length !== teams.length) dealBingoCards();
+    teams.forEach((t, ti) => {
+      const card = document.createElement('div');
+      card.className = 'bingo-card';
+      card.dataset.team = ti;
+      const head = document.createElement('div');
+      head.className = 'bingo-name';
+      head.textContent = t.name;
+      const grid = document.createElement('div');
+      grid.className = 'bingo-grid';
+      bingoCards[ti].words.forEach((w, ci) => {
+        const cell = document.createElement('button');
+        cell.className = 'bingo-cell' + (bingoCards[ti].marked[ci] ? ' marked' : '');
+        cell.type = 'button';
+        cell.textContent = w.answer;
+        cell.dataset.team = ti; cell.dataset.cell = ci;
+        cell.addEventListener('click', () => onBingoCell(ti, ci));
+        grid.appendChild(cell);
+      });
+      card.appendChild(head); card.appendChild(grid);
+      wrap.appendChild(card);
+    });
+    fitBingoCards();
+  }
+
+  function setBingoMessage(txt){
+    document.getElementById('bingo-status').textContent = txt;
+  }
+
+  function setBingoPrompt(item){
+    const el = document.getElementById('bingo-prompt');
+    el.innerHTML = '';
+    if(!item){ el.classList.remove('live'); return; }
+    el.classList.add('live');
+    const sec = document.createElement('span'); sec.className = 'bingo-sec';
+    sec.textContent = item.section || '';
+    const body = document.createElement('span'); body.className = 'bingo-clue';
+    // the shared renderer, so a gap fill or an anagram draws here exactly as it
+    // does on the other four boards — this game wrote no prompt code at all
+    drawPrompt(body, { text:item.clue || item.prompt, answer:item.answer, type:item.type }, 'bingo');
+    el.appendChild(sec); el.appendChild(body);
+  }
+
+  // a call is only worth making while some team could still mark it
+  function bingoLiveFor(word){
+    return bingoCards.some(c => c.words.some((w, i) => !c.marked[i] && w.answer === word.answer));
+  }
+
+  function nextBingoCall(){
+    while(bingoQueue.length){
+      const w = bingoQueue.shift();
+      if(bingoLiveFor(w)){
+        bingoCurrent = w;
+        bingoRunning = true;
+        setBingoPrompt(w);
+        setBingoMessage('Who has it? Click the word on their card.');
+        document.getElementById('bingo-start').style.display = 'none';
+        document.getElementById('bingo-skip').style.display  = 'inline-block';
+        askPhones(w.clue || w.prompt || '', 'bingo');
+        Sound.play('reveal');
+        bingoTension();
+        return;
+      }
+    }
+    // everything on every card is marked and nobody has a line
+    bingoCurrent = null; bingoRunning = false;
+    setBingoPrompt(null);
+    setBingoMessage('Every word has gone and no one has a line.');
+    document.getElementById('bingo-skip').style.display = 'none';
+    bingoFinish({ type:'blocked' });
+  }
+
+  /* A test hook, not a game feature: the answer to the call is deliberately not in
+     the DOM (the class has to work it out), so a scripted round has no other way to
+     know which square is the right one. */
+  window.__bingoProbe = function(){
+    if(!bingoCurrent || !bingoCards[0]) return -1;
+    return bingoCards[0].words.findIndex((w, i) => !bingoCards[0].marked[i] && w.answer === bingoCurrent.answer);
+  };
+
+  function onBingoCell(ti, ci){
+    if(bingoWon) return;
+    const card = bingoCards[ti];
+    if(!card || card.marked[ci]) return;
+    if(!bingoCurrent){ setBingoMessage('Press First word to make a call.'); return; }
+    if(card.words[ci].answer !== bingoCurrent.answer){
+      // a wrong square costs nothing — the call stays up and another team can take it
+      const el = document.querySelector(`.bingo-cell[data-team="${ti}"][data-cell="${ci}"]`);
+      if(el){ el.classList.add('wrong'); setTimeout(() => el.classList.remove('wrong'), 420); }
+      Sound.play('wrong');
+      return;
+    }
+    markBingoCell(ti, ci);
+  }
+
+  function markBingoCell(ti, ci){
+    const card = bingoCards[ti];
+    card.marked[ci] = true;
+    const el = document.querySelector(`.bingo-cell[data-team="${ti}"][data-cell="${ci}"]`);
+    if(el) el.classList.add('marked');
+    const paid = award(ti, Number(S.get('bingoPoints', 'bingo')) || 1, {});
+    markRun(ti, true);
+    Sound.play('claim');
+    active = ti; renderScorebar();
+    const line = bingoLine(ti);
+    if(line){ bingoFinish({ type:'win', team:ti, line }); return paid; }
+    bingoCurrent = null; bingoRunning = false;
+    setBingoPrompt(null);
+    setBingoMessage('Marked. Next word when you are ready.');
+    document.getElementById('bingo-start').style.display = 'inline-block';
+    document.getElementById('bingo-start').textContent   = '▶ Next word';
+    document.getElementById('bingo-skip').style.display  = 'none';
+    resetBuzzers();
+    bingoTension();
+    return paid;
+  }
+
+  /* Rows, columns and both diagonals of a BINGO_SIZE square, worked out from the
+     size rather than written down — the same reason Blockbusters' adjacency comes
+     from BB_ROWS. Change the card to 4x4 and the win logic follows. */
+  function bingoLines(){
+    const n = BINGO_SIZE, out = [];
+    for(let r = 0; r < n; r++) out.push(Array.from({length:n}, (_, c) => r*n + c));
+    for(let c = 0; c < n; c++) out.push(Array.from({length:n}, (_, r) => r*n + c));
+    out.push(Array.from({length:n}, (_, i) => i*n + i));
+    out.push(Array.from({length:n}, (_, i) => i*n + (n-1-i)));
+    return out;
+  }
+  function bingoLine(ti){
+    const card = bingoCards[ti];
+    if(!card) return null;
+    return bingoLines().find(line => line.every(i => card.marked[i])) || null;
+  }
+  // how close the nearest team is to a line, as 0..1 — the tension source
+  function bingoBest(){
+    let best = 0;
+    bingoCards.forEach(card => {
+      bingoLines().forEach(line => {
+        const got = line.filter(i => card.marked[i]).length;
+        if(got > best) best = got;
+      });
+    });
+    return best;
+  }
+
+  function bingoFinish(outcome){
+    bingoWon = outcome;
+    bingoRunning = false;
+    document.getElementById('bingo-skip').style.display  = 'none';
+    document.getElementById('bingo-start').style.display = 'none';
+    resetBuzzers();
+    if(outcome.type !== 'win'){
+      Sound.play('end');
+      showResult({ eyebrow:'Bingo', title:'Cards full', sub:'Every word has gone without a line.',
+                   actions:[{ label:'New cards', primary:true, onPick:bingoPlayAgain }] });
+      return;
+    }
+    outcome.line.forEach(i => {
+      const el = document.querySelector(`.bingo-cell[data-team="${outcome.team}"][data-cell="${i}"]`);
+      if(el) el.classList.add('line');
+    });
+    const lit = document.getElementById('play-bingo').classList.contains('lit');
+    if(lit){ Sound.fanfare(); setTimeout(() => Sound.applause(2400), 620); }
+    else Sound.play('clear');
+    showResult({
+      eyebrow:'Bingo',
+      title: ((teams[outcome.team] && teams[outcome.team].name) || 'Team') + ' has a line!',
+      sub:   'Three in a row.',
+      tone:  outcome.team === 0 ? 'gold' : 'silver',
+      actions:[{ label:'New cards', primary:true, onPick:bingoPlayAgain },
+               { label:'Leave it up', onPick:function(){} }]
+    });
+  }
+
+  function bingoPlayAgain(){
+    hideResult();
+    document.querySelectorAll('#bingo-cards .bingo-cell.line').forEach(el => el.classList.remove('line'));
+    document.getElementById('bingo-start').textContent = '▶ First word';
+    startBingo();
+    bingoDeal();
+  }
+
+  function fitBingoCards(){
+    const wrap = document.getElementById('bingo-cards');
+    if(!wrap || !document.getElementById('play-bingo').offsetParent) return;
+    // the shared fit: no per-game measuring of the header and the team bar
+    Kit.fitToScreen(wrap, { min:120, gap:12, floor:true });
+  }
+
+  function bingoDeal(){
+    const cells = [...document.querySelectorAll('#bingo-cards .bingo-cell')];
+    cells.forEach(el => { el.style.removeProperty('animation'); void el.offsetWidth; });
+    cells.forEach((el, i) => {
+      const card = +el.dataset.team, cell = +el.dataset.cell;
+      // stagger across the card, not down the DOM: four cards of nine is 36 cells
+      el.style.animation = `bingoDeal .34s ${(card * 40 + cell * 26)}ms both`;
+    });
+  }
+
+  function bingoTension(){
+    const stage = document.getElementById('play-bingo');
+    const on = themeOf('bingo') === 'gameshow' && activeGame === 'bingo';
+    stage.classList.toggle('lit', on);
+    if(!on){ stage.style.removeProperty('--tension'); Sound.bedStop(); return; }
+    // one square off a line is as tense as this board gets
+    const t = Math.max(0, Math.min(1, (bingoBest() - 1) / (BINGO_SIZE - 1)));
+    stage.style.setProperty('--tension', t.toFixed(3));
+    if(bingoRunning && bingoCurrent && !bingoWon) Sound.bedStart(t); else Sound.bedStop();
   }
 
   /* ================= SHARED CLUE MODAL ================= */
@@ -3640,6 +3985,7 @@
     const modal = document.getElementById('clue-modal');
     const live = (activeGame === 'millionaire' && mCurrent && !mAnswered)
               || (activeGame === 'race' && raceCurrent)
+              || (activeGame === 'bingo' && bingoCurrent && !bingoWon)
               || (currentClueItem && modal && modal.style.display === 'flex');
     if(live) askPhones(currentPhonePrompt(), activeGame);
   }
@@ -3693,6 +4039,7 @@
   function expectedAnswer(){
     if(activeGame === 'race')        return (raceCurrent && raceCurrent.answer) || '';
     if(activeGame === 'millionaire') return (mCurrent && mCurrent.q && mCurrent.q.answer) || '';
+    if(activeGame === 'bingo')       return (bingoCurrent && bingoCurrent.answer) || '';
     return (currentClueItem && currentClueItem.answer) || '';   // jeopardy, blockbusters
   }
 
@@ -3734,6 +4081,7 @@
     if(!S.get('phonePrompt', activeGame)) return '';
     if(activeGame === 'race')        return (raceCurrent && raceCurrent.prompt) || '';
     if(activeGame === 'millionaire') return (mCurrent && mCurrent.q && mCurrent.q.prompt) || '';
+    if(activeGame === 'bingo')       return (bingoCurrent && (bingoCurrent.clue || bingoCurrent.prompt)) || '';
     return (currentClueItem && currentClueItem.text) || '';
   }
 
@@ -3799,6 +4147,21 @@
          got — and Race already reads this way because awarding resets the buzzers. */
       buzzWinner = null;
       notePhoneScore(b.name, b.team, b.value, paid || 1);
+      return;
+    }
+    /* Typed and correct: the student produced the word, so it marks their square
+       the way it claims a tile in the other games. If the word is not on their card
+       it is still a right answer — the strip says so — but there is nothing to mark. */
+    if(activeGame === 'bingo' && b && b.value != null && bingoCurrent && teams[b.team]){
+      const card = bingoCards[b.team];
+      const ci   = card ? card.words.findIndex((w, i) => !card.marked[i] && w.answer === bingoCurrent.answer) : -1;
+      buzzWinner = null;
+      if(ci >= 0){
+        const paid = markBingoCell(b.team, ci);
+        notePhoneScore(b.name, b.team, b.value, paid || 1);
+      } else {
+        notePhoneScore(b.name, b.team, b.value, 0);
+      }
       return;
     }
     if(activeGame === 'race' && b && b.value != null && raceCurrent && teams[b.team]){
@@ -4194,6 +4557,20 @@
   // one listener for every board, now and later — a new game gets re-fitted on
   // resize by declaring onResize, not by being added to a list here
   window.addEventListener('resize', ()=>{ hook('onResize'); if(labOpen()) fitLab(); });
+
+  document.getElementById('bingo-start').addEventListener('click', nextBingoCall);
+  document.getElementById('bingo-skip').addEventListener('click', () => {
+    // nobody had it: the word goes back in the bag rather than out of the game
+    if(bingoCurrent) bingoQueue.push(bingoCurrent);
+    bingoCurrent = null; bingoRunning = false;
+    setBingoPrompt(null);
+    setBingoMessage('Put back. Next word when you are ready.');
+    document.getElementById('bingo-start').style.display = 'inline-block';
+    document.getElementById('bingo-start').textContent   = '▶ Next word';
+    document.getElementById('bingo-skip').style.display  = 'none';
+    resetBuzzers();
+    bingoTension();
+  });
 
   /* ================= TIMER (teacher-controlled) ================= */
   let tmrDuration=30, tmrLeft=30, tmrTick=null;

@@ -1483,3 +1483,63 @@ body.theme-gameshow #buzzer-chip .buzz-verdict{ background:rgba(255,200,61,0.18)
 .legend-teams{ opacity:0.8; }
 .legend-team.on{ font-weight:700; text-decoration:underline; text-underline-offset:3px; opacity:1; }
 #legend span.active-turn{ font-weight:700; color:var(--navy); background:var(--cream); padding:2px 9px; border-radius:6px; }
+
+/* ================= BINGO =================
+   The fifth game's own stage rules — the only CSS it needed, because the chrome,
+   the team bar, the prompt, the banner and the buttons are all inherited. */
+#play-bingo{ display:none; padding: 12px 12px 24px; text-align:center; }
+#bingo-prompt{ min-height:52px; display:flex; align-items:center; justify-content:center; gap:14px;
+  flex-wrap:wrap; padding:10px 16px; border-radius:12px; border:2px dashed rgba(18,38,63,0.18); }
+#bingo-prompt.live{ border-style:solid; border-color:var(--blue); background:rgba(0,122,201,0.06); }
+#bingo-sec, .bingo-sec{ font-family:'IBM Plex Mono',monospace; font-size:0.72rem; letter-spacing:0.1em;
+  text-transform:uppercase; color:var(--blue); }
+.bingo-clue{ font-size:clamp(1rem, 2.1vw, 1.6rem); font-weight:600; }
+#bingo-bar{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin:8px 0 10px; }
+#bingo-status{ font-family:'IBM Plex Mono',monospace; font-size:0.78rem; letter-spacing:0.08em;
+  text-transform:uppercase; opacity:0.75; text-align:left; }
+.bingo-actions{ display:flex; gap:8px; flex:0 0 auto; }
+#bingo-start, #bingo-skip{ background:var(--blue); color:var(--white); border:none; border-radius:9px;
+  padding:10px 16px; font-family:inherit; font-weight:700; cursor:pointer; }
+#bingo-skip{ background:var(--navy3); }
+#bingo-cards{ display:flex; gap:16px; justify-content:center; align-items:stretch; flex-wrap:wrap; overflow:hidden; }
+.bingo-card{ display:flex; flex-direction:column; gap:6px; min-width:0; flex:1 1 200px; max-width:340px; }
+.bingo-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.9rem;
+  text-transform:uppercase; letter-spacing:0.06em; }
+.bingo-grid{ display:grid; grid-template-columns:repeat(3, 1fr); grid-auto-rows:minmax(min-content, 1fr);
+  gap:6px; flex:1 1 auto; min-height:0; }
+.bingo-cell{ background:var(--navy); color:var(--cream); border:none; border-radius:8px; min-width:0;
+  padding:6px 4px; font-family:'Space Grotesk',sans-serif; font-weight:700;
+  font-size:clamp(0.6rem, 1.1vw, 0.95rem); line-height:1.15; overflow-wrap:anywhere; cursor:pointer;
+  transition:transform .12s, background .12s, color .12s; }
+.bingo-cell:hover:not(.marked){ background:var(--blue); transform:translateY(-1px); }
+.bingo-cell.marked{ background:var(--yellow); color:var(--navy); }
+.bingo-cell.wrong{ background:#C0392B; color:var(--white); }
+.bingo-cell.line{ background:var(--yellow); color:var(--navy); box-shadow:0 0 0 3px var(--blue) inset; }
+@keyframes bingoDeal{ from{ opacity:0; transform:translateY(-8px) scale(0.9); } to{ opacity:1; transform:none; } }
+
+/* game show skin — pink, because yellow is "marked" on this board and has to stay
+   readable as game state, the same reason Blockbusters' lattice is violet */
+body.theme-gameshow #play-bingo.lit{
+  background:
+    radial-gradient(circle at 50% calc(18% + var(--tension,0) * 18%),
+      rgba(255,122,200,calc(0.16 + var(--tension,0) * 0.2)), transparent 62%),
+    linear-gradient(180deg, #1B0F2B 0%, #2A1140 100%);
+  border-radius:16px; color:var(--cream);
+  transition: background .9s ease;
+}
+body.theme-gameshow #play-bingo.lit .bingo-cell{ background:rgba(255,255,255,0.07);
+  box-shadow:0 0 0 1px rgba(255,122,200,0.35) inset; color:#F7E9FF; }
+body.theme-gameshow #play-bingo.lit .bingo-cell.marked{ background:#FF7AC8; color:#26102F;
+  box-shadow:0 0 14px rgba(255,122,200,0.75); }
+body.theme-gameshow #play-bingo.lit .bingo-cell.line{ background:#FFD447; color:#26102F;
+  box-shadow:0 0 22px rgba(255,212,71,0.9); }
+body.theme-gameshow #play-bingo.lit #bingo-prompt{ border-color:rgba(255,122,200,0.5);
+  background:rgba(255,122,200,0.08); }
+@media (prefers-reduced-motion: reduce){
+  .bingo-cell{ animation:none !important; }
+}
+@media (max-width: 760px){
+  #bingo-cards{ gap:10px; }
+  .bingo-card{ flex:1 1 45%; }
+  #bingo-bar{ flex-direction:column; align-items:stretch; gap:6px; }
+}

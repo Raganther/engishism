@@ -1202,7 +1202,11 @@ async function testGameRegistry(browser){
     titles: Object.keys(window.HUB_GAME_TITLES),
     hooks: window.HubGames.hooksOf('jeopardy')
   }));
-  check('the four games are registered', shape.ids.length === 4, shape.ids.join(','));
+  /* Not a count. A hard-coded four failed the day a fifth game was added, which is
+     the one thing this suite should never do — the registry is the source of truth
+     and the test's job is that the built-ins are all in it. */
+  ['jeopardy','blockbusters','race','millionaire','bingo']
+    .forEach(id => check(id + ' is registered', shape.ids.indexOf(id) !== -1, shape.ids.join(',')));
   check('settings tab labels come from the registry',
         shape.titles.length === shape.ids.length, shape.titles.join(','));
   ['load','hasBank','renderContent','startButton','start','fit','deal','tension','onResize','onTimerEnd']
