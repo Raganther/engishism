@@ -3427,6 +3427,15 @@
        options on every phone with a buzzer, mid-vote, and the votes already cast
        would be the only ones counted. Whoever closes the vote re-asks. */
     if(voteLive()) return;
+    /* And so does somebody holding the floor. This runs on every `ready` from the
+       relay — which is *every reconnection of the host's stream*, not just the
+       first — and re-arming clears `buzzWinner`, so a student's buzz was being
+       silently thrown away and the buzzers reopened a moment later. On classroom
+       wifi that is not an edge case; it is what a dropped connection does. The job
+       here is "the room came back, tell it what is being asked", never "cancel what
+       is in progress". The relay still holds the lock, so a phone reconnecting
+       mid-buzz is told who got in. */
+    if(buzzWinner) return;
     const modal = document.getElementById('clue-modal');
     const live = (activeGame === 'millionaire' && mCurrent && !mAnswered)
               || (activeGame === 'race' && raceCurrent)

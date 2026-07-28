@@ -496,6 +496,22 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A buzz was being thrown away by the room reconnecting**, and it had been there
+  the whole time the phones have existed. `reaskPhones()` runs on every `ready` from
+  the relay — which is **every reconnection of the host's stream, not just the
+  first** — and it re-arms, which clears `buzzWinner`. So a student buzzed, and
+  moments later their buzz vanished and the buzzers reopened. On school wifi that is
+  not an edge case, it is what a dropped connection does; it just never looked like
+  a bug because the room simply went back to being open.
+  - The rule is the same one the vote already had: **re-asking means "the room came
+    back, tell it what is being asked", never "cancel what is in progress"**. It now
+    declines while anybody holds the floor, and the relay still holds the lock, so a
+    phone reconnecting mid-buzz is told who got in.
+  - The regression test drives it through a **settings change** rather than a
+    reconnect, deliberately: that reaches the same path, and changing a dynamic in
+    the Lab mid-question must not take the floor off whoever is standing on it
+    either. Proved by reverting the fix — three checks fail, including one that had
+    been failing for other reasons and was read as a Race steal problem.
 - **The clue card floats over the board instead of blacking it out.** It carried a
   90%-opaque backdrop across the whole screen, so opening a clue hid the thing the
   room was playing on — which tiles were gone, which hexagons were still open, the

@@ -2400,6 +2400,21 @@ async function testBuzzers(browser){
         (await host.locator('#buzzer-chip').innerText()).includes('Alina'),
         (await host.locator('#buzzer-chip').innerText()).replace(/\n/g,' '));
 
+  /* A live buzz must survive the room being re-asked. `reaskPhones` runs on every
+     `ready` from the relay — which is every reconnection of the host's stream, not
+     just the first — and re-arming clears the winner, so a student's buzz was being
+     thrown away and the buzzers quietly reopened. On school wifi that is not an edge
+     case, it is what a dropped connection does. Driven here through a settings
+     change, which reaches the same path deliberately: changing a dynamic in the Lab
+     mid-question must not take the floor off whoever is standing on it either. */
+  await host.evaluate(() => window.HubSettings.set('phoneMode', 'buzz', 'race'));
+  await host.waitForTimeout(700);
+  check('re-asking the room does not throw away a live buzz',
+        (await host.locator('#buzzer-chip').innerText()).includes('Alina'),
+        (await host.locator('#buzzer-chip').innerText()).replace(/\n/g,' '));
+  check('and the phone that lost the race is still locked out',
+        await bruno.locator('#buzzer').isDisabled());
+
   for (const p of [alina, bruno]) { check('phone had no errors', p.__errors.length === 0, p.__errors[0]); await p.close(); }
   checkClean(host, 'host');
   await host.close();
