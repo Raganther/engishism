@@ -525,6 +525,24 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The buzzer flickering on and off was two bugs, and the second one was the
+  visible one.** Reported from a real round; the phone kept its room number
+  throughout, which is what said the connection was fine and the *armed state* was
+  cycling.
+  - **Two hub tabs on one room fight forever.** Only one host stream may be live and
+    the newest wins — but ending the loser silently is indistinguishable from a
+    network drop, so its `EventSource` reconnects, which ends the winner, which
+    reconnects. **Every one of those `ready` events re-asks the phones**, and an
+    `arm` resets the button on every handset. The relay now sends a `replaced`
+    event before ending the stream and the client closes for good.
+  - **A re-ask that changes nothing now says nothing.** This is the general fix and
+    it does not depend on knowing why `ready` repeated: an `arm` is not free — it
+    clears the relay's lock and its collected responses, and resets the handset — so
+    the engine remembers what the room was last told and stays quiet if it still
+    holds. Re-asking is for telling a room that came back *what is being asked*.
+  - The first fix (below) was real and shipped, but it was **not** what the room was
+    seeing. Worth remembering: *the phone keeping its room number* was the detail
+    that separated the two.
 - **A reconnecting phone was being thrown out of the room it had just rejoined.**
   Reported from a real round as "the buzzer oscillates between on and off, like
   it's disconnecting and reconnecting" — it was, in a loop. An event stream
@@ -830,7 +848,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   nothing saying why. Timed rounds ask now too; `raceCanTry()` restricts a timed
   round's buzz to the team whose round it is, so a phone on the bench can't steal a
   word off someone else's score.
-- **Deployed.** Build `20260731e`; new `strip`, `bbteams` and `jointeams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
+- **Deployed.** Build `20260731f`; new `strip`, `bbteams` and `jointeams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
 - **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
   the game being played, and only that game, without leaving the board — see "The Lab"
   above. It exists because prototyping was the bottleneck: comparing two ideas meant

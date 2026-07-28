@@ -3891,7 +3891,7 @@
   function parkBuzzRoom(){
     hideJoinPanel();
     clearReplies();
-    buzzWinner = null; lastTyped = null; lastScored = null;
+    buzzWinner = null; lastTyped = null; lastScored = null; lastAsk = null;
     if(buzzHost) buzzHost.disarm();
     renderBuzzChip();
     renderBBVote();
@@ -4025,8 +4025,15 @@
   /* One entry point for "a question just went up, ask the room". One mode is live
      at a time — that is what `phoneMode` being a variant rather than four switches
      buys — so this is a lookup, not a precedence. */
+  /* What the room was last told, so a re-ask that changes nothing can stay silent.
+     An `arm` is not free: it clears the relay's lock and its collected responses,
+     and on the handset it resets the button. So a repeated one is visible as a
+     flicker even when nothing is wrong. */
+  let lastAsk = null;
+
   function askPhones(prompt, game){
     if(!buzzHost) return;
+    lastAsk = { mode: S.get('phoneMode', game), prompt: prompt || '' };
     clearReplies();
     /* A new question retires the last result. It has to survive the *previous*
        question's re-arm — Race re-arms within a frame of a word being claimed — but
@@ -4073,7 +4080,15 @@
        stream. A class on school wifi reconnects all lesson, so half the room's
        answers disappearing is the normal case, not the edge one. */
     if(classReplies && classReplies.all && classReplies.all.length) return;
-    if(hook('askingNow')) askPhones(currentPhonePrompt(), activeGame);
+    if(!hook('askingNow')) return;
+    /* Nothing has changed, so there is nothing to say. `ready` arrives on every
+       reconnection of the host's stream, and re-arming an already-armed room resets
+       every handset's button — which is what the room sees as the buzzer flickering
+       on and off. Re-asking is for telling a room that came back *what is being
+       asked*, so if it already knows, stay quiet. */
+    const prompt = currentPhonePrompt();
+    if(lastAsk && lastAsk.mode === S.get('phoneMode', activeGame) && lastAsk.prompt === (prompt || '')) return;
+    askPhones(prompt, activeGame);
   }
 
   /* Both games' votes, asked as one question — the fact lives here rather than in

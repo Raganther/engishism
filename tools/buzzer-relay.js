@@ -119,7 +119,16 @@ function openStream(req, res, q){
   beat.unref();
 
   if(role==='host'){
-    if(room.host && room.host !== res){ try{ room.host.end(); }catch(e){} }
+    /* One host stream per room, and the one that arrives last wins. But simply
+       ending the other leaves it looking like a network drop, so its EventSource
+       reconnects — which ends *this* one, which reconnects, forever. Two hub tabs
+       on the same room therefore ping-ponged, and every reconnect fires `ready`,
+       which re-asks the phones: the buzzer flickering on and off on every handset
+       in the room while the connection itself was fine. Say it was replaced, so the
+       loser knows to stay down. */
+    if(room.host && room.host !== res){
+      try{ pushEvent(room.host, 'replaced', { room:code }); room.host.end(); }catch(e){}
+    }
     room.host = res;
     room.emptiedAt = 0;
     pushEvent(res, 'ready', { room:code, players:roster(room) });

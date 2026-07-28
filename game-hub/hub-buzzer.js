@@ -43,6 +43,13 @@ window.HubBuzzer = (function(){
       // EventSource retries on its own; report the state and let the UI decide
       ev.emit('status', { state: opened ? 'reconnecting' : 'unreachable' });
     };
+    /* Another tab or device took this room over. Retrying would take it back and
+       start a fight neither can win — each reconnection re-asks the phones, so the
+       whole room's buzzers flicker. Close for good and say so. */
+    src.addEventListener('replaced', ()=>{
+      try{ src.close(); }catch(e){}
+      ev.emit('status', { state:'replaced' });
+    });
     return src;
   }
 

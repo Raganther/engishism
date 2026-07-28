@@ -3575,6 +3575,20 @@ async function testRelayReconnect(){
   await wait(500);
   const after = (seen.match(/"players":\[[^\]]*\]/g) || []).pop() || '';
   check('a phone that actually leaves is dropped', !/Ana/.test(after), after || 'empty');
+
+  /* ---- two hub tabs on one room ----
+     Only one host stream may be live, and the newest wins. Ending the loser
+     silently makes it look like a network drop, so its EventSource reconnects —
+     which ends the winner, which reconnects, forever. Every one of those `ready`
+     events re-asks the phones, so the whole room's buzzers flicker on and off
+     while every connection is technically fine. That is what the second flicker
+     report turned out to be, after the reconnect fix had ruled out the first. */
+  const h2 = await stream('role=host&room=' + code);
+  await wait(400);
+  check('the replaced host is told, not just cut off', /event: replaced/.test(seen),
+        seen.replace(/\n/g,' ').slice(-120));
+  if (h2.req) h2.req.destroy();
+
   if (host.req) host.req.destroy();
 }
 
