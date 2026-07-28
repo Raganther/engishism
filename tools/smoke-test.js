@@ -2544,7 +2544,14 @@ async function testPhoneModes(browser){
 
     /* A game that does not use phones parks the room rather than ending it: the
        class stays joined, and the chip says the phones are idle here instead of
-       showing a live-looking code above a room with nothing to do. */
+       showing a live-looking code above a room with nothing to do.
+
+       Blockbusters only qualifies with its team vote switched off — with it on the
+       board *does* want the phones, and the chip has to say which of those two
+       states it is in. Both are asserted, because the chip was right by accident
+       until a room could outlive the mode: every game with the mode off used to
+       park, and parking is what redrew the chip. */
+    await lesson.host.evaluate(() => window.HubSettings.set('bbTeamVote', false, 'blockbusters'));
     await lesson.host.locator('#new-game-btn').click(); await lesson.host.waitForTimeout(300);
     await startGame(lesson.host, 'Blockbusters', { sections:'all' });
     await lesson.host.waitForTimeout(700);
@@ -2552,6 +2559,11 @@ async function testPhoneModes(browser){
     check('a game with phones off keeps the room and says so',
           new RegExp('CODE\\s+' + lesson.code).test(parked) && /idle here/i.test(parked),
           parked.replace(/\n/g,' | '));
+    await lesson.host.evaluate(() => window.HubSettings.set('bbTeamVote', true, 'blockbusters'));
+    await lesson.host.waitForTimeout(500);
+    const voting = await lesson.host.locator('#buzzer-chip').innerText().catch(()=>'');
+    check('and switching the team vote on says the phones are wanted after all',
+          /votes only/i.test(voting), voting.replace(/\n/g,' | '));
     check('and the phone is told the teacher has moved on',
           /waiting/i.test(await dee.locator('#state').innerText()),
           await dee.locator('#state').innerText());

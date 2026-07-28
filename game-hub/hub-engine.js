@@ -3162,6 +3162,14 @@
     // an existing room is reused, so ask it for whatever this game has already
     // dealt — Millionaire deals its first question inside start()
     if(buzzHost) reaskPhones(); else openBuzzRoom();
+    /* The chip has to be redrawn on *both* routes, not only when parking. What it
+       says depends on the game — `idle here`, `votes only`, or nothing — and the
+       game has only just changed. It used to be right by accident: every game with
+       the mode off went through parkBuzzRoom, which redraws. Now that a room can
+       outlive the mode, Blockbusters and Millionaire take the other route and the
+       chip kept whatever the previous game had made it say. */
+    renderBuzzChip();
+    renderBBVote();
   }
 
   function parkBuzzRoom(){
