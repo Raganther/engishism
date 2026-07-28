@@ -1851,6 +1851,184 @@ async function testPhoneTeams(browser){
   await host.close();
 }
 
+/* ---- one strip, every game, every mode ----
+   Where a student's name appeared used to depend on the game *and* the mode: a buzz
+   went on the room chip (replacing the join address the class was still reading), a
+   typed answer went into the clue card in Jeopardy, under the sentence in Race,
+   under the question in Millionaire. Four layouts for one idea, and three of them
+   moved the board while they filled. The strip is the standard: same element, same
+   place, fixed height. */
+async function testPhoneStrip(browser){
+  section('The phone strip is the same in every game');
+
+  const openRoom = async (game, mode, opts) => {
+    const page = await openHub(browser);
+    await page.evaluate(m => {
+      window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
+      window.HubSettings.set('buzzers', true);
+      window.HubGames.ids().forEach(g => window.HubSettings.set('phoneMode', m, g));
+    }, mode);
+    await startGame(page, game, Object.assign({ sections:'all' }, opts || {}));
+    await page.waitForTimeout(900);
+    const chip = await page.locator('#buzzer-chip').innerText().catch(()=>'');
+    return { page, code:(chip.match(/CODE\s+(\d{5})/i)||[])[1] };
+  };
+  const join = async (code, name, team) => {
+    const p = await browser.newPage({ viewport:{ width:390, height:844 } });
+    p.__errors = []; p.on('pageerror', e => p.__errors.push(String(e)));
+    await p.goto(BASE + '/join.html'); await p.waitForTimeout(250);
+    await p.fill('#code', code); await p.fill('#name', name);
+    await p.locator('.teams button').nth(team).click();
+    await p.locator('#join-btn').click(); await p.waitForTimeout(500);
+    return p;
+  };
+  const stageTop = pg => pg.evaluate(() => {
+    const ids = window.HubGames.ids().map(id => window.HubGames.get(id).stage);
+    const on = ids.map(id => document.getElementById(id)).find(el => el && el.offsetParent);
+    return on ? Math.round(on.getBoundingClientRect().top) : null;
+  });
+
+  /* The room's identity and what the room is doing are two different facts, and the
+     chip used to swap the first out for the second — so the moment one student
+     buzzed, the class still typing the code lost it off the screen. */
+  const z = await openRoom('Jeopardy', 'buzz');
+  check('a room opens', !!z.code, z.code || 'none');
+  if (z.code){
+    const ben = await join(z.code, 'Ben', 1);
+    await z.page.waitForTimeout(300);
+    const top0 = await stageTop(z.page);
+    await z.page.locator('#board .tile').first().click(); await z.page.waitForTimeout(800);
+    await ben.locator('#buzzer').click(); await z.page.waitForTimeout(700);
+    const chip = await z.page.locator('#buzzer-chip').innerText();
+    const strip = await z.page.locator('#phone-bar').innerText();
+    check('the buzz appears in the strip', /Ben/.test(strip), strip.replace(/\n/g,' '));
+    check('and the chip still shows the room, so late joiners can still get in',
+          /CODE\s+/i.test(chip) && !/Ben/.test(chip), chip.replace(/\n/g,' '));
+    check('the board did not move when the class did something',
+          (await stageTop(z.page)) === top0, top0 + ' -> ' + await stageTop(z.page));
+    check('phone had no errors', ben.__errors.length === 0, ben.__errors[0]);
+    await ben.close();
+  }
+  checkClean(z.page, 'strip buzz');
+  await z.page.close();
+
+  /* A full class typing is the case that used to grow the panel and squeeze the
+     board. The strip holds its height and scrolls instead. */
+  const w = await openRoom('Race to the Board', 'write');
+  if (w.code){
+    const phones = [];
+    for (let i = 0; i < 4; i++) phones.push(await join(w.code, 'P' + i, i % 2));
+    await w.page.locator('#race-start').click(); await w.page.waitForTimeout(800);
+    const before = await stageTop(w.page);
+    const h0 = await w.page.evaluate(() => Math.round(document.getElementById('phone-bar').getBoundingClientRect().height));
+    for (const p of phones){ await p.fill('#reply', 'answer'); await p.locator('#send').click(); await p.waitForTimeout(200); }
+    await w.page.waitForTimeout(800);
+    const h1 = await w.page.evaluate(() => Math.round(document.getElementById('phone-bar').getBoundingClientRect().height));
+    check('four answers do not make the strip taller', h0 === h1, h0 + ' -> ' + h1);
+    check('and the board stays exactly where it was',
+          (await stageTop(w.page)) === before, before + ' -> ' + await stageTop(w.page));
+    check('every answer is in there', /P0: answer/.test(await w.page.locator('#phone-bar').innerText()));
+    for (const p of phones){ check('phone had no errors', p.__errors.length === 0, p.__errors[0]); await p.close(); }
+  }
+  checkClean(w.page, 'strip write');
+  await w.page.close();
+
+  /* "It just moved on with no indication who got it right." A typed answer scores
+     automatically, and Race deals the next sentence immediately — so anything shown
+     only while the buzz was live was gone before the room could read it. */
+  for (const [game, click] of [['Race to the Board', null], ['Jeopardy', '#board .tile'],
+                               ['Blockbusters', '#hexwrap .hex']]){
+    const t = await openRoom(game, 'type');
+    if (t.code){
+      const ana = await join(t.code, 'Ana', 1);
+      await t.page.waitForTimeout(300);
+      let answer;
+      if (game === 'Race to the Board'){
+        await t.page.locator('#race-start').click(); await t.page.waitForTimeout(800);
+        answer = await currentRaceAnswer(t.page);
+      } else {
+        await t.page.locator(click).first().click(); await t.page.waitForTimeout(900);
+        answer = await t.page.evaluate(() => document.getElementById('clue-answer').textContent);
+      }
+      await ana.fill('#reply', answer); await t.page.waitForTimeout(150);
+      await ana.locator('#buzzer').click(); await t.page.waitForTimeout(1400);
+      const strip = await t.page.locator('#phone-bar').innerText();
+      check(game + ': the strip names who got it', /Ana/.test(strip), strip.replace(/\n/g,' '));
+      check(game + ': and what it was worth', /\+\d/.test(strip), strip.replace(/\n/g,' '));
+      check(game + ': the points actually landed',
+            (await t.page.evaluate(() => [...document.querySelectorAll('.team .score')].map(e => e.textContent)))[1] !== '0');
+      check('phone had no errors', ana.__errors.length === 0, ana.__errors[0]);
+      await ana.close();
+    }
+    checkClean(t.page, 'strip type ' + game);
+    await t.page.close();
+  }
+
+  /* And the phone says which room it is in, all lesson — a student on the wrong
+     code, or drifting into next door's game, had no way to tell. */
+  const r = await openRoom('Jeopardy', 'buzz');
+  if (r.code){
+    const ana = await join(r.code, 'Ana', 0);
+    check('the phone shows its room number',
+          (await ana.locator('#room').innerText()).includes(r.code),
+          await ana.locator('#room').innerText());
+    await ana.close();
+  }
+  checkClean(r.page, 'room number');
+  await r.page.close();
+}
+
+/* ---- Blockbusters with more than two teams ----
+   The board is two-sided — yellow crosses, blue descends — so a third team has no
+   route to win by. Four teams play it as two alliances: everyone answers and scores
+   their own points, the hexagon takes their side's colour, and the line belongs to
+   a side. With two teams every one of these is the identity, which is the property
+   that matters: the two-team game is untouched. */
+async function testBlockbustersTeams(browser){
+  section('Blockbusters with four teams');
+  const page = await openHub(browser);
+  await page.evaluate(() => {
+    window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
+    document.getElementById('add-team-btn').click();
+    document.getElementById('add-team-btn').click();
+  });
+  await page.waitForTimeout(200);
+  const names = ['Lions','Tigers','Bears','Wolves'];
+  for (let i = 0; i < names.length; i++){
+    await page.locator('.team .tname').nth(i).fill(names[i]);
+    await page.locator('.team .tname').nth(i).dispatchEvent('change');
+  }
+  await startGame(page, 'Blockbusters', { sections:'all' });
+  await page.waitForTimeout(900);
+
+  const legend = await page.locator('#legend').innerText();
+  check('the legend says who is playing each colour',
+        /Lions/.test(legend) && /Bears/.test(legend) && /Tigers/.test(legend) && /Wolves/.test(legend),
+        legend.replace(/\n/g,' | '));
+
+  await page.locator('#hexwrap .hex').first().click(); await page.waitForTimeout(900);
+  const offered = await page.locator('#clue-claim button').allInnerTexts();
+  check('the answer card offers every team, not the first two',
+        offered.length === 4, offered.join('/').replace(/\n/g,' '));
+
+  await page.locator('#clue-claim button', { hasText:'Bears' }).first().click();
+  await page.waitForTimeout(1200);
+  const after = await page.evaluate(() => ({
+    scores: [...document.querySelectorAll('.team .score')].map(e => e.textContent),
+    hex: document.querySelector('#hexwrap .hex').className,
+    turn: [...document.querySelectorAll('.team')].findIndex(e => e.classList.contains('active'))
+  }));
+  check('the points go to the team that answered', after.scores[2] === '1', after.scores.join('/'));
+  /* Bears are the third team, so they play yellow — the hexagon has to take the
+     side's colour, because a line is made of sides and there is no third colour a
+     win could be made of. */
+  check('the hexagon takes that team\'s side colour', /claimed-gold/.test(after.hex), after.hex);
+  check('and the turn moves on within the alliance', after.turn === 2, String(after.turn));
+
+  checkClean(page);
+  await page.close();
+}
+
 async function testCompetition(browser){
   section('Competitive dynamics');
 
@@ -2465,7 +2643,7 @@ async function testPhoneModes(browser){
       await p.fill('#reply', t); await p.locator('#send').click(); await p.waitForTimeout(350);
     }
     await w.host.waitForTimeout(700);
-    const replies = await w.host.locator('#phone-replies').innerText();
+    const replies = await w.host.locator('#phone-bar').innerText();
     check('every answer comes back with who wrote it',
           /Ana: custody/.test(replies) && /Ben: prison/.test(replies), replies.replace(/\n/g,' | '));
     check('a student who has answered cannot answer twice',
@@ -2699,13 +2877,15 @@ async function testPhoneModes(browser){
       await p.fill('#reply', t); await p.locator('#send').click(); await p.waitForTimeout(300);
     }
     await rw.host.waitForTimeout(800);
-    /* And the answers need somewhere to go: this panel was hard-coded to the clue
-       card, which Race does not have, so the phones worked and the room saw
-       nothing. */
-    const shown = await rw.host.locator('#phone-replies').innerText().catch(()=>'');
+    /* The answers used to be drawn wherever the game had room — a card Race has not
+       got, or under its sentence, which re-flowed the board as the class typed. One
+       strip now, in the same place in every game. */
+    const shown = await rw.host.locator('#phone-bar').innerText().catch(()=>'');
     check('and the answers appear on the board, not on a card it has not got',
           /Ana: compulsory/.test(shown) && /Ben: banned/.test(shown), shown.replace(/\n/g,' | '));
-    check('the panel sits on the stage', await rw.host.locator('#play-race #phone-replies').count() === 1);
+    check('in the standard strip, not inside the stage',
+          await rw.host.locator('#play-race #phone-bar').count() === 0 &&
+          await rw.host.locator('#phone-bar').count() === 1);
     for (const p of [ana, ben]) await p.close();
   }
   checkClean(rw.host, 'race typing');
@@ -2724,9 +2904,9 @@ async function testPhoneModes(browser){
           (await ana.locator('#qtext').innerText()).trim().length > 0);
     await ana.fill('#reply', 'furthermore'); await ana.locator('#send').click();
     await mw.host.waitForTimeout(700);
-    check('the answers land between the question and the options',
-          await mw.host.locator('#m-stage #phone-replies').count() === 1,
-          await mw.host.locator('#phone-replies').innerText().catch(()=>'none'));
+    check('the answers land in the standard strip, the same one every game uses',
+          /Ana: furthermore/i.test(await mw.host.locator('#phone-bar').innerText().catch(()=>'')),
+          await mw.host.locator('#phone-bar').innerText().catch(()=>'none'));
     await ana.close();
   }
   checkClean(mw.host, 'millionaire typing');
@@ -2746,7 +2926,7 @@ async function testPhoneModes(browser){
     await cara.fill('#reply','custody'); await cara.locator('#send').click();
     await late.host.waitForTimeout(600);
     check('and their answer counts like anyone else\'s',
-          /Cara: custody/.test(await late.host.locator('#phone-replies').innerText().catch(()=>'')));
+          /Cara: custody/.test(await late.host.locator('#phone-bar').innerText().catch(()=>'')));
     await cara.close();
   }
   checkClean(late.host, 'late joiner');
@@ -3237,6 +3417,7 @@ async function main(){
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens, phone: testPhoneLayout,
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
     card: testFloatingCard, turns: testTurnsAndPoints, phoneteams: testPhoneTeams,
+    strip: testPhoneStrip, bbteams: testBlockbustersTeams,
     variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, topics: testTopicPicking, defaultlook: testDefaultLook, jfinish: testJeopardyFinish, competition: testCompetition, lab: testLabDrawer, range: testRangeSetting,
     buzzers: testBuzzers, phonemodes: testPhoneModes, teamvote: testTeamVote,
     typetobuzz: testTypeToBuzz, judging: testAnswerJudging,

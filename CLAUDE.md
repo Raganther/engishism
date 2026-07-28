@@ -496,6 +496,40 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **One strip for everything the class does — `#phone-bar`.** Where a student's name
+  appeared used to depend on the game *and* the mode: a buzz went on the room chip
+  (replacing the join address the class was still reading), a typed answer went into
+  the clue card in Jeopardy, under the sentence in Race, under the question in
+  Millionaire. Four layouts for one idea, and three of them moved the board as they
+  filled. It is now one element, in one place, in every game.
+  - **Fixed height is the contract.** It is as tall empty as full, so what the class
+    does can never resize the board underneath; a full class scrolls sideways. That
+    is what `repliesHost()` — which picked a different parent per game — existed to
+    work around, and it is gone.
+  - **The chip is the room's identity, the strip is the room's activity.** They are
+    two facts and the chip used to swap the first out for the second, so one buzz
+    took the join address off screen while the class was still typing it in.
+  - **It outlives the question.** Race re-arms within a frame of a word being
+    claimed, so anything shown only while the buzz was live was gone before the room
+    could read it — which is exactly "it just moved on with no indication who got it
+    right". `lastScored` stands until the next question is asked.
+  - Five states, one per thing that can be true: somebody has the floor, somebody
+    just scored (`+points`), somebody missed, the room is answering, or nothing yet.
+- **Blockbusters seats more than two teams, as two alliances.** The board is
+  structurally two-sided — yellow crosses, blue descends — so a third team has no
+  route to win by, and the answer card was hard-coded to the first two teams. Now
+  every team appears on it and scores its own points; `bbSideOf` (index parity) says
+  which colour their hexagon takes, and the *line* belongs to a side.
+  - **With two teams every part of this is the identity**, so the two-team game is
+    untouched — that is the property that made it safe to do at all.
+  - Within a side the teams rotate (`bbSideAt`), including when the side keeps the
+    board, so one student on an alliance cannot answer every question.
+  - The legend names who is playing each colour and underlines whoever is up; with
+    two teams that repeats the team bar, with four it is the only place that says
+    whether Lions or Bears is on.
+- **The phone says which room it is in**, all lesson. A student who joined on the
+  wrong code, or drifted into the class next door's game, had no way to tell —
+  every screen after joining looked identical whichever room it was.
 - **A buzz was being thrown away by the room reconnecting**, and it had been there
   the whole time the phones have existed. `reaskPhones()` runs on every `ready` from
   the relay — which is **every reconnection of the host's stream, not just the
@@ -681,7 +715,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   nothing saying why. Timed rounds ask now too; `raceCanTry()` restricts a timed
   round's buzz to the team whose round it is, so a phone on the bench can't steal a
   word off someone else's score.
-- **Deployed.** Build `20260730g`; new `card`, `turns`, `phoneteams` and `teamvote` suites.
+- **Deployed.** Build `20260731a`; new `strip` and `bbteams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
 - **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
   the game being played, and only that game, without leaving the board — see "The Lab"
   above. It exists because prototyping was the bottleneck: comparing two ideas meant
@@ -839,10 +873,11 @@ what a teacher set deliberately**, so it must be translated rather than silently
     state with the `joined` event and the phone runs the same path an arm does.
     Students trickle in — late, wrong WiFi, locked phone — so "you see nothing until
     the next question" is the common case, not the edge case.
-  - **The teacher sees what was typed, right or wrong** — the chip carries the name, the
-    word in quotes, and a verdict. A miss is the most useful thing on that chip: who is
+  - **The teacher sees what was typed, right or wrong** — the strip carries the name,
+    the word in quotes, and a verdict. A miss is the most useful thing on it: who is
     nearly there, and how, is exactly what you would want mid-round. It survives the
-    re-arm for the same reason.
+    re-arm for the same reason. **Everything the class does goes in that one strip**,
+    the same one in every game — see Current status.
   - **`type` is the answer to that class.** The student writes the word, *then* buzzes:
     the button is dead until the box has something in it, so the race is to **produce**
     the word while still reading the board. Judged on the host and only there — the relay

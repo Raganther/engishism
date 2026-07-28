@@ -37,6 +37,12 @@
   .go:disabled{ opacity:0.4; }
   .note{ font-size:0.82rem; color:rgba(251,243,213,0.62); line-height:1.5; }
   .who{ font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase; color:rgba(251,243,213,0.72); }
+  .room{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:0.72rem; letter-spacing:0.22em; text-transform:uppercase;
+    color:rgba(251,243,213,0.5); margin-bottom:2px;
+  }
+  .room b{ color:var(--yellow); font-weight:700; letter-spacing:0.26em; }
 
   /* the buzzer itself — thumb-sized, unmissable, and it fills what's left */
   #buzzer{
@@ -101,6 +107,10 @@
 </div>
 
 <div class="screen" id="screen-play">
+  <!-- Which room this phone is in, kept on screen. A student who joined on the
+       wrong code, or drifted onto a neighbouring class's game, had no way to tell:
+       every screen after joining looked identical whichever room it was. -->
+  <p class="room" id="room"></p>
   <p class="who" id="who"></p>
   <p class="qtext" id="qtext"></p>
   <button id="buzzer" disabled>Wait</button>
@@ -116,7 +126,7 @@
   <p id="status"></p>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260730g"></script>
+<script src="game-hub/hub-buzzer.js?v=20260731a"></script>
 <script>
 (function(){
   'use strict';
@@ -325,6 +335,7 @@
 
     client.on('joined', d=>{
       if(d.teams && d.teams.length){ teamNames = d.teams; }
+      $('room').innerHTML = 'Room <b>' + String(code).replace(/[^0-9]/g,'') + '</b>';
       $('who').textContent = name + ' · ' + (teamNames[team] || ('Team '+(team+1)));
       show('screen-play');
       /* Students trickle in — late, on the wrong WiFi, phone locked — so a join

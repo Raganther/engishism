@@ -152,7 +152,7 @@
       pool = shuffle(BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(groupOf(c))));
       pool = pool.slice(0, 18);          // classic 5/4/5/4 board holds 18
       buildBlockbustersBoard();
-      bbTurn=0; renderBBTurn(); bbClearOutcome();
+      bbTurn=0; bbSideAt=[0,0]; renderBBTurn(); bbClearOutcome();
       bbVote=null; bbVoting=false; renderBBVote();
       timerSetDuration(30);
     },
@@ -691,6 +691,13 @@
     <!-- SCREEN 3: play -->
     <div class="screen" id="screen-play">
       <div id="buzzer-chip" style="display:none;"></div>
+      <!-- Everything the class does, in one place, for every game and every mode:
+           who buzzed, who typed what, what the room answered, who just scored. It
+           used to be four different places — the chip, the clue card, under the race
+           sentence, under the Millionaire question — so the same event looked
+           different on every board and moved the board while it did it. Fixed
+           height, so what it says can never reflow the game. -->
+      <div id="phone-bar" style="display:none;"></div>
       <div id="play-jeopardy">
         <div id="board"></div>
       </div>
@@ -1088,7 +1095,9 @@
     const playing = document.getElementById('screen-play').classList.contains('active');
     // head-to-head has no "whose turn" — both teams are at the board at once
     const hi = !playing ? -1
-             : (activeGame==='blockbusters') ? bbTurn
+             /* the *team* playing this turn, which is only the side index while
+                there are two teams — with four it rotates within each side */
+             : (activeGame==='blockbusters') ? bbTeamOnTurn()
              : (activeGame==='race' && raceMode==='h2h') ? -1
              : active;
     const step = (activeGame==='jeopardy' || activeGame==='millionaire') ? 100 : 1;   // manual +/- correction step
@@ -1488,11 +1497,62 @@
 
   /* ================= BLOCKBUSTERS ================= */
   const BB_ROWS = [5,4,5,4];       // the classic board
+
+  /* ---- more than two teams on a two-sided board ----
+     The board is structurally two-sided: yellow connects left→right, blue connects
+     top→bottom, and there is no third route for a third team to win by. So a class
+     split into four cannot each have their own colour here — but they can all play,
+     as **two alliances**: odd teams on yellow, even on blue, each scoring its own
+     points while the *line* belongs to a side.
+
+     `bbSideOf` is the whole mechanism, and with exactly two teams it is the identity
+     — team 0 is yellow, team 1 is blue — so nothing about the two-team game changes.
+     Within a side the teams take it in turn, so a four-team class rotates
+     Lions → Tigers → Bears → Wolves across the two colours rather than two students
+     playing the whole game. */
+  function bbSideOf(teamIdx){ return teamIdx % 2; }
+  function bbTeamsOn(side){ return teams.map((_, i) => i).filter(i => bbSideOf(i) === side); }
+  let bbSideAt = [0, 0];   // which of that side's teams is up next
+  function bbTeamOnTurn(){
+    const list = bbTeamsOn(bbTurn);
+    if(!list.length) return bbTurn;                    // no team on this side yet
+    return list[bbSideAt[bbTurn] % list.length];
+  }
+  // the side's turn has been used, so the next one goes to that side's next team
+  function bbAdvanceSide(side){
+    const list = bbTeamsOn(side);
+    if(list.length > 1) bbSideAt[side] = (bbSideAt[side] + 1) % list.length;
+  }
+
   function renderBBTurn(){
     const g=document.querySelector('#legend .legend-gold');
     const s=document.querySelector('#legend .legend-silver');
     if(g) g.classList.toggle('active-turn', bbTurn===0);
     if(s) s.classList.toggle('active-turn', bbTurn===1);
+    /* Name who is actually playing each colour. With two teams this says what the
+       team bar already says; with four it is the only place that says which of
+       Lions and Bears is up. */
+    /* Marked with a class, never shouted in the markup: the name a teacher typed is
+       the name that should be in the DOM, and anything reading the legend — a test,
+       a screen reader — should see it as typed. CSS does the emphasis. */
+    const label = (el, side) => {
+      if(!el) return;
+      const list = bbTeamsOn(side);
+      const on   = bbTeamOnTurn();
+      let host = el.querySelector('.legend-teams');
+      if(!host){ host = document.createElement('span'); host.className = 'legend-teams'; el.appendChild(host); }
+      host.innerHTML = '';
+      list.forEach((i, k) => {
+        if(k) host.appendChild(document.createTextNode(' / '));
+        const n = document.createElement('span');
+        n.className = 'legend-team' + (i === on && bbTurn === side ? ' on' : '');
+        n.textContent = teams[i] ? teams[i].name : ('Team ' + (i+1));
+        host.appendChild(n);
+      });
+      if(list.length) host.insertBefore(document.createTextNode(' — '), host.firstChild);
+    };
+    label(g, 0);
+    label(s, 1);
   }
 
   /* ---- the bench votes for the hexagon ----
@@ -1526,10 +1586,11 @@
     if(!buzzHost || bbWon) return;
     const letters = bbOpenLetters();
     if(!letters.length) return;
-    bbVote   = Kit.vote.open({ options:letters, team:bbTurn });
+    const onTurn = bbTeamOnTurn();
+    bbVote   = Kit.vote.open({ options:letters, team:onTurn });
     bbVoting = true;
-    const who = teams[bbTurn] ? teams[bbTurn].name : (bbTurn === 0 ? 'Yellow' : 'Blue');
-    askClass(who + ' — which letter next?', 'vote', letters, bbTurn);
+    const who = teams[onTurn] ? teams[onTurn].name : (bbTurn === 0 ? 'Yellow' : 'Blue');
+    askClass(who + ' — which letter next?', 'vote', letters, onTurn);
     renderBBVote();
   }
 
@@ -1566,8 +1627,9 @@
                 S.get('bbTeamVote', 'blockbusters');
     if(btn){
       btn.style.display = on ? 'inline-block' : 'none';
+      const onTurn = bbTeamOnTurn();
       btn.textContent = bbVoting ? 'Done choosing'
-                                 : ((teams[bbTurn] ? teams[bbTurn].name : 'Team') + ' picks');
+                                 : ((teams[onTurn] ? teams[onTurn].name : 'Team') + ' picks');
       btn.className = bbVoting ? 'voting' : '';
     }
     const lead  = bbVote && bbVote.leader();
@@ -1967,7 +2029,7 @@
     bbClearOutcome();
     pool = shuffle(BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(groupOf(c)))).slice(0, 18);
     buildBlockbustersBoard();
-    bbTurn=0; renderBBTurn();
+    bbTurn=0; bbSideAt=[0,0]; renderBBTurn();
     bbVote=null; bbVoting=false; renderBBVote();
     bbTension(); bbDeal();
   }
@@ -2035,7 +2097,10 @@
     const ansEl=document.getElementById('clue-answer'); ansEl.style.display='none'; ansEl.textContent=clueObj.answer;
     hideAllActionButtons();
     document.getElementById('reveal-btn').style.display='inline-block';
-    clueClaim.show(teams, [0, 1]);
+    /* Every team that exists, not the first two. `allow` used to be [0,1] because
+       the board is two-sided — but the side a team plays for is `bbSideOf`, so a
+       four-team class can all answer; their hex simply takes their side's colour. */
+    clueClaim.show(teams, teams.map((_, i) => i));
     const bbSkip = document.getElementById('skip-btn');
     bbSkip.textContent = 'No claim / close';
     bbSkip.style.display='inline-block';
@@ -2513,8 +2578,9 @@
       Sound.play('correct');
     }
     if(currentTile){ currentTile.classList.add('used'); }   // keeps its value, faded
+    let paid = 0;
     if(teams.length){
-      award(team, value, { steal: !!jSteal && team === jSteal.to });
+      paid = award(team, value, { steal: !!jSteal && team === jSteal.to });
       markRun(team, true);
     }
     jSteal = null;
@@ -2524,6 +2590,7 @@
        `write` there is no winning it: the whole room answered. Nobody has earned
        the next pick, so the turn rotates and everyone gets one. */
     if(!S.get('keepControl', 'jeopardy') || everyoneAnswers()) nextTurn();
+    return paid;
   }
   document.getElementById('correct-btn').addEventListener('click', ()=>jCorrect(null));
   document.getElementById('wrong-btn').addEventListener('click', ()=>{
@@ -2591,15 +2658,19 @@
 
   // Blockbusters: claim (or skip) a hex, award +1 to the claiming team, pass turn.
   function claimHex(idx){
-    const claimed = (idx === 0 || idx === 1);
+    const claimed = idx != null && idx >= 0 && !!teams[idx];
+    const side    = claimed ? bbSideOf(idx) : null;
     const showy = document.getElementById('play-blockbusters').classList.contains('lit');
     Sound.bedStop();
     if(claimed) Sound.play(showy ? 'sting' : 'claim');
+    let paid = 0;
     if(currentTile && modalMode==='blockbusters' && claimed){
-      currentTile.classList.add(idx===0 ? 'claimed-gold' : 'claimed-silver');
+      // the hexagon belongs to a *side* — that is what a line is made of — while the
+      // points belong to the team that answered
+      currentTile.classList.add(side===0 ? 'claimed-gold' : 'claimed-silver');
       currentTile.textContent='';
-      // a hex taken by the team that wasn't on turn is a steal, and scores as one
-      award(idx, 1, { steal: idx !== bbTurn });
+      // a hex taken by the side that wasn't on turn is a steal, and scores as one
+      paid = award(idx, 1, { steal: side !== bbTurn });
       markRun(idx, true);
     }
     // work out the ending now, but let the card land before showing it
@@ -2609,11 +2680,17 @@
     /* Keeping the board on a correct answer: the team on turn that claims its own
        hex goes again. A steal or a skip always hands over — otherwise a team that
        lost the question would keep the turn it just failed to use. */
-    const kept = claimed && idx === bbTurn && S.get('keepControl', 'blockbusters');
+    /* Whoever answered has used their side's go, so that side's next team is up
+       when it comes round again — including when the side keeps the board, which is
+       what stops one student on an alliance answering every question. A no-op with
+       two teams, where each side has exactly one. */
+    if(claimed) bbAdvanceSide(side);
+    const kept = claimed && side === bbTurn && S.get('keepControl', 'blockbusters');
     if(!kept) bbTurn = Kit.passTurn(2, bbTurn);
     renderBBTurn();
     renderBBVote();      // the button names the team whose turn it now is
     renderScorebar();
+    return paid;
   }
   /* Skip belongs to whichever game put the card up. Blockbusters uses it to leave a
      hex unclaimed; Jeopardy now uses it to decline a steal, which it must have —
@@ -3148,45 +3225,129 @@
     const before = chip.getBoundingClientRect().height;
     drawBuzzChip(chip, state);
     if(Math.abs(chip.getBoundingClientRect().height - before) > 0.5) hook('onResize');
+    // the two are one instrument: the chip says which room, the strip says what the
+    // room is doing, and every caller wants both current
+    renderPhoneBar();
   }
 
+  /* The chip is the room's identity and nothing else: how to join, the code, how
+     many are in, whether the buzzers are live. It used to swap all of that out for
+     whoever had just buzzed — so the moment a student got in, the class still
+     joining lost the address off the screen. Who did what now has its own strip
+     underneath (`renderPhoneBar`), which is the same strip in every game. */
   function drawBuzzChip(chip, state){
     if(!buzzHost){ chip.style.display='none'; return; }
     chip.style.display='flex';
     chip.className = state==='won' ? 'won' : (state==='armed' || state==='asking' ? 'armed' : '');
     chip.innerHTML='';
     const add=(cls,txt)=>{ const s=document.createElement('span'); s.className=cls; s.textContent=txt; chip.appendChild(s); };
-    if(buzzWinner){
-      add('buzz-name', buzzWinner.name);
-      add('buzz-team', teams[buzzWinner.team] ? teams[buzzWinner.team].name : ('Team '+(buzzWinner.team+1)));
-      // what they wrote, so the teacher can read the spelling out rather than
-      // taking the app's word for it
-      if(buzzWinner.value != null) add('buzz-typed', '“' + buzzWinner.value + '”');
-    } else if(lastTyped){
-      /* A miss is worth showing: it is the most useful thing on this chip. Who is
-         nearly there, and how, is exactly what you would want to see mid-round. */
-      add('buzz-name', lastTyped.name);
-      add('buzz-typed', '“' + lastTyped.value + '”');
-      add('buzz-verdict', lastTyped.verdict === 'close' ? 'spelling' : 'no');
-    } else {
-      // the join address, so it can be read off the screen instead of the terminal
-      add('buzz-join', joinAddress());
-      add('buzz-code', 'code ' + buzzHost.code);
-      /* The room outlives the game, so it is on screen in games that do not use it.
-         Say so, rather than leaving a live-looking code above an idle class. */
-      /* And say *how* idle. In Millionaire the phones still vote when Ask the class
-         is used, so "idle here" would read as "don't bother joining" to a room that
-         is about to be asked something. */
-      if(activeGame && S.get('phoneMode', activeGame) === 'off')
-        add('buzz-idle', classVotes() ? 'votes only' : 'idle here');
-      add('buzz-scan', 'show QR');
-      add('buzz-count', buzzPlayers + (buzzPlayers===1 ? ' phone' : ' phones'));
-      if(state==='armed') add('buzz-live', 'buzzers live');
-      // while the class is answering, the count is the thing the teacher watches
-      if(state==='asking' && classReplies){
-        add('buzz-live', classReplies.total + ' of ' + (classReplies.of || buzzPlayers) + ' in');
-      }
+    // the join address, so it can be read off the screen instead of the terminal
+    add('buzz-join', joinAddress());
+    add('buzz-code', 'code ' + buzzHost.code);
+    /* The room outlives the game, so it is on screen in games that do not use it.
+       Say so, rather than leaving a live-looking code above an idle class. And say
+       *how* idle: in Millionaire the phones still vote when Ask the class is used,
+       so "idle here" would read as "don't bother joining" to a room that is about
+       to be asked something. */
+    if(activeGame && S.get('phoneMode', activeGame) === 'off')
+      add('buzz-idle', classVotes() ? 'votes only' : 'idle here');
+    add('buzz-scan', 'show QR');
+    add('buzz-count', buzzPlayers + (buzzPlayers===1 ? ' phone' : ' phones'));
+    if(state==='armed') add('buzz-live', 'buzzers live');
+    // while the class is answering, the count is the thing the teacher watches
+    if(state==='asking' && classReplies){
+      add('buzz-live', classReplies.total + ' of ' + (classReplies.of || buzzPlayers) + ' in');
     }
+  }
+
+  /* ---- one strip for everything the class does ----
+     Where a student's name appears used to depend on the game *and* the mode: a buzz
+     went on the chip, typed answers went into the clue card in Jeopardy, under the
+     sentence in Race, under the question in Millionaire — four layouts for one idea,
+     and three of them moved the board as they filled.
+
+     So it is one bar, in one place, in every game. Two rules make it work:
+       · **Fixed height.** It is as tall when empty as when full, so what the class
+         does can never resize the board underneath. A full class scrolls sideways
+         rather than growing downwards.
+       · **It outlives the question.** A word claimed in Race re-arms the phones
+         within a frame, so anything shown only while the buzz was live was gone
+         before the room could read it — which is exactly the "it just moved on with
+         no indication who got it" problem. What it says stands until the next thing
+         happens. */
+  let lastScored = null;    // {name, team, value, points} — who took the last question
+  function notePhoneScore(name, team, value, points){
+    lastScored = { name, team, value, points };
+    renderPhoneBar();
+  }
+
+  function renderPhoneBar(){
+    const bar = document.getElementById('phone-bar');
+    if(!bar) return;
+    const before = bar.getBoundingClientRect().height;
+    drawPhoneBar(bar);
+    // the strip is fixed-height by design, so this should never fire — it is here
+    // for the one case that does change it: the room opening or closing
+    if(Math.abs(bar.getBoundingClientRect().height - before) > 0.5) hook('onResize');
+  }
+
+  function drawPhoneBar(bar){
+    if(!buzzHost){ bar.style.display='none'; bar.innerHTML=''; return; }
+    bar.style.display='flex';
+    bar.innerHTML='';
+    const add=(cls,txt)=>{ const s=document.createElement('span'); s.className=cls; s.textContent=txt; bar.appendChild(s); return s; };
+    const teamName = i => teams[i] ? teams[i].name : ('Team ' + (i+1));
+    const teamChip = i => { const s = add('pb-team team-'+Math.min(i,3), teamName(i)); return s; };
+
+    // 1. somebody has the floor — the loudest thing that can be true
+    if(buzzWinner){
+      bar.className = 'won';
+      add('pb-name', buzzWinner.name);
+      teamChip(buzzWinner.team);
+      if(buzzWinner.value != null) add('pb-typed', '\u201C' + buzzWinner.value + '\u201D');
+      add('pb-note', buzzWinner.value != null ? 'got it' : 'buzzed in');
+      return;
+    }
+    // 2. the last question was taken by a phone — said plainly, and it stays said
+    if(lastScored){
+      bar.className = 'scored';
+      add('pb-name', lastScored.name);
+      teamChip(lastScored.team);
+      if(lastScored.value) add('pb-typed', '\u201C' + lastScored.value + '\u201D');
+      add('pb-points', '+' + lastScored.points);
+      return;
+    }
+    // 3. a miss: who is nearly there, and how, is the most useful thing on screen
+    if(lastTyped){
+      bar.className = 'missed';
+      add('pb-name', lastTyped.name);
+      add('pb-typed', '\u201C' + lastTyped.value + '\u201D');
+      add('pb-verdict', lastTyped.verdict === 'close' ? 'check the spelling' : 'not yet');
+      return;
+    }
+    // 4. the whole room answering — the count, then what they wrote
+    if(classReplies && classReplies.all.length){
+      bar.className = 'replies';
+      add('pb-count', classReplies.total + ' of ' + (classReplies.of || buzzPlayers || '?'));
+      classReplies.all.forEach(r=>{
+        const chip = add('pb-reply team-' + Math.min(r.team, 3), r.name + ': ' + r.value);
+        chip.title = teamName(r.team);
+      });
+      return;
+    }
+    // 5. nothing yet — but the strip still holds its height, so the board never moves
+    bar.className = 'idle';
+    add('pb-idle', phoneBarHint());
+  }
+
+  function phoneBarHint(){
+    if(!activeGame) return 'Waiting for the class';
+    if(voteLive())  return 'The class is voting';
+    const mode = S.get('phoneMode', activeGame);
+    return mode === 'buzz'  ? 'Waiting for a buzz'
+         : mode === 'type'  ? 'Waiting for someone to type it'
+         : mode === 'write' ? 'Waiting for the class to answer'
+         : 'Phones are idle here';
   }
 
   /* "not reachable" on its own sends you hunting. Nearly always the cause is the
@@ -3259,7 +3420,7 @@
   function parkBuzzRoom(){
     hideJoinPanel();
     clearReplies();
-    buzzWinner = null; lastTyped = null;
+    buzzWinner = null; lastTyped = null; lastScored = null;
     if(buzzHost) buzzHost.disarm();
     renderBuzzChip();
     renderBBVote();
@@ -3318,7 +3479,7 @@
     hideJoinPanel();
     forgetRoom();
     if(buzzHost){ buzzHost.close(); buzzHost=null; }
-    buzzWinner=null; buzzPlayers=0; lastTyped=null;
+    buzzWinner=null; buzzPlayers=0; lastTyped=null; lastScored=null;
     bbVote=null; bbVoting=false; renderBBVote();
     const chip=document.getElementById('buzzer-chip');
     if(chip) chip.style.display='none';
@@ -3403,6 +3564,10 @@
   function askPhones(prompt, game){
     if(!buzzHost) return;
     clearReplies();
+    /* A new question retires the last result. It has to survive the *previous*
+       question's re-arm — Race re-arms within a frame of a word being claimed — but
+       it must not sit over the next one. */
+    lastScored = null;
     // the question only travels if the teacher wants it to — sometimes the point
     // is that they read the board, not their hand
     if(!S.get('phonePrompt', game)) prompt = '';
@@ -3449,60 +3614,14 @@
 
   function clearReplies(){
     classReplies = null;
-    const el = document.getElementById('phone-replies');
-    if(el) el.remove();
+    renderPhoneBar();
   }
 
-  /* Where thirty answers should appear depends on what is on screen: the clue card
-     when a clue is open, otherwise under the question the game itself is showing.
-     This was hard-coded to the clue card, so Race and Millionaire collected answers
-     and had nowhere to put them — the phones worked and the room saw nothing. */
-  function repliesHost(){
-    const modal = document.getElementById('clue-modal');
-    if(modal && modal.style.display && modal.style.display !== 'none')
-      return { parent: document.getElementById('clue-back'),
-               before: document.getElementById('clue-actions') };
-    if(activeGame === 'race'){
-      const p = document.getElementById('race-prompt');
-      return p ? { parent: p.parentNode, before: p.nextSibling } : null;
-    }
-    if(activeGame === 'millionaire'){
-      const q = document.getElementById('m-question');
-      return q ? { parent: q.parentNode, before: q.nextSibling } : null;
-    }
-    const back = document.getElementById('clue-back');
-    return back ? { parent: back, before: document.getElementById('clue-actions') } : null;
-  }
-
-  /* Show what came back. Deliberately plain — the point of collecting thirty
-     answers is that the teacher can read them at a glance. */
-  function renderReplies(){
-    const host = repliesHost();
-    if(!host || !host.parent) return;
-    let el = document.getElementById('phone-replies');
-    if(!classReplies || !classReplies.all.length){ if(el) el.remove(); return; }
-    if(!el){
-      el = document.createElement('div');
-      el.id = 'phone-replies';
-    }
-    // the panel follows the screen: a clue opening mid-round moves it to the card
-    if(el.parentNode !== host.parent) host.parent.insertBefore(el, host.before);
-    el.innerHTML = '';
-    const head = document.createElement('div');
-    head.className = 'replies-head';
-    head.textContent = classReplies.total + ' of ' + (classReplies.of || '?') + ' answered';
-    el.appendChild(head);
-    classReplies.all.forEach(r=>{
-      const chip = document.createElement('span');
-      chip.className = 'reply team-' + Math.min(r.team, 3);
-      chip.textContent = r.name + ': ' + r.value;
-      el.appendChild(chip);
-    });
-    /* On a board this panel is *in* the layout, and a full class makes it several
-       rows tall — so the board has to give up the height rather than slide under
-       the team bar. Free on the clue card, where the panel floats over the board. */
-    if(el.parentNode && !el.closest('#clue-back')) hook('onResize');
-  }
+  /* Answers used to be drawn wherever the current game happened to have room — the
+     clue card, under the race sentence, under the Millionaire question — which is
+     three layouts for one idea, and two of them grew the page as the class typed.
+     They go in the standard strip now, like everything else the class does. */
+  function renderReplies(){ renderPhoneBar(); }
 
   /* `opts.mode` picks the shape ('type' carries a typed answer with the buzz);
      `opts.reopen` says this is the same question coming back after a wrong answer,
@@ -3634,8 +3753,16 @@
        on the other. */
     if((activeGame === 'jeopardy' || activeGame === 'blockbusters') &&
        b && b.value != null && teams[b.team] && currentClueItem){
-      if(activeGame === 'jeopardy') jCorrect(b.team);
-      else claimHex(b.team);
+      /* Say who did it, before the clue closes. The award itself was already
+         automatic, but nothing on screen named the student — the card shut and the
+         board moved on, so from the back of the room somebody's team just gained
+         points for no visible reason. `notePhoneScore` outlives the re-arm. */
+      const paid = (activeGame === 'jeopardy') ? jCorrect(b.team) : claimHex(b.team);
+      /* The floor is given up as part of scoring: the question is over, so leaving
+         a winner standing would keep the strip saying "got it" instead of what they
+         got — and Race already reads this way because awarding resets the buzzers. */
+      buzzWinner = null;
+      notePhoneScore(b.name, b.team, b.value, paid || 1);
       return;
     }
     if(activeGame === 'race' && b && b.value != null && raceCurrent && teams[b.team]){
@@ -3645,7 +3772,13 @@
       if(w && !w.found){
         Sound.play(document.getElementById('play-race').classList.contains('lit') ? 'sting' : 'correct');
         racePending = { w, el:el||null };
+        const who = { name:b.name, team:b.team, value:b.value };
         awardRaceWord(b.team, el||null);
+        /* After the award, not before: awarding deals the next sentence, which
+           re-arms the phones and wipes anything the strip was showing. This is the
+           bug from the other end — the word was scored and the board moved on
+           without ever naming the student who produced it. */
+        notePhoneScore(who.name, who.team, who.value, 1);
       }
     }
   }

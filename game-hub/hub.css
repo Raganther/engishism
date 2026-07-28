@@ -579,28 +579,61 @@ body.theme-gameshow .settings-range input[type=range]{ accent-color:var(--gold);
 }
 #buzzer-chip .buzz-scan{ background:var(--blue); color:var(--white); border-radius:5px; padding:2px 8px; font-weight:600; }
 
-/* --- typed answers coming back from the class (phones prototype) ---
-   Plain on purpose: thirty answers are only useful if the teacher can read them
-   at a glance while still running the room. */
-#phone-replies{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin: 4px 0 18px; }
-.replies-head{
-  width:100%; text-align:center;
-  font-family:'IBM Plex Mono',monospace; font-size:0.72rem;
-  letter-spacing:0.08em; text-transform:uppercase; color:var(--muted);
+/* --- what the class is doing: one strip, every game, every mode ---
+   Fixed height is the whole contract. This sits between the chip and the board, and
+   if it grew as answers arrived it would resize the board underneath — which is what
+   the three layouts it replaced all did. A full class scrolls sideways instead. */
+#phone-bar{
+  display:none; align-items:center; gap:8px;
+  height:38px; min-height:38px; max-height:38px; box-sizing:border-box;
+  margin: 0 auto 8px; padding: 0 12px; width:max-content; max-width:100%;
+  overflow-x:auto; overflow-y:hidden; scrollbar-width:none; white-space:nowrap;
+  border:2px solid transparent; border-radius:10px;
+  font-family:'IBM Plex Mono',monospace; font-size:0.74rem;
+  letter-spacing:0.06em; text-transform:uppercase; color:var(--muted);
 }
-/* On a lit stage the panel sits on the board rather than on the clue card, and
-   --muted is a light-theme grey. */
-body.theme-gameshow .replies-head{ color:rgba(255,255,255,0.55); }
-.reply{
-  font-size:0.92rem; padding:4px 10px; border-radius:999px;
+#phone-bar::-webkit-scrollbar{ display:none; }
+#phone-bar > span{ flex:0 0 auto; }
+/* the four states it can be in, each readable from the back of a room at a glance */
+#phone-bar.won{ border-color:var(--blue); background:rgba(0,160,223,0.10); }
+#phone-bar.scored{ border-color:var(--yellow); background:rgba(255,194,14,0.14); }
+#phone-bar.missed{ border-color:rgba(196,70,47,0.5); }
+#phone-bar .pb-name{
+  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.98rem;
+  text-transform:none; letter-spacing:0; color:var(--navy);
+}
+#phone-bar .pb-team{ background:var(--blue); color:var(--white); border-radius:5px; padding:2px 8px; font-weight:600; }
+#phone-bar .pb-team.team-0{ background:var(--yellow); color:var(--navy); }
+#phone-bar .pb-team.team-2{ background:#7A5AF8; color:#fff; }
+#phone-bar .pb-team.team-3{ background:#12876F; color:#fff; }
+/* what a phone actually typed — the teacher reads the spelling out, so it is set in
+   the reading face rather than the mono chrome face */
+#phone-bar .pb-typed{ font-family:'Space Grotesk',sans-serif; text-transform:none; letter-spacing:0; color:var(--navy); }
+#phone-bar .pb-points{ background:var(--navy); color:var(--cream); border-radius:5px; padding:2px 9px; font-weight:700; }
+#phone-bar .pb-note{ color:var(--muted); font-style:italic; letter-spacing:0.04em; }
+#phone-bar .pb-verdict{ background:var(--cream); color:#8a5a00; border-radius:5px; padding:2px 8px; font-weight:600; }
+#phone-bar .pb-count{ color:var(--muted); }
+#phone-bar .pb-idle{ color:var(--muted); font-style:italic; letter-spacing:0.04em; text-transform:none; }
+#phone-bar .pb-reply{
+  font-family:'Space Grotesk',sans-serif; font-size:0.9rem; text-transform:none; letter-spacing:0;
+  padding:3px 10px; border-radius:999px;
   background:var(--cream); color:var(--navy); border:1px solid rgba(18,38,63,0.18);
 }
-.reply.team-0{ background:var(--yellow); }
-.reply.team-1{ background:var(--blue); color:var(--white); }
-body.theme-gameshow .replies-head{ color:rgba(234,240,255,0.6); }
-body.theme-gameshow .reply{ background:rgba(255,255,255,0.08); color:var(--paper); border-color:rgba(255,255,255,0.2); }
-body.theme-gameshow .reply.team-0{ background:var(--gold); color:#0a0d26; }
-body.theme-gameshow .reply.team-1{ background:#00A0DF; color:#fff; }
+#phone-bar .pb-reply.team-0{ background:var(--yellow); }
+#phone-bar .pb-reply.team-1{ background:var(--blue); color:var(--white); }
+#phone-bar .pb-reply.team-2{ background:#7A5AF8; color:#fff; }
+#phone-bar .pb-reply.team-3{ background:#12876F; color:#fff; }
+/* The strip is transparent, so on a lit stage every navy label in it disappears —
+   which is how a student's name once came to be printed in navy on near-black. */
+body.theme-gameshow #phone-bar{ color:rgba(234,240,255,0.6); }
+body.theme-gameshow #phone-bar .pb-name,
+body.theme-gameshow #phone-bar .pb-typed{ color:var(--paper); }
+body.theme-gameshow #phone-bar .pb-points{ background:var(--gold); color:#0A0A14; }
+body.theme-gameshow #phone-bar .pb-verdict{ background:rgba(255,200,61,0.18); color:var(--gold); }
+body.theme-gameshow #phone-bar .pb-reply{ background:rgba(255,255,255,0.08); color:var(--paper); border-color:rgba(255,255,255,0.2); }
+body.theme-gameshow #phone-bar .pb-reply.team-0{ background:var(--gold); color:#0a0d26; }
+body.theme-gameshow #phone-bar .pb-reply.team-1{ background:#00A0DF; color:#fff; }
+body.theme-gameshow #phone-bar.scored{ border-color:var(--gold); background:rgba(255,200,61,0.14); }
 
 /* --- Timer widget (teacher-controlled, both games) — lives in the header bar --- */
 /* Takes the width it needs and lets the team bar inside it scroll, rather than
@@ -996,7 +1029,11 @@ body.theme-gameshow #play-blockbusters.lit{
   transition: background .9s ease, transform .35s cubic-bezier(.2,.9,.3,1);
 }
 body.theme-gameshow #play-blockbusters.lit #legend{ color: rgba(234,240,255,0.78); }
-body.theme-gameshow #play-blockbusters.lit #legend span.active-turn{
+body.theme-gameshow #play-blockbusters.lit /* who is playing each colour — with two teams this repeats the team bar, with four
+   it is the only place saying which of Lions and Bears is up */
+.legend-teams{ opacity:0.8; }
+.legend-team.on{ font-weight:700; text-decoration:underline; text-underline-offset:3px; opacity:1; }
+#legend span.active-turn{
   background: rgba(199,125,255,0.22); color: var(--paper);
   box-shadow: 0 0 18px rgba(199,125,255,0.5);
 }
@@ -1437,4 +1474,8 @@ body.theme-gameshow #buzzer-chip .buzz-verdict{ background:rgba(255,200,61,0.18)
 .team.active{ outline:2px solid var(--yellow); box-shadow:0 0 0 3px rgba(255,194,14,0.25); }
 .bb-team .dot{ width:13px; height:13px; border-radius:4px; }
 .bb-team .bb-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; color:var(--white); font-size:0.98rem; }
+/* who is playing each colour — with two teams this repeats the team bar, with four
+   it is the only place saying which of Lions and Bears is up */
+.legend-teams{ opacity:0.8; }
+.legend-team.on{ font-weight:700; text-decoration:underline; text-underline-offset:3px; opacity:1; }
 #legend span.active-turn{ font-weight:700; color:var(--navy); background:var(--cream); padding:2px 9px; border-radius:6px; }
