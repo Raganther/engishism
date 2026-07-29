@@ -543,6 +543,21 @@ still missed.
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A scanned code outranks the remembered seat.** Reported as "the QR skips the
+  name-and-team screen and goes straight to the button". The seat memory
+  (`engishism.seat`) auto-rejoined on load without comparing its stored code to the
+  `?code=` the QR just put in the URL — so a phone that had ever joined a room
+  auto-joined *that* room, skipped the join screen, and sat deaf to every team
+  change in the room actually scanned. The URL code is an explicit statement of
+  which room the phone belongs in: when it differs from the seat, the seat is last
+  lesson's — forget it, keep the name, show the join screen. Same code (or no code
+  in the URL) still resumes, which is the reload-mid-lesson feature working.
+  - **The join screen's team list now re-asks every 4s while it is up.** It was
+    fetched once per code, so a team added after the page loaded was only pickable
+    by students who had not opened it yet. Joined phones already got pushes over
+    the stream; the join screen has no stream, so it polls.
+  - Both checks live in `jointeams`/`phoneteams` and were proved against the
+    reverted fix (3 checks fail on the old build).
 - **Jeopardy has a third ruleset: `together`, the class against the board.** Every
   other mode sets teams against each other; this one sets the room against a number,
   for a group competition makes anxious rather than sharp. Written from the

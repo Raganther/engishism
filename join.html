@@ -178,9 +178,9 @@
      room yet, no network. The default pair stays and the student can still join —
      the code is validated by the connection attempt, not by this. */
   let teamsFor = '';
-  function loadTeams(){
+  function loadTeams(force){
     const code = $('code').value.trim();
-    if(!/^\d{4,6}$/.test(code) || code === teamsFor) return;
+    if(!/^\d{4,6}$/.test(code) || (!force && code === teamsFor)) return;
     teamsFor = code;
     fetch((RELAY || '') + '/buzzer/room?code=' + encodeURIComponent(code))
       .then(r => r.ok ? r.json() : null)
@@ -201,6 +201,15 @@
   if(params.get('code')){ $('code').value = params.get('code'); }
   validate();
   loadTeams();               // scanned in? then the code is already there
+
+  /* And keep the list current while the student is still choosing. This fetch used
+     to run once per code, so a team the teacher added *after* this page loaded was
+     never pickable — the student had to join, or reload, to see it. Joined phones
+     get changes pushed over their stream; the join screen has no stream yet, so it
+     asks again. Same silent failure as above: a dead relay changes nothing. */
+  setInterval(()=>{
+    if($('screen-join').classList.contains('active')) loadTeams(true);
+  }, 4000);
 
   function show(id){
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -564,10 +573,25 @@
 
   /* Back into the same seat on a reload, without retyping anything. If the room has
      gone — a lesson ended, a different class — the stream reports it unreachable and
-     the join screen is still there underneath. */
+     the join screen is still there underneath.
+
+     A scanned code outranks the memory. The QR puts the room in the URL, and that is
+     an explicit statement of which room this phone belongs in — so a seat remembered
+     from a *different* room is last lesson's, not this one's. Resuming it anyway
+     skipped the name-and-team screen entirely and dropped the student into the old
+     room, buzz button up, deaf to every team change in the room they had actually
+     scanned. Keep the name (they are the same person), drop the stale seat, and let
+     them join the scanned room properly. */
   (function resume(){
     const d = seat();
     if(!d) return;
+    const scanned = params.get('code');
+    if(scanned && /^\d{4,6}$/.test(scanned) && String(scanned) !== String(d.code)){
+      forgetSeat();
+      if(!$('name').value){ $('name').value = d.name || ''; }
+      validate();
+      return;
+    }
     team = Number(d.team) || 0;
     $('code').value = d.code; $('name').value = d.name;
     renderTeams();

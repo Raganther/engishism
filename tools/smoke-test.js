@@ -1894,6 +1894,20 @@ async function testPhoneTeams(browser){
             .findIndex(e => e.classList.contains('active'))) === 2);
     check('phone had no errors', p.__errors.length === 0, p.__errors[0]);
     await p.close();
+
+    /* A team added mid-lesson has to reach a phone still sitting on the join
+       screen too — that list used to be fetched once per code and never again,
+       so a fifth team was only pickable by students who had not opened the page
+       yet. The screen re-asks every 4s while it is up. */
+    const late = await browser.newPage({ viewport:{ width:390, height:844 } });
+    await late.goto(BASE + '/join.html'); await late.waitForTimeout(200);
+    await late.fill('#code', code); await late.waitForTimeout(400);
+    await host.evaluate(() => document.getElementById('add-team-btn').click());
+    await late.waitForTimeout(5200);
+    const offered2 = await late.locator('.teams button').count();
+    check('a team added while a student is still on the join screen becomes pickable',
+          offered2 === 5, String(offered2));
+    await late.close();
   }
   checkClean(host, 'phone teams');
   await host.close();
@@ -2168,6 +2182,39 @@ async function testJoinTeams(browser){
     check(w + 'px: and the page does not scroll sideways', r.page <= 0, String(r.page));
     await ph.close();
   }
+
+  /* The remembered seat must not outrank a scanned code. A seat stored from a
+     previous lesson auto-rejoined over the QR's ?code=, which skipped the
+     name-and-team screen entirely and put the student in the old room — buzz
+     button up, deaf to every team change in the room they had actually scanned.
+     `resumed` is window.HubPlayer existing: joinRoom() creates it whether or not
+     the room answers, so it marks the auto-join path having run, no relay needed. */
+  const seatPage = async (url) => {
+    const p = await browser.newPage({ viewport:{ width:390, height:844 } });
+    await p.goto(BASE + '/join.html');
+    await p.evaluate(() => localStorage.setItem('engishism.seat',
+      JSON.stringify({ code:'11111', name:'Zoe', team:1, id:'seat-test' })));
+    await p.goto(BASE + url); await p.waitForTimeout(300);
+    const r = await p.evaluate(() => ({
+      joinShown: document.getElementById('screen-join').classList.contains('active'),
+      resumed:   !!window.HubPlayer,
+      code:      document.getElementById('code').value,
+      name:      document.getElementById('name').value,
+      seat:      localStorage.getItem('engishism.seat')
+    }));
+    await p.close();
+    return r;
+  };
+  let r = await seatPage('/join.html?code=22222');
+  check('a scanned code that differs from the remembered seat shows the join screen',
+        r.joinShown && !r.resumed, JSON.stringify(r));
+  check('…holding the scanned code, not the remembered one', r.code === '22222', r.code);
+  check('…with the name remembered', r.name === 'Zoe', r.name);
+  check('…and the stale seat forgotten', r.seat === null, String(r.seat));
+  r = await seatPage('/join.html?code=11111');
+  check('a scanned code matching the seat still resumes it', r.resumed, JSON.stringify(r));
+  r = await seatPage('/join.html');
+  check('and a plain reload still resumes the seat', r.resumed, JSON.stringify(r));
 }
 
 async function testCompetition(browser){
