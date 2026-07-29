@@ -3863,6 +3863,11 @@ async function testJeopardyClassic(browser){
   check('finding it opens a bet, not a clue',
         await page.locator('#wager-panel').isVisible() &&
         !(await page.locator('#reveal-btn').isVisible()));
+  /* A Daily Double belongs to the team that found it, so no question is open to the
+     room — which is what stops a reconnection re-arming the buzzers mid-bet.
+     `askingNow` is the one place that decides this. */
+  check('and the room is not being asked anything while the bet is placed',
+        (await page.evaluate(() => window.HubGames.get('jeopardy').askingNow())) === false);
   check('and the clue itself is not shown yet',
         await page.evaluate(() => getComputedStyle(document.getElementById('clue-text')).display) === 'none');
   const range = await page.locator('#wager-range').innerText();
@@ -3953,6 +3958,19 @@ async function testJeopardyClassic(browser){
         caps.join(' / ') + ' vs ' + beforeFinal.join('/'));
   check('then the clue goes up', /final clue/i.test(await fin.locator('#clue-topline').innerText()),
         await fin.locator('#clue-topline').innerText());
+  /* ---- the final clue is the one beat where everybody answers at once ----
+     Classic sets the phones to buzz, which is right for a normal clue and wrong
+     here: a buzzer hands the last question of the game to one thumb, when the whole
+     mechanic is that every team writes privately against the clock. The game owns
+     the round while it runs, the same way Bingo owns it while the cards are out. */
+  const finalRound = await fin.evaluate(() => {
+    const g = window.HubGames.get('jeopardy');
+    return g.phoneRound ? g.phoneRound() : null;
+  });
+  check('every team writes the final, whatever the mode says',
+        !!finalRound && finalRound.mode === 'write', JSON.stringify(finalRound));
+  check('and the mode itself is still buzz, so it is the beat that differs',
+        (await fin.evaluate(() => window.HubSettings.get('phoneMode','jeopardy'))) === 'buzz');
 
   await fin.locator('#reveal-btn').click(); await fin.waitForTimeout(400);
   /* Settled lowest score first, as the show does it — so the team that was behind

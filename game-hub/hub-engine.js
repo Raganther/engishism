@@ -170,7 +170,21 @@
        same way — shared by coincidence of mechanism, not by inheritance. */
     expects:     () => (currentClueItem && currentClueItem.answer) || '',
     phonePrompt: () => (currentClueItem && currentClueItem.text) || '',
-    askingNow:   () => clueIsOpen(),
+    /* A Daily Double belongs to the team that found it — no race, no phones — and a
+       wager is being placed on the board rather than answered in the room. Saying so
+       here is what stops a reconnection re-arming the buzzers mid-bet: `askingNow`
+       is the one place that decides whether a question is open to the room. */
+    askingNow:   () => clueIsOpen() && jDoubleTeam == null && !jWager,
+    /* The final clue is the one beat of Jeopardy where every team answers at once,
+       privately, against the clock — that is the whole mechanic, and a buzzer would
+       hand it to one thumb. So the game owns the round while it runs, exactly as
+       Bingo owns it while the cards are in their hands, and `phoneMode` picks up
+       again afterwards. */
+    phoneRound(){
+      if(!jFinalState || !jFinalState.asking) return null;
+      return { mode:'write',
+               prompt: S.get('phonePrompt', 'jeopardy') ? (jFinalState.clue.q || '') : '' };
+    },
     // the buzz decides who answers, so it selects that team: the teacher stops
     // being the one who chooses, which is the whole point of buzzing for a tile
     onBuzzTaken(b){ if(teams[b.team]){ active = b.team; renderScorebar(); } },
@@ -1743,10 +1757,15 @@
   const J_PRESETS = {
     // the plain game: the teacher marks, the phones sit out
     hub:     { jDailyDoubles:0, jFinalRound:false, jDeduct:false,
-               jTogether:false, jHints:false, phoneMode:'off' },
+               jTogether:false, jHints:false, phoneMode:'off',
+               stealOnWrong:true, keepControl:true },
     // the show is a race for the floor, so that is what the handsets are for
+    /* The show opens a missed clue to the other contestants and lets a correct
+       answer keep the board, so the ruleset says both rather than leaving them to
+       whatever was set last. */
     classic: { jDailyDoubles:1, jFinalRound:true,  jDeduct:true,
-               jTogether:false, jHints:false, phoneMode:'buzz' },
+               jTogether:false, jHints:false, phoneMode:'buzz',
+               stealOnWrong:true, keepControl:true },
     /* Everything that sets one team against another is off here, and that is the
        whole mode: no hidden wager to find first, no steal, nothing deducted, no
        final round to overtake anyone in. What is left is the board and the room —
@@ -3778,6 +3797,7 @@
   function jFinalAsk(){
     const st = jFinalState;
     if(!st) return;
+    st.asking = true;          // from here the room writes, whatever the mode says
     currentClueValue = 0;
     currentTile = null;
     modalMode = 'jeopardy';
@@ -3802,6 +3822,7 @@
   function jFinalSettle(){
     const st = jFinalState;
     if(!st) return;
+    st.asking = false;         // answers are in; the phones go back to the mode
     const pending = st.order.filter(i => st.marked[i] == null);
     if(!pending.length){ jFinalState = null; jFinalWasPlayed = true; jFinish(); return; }
     const team = pending.sort((a, b) => teams[a].score - teams[b].score)[0];

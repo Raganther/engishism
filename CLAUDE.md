@@ -564,6 +564,20 @@ still missed.
   - **The preset switches *off* everything that pits teams against each other** —
     steal, keep-the-board, Daily Doubles, deduction. A preset that only ever adds
     would leave a steal running under a cooperative round.
+- **The final clue owns the phones; a Daily Double asks nobody.** Two beats of
+  Classic where the mode is the wrong answer, both fixed through the contract rather
+  than by special-casing the phone layer.
+  - **The final clue is the one moment every team answers at once**, privately,
+    against the clock — a buzzer hands the last question of the game to one thumb.
+    `phoneRound()` returns a `write` round while it runs, so the beat differs while
+    the mode stays `buzz`, and the check asserts exactly that pair.
+  - **A Daily Double belongs to the team that found it**, so no question is open to
+    the room. That is now `askingNow()` returning false during the bet — which is
+    what stops a reconnection re-arming the buzzers mid-wager, a latent bug of the
+    same shape as the flicker.
+  - **The steal and keep-the-board are written into the presets too**, because the
+    show does both and a ruleset that leaves them to whatever was set last is only
+    describing part of itself.
 - **What the phones do is part of a mode, not a separate decision.** Reported as
   "the modes have no control over the phones — `What the phones do` still controls
   them". It was not overriding anything: `phoneMode` was simply missing from the
