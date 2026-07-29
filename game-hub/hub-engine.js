@@ -504,7 +504,7 @@
      decision a teacher makes, not three. */
   S.register({ id:'jRules', group:'Jeopardy', type:'variant', default:'hub', games:['jeopardy'],
     label:'Rules',
-    help:'Classic plays it like the show: a Daily Double, a final wager round, and wrong answers cost you. Picking one sets the three switches below — change them afterwards if you like.',
+    help:'A whole way of playing, including what the phones do. Picking one writes the switches below — so they always say what will actually happen, and you can still change any of them afterwards.',
     variants:[
       {value:'hub',      label:'Hub — nothing is ever taken away'},
       {value:'classic',  label:'Classic — as the show plays it'},
@@ -1729,16 +1729,31 @@
      than shadowing them, so the rows underneath always say what is actually going
      to happen — and a teacher can then change one without leaving the preset in a
      state that lies. */
+  /* **What the phones do is part of the mode, not a separate decision.** It was
+     missing from these bundles at first, and the result read as the phone setting
+     "overriding" the mode — it was not overriding anything, the mode simply had no
+     opinion, so the row kept whatever it had last. A mode that describes how the
+     round is played and says nothing about thirty handsets is only describing half
+     of it.
+
+     Writing it here rather than special-casing the phone layer keeps the property
+     that makes presets debuggable: **the row in ⚙ always shows what will actually
+     happen**, and a teacher who wants a different dynamic can change it afterwards
+     without the mode quietly contradicting them. */
   const J_PRESETS = {
+    // the plain game: the teacher marks, the phones sit out
     hub:     { jDailyDoubles:0, jFinalRound:false, jDeduct:false,
-               jTogether:false, jHints:false },
+               jTogether:false, jHints:false, phoneMode:'off' },
+    // the show is a race for the floor, so that is what the handsets are for
     classic: { jDailyDoubles:1, jFinalRound:true,  jDeduct:true,
-               jTogether:false, jHints:false },
+               jTogether:false, jHints:false, phoneMode:'buzz' },
     /* Everything that sets one team against another is off here, and that is the
        whole mode: no hidden wager to find first, no steal, nothing deducted, no
-       final round to overtake anyone in. What is left is the board and the room. */
+       final round to overtake anyone in. What is left is the board and the room —
+       and everyone types, because a clue paying what the class produced is the
+       cooperative mechanic rather than a race anybody can lose. */
     together:{ jDailyDoubles:0, jFinalRound:false, jDeduct:false,
-               jTogether:true,  jHints:true,
+               jTogether:true,  jHints:true, phoneMode:'write',
                stealOnWrong:false, keepControl:false }
   };
   let jApplyingPreset = false;

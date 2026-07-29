@@ -564,6 +564,15 @@ still missed.
   - **The preset switches *off* everything that pits teams against each other** —
     steal, keep-the-board, Daily Doubles, deduction. A preset that only ever adds
     would leave a steal running under a cooperative round.
+- **What the phones do is part of a mode, not a separate decision.** Reported as
+  "the modes have no control over the phones — `What the phones do` still controls
+  them". It was not overriding anything: `phoneMode` was simply missing from the
+  bundles, so the row kept whatever it had last. A mode that describes how a round
+  is played and says nothing about thirty handsets describes half of it. Hub is
+  `off` (the teacher marks), Classic is `buzz` (the show is a race for the floor),
+  Together is `write` (a clue pays what the class produced). **Written, not
+  shadowed** — the row in ⚙ still says what will actually happen, and a teacher can
+  change it afterwards without the mode contradicting them.
 - **A room now exists whenever phones are switched on — a deliberate reversal.**
   Reported twice, once for Bingo and once for Jeopardy, both as "the code line is
   missing in this game". Neither was about the game: `phoneMode` was `off`, and

@@ -3802,6 +3802,32 @@ async function testJeopardyClassic(browser){
      afterwards without the preset quietly lying about it. */
   check('the preset sets the three rules it stands for',
         wrote.dd === 1 && wrote.fin === true && wrote.ded === true, JSON.stringify(wrote));
+  /* ---- what the phones do is part of the mode ----
+     It was missing from the bundles at first, and that read from the room as the
+     phone setting "overriding" the mode. It was not overriding anything: the mode
+     had no opinion, so the row kept whatever it had last. A mode that describes how
+     a round is played and says nothing about thirty handsets describes half of it. */
+  const phones = await page.evaluate(() => {
+    const S = window.HubSettings, out = {};
+    ['hub','classic','together'].forEach(m => {
+      S.set('jRules', m, 'jeopardy');
+      out[m] = S.get('phoneMode', 'jeopardy');
+    });
+    return out;
+  });
+  check('each ruleset says what the phones are for',
+        phones.hub === 'off' && phones.classic === 'buzz' && phones.together === 'write',
+        JSON.stringify(phones));
+  /* And it writes rather than shadows, so the row a teacher reads is the truth and
+     they can still change it afterwards without the mode contradicting them. */
+  const shown = await page.evaluate(() => {
+    const host = document.createElement('div');
+    window.HubSettings.renderFor(host, 'jeopardy');
+    const el = host.querySelector('[data-setting="phoneMode"]');
+    return el ? (el.value || '') : 'no row';
+  });
+  check('and the row in the panel shows what the mode chose', shown === 'write', shown);
+  await page.evaluate(() => window.HubSettings.set('jRules','classic','jeopardy'));
   await page.evaluate(() => window.HubSettings.set('jRules','hub','jeopardy'));
   const back = await page.evaluate(() => ({
     dd:  window.HubSettings.get('jDailyDoubles','jeopardy'),
