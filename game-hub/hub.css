@@ -1557,3 +1557,28 @@ body.theme-gameshow #play-bingo.lit #bingo-prompt{ border-color:rgba(255,122,200
   .bingo-card{ flex:1 1 45%; }
   #bingo-bar{ flex-direction:column; align-items:stretch; gap:6px; }
 }
+
+/* ---- the wager, and the card it is placed on ----
+   A Daily Double and the final clue are both "bet before you see it", so they share
+   one panel. It stands where the clue will be rather than beside it, because the
+   whole point is that there is nothing to read yet. */
+#wager-panel{ text-align:center; padding:8px 0 4px; }
+#wager-who{ font-family:'IBM Plex Mono',monospace; font-size:0.85rem; letter-spacing:0.08em;
+  text-transform:uppercase; opacity:0.8; }
+#wager-amount{ font-family:'Space Grotesk',sans-serif; font-weight:700;
+  font-size:clamp(2.2rem, 6vw, 3.6rem); line-height:1.1; margin:6px 0 2px; }
+#wager-range{ font-size:0.85rem; opacity:0.7; margin-bottom:12px; }
+#wager-steps, #wager-quick{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:8px; }
+#wager-steps button, #wager-quick button{
+  border:none; border-radius:9px; padding:10px 14px; font-family:inherit; font-weight:700;
+  cursor:pointer; background:var(--navy3); color:var(--white); }
+#wager-quick button{ background:transparent; border:1px solid rgba(18,38,63,0.3); color:inherit; }
+#wager-steps button:hover, #wager-quick button:hover{ background:var(--blue); color:var(--white); }
+
+/* A Daily Double announces itself — it is the one moment in the game the room is
+   told something before it is asked anything. */
+#clue-card.daily-double #clue-topline{ color:var(--yellow); letter-spacing:0.14em; }
+body.theme-gameshow #clue-card.daily-double{
+  box-shadow:0 0 0 3px var(--gold) inset, 0 24px 60px rgba(0,0,0,0.5); }
+body.theme-gameshow #wager-steps button{ background:rgba(255,255,255,0.1); color:var(--cream); }
+body.theme-gameshow #wager-quick button{ border-color:rgba(255,200,61,0.5); color:var(--cream); }

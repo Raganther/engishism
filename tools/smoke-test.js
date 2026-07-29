@@ -3763,6 +3763,185 @@ async function testPhoneBingo(browser){
   await page.close();
 }
 
+/* ---- Jeopardy, played as the show plays it ----
+   Three things the TV game has that this board never did: a hidden tile you bet on
+   before seeing the clue, a final clue everyone wagers on, and a wrong answer that
+   costs you. `jRules` is the preset that turns all three on at once, because "play
+   it like the show" is one decision a teacher makes rather than three. */
+async function testJeopardyClassic(browser){
+  section('Jeopardy: the classic rules');
+  const page = await openHub(browser);
+  await page.evaluate(() => {
+    const S = window.HubSettings;
+    S.set('intro','off'); S.set('sound',false); S.set('cardFlip','off');
+    S.set('jRules','classic','jeopardy');
+  });
+  const wrote = await page.evaluate(() => ({
+    dd:  window.HubSettings.get('jDailyDoubles','jeopardy'),
+    fin: window.HubSettings.get('jFinalRound','jeopardy'),
+    ded: window.HubSettings.get('jDeduct','jeopardy')
+  }));
+  /* The preset *writes* the switches rather than shadowing them, so the rows in ⚙
+     always say what is actually going to happen and a teacher can change one
+     afterwards without the preset quietly lying about it. */
+  check('the preset sets the three rules it stands for',
+        wrote.dd === 1 && wrote.fin === true && wrote.ded === true, JSON.stringify(wrote));
+  await page.evaluate(() => window.HubSettings.set('jRules','hub','jeopardy'));
+  const back = await page.evaluate(() => ({
+    dd:  window.HubSettings.get('jDailyDoubles','jeopardy'),
+    fin: window.HubSettings.get('jFinalRound','jeopardy'),
+    ded: window.HubSettings.get('jDeduct','jeopardy')
+  }));
+  check('and the hub preset puts them back',
+        back.dd === 0 && back.fin === false && back.ded === false, JSON.stringify(back));
+
+  await page.evaluate(() => {
+    const S = window.HubSettings;
+    S.set('jDailyDoubles',1,'jeopardy'); S.set('jDeduct',true,'jeopardy');
+    S.set('jFinalRound',false,'jeopardy'); S.set('stealOnWrong',false,'jeopardy');
+  });
+  await page.reload(); await page.waitForTimeout(400);
+  await startGame(page, 'Jeopardy', { sections:4 });
+  await page.waitForTimeout(900);
+
+  const board = await page.evaluate(() => {
+    const tiles = [...document.querySelectorAll('#board .tile')];
+    return { total: tiles.length,
+             dd: tiles.filter(t => t.dataset.dd).length,
+             // nothing may give it away: a Daily Double must look like every other tile
+             looksSame: tiles.filter(t => t.dataset.dd)
+                             .every(t => t.className === tiles[0].className) };
+  });
+  check('a Daily Double is hidden on the board', board.dd === 1, JSON.stringify(board));
+  check('and nothing on the tile gives it away', board.looksSame);
+
+  const idx = await page.evaluate(() =>
+    [...document.querySelectorAll('#board .tile')].findIndex(t => t.dataset.dd));
+  await page.locator('#board .tile').nth(idx).click(); await page.waitForTimeout(700);
+  check('finding it opens a bet, not a clue',
+        await page.locator('#wager-panel').isVisible() &&
+        !(await page.locator('#reveal-btn').isVisible()));
+  check('and the clue itself is not shown yet',
+        await page.evaluate(() => getComputedStyle(document.getElementById('clue-text')).display) === 'none');
+  const range = await page.locator('#wager-range').innerText();
+  check('the ceiling is the score or the biggest clue, whichever is greater',
+        /\$500/.test(range), range);
+
+  await page.locator('#wager-quick button', { hasText:'Everything' }).click();
+  await page.waitForTimeout(200);
+  check('betting everything takes the maximum',
+        (await page.locator('#wager-amount').innerText()) === '$500',
+        await page.locator('#wager-amount').innerText());
+  await page.locator('#wager-ok').click(); await page.waitForTimeout(600);
+  check('locking it in shows the clue', await page.locator('#reveal-btn').isVisible());
+  await page.locator('#reveal-btn').click(); await page.waitForTimeout(300);
+  await page.locator('#correct-btn').click(); await page.waitForTimeout(800);
+  const scores = await page.evaluate(() => [...document.querySelectorAll('.team .score')].map(e => e.textContent));
+  check('the bet is what it pays, not the tile value', scores[0] === '500', scores.join('/'));
+
+  /* The show takes the value off you. Off by default here — a class 500 down in the
+     first two minutes stops trying — but it has to work when it is on. */
+  const before = await page.evaluate(() => [...document.querySelectorAll('.team .score')].map(e => e.textContent));
+  const plain = await page.evaluate(() =>
+    [...document.querySelectorAll('#board .tile')].findIndex(t => !t.classList.contains('used')));
+  await page.locator('#board .tile').nth(plain).click(); await page.waitForTimeout(500);
+  const worth = await page.evaluate(() => {
+    const t = document.getElementById('clue-topline').textContent;
+    const m = t.match(/\$(\d+)/); return m ? Number(m[1]) : 0;
+  });
+  const onTurn = await page.evaluate(() =>
+    [...document.querySelectorAll('.team')].findIndex(e => e.classList.contains('active')));
+  await page.locator('#reveal-btn').click(); await page.waitForTimeout(250);
+  await page.locator('#wrong-btn').click(); await page.waitForTimeout(700);
+  const after = await page.evaluate(() => [...document.querySelectorAll('.team .score')].map(e => e.textContent));
+  check('a wrong answer costs the value when the rule is on',
+        Number(after[onTurn]) === Number(before[onTurn]) - worth,
+        before.join('/') + ' -> ' + after.join('/') + ' (clue $' + worth + ', team ' + onTurn + ')');
+
+  checkClean(page);
+  await page.close();
+
+  /* ---- the final clue ----
+     The reason the show never feels decided early: everyone bets what they like, so
+     last place can win from there and nobody has left the room by the last five
+     minutes. Driven here end to end, because every beat of it is new. */
+  const fin = await openHub(browser);
+  await fin.evaluate(() => {
+    const S = window.HubSettings;
+    S.set('intro','off'); S.set('sound',false); S.set('cardFlip','off');
+    S.set('jRules','classic','jeopardy');
+    S.set('jDailyDoubles',0,'jeopardy');      // one thing at a time
+    S.set('stealOnWrong',false,'jeopardy');
+  });
+  await fin.reload(); await fin.waitForTimeout(400);
+  await startGame(fin, 'Jeopardy', { sections:3 });
+  await fin.waitForTimeout(800);
+
+  const tiles = await fin.locator('#board .tile').count();
+  for (let k = 0; k < tiles; k++){
+    await fin.locator('#board .tile').nth(k).click(); await fin.waitForTimeout(180);
+    if (await fin.locator('#reveal-btn').isVisible()){ await fin.locator('#reveal-btn').click(); await fin.waitForTimeout(140); }
+    const btn = (k % 3 === 2) ? '#wrong-btn' : '#correct-btn';
+    if (await fin.locator(btn).isVisible()) { await fin.locator(btn).click(); await fin.waitForTimeout(240); }
+  }
+  await fin.waitForTimeout(800);
+  check('clearing the board opens the final rather than ending the game',
+        /one more clue/i.test(await fin.locator('#result-card').innerText().catch(()=>'')),
+        (await fin.locator('#result-card').innerText().catch(()=>'none')).replace(/\n/g,' | '));
+  check('and the category is named before anybody bets',
+        /the category is/i.test(await fin.locator('#result-card').innerText()));
+
+  const beforeFinal = await fin.evaluate(() =>
+    [...document.querySelectorAll('.team .score')].map(e => Number(e.textContent)));
+  await fin.locator('#result-card button', { hasText:'Take the bets' }).click();
+  await fin.waitForTimeout(600);
+
+  const caps = [];
+  for (let t = 0; t < 4; t++){
+    if (!(await fin.locator('#wager-ok').isVisible().catch(()=>false))) break;
+    caps.push(await fin.locator('#wager-range').innerText());
+    await fin.locator('#wager-quick button', { hasText:'Everything' }).click();
+    await fin.waitForTimeout(120);
+    await fin.locator('#wager-ok').click(); await fin.waitForTimeout(600);
+  }
+  check('every team with a score gets to bet', caps.length === beforeFinal.filter(v => v > 0).length,
+        caps.length + ' bets for ' + beforeFinal.filter(v => v > 0).length + ' teams in credit');
+  check('and no team can bet more than it has',
+        caps.every((c, i) => c.indexOf('$' + beforeFinal.filter(v => v > 0)[i]) !== -1),
+        caps.join(' / ') + ' vs ' + beforeFinal.join('/'));
+  check('then the clue goes up', /final clue/i.test(await fin.locator('#clue-topline').innerText()),
+        await fin.locator('#clue-topline').innerText());
+
+  await fin.locator('#reveal-btn').click(); await fin.waitForTimeout(400);
+  /* Settled lowest score first, as the show does it — so the team that was behind
+     is the first to find out, and the leader answers last knowing what it needs. */
+  const order = [];
+  for (let t = 0; t < 4; t++){
+    if (!(await fin.locator('#correct-btn').isVisible().catch(()=>false))) break;
+    order.push(await fin.locator('#clue-topline').innerText());
+    // the team that was behind gets it right, the leader does not: last place wins
+    await fin.locator(t === 0 ? '#correct-btn' : '#wrong-btn').click();
+    await fin.waitForTimeout(450);
+  }
+  check('each team is settled in turn', order.length === caps.length, order.join(' | '));
+  await fin.waitForTimeout(700);
+  const afterFinal = await fin.evaluate(() =>
+    [...document.querySelectorAll('.team .score')].map(e => Number(e.textContent)));
+  const wasLast = beforeFinal.indexOf(Math.min.apply(null, beforeFinal.filter(v => v > 0)));
+  check('betting everything and getting it right doubles that team',
+        afterFinal[wasLast] === beforeFinal[wasLast] * 2,
+        beforeFinal.join('/') + ' -> ' + afterFinal.join('/'));
+  check('and a team in last can win from there',
+        afterFinal[wasLast] === Math.max.apply(null, afterFinal),
+        beforeFinal.join('/') + ' -> ' + afterFinal.join('/'));
+  check('the banner says the final decided it',
+        /final/i.test(await fin.locator('#result-card').innerText().catch(()=>'')),
+        (await fin.locator('#result-card').innerText().catch(()=>'none')).replace(/\n/g,' | '));
+
+  checkClean(fin);
+  await fin.close();
+}
+
 /* ---------- run ---------- */
 async function main(){
   let relay = null;
@@ -3783,7 +3962,8 @@ async function main(){
     buzzers: testBuzzers, phonemodes: testPhoneModes, teamvote: testTeamVote,
     typetobuzz: testTypeToBuzz, judging: testAnswerJudging,
     degradation: testDegradation, file: testFileProtocol,
-    reconnect: testRelayReconnect, phonebingo: testPhoneBingo
+    reconnect: testRelayReconnect, phonebingo: testPhoneBingo,
+    classic: testJeopardyClassic
   };
   const toRun = onlyArg ? onlyArg.split(',').map(s => s.trim()).filter(k => suites[k])
                         : Object.keys(suites);

@@ -492,6 +492,33 @@
     label:'Steal on a wrong answer',
     help:'A missed question passes to the other team for one shot at half the points. Off: a wrong answer simply ends the question, as before.' });
 
+  /* ---- Jeopardy's classic rules ----
+     The TV game has three things this board never had: a hidden tile you bet on
+     before seeing the clue, a final clue everyone wagers on, and a wrong answer
+     that costs you. They are separate switches because they are separately useful
+     — but `jRules` sets all three at once, because "play it like the show" is one
+     decision a teacher makes, not three. */
+  S.register({ id:'jRules', group:'Jeopardy', type:'variant', default:'hub', games:['jeopardy'],
+    label:'Rules',
+    help:'Classic plays it like the show: a Daily Double, a final wager round, and wrong answers cost you. Picking one sets the three switches below — change them afterwards if you like.',
+    variants:[
+      {value:'hub',     label:'Hub — nothing is ever taken away'},
+      {value:'classic', label:'Classic — as the show plays it'}
+    ] });
+
+  S.register({ id:'jDailyDoubles', group:'Jeopardy', type:'range', default:0,
+    min:0, max:3, step:1, unit:' hidden', games:['jeopardy'],
+    label:'Daily Doubles',
+    help:'Tiles that hide a wager instead of a value. The team that finds one bets before seeing the clue, and answers it alone.' });
+
+  S.register({ id:'jFinalRound', group:'Jeopardy', type:'toggle', default:false, games:['jeopardy'],
+    label:'Final clue',
+    help:'When the board clears, every team bets what they like on one last clue. A team in last place can still win, so nobody gives up early.' });
+
+  S.register({ id:'jDeduct', group:'Jeopardy', type:'toggle', default:false, games:['jeopardy'],
+    label:'Wrong answers cost the value',
+    help:'As the show does it — and scores can go negative. Off by default: a class that goes 500 down early stops trying.' });
+
   S.register({ id:'keepControl', group:'Competition', type:'toggle', default:true,
     games:['jeopardy','blockbusters'],
     label:'Keep the board on a correct answer',
@@ -1005,8 +1032,18 @@
         <div id="clue-topline"></div>
         <div id="clue-section"></div>
         <div id="clue-text"></div>
+        <!-- Daily Double / Final: the bet is placed before the clue is shown, so
+             this stands where the clue will be rather than beside it. -->
+        <div id="wager-panel" style="display:none;">
+          <div id="wager-who"></div>
+          <div id="wager-amount">0</div>
+          <div id="wager-range"></div>
+          <div id="wager-steps"></div>
+          <div id="wager-quick"></div>
+        </div>
         <div id="clue-answer"></div>
         <div id="clue-actions">
+          <button id="wager-ok" style="display:none;">Lock it in</button>
           <button id="reveal-btn">Reveal answer</button>
           <button id="correct-btn" style="display:none;">✓ Correct</button>
           <button id="wrong-btn" style="display:none;">✗ Wrong</button>
@@ -1422,10 +1459,12 @@
         const clue=cat.clues[r];
         const tile=document.createElement('div');
         tile.className='tile'; tile.textContent='$'+clue.v;
+        tile.dataset.row = r;
         tile.addEventListener('click', ()=> openJeopardyClue(cat, clue, tile));
         board.appendChild(tile);
       });
     }
+    jPlantDailyDoubles();
     fitJeopardyBoard();
     jTension();
   }
@@ -1544,6 +1583,116 @@
     const px = (avail / (widest / 100)) * 0.96;
     board.style.setProperty('--jch', Math.max(10.5, Math.min(14.1, px)).toFixed(2) + 'px');
   }
+
+  /* ================= JEOPARDY: THE CLASSIC RULES =================
+     Three things the show has that this board never did. Each is its own switch;
+     `jRules` is the preset that sets all three, because "play it like the show" is
+     one decision rather than three. Choosing a preset *writes* the switches rather
+     than shadowing them, so the rows underneath always say what is actually going
+     to happen — and a teacher can then change one without leaving the preset in a
+     state that lies. */
+  const J_PRESETS = {
+    hub:     { jDailyDoubles:0, jFinalRound:false, jDeduct:false },
+    classic: { jDailyDoubles:1, jFinalRound:true,  jDeduct:true  }
+  };
+  let jApplyingPreset = false;
+  S.onChange(id => {
+    if(id !== 'jRules' || jApplyingPreset) return;
+    const preset = J_PRESETS[S.get('jRules', 'jeopardy')];
+    if(!preset) return;
+    jApplyingPreset = true;
+    Object.keys(preset).forEach(k => S.set(k, preset[k], 'jeopardy'));
+    jApplyingPreset = false;
+  });
+
+  /* ---- Daily Doubles ----
+     Hidden at build time and never drawn differently, because the whole point is
+     that nobody knows where they are. `dataset` rather than a class, so no
+     stylesheet can accidentally give one away. */
+  function jPlantDailyDoubles(){
+    const want = Math.min(Number(S.get('jDailyDoubles', 'jeopardy')) || 0, 3);
+    const tiles = [...document.querySelectorAll('#board .tile')];
+    tiles.forEach(t => delete t.dataset.dd);
+    if(!want || !tiles.length) return;
+    /* Weighted towards the bottom of the board, as the show does it: a Daily Double
+       on a $100 clue is worth nothing to find. Two passes of a shuffle biased by
+       row keeps it simple without ever being predictable. */
+    const pool = shuffle(tiles.slice()).sort((a, b) =>
+      (Number(b.dataset.row) || 0) - (Number(a.dataset.row) || 0));
+    pool.slice(0, Math.min(want, Math.ceil(tiles.length / 4))).forEach(t => { t.dataset.dd = '1'; });
+  }
+
+  let jWager = null;      // { team, amount, min, max, then } while a bet is being placed
+
+  function jMaxWager(team){
+    // the show: your score, or the biggest clue on the board, whichever is greater
+    const hi = jValueRange().hi || 0;
+    return Math.max(hi, (teams[team] && teams[team].score) || 0);
+  }
+
+  function renderWager(){
+    if(!jWager) return;
+    const t = teams[jWager.team];
+    document.getElementById('wager-who').textContent =
+      (t ? t.name : 'Team') + ' — ' + (t ? '$' + t.score : '');
+    document.getElementById('wager-amount').textContent = '$' + jWager.amount;
+    document.getElementById('wager-range').textContent =
+      'anything from $' + jWager.min + ' to $' + jWager.max;
+  }
+
+  function setWager(v){
+    if(!jWager) return;
+    jWager.amount = Math.max(jWager.min, Math.min(jWager.max, Math.round(v)));
+    renderWager();
+  }
+
+  /* The teacher places the bet, like every other click in this app — students never
+     touch the device. The buttons are the amounts a room actually says out loud. */
+  function openWager(team, opts){
+    const max = opts.max != null ? opts.max : jMaxWager(team);
+    jWager = { team, min: opts.min || 0, max, amount: opts.start != null ? opts.start : Math.min(max, 200),
+               then: opts.then };
+    document.getElementById('wager-panel').style.display = 'block';
+    document.getElementById('clue-text').style.display = 'none';
+    document.getElementById('clue-answer').style.display = 'none';
+    hideAllActionButtons();
+    document.getElementById('wager-ok').style.display = 'inline-block';
+
+    const steps = document.getElementById('wager-steps');
+    steps.innerHTML = '';
+    [-500, -100, +100, +500].forEach(d => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'wager-step';
+      b.textContent = (d > 0 ? '+' : '−') + Math.abs(d);
+      b.addEventListener('click', () => setWager(jWager.amount + d));
+      steps.appendChild(b);
+    });
+    const quick = document.getElementById('wager-quick');
+    quick.innerHTML = '';
+    [['Nothing', () => jWager.min], ['Half', () => Math.round(jWager.max / 2)],
+     ['Everything', () => jWager.max]].forEach(([label, fn]) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'wager-quick-btn';
+      b.textContent = label;
+      b.addEventListener('click', () => setWager(fn()));
+      quick.appendChild(b);
+    });
+    renderWager();
+  }
+
+  function closeWager(){
+    jWager = null;
+    document.getElementById('wager-panel').style.display = 'none';
+    document.getElementById('clue-text').style.display = '';
+    document.getElementById('wager-ok').style.display = 'none';
+  }
+
+  document.getElementById('wager-ok').addEventListener('click', () => {
+    if(!jWager) return;
+    const bet = jWager.amount, then = jWager.then;
+    closeWager();
+    if(then) then(bet);
+  });
 
   /* ================= CONTENT SCREEN ================= */
   function renderContentScreen(){
@@ -2764,12 +2913,40 @@
     const review = tile.classList.contains('used');
     currentTile=tile; modalMode = review ? 'review' : 'jeopardy'; currentClueValue=clue.v;
     jSteal = null;
+    jDoubleTeam = null;
+    /* A Daily Double is a bet placed before the clue is seen, so the card opens on
+       the wager and the clue is not drawn until it is locked in. Only the team that
+       found it may answer — no buzzers, no steal — which is why the phones are not
+       asked and the steal path is closed off below. */
+    if(!review && tile.dataset.dd){
+      delete tile.dataset.dd;
+      jDoubleTeam = active;
+      openClueCard(tile);
+      document.getElementById('clue-topline').textContent = 'DAILY DOUBLE';
+      document.getElementById('clue-section').textContent = cat.section;
+      document.getElementById('clue-card').classList.add('daily-double');
+      if(document.getElementById('play-jeopardy').classList.contains('lit')) Sound.play('sting');
+      else Sound.play('claim');
+      openWager(active, { max: jMaxWager(active),
+                          then: bet => { currentClueValue = bet; jShowClue(cat, clue, tile, false); } });
+      return;
+    }
+    jShowClue(cat, clue, tile, review);
+    openClueCard(tile);
+  }
+
+  // everything that was openJeopardyClue's body, so the Daily Double can run it
+  // *after* its bet rather than duplicating it
+  function jShowClue(cat, clue, tile, review){
+    const dd = jDoubleTeam != null;
     document.getElementById('clue-topline').textContent =
-      cat.name + ' · $' + clue.v + (review ? '  ·  review' : '');
+      dd ? ('DAILY DOUBLE · ' + cat.name + ' · $' + currentClueValue)
+         : (cat.name + ' · $' + clue.v + (review ? '  ·  review' : ''));
     document.getElementById('clue-section').textContent = cat.section;
     currentClueItem = { text:clue.q, answer:clue.a, type:clue.type };
     drawPrompt(document.getElementById('clue-text'), currentClueItem, 'jeopardy');
-    if(!review) askPhones(clue.q, 'jeopardy');   // a replayed tile asks nobody
+    // a replayed tile asks nobody, and a Daily Double belongs to one team alone
+    if(!review && !dd) askPhones(clue.q, 'jeopardy');
     const ansEl=document.getElementById('clue-answer');
     ansEl.textContent=clue.a;
     hideAllActionButtons();
@@ -2783,8 +2960,7 @@
       document.getElementById('reveal-btn').style.display='inline-block';
       document.getElementById('close-btn').style.display='inline-block';
     }
-    jTension(review ? 0 : clue.v);     // the lights follow what's at stake
-    openClueCard(tile);
+    jTension(review ? 0 : (dd ? Math.max(clue.v, currentClueValue) : clue.v));
   }
 
   function openBlockbustersClue(clueObj, hex){
@@ -3200,6 +3376,15 @@
     // twice; when it couldn't (a long or explanatory answer) it is still needed.
     const inPlace = Kit.prompt.reveal(document.getElementById('clue-text'), currentClueItem);
     document.getElementById('clue-answer').style.display = inPlace ? 'none' : 'block';
+    /* The final settles team by team rather than once, so revealing it hands over
+       to that sequence instead of showing a single pair of buttons. */
+    if(jFinalState){
+      timerStop();
+      document.getElementById('reveal-btn').style.display='none';
+      document.getElementById('close-btn').style.display='none';
+      jFinalSettle();
+      return;
+    }
     if(modalMode==='jeopardy'){
       document.getElementById('reveal-btn').style.display='none';
       document.getElementById('close-btn').style.display='none';
@@ -3222,6 +3407,7 @@
      path to stand down; false means "close it as before" and covers the switch
      being off, a two-team board where nobody is left to offer, and the second miss. */
   let jSteal = null;               // { from, to } while a stolen clue is live
+  let jDoubleTeam = null;          // the team that found a Daily Double, while it is live
 
   function jOfferSteal(teamIdx){
     if(!S.get('stealOnWrong', 'jeopardy')) return false;
@@ -3274,7 +3460,9 @@
   function jCorrect(to){
     const showy = document.getElementById('play-jeopardy').classList.contains('lit');
     const value = currentClueValue;
-    const team  = (to != null) ? to : (jSteal ? jSteal.to : active);
+    // a Daily Double belongs to whoever found it, whatever the turn has done since
+    const team  = (jDoubleTeam != null) ? jDoubleTeam
+                : (to != null) ? to : (jSteal ? jSteal.to : active);
     Sound.bedStop();
     if(showy){
       Sound.play('sting'); jFlash('right');
@@ -3289,7 +3477,8 @@
       paid = award(team, value, { steal: !!jSteal && team === jSteal.to });
       markRun(team, true);
     }
-    jSteal = null;
+    jSteal = null; jDoubleTeam = null;
+    document.getElementById('clue-card').classList.remove('daily-double');
     closeModal(flipMs(FLIP_HOLD_MS), jAfterClue);
     /* A team that answers keeps the board, and steal is what stops that running
        away — but "keep the board" is a reward for winning the question, and in
@@ -3298,23 +3487,39 @@
     if(!S.get('keepControl', 'jeopardy') || everyoneAnswers()) nextTurn();
     return paid;
   }
-  document.getElementById('correct-btn').addEventListener('click', ()=>jCorrect(null));
+  document.getElementById('correct-btn').addEventListener('click', ()=>{
+    if(jFinalState && jFinalMark){ const f = jFinalMark; jFinalMark = null; f(true); return; }
+    jCorrect(null);
+  });
   document.getElementById('wrong-btn').addEventListener('click', ()=>{
+    if(jFinalState && jFinalMark){ const f = jFinalMark; jFinalMark = null; f(false); return; }
     const showy = document.getElementById('play-jeopardy').classList.contains('lit');
     Sound.bedStop();
     if(showy){ Sound.play('klaxon'); jFlash('wrong'); }
     else Sound.play('wrong');
-    markRun(jSteal ? jSteal.to : active, false);
-    // hand it to the room before burning the tile — if a game opens a steal it owns
-    // the rest of the beat and the shared path stands down
-    if(hook('onWrong', jSteal ? jSteal.to : active)) return;
+    const missed = (jDoubleTeam != null) ? jDoubleTeam : (jSteal ? jSteal.to : active);
+    markRun(missed, false);
+    /* The show takes the value off you, and a Daily Double takes the bet. Off by
+       default here: a class that goes 500 down in the first two minutes stops
+       trying, which is the opposite of what any of this is for. Scores may go
+       negative — that is the rule, not an accident. */
+    if(S.get('jDeduct', 'jeopardy') && teams[missed] && modalMode === 'jeopardy'){
+      teams[missed].score -= currentClueValue;
+      renderScorebar();
+    }
+    // a Daily Double is answered by one team alone, so there is no steal to open
+    if(jDoubleTeam == null && hook('onWrong', missed)) return;
     if(currentTile){ currentTile.classList.add('used'); }   // keeps its value, faded
-    jSteal = null;
+    jSteal = null; jDoubleTeam = null;
+    document.getElementById('clue-card').classList.remove('daily-double');
     closeModal(flipMs(FLIP_HOLD_MS), jAfterClue);
     nextTurn();
   });
 
   document.getElementById('close-btn').addEventListener('click', ()=>{
+    closeWager();
+    jDoubleTeam = null;
+    document.getElementById('clue-card').classList.remove('daily-double');
     const wasJeopardy = modalMode==='jeopardy' || modalMode==='review';
     closeModal(0, wasJeopardy ? ()=>jTension() : null);
   });
@@ -3338,10 +3543,129 @@
     jTension();
     const tiles = [...document.querySelectorAll('#board .tile')];
     if(!tiles.length || tiles.some(t=>!t.classList.contains('used'))) return;
-    jFinish();
+    if(S.get('jFinalRound', 'jeopardy') && jFinalCanRun()) jStartFinal();
+    else jFinish();
   }
 
+  /* ================= THE FINAL CLUE =================
+     The reason the show never feels decided early: everyone bets what they like, so
+     last place can win from there and nobody has mentally left the room by the last
+     five minutes. Three beats — bet, answer, settle — and the teacher drives all
+     three, as with everything else here.
+
+     A team on nothing or less cannot bet, which is the show's rule and also the
+     sensible one: there is nothing to wager with. */
+  let jFinalState = null;
+  let jFinalWasPlayed = false;
+
+  function jFinalPlayers(){
+    return teams.map((t, i) => i).filter(i => teams[i] && teams[i].score > 0);
+  }
+  function jFinalClue(){
+    /* Prefer a clue the room has *not* seen: the categories that were left off the
+       board. Only if the teacher picked everything does it fall back to a played
+       one, which is worth knowing rather than pretending. */
+    const onBoard = new Set(selectedContent);
+    const spare = JEOPARDY_CATEGORIES.filter(c => !onBoard.has(c.id));
+    const from  = spare.length ? spare : JEOPARDY_CATEGORIES.filter(c => onBoard.has(c.id));
+    const cat   = from[Math.floor(Math.random() * from.length)];
+    if(!cat || !cat.clues || !cat.clues.length) return null;
+    const clue = cat.clues[Math.floor(Math.random() * cat.clues.length)];
+    return { cat, clue, unseen: spare.length > 0 };
+  }
+  function jFinalCanRun(){
+    return jFinalPlayers().length > 0 && !!jFinalClue();
+  }
+
+  function jStartFinal(){
+    const picked = jFinalClue();
+    if(!picked){ jFinish(); return; }
+    jFinalState = { cat:picked.cat, clue:picked.clue, unseen:picked.unseen,
+                    order:jFinalPlayers(), bets:{}, at:0, marked:{} };
+    if(document.getElementById('play-jeopardy').classList.contains('lit')) Sound.play('sting');
+    showResult({
+      eyebrow:'Jeopardy · the final clue',
+      title:'One more clue',
+      sub:'The category is ' + jFinalState.cat.name + '. Every team bets what it likes — ' +
+          'a team in last can still win.',
+      actions:[{ label:'Take the bets', primary:true, onPick:jFinalNextBet }]
+    });
+  }
+
+  /* Each team in turn, on the card the rest of the game already uses. The bet is
+     placed knowing only the category, which is the whole tension of it. */
+  function jFinalNextBet(){
+    if(!jFinalState) return;
+    if(jFinalState.at >= jFinalState.order.length){ jFinalAsk(); return; }
+    const team = jFinalState.order[jFinalState.at];
+    modalMode = 'jeopardy';
+    currentTile = null;
+    jSteal = null; jDoubleTeam = null;
+    document.getElementById('clue-topline').textContent = 'FINAL · ' + jFinalState.cat.name;
+    document.getElementById('clue-section').textContent = jFinalState.cat.section;
+    document.getElementById('clue-card').classList.add('daily-double');
+    openClueCard(null);
+    openWager(team, { max: teams[team].score, then: bet => {
+      jFinalState.bets[team] = bet;
+      jFinalState.at++;
+      closeModal(0, jFinalNextBet);
+    } });
+  }
+
+  function jFinalAsk(){
+    const st = jFinalState;
+    if(!st) return;
+    currentClueValue = 0;
+    currentTile = null;
+    modalMode = 'jeopardy';
+    document.getElementById('clue-card').classList.remove('daily-double');
+    document.getElementById('clue-topline').textContent = 'FINAL CLUE · ' + st.cat.name;
+    document.getElementById('clue-section').textContent = st.cat.section;
+    currentClueItem = { text:st.clue.q, answer:st.clue.a, type:st.clue.type };
+    drawPrompt(document.getElementById('clue-text'), currentClueItem, 'jeopardy');
+    document.getElementById('clue-text').style.display = '';
+    const ans = document.getElementById('clue-answer');
+    ans.textContent = st.clue.a; ans.style.display = 'none';
+    hideAllActionButtons();
+    document.getElementById('reveal-btn').style.display = 'inline-block';
+    openClueCard(null);
+    askPhones(st.clue.q, 'jeopardy');     // every team writes this one
+    timerSetDuration(30); timerStart();
+    jTension(jValueRange().hi);
+  }
+
+  /* Settling it: each team that bet is marked right or wrong, lowest score first as
+     the show does it, and the bet is added or taken away. */
+  function jFinalSettle(){
+    const st = jFinalState;
+    if(!st) return;
+    const pending = st.order.filter(i => st.marked[i] == null);
+    if(!pending.length){ jFinalState = null; jFinalWasPlayed = true; jFinish(); return; }
+    const team = pending.sort((a, b) => teams[a].score - teams[b].score)[0];
+    hideAllActionButtons();
+    document.getElementById('clue-topline').textContent =
+      teams[team].name + ' bet $' + (st.bets[team] || 0);
+    const mark = (right) => {
+      st.marked[team] = right;
+      teams[team].score += (right ? 1 : -1) * (st.bets[team] || 0);
+      markRun(team, right);
+      renderScorebar();
+      Sound.play(right ? 'correct' : 'wrong');
+      jFinalSettle();
+    };
+    const ok = document.getElementById('correct-btn');
+    const no = document.getElementById('wrong-btn');
+    ok.style.display = 'inline-block'; no.style.display = 'inline-block';
+    ok.textContent = '✓ ' + teams[team].name + ' +$' + (st.bets[team] || 0);
+    no.textContent = '✗ ' + teams[team].name + ' −$' + (st.bets[team] || 0);
+    jFinalMark = mark;
+  }
+  let jFinalMark = null;
+
   function jFinish(){
+    const wasFinal = jFinalWasPlayed;
+    jFinalWasPlayed = false;
+    closeModal(0, null);
     const ranked = teams.map((t,i)=>({ t, i })).sort((a,b)=>b.t.score - a.t.score);
     const top    = ranked[0];
     if(!top) return;
@@ -3352,7 +3676,7 @@
       Sound.play('clear');
     }
     showResult({
-      eyebrow:'Jeopardy · board cleared',
+      eyebrow: wasFinal ? 'Jeopardy · after the final clue' : 'Jeopardy · board cleared',
       title: drawn ? 'It\'s a tie!' : (top.t.name + ' wins!'),
       sub: drawn ? ranked.filter(r=>r.t.score===top.t.score).map(r=>r.t.name).join(' and ') +
                    ' finish level on $' + top.t.score + '.'

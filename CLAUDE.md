@@ -525,6 +525,29 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Jeopardy plays as the show plays it, if you ask it to.** Three rules the TV
+  game has that this board never did, each its own switch, all three set at once by
+  `jRules` — because "play it like the show" is one decision a teacher makes, not
+  three.
+  - **Daily Double.** A hidden tile, planted at build time and weighted towards the
+    bottom of the board (one on a $100 clue is worth nothing to find). It opens on
+    a **bet placed before the clue is drawn**, capped at the show's rule — your
+    score or the biggest clue on the board, whichever is greater. The team that
+    found it answers alone: no phones, no steal.
+  - **Nothing on the tile may give it away**, so it is `dataset` rather than a class
+    — no stylesheet can leak it by accident, and the check asserts a Daily Double
+    tile is identical to every other one.
+  - **The final clue.** The board clearing no longer ends the game: the category is
+    named, every team in credit bets what it likes, one clue goes up, and it settles
+    **lowest score first** as the show does it. A team in last can win from there,
+    which is the whole reason it exists — the smoke test drives exactly that case.
+  - **Wrong answers can cost the value**, negative scores and all. Off by default:
+    a class 500 down in the first two minutes stops trying, which is the opposite of
+    what any of this is for.
+  - **A preset writes the switches rather than shadowing them**, so the rows in ⚙
+    always say what will actually happen and a teacher can change one afterwards
+    without the preset quietly lying. That is the general shape for modes — a mode
+    is a named bundle of settings, not a second code path.
 - **A mode and a game's own dynamic were fighting over the same handset.**
   Reported as "when I select buzz mode a button appears on the phone screen" while
   playing Bingo with the cards on phones. `phoneMode` says what a phone does during
@@ -912,7 +935,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   nothing saying why. Timed rounds ask now too; `raceCanTry()` restricts a timed
   round's buzz to the team whose round it is, so a phone on the bench can't steal a
   word off someone else's score.
-- **Deployed.** Build `20260801c`; new `strip`, `bbteams` and `jointeams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
+- **Deployed.** Build `20260801d`; new `strip`, `bbteams` and `jointeams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
 - **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
   the game being played, and only that game, without leaving the board — see "The Lab"
   above. It exists because prototyping was the bottleneck: comparing two ideas meant
