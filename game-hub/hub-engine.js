@@ -1789,17 +1789,28 @@
      Hidden at build time and never drawn differently, because the whole point is
      that nobody knows where they are. `dataset` rather than a class, so no
      stylesheet can accidentally give one away. */
+  /* Re-plantable, and it has to be. The modes only appear in the Lab, which only
+     exists once a game is running — so picking Classic mid-board set the switch to 1
+     and the board still had none, because planting happened at build time. Reported
+     from a full playthrough: "no Daily Double ever appeared."
+
+     Planting among the tiles **still unplayed** is what makes this safe: a Daily
+     Double is hidden, so one that appears on an unplayed tile is indistinguishable
+     from one that was always there — and a tile already answered must not become
+     one, or a clue the room has seen would pay a wager. */
   function jPlantDailyDoubles(){
     const want = Math.min(Number(S.get('jDailyDoubles', 'jeopardy')) || 0, 3);
-    const tiles = [...document.querySelectorAll('#board .tile')];
-    tiles.forEach(t => delete t.dataset.dd);
+    const all  = [...document.querySelectorAll('#board .tile')];
+    all.forEach(t => delete t.dataset.dd);
+    const tiles = all.filter(t => !t.classList.contains('used'));
     if(!want || !tiles.length) return;
     /* Weighted towards the bottom of the board, as the show does it: a Daily Double
        on a $100 clue is worth nothing to find. Two passes of a shuffle biased by
        row keeps it simple without ever being predictable. */
     const pool = shuffle(tiles.slice()).sort((a, b) =>
       (Number(b.dataset.row) || 0) - (Number(a.dataset.row) || 0));
-    pool.slice(0, Math.min(want, Math.ceil(tiles.length / 4))).forEach(t => { t.dataset.dd = '1'; });
+    pool.slice(0, Math.max(1, Math.min(want, Math.ceil(tiles.length / 4))))
+        .forEach(t => { t.dataset.dd = '1'; });
   }
 
   let jWager = null;      // { team, amount, min, max, then } while a bet is being placed
@@ -5479,6 +5490,12 @@
     if(id==='musicBed' || id==='sound' || id==='soundVolume') hook('tension');
     if((id==='jTogether' || id==='jTarget' || id==='jRules') && activeGame==='jeopardy'){
       renderClassLine(); hook('onResize');
+    }
+    /* Changing the ruleset mid-board now reaches the board. Planting only among the
+       unplayed tiles is what keeps that honest — see jPlantDailyDoubles. */
+    if((id==='jDailyDoubles' || id==='jRules') && activeGame==='jeopardy' &&
+       document.getElementById('screen-play').classList.contains('active')){
+      jPlantDailyDoubles();
     }
     if(id==='jHints' && activeGame==='jeopardy') renderHintButton();
     if(id==='raceShowSection' && activeGame==='race' && raceCurrent) setRacePrompt(raceCurrent);

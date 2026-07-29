@@ -3857,6 +3857,40 @@ async function testJeopardyClassic(browser){
   check('a Daily Double is hidden on the board', board.dd === 1, JSON.stringify(board));
   check('and nothing on the tile gives it away', board.looksSame);
 
+  /* ---- picking the ruleset mid-board has to reach the board ----
+     The modes only appear in the Lab, and the Lab only exists once a game is
+     running — so choosing Classic mid-board set the switch to 1 and the board still
+     had none, because planting happened at build time. Reported from a full
+     playthrough as "no Daily Double ever appeared". */
+  const mid = await openHub(browser);
+  await mid.evaluate(() => {
+    const S = window.HubSettings;
+    S.set('intro','off'); S.set('sound',false); S.set('cardFlip','off');
+    S.set('jRules','hub','jeopardy');
+  });
+  await mid.reload(); await mid.waitForTimeout(400);
+  await startGame(mid, 'Jeopardy', { sections:4 });
+  await mid.waitForTimeout(800);
+  const ddOf = pg => pg.evaluate(() =>
+    [...document.querySelectorAll('#board .tile')].filter(t => t.dataset.dd).length);
+  check('a hub board has none', await ddOf(mid) === 0);
+  // play a couple of clues first, so the re-plant has used tiles to avoid
+  for (const k of [0, 1]){
+    await mid.locator('#board .tile').nth(k).click(); await mid.waitForTimeout(300);
+    if (await mid.locator('#reveal-btn').isVisible()){ await mid.locator('#reveal-btn').click(); await mid.waitForTimeout(150); }
+    if (await mid.locator('#correct-btn').isVisible()){ await mid.locator('#correct-btn').click(); await mid.waitForTimeout(300); }
+  }
+  await mid.evaluate(() => window.HubSettings.set('jRules','classic','jeopardy'));
+  await mid.waitForTimeout(500);
+  check('picking Classic mid-board plants one', await ddOf(mid) === 1, String(await ddOf(mid)));
+  /* A tile the room has already answered must never become one, or a clue they have
+     seen would pay a wager. */
+  check('and never on a clue that has already been played',
+        await mid.evaluate(() => [...document.querySelectorAll('#board .tile')]
+          .every(t => !(t.dataset.dd && t.classList.contains('used')))));
+  checkClean(mid);
+  await mid.close();
+
   const idx = await page.evaluate(() =>
     [...document.querySelectorAll('#board .tile')].findIndex(t => t.dataset.dd));
   await page.locator('#board .tile').nth(idx).click(); await page.waitForTimeout(700);

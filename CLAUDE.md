@@ -564,6 +564,19 @@ still missed.
   - **The preset switches *off* everything that pits teams against each other** —
     steal, keep-the-board, Daily Doubles, deduction. A preset that only ever adds
     would leave a steal running under a cooperative round.
+- **A mode picked mid-board has to reach the board.** Reported from a full Classic
+  playthrough: "no Daily Double ever appeared." The switch said 1 and the board had
+  none — **the modes only appear in the Lab, and the Lab only exists once a game is
+  running**, so picking Classic wrote the setting after the board had already been
+  built and planted. Planting is now re-runnable and hooked to the setting.
+  - **It plants among the tiles still unplayed**, which is what makes a mid-round
+    change honest: a Daily Double is hidden, so one appearing on an unplayed tile is
+    indistinguishable from one that was always there — while a tile the room has
+    already answered must never become one, or a clue they have seen would pay a
+    wager.
+  - The general lesson: **a setting that is read once, at build time, is not a
+    setting the Lab can change.** Anything a teacher may pick mid-round needs a path
+    from `S.onChange` back to the board.
 - **The final clue owns the phones; a Daily Double asks nobody.** Two beats of
   Classic where the mode is the wrong answer, both fixed through the contract rather
   than by special-casing the phone layer.
