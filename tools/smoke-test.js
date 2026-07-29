@@ -3902,6 +3902,11 @@ async function testJeopardyClassic(browser){
      `askingNow` is the one place that decides this. */
   check('and the room is not being asked anything while the bet is placed',
         (await page.evaluate(() => window.HubGames.get('jeopardy').askingNow())) === false);
+  /* No race to win, so no buzz is entitled. Refusing here must *disarm* rather than
+     re-arm — re-arming is for putting the floor back when a question is still open,
+     and during a wager there is no question open to anybody. */
+  check('and no buzz is entitled during the wager',
+        (await page.evaluate(() => window.HubGames.get('jeopardy').buzzEntitled({team:1}))) === false);
   check('and the clue itself is not shown yet',
         await page.evaluate(() => getComputedStyle(document.getElementById('clue-text')).display) === 'none');
   const range = await page.locator('#wager-range').innerText();

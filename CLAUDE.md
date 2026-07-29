@@ -585,9 +585,19 @@ still missed.
     `phoneRound()` returns a `write` round while it runs, so the beat differs while
     the mode stays `buzz`, and the check asserts exactly that pair.
   - **A Daily Double belongs to the team that found it**, so no question is open to
-    the room. That is now `askingNow()` returning false during the bet — which is
-    what stops a reconnection re-arming the buzzers mid-wager, a latent bug of the
-    same shape as the flicker.
+    the room. That is `askingNow()` returning false during the bet — which is what
+    stops a reconnection re-arming the buzzers mid-wager, a latent bug of the same
+    shape as the flicker.
+  - **Not asking the phones is not the same as telling them nothing.** The first
+    version simply skipped `askPhones`, which left the *previous* question on every
+    handset with a dead button — indistinguishable from broken, and a phone still
+    armed from that clue could buzz in mid-wager. It disarms now, which says the true
+    thing: nothing here is open to you.
+  - **Refusing a buzz has two shapes, and the difference is whether a question is
+    live.** Re-arming is right when one is — it clears the relay's lock so the team
+    that *is* entitled can get in. It is wrong when nothing is open at all, because
+    it puts the buzzers back for a question nobody may answer. `onBuzz` now disarms
+    in that case instead.
   - **The steal and keep-the-board are written into the presets too**, because the
     show does both and a ruleset that leaves them to whatever was set last is only
     describing part of itself.

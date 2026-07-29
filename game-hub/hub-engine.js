@@ -175,6 +175,10 @@
        here is what stops a reconnection re-arming the buzzers mid-bet: `askingNow`
        is the one place that decides whether a question is open to the room. */
     askingNow:   () => clueIsOpen() && jDoubleTeam == null && !jWager,
+    /* A Daily Double is answered by the team that found it, alone: no race to win,
+       so a buzz already in flight when the wager opened is refused rather than
+       taking a floor that does not exist. */
+    buzzEntitled: () => jDoubleTeam == null && !jWager,
     /* The final clue is the one beat of Jeopardy where every team answers at once,
        privately, against the clock — that is the whole mechanic, and a buzzer would
        hand it to one thumb. So the game owns the round while it runs, exactly as
@@ -3112,6 +3116,13 @@
     if(!review && tile.dataset.dd){
       delete tile.dataset.dd;
       jDoubleTeam = active;
+      /* Tell the phones the room is not being asked. Not asking them at all was the
+         first version and it left the *previous* question on every handset with a
+         dead button — which reads as broken rather than deliberate, and left a phone
+         still armed from that clue able to buzz in mid-wager. Disarming says the
+         true thing: nothing is open to you, this one belongs to one team. */
+      if(buzzHost){ buzzWinner = null; lastAsk = { mode:'off', prompt:'' };
+                    buzzHost.disarm(); renderBuzzChip(); renderPhoneBar(); }
       openClueCard(tile);
       document.getElementById('clue-topline').textContent = 'DAILY DOUBLE';
       document.getElementById('clue-section').textContent = cat.section;
@@ -5017,7 +5028,16 @@
        hold the lock and the team that is could never get in. Re-arming clears the
        lock and puts the floor back. Race's steal rule and Millionaire's `speaker`
        role are both this, and both used to be written out here by name. */
-    if(b && hook('buzzEntitled', b) === false){ armBuzzers(currentPhonePrompt()); return; }
+    if(b && hook('buzzEntitled', b) === false){
+      /* Re-arming is right when the question is still open — it clears the relay's
+         lock so the team that *is* entitled can get in. It is wrong when nothing is
+         open to the room at all: a Daily Double belongs to one team, so re-arming
+         there would put the buzzers back for a question nobody may answer. Two
+         different refusals, and the difference is whether a question is live. */
+      if(hook('askingNow')) armBuzzers(currentPhonePrompt());
+      else if(buzzHost){ buzzWinner = null; buzzHost.disarm(); renderBuzzChip(); }
+      return;
+    }
 
     if(b && b.value != null && !judgeTypedBuzz(b)) return;
     buzzWinner = b;
