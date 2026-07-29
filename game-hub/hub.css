@@ -465,6 +465,20 @@ body.clue-dragging #clue-card{ touch-action:none; user-select:none; }
    long value had nothing stopping it running past the face */
 #clue-front-text{ display:block; padding:0 14px; text-align:center; overflow-wrap:anywhere; }
 #clue-topline{ font-family:'Space Grotesk', sans-serif; color: var(--navy); font-size:1.6rem; font-weight:700; }
+/* The answer clock: seconds on the floor, beside the value. Tabular digits so the
+   card does not twitch as 10 becomes 9. */
+#clue-clock{
+  display:inline-block; margin-left:14px; padding:1px 12px; border-radius:12px;
+  background:rgba(18,38,63,0.1); font-variant-numeric:tabular-nums;
+  font-size:1.25rem; vertical-align:middle;
+}
+#clue-clock.urgent{ background:#C0392B; color:#fff; }
+/* Time up: a pulse the room can see, ~1.1Hz and never full-screen — this is
+   projected at students. Two beats and it stands still. */
+#clue-card.overtime{ animation: clueOvertime 0.9s ease-in-out 2; }
+@keyframes clueOvertime{ 0%,100%{ box-shadow:0 0 0 0 rgba(192,57,43,0); }
+                         50%{ box-shadow:0 0 0 8px rgba(192,57,43,0.6); } }
+@media (prefers-reduced-motion: reduce){ #clue-card.overtime{ animation:none; } }
 #clue-section{ font-family:'IBM Plex Mono', monospace; color: var(--blue); font-size:0.75rem; letter-spacing:0.1em; text-transform:uppercase; margin-top:2px; }
 #clue-text{ font-family:'Space Grotesk', sans-serif; font-size: clamp(1.15rem, 2.4vw, 1.7rem); font-weight:500; line-height:1.4; margin: 24px 0; color: var(--ink); }
 #clue-answer{ display:none; font-family:'IBM Plex Sans', sans-serif; font-size:1.1rem; color: var(--navy); background: var(--cream); border: 1px dashed var(--blue); border-radius:10px; padding: 14px; margin-bottom: 22px; }
@@ -1183,6 +1197,9 @@ body.theme-gameshow #clue-back{
               inset 0 1px 0 rgba(255,255,255,0.12), 0 24px 70px rgba(0,0,0,0.6);
 }
 body.theme-gameshow #clue-topline{ color: var(--gold); letter-spacing:0.04em; }
+/* the base chip is navy-on-cream, which disappears on the lit card's dark face */
+body.theme-gameshow #clue-clock{ background:rgba(255,255,255,0.12); color:var(--paper); }
+body.theme-gameshow #clue-clock.urgent{ background:#C0392B; color:#fff; }
 body.theme-gameshow #clue-section{ color: var(--glow); }
 body.theme-gameshow #clue-text{ color: var(--paper); }
 body.theme-gameshow #clue-answer{

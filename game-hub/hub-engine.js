@@ -191,7 +191,11 @@
     },
     // the buzz decides who answers, so it selects that team: the teacher stops
     // being the one who chooses, which is the whole point of buzzing for a tile
-    onBuzzTaken(b){ if(teams[b.team]){ active = b.team; renderScorebar(); } },
+    /* A plain buzz starts the answer clock; a typed one does not — the typed word
+       has already been judged by the time the floor is taken, so there is nothing
+       left to time. */
+    onBuzzTaken(b){ if(teams[b.team]){ active = b.team; renderScorebar(); }
+                    if(b.value == null) jClockStart(); },
     onTypedWin(b){ return currentClueItem ? (jCorrect(b.team) || 1) : null; },
     fit:      fitJeopardyBoard,
     deal:     jDeal,
@@ -568,6 +572,11 @@
   S.register({ id:'jDeduct', group:'Jeopardy', type:'toggle', default:false, games:['jeopardy'],
     label:'Wrong answers cost the value',
     help:'As the show does it — and scores can go negative. Off by default: a class that goes 500 down early stops trying.' });
+
+  S.register({ id:'jAnswerSeconds', group:'Jeopardy', type:'range', default:0,
+    min:0, max:30, step:5, unit:'s', games:['jeopardy'],
+    label:'Answer clock',
+    help:'Seconds to answer once a team takes the floor (buzzes in). Time up is a klaxon, not a verdict — the teacher still marks it. 0 = no clock.' });
 
   // the two games with a turn that can be *kept*: Race and Bingo have no pick to
   // hand over, and Millionaire's ladder rotates by design
@@ -1762,14 +1771,18 @@
     // the plain game: the teacher marks, the phones sit out
     hub:     { jDailyDoubles:0, jFinalRound:false, jDeduct:false,
                jTogether:false, jHints:false, phoneMode:'off',
-               stealOnWrong:true, keepControl:true },
+               stealOnWrong:true, keepControl:true, jAnswerSeconds:0 },
     // the show is a race for the floor, so that is what the handsets are for
     /* The show opens a missed clue to the other contestants and lets a correct
        answer keep the board, so the ruleset says both rather than leaving them to
        whatever was set last. */
+    /* The show gives you seconds on the floor, and so does this — started by the
+       buzz, ended by a klaxon the teacher can overrule. It is here and not in the
+       other two bundles' spirit: a cooperative round should not have a countdown
+       pressuring the class, and the plain hub game has no buzz to start it from. */
     classic: { jDailyDoubles:1, jFinalRound:true,  jDeduct:true,
                jTogether:false, jHints:false, phoneMode:'buzz',
-               stealOnWrong:true, keepControl:true },
+               stealOnWrong:true, keepControl:true, jAnswerSeconds:10 },
     /* Everything that sets one team against another is off here, and that is the
        whole mode: no hidden wager to find first, no steal, nothing deducted, no
        final round to overtake anyone in. What is left is the board and the room —
@@ -1777,7 +1790,7 @@
        cooperative mechanic rather than a race anybody can lose. */
     together:{ jDailyDoubles:0, jFinalRound:false, jDeduct:false,
                jTogether:true,  jHints:true, phoneMode:'write',
-               stealOnWrong:false, keepControl:false }
+               stealOnWrong:false, keepControl:false, jAnswerSeconds:0 }
   };
   let jApplyingPreset = false;
   S.onChange(id => {
@@ -3535,6 +3548,7 @@
      after a clue (Blockbusters lighting up a winning route) would otherwise do it
      behind the card. */
   function closeModal(hold, then){
+    jClockStop();
     const modal  = document.getElementById('clue-modal');
     const card   = document.getElementById('clue-card');
     const origin = currentTile;
@@ -3573,6 +3587,7 @@
   }
 
   document.getElementById('reveal-btn').addEventListener('click', ()=>{
+    jClockStop();      // the answer is out; whatever the clock was saying is over
     Sound.play('reveal');
     // The word drops into the blank rather than only appearing underneath it —
     // the sentence completing itself is the moment a class actually watches. When
@@ -3612,6 +3627,46 @@
      being off, a two-team board where nobody is left to offer, and the second miss. */
   let jSteal = null;               // { from, to } while a stolen clue is live
   let jDoubleTeam = null;          // the team that found a Daily Double, while it is live
+
+  /* ---------- the answer clock ----------
+     Starts when a team takes the floor — the buzz, not the clue opening, because
+     the teacher reads the clue aloud at their own pace and the pressure belongs on
+     the team that claimed the right to answer. Its own countdown on the clue card
+     rather than the header timer: that widget is the teacher's instrument, and a
+     clock that reset it on every buzz would overwrite whatever they had set.
+
+     Time up is a fact the room hears, not a verdict: klaxon, red pulse, and the
+     buttons stay exactly as they were. The teacher controls everything is the
+     app's constraint, and auto-marking wrong mid-sentence would fight it. */
+  let jClockTick = null;
+  function jClockStop(){
+    if(jClockTick){ clearInterval(jClockTick); jClockTick = null; }
+    const el = document.getElementById('clue-clock');
+    if(el) el.remove();
+    document.getElementById('clue-card').classList.remove('overtime');
+  }
+  function jClockStart(){
+    jClockStop();
+    const secs = Number(S.get('jAnswerSeconds', 'jeopardy')) || 0;
+    if(!secs || activeGame !== 'jeopardy' || !clueIsOpen()) return;
+    const el = document.createElement('span');
+    el.id = 'clue-clock';
+    document.getElementById('clue-topline').appendChild(el);
+    let left = secs;
+    const paint = ()=>{ el.textContent = String(left); el.classList.toggle('urgent', left <= 3); };
+    paint();
+    jClockTick = setInterval(()=>{
+      left--;
+      if(left <= 0){
+        clearInterval(jClockTick); jClockTick = null;
+        el.textContent = '0'; el.classList.add('urgent');
+        document.getElementById('clue-card').classList.add('overtime');
+        Sound.play('klaxon');
+        return;
+      }
+      paint();
+    }, 1000);
+  }
 
   function jOfferSteal(teamIdx){
     if(!S.get('stealOnWrong', 'jeopardy')) return false;
@@ -3655,6 +3710,7 @@
     clueClaim.hide();
     document.getElementById('reveal-btn').style.display = 'inline-block';
     document.getElementById('close-btn').style.display  = 'inline-block';
+    jClockStart();     // the stealing team is on the floor now, same rule as a buzz
   }
 
   /* Paying a tile out, as a function rather than only as a button handler: a typed
@@ -4946,10 +5002,18 @@
      typing. */
   function armBuzzers(prompt, opts){
     buzzWinner=null;
+    jClockStop();      // the floor is open again, so nobody is on the clock
     // a reopen is the same question, so the miss that caused it stays on the chip —
     // clearing it here wiped the one piece of information the teacher wanted
     if(!(opts && opts.reopen)) lastTyped=null;
-    if(buzzHost) buzzHost.arm(prompt||'', Object.assign({ mode: typingRace() ? 'type' : 'buzz' }, opts||{}));
+    /* The answer clock travels with the arm so the relay can hand it to whichever
+       phone takes the floor — and to the room watching them. Jeopardy-only: it is
+       that game's rule, started by its buzz, and a typing race needs no clock on
+       the floor because the typed word is judged the instant it arrives. */
+    const answerSecs = (activeGame === 'jeopardy' && !typingRace())
+      ? (Number(S.get('jAnswerSeconds', 'jeopardy')) || 0) : 0;
+    if(buzzHost) buzzHost.arm(prompt||'', Object.assign(
+      { mode: typingRace() ? 'type' : 'buzz', answerSecs: answerSecs || undefined }, opts||{}));
     renderBuzzChip('armed');
   }
   function typingRace(){ return !!activeGame && S.get('phoneMode', activeGame) === 'type'; }

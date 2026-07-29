@@ -543,6 +543,28 @@ still missed.
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Classic has an answer clock, started by the buzz.** `jAnswerSeconds` (Jeopardy
+  group, 0 = off; the `classic` preset writes 10, `hub` and `together` write 0)
+  gives the team on the floor that many seconds. Decisions worth keeping:
+  - **The buzz starts it, never the clue opening** — the teacher reads aloud at
+    their own pace, and the pressure belongs on the team that claimed the right to
+    answer. A steal claim restarts it (`jTakeSteal`), a typed buzz never starts it
+    (the word is judged the instant it arrives — nothing left to time).
+  - **Time up is a fact, not a verdict**: klaxon, a two-beat red pulse on the card
+    (`overtime`), and the buttons stay exactly as they were. The teacher controls
+    everything is the app's constraint, and auto-marking wrong mid-sentence would
+    fight it.
+  - **Its own countdown on the clue card, not the header timer** — that widget is
+    the teacher's instrument, and a clock that reset it on every buzz would
+    overwrite whatever they had set. (The final clue does borrow the header timer,
+    which is right there: one clock for one all-room beat, started once.)
+  - **The phones watch the same countdown as a duration, not a deadline** — sent
+    once with the relay's `locked` event, counted down from receipt, so phone
+    clocks never need agreeing with anybody. Display only; the host expires it. A
+    late joiner gets what is *left*, computed on the relay where the lock was
+    stamped. Stops on `armed`/`disarmed`/`judged`/`reset`.
+  - `jclock` suite covers the whole beat: preset writes, buzz starts, clue-open
+    doesn't, expiry flags without deciding, reveal retires it, phone follows.
 - **A scanned code outranks the remembered seat.** Reported as "the QR skips the
   name-and-team screen and goes straight to the button". The seat memory
   (`engishism.seat`) auto-rejoined on load without comparing its stored code to the

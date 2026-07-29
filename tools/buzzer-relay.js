@@ -80,7 +80,8 @@ function getRoom(code, create){
        which word is the right one, exactly as it never learns a typed answer. */
     r = { host:null, players:new Map(), teams:[], armed:false, locked:null,
           mode:'buzz', prompt:'', options:[], team:null, responses:new Map(),
-          spent:new Set(), cooling:new Map(), cards:new Map(), emptiedAt:0 };
+          spent:new Set(), cooling:new Map(), cards:new Map(), emptiedAt:0,
+          answerSecs:0 };
     rooms.set(code, r);
   }
   return r;
@@ -159,7 +160,7 @@ function openStream(req, res, q){
      always locked, or on the wrong WiFi, or joining thirty seconds late — so the
      room's current state travels with the join. */
   pushEvent(res, 'joined', {
-    id, name, team, teams:room.teams, armed:room.armed, locked:room.locked,
+    id, name, team, teams:room.teams, armed:room.armed, locked:lockedNow(room),
     mode:room.mode, prompt:room.prompt, options:room.options, turnTeam:room.team,
     spent:[...room.spent],
     cooling:[...room.cooling].map(([pid,until])=>({ id:pid, until })),
@@ -204,6 +205,10 @@ function handleSend(req, res){
         // stamped here so every buzz is judged at the same point on the wire —
         // fairer than trusting phone clocks or whoever the host hears from first
         room.locked = { id:p.id, name:p.name, team:p.team, at:Date.now() };
+        /* The answer clock, if the host armed with one. A duration, not a deadline:
+           each phone counts down from receipt, so phone clocks never need to agree
+           with anybody. Display only — the host's own clock is the authority. */
+        if(room.answerSecs) room.locked.secs = room.answerSecs;
         // in 'type' the buzz carries what they wrote; the relay never judges it,
         // because only the host knows the answer — and a phone that could ask the
         // relay would be a phone that could be asked for the answer
@@ -230,6 +235,8 @@ function handleSend(req, res){
       }
       case 'arm': {
         room.armed = true; room.locked = null;
+        // seconds to answer once somebody takes the floor; 0 = no clock
+        room.answerSecs = Math.max(0, Math.min(120, Number(msg.answerSecs) || 0));
         /* 'card' is a round where each phone answers off its own bingo card. It
            collects like 'answer' rather than racing like 'buzz' — everybody taps,
            and the host judges each tap against that player's card. */
@@ -357,6 +364,15 @@ function serveStatic(req, res, pathname){
     res.writeHead(200, { 'Content-Type':type, 'Cache-Control':'no-cache' });
     fs.createReadStream(file).pipe(res);
   });
+}
+
+/* A late joiner lands mid-lock with the clock already running, so the duration it
+   is sent is what is *left*, computed here where the lock was stamped — a phone can
+   never be asked to compare its clock with the relay's. */
+function lockedNow(room){
+  if(!room.locked || !room.locked.secs) return room.locked;
+  const left = Math.max(0, Math.round(room.locked.secs - (Date.now() - room.locked.at)/1000));
+  return Object.assign({}, room.locked, { secs: left });
 }
 
 /* ---------- server ---------- */

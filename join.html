@@ -155,7 +155,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260801k"></script>
+<script src="game-hub/hub-buzzer.js?v=20260801l"></script>
 <script>
 (function(){
   'use strict';
@@ -344,6 +344,25 @@
     setBuzzer(ready ? 'armed' : 'off', ready ? 'Buzz' : 'Type it');
   }
 
+  /* The answer clock, when the host armed with one: whoever took the floor has this
+     many seconds, and every phone watches it run. Display only — the host's clock
+     is the authority, and this one is a duration counted from receipt, so phone
+     clocks never need to agree with anybody. */
+  let floorClock = null;
+  function floorClockStop(){ if(floorClock){ clearInterval(floorClock); floorClock = null; } }
+  function floorClockRun(secs, text){
+    floorClockStop();
+    let left = Math.max(0, Math.round(secs));
+    const paint = ()=>{ $('state').textContent = text + ' · ' + left; };
+    if(left <= 0){ $('state').textContent = text + ' · time!'; return; }
+    paint();
+    floorClock = setInterval(()=>{
+      left--;
+      if(left <= 0){ floorClockStop(); $('state').textContent = text + ' · time!'; return; }
+      paint();
+    }, 1000);
+  }
+
   /* A wrong answer costs time, never points: this player alone waits out the
      countdown while everyone else keeps racing. */
   function coolDown(until){
@@ -436,7 +455,10 @@
          and this is the same path an arm takes. */
       if(d.card){ card = { words:d.card.words||[], marked:d.card.marked||[] }; renderCard(); $('card').style.display='grid'; }
       if(d.armed){ applyArmed(d); return; }
-      if(d.locked){ setBuzzer('off','Too late'); $('state').textContent = d.locked.name + ' got in first'; }
+      // a late joiner lands mid-lock: the relay sends what is *left* on the clock
+      if(d.locked){ setBuzzer('off','Too late');
+                    if(d.locked.secs) floorClockRun(d.locked.secs, d.locked.name + ' got in first');
+                    else $('state').textContent = d.locked.name + ' got in first'; }
       else        { setBuzzer('off','Wait');    $('state').textContent = 'Waiting for the teacher…'; }
     });
 
@@ -477,6 +499,7 @@
     });
 
     function applyArmed(d){
+      floorClockStop();          // a fresh floor retires whoever was on the clock
       // the question has always been sent with the arm; it used to be thrown away
       $('qtext').textContent = (d && d.prompt) || '';
       const spent = (d && d.spent) || [];
@@ -524,6 +547,7 @@
        whole round. Dropping to the buzzer put a full-screen WAIT button over the
        card they were still reading. */
     function standDown(msg){
+      floorClockStop();
       setBuzzer('off','Wait');
       $('qtext').textContent = '';
       setMode(card ? 'card-idle' : 'buzz');
@@ -538,6 +562,7 @@
        softer 'wrong': it means the word was produced and mis-spelled, which the
        student should hear said differently. */
     client.on('judged', d=>{
+      floorClockStop();          // the verdict outranks whatever the clock was saying
       const v = (d && d.verdict) || 'wrong';
       /* The verdict has to survive the next sentence arriving. Race re-arms the
          moment a word is claimed, so without this the student who just won sees
@@ -571,7 +596,9 @@
         return;
       }
       setBuzzer(mine ? 'won' : 'off', mine ? 'You!' : 'Too late');
-      $('state').textContent = mine ? 'You buzzed first — answer!' : (d.name + ' got in first');
+      const text = mine ? 'You buzzed first — answer!' : (d.name + ' got in first');
+      if(d.secs) floorClockRun(d.secs, text);
+      else $('state').textContent = text;
       if(navigator.vibrate) navigator.vibrate(mine ? [30,40,30] : 15);
     });
   }

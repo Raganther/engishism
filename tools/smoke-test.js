@@ -3846,6 +3846,75 @@ async function testPhoneBingo(browser){
   await page.close();
 }
 
+/* ---- the answer clock ----
+   Classic gives a team seconds on the floor once it buzzes in. Started by the buzz,
+   never by the clue opening — the teacher reads aloud at their own pace and the
+   pressure belongs on the team that claimed the right to answer. Soft at the end:
+   klaxon and a pulse, and the buttons stay the teacher's. The phones watch the same
+   countdown, sent as a duration with the lock so no clock comparison is needed. */
+async function testAnswerClock(browser){
+  section('Jeopardy: the answer clock');
+  const host = await openHub(browser);
+  await host.evaluate(() => {
+    const S = window.HubSettings;
+    S.set('intro','off'); S.set('sound',false); S.set('cardFlip','off');
+    S.set('buzzers', true);
+  });
+  const preset = await host.evaluate(() => {
+    const S = window.HubSettings, out = {};
+    S.set('jRules','classic','jeopardy'); out.classic = S.get('jAnswerSeconds','jeopardy');
+    S.set('jRules','hub','jeopardy');     out.hub     = S.get('jAnswerSeconds','jeopardy');
+    return out;
+  });
+  check('classic turns the clock on and hub turns it back off',
+        preset.classic === 10 && preset.hub === 0, JSON.stringify(preset));
+
+  await host.evaluate(() => {
+    window.HubSettings.set('phoneMode','buzz','jeopardy');
+    window.HubSettings.set('jAnswerSeconds', 5, 'jeopardy');
+  });
+  await startGame(host, 'Jeopardy', { sections: 3 });
+  await host.waitForTimeout(900);
+  const chip = await host.locator('#buzzer-chip').innerText().catch(()=>'');
+  const code = (chip.match(/CODE\s+(\d{5})/i)||[])[1];
+  check('a room opens', !!code, chip.replace(/\n/g,' '));
+  if (code){
+    const p = await browser.newPage({ viewport:{ width:390, height:844 } });
+    p.__errors = []; p.on('pageerror', e => p.__errors.push(String(e)));
+    await p.goto(BASE + '/join.html'); await p.waitForTimeout(250);
+    await p.fill('#code', code); await p.fill('#name','Ana');
+    await p.locator('#join-btn').click(); await p.waitForTimeout(500);
+
+    await host.locator('#board .tile:not(.used)').first().click(); await host.waitForTimeout(700);
+    check('the clue opening starts no clock',
+          await host.locator('#clue-clock').count() === 0);
+    await p.locator('#buzzer').click(); await host.waitForTimeout(700);
+    const shown = await host.locator('#clue-clock').innerText().catch(()=>'');
+    check('the buzz starts the clock on the card', /^[1-5]$/.test(shown), shown);
+    check('and the phone watches the same countdown',
+          /· [0-5]/.test(await p.locator('#state').innerText()),
+          await p.locator('#state').innerText());
+
+    await host.waitForTimeout(5600);
+    check('time up flags the card without deciding anything',
+          await host.evaluate(() => document.getElementById('clue-card').classList.contains('overtime')));
+    check('and the teacher still holds the buttons',
+          await host.locator('#reveal-btn').isVisible());
+    check('the phone hears time called',
+          /time!/.test(await p.locator('#state').innerText()),
+          await p.locator('#state').innerText());
+
+    await host.locator('#reveal-btn').click(); await host.waitForTimeout(300);
+    check('revealing retires the clock',
+          await host.locator('#clue-clock').count() === 0 &&
+          !(await host.evaluate(() => document.getElementById('clue-card').classList.contains('overtime'))));
+    check('phone had no errors', p.__errors.length === 0, p.__errors[0]);
+    await p.close();
+  }
+  checkClean(host, 'answer clock');
+  await host.close();
+}
+
 /* ---- Jeopardy, played as the show plays it ----
    Three things the TV game has that this board never did: a hidden tile you bet on
    before seeing the clue, a final clue everyone wagers on, and a wrong answer that
@@ -4274,7 +4343,7 @@ async function main(){
     degradation: testDegradation, file: testFileProtocol,
     reconnect: testRelayReconnect, phonebingo: testPhoneBingo,
     classic: testJeopardyClassic, joinbar: testJoinAlwaysThere,
-    together: testJeopardyTogether
+    together: testJeopardyTogether, jclock: testAnswerClock
   };
   const toRun = onlyArg ? onlyArg.split(',').map(s => s.trim()).filter(k => suites[k])
                         : Object.keys(suites);
