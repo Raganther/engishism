@@ -515,6 +515,24 @@ what a teacher set deliberately**, so it must be translated rather than silently
 - **`drop()` is what makes it run once**, and it runs before anyone can have picked a new
   value, so a later choice can't be overwritten.
 
+## Skills — the procedures, separated from the history
+`.claude/skills/` holds three invocable checklists. This file is the project's
+*memory*; those are its *procedures*, pulled up at the moment they are needed rather
+than remembered from 1,400 lines.
+- **`new-game`** — the two contracts, registration order, the layout rules, which
+  suites cover a game for free, and the five-minute review for a game someone else
+  wired up.
+- **`new-mode`** — a mode is a named bundle of settings, never a second code path.
+  The preset pattern, and why a preset writes the switches rather than shadowing.
+- **`phone-debug`** — the five shapes every phone bug so far has taken, and the one
+  question that separates them ("does the phone still show its room number?").
+
+**The new-game review found a real defect the day it was written**: Bingo was
+silently excluded from `type` mode because that variant's `games` list predated it,
+while the Millionaire exclusion beside it had a stated reason. That is the argument
+for the checklist in one line — the rule was already written down here, and was
+still missed.
+
 ## Source material & specs
 - `material/empower-c1-unit-4/`, `material/empower-c1-unit-5/` — Cambridge Empower
   C1 workbook page scans (indexed by page/section) the game content is authored from.

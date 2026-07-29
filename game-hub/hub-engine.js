@@ -407,9 +407,13 @@
       {value:'write', label:'Everyone types — no race, you see every answer'},
       /* Not offered in Millionaire for the same reason it never gets an anagram:
          the four options hand you the word, so typing it is a typing race rather
-         than a language one. */
+         than a language one. Bingo is offered it — a typed word marks that team's
+         square through `onTypedWin`, exactly as it claims a tile elsewhere — and was
+         missing only because this list was written before Bingo existed. Found by
+         running the new-game skill's own review against it, which is the point of
+         having the review. */
       {value:'type',  label:'Type it, then buzz — a race to produce the word',
-       games:['jeopardy','blockbusters','race']}
+       games:['jeopardy','blockbusters','race','bingo']}
     ] });
 
   /* Two weights for the typing race, both here rather than in the source because
@@ -519,6 +523,8 @@
     label:'Wrong answers cost the value',
     help:'As the show does it — and scores can go negative. Off by default: a class that goes 500 down early stops trying.' });
 
+  // the two games with a turn that can be *kept*: Race and Bingo have no pick to
+  // hand over, and Millionaire's ladder rotates by design
   S.register({ id:'keepControl', group:'Competition', type:'toggle', default:true,
     games:['jeopardy','blockbusters'],
     label:'Keep the board on a correct answer',
@@ -557,6 +563,7 @@
     label:'Draw the question type',
     help:'Gap fills show a real blank, anagrams show letter tiles, odd-one-out shows chips. Off prints every question as plain text.' });
 
+  // only the two games that open a clue card have a card to animate
   S.register({ id:'cardFlip', group:'Clue card', type:'variant', default:'morph',
     games:['jeopardy','blockbusters'],
     label:'Card animation', help:'How the clue card arrives. Try them mid-game and keep whichever reads best in your room.',
