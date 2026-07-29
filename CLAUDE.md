@@ -525,6 +525,20 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A room now exists whenever phones are switched on — a deliberate reversal.**
+  Reported twice, once for Bingo and once for Jeopardy, both as "the code line is
+  missing in this game". Neither was about the game: `phoneMode` was `off`, and
+  `off` used to mean **no room at all**, so there was no code on screen and a class
+  cannot join a room that does not exist.
+  - **Two facts were being conflated.** *Whether a room exists* is a property of the
+    lesson — the teacher wants phones today. *What the phones do during a question*
+    is the mode, and `off` is a perfectly good answer to that.
+  - "Off means no room" was written to keep "Nothing — phones idle" honest, but the
+    chip already says `idle here`, so nothing pretends otherwise. Exceptions had
+    been carved out for Millionaire's lifelines and Bingo's cards; this makes the
+    rule the exception's shape rather than the other way round.
+  - The `joinbar` suite asserts it across **all five games**, so the next game
+    inherits it.
 - **Jeopardy plays as the show plays it, if you ask it to.** Three rules the TV
   game has that this board never did, each its own switch, all three set at once by
   `jRules` — because "play it like the show" is one decision a teacher makes, not
@@ -935,7 +949,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   nothing saying why. Timed rounds ask now too; `raceCanTry()` restricts a timed
   round's buzz to the team whose round it is, so a phone on the bench can't steal a
   word off someone else's score.
-- **Deployed.** Build `20260801d`; new `strip`, `bbteams` and `jointeams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
+- **Deployed.** Build `20260801e`; new `strip`, `bbteams` and `jointeams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
 - **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
   the game being played, and only that game, without leaving the board — see "The Lab"
   above. It exists because prototyping was the bottleneck: comparing two ideas meant

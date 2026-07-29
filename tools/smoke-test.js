@@ -3942,6 +3942,42 @@ async function testJeopardyClassic(browser){
   await fin.close();
 }
 
+/* ---- the join address is there whenever phones are switched on ----
+   Reported twice, once for Bingo and once for Jeopardy, both as "the code line is
+   missing in this game". Neither was about the game: the phone mode was `off`, and
+   `off` used to mean *no room at all* — so there was no code, and a class cannot
+   join a room that does not exist. Whether a room exists is a property of the
+   lesson; what the phones do during a question is the mode, and `off` is a fine
+   answer to that. The chip says `idle here`, so nothing is pretending. */
+async function testJoinAlwaysThere(browser){
+  section('The join address is always there');
+  for (const [game, sections] of [['Jeopardy', 4], ['Blockbusters', 'all'],
+                                  ['Race to the Board', 'all'], ['Millionaire', 'all'],
+                                  ['Bingo', 'all']]){
+    const page = await openHub(browser);
+    await page.evaluate(() => {
+      const S = window.HubSettings;
+      S.set('intro','off'); S.set('sound',false); S.set('buzzers',true);
+      S.set('phoneMode','off');            // the default: nothing during a question
+    });
+    await page.reload(); await page.waitForTimeout(400);
+    await startGame(page, game, { sections });
+    await page.waitForTimeout(1200);
+    const chip = await page.evaluate(() => {
+      const c = document.getElementById('buzzer-chip');
+      return { shown: getComputedStyle(c).display !== 'none', text: c.textContent };
+    });
+    check(game + ': the chip is on screen with the mode off', chip.shown, chip.text);
+    check(game + ': and it carries a code to join with', /code\s*\d{5}/i.test(chip.text), chip.text);
+    /* Honest about what will happen: a room to join, and nothing to do in it yet.
+       Bingo says its own thing when the cards are on phones. */
+    check(game + ': and says the phones are idle rather than promising a dynamic',
+          /idle here|votes only|cards on phones/i.test(chip.text), chip.text);
+    checkClean(page);
+    await page.close();
+  }
+}
+
 /* ---------- run ---------- */
 async function main(){
   let relay = null;
@@ -3963,7 +3999,7 @@ async function main(){
     typetobuzz: testTypeToBuzz, judging: testAnswerJudging,
     degradation: testDegradation, file: testFileProtocol,
     reconnect: testRelayReconnect, phonebingo: testPhoneBingo,
-    classic: testJeopardyClassic
+    classic: testJeopardyClassic, joinbar: testJoinAlwaysThere
   };
   const toRun = onlyArg ? onlyArg.split(',').map(s => s.trim()).filter(k => suites[k])
                         : Object.keys(suites);

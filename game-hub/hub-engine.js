@@ -4415,10 +4415,23 @@
      phones sit idle until a lifeline is used — but a room that only opens once
      somebody presses the lifeline is a room nobody has joined yet, and a class
      cannot scan, type a code and pick a team while the question is on screen. */
+  /* A room whenever the feature is on, in every game — which is a reversal, and a
+     deliberate one. "Off means no room" was written to keep "Nothing — phones idle"
+     honest, but it made the join address disappear entirely, and a class cannot
+     join a room that does not exist yet. It also read as a *game* being different
+     from the others when it was only configured differently: the same report came
+     in twice, once for Bingo and once for Jeopardy, both times as "the code line is
+     missing here".
+
+     The two facts were being conflated. **Whether a room exists** is a property of
+     the lesson — the teacher wants phones today. **What the phones do during a
+     question** is the mode, and `off` is a perfectly good answer to that: the chip
+     says `idle here`, so nothing pretends otherwise. Exceptions had already been
+     carved out for Millionaire's lifelines and Bingo's cards; this makes the rule
+     the exception's shape rather than the other way round. */
   function phonesWanted(){
     if(!activeGame) return false;
-    if(S.get('phoneMode', activeGame) !== 'off') return true;
-    return classVotes();
+    return !!S.get('buzzers');
   }
   /* Both votes are worth a room even when nothing else on the board wants one:
      Millionaire's Ask the class, and Blockbusters asking the team on turn which
