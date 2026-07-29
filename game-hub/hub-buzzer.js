@@ -74,6 +74,12 @@ window.HubBuzzer = (function(){
     return {
       code, on: ev.on,
       players: ()=>players.slice(),
+      /* Per-player state, which is new: everything else here is per-question and
+         forgotten. The host deals the cards and judges the taps; the relay only
+         stores and carries them, so it still never learns an answer. */
+      deal: cards => post(relay, { room:code, type:'deal', cards }),
+      mark: (id, word) => post(relay, { room:code, type:'mark', id, word }),
+      nope: (id, word) => post(relay, { room:code, type:'nope', id, word }),
       /* `arm(text)` still races for the floor. `arm(text, {mode:'vote', options})`
          or `{mode:'answer'}` asks the whole class instead, and the answers arrive
          on the 'response' event rather than 'buzz'. */
@@ -97,7 +103,7 @@ window.HubBuzzer = (function(){
     const ev    = emitter();
     const src   = stream(relay, { room:code, role:'player', id, name:opts.name||'Player', team:opts.team||0 }, ev);
 
-    ['joined','armed','disarmed','locked','reset','teams','judged'].forEach(name=>{
+    ['joined','armed','disarmed','locked','reset','teams','judged','card','marked','nope'].forEach(name=>{
       src.addEventListener(name, e=>{
         let d = {}; try{ d = JSON.parse(e.data); }catch(_){}
         ev.emit(name, d);

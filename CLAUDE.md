@@ -525,6 +525,36 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Bingo puts a card in every student's hand.** `bingoCards` picks where the cards
+  live: `board` (one per team, shared, the default and the fallback) or `phones`
+  (one per student). The phone version is what bingo actually is, and it is the fix
+  for the weakness it shares with Blockbusters — two people play and the rest watch.
+  - **The relay now holds state that outlives a question.** Everything else it does
+    is per-question and forgotten; a card has to survive the next call *and* a phone
+    dropping off the wifi. It stores the card and the marks — **but the host deals
+    them and the host judges every tap**, so the relay still never learns which word
+    the clue means, exactly as it never learns a typed answer.
+  - **A tap is a typed answer without the typing**, so it arrives through the
+    existing `respond` path and is judged by `Kit.answer.judge` against `expects()`.
+    Marking, scoring, the strip naming who got it and the banner were all free.
+  - **A call stays open on phones and closes on the board**, and that is the game
+    rather than an inconsistency: everyone holding the word marks it, so the teacher
+    moves on when the room has had long enough. A word nobody took goes back in the
+    bag (`bingoRequeue`) or a class of thirty runs out of calls before anyone lines
+    up.
+  - **A student's line scores for their team**, so the team bar stays true and you
+    get individual engagement without losing class-vs-class.
+  - **The board shows the room, not thirty cards**: how many are in play and who is
+    one square away, with the near-winners lit.
+  - **The winning card stays on the phone.** Ending the round *disarms* rather than
+    resets, because the first thing that happens after a line is the teacher reading
+    it back off the winner's handset.
+  - **The phone remembers its seat** (`localStorage`), so a reload rejoins the same
+    room under the **same id** — which is what makes the card come back with its
+    marks. A new id would have been dealt a second card and stranded the first. It
+    also ends the retype-the-code-mid-round problem for every game.
+  - `roomNote()` joined the contract because the chip said `votes only` over a game
+    where every phone holds a card.
 - **The buzzer flickering on and off was two bugs, and the second one was the
   visible one.** Reported from a real round; the phone kept its room number
   throughout, which is what said the connection was fine and the *armed state* was
@@ -570,6 +600,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   | `onBuzzTaken(b)` | somebody has the floor |
   | `onTypedWin(b)` | typed and correct: score it, return the points (`null` = didn't) |
   | `wantsVote()` / `onVoteReply(all)` | the vote half — whether the game ever asks the room, and where the counts are painted |
+| `roomNote()` | what the chip says when a game wants a room without a phone mode |
 
   - **Every hook defaults to a no-op**, so a game that declares none has idle
     phones — a visible, correct state rather than a half-wired one.
@@ -848,7 +879,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   nothing saying why. Timed rounds ask now too; `raceCanTry()` restricts a timed
   round's buzz to the team whose round it is, so a phone on the bench can't steal a
   word off someone else's score.
-- **Deployed.** Build `20260731f`; new `strip`, `bbteams` and `jointeams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
+- **Deployed.** Build `20260801a`; new `strip`, `bbteams` and `jointeams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
 - **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
   the game being played, and only that game, without leaving the board — see "The Lab"
   above. It exists because prototyping was the bottleneck: comparing two ideas meant

@@ -34,6 +34,19 @@
     min-width:0; overflow-wrap:anywhere;   /* a team called something long stays inside its button */
   }
   .teams button.on{ background:var(--yellow); color:var(--navy); border-color:var(--yellow); }
+  .card{ display:none; grid-template-columns:repeat(3, 1fr); gap:8px; width:100%; }
+  .card button{
+    padding:14px 5px; border-radius:12px; border:2px solid rgba(255,255,255,0.22);
+    background:var(--navy2); color:var(--white); font-family:inherit; font-weight:700;
+    font-size:0.78rem; line-height:1.2; min-width:0; cursor:pointer; min-height:64px;
+    /* long words are common in a C1 vocabulary bank — break them properly rather
+       than letting one letter drop onto its own line */
+    overflow-wrap:break-word; hyphens:auto;
+  }
+  .card button.marked{ background:var(--yellow); color:var(--navy); border-color:var(--yellow); }
+  .card button.wrong{ background:#C0392B; border-color:#C0392B; }
+  .card button:disabled{ opacity:0.85; }
+  .card.live button:not(.marked){ border-color:var(--blue); }
   .go{
     width:100%; padding:17px; border:none; border-radius:12px; background:var(--blue); color:var(--white);
     font-family:inherit; font-weight:700; font-size:1.1rem; text-transform:uppercase; letter-spacing:0.06em; cursor:pointer;
@@ -119,6 +132,9 @@
   <p class="qtext" id="qtext"></p>
   <button id="buzzer" disabled>Wait</button>
   <div class="opts" id="opts"></div>
+  <!-- Bingo: this phone's own card, which is the first thing here that outlives a
+       question. Nine words, tap the one the clue is describing. -->
+  <div class="card" id="card"></div>
   <div class="write" id="write">
     <!-- autocorrect and spellcheck off, deliberately: the race is to produce the
          word, and a phone that finishes it turns a language task into a typing one -->
@@ -130,7 +146,7 @@
   <p id="status"></p>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260731f"></script>
+<script src="game-hub/hub-buzzer.js?v=20260801a"></script>
 <script>
 (function(){
   'use strict';
@@ -228,6 +244,38 @@
     const t = d && d.turnTeam;
     return t == null || Number(t) === Number(team);
   }
+  /* This phone's bingo card. `marked` comes back from the relay, so a phone that
+     drops off the wifi and rejoins gets its card *and* its marks, rather than a
+     blank one — which for a game played over a whole round is the difference
+     between rejoining and starting again. */
+  let card = null, cardBusy = false;
+
+  function renderCard(){
+    const box = $('card');
+    box.innerHTML = '';
+    if(!card){ return; }
+    card.words.forEach((w, i)=>{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = w;
+      if(card.marked[i]) b.classList.add('marked');
+      // busy only blocks the tap that is in flight, not the whole card for the rest
+      // of the call — two students on the same table tap within a second of each other
+      b.disabled = !!card.marked[i] || mode !== 'card';
+      b.addEventListener('click', ()=> tapCard(i, b));
+      box.appendChild(b);
+    });
+  }
+
+  function tapCard(i, btn){
+    if(!client || !card || card.marked[i] || cardBusy) return;
+    cardBusy = true; blip();
+    btn.disabled = true;
+    $('state').textContent = 'Sent…';
+    // judged on the host, which is the only place that knows the answer
+    client.respond(card.words[i]);
+  }
+
   function setMode(m, opts, mine){
     mode = m || 'buzz';
     answered = false;
@@ -236,6 +284,12 @@
     $('buzzer').style.display = (mode==='buzz' || mode==='type') ? '' : 'none';
     $('opts').style.display   = mode==='vote'   ? 'flex' : 'none';
     $('write').style.display  = (mode==='answer' || mode==='type') ? 'flex' : 'none';
+    // the card stays on screen between calls — it is the student's own board, not
+    // a control that belongs to one question
+    $('card').style.display   = card ? 'grid' : 'none';
+    $('card').classList.toggle('live', mode==='card');
+    // 'card-idle' is a card on screen between calls: visible, readable, not tappable
+    if(mode === 'card-idle') $('buzzer').style.display = 'none';
     $('send').style.display   = mode==='type' ? 'none' : '';   // the buzzer sends it
     $('screen-play').classList.toggle('mode-type', mode==='type');
     if(mode==='vote'){
@@ -316,12 +370,24 @@
     }catch(e){}
   })();
 
-  $('join-btn').addEventListener('click', ()=>{
-    const code = $('code').value.trim();
-    const name = $('name').value.trim();
-    $('join-err').textContent = '';
+  /* ---- the seat, remembered ----
+     A phone reloads for all sorts of ordinary reasons — battery saver, a stray
+     swipe, the screen locking hard enough — and until now that meant retyping the
+     code and the name mid-round. It also meant a *new identity*, which is fine for
+     a buzzer and wrong for anything the room holds on your behalf: a bingo card is
+     dealt to a player id, so a reload was dealt a second card and the marks on the
+     first were stranded. Same seat, same id, same card. */
+  const SEAT = 'engishism.seat';
+  function rememberSeat(d){ try{ localStorage.setItem(SEAT, JSON.stringify(d)); }catch(e){} }
+  function forgetSeat(){ try{ localStorage.removeItem(SEAT); }catch(e){} }
+  function seat(){
+    try{ const d = JSON.parse(localStorage.getItem(SEAT) || 'null');
+         return (d && d.code && d.id) ? d : null; }catch(e){ return null; }
+  }
 
-    client = HubBuzzer.player({ relay:RELAY, code, name, team });
+  function joinRoom(code, name, id){
+    $('join-err').textContent = '';
+    client = HubBuzzer.player({ relay:RELAY, code, name, team, id });
     /* The joined handset, exposed the same way the hub exposes HubSettings and
        HubGames: it is the only handle on this phone from outside, and the checks
        that matter here are ones a click cannot reach — sending a vote a phone is
@@ -334,6 +400,9 @@
         s.state==='reconnecting' ? 'reconnecting…' : 'can’t reach the game';
       if(s.state==='unreachable' && $('screen-join').classList.contains('active')){
         $('join-err').textContent = 'No game with that code — check the screen.';
+        // a remembered seat in a room that has gone must not keep retrying: last
+        // lesson's code is not this lesson's
+        forgetSeat();
       }
     });
 
@@ -342,13 +411,41 @@
       $('room').innerHTML = 'Room <b>' + String(code).replace(/[^0-9]/g,'') + '</b>';
       $('who').textContent = name + ' · ' + (teamNames[team] || ('Team '+(team+1)));
       show('screen-play');
+      rememberSeat({ code, name, team, id:client.id });
       /* Students trickle in — late, on the wrong WiFi, phone locked — so a join
          lands in whatever is currently being asked rather than on a blank screen
          until the next question. The relay sends the room's state with the join,
          and this is the same path an arm takes. */
+      if(d.card){ card = { words:d.card.words||[], marked:d.card.marked||[] }; renderCard(); $('card').style.display='grid'; }
       if(d.armed){ applyArmed(d); return; }
       if(d.locked){ setBuzzer('off','Too late'); $('state').textContent = d.locked.name + ' got in first'; }
       else        { setBuzzer('off','Wait');    $('state').textContent = 'Waiting for the teacher…'; }
+    });
+
+    client.on('card', d=>{
+      card = { words:(d && d.words) || [], marked:(d && d.marked) || [] };
+      cardBusy = false;
+      $('card').style.display = 'grid';
+      renderCard();
+      say('Your card — listen for your words');
+    });
+    client.on('marked', d=>{
+      if(!card) return;
+      if(d && Array.isArray(d.marked)) card.marked = d.marked;
+      else if(d && typeof d.index === 'number') card.marked[d.index] = true;
+      cardBusy = false;
+      renderCard();
+      $('state').textContent = 'Yes — marked off';
+      if(navigator.vibrate) navigator.vibrate([30,60,30]);
+    });
+    client.on('nope', ()=>{
+      cardBusy = false;
+      const box = $('card');
+      box.classList.add('miss');
+      const wrong = [...box.querySelectorAll('button')];
+      wrong.forEach(b=>b.classList.add('wrong'));
+      setTimeout(()=>{ wrong.forEach(b=>b.classList.remove('wrong')); box.classList.remove('miss'); renderCard(); }, 420);
+      $('state').textContent = 'Not that one';
     });
 
     /* Renaming a team mid-lesson, or adding a fifth, has to reach the phones — the
@@ -393,8 +490,10 @@
       }
       if(mode==='buzz') setBuzzer('armed','Buzz');
       if(mode==='type')  syncTypeButton();
+      if(mode==='card'){ cardBusy = false; renderCard(); }
       say(mode==='buzz' ? 'Go!'
         : mode==='vote' ? 'Pick one'
+        : mode==='card' ? 'Tap the word'
         : mode==='type' ? 'Type it, then buzz' : 'Type your answer');
       if(navigator.vibrate) navigator.vibrate(40);
     }
@@ -402,10 +501,20 @@
     /* Both go through say(), because a claimed word resets the room immediately —
        and "waiting for the teacher" landing on top of "you got it" takes the win
        away from the student who just earned it. */
-    client.on('disarmed', ()=>{ setBuzzer('off','Wait'); $('qtext').textContent='';
-                                setMode('buzz'); say('Waiting for the teacher…'); });
-    client.on('reset',    ()=>{ setBuzzer('off','Wait'); $('qtext').textContent='';
-                                setMode('buzz'); say('Waiting for the teacher…'); });
+    /* Between questions the phone goes back to waiting — but a bingo card is not a
+       control that belongs to one question, it is the student's own board for the
+       whole round. Dropping to the buzzer put a full-screen WAIT button over the
+       card they were still reading. */
+    function standDown(msg){
+      setBuzzer('off','Wait');
+      $('qtext').textContent = '';
+      setMode(card ? 'card-idle' : 'buzz');
+      if(card) renderCard();
+      say(msg);
+    }
+    client.on('disarmed', ()=> standDown('Waiting for the teacher…'));
+    client.on('reset',    ()=>{ card = null; $('card').style.display='none';
+                                standDown('Waiting for the teacher…'); });
 
     /* The host's verdict on what this phone wrote. 'close' is its own answer, not a
        softer 'wrong': it means the word was produced and mis-spelled, which the
@@ -447,7 +556,23 @@
       $('state').textContent = mine ? 'You buzzed first — answer!' : (d.name + ' got in first');
       if(navigator.vibrate) navigator.vibrate(mine ? [30,40,30] : 15);
     });
+  }
+
+  $('join-btn').addEventListener('click', ()=>{
+    joinRoom($('code').value.trim(), $('name').value.trim(), null);
   });
+
+  /* Back into the same seat on a reload, without retyping anything. If the room has
+     gone — a lesson ended, a different class — the stream reports it unreachable and
+     the join screen is still there underneath. */
+  (function resume(){
+    const d = seat();
+    if(!d) return;
+    team = Number(d.team) || 0;
+    $('code').value = d.code; $('name').value = d.name;
+    renderTeams();
+    joinRoom(d.code, d.name, d.id);
+  })();
 
   $('send').addEventListener('click', sendWritten);
   $('reply').addEventListener('keydown', e=>{

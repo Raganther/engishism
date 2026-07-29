@@ -72,9 +72,15 @@ function getRoom(code, create){
        `team` is set when a round belongs to one team rather than the room —
        Blockbusters asks the team on turn which hexagon to attack, and the other
        side of the room is watching, not choosing. Null means everybody. */
+    /* `cards` is the first thing the relay holds that outlives a question. A buzz,
+       an answer and a vote are all per-question and forgotten; a bingo card has to
+       survive the next call *and* the phone dropping off the wifi and coming back,
+       which is the whole reason it lives here rather than only on the host. The
+       host still deals them and still judges the taps — the relay never learns
+       which word is the right one, exactly as it never learns a typed answer. */
     r = { host:null, players:new Map(), teams:[], armed:false, locked:null,
           mode:'buzz', prompt:'', options:[], team:null, responses:new Map(),
-          spent:new Set(), cooling:new Map(), emptiedAt:0 };
+          spent:new Set(), cooling:new Map(), cards:new Map(), emptiedAt:0 };
     rooms.set(code, r);
   }
   return r;
@@ -156,7 +162,8 @@ function openStream(req, res, q){
     id, name, team, teams:room.teams, armed:room.armed, locked:room.locked,
     mode:room.mode, prompt:room.prompt, options:room.options, turnTeam:room.team,
     spent:[...room.spent],
-    cooling:[...room.cooling].map(([pid,until])=>({ id:pid, until }))
+    cooling:[...room.cooling].map(([pid,until])=>({ id:pid, until })),
+    card: room.cards.get(id) || null
   });
   toHost(room, 'join', { id, name, team, players:roster(room) });
 
@@ -223,7 +230,10 @@ function handleSend(req, res){
       }
       case 'arm': {
         room.armed = true; room.locked = null;
-        room.mode  = ['buzz','vote','answer','type'].indexOf(msg.mode) !== -1 ? msg.mode : 'buzz';
+        /* 'card' is a round where each phone answers off its own bingo card. It
+           collects like 'answer' rather than racing like 'buzz' — everybody taps,
+           and the host judges each tap against that player's card. */
+        room.mode  = ['buzz','vote','answer','type','card'].indexOf(msg.mode) !== -1 ? msg.mode : 'buzz';
         /* Was six, which is right for a question with four answers and wrong for
            "which of the letters still on the board" — a Blockbusters board opens
            with eighteen. The phone lays short options out as a keypad rather than a
@@ -260,6 +270,7 @@ function handleSend(req, res){
       case 'reset':
         room.armed = false; room.locked = null; room.prompt = ''; room.team = null;
         room.responses = new Map(); room.spent = new Set(); room.cooling = new Map();
+        room.cards = new Map();
         toPlayers(room, 'reset', {});
         return sendJSON(res, 200, { ok:true });
 
@@ -271,7 +282,11 @@ function handleSend(req, res){
         if(!p) return sendJSON(res, 404, { error:'not in room' });
         if(!room.armed) return sendJSON(res, 200, { ok:true, ignored:'not armed' });
         if(room.mode === 'buzz') return sendJSON(res, 200, { ok:true, ignored:'buzz round' });
-        if(room.spent.has(p.id)) return sendJSON(res, 200, { ok:true, ignored:'already answered' });
+        /* A bingo tap is not "your one answer this round": a wrong tap is meant to
+           be followed by another, and the next call reuses the same open round. So
+           spending — which is what enforces one-each — does not apply to cards. */
+        if(room.mode !== 'card' && room.spent.has(p.id))
+          return sendJSON(res, 200, { ok:true, ignored:'already answered' });
         /* A round can belong to one team. The phone is told and shows no controls,
            so this only catches the ones that cannot have been told — a handset that
            joined mid-round, or one still holding the previous question. */
@@ -279,13 +294,45 @@ function handleSend(req, res){
           return sendJSON(res, 200, { ok:true, ignored:'not your team' });
         const value = String(msg.value == null ? '' : msg.value).slice(0, 120);
         room.responses.set(p.id, { id:p.id, name:p.name, team:p.team, value });
-        room.spent.add(p.id);
+        if(room.mode !== 'card') room.spent.add(p.id);
         const all = [...room.responses.values()];
         const tally = {};
         all.forEach(r2 => { tally[r2.value] = (tally[r2.value] || 0) + 1; });
         toHost(room, 'response', { latest:{ id:p.id, name:p.name, team:p.team, value },
                                    total: all.length, of: room.players.size,
                                    tally, all });
+        return sendJSON(res, 200, { ok:true });
+      }
+      /* One card per player, dealt by the host. Sent as {id: [words]} so a class of
+         thirty is one request rather than thirty. */
+      case 'deal': {
+        const cards = (msg.cards && typeof msg.cards === 'object') ? msg.cards : {};
+        Object.keys(cards).forEach(pid => {
+          const words = Array.isArray(cards[pid]) ? cards[pid].slice(0,25).map(w=>String(w).slice(0,40)) : [];
+          if(!words.length) return;
+          const card = { words, marked:words.map(()=>false) };
+          room.cards.set(pid, card);
+          const p = room.players.get(pid);
+          if(p) pushEvent(p.res, 'card', card);
+        });
+        return sendJSON(res, 200, { ok:true, dealt:Object.keys(cards).length });
+      }
+      /* The host judged a tap and it was right. The relay stores the mark so a
+         phone that reconnects gets its card back with the marks still on it. */
+      case 'mark': {
+        const card = room.cards.get(msg.id);
+        if(!card) return sendJSON(res, 200, { ok:true, ignored:'no card' });
+        const i = card.words.indexOf(String(msg.word||''));
+        if(i === -1) return sendJSON(res, 200, { ok:true, ignored:'not on card' });
+        card.marked[i] = true;
+        const p = room.players.get(msg.id);
+        if(p) pushEvent(p.res, 'marked', { index:i, word:card.words[i], marked:card.marked });
+        return sendJSON(res, 200, { ok:true });
+      }
+      // the host judged a tap and it was wrong — only that phone hears about it
+      case 'nope': {
+        const p = room.players.get(msg.id);
+        if(p) pushEvent(p.res, 'nope', { word:String(msg.word||'') });
         return sendJSON(res, 200, { ok:true });
       }
       case 'teams':

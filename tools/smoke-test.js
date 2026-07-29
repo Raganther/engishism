@@ -1214,7 +1214,7 @@ async function testGameRegistry(browser){
   /* The phone half of the contract. These were `if (activeGame === …)` chains in
      four functions until a fifth game proved they had to be hooks: every phone
      dynamic reaches every board through exactly these. */
-  ['expects','phonePrompt','askingNow','buzzEntitled','onBuzzTaken','onTypedWin','wantsVote','onVoteReply']
+  ['expects','phonePrompt','askingNow','buzzEntitled','onBuzzTaken','onTypedWin','wantsVote','onVoteReply','roomNote']
     .forEach(h => check('the phone contract exposes ' + h + '()', shape.hooks.indexOf(h) !== -1));
   /* And it has to be answered, not merely present: a game that leaves these at
      their defaults has idle phones, which is a correct state but not a wired one. */
@@ -3592,6 +3592,108 @@ async function testRelayReconnect(){
   if (host.req) host.req.destroy();
 }
 
+/* ---- bingo with a card in every hand ----
+   The board version is two to four cards a class shares and watches; this is what
+   bingo actually is — everyone holding their own card, which is the fix for the
+   weakness it shares with Blockbusters (two play, the rest watch). It is also the
+   first thing here that keeps per-player state between questions, which is why the
+   card lives in the relay as well as on the host. */
+async function testPhoneBingo(browser){
+  section('Bingo with a card in every hand');
+  const page = await openHub(browser);
+  await page.evaluate(() => {
+    const S = window.HubSettings;
+    S.set('intro','off'); S.set('sound',false); S.set('buzzers',true);
+    S.set('bingoCards','phones','bingo');
+  });
+  await page.reload(); await page.waitForTimeout(400);
+  await startGame(page, 'Bingo', { sections:'all' });
+  await page.waitForTimeout(1100);
+  const chip = await page.locator('#buzzer-chip').innerText().catch(()=>'');
+  const code = (chip.match(/CODE\s+(\d{5})/i) || [])[1];
+  check('a room opens even with the phone mode off', !!code, chip.replace(/\n/g,' '));
+  /* "votes only" is what the chip used to say for any game that wanted a room
+     without a mode — over a game where every phone holds a card, that is just
+     wrong, and the chip is what a class reads when deciding whether to join. */
+  check('and the chip says what the phones are actually for',
+        /cards on phones/i.test(chip), chip.replace(/\n/g,' '));
+  if (!code){ await page.close(); return; }
+
+  const join = async (name, team) => {
+    const p = await browser.newPage({ viewport:{ width:390, height:844 } });
+    p.__errors = []; p.on('pageerror', e => p.__errors.push(String(e)));
+    await p.goto(BASE + '/join.html'); await p.waitForTimeout(200);
+    await p.fill('#code', code); await p.fill('#name', name);
+    await p.locator('.teams button').nth(team).click();
+    await p.locator('#join-btn').click(); await p.waitForTimeout(500);
+    return p;
+  };
+  const ana = await join('Ana', 0);
+  const ben = await join('Ben', 1);
+  await page.waitForTimeout(800);
+
+  check('every phone is dealt its own card',
+        await ana.locator('#card button').count() === 9 &&
+        await ben.locator('#card button').count() === 9);
+  const aw = await ana.locator('#card button').allInnerTexts();
+  const bw = await ben.locator('#card button').allInnerTexts();
+  check('and the cards are not the same card', aw.join('|') !== bw.join('|'));
+  check('the board tracks the room rather than drawing thirty cards',
+        /2 cards in play/i.test(await page.locator('#bingo-cards').innerText()),
+        (await page.locator('#bingo-cards').innerText()).replace(/\n/g,' | '));
+
+  // a call: everyone holding the word may mark it, so it stays open
+  await page.locator('#bingo-start').click(); await page.waitForTimeout(700);
+  const answer = await page.evaluate(() => window.__bingoAnswer());
+  check('a call goes out', !!answer);
+  check('the phones are told to tap, not to buzz',
+        /tap the word/i.test(await ana.locator('#state').innerText()),
+        await ana.locator('#state').innerText());
+  check('and the buzzer is out of the way',
+        await ana.evaluate(() => getComputedStyle(document.getElementById('buzzer')).display) === 'none');
+
+  // a wrong tap costs nothing and the card stays live
+  const wrongAt = aw.findIndex(w => w !== answer);
+  await ana.locator('#card button').nth(wrongAt).click(); await page.waitForTimeout(700);
+  check('a wrong tap marks nothing', await ana.locator('#card button.marked').count() === 0);
+  check('and it costs no points',
+        (await page.evaluate(() => [...document.querySelectorAll('.team .score')].map(e => e.textContent)))
+          .every(v => v === '0'));
+  check('but the teacher sees who tried what',
+        /Ana/.test(await page.locator('#phone-bar').innerText()),
+        (await page.locator('#phone-bar').innerText()).replace(/\n/g,' '));
+
+  /* The reconnect case is the whole reason the card is stored in the relay: a
+     phone that drops off the wifi mid-round has to come back to its own card with
+     its own marks, not a blank one. */
+  const holder = aw.indexOf(answer) >= 0 ? { p:ana, i:aw.indexOf(answer), team:0 }
+                                         : { p:ben, i:bw.indexOf(answer), team:1 };
+  if (holder.i >= 0){
+    await holder.p.locator('#card button').nth(holder.i).click();
+    await page.waitForTimeout(800);
+    check('the right tap marks that square', await holder.p.locator('#card button.marked').count() === 1);
+    const scores = await page.evaluate(() => [...document.querySelectorAll('.team .score')].map(e => e.textContent));
+    check('and scores for that student\'s team', scores[holder.team] !== '0', scores.join('/'));
+    check('and the board shows their progress',
+          /1\/3/.test(await page.locator('#bingo-cards').innerText()),
+          (await page.locator('#bingo-cards').innerText()).replace(/\n/g,' | '));
+
+    await holder.p.reload(); await holder.p.waitForTimeout(1200);
+    check('a phone that drops off comes back to its own card, marks and all',
+          await holder.p.locator('#card button').count() === 9 &&
+          await holder.p.locator('#card button.marked').count() === 1,
+          await holder.p.locator('#card button').count() + ' cells, ' +
+          await holder.p.locator('#card button.marked').count() + ' marked');
+  }
+
+  for (const p of [ana, ben]){
+    check('phone had no errors', p.__errors.length === 0, p.__errors[0]);
+    await p.close();
+  }
+  checkClean(page);
+  await page.close();
+}
+
 /* ---------- run ---------- */
 async function main(){
   let relay = null;
@@ -3612,7 +3714,7 @@ async function main(){
     buzzers: testBuzzers, phonemodes: testPhoneModes, teamvote: testTeamVote,
     typetobuzz: testTypeToBuzz, judging: testAnswerJudging,
     degradation: testDegradation, file: testFileProtocol,
-    reconnect: testRelayReconnect
+    reconnect: testRelayReconnect, phonebingo: testPhoneBingo
   };
   const toRun = onlyArg ? onlyArg.split(',').map(s => s.trim()).filter(k => suites[k])
                         : Object.keys(suites);

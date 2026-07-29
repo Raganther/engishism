@@ -1515,6 +1515,20 @@ body.theme-gameshow #buzzer-chip .buzz-verdict{ background:rgba(255,200,61,0.18)
 .bingo-cell.marked{ background:var(--yellow); color:var(--navy); }
 .bingo-cell.wrong{ background:#C0392B; color:var(--white); }
 .bingo-cell.line{ background:var(--yellow); color:var(--navy); box-shadow:0 0 0 3px var(--blue) inset; }
+/* thirty cards is nothing useful to draw, so the board shows what the room needs:
+   how many are in play, and who is one square from a line */
+.bingo-room{ display:flex; flex-direction:column; gap:10px; align-items:center; width:100%; }
+.bingo-room-head{ font-family:'IBM Plex Mono',monospace; font-size:0.8rem; letter-spacing:0.1em;
+  text-transform:uppercase; opacity:0.75; }
+.bingo-room-note{ opacity:0.7; font-size:0.95rem; }
+.bingo-room-list{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+.bingo-room-chip{ padding:8px 12px; border-radius:999px; background:var(--navy2); color:var(--cream);
+  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.9rem; }
+.bingo-room-chip.hot{ background:var(--yellow); color:var(--navy); }
+body.theme-gameshow #play-bingo.lit .bingo-room-chip{ background:rgba(255,255,255,0.08); color:#F7E9FF; }
+body.theme-gameshow #play-bingo.lit .bingo-room-chip.hot{ background:#FF7AC8; color:#26102F;
+  box-shadow:0 0 14px rgba(255,122,200,0.7); }
+
 @keyframes bingoDeal{ from{ opacity:0; transform:translateY(-8px) scale(0.9); } to{ opacity:1; transform:none; } }
 
 /* game show skin — pink, because yellow is "marked" on this board and has to stay

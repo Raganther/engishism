@@ -106,7 +106,13 @@
          (which is what keeps a room open at `phoneMode:off`), and what to do with
          the replies as they land. */
       wantsVote:    function(){ return false; },
-      onVoteReply:  NO_OP
+      onVoteReply:  NO_OP,
+      /* What the room chip says when `phoneMode` is off but the game still wants a
+         room. The default is the vote, because that was the only reason to have one
+         — but "votes only" over a game where every phone is holding a bingo card is
+         simply wrong, and the chip is the thing a class reads while deciding
+         whether to bother joining. */
+      roomNote:     function(){ return null; }
     }, def);
     GAMES.push(g);
     GAME_BY_ID[g.id] = g;
@@ -424,6 +430,20 @@
 
   /* Registered exactly like every other weight, which is the point: the panel and
      the Lab both grow a row for it without either being edited. */
+  /* Cards on the board or cards in their hands. The board version is two to four
+     cards a class shares and watches; the phone version gives every student their
+     own, which is what bingo actually is — and it is the first dynamic where the
+     room holds state between questions rather than answering one and forgetting it.
+     Board stays the default and the fallback: no relay, no wifi, or phones banned
+     that week and the game still runs. */
+  S.register({ id:'bingoCards', group:'Bingo', type:'variant', default:'board', games:['bingo'],
+    label:'Where the cards live',
+    help:'On the board is one card per team, shared. On the phones is one card per student.',
+    variants:[
+      {value:'board',  label:'On the board — one card per team'},
+      {value:'phones', label:'On the phones — one card each'}
+    ] });
+
   S.register({ id:'bingoPoints', group:'Bingo', type:'range', default:1,
     min:1, max:5, step:1, unit:' pts', games:['bingo'],
     label:'Points per square',
@@ -983,6 +1003,11 @@
              BINGO_TOPIC_NAMES   = u.topicNames || {}; },
     renderContent: renderBingoContent,
     startButton:   bingoStartButton,
+    /* Cards on phones needs a room even at `phoneMode: off` — the cards *are* the
+       dynamic, so the mode has nothing to say about it. Same shape as Millionaire
+       keeping a room open for Ask the class. */
+    wantsVote:   () => bingoOnPhones(),
+    roomNote:    () => bingoOnPhones() ? 'cards on phones' : null,
     expects:     () => (bingoCurrent && bingoCurrent.answer) || '',
     phonePrompt: () => (bingoCurrent && (bingoCurrent.clue || bingoCurrent.prompt)) || '',
     askingNow:   () => !!bingoCurrent && !bingoWon,
@@ -2275,8 +2300,12 @@
     bingoCurrent = null;
     bingoWon     = null;
     bingoRunning = false;
-    buildBingoCards();
-    setBingoMessage('Press First word when the class is ready.');
+    bingoHands = new Map();
+    if(bingoOnPhones()){ bingoDealHands(); renderBingoRoom(); }
+    else buildBingoCards();
+    setBingoMessage(bingoOnPhones()
+      ? 'Cards are on the phones. Press First word when the class is ready.'
+      : 'Press First word when the class is ready.');
     document.getElementById('bingo-start').style.display = 'inline-block';
     document.getElementById('bingo-skip').style.display  = 'none';
     document.getElementById('bingo-prompt').classList.remove('live');
@@ -2294,6 +2323,21 @@
       const words = shuffle(bingoWords.slice()).slice(0, BINGO_SIZE * BINGO_SIZE);
       return { words, marked: words.map(() => false) };
     });
+  }
+
+  /* The call goes out as a `card` round: every phone shows its own nine words and
+     taps one. `phonePrompt` still decides whether the clue travels with it — off is
+     arguably the better lesson, because then it is listening rather than reading. */
+  function askBingoCards(w){
+    if(!buzzHost) return;
+    bingoDealHands();
+    classReplies = null;
+    lastScored = null;
+    buzzWinner = null;
+    lastAsk = { mode:'card', prompt:(S.get('phonePrompt', 'bingo') ? (w.clue || w.prompt || '') : '') };
+    buzzHost.arm(lastAsk.prompt, { mode:'card', keepSpent:true });
+    renderBuzzChip('asking');
+    renderPhoneBar();
   }
 
   function buildBingoCards(){
@@ -2342,12 +2386,22 @@
     el.appendChild(sec); el.appendChild(body);
   }
 
-  // a call is only worth making while some team could still mark it
+  /* A call is only worth making while somebody could still mark it — which is the
+     cards on the board, or the cards in their hands, depending on where they are. */
   function bingoLiveFor(word){
-    return bingoCards.some(c => c.words.some((w, i) => !c.marked[i] && w.answer === word.answer));
+    const held = bingoOnPhones() ? [...bingoHands.values()] : bingoCards;
+    return held.some(c => c.words.some((w, i) => !c.marked[i] && w.answer === word.answer));
+  }
+
+  /* A word stays in the bag while anybody could still use it, so a call nobody took
+     comes round again rather than being spent. Without this a class of thirty runs
+     out of calls long before anybody has a line. */
+  function bingoRequeue(word){
+    if(word && bingoLiveFor(word) && bingoQueue.indexOf(word) === -1) bingoQueue.push(word);
   }
 
   function nextBingoCall(){
+    bingoRequeue(bingoCurrent);
     while(bingoQueue.length){
       const w = bingoQueue.shift();
       if(bingoLiveFor(w)){
@@ -2357,7 +2411,19 @@
         setBingoMessage('Who has it? Click the word on their card.');
         document.getElementById('bingo-start').style.display = 'none';
         document.getElementById('bingo-skip').style.display  = 'inline-block';
-        askPhones(w.clue || w.prompt || '', 'bingo');
+        if(bingoOnPhones()){
+          askBingoCards(w);
+          /* On phones a call is not a race: everybody holding that word marks it,
+             so the call stays open and the teacher moves on when the room has had
+             long enough. On the board it *is* a race — one team gets the square —
+             so there the call closes as soon as somebody takes it. */
+          document.getElementById('bingo-start').style.display = 'inline-block';
+          document.getElementById('bingo-start').textContent   = '▶ Next word';
+          document.getElementById('bingo-skip').style.display  = 'none';
+          setBingoMessage('Everyone who has it, tap it. Next word when you are ready.');
+        } else {
+          askPhones(w.clue || w.prompt || '', 'bingo');
+        }
         Sound.play('reveal');
         bingoTension();
         return;
@@ -2371,9 +2437,145 @@
     bingoFinish({ type:'blocked' });
   }
 
+  /* ---- cards in their hands ----
+     The board version is two to four cards a class shares and watches; this gives
+     every student their own, which is what bingo actually is and what fixes the
+     weakness it shares with Blockbusters — two people play and the rest watch.
+
+     Three rules it is built on:
+     - **The host deals and the host judges.** The relay stores a card so a phone
+       that drops off the wifi gets it back with its marks, but it is never told
+       which word the clue means, exactly as it is never told a typed answer.
+     - **A tap is a typed answer without the typing**, so it arrives through the
+       same path as `write` and is judged by `Kit.answer.judge` against `expects()`.
+     - **A student's line scores for their team**, so the team bar and everything
+       hanging off it stays true rather than needing a parallel system. */
+  let bingoHands = new Map();   // playerId -> { name, team, words:[…], marked:[…] }
+
+  function bingoOnPhones(){
+    return activeGame === 'bingo' && S.get('bingoCards', 'bingo') === 'phones';
+  }
+
+  function bingoDealHands(){
+    if(!bingoOnPhones() || !buzzHost || !bingoWords.length) return;
+    const roster = buzzHost.players();
+    const out = {};
+    let dealt = 0;
+    roster.forEach(p => {
+      if(bingoHands.has(p.id)){
+        // already holding a card: keep it, or a late joiner would reshuffle the room
+        const h = bingoHands.get(p.id);
+        h.name = p.name; h.team = p.team;
+        return;
+      }
+      const words = shuffle(bingoWords.slice()).slice(0, BINGO_SIZE * BINGO_SIZE);
+      bingoHands.set(p.id, { name:p.name, team:p.team, words, marked:words.map(()=>false) });
+      out[p.id] = words.map(w => w.answer);
+      dealt++;
+    });
+    if(dealt) buzzHost.deal(out);
+    renderBingoRoom();
+  }
+
+  /* A tap, judged. Right marks their square and scores for their team; wrong costs
+     nothing but a moment, the same trade the typing race makes. */
+  function onBingoTap(r){
+    if(!bingoOnPhones() || !bingoCurrent || bingoWon) return false;
+    const hand = bingoHands.get(r.id);
+    if(!hand) return false;
+    const verdict = Kit.answer.judge(r.value, bingoCurrent.answer);
+    const ok = verdict === 'right' || (verdict === 'close' && !S.get('typeStrict', 'bingo'));
+    if(!ok){
+      buzzHost.nope(r.id, r.value);
+      notePhoneMiss(hand.name, hand.team, r.value, verdict);
+      return true;
+    }
+    const i = hand.words.findIndex((w, n) => !hand.marked[n] && w.answer === bingoCurrent.answer);
+    if(i === -1){ buzzHost.nope(r.id, r.value); return true; }
+    hand.marked[i] = true;
+    buzzHost.mark(r.id, hand.words[i].answer);
+    const paid = award(hand.team, Number(S.get('bingoPoints', 'bingo')) || 1, {}) || 1;
+    notePhoneScore(hand.name, hand.team, r.value, paid);
+    Sound.play('claim');
+    const line = bingoHandLine(hand);
+    if(line){ bingoFinishHand(r.id, hand, line); return true; }
+    renderBingoRoom();
+    bingoTension();
+    return true;
+  }
+
+  function bingoHandLine(hand){
+    return bingoLines().find(line => line.every(i => hand.marked[i])) || null;
+  }
+
+  function bingoFinishHand(id, hand, line){
+    bingoWon = { type:'win', player:id, hand, line, team:hand.team };
+    bingoRunning = false;
+    renderBingoRoom();          // the winning card's own progress was a call behind
+    document.getElementById('bingo-skip').style.display  = 'none';
+    document.getElementById('bingo-start').style.display = 'none';
+    /* Disarm, don't reset. A reset clears the cards off every phone — and the first
+       thing that happens after a line is the teacher reading it back off the
+       winner's card, which is hard to do when their phone has just gone blank. The
+       cards clear on New cards, which is where a new round starts. */
+    buzzWinner = null;
+    if(buzzHost) buzzHost.disarm();
+    renderBuzzChip();
+    const lit = document.getElementById('play-bingo').classList.contains('lit');
+    if(lit){ Sound.fanfare(); setTimeout(() => Sound.applause(2400), 620); }
+    else Sound.play('clear');
+    showResult({
+      eyebrow:'Bingo',
+      title: hand.name + ' has a line!',
+      // the teacher reads the card back, which is what bingo has always done and is
+      // a speaking beat rather than dead time
+      sub:   'Playing for ' + (teams[hand.team] ? teams[hand.team].name : 'their team') +
+             ' — check the card: ' + line.map(i => hand.words[i].answer).join(', '),
+      tone:  hand.team === 0 ? 'gold' : 'silver',
+      actions:[{ label:'New cards', primary:true, onPick:bingoPlayAgain },
+               { label:'Leave it up', onPick:function(){} }]
+    });
+  }
+
+  /* With thirty cards there is nothing useful to draw of them, so the board shows
+     what the room needs: how many have it, and who is one square away. */
+  function renderBingoRoom(){
+    const wrap = document.getElementById('bingo-cards');
+    if(!bingoOnPhones()){ return; }
+    wrap.innerHTML = '';
+    const panel = document.createElement('div');
+    panel.className = 'bingo-room';
+    const hands = [...bingoHands.values()];
+    if(!hands.length){
+      panel.innerHTML = '<p class="bingo-room-note">Cards are dealt as students join. ' +
+                        'Nobody has one yet.</p>';
+      wrap.appendChild(panel);
+      return;
+    }
+    const close = hands.map(h => ({ h, best: Math.max.apply(null,
+      bingoLines().map(l => l.filter(i => h.marked[i]).length)) }))
+      .sort((a, b) => b.best - a.best);
+    const head = document.createElement('div');
+    head.className = 'bingo-room-head';
+    head.textContent = hands.length + (hands.length === 1 ? ' card in play' : ' cards in play');
+    panel.appendChild(head);
+    const list = document.createElement('div');
+    list.className = 'bingo-room-list';
+    close.slice(0, 12).forEach(({ h, best }) => {
+      const chip = document.createElement('span');
+      chip.className = 'bingo-room-chip team-' + Math.min(h.team, 3) + (best >= BINGO_SIZE - 1 ? ' hot' : '');
+      chip.textContent = h.name + ' · ' + best + '/' + BINGO_SIZE;
+      list.appendChild(chip);
+    });
+    panel.appendChild(list);
+    wrap.appendChild(panel);
+    fitBingoCards();
+  }
+
   /* A test hook, not a game feature: the answer to the call is deliberately not in
      the DOM (the class has to work it out), so a scripted round has no other way to
      know which square is the right one. */
+  window.__bingoAnswer = function(){ return bingoCurrent ? bingoCurrent.answer : null; };
   window.__bingoProbe = function(){
     if(!bingoCurrent || !bingoCards[0]) return -1;
     return bingoCards[0].words.findIndex((w, i) => !bingoCards[0].marked[i] && w.answer === bingoCurrent.answer);
@@ -2475,6 +2677,8 @@
 
   function bingoPlayAgain(){
     hideResult();
+    bingoHands = new Map();
+    if(buzzHost) buzzHost.reset();
     document.querySelectorAll('#bingo-cards .bingo-cell.line').forEach(el => el.classList.remove('line'));
     document.getElementById('bingo-start').textContent = '▶ First word';
     startBingo();
@@ -2489,6 +2693,7 @@
   }
 
   function bingoDeal(){
+    if(bingoOnPhones()) return;      // nothing on the board to deal in
     const cells = [...document.querySelectorAll('#bingo-cards .bingo-cell')];
     cells.forEach(el => { el.style.removeProperty('animation'); void el.offsetWidth; });
     cells.forEach((el, i) => {
@@ -2504,7 +2709,11 @@
     stage.classList.toggle('lit', on);
     if(!on){ stage.style.removeProperty('--tension'); Sound.bedStop(); return; }
     // one square off a line is as tense as this board gets
-    const t = Math.max(0, Math.min(1, (bingoBest() - 1) / (BINGO_SIZE - 1)));
+    const best = bingoOnPhones()
+      ? [...bingoHands.values()].reduce((m, h) => Math.max(m,
+          ...bingoLines().map(l => l.filter(i => h.marked[i]).length)), 0)
+      : bingoBest();
+    const t = Math.max(0, Math.min(1, (best - 1) / (BINGO_SIZE - 1)));
     stage.style.setProperty('--tension', t.toFixed(3));
     if(bingoRunning && bingoCurrent && !bingoWon) Sound.bedStart(t); else Sound.bedStop();
   }
@@ -3725,7 +3934,7 @@
        so "idle here" would read as "don't bother joining" to a room that is about
        to be asked something. */
     if(activeGame && S.get('phoneMode', activeGame) === 'off')
-      add('buzz-idle', classVotes() ? 'votes only' : 'idle here');
+      add('buzz-idle', hook('roomNote') || (classVotes() ? 'votes only' : 'idle here'));
     add('buzz-scan', 'show QR');
     add('buzz-count', buzzPlayers + (buzzPlayers===1 ? ' phone' : ' phones'));
     if(state==='armed') add('buzz-live', 'buzzers live');
@@ -3753,6 +3962,13 @@
   let lastScored = null;    // {name, team, value, points} — who took the last question
   function notePhoneScore(name, team, value, points){
     lastScored = { name, team, value, points };
+    renderPhoneBar();
+  }
+  /* A miss is the most useful thing on the strip — who is nearly there, and how.
+     `lastTyped` is what the typing race already uses for exactly this, so a tapped
+     wrong word reads the same way rather than inventing a second shape. */
+  function notePhoneMiss(name, team, value, verdict){
+    lastTyped = { name, team, value, verdict:(verdict === 'close' ? 'close' : 'wrong') };
     renderPhoneBar();
   }
 
@@ -3936,10 +4152,13 @@
       buzzHost = HubBuzzer.host({ relay, code });
       buzzHost.on('ready',   d=>{ buzzPlayers=(d.players||[]).length; pushTeamNames();
                                   renderBuzzChip(); renderJoinCount(); reaskPhones();
+                                  bingoDealHands();
                                   // the room arrives after the board is built, so the
                                   // button that needs one has to be painted here
                                   renderBBVote(); });
-      buzzHost.on('players', list=>{ buzzPlayers=list.length; renderBuzzChip(); renderJoinCount(); });
+      buzzHost.on('players', list=>{ buzzPlayers=list.length; renderBuzzChip(); renderJoinCount();
+                                     // a student who joins mid-round gets a card
+                                     bingoDealHands(); });
       buzzHost.on('buzz',    onBuzz);
       buzzHost.on('response', onResponse);
       renderBuzzChip();
@@ -4012,6 +4231,10 @@
 
   function onResponse(d){
     if(!d) return;
+    /* A tap on a bingo card arrives as an ordinary response — it is a typed answer
+       without the typing — but it is judged per player and marks that player's own
+       card, so it is handled before the shared collect-and-count path. */
+    if(bingoOnPhones() && d.latest && onBingoTap(d.latest)) return;
     classReplies = { mode:(classReplies && classReplies.mode) || 'answer',
                      tally:d.tally || {}, all:d.all || [], total:d.total || 0, of:d.of || 0 };
     /* Where the numbers go is the game's business — Millionaire paints them on its
