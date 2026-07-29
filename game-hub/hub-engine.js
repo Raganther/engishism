@@ -112,7 +112,15 @@
          — but "votes only" over a game where every phone is holding a bingo card is
          simply wrong, and the chip is the thing a class reads while deciding
          whether to bother joining. */
-      roomNote:     function(){ return null; }
+      roomNote:     function(){ return null; },
+      /* `phoneMode` says what a phone does during a question — buzz, write, type —
+         and that is right for a board every phone is watching. Some games *are* the
+         phone dynamic: Bingo with the cards in their hands has nine words to tap,
+         and a buzzer over the top of that is not a choice between iterations, it is
+         two dynamics fighting. A game returning `{mode, prompt, options}` here owns
+         the round; `null` means the mode decides, which is what four of the five
+         games always want. */
+      phoneRound:   function(){ return null; }
     }, def);
     GAMES.push(g);
     GAME_BY_ID[g.id] = g;
@@ -330,6 +338,16 @@
        keeping a room open for Ask the class. */
     wantsVote:   () => bingoOnPhones(),
     roomNote:    () => bingoOnPhones() ? 'cards on phones' : null,
+    /* With the cards in their hands the phones have a job already, so the mode does
+       not get a say — nine words to tap is the dynamic. With the cards on the board
+       this returns null and buzz / everyone-types / type-then-buzz work exactly as
+       they do in the other games. */
+    phoneRound(){
+      if(!bingoOnPhones() || !bingoCurrent) return null;
+      return { mode:'card',
+               prompt: S.get('phonePrompt', 'bingo') ? (bingoCurrent.clue || bingoCurrent.prompt || '') : '',
+               keepSpent:true };
+    },
     expects:     () => (bingoCurrent && bingoCurrent.answer) || '',
     phonePrompt: () => (bingoCurrent && (bingoCurrent.clue || bingoCurrent.prompt)) || '',
     askingNow:   () => !!bingoCurrent && !bingoWon,
@@ -2337,13 +2355,8 @@
   function askBingoCards(w){
     if(!buzzHost) return;
     bingoDealHands();
-    classReplies = null;
-    lastScored = null;
-    buzzWinner = null;
-    lastAsk = { mode:'card', prompt:(S.get('phonePrompt', 'bingo') ? (w.clue || w.prompt || '') : '') };
-    buzzHost.arm(lastAsk.prompt, { mode:'card', keepSpent:true });
-    renderBuzzChip('asking');
-    renderPhoneBar();
+    // the shared path: `phoneRound` above tells it this is a card round
+    askPhones(w.clue || w.prompt || '', 'bingo');
   }
 
   function buildBingoCards(){
@@ -2581,6 +2594,9 @@
   /* A test hook, not a game feature: the answer to the call is deliberately not in
      the DOM (the class has to work it out), so a scripted round has no other way to
      know which square is the right one. */
+  // a test hook: the re-ask path is what a reconnection triggers, and it is the
+  // one that used to replace a card with a buzzer
+  window.__reask = function(){ reaskPhones(); };
   window.__bingoAnswer = function(){ return bingoCurrent ? bingoCurrent.answer : null; };
   window.__bingoProbe = function(){
     if(!bingoCurrent || !bingoCards[0]) return -1;
@@ -4260,9 +4276,29 @@
      flicker even when nothing is wrong. */
   let lastAsk = null;
 
+  /* What the room should be in right now: the game's own round if it has one, the
+     phone mode otherwise. One definition, so arming and re-asking cannot disagree —
+     they did, and a reconnect then replaced a bingo card with a buzzer. */
+  function phoneRoundNow(game, prompt){
+    const own = hook('phoneRound');
+    if(own) return { mode: own.mode, prompt: own.prompt || '', options: own.options || [],
+                     keepSpent: own.keepSpent !== false };
+    return { mode: S.get('phoneMode', game), prompt: prompt || '', options: [] };
+  }
+
   function askPhones(prompt, game){
     if(!buzzHost) return;
-    lastAsk = { mode: S.get('phoneMode', game), prompt: prompt || '' };
+    const round = phoneRoundNow(game, prompt);
+    lastAsk = { mode: round.mode, prompt: round.prompt };
+    /* A game driving its own round arms directly: the mode branches below are the
+       four shared dynamics, and a game's own is by definition not one of them. */
+    if(hook('phoneRound')){
+      clearReplies(); lastScored = null; buzzWinner = null;
+      buzzHost.arm(round.prompt, { mode:round.mode, options:round.options, keepSpent:round.keepSpent });
+      renderBuzzChip('asking');
+      renderPhoneBar();
+      return;
+    }
     clearReplies();
     /* A new question retires the last result. It has to survive the *previous*
        question's re-arm — Race re-arms within a frame of a word being claimed — but
@@ -4316,7 +4352,8 @@
        on and off. Re-asking is for telling a room that came back *what is being
        asked*, so if it already knows, stay quiet. */
     const prompt = currentPhonePrompt();
-    if(lastAsk && lastAsk.mode === S.get('phoneMode', activeGame) && lastAsk.prompt === (prompt || '')) return;
+    const want = phoneRoundNow(activeGame, prompt);
+    if(lastAsk && lastAsk.mode === want.mode && lastAsk.prompt === want.prompt) return;
     askPhones(prompt, activeGame);
   }
 

@@ -525,6 +525,22 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A mode and a game's own dynamic were fighting over the same handset.**
+  Reported as "when I select buzz mode a button appears on the phone screen" while
+  playing Bingo with the cards on phones. `phoneMode` says what a phone does during
+  a question, which is right for a board every phone is *watching* — but a bingo
+  card in the hand already is the dynamic, and a buzzer over the top of it is not a
+  choice between iterations, it is two things arming the same phone. Worse, the two
+  disagreed *asynchronously*: the card round armed first and any reconnect re-asked
+  with the mode, so the buzzer arrived a moment later and replaced the card.
+  - **`phoneRound()` joins the contract**: a game returning `{mode, prompt, options}`
+    owns the round, `null` (the default, and what four of the five games always
+    want) means the mode decides.
+  - **One definition, so arming and re-asking cannot disagree** — `phoneRoundNow()`
+    is what both consult. That was the actual defect; the conflict was visible only
+    because the two paths answered the question differently.
+  - **With the cards on the board the mode matters again**, and the check asserts
+    both directions — buzz is a buzzer there, and is refused a card round.
 - **A setting's `games` list was a snapshot, so the fifth game was a second-class
   citizen.** Reported as "the new game's format is different — the join code only
   appears if I pick the phone option". Every shared setting registered with
@@ -617,6 +633,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   | `onTypedWin(b)` | typed and correct: score it, return the points (`null` = didn't) |
   | `wantsVote()` / `onVoteReply(all)` | the vote half — whether the game ever asks the room, and where the counts are painted |
 | `roomNote()` | what the chip says when a game wants a room without a phone mode |
+| `phoneRound()` | the game drives the phones itself (Bingo's cards); `null` = `phoneMode` decides |
 
   - **Every hook defaults to a no-op**, so a game that declares none has idle
     phones — a visible, correct state rather than a half-wired one.
@@ -895,7 +912,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   nothing saying why. Timed rounds ask now too; `raceCanTry()` restricts a timed
   round's buzz to the team whose round it is, so a phone on the bench can't steal a
   word off someone else's score.
-- **Deployed.** Build `20260801b`; new `strip`, `bbteams` and `jointeams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
+- **Deployed.** Build `20260801c`; new `strip`, `bbteams` and `jointeams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
 - **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
   the game being played, and only that game, without leaving the board — see "The Lab"
   above. It exists because prototyping was the bottleneck: comparing two ideas meant

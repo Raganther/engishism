@@ -1214,7 +1214,7 @@ async function testGameRegistry(browser){
   /* The phone half of the contract. These were `if (activeGame === …)` chains in
      four functions until a fifth game proved they had to be hooks: every phone
      dynamic reaches every board through exactly these. */
-  ['expects','phonePrompt','askingNow','buzzEntitled','onBuzzTaken','onTypedWin','wantsVote','onVoteReply','roomNote']
+  ['expects','phonePrompt','askingNow','buzzEntitled','onBuzzTaken','onTypedWin','wantsVote','onVoteReply','roomNote','phoneRound']
     .forEach(h => check('the phone contract exposes ' + h + '()', shape.hooks.indexOf(h) !== -1));
   /* And it has to be answered, not merely present: a game that leaves these at
      their defaults has idle phones, which is a correct state but not a wired one. */
@@ -3711,6 +3711,49 @@ async function testPhoneBingo(browser){
           await holder.p.locator('#card button').count() + ' cells, ' +
           await holder.p.locator('#card button.marked').count() + ' marked');
   }
+
+  /* ---- the cards win over the mode ----
+     Reported: "when I select buzz mode a button appears on the phone screen". It
+     did — `phoneMode` and the card round were two dynamics fighting over the same
+     handset, and every reconnect handed the phone a buzzer over the top of its own
+     card. A mode is a choice between iterations; a game that *is* the phone
+     dynamic is not one of the choices, so Bingo owns the round while the cards are
+     in their hands. */
+  await page.evaluate(() => window.HubSettings.set('phoneMode', 'buzz', 'bingo'));
+  await page.waitForTimeout(600);
+  if (await page.locator('#bingo-start').isVisible()){
+    await page.locator('#bingo-start').click(); await page.waitForTimeout(700);
+  }
+  check('picking buzz does not put a buzzer over the card',
+        await ana.evaluate(() => getComputedStyle(document.getElementById('buzzer')).display) === 'none',
+        await ana.locator('#state').innerText());
+  check('the card is still what the phone is showing',
+        await ana.locator('#card button').count() === 9 &&
+        /tap the word/i.test(await ana.locator('#state').innerText()),
+        await ana.locator('#state').innerText());
+
+  /* And a reconnect must not change its mind either — that is the path that made
+     the buzzer appear a moment after the card, rather than instead of it. */
+  await page.evaluate(() => { if (window.__reask) window.__reask(); });
+  await page.waitForTimeout(600);
+  check('and a re-ask leaves the card alone',
+        await ana.evaluate(() => getComputedStyle(document.getElementById('buzzer')).display) === 'none' &&
+        await ana.locator('#card button').count() === 9);
+
+  /* With the cards on the board the mode matters again, and buzz means buzz. */
+  await page.evaluate(() => {
+    window.HubSettings.set('bingoCards', 'board', 'bingo');
+    window.HubSettings.set('phoneMode', 'buzz', 'bingo');
+  });
+  await page.waitForTimeout(400);
+  await startGame(page, 'Bingo', { sections:'all', fresh:false }).catch(()=>{});
+  await page.waitForTimeout(900);
+  if (await page.locator('#bingo-start').isVisible()){
+    await page.locator('#bingo-start').click(); await page.waitForTimeout(800);
+  }
+  check('cards on the board hands the mode back — buzz is a buzzer again',
+        await ana.evaluate(() => getComputedStyle(document.getElementById('buzzer')).display) !== 'none',
+        await ana.locator('#state').innerText());
 
   for (const p of [ana, ben]){
     check('phone had no errors', p.__errors.length === 0, p.__errors[0]);
