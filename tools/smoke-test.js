@@ -3151,21 +3151,31 @@ async function testPhoneModes(browser){
   checkClean(lesson.host, 'one room per lesson');
   await lesson.host.close();
 
-  // ---- switched off, no room at all — in any game
+  /* ---- switched off: a room, and nothing to do in it ----
+     This used to assert *no room at all*, which is the rule that was reversed —
+     it cost the class the join address entirely, and a room nobody can join is
+     no use to anybody. What `off` still has to mean is that no phone is armed
+     during a question, which is what the arming checks below are for. */
   const off = await openHub(browser);
   await off.evaluate(() => { window.HubSettings.set('intro','off'); window.HubSettings.set('buzzers', true); });
   await startGame(off, 'Jeopardy', { sections:3 });
-  await off.waitForTimeout(700);
-  check('with the phones set to nothing, no room is opened',
-        await off.locator('#buzzer-chip').isVisible() === false);
-  /* Race used to be exempt: it opened a room and armed buzzers whatever the setting
-     said, which made "Nothing" a lie in the one game phones were used in — and made
-     every other mode unreachable there. */
+  await off.waitForTimeout(900);
+  check('with the phones set to nothing there is still a room to join',
+        await off.locator('#buzzer-chip').isVisible(),
+        await off.locator('#buzzer-chip').innerText().catch(()=>'hidden'));
+  check('and the chip says the phones are idle rather than promising a dynamic',
+        /idle here/i.test(await off.locator('#buzzer-chip').innerText()),
+        await off.locator('#buzzer-chip').innerText());
+  /* Race used to be exempt in the other direction: it *armed buzzers* whatever the
+     setting said, which made "Nothing" a lie in the one game phones were used in
+     and made every other mode unreachable there. The room is fine; arming is not. */
   await startGame(off, 'Race to the Board', { sections:'all' });
-  await off.waitForTimeout(700);
-  check('and Race is no longer an exception to that',
-        await off.locator('#buzzer-chip').isVisible() === false);
-  await off.locator('#race-start').click(); await off.waitForTimeout(400);
+  await off.waitForTimeout(900);
+  await off.locator('#race-start').click(); await off.waitForTimeout(500);
+  check('and Race still arms nobody when the mode is off',
+        await off.evaluate(() => !document.body.dataset.armed) &&
+        /idle here/i.test(await off.locator('#buzzer-chip').innerText()),
+        await off.locator('#buzzer-chip').innerText());
   check('the game plays exactly as it does with no relay at all',
         await off.locator('#race-prompt .race-sentence').isVisible());
   checkClean(off, 'switched off');
@@ -3487,9 +3497,15 @@ async function testTeamVote(browser){
   });
   await startGame(off, 'Blockbusters', { sections:'all' });
   await off.waitForTimeout(900);
-  check('switched off, there is no button and no room',
-        await off.locator('#bb-ask').isVisible() === false &&
-        await off.locator('#buzzer-chip').isVisible() === false);
+  /* The vote being off means no *button*, not no room — a room exists whenever
+     phones are switched on, so the class can still join and the chip still says
+     what is (not) happening. */
+  check('switched off, there is no button to ask the team with',
+        await off.locator('#bb-ask').isVisible() === false);
+  check('but the room is still there to join',
+        await off.locator('#buzzer-chip').isVisible() &&
+        /idle here/i.test(await off.locator('#buzzer-chip').innerText()),
+        await off.locator('#buzzer-chip').innerText().catch(()=>'hidden'));
   await off.locator('#hexwrap .hex').first().click(); await off.waitForTimeout(1300);
   check('and the game plays exactly as before',
         (await off.locator('#clue-text').innerText()).trim().length > 0);
