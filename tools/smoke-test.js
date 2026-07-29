@@ -3994,6 +3994,114 @@ async function testJoinAlwaysThere(browser){
   }
 }
 
+/* ---- Together: the class against the board ----
+   Every other ruleset sets teams against each other. This one sets the room against
+   a number — for a group that competition makes anxious rather than sharp. The mode
+   is a bundle of switches, so both directions have to hold: on, the rules apply;
+   off, the competitive game is exactly as it was. */
+async function testJeopardyTogether(browser){
+  section('Jeopardy: together');
+  const page = await openHub(browser);
+  await page.evaluate(() => {
+    const S = window.HubSettings;
+    S.set('intro','off'); S.set('sound',false); S.set('cardFlip','off');
+    S.set('jRules','together','jeopardy');
+  });
+  const on = await page.evaluate(() => {
+    const g = k => window.HubSettings.get(k, 'jeopardy');
+    return { tog:g('jTogether'), hints:g('jHints'), steal:g('stealOnWrong'),
+             dd:g('jDailyDoubles'), ded:g('jDeduct'), keep:g('keepControl') };
+  });
+  /* Everything that sets one team against another is off — that *is* the mode, and
+     a preset that only ever adds would leave a steal running under a cooperative
+     round. */
+  check('the preset turns the class into one side',
+        on.tog === true && on.hints === true, JSON.stringify(on));
+  check('and switches off everything that pits teams against each other',
+        on.steal === false && on.dd === 0 && on.ded === false && on.keep === false,
+        JSON.stringify(on));
+
+  await page.evaluate(() => window.HubSettings.set('jRules','classic','jeopardy'));
+  const off = await page.evaluate(() => ({
+    tog: window.HubSettings.get('jTogether','jeopardy'),
+    hints: window.HubSettings.get('jHints','jeopardy')
+  }));
+  check('and another preset puts the competitive game back',
+        off.tog === false && off.hints === false, JSON.stringify(off));
+
+  await page.evaluate(() => window.HubSettings.set('jRules','together','jeopardy'));
+  await page.reload(); await page.waitForTimeout(400);
+  await startGame(page, 'Jeopardy', { sections:3 });
+  await page.waitForTimeout(900);
+
+  const line = await page.locator('#j-class').innerText();
+  check('the board shows one number for the room', /class \$0/i.test(line), line.replace(/\n/g,' | '));
+  /* The target is a share of what is actually on the board rather than a figure a
+     teacher has to invent — 3 categories of $100–$500 is $4,500, and 60% of that. */
+  check('and a target worked out from what the board is worth',
+        /target \$2700/i.test(line), line.replace(/\n/g,' | '));
+
+  // a hint costs part of the clue, and what the card says is what it pays
+  const rich = await page.evaluate(() =>
+    [...document.querySelectorAll('#board .tile')].findIndex(t => /500/.test(t.textContent)));
+  await page.locator('#board .tile').nth(rich).click(); await page.waitForTimeout(600);
+  check('a stuck class can buy a hand', await page.locator('#hint-btn').isVisible());
+  await page.locator('#hint-btn').click(); await page.waitForTimeout(300);
+  check('the hint is a real clue about the word',
+        /starts with [A-Z]/i.test(await page.locator('.clue-hint').innerText()),
+        await page.locator('.clue-hint').innerText());
+  const topline = await page.locator('#clue-topline').innerText();
+  const shown = Number((topline.match(/\$(\d+)/) || [])[1]);
+  check('and it comes out of what the clue is worth', shown === 350, topline);
+  await page.locator('#reveal-btn').click(); await page.waitForTimeout(250);
+  await page.locator('#correct-btn').click(); await page.waitForTimeout(800);
+  const paid = await page.evaluate(() =>
+    [...document.querySelectorAll('.team .score')].map(e => Number(e.textContent)).reduce((a,b)=>a+b,0));
+  /* Scoring rounds Jeopardy values to 50s, so a hint that leaves $349 on the card
+     and then pays $350 is the card telling the room something untrue. */
+  check('what the card said is exactly what it paid', paid === shown, paid + ' vs ' + shown);
+  check('and the class line counts it',
+        new RegExp('class \\$' + paid, 'i').test(await page.locator('#j-class').innerText()),
+        (await page.locator('#j-class').innerText()).replace(/\n/g,' | '));
+
+  // clear the rest of the board: the ending is about the room, not a ranking
+  const tiles = await page.locator('#board .tile').count();
+  for (let k = 0; k < tiles; k++){
+    const t = page.locator('#board .tile').nth(k);
+    if (await t.evaluate(el => el.classList.contains('used'))) continue;
+    await t.click(); await page.waitForTimeout(170);
+    if (await page.locator('#reveal-btn').isVisible()){ await page.locator('#reveal-btn').click(); await page.waitForTimeout(130); }
+    if (await page.locator('#correct-btn').isVisible()){ await page.locator('#correct-btn').click(); await page.waitForTimeout(220); }
+  }
+  await page.waitForTimeout(900);
+  const banner = await page.locator('#result-card').innerText().catch(()=>'none');
+  check('the ending talks about the target, not a winner',
+        /target|short|class scored/i.test(banner) && !/wins!/i.test(banner),
+        banner.replace(/\n/g,' | '));
+
+  checkClean(page);
+  await page.close();
+
+  /* The other direction: with the mode off, none of this is on screen and the
+     competitive game is untouched. */
+  const comp = await openHub(browser);
+  await comp.evaluate(() => {
+    const S = window.HubSettings;
+    S.set('intro','off'); S.set('sound',false); S.set('cardFlip','off');
+    S.set('jRules','hub','jeopardy');
+  });
+  await comp.reload(); await comp.waitForTimeout(400);
+  await startGame(comp, 'Jeopardy', { sections:3 });
+  await comp.waitForTimeout(800);
+  check('with the mode off there is no class line',
+        await comp.evaluate(() => getComputedStyle(document.getElementById('j-class')).display) === 'none');
+  await comp.locator('#board .tile').first().click(); await comp.waitForTimeout(500);
+  check('and no hint button over a competitive clue',
+        await comp.locator('#hint-btn').isVisible() === false);
+  checkClean(comp);
+  await comp.close();
+}
+
 /* ---------- run ---------- */
 async function main(){
   let relay = null;
@@ -4015,7 +4123,8 @@ async function main(){
     typetobuzz: testTypeToBuzz, judging: testAnswerJudging,
     degradation: testDegradation, file: testFileProtocol,
     reconnect: testRelayReconnect, phonebingo: testPhoneBingo,
-    classic: testJeopardyClassic, joinbar: testJoinAlwaysThere
+    classic: testJeopardyClassic, joinbar: testJoinAlwaysThere,
+    together: testJeopardyTogether
   };
   const toRun = onlyArg ? onlyArg.split(',').map(s => s.trim()).filter(k => suites[k])
                         : Object.keys(suites);

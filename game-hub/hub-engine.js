@@ -506,9 +506,37 @@
     label:'Rules',
     help:'Classic plays it like the show: a Daily Double, a final wager round, and wrong answers cost you. Picking one sets the three switches below — change them afterwards if you like.',
     variants:[
-      {value:'hub',     label:'Hub — nothing is ever taken away'},
-      {value:'classic', label:'Classic — as the show plays it'}
+      {value:'hub',      label:'Hub — nothing is ever taken away'},
+      {value:'classic',  label:'Classic — as the show plays it'},
+      {value:'together', label:'Together — the class against the board'}
     ] });
+
+  /* ---- Together: the class against the board ----
+     Every other ruleset here sets teams against each other. This one sets the room
+     against a number, which is a different feeling in a classroom and suits a group
+     that competition makes anxious rather than sharp. Three switches, each useful on
+     its own:
+
+     - the scores pool, so nobody is behind;
+     - there is a target to beat, so it is still a game;
+     - the class can buy help, so being stuck has a way out that is not failure. */
+  S.register({ id:'jTogether', group:'Jeopardy', type:'toggle', default:false, games:['jeopardy'],
+    label:'The class plays as one',
+    help:'Every team\'s points count toward a single class total, and the round ends against a target rather than by ranking the teams.' });
+
+  S.register({ id:'jTarget', group:'Jeopardy', type:'range', default:60,
+    min:0, max:100, step:5, unit:'%', games:['jeopardy'],
+    label:'Target to beat',
+    help:'How much of the board the class is aiming for. 0 turns the target off and the class simply collects what it can.' });
+
+  S.register({ id:'jHints', group:'Jeopardy', type:'toggle', default:false, games:['jeopardy'],
+    label:'The class can ask for a hand',
+    help:'A stuck class can buy the first letter, then the length. Each hint costs part of what the clue is worth — progress traded, not points taken.' });
+
+  S.register({ id:'jHintCost', group:'Jeopardy', type:'range', default:30,
+    min:10, max:50, step:10, unit:'%', games:['jeopardy'],
+    label:'What a hint costs',
+    help:'Each hint takes this much off the value of the clue it is used on.' });
 
   S.register({ id:'jDailyDoubles', group:'Jeopardy', type:'range', default:0,
     min:0, max:3, step:1, unit:' hidden', games:['jeopardy'],
@@ -917,6 +945,15 @@
            height, so what it says can never reflow the game. -->
       <div id="phone-bar" style="display:none;"></div>
       <div id="play-jeopardy">
+        <!-- Together mode: one number for the whole room, and how far it has to go.
+             Hidden entirely otherwise, so the competitive game is untouched. -->
+        <div id="j-class" style="display:none;">
+          <div id="j-class-line">
+            <span id="j-class-score"></span>
+            <span id="j-class-target"></span>
+          </div>
+          <div id="j-class-bar"><div id="j-class-fill"></div></div>
+        </div>
         <div id="board"></div>
       </div>
       <div id="play-blockbusters">
@@ -1050,6 +1087,7 @@
         </div>
         <div id="clue-answer"></div>
         <div id="clue-actions">
+          <button id="hint-btn" style="display:none;">Need a hand?</button>
           <button id="wager-ok" style="display:none;">Lock it in</button>
           <button id="reveal-btn">Reveal answer</button>
           <button id="correct-btn" style="display:none;">✓ Correct</button>
@@ -1380,8 +1418,8 @@
         active = i; renderScorebar();
       });
       el.querySelector('.tname').addEventListener('change', e=>{ t.name = e.target.value; pushTeamNames(); });
-      el.querySelector('.minus').addEventListener('click', ()=>{ t.score-=step; renderScorebar(); });
-      el.querySelector('.plus').addEventListener('click', ()=>{ t.score+=step; renderScorebar(); });
+      el.querySelector('.minus').addEventListener('click', ()=>{ t.score-=step; renderScorebar(); renderClassLine(); });
+      el.querySelector('.plus').addEventListener('click', ()=>{ t.score+=step; renderScorebar(); renderClassLine(); });
       const delBtn = el.querySelector('.tdel');
       if(delBtn) delBtn.addEventListener('click', ()=> removeTeam(i));
       bar.appendChild(el);
@@ -1393,7 +1431,7 @@
     // and the tooltip still says what it does
     const resetBtn=document.createElement('button'); resetBtn.className='reset-btn';
     resetBtn.textContent='↺'; resetBtn.title='Reset points';
-    resetBtn.addEventListener('click', ()=>{ teams.forEach(t=>{ t.score=0; t.run=0; }); renderScorebar(); });
+    resetBtn.addEventListener('click', ()=>{ teams.forEach(t=>{ t.score=0; t.run=0; }); renderScorebar(); renderClassLine(); });
     bar.appendChild(resetBtn);
     // adding a team, or renaming one, has to reach the phones — this is the one
     // place that runs on any change to the list, and the push skips a no-op
@@ -1427,6 +1465,7 @@
     value = Math.max(step, Math.round(value / step) * step);
     t.score += value;
     renderScorebar();
+    renderClassLine();
     return value;
   }
 
@@ -1472,6 +1511,9 @@
       });
     }
     jPlantDailyDoubles();
+    // captured now: tiles keep their value when used, but a rebuilt board may differ
+    jBoardTotal = jBoardWorth();
+    renderClassLine();
     fitJeopardyBoard();
     jTension();
   }
@@ -1591,6 +1633,95 @@
     board.style.setProperty('--jch', Math.max(10.5, Math.min(14.1, px)).toFixed(2) + 'px');
   }
 
+  /* ================= TOGETHER: THE CLASS AGAINST THE BOARD =================
+     The scores still belong to teams — the team bar is the app's spine and every
+     game feeds it — but the *game* is played against a number. Pooling at the
+     display and at the ending, rather than changing how award() works, is what
+     keeps this a mode rather than a second scoring system. */
+  function jTogether(){ return activeGame === 'jeopardy' && !!S.get('jTogether', 'jeopardy'); }
+
+  function jClassTotal(){ return teams.reduce((n, t) => n + (t.score || 0), 0); }
+
+  // what the whole board is worth, so a target can be a share of it rather than a
+  // number a teacher has to invent
+  function jBoardWorth(){
+    return [...document.querySelectorAll('#board .tile')]
+      .reduce((n, t) => n + (Number((t.dataset.face || t.textContent).replace(/\D/g, '')) || 0), 0);
+  }
+  let jBoardTotal = 0;      // captured at build time: tiles keep their value when used
+
+  function jTargetScore(){
+    const pct = Number(S.get('jTarget', 'jeopardy')) || 0;
+    return pct ? Math.round(jBoardTotal * pct / 100) : 0;
+  }
+
+  function renderClassLine(){
+    const box = document.getElementById('j-class');
+    if(!box) return;
+    if(!jTogether()){ box.style.display = 'none'; return; }
+    box.style.display = 'block';
+    const got = jClassTotal(), target = jTargetScore();
+    document.getElementById('j-class-score').textContent = 'Class $' + got;
+    document.getElementById('j-class-target').textContent =
+      target ? ('target $' + target) : ('board $' + jBoardTotal);
+    const pct = target ? Math.min(100, Math.round(got / target * 100))
+                       : (jBoardTotal ? Math.round(got / jBoardTotal * 100) : 0);
+    const fill = document.getElementById('j-class-fill');
+    fill.style.width = pct + '%';
+    fill.classList.toggle('done', !!target && got >= target);
+  }
+
+  /* ---- asking the board for a hand ----
+     A cooperative round needs a way to be stuck that is not failure. Each hint takes
+     a slice off what the clue is worth, so the class is spending its own progress
+     rather than being punished — and the decision to spend it is itself a
+     conversation, which is the point. */
+  let jHintsUsed = 0;
+
+  function jHintText(n, answer){
+    const word = String(answer || '').trim();
+    if(!word) return '';
+    if(n === 1) return 'It starts with ' + word[0].toUpperCase() + '.';
+    return word[0].toUpperCase() + ' ' + '_ '.repeat(Math.max(0, word.length - 1)).trim() +
+           '  (' + word.length + ' letters)';
+  }
+
+  /* On the same 50 grid the scoring uses. `award()` rounds Jeopardy values to 50s so
+     that half of a $100 tile is worth 50 rather than being handed back in full — so
+     a hint that leaves $49 on the card and then pays $50 is the card telling the room
+     something untrue. Costing in 50s keeps shown and paid identical. */
+  function jHintCost(){
+    const pct = Number(S.get('jHintCost', 'jeopardy')) || 30;
+    return Math.max(50, Math.round(currentClueValue * pct / 100 / 50) * 50);
+  }
+
+  function renderHintButton(){
+    const btn = document.getElementById('hint-btn');
+    if(!btn) return;
+    const on = jTogether() && S.get('jHints', 'jeopardy') && modalMode === 'jeopardy' &&
+               currentClueItem && jHintsUsed < 2 && !jWager && currentClueValue > 50;
+    btn.style.display = on ? 'inline-block' : 'none';
+    if(on){
+      btn.textContent = (jHintsUsed === 0 ? 'Need a hand? (−$' : 'One more? (−$') + jHintCost() + ')';
+    }
+  }
+
+  document.getElementById('hint-btn').addEventListener('click', () => {
+    if(!currentClueItem) return;
+    const cost = jHintCost();
+    jHintsUsed++;
+    currentClueValue = Math.max(50, currentClueValue - cost);
+    const hint = document.createElement('div');
+    hint.className = 'clue-hint';
+    hint.textContent = jHintText(jHintsUsed, currentClueItem.answer);
+    document.getElementById('clue-text').appendChild(hint);
+    // the topline is where the value lives, so it has to say what the clue is worth now
+    const top = document.getElementById('clue-topline');
+    top.textContent = top.textContent.replace(/\$\d+/, '$' + currentClueValue);
+    Sound.play('reveal');
+    renderHintButton();
+  });
+
   /* ================= JEOPARDY: THE CLASSIC RULES =================
      Three things the show has that this board never did. Each is its own switch;
      `jRules` is the preset that sets all three, because "play it like the show" is
@@ -1599,8 +1730,16 @@
      to happen — and a teacher can then change one without leaving the preset in a
      state that lies. */
   const J_PRESETS = {
-    hub:     { jDailyDoubles:0, jFinalRound:false, jDeduct:false },
-    classic: { jDailyDoubles:1, jFinalRound:true,  jDeduct:true  }
+    hub:     { jDailyDoubles:0, jFinalRound:false, jDeduct:false,
+               jTogether:false, jHints:false },
+    classic: { jDailyDoubles:1, jFinalRound:true,  jDeduct:true,
+               jTogether:false, jHints:false },
+    /* Everything that sets one team against another is off here, and that is the
+       whole mode: no hidden wager to find first, no steal, nothing deducted, no
+       final round to overtake anyone in. What is left is the board and the room. */
+    together:{ jDailyDoubles:0, jFinalRound:false, jDeduct:false,
+               jTogether:true,  jHints:true,
+               stealOnWrong:false, keepControl:false }
   };
   let jApplyingPreset = false;
   S.onChange(id => {
@@ -2911,7 +3050,7 @@
   });
 
   function hideAllActionButtons(){
-    ['reveal-btn','correct-btn','wrong-btn','skip-btn','close-btn']
+    ['reveal-btn','correct-btn','wrong-btn','skip-btn','close-btn','hint-btn']
       .forEach(id=>{ document.getElementById(id).style.display='none'; });
     clueClaim.hide();
   }
@@ -2968,6 +3107,8 @@
       document.getElementById('close-btn').style.display='inline-block';
     }
     jTension(review ? 0 : (dd ? Math.max(clue.v, currentClueValue) : clue.v));
+    jHintsUsed = 0;
+    renderHintButton();
   }
 
   function openBlockbustersClue(clueObj, hex){
@@ -3673,6 +3814,9 @@
     const wasFinal = jFinalWasPlayed;
     jFinalWasPlayed = false;
     closeModal(0, null);
+    /* Together: there is nobody to rank. The class either reached the number or it
+       did not, and either way the sentence is about what the room did. */
+    if(jTogether()){ jFinishTogether(); return; }
     const ranked = teams.map((t,i)=>({ t, i })).sort((a,b)=>b.t.score - a.t.score);
     const top    = ranked[0];
     if(!top) return;
@@ -3689,6 +3833,28 @@
                    ' finish level on $' + top.t.score + '.'
                  : 'Final score $' + top.t.score + '.',
       tone: !drawn && top.i < 2 ? (top.i===0 ? 'gold' : 'silver') : null,
+      actions:[{ label:'Close', primary:true, onPick:function(){} }]
+    });
+  }
+
+  function jFinishTogether(){
+    const got = jClassTotal(), target = jTargetScore();
+    const beat = target > 0 && got >= target;
+    const lit  = document.getElementById('play-jeopardy').classList.contains('lit');
+    if(beat || !target){
+      if(lit){ Sound.fanfare(); setTimeout(()=>Sound.applause(2400), 700); } else Sound.play('clear');
+    } else {
+      Sound.play('clear');
+    }
+    showResult({
+      eyebrow:'Jeopardy · together',
+      title: !target ? ('The class scored $' + got)
+           : beat    ? 'Target beaten!'
+                     : ('$' + (target - got) + ' short'),
+      sub: !target ? 'Board cleared.'
+         : ('The class took $' + got + ' of a $' + target + ' target, from a board worth $' +
+            jBoardTotal + '.'),
+      tone: beat ? 'gold' : null,
       actions:[{ label:'Close', primary:true, onPick:function(){} }]
     });
   }
@@ -5275,6 +5441,10 @@
        game's tension hook does that: it is the single place that knows whether a
        question is live, and it starts or stops the bed accordingly. */
     if(id==='musicBed' || id==='sound' || id==='soundVolume') hook('tension');
+    if((id==='jTogether' || id==='jTarget' || id==='jRules') && activeGame==='jeopardy'){
+      renderClassLine(); hook('onResize');
+    }
+    if(id==='jHints' && activeGame==='jeopardy') renderHintButton();
     if(id==='raceShowSection' && activeGame==='race' && raceCurrent) setRacePrompt(raceCurrent);
     if(id==='raceRoundSeconds' && activeGame==='race' && raceMode==='timed' && !raceRunning){
       timerSetDuration(Number(S.get('raceRoundSeconds', 'race')) || 60);

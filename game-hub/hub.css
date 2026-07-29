@@ -1582,3 +1582,31 @@ body.theme-gameshow #clue-card.daily-double{
   box-shadow:0 0 0 3px var(--gold) inset, 0 24px 60px rgba(0,0,0,0.5); }
 body.theme-gameshow #wager-steps button{ background:rgba(255,255,255,0.1); color:var(--cream); }
 body.theme-gameshow #wager-quick button{ border-color:rgba(255,200,61,0.5); color:var(--cream); }
+
+/* ---- Together: one number for the whole room ----
+   Sits above the board, so it is inside the layout and the board re-fits around it
+   (anything that can occupy vertical space above a board owes it a re-fit). */
+#j-class{ margin:0 0 8px; }
+#j-class-line{ display:flex; justify-content:space-between; align-items:baseline; gap:12px;
+  font-family:'IBM Plex Mono',monospace; font-size:0.82rem; letter-spacing:0.08em;
+  text-transform:uppercase; margin-bottom:4px; }
+#j-class-score{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1.1rem;
+  letter-spacing:0.02em; text-transform:none; }
+#j-class-target{ opacity:0.7; }
+#j-class-bar{ height:8px; border-radius:99px; background:rgba(18,38,63,0.14); overflow:hidden; }
+#j-class-fill{ height:100%; width:0; border-radius:99px; background:var(--blue);
+  transition:width .45s cubic-bezier(.2,.9,.3,1); }
+#j-class-fill.done{ background:var(--yellow); }
+
+/* the hint, printed under the clue rather than replacing it — the class should still
+   be reading the question while they work with the letter they bought */
+.clue-hint{ margin-top:10px; font-family:'IBM Plex Mono',monospace; font-size:0.95rem;
+  letter-spacing:0.14em; color:var(--blue); }
+#hint-btn{ background:transparent; border:1px solid rgba(0,122,201,0.45); color:var(--blue); }
+#hint-btn:hover{ background:var(--blue); color:var(--white); }
+
+body.theme-gameshow #play-jeopardy.lit #j-class-bar{ background:rgba(255,255,255,0.12); }
+body.theme-gameshow #play-jeopardy.lit #j-class-fill{ background:#5AA9FF; }
+body.theme-gameshow #play-jeopardy.lit #j-class-fill.done{ background:var(--gold); }
+body.theme-gameshow #play-jeopardy.lit .clue-hint{ color:#8FD0FF; }
+body.theme-gameshow #hint-btn{ border-color:rgba(255,200,61,0.5); color:var(--cream); }

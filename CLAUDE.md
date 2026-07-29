@@ -543,6 +543,27 @@ still missed.
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Jeopardy has a third ruleset: `together`, the class against the board.** Every
+  other mode sets teams against each other; this one sets the room against a number,
+  for a group competition makes anxious rather than sharp. Written from the
+  `new-mode` skill, which is what it was written to be tested by.
+  - **The scores pool at the display and at the ending, not in `award()`.** Teams
+    still hold their own points — the team bar is the app's spine — but the game is
+    played and finished against one class total. That is what keeps this a mode
+    rather than a second scoring system.
+  - **The target is a share of what the board is actually worth** (`jTarget`, 60% by
+    default), so a teacher never has to invent a number, and it re-reads correctly
+    for any board size.
+  - **Hints are the cooperative mechanic**, and they cost *the clue*, not the class:
+    a first letter, then the length, each taking a slice off what that clue pays.
+    Being stuck gets a way out that is not failure, and deciding whether to spend is
+    itself a conversation.
+  - **Costed in 50s, because `award()` rounds to 50s.** A hint leaving $349 on the
+    card and then paying $350 is the card telling the room something untrue; the
+    check asserts shown and paid are identical.
+  - **The preset switches *off* everything that pits teams against each other** —
+    steal, keep-the-board, Daily Doubles, deduction. A preset that only ever adds
+    would leave a steal running under a cooperative round.
 - **A room now exists whenever phones are switched on — a deliberate reversal.**
   Reported twice, once for Bingo and once for Jeopardy, both as "the code line is
   missing in this game". Neither was about the game: `phoneMode` was `off`, and
