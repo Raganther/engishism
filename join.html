@@ -76,6 +76,10 @@
   #buzzer.won{ background:radial-gradient(circle at 34% 30%, #7de08a, #17a52f 62%, #0c6a1e); filter:none; }
   #state{ font-size:1rem; min-height:1.6em; color:var(--cream); }
   #status{ font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:rgba(251,243,213,0.45); }
+  .rejoin{
+    background:none; border:none; padding:8px; cursor:pointer; font-family:inherit;
+    font-size:0.78rem; color:rgba(251,243,213,0.55); text-decoration:underline;
+  }
   .err{ color:#ff8a7d; font-size:0.85rem; min-height:1.2em; }
   /* the question the teacher is asking, pushed from the host — the back of the
      room can read its own phone even when it cannot read the board */
@@ -144,6 +148,11 @@
   </div>
   <p id="state">Waiting for the teacher…</p>
   <p id="status"></p>
+  <!-- The way out of a remembered seat. Rejoining silently is right for a reload
+       mid-round, and wrong the day the phone changes hands or the student picked
+       the wrong team — without this, a phone with a seat in the current room could
+       never reach the name-and-team screen again. -->
+  <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
 <script src="game-hub/hub-buzzer.js?v=20260801k"></script>
@@ -597,6 +606,19 @@
     renderTeams();
     joinRoom(d.code, d.name, d.id);
   })();
+
+  /* Back to the join form, seat and all. The code and name inputs still hold what
+     this phone joined with — they were filled, never cleared — so changing team is
+     one tap and changing player is retyping the name, not starting over. */
+  $('rejoin').addEventListener('click', ()=>{
+    forgetSeat();
+    try{ if(client) client.close(); }catch(e){}
+    client = null; window.HubPlayer = null;
+    card = null; $('card').style.display='none';
+    show('screen-join');
+    loadTeams(true);          // the picker should show the room as it is now
+    validate();
+  });
 
   $('send').addEventListener('click', sendWritten);
   $('reply').addEventListener('keydown', e=>{

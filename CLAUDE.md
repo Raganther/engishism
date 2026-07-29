@@ -556,8 +556,14 @@ still missed.
     fetched once per code, so a team added after the page loaded was only pickable
     by students who had not opened it yet. Joined phones already got pushes over
     the stream; the join screen has no stream, so it polls.
-  - Both checks live in `jointeams`/`phoneteams` and were proved against the
-    reverted fix (3 checks fail on the old build).
+  - **A matching code still resumes — so the play screen carries the way out.**
+    The first report survived the fix, because the phone's seat was for the *same*
+    room the QR named: resume ran by design, and a phone holding a seat in the
+    current room could never reach the name-and-team screen again by any path.
+    "Not you? Change name or team" on the play screen forgets the seat, closes the
+    stream and returns to the join form with the code and name still filled.
+  - All three checks live in `jointeams`/`phoneteams` and the first two were
+    proved against the reverted fix (3 checks fail on the old build).
 - **Jeopardy has a third ruleset: `together`, the class against the board.** Every
   other mode sets teams against each other; this one sets the room against a number,
   for a group competition makes anxious rather than sharp. Written from the

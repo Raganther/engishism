@@ -1892,6 +1892,26 @@ async function testPhoneTeams(browser){
     check('and a buzz from that phone selects that team, not one of the first two',
           await host.evaluate(() => [...document.querySelectorAll('.team')]
             .findIndex(e => e.classList.contains('active'))) === 2);
+    /* The seat can be walked away from — the phone changes hands, or the student
+       picked the wrong team. Without the escape, a phone holding a seat in the
+       current room can never reach the name-and-team screen again: the resume
+       rejoins it on every load, QR scan included. */
+    await p.locator('#rejoin').click(); await p.waitForTimeout(300);
+    const back = await p.evaluate(() => ({
+      join: document.getElementById('screen-join').classList.contains('active'),
+      code: document.getElementById('code').value,
+      name: document.getElementById('name').value,
+      seat: localStorage.getItem('engishism.seat')
+    }));
+    check('"Not you?" returns to the join form, code and name kept, seat forgotten',
+          back.join && back.code === code && back.name === 'Ana' && back.seat === null,
+          JSON.stringify(back));
+    await p.locator('.teams button').nth(0).click();
+    await p.locator('#join-btn').click(); await p.waitForTimeout(600);
+    check('and joining again on a different team lands there',
+          /lions/i.test(await p.locator('#who').innerText()),
+          await p.locator('#who').innerText());
+
     check('phone had no errors', p.__errors.length === 0, p.__errors[0]);
     await p.close();
 
