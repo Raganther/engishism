@@ -1261,6 +1261,32 @@ async function testGameRegistry(browser){
   });
   check('every unimplemented hook is a safe no-op', drove === 'ok', drove);
 
+  /* ---- the template reaches a game registered *after* the settings block ----
+     Every shared setting used to be registered with `games: gameIds()`, which is a
+     snapshot taken when the settings ran — near the top of hub-engine.js, before a
+     fifth game existed. So Bingo was silently absent from phoneMode, phonePrompt,
+     theme, intro and sound: its ⚙ and its Lab were quietly narrower than every
+     other game's, and because no phone mode could be set for it, no room ever
+     opened and the join code never appeared. Reported as "the new game's format is
+     different". `games:'*'` asks the registry instead, so this is now true for a
+     game registered at any point — which is what `testgame` proves here, having
+     registered long after the settings did. */
+  const SHARED = ['phoneMode','phonePrompt','sound','soundVolume','theme','intro'];
+  const offered = await page.evaluate(list => {
+    const out = {};
+    window.HubGames.ids().forEach(g => {
+      const host = document.createElement('div');
+      window.HubSettings.renderFor(host, g);
+      out[g] = list.filter(id => !!host.querySelector('[data-setting="' + id + '"]'));
+    });
+    return out;
+  }, SHARED);
+  Object.keys(offered).forEach(g => {
+    check(g + ' is offered every shared setting',
+          offered[g].length === SHARED.length,
+          g + ': ' + offered[g].join(',') + ' (want ' + SHARED.join(',') + ')');
+  });
+
   // and it inherits the shared furniture without asking for any of it
   const inherits = await page.evaluate(() => ({
     skin:    document.body.classList.contains('theme-gameshow'),

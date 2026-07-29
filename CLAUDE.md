@@ -525,6 +525,22 @@ what a teacher set deliberately**, so it must be translated rather than silently
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A setting's `games` list was a snapshot, so the fifth game was a second-class
+  citizen.** Reported as "the new game's format is different — the join code only
+  appears if I pick the phone option". Every shared setting registered with
+  `games: gameIds()`, which is **evaluated once**, in the settings block near the
+  top of `hub-engine.js` — a photograph of the four games that existed then. Bingo
+  registered after it and was silently absent from `phoneMode`, `phonePrompt`,
+  `theme`, `intro` and both sound settings: its ⚙ and its Lab were quietly narrower
+  than every other game's, and with no phone mode available no room ever opened, so
+  the join chip never appeared.
+  - **`games:'*'` asks the registry when it matters** instead of holding a list, so
+    this is now true for a game registered at any point.
+  - **The check registers a bare game *after* everything has loaded** and asserts it
+    is offered every shared setting — reverting one setting to `gameIds()` fails it.
+  - The contract itself was fine; what leaked was *configuration*. Same shape as the
+    `.lit` stage list and the `play-fit` list: **anything that names the games is a
+    bug waiting for the next game.**
 - **Bingo puts a card in every student's hand.** `bingoCards` picks where the cards
   live: `board` (one per team, shared, the default and the fallback) or `phones`
   (one per student). The phone version is what bingo actually is, and it is the fix
@@ -879,7 +895,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   nothing saying why. Timed rounds ask now too; `raceCanTry()` restricts a timed
   round's buzz to the team whose round it is, so a phone on the bench can't steal a
   word off someone else's score.
-- **Deployed.** Build `20260801a`; new `strip`, `bbteams` and `jointeams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
+- **Deployed.** Build `20260801b`; new `strip`, `bbteams` and `jointeams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
 - **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
   the game being played, and only that game, without leaving the board — see "The Lab"
   above. It exists because prototyping was the bottleneck: comparing two ideas meant

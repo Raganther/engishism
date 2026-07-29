@@ -53,7 +53,23 @@ window.HubSettings = (function(){
   values = load();
 
   const key = (id, game) => game ? id + '@' + game : id;
-  const scoped = d => Array.isArray(d.games) && d.games.length > 0;
+
+  /* `games:'*'` means every game there is, resolved when asked rather than when the
+     setting was registered. That distinction is not academic: the settings block
+     runs once, near the top of hub-engine.js, and a game registered after it was
+     silently missing from every shared setting's list — no phone modes, no theme
+     row, no sound row, so the fifth game's ⚙ and Lab were quietly narrower than
+     every other game's and no room ever opened for it. The snapshot was the bug;
+     asking the registry each time is the fix, and it cannot happen again whatever
+     order a sixth game registers in. */
+  function gamesOf(d){
+    if(d.games === '*'){
+      const all = (window.HubGames && window.HubGames.ids) ? window.HubGames.ids() : [];
+      return all.slice();
+    }
+    return Array.isArray(d.games) ? d.games : [];
+  }
+  const scoped = d => gamesOf(d).length > 0;
 
   function register(def){
     if(byId[def.id]) return def.id;          // registering twice is a no-op
@@ -135,7 +151,7 @@ window.HubSettings = (function(){
   // every game any registered setting mentions, in first-registered order
   function gameTabs(){
     const seen = [];
-    defs.forEach(d=>{ if(scoped(d)) d.games.forEach(g=>{ if(!seen.includes(g)) seen.push(g); }); });
+    defs.forEach(d=>{ if(scoped(d)) gamesOf(d).forEach(g=>{ if(!seen.includes(g)) seen.push(g); }); });
     return seen;
   }
   function gameLabel(g){
@@ -260,7 +276,7 @@ window.HubSettings = (function(){
   function renderBody(){
     body.innerHTML='';
     const game = activeTab==='master' ? null : activeTab;
-    const shown = game ? defs.filter(d=>scoped(d) && d.games.indexOf(game)!==-1) : defs;
+    const shown = game ? defs.filter(d=>scoped(d) && gamesOf(d).indexOf(game)!==-1) : defs;
 
     if(game){
       const intro=document.createElement('p');
@@ -317,7 +333,7 @@ window.HubSettings = (function(){
              quietly picked up its own value the first time a control was touched
              there. Naming the game and linking straight to its tab turns that from
              a silent mismatch into one click to fix. */
-          const overriding = d.games.filter(g => hasOverride(d.id, g));
+          const overriding = gamesOf(d).filter(g => hasOverride(d.id, g));
           if(overriding.length){
             const state=document.createElement('div');
             state.className='settings-state overridden';
@@ -351,7 +367,7 @@ window.HubSettings = (function(){
     if(!mount) return;
     const o = opts || {};
     mount.innerHTML = '';
-    const shown = defs.filter(d => scoped(d) && d.games.indexOf(game) !== -1 &&
+    const shown = defs.filter(d => scoped(d) && gamesOf(d).indexOf(game) !== -1 &&
                                    (!o.groups || o.groups.indexOf(d.group || 'General') !== -1));
     const groups = [];
     shown.forEach(d => { const g = d.group || 'General'; if(!groups.includes(g)) groups.push(g); });

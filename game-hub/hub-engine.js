@@ -302,17 +302,64 @@
     onResize: fitMillionaire
   });
 
+  /* Bingo is the fifth game and it was built as a test of the framework: how much
+     of what the other four needed does a new board get for free? It consumes the
+     **Blockbusters bank** rather than one of its own — the answers there are
+     already single words with a clue each, which is exactly a bingo call — so both
+     units gained a fifth game with no authoring at all. That is a preview of the
+     pooled-content idea: a game declaring what it can consume, instead of a bank
+     being written for it. */
+  registerGame({
+    id:'bingo', title:'Bingo',
+    card:{
+      icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="30" height="30" rx="2"/><path d="M15 5 L15 35 M25 5 L25 35 M5 15 L35 15 M5 25 L35 25"/><path d="M7 17 L13 23 M13 17 L7 23" stroke-width="2.4"/><path d="M27 27 L33 33 M33 27 L27 33" stroke-width="2.4"/></svg>',
+      blurb:'Every team gets a card of words. Read a clue &mdash; the first team to answer marks it off. Three in a row wins.',
+      badge:'Best for: whole-class listening, everyone in at once' },
+    intro:{ eyebrow:'Cambridge Empower C1', title:'BINGO',
+            sub:'Nine words each. Listen for yours. Three in a row.', accent:'#FF7AC8' },
+    /* Same bank Blockbusters uses: single-word answers with a clue apiece. A card
+       needs nine distinct words and the call list wants a few spare. */
+    hasBank: u => bingoWordsIn(u.blockbustersBank || []).length >= BINGO_POOL,
+    load(u){ BINGO_BANK          = u.blockbustersBank || [];
+             BINGO_SECTION_NAMES = u.blockbustersSectionNames || {};
+             BINGO_TOPIC_NAMES   = u.topicNames || {}; },
+    renderContent: renderBingoContent,
+    startButton:   bingoStartButton,
+    /* Cards on phones needs a room even at `phoneMode: off` — the cards *are* the
+       dynamic, so the mode has nothing to say about it. Same shape as Millionaire
+       keeping a room open for Ask the class. */
+    wantsVote:   () => bingoOnPhones(),
+    roomNote:    () => bingoOnPhones() ? 'cards on phones' : null,
+    expects:     () => (bingoCurrent && bingoCurrent.answer) || '',
+    phonePrompt: () => (bingoCurrent && (bingoCurrent.clue || bingoCurrent.prompt)) || '',
+    askingNow:   () => !!bingoCurrent && !bingoWon,
+    /* Typed and correct marks their square, the way it claims a tile elsewhere. A
+       word that is not on their card is still a right answer — the strip says so —
+       but there is nothing to mark, so it pays nothing rather than declining. */
+    onTypedWin(b){
+      const card = bingoCards[b.team];
+      if(!bingoCurrent || !card) return null;
+      const ci = card.words.findIndex((w, i) => !card.marked[i] && w.answer === bingoCurrent.answer);
+      return ci >= 0 ? (markBingoCell(b.team, ci) || 1) : 0;
+    },
+    start(){ startBingo(); },
+    fit:      fitBingoCards,
+    deal:     bingoDeal,
+    tension(){ bingoTension(); },
+    onResize: fitBingoCards
+  });
+
   /* ---- feature switches. Adding a feature? Register it here and the settings
      panel picks it up automatically — there is no panel markup to edit. ---- */
-  S.register({ id:'sound', group:'Sound', type:'toggle', default:true, games:gameIds(),
+  S.register({ id:'sound', group:'Sound', type:'toggle', default:true, games:'*',
     label:'Sound effects', help:'Short tones for a right answer, a wrong one, and a cleared board.' });
-  S.register({ id:'soundVolume', group:'Sound', type:'select', default:'med', games:gameIds(),
+  S.register({ id:'soundVolume', group:'Sound', type:'select', default:'med', games:'*',
     label:'Volume', help:'Classroom speakers are usually louder than they sound at your desk.',
     options:[{value:'quiet',label:'Quiet'},{value:'med',label:'Medium'},{value:'loud',label:'Loud'}] });
   /* The music bed is the one sound that runs *continuously* under a live question,
      so it is the one a teacher may want gone while keeping the cues. Volume alone
      could not do that — turning it down takes the right-answer tone with it. */
-  S.register({ id:'musicBed', group:'Sound', type:'select', default:'normal', games:gameIds(),
+  S.register({ id:'musicBed', group:'Sound', type:'select', default:'normal', games:'*',
     label:'Think-music drone', help:'The low pulse under an unanswered question. Off leaves every other sound alone.',
     options:[{value:'normal',label:'On'},{value:'quiet',label:'On, quieter'},{value:'off',label:'Off'}] });
 
@@ -333,7 +380,7 @@
      Millionaire round wants both at different moments. So the mode is what the
      phones do *for a question*, and the lifeline borrows the room. */
   S.register({ id:'phoneMode', group:'Phones (prototype)', type:'variant', default:'off',
-    games:gameIds(),
+    games:'*',
     label:'What the phones do',
     help:'Pick one dynamic to try. Switch between them between rounds and see which your class learns more from.',
     variants:[
@@ -351,22 +398,22 @@
      the right numbers are a classroom question. A wrong answer costs *time*, never
      points — long enough to hurt, short enough that they stay in the round. */
   S.register({ id:'typeCooldown', group:'Phones (prototype)', type:'range', default:3,
-    min:0, max:10, step:0.5, unit:'s', games:gameIds(),
+    min:0, max:10, step:0.5, unit:'s', games:'*',
     label:'Wait after a wrong answer',
     help:'How long that phone is out before it can buzz again. Nobody loses points; they lose the race.' });
 
   S.register({ id:'typeStrict', group:'Phones (prototype)', type:'toggle', default:false,
-    games:gameIds(),
+    games:'*',
     label:'Spelling has to be exact',
     help:'Off: a near miss takes the floor and the phone is told to check its spelling. On: only the exact word counts.' });
 
   S.register({ id:'phoneOneEach', group:'Phones (prototype)', type:'toggle', default:true,
-    games:gameIds(),
+    games:'*',
     label:'One answer each per question',
     help:'A student who has answered cannot answer again until the next question. Stops the fastest thumbs owning the game.' });
 
   S.register({ id:'phonePrompt', group:'Phones (prototype)', type:'toggle', default:true,
-    games:gameIds(),
+    games:'*',
     label:'Show the question on the phones',
     help:'The back of the room reads its own screen. Off keeps their eyes on the board.' });
 
@@ -504,13 +551,13 @@
      stage lights is part of the moment. Which value applies: the game's own setting
      once a game is picked, the master before that. */
   S.register({ id:'theme', group:'Presentation', type:'variant', default:'gameshow',
-    games:gameIds(),
+    games:'*',
     label:'Look and feel', help:'Game show mode darkens the room and adds chase lights, an intro and music. DCU is the school-colours look.',
     variants:[{value:'gameshow', label:'Game show — lights, music, intro'},
               {value:'dcu',      label:'DCU — school colours'}] });
 
   S.register({ id:'intro', group:'Presentation', type:'select', default:'once',
-    games:gameIds(),
+    games:'*',
     label:'Title sequence', help:'The lights-and-logo opening. Any key or click skips it.',
     options:[{value:'once',  label:'Once per session'},
              {value:'every', label:'Every round'},
@@ -979,53 +1026,6 @@
     document.querySelector('#screen-game-select p.intro').textContent = u.intro || '';
     if(u.label){ document.title = u.label + ' — Game Hub'; }
   }
-
-  /* Bingo is the fifth game and it was built as a test of the framework: how much
-     of what the other four needed does a new board get for free? It consumes the
-     **Blockbusters bank** rather than one of its own — the answers there are
-     already single words with a clue each, which is exactly a bingo call — so both
-     units gained a fifth game with no authoring at all. That is a preview of the
-     pooled-content idea: a game declaring what it can consume, instead of a bank
-     being written for it. */
-  registerGame({
-    id:'bingo', title:'Bingo',
-    card:{
-      icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="30" height="30" rx="2"/><path d="M15 5 L15 35 M25 5 L25 35 M5 15 L35 15 M5 25 L35 25"/><path d="M7 17 L13 23 M13 17 L7 23" stroke-width="2.4"/><path d="M27 27 L33 33 M33 27 L27 33" stroke-width="2.4"/></svg>',
-      blurb:'Every team gets a card of words. Read a clue &mdash; the first team to answer marks it off. Three in a row wins.',
-      badge:'Best for: whole-class listening, everyone in at once' },
-    intro:{ eyebrow:'Cambridge Empower C1', title:'BINGO',
-            sub:'Nine words each. Listen for yours. Three in a row.', accent:'#FF7AC8' },
-    /* Same bank Blockbusters uses: single-word answers with a clue apiece. A card
-       needs nine distinct words and the call list wants a few spare. */
-    hasBank: u => bingoWordsIn(u.blockbustersBank || []).length >= BINGO_POOL,
-    load(u){ BINGO_BANK          = u.blockbustersBank || [];
-             BINGO_SECTION_NAMES = u.blockbustersSectionNames || {};
-             BINGO_TOPIC_NAMES   = u.topicNames || {}; },
-    renderContent: renderBingoContent,
-    startButton:   bingoStartButton,
-    /* Cards on phones needs a room even at `phoneMode: off` — the cards *are* the
-       dynamic, so the mode has nothing to say about it. Same shape as Millionaire
-       keeping a room open for Ask the class. */
-    wantsVote:   () => bingoOnPhones(),
-    roomNote:    () => bingoOnPhones() ? 'cards on phones' : null,
-    expects:     () => (bingoCurrent && bingoCurrent.answer) || '',
-    phonePrompt: () => (bingoCurrent && (bingoCurrent.clue || bingoCurrent.prompt)) || '',
-    askingNow:   () => !!bingoCurrent && !bingoWon,
-    /* Typed and correct marks their square, the way it claims a tile elsewhere. A
-       word that is not on their card is still a right answer — the strip says so —
-       but there is nothing to mark, so it pays nothing rather than declining. */
-    onTypedWin(b){
-      const card = bingoCards[b.team];
-      if(!bingoCurrent || !card) return null;
-      const ci = card.words.findIndex((w, i) => !card.marked[i] && w.answer === bingoCurrent.answer);
-      return ci >= 0 ? (markBingoCell(b.team, ci) || 1) : 0;
-    },
-    start(){ startBingo(); },
-    fit:      fitBingoCards,
-    deal:     bingoDeal,
-    tension(){ bingoTension(); },
-    onResize: fitBingoCards
-  });
 
   /* ================= UNIT SELECT ================= */
   function renderUnitSelect(){
