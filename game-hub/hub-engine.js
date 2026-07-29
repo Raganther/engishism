@@ -465,6 +465,10 @@
      them they fix the thing that most flattens a room: nothing being at stake when
      it is not your turn. The streak defaults off because it changes how big the
      numbers get, which is a taste question. */
+  /* Named games rather than '*', deliberately: a steal is a question passing to the
+     other team, and Bingo has no such beat — a wrong tap costs nothing and the call
+     stays open for everybody. Divergence by declaration is the point; the bug is
+     only when a list is standing in for "all of them". */
   S.register({ id:'stealOnWrong', group:'Competition', type:'toggle', default:true,
     games:['jeopardy','blockbusters','millionaire','race'],
     label:'Steal on a wrong answer',
@@ -496,13 +500,15 @@
     label:'Points per square',
     help:'What marking a word off is worth. A line ends the round whatever this is.' });
 
+  /* `'*'`, not a list: this rides on award(), which every game that scores calls,
+     so naming the games that existed when it was written left the fifth one out. */
   S.register({ id:'streak', group:'Competition', type:'toggle', default:false,
-    games:['jeopardy','blockbusters','millionaire','race'],
+    games:'*',
     label:'Streak bonus',
     help:'Two in a row scores 1.5×, three or more scores 2×. A wrong answer resets it.' });
 
   S.register({ id:'promptForms', group:'Questions', type:'toggle', default:true,
-    games:['jeopardy','blockbusters','race','millionaire'],
+    games:'*',
     label:'Draw the question type',
     help:'Gap fills show a real blank, anagrams show letter tiles, odd-one-out shows chips. Off prints every question as plain text.' });
 
