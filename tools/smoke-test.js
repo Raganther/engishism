@@ -1929,16 +1929,6 @@ async function testPhoneTeams(browser){
           /lions/i.test(await p.locator('#who').innerText()),
           await p.locator('#who').innerText());
 
-    /* Both playground boards offer the bench the same way: with themselves loaded
-       as the board, so the phones sit beside the game rather than in a tab of
-       their own. Passing only the code left you with handsets and nothing to
-       watch them act on. */
-    await host.locator('#room-chip').click(); await host.waitForTimeout(300);
-    check('the join panel offers the bench with this board loaded',
-          /board=connections\.html/.test(await host.locator('#bench-link').getAttribute('href')),
-          await host.locator('#bench-link').getAttribute('href'));
-    await host.locator('#join-panel').click({ position:{ x:5, y:5 } }); await host.waitForTimeout(200);
-
     check('phone had no errors', p.__errors.length === 0, p.__errors[0]);
     await p.close();
 
@@ -4083,6 +4073,16 @@ async function testPlaygroundConnections(browser){
     check('a phone not on the team on turn is told who is choosing',
           /choosing/i.test(await p.locator('#state').innerText()),
           await p.locator('#state').innerText());
+
+    /* Both playground boards offer the bench the same way: with themselves loaded
+       as the board, so the phones sit beside the game rather than in a tab of
+       their own. Passing only the code left you with handsets and nothing to
+       watch them act on. */
+    await page.locator('#room-chip').click(); await page.waitForTimeout(300);
+    check('the join panel offers the bench with this board loaded',
+          /board=connections\.html/.test(await page.locator('#bench-link').getAttribute('href')),
+          await page.locator('#bench-link').getAttribute('href'));
+    await page.locator('#join-panel').click({ position:{ x:5, y:5 } }); await page.waitForTimeout(200);
 
     check('phone had no errors', p.__errors.length === 0, p.__errors[0]);
     await p.close();
