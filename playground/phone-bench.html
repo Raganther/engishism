@@ -3,11 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Phone bench — Engishism Playground</title>
+<title>Room bench — Engishism Playground</title>
 <style>
-  /* A rack of simulated handsets for testing phone dynamics without a class.
-     Every "phone" is the real join.html in an iframe, talking to the real relay —
-     nothing is mocked, so what works here works in the room. */
+  /* The whole room on one screen: the projected board on the left, a rack of
+     simulated handsets on the right. Both are the REAL pages in iframes on the
+     real relay — nothing is mocked, so what works here works in the classroom.
+     It exists because a phone dynamic cannot be judged from the phone alone:
+     the feedback it produces lands on the board, and testing across two tabs
+     means never seeing cause and effect at the same time. */
   :root{
     --bg:#fafaf8; --text:#121212; --muted:#6b6b6b; --border:#d4d4cc;
     --btn-bg:#fff; --btn-border:#121212; --accent:#00A0DF;
@@ -16,30 +19,56 @@
   body{
     margin:0; background:var(--bg); color:var(--text);
     font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    padding:16px;
+    padding:14px 16px;
   }
-  h1{ font-size:1.4rem; margin:0 0 2px; }
+  h1{ font-size:1.25rem; margin:0 0 2px; }
   h1 small{ color:var(--muted); font-weight:400; font-size:0.85rem; }
-  .hint{ color:var(--muted); font-size:0.9rem; margin:4px 0 14px; max-width:70ch; }
+  .hint{ color:var(--muted); font-size:0.85rem; margin:2px 0 12px; max-width:90ch; }
 
-  .bar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:18px; }
+  .bar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
   .bar input, .bar select, .bar button{
     font:inherit; font-size:0.9rem; padding:8px 14px; border-radius:999px;
     border:1px solid var(--border); background:var(--btn-bg); color:var(--text);
   }
-  .bar input{ font-family:ui-monospace,monospace; letter-spacing:0.2em; width:9em; text-align:center; }
+  .bar input#code{ font-family:ui-monospace,monospace; letter-spacing:0.2em; width:8em; text-align:center; }
+  .bar input#board-url{ width:16em; letter-spacing:0; text-align:left; }
   .bar button{ cursor:pointer; }
   .bar button.primary{ background:var(--text); color:var(--bg); border-color:var(--text); }
+  .bar .sep{ width:1px; height:26px; background:var(--border); margin:0 4px; }
   #status{ color:var(--muted); font-size:0.85rem; }
 
-  /* one column per team, phones rack up inside it */
-  #rack{ display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap; }
+  /* board left, phones right — the room as the teacher sees it, plus the hands */
+  #room{ display:flex; gap:18px; align-items:flex-start; }
+  /* min-width:0 or the 1280px-wide frame inside sets the pane's floor: a scaled
+     element still occupies its full layout width, so the pane would refuse to
+     shrink and push the phones off the screen. */
+  #stage-pane{ flex:1 1 auto; min-width:0; }
+  #rack-pane{ flex:0 0 auto; max-height:calc(100vh - 150px); overflow-y:auto; padding-right:4px; }
+  .pane-label{
+    font-size:0.72rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted);
+    margin:0 0 6px;
+  }
+
+  /* The board renders at a real projector's logical size and is scaled down to
+     fit, rather than being squeezed into a narrow viewport — a board laid out for
+     420px is not the board the class will see. */
+  #stage-box{
+    position:relative; width:100%; overflow:hidden;
+    border:1px solid var(--border); border-radius:12px; background:#0B1830;
+  }
+  #stage-frame{ border:none; display:block; transform-origin:top left; }
+  #stage-empty{
+    display:flex; align-items:center; justify-content:center; height:340px;
+    color:#8fa6c8; font-size:0.95rem; text-align:center; padding:20px;
+  }
+
+  #rack{ display:flex; gap:16px; align-items:flex-start; }
   .team-col{ min-width:280px; }
   .team-col h2{
     font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase;
     color:var(--muted); margin:0 0 8px; border-bottom:2px solid var(--border); padding-bottom:4px;
   }
-  .team-col .phones{ display:flex; gap:12px; flex-wrap:wrap; }
+  .team-col .phones{ display:flex; flex-direction:column; gap:12px; }
 
   .phone{
     width:264px; border:1px solid var(--border); border-radius:18px; overflow:hidden;
@@ -53,25 +82,45 @@
   .phone .head button{
     background:none; border:none; color:#cfe0ff; cursor:pointer; font-size:1rem; padding:0 2px;
   }
-  .phone iframe{ display:block; width:264px; height:520px; border:none; }
+  .phone iframe{ display:block; width:264px; height:500px; border:none; }
 </style>
 </head>
 <body>
-  <h1>Phone bench <small>· simulated handsets for testing</small></h1>
-  <p class="hint">Open a game with a room (the hub or a playground game), put its code here, and add
-     phones. Each phone is the real student page in a frame — tap it exactly as a student would.
-     Simulated phones never touch this browser's remembered seat, so your real phone is unaffected.</p>
+  <h1>Room bench <small>· the projected board and its handsets, side by side</small></h1>
+  <p class="hint">Open a board on the left and add phones on the right. Both are the real pages on the
+     real relay, so a tap on a phone lands on the board exactly as it would in class — the point being
+     that a phone dynamic can only be judged by what it does to the board. The room code is picked up
+     from the board automatically. Simulated phones never touch this browser's remembered seat.</p>
 
   <div class="bar">
-    <input id="code" inputmode="numeric" maxlength="6" placeholder="00000" autocomplete="off">
-    <select id="team-pick"></select>
-    <button id="add" class="primary">+ Phone</button>
+    <select id="board-pick" aria-label="Which board">
+      <option value="connections.html">Playground · Connections</option>
+      <option value="../game-hub.html">Game Hub (choose a game inside)</option>
+      <option value="../game-hub-unit5.html">Game Hub · Unit 5</option>
+      <option value="custom">Other URL…</option>
+    </select>
+    <input id="board-url" placeholder="../game-hub.html" style="display:none;">
+    <button id="board-open" class="primary">Open board</button>
+    <span class="sep"></span>
+    <input id="code" inputmode="numeric" maxlength="6" placeholder="00000" autocomplete="off"
+           title="Picked up from the board; type one to use a room elsewhere">
+    <select id="team-pick" aria-label="Which team"></select>
+    <button id="add">+ Phone</button>
     <button id="add-each">+1 to every team</button>
     <button id="clear">Remove all</button>
     <span id="status"></span>
   </div>
 
-  <div id="rack"></div>
+  <div id="room">
+    <div id="stage-pane">
+      <p class="pane-label">The projector</p>
+      <div id="stage-box"><div id="stage-empty">Pick a board and press <b>&nbsp;Open board</b>&nbsp; — its room code arrives here by itself.</div></div>
+    </div>
+    <div id="rack-pane">
+      <p class="pane-label">The room's phones</p>
+      <div id="rack"></div>
+    </div>
+  </div>
 
 <script>
 'use strict';
@@ -87,8 +136,60 @@ let phones = [];              // [{name, team, el}]
 
 if(params.get('code')) $('code').value = params.get('code');
 
-/* The room knows its teams — same polling the join screen does, so the bench
-   follows renames and added teams while it is open. Silent on failure. */
+/* ---------------- the board ----------------
+   A real board page in a frame, laid out at a projector's logical size and
+   scaled to fit: a board squeezed into a 500px-wide pane would re-fit itself to
+   a phone-shaped screen and stop being the thing under test. */
+const STAGE_W = 1280, STAGE_H = 720;
+function openBoard(){
+  const pick = $('board-pick').value;
+  const url  = pick === 'custom' ? $('board-url').value.trim() : pick;
+  if(!url) return;
+  const box = $('stage-box');
+  box.innerHTML = '';
+  const f = document.createElement('iframe');
+  f.id = 'stage-frame';
+  f.width = STAGE_W; f.height = STAGE_H;
+  f.src = url + (url.indexOf('?') === -1 ? '?' : '&') + 'bench=1' + (RELAY ? '&relay=' + encodeURIComponent(RELAY) : '');
+  box.appendChild(f);
+  fitStage();
+}
+function fitStage(){
+  const f = $('stage-frame'); if(!f) return;
+  // never past 1:1 — upscaling blurs the board and shows a layout at a size no
+  // classroom would render it at; a wide screen just leaves margin
+  const scale = Math.min(1, $('stage-box').clientWidth / STAGE_W);
+  f.style.transform = 'scale(' + scale + ')';
+  $('stage-box').style.height = Math.round(STAGE_H * scale) + 'px';
+}
+/* The pane changes width for reasons that are not a window resize — a phone
+   added or removed re-flows the rack beside it — so watch the box itself rather
+   than listing the causes. Without this the board kept the scale it had when it
+   opened and was clipped on the right the moment a phone appeared. */
+window.addEventListener('resize', fitStage);
+if(window.ResizeObserver) new ResizeObserver(fitStage).observe($('stage-box'));
+
+/* The board says which room it is hosting — `window.HubHost`, the same handle
+   the hub and every playground page expose. Asking for it beats scraping a chip
+   whose text is prose, and it means the code never has to be copied by hand. */
+function pollBoard(){
+  const f = $('stage-frame');
+  if(!f || !f.contentWindow) return;
+  let host = null;
+  try{ host = f.contentWindow.HubHost; }catch(e){ return; }   // cross-origin custom URL
+  if(host && host.code && $('code').value.trim() !== String(host.code)){
+    $('code').value = String(host.code);
+    loadTeams(true);
+  }
+}
+setInterval(pollBoard, 1000);
+
+$('board-pick').addEventListener('change', ()=>{
+  $('board-url').style.display = $('board-pick').value === 'custom' ? '' : 'none';
+});
+$('board-open').addEventListener('click', openBoard);
+
+/* ---------------- the room ---------------- */
 let teamsFor = '';
 function loadTeams(force){
   const code = $('code').value.trim();
@@ -102,12 +203,12 @@ function loadTeams(force){
       /* A code with no room behind it used to fail silently here, and the only
          place the truth appeared was inside every phone after it tried to join.
          Say it where the code was typed. */
-      if(d.missing){ setStatus('no game with code ' + code + ' — open the game first, then copy its code'); return; }
+      if(d.missing){ setStatus('no game with code ' + code + ' — open the board first'); return; }
       if(d.teams && d.teams.length) teamNames = d.teams;
       setStatus(d.players + ' in the room');
       renderTeamPick(); renderHeaders();
     })
-    .catch(()=> setStatus('can’t reach the relay — is the game open?'));
+    .catch(()=> setStatus('can’t reach the relay — is the board open?'));
 }
 setInterval(()=> loadTeams(true), 4000);
 $('code').addEventListener('input', ()=> loadTeams());
@@ -159,7 +260,7 @@ function renderHeaders(){
 
 function addPhone(team){
   const code = $('code').value.trim();
-  if(!/^\d{4,6}$/.test(code)){ setStatus('enter the room code first'); return; }
+  if(!/^\d{4,6}$/.test(code)){ setStatus('open a board first, or type a room code'); return; }
   const name = NAMES[nextName++ % NAMES.length];
   const el = document.createElement('div');
   el.className = 'phone';
@@ -190,6 +291,13 @@ $('clear').addEventListener('click', ()=>{
 
 renderTeamPick();     // the default pair until a room says otherwise — never empty
 loadTeams();
+if(params.get('board')){                       // ?board=… opens one straight away
+  const v = params.get('board');
+  const known = [...$('board-pick').options].some(o => o.value === v);
+  if(known) $('board-pick').value = v;
+  else { $('board-pick').value = 'custom'; $('board-url').style.display = ''; $('board-url').value = v; }
+  openBoard();
+}
 </script>
 </body>
 </html>

@@ -4817,6 +4817,12 @@
       }
       rememberRoom(code, relay);
       buzzHost = HubBuzzer.host({ relay, code });
+      /* The room this page is hosting, stated rather than scraped — the same
+         convention the playground pages use, so anything looking in from outside
+         (the phone bench, a test) asks one question of any board: what room are
+         you running? Without it the only handle was the chip's text, which is
+         prose and changes with the mode. */
+      window.HubHost = buzzHost;
       buzzHost.on('ready',   d=>{ buzzPlayers=(d.players||[]).length; pushTeamNames();
                                   renderBuzzChip(); renderJoinCount(); reaskPhones();
                                   bingoDealHands();
@@ -4835,7 +4841,7 @@
   function dropBuzzRoom(){
     hideJoinPanel();
     forgetRoom();
-    if(buzzHost){ buzzHost.close(); buzzHost=null; }
+    if(buzzHost){ buzzHost.close(); buzzHost=null; window.HubHost = null; }
     buzzWinner=null; buzzPlayers=0; lastTyped=null; lastScored=null;
     bbVote=null; bbVoting=false; renderBBVote();
     const chip=document.getElementById('buzzer-chip');

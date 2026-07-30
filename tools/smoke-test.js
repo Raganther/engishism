@@ -4099,6 +4099,98 @@ async function testPhoneBench(browser){
   await bench.close();
   check('game page had no errors', game.__errors.length === 0, game.__errors[0]);
   await game.close();
+
+  /* ---- the board, on the bench ----
+     A phone dynamic cannot be judged from the phone: what it produces lands on
+     the board. So the bench carries the board too — the real page in a frame,
+     which also means the room code never has to be copied by hand. */
+  const solo = await browser.newPage({ viewport:{ width:1500, height:950 } });
+  solo.__errors = []; solo.on('pageerror', e => solo.__errors.push(String(e)));
+  await solo.goto(BASE + '/playground/phone-bench.html?board=connections.html');
+  await solo.waitForTimeout(1800);
+
+  check('the board opens inside the bench', await solo.locator('#stage-frame').count() === 1);
+  const picked = await solo.locator('#code').inputValue();
+  check('and the bench picks up its room code by itself', /^\d{5}$/.test(picked), picked);
+  /* Laid out at a projector's size and scaled to fit, rather than squeezed: a
+     board re-fitting itself to a 500px pane is not the board under test. Never
+     past 1:1 either — upscaling blurs it and shows a size no room renders at. */
+  const stageAt = () => solo.evaluate(() => {
+    const f = document.getElementById('stage-frame');
+    return { logical: Number(f.width), scale: Number((f.style.transform.match(/[\d.]+/)||[0])[0]) };
+  });
+  let stage = await stageAt();
+  check('the board is laid out at a projector\'s width',
+        stage.logical === 1280, JSON.stringify(stage));
+  check('and is never scaled up past 1:1',
+        stage.scale > 0 && stage.scale <= 1, JSON.stringify(stage));
+  await solo.setViewportSize({ width:1000, height:900 }); await solo.waitForTimeout(300);
+  stage = await stageAt();
+  check('on a narrower window it scales down to fit',
+        stage.scale < 1, JSON.stringify(stage));
+  await solo.setViewportSize({ width:1500, height:950 }); await solo.waitForTimeout(300);
+
+  // a phone added here joins the board on the same page, and its tap lands there
+  await solo.locator('#add').click(); await solo.waitForTimeout(1200);
+
+  /* Adding a phone narrows the board's pane, and nothing was re-fitting the
+     stage — so the board kept the scale it opened with and was clipped on the
+     right the moment a phone appeared. Screenshots found this; the earlier
+     assertions did not, because they only asked what the scale was, never
+     whether the board still fitted its box. */
+  const fits = await solo.evaluate(() => {
+    const box = document.getElementById('stage-box').getBoundingClientRect();
+    const f = document.getElementById('stage-frame').getBoundingClientRect();
+    return { boxW: Math.round(box.width), shownW: Math.round(f.width), over: Math.round(f.right - box.right) };
+  });
+  check('the board still fits its pane once a phone is beside it',
+        fits.over <= 1, JSON.stringify(fits));
+  const board = solo.frameLocator('#stage-frame');
+  check('the board counts the phone that the bench added',
+        /1 in/.test(await board.locator('#room-chip').innerText()),
+        await board.locator('#room-chip').innerText());
+  const word = await solo.frameLocator('.phone iframe').first()
+    .locator('#opts button').first().innerText();
+  await solo.frameLocator('.phone iframe').first().locator('#opts button').first().click();
+  await solo.waitForTimeout(700);
+  check('and a tap on that phone lands on the board in the same window',
+        await board.locator('#grid .tile[data-word="'+word.toLowerCase()+'"] .votes').innerText() === '1',
+        word);
+
+  check('the whole-room bench had no errors', solo.__errors.length === 0, solo.__errors[0]);
+  await solo.close();
+
+  /* The hub is just another board — it exposes the same `window.HubHost`, so the
+     bench needs to know nothing about which game is being played. */
+  const hub = await browser.newPage({ viewport:{ width:1500, height:950 } });
+  hub.__errors = []; hub.on('pageerror', e => hub.__errors.push(String(e)));
+  await hub.goto(BASE + '/playground/phone-bench.html?board=../game-hub.html');
+  await hub.waitForTimeout(1500);
+  const hubFrame = hub.frameLocator('#stage-frame');
+  await hubFrame.locator('.unit-card').first().click(); await hub.waitForTimeout(300);
+  await hubFrame.locator('h3:visible', { hasText:'Jeopardy' }).first().click(); await hub.waitForTimeout(300);
+  await hub.evaluate(() => {
+    const w = document.getElementById('stage-frame').contentWindow;
+    w.HubSettings.set('intro','off');
+    w.HubSettings.set('buzzers', true);
+    w.HubSettings.set('phoneMode','buzz','jeopardy');
+  });
+  const boxes = hubFrame.locator('#content-list input');
+  const n = await boxes.count();
+  for(let i = 0; i < n && await hubFrame.locator('#start-btn').isDisabled(); i++) await boxes.nth(i).check();
+  await hubFrame.locator('#start-btn').click(); await hub.waitForTimeout(2000);
+  const hubCode = await hub.locator('#code').inputValue();
+  check('the hub on the bench hands over its room the same way',
+        /^\d{5}$/.test(hubCode), hubCode);
+  await hub.locator('#add').click(); await hub.waitForTimeout(1200);
+  await hubFrame.locator('#board .tile').first().click(); await hub.waitForTimeout(900);
+  await hub.frameLocator('.phone iframe').first().locator('#buzzer').click();
+  await hub.waitForTimeout(900);
+  check('a buzz from a bench phone reaches the hub board',
+        /ana/i.test(await hubFrame.locator('#phone-bar').innerText()),
+        (await hubFrame.locator('#phone-bar').innerText()).replace(/\n/g,' '));
+  check('the hub bench had no errors', hub.__errors.length === 0, hub.__errors[0]);
+  await hub.close();
 }
 
 /* ---- the answer clock ----

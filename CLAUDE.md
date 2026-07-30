@@ -565,19 +565,35 @@ for vote/write/buzz/card dynamics. The deliberate rules:
 - **Votes are advisory** (students never touch the device): they land on the board
   as counts, the teacher clicks.
 
-**`phone-bench.html` — simulated handsets for testing phone dynamics without a
-class.** Enter any room's code (hub or playground), add phones one at a time or
-one per team; each "phone" is the **real `join.html` in an iframe on the real
-relay** (`?auto=1&name=&team=` self-joins), racked in columns by team, individually
-interactive and removable. Nothing is mocked, so what works on the bench works in
-the room. Two rules paid for in advance:
+**`phone-bench.html` — the whole room on one screen.** The projected board on the
+left, a rack of simulated handsets on the right; both are the **real pages in
+iframes on the real relay** (phones self-join via `?auto=1&name=&team=`), so a tap
+on a phone lands on the board exactly as it would in class. It exists because
+**a phone dynamic cannot be judged from the phone** — what it produces lands on the
+board, and testing across two tabs means never seeing cause and effect at once.
+Works against any board, hub or playground, because it asks one question of
+whatever it loaded: **`window.HubHost` — what room are you running?** That is now a
+stated convention (the hub sets it beside `buzzHost`, the playground pages already
+did), so the code is picked up automatically and never copied by hand, and the
+bench needs to know nothing about which game is being played. `?board=…` opens one
+straight away. Four rules paid for in advance:
 - **A simulated phone never touches the seat** (`SIMULATED` guards `rememberSeat`
   and `resume` in join.html) — every iframe shares the page's localStorage, and the
   one seat key belongs to the real phone.
 - **Phones are appended once and never re-parented** — moving an iframe reloads
   it, which drops its stream; only the column headers repaint on the team poll.
-The `bench` suite drives it: three phones join a live game, a tap inside a frame
-lands on the board, the real seat survives, a removed phone leaves the room.
+- **The board renders at a projector's logical width (1280) and is scaled to fit**,
+  never past 1:1 — a board re-fitting itself to a 500px pane is not the board under
+  test, and an upscaled one shows a size no room renders at.
+- **The stage re-fits on a `ResizeObserver`, not on window resize.** The pane
+  narrows when a phone is added, which is not a window resize — without it the board
+  kept the scale it opened with and was **clipped 115px off its right edge** the
+  moment a phone appeared. The screenshot found that; the assertions had not,
+  because they asked what the scale was and never whether the board still fitted.
+  Same lesson as the hub's buzzer chip: *anything that changes size around a board
+  owes it a re-fit.*
+The `bench` suite drives all of it, including the hub as a board (start Jeopardy
+inside the frame, buzz from a bench phone, assert it reaches `#phone-bar`).
 
 Current pages: **`connections.html`** — ESL Connections (find four groups of four;
 groups encode collocations/phrasal verbs/spelling/register; solving a group unlocks
@@ -597,12 +613,16 @@ guess passes the turn and the vote moves with it; shared pool of four mistakes;
   activity schemas). Reference only; not required reading.
 
 ## Current status
-- **The phone bench: a class in iframes.** `playground/phone-bench.html` simulates
-  any number of handsets against any live room — real join.html, real relay,
-  racked by team, each frame tappable. Linked from the Connections join panel
-  with the code prefilled. Built for experimenting with team/phone dynamics
-  without thirty devices; see "The playground" section for the two rules
-  (seat isolation, no iframe re-parenting). `bench` suite covers it.
+- **The room bench: the board and its phones on one screen.** `playground/
+  phone-bench.html` now carries the **projected board too**, not just the
+  handsets — because a phone dynamic can only be judged by what it does to the
+  board, and two tabs never show cause and effect together. Any board works
+  (hub or playground) because the bench asks `window.HubHost` what room the page
+  is running — **a stated convention now, on the hub as well** — so the code is
+  never copied by hand. See "The playground" for the four rules it pays up front
+  (seat isolation, no iframe re-parenting, projector-width scaling capped at 1:1,
+  and the `ResizeObserver` re-fit that a screenshot caught and the assertions had
+  missed). `bench` suite covers it, hub board included.
 - **The playground exists, and Connections is its first game.** `playground/
   connections.html` (linked from index.html) — see "The playground" section for
   the rules of this lane. Ported from the Learning-games prototype with its five
