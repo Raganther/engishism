@@ -158,7 +158,7 @@
     <div id="join-count" style="margin-top:10px; color:#555;"></div>
     <a id="bench-link" href="phone-bench.html" target="_blank"
        style="display:inline-block; margin-top:10px; font-size:0.85rem; color:#555;">
-       no class handy? simulate phones →</a>
+       no class handy? simulate phones beside the board →</a>
   </div>
 </div>
 
@@ -356,7 +356,10 @@ $('room-chip').addEventListener('click', ()=>{
     box.innerHTML = q.createSvgTag({ cellSize:8, margin:0, scalable:true });
   }catch(e){}
   $('join-count').textContent = playerCount + ' joined';
-  $('bench-link').href = 'phone-bench.html?code=' + host.code;
+  /* The bench loads this page as its board, so the phones sit beside the game
+     rather than in a tab of their own — passing only the code left you with
+     handsets and nothing to watch them act on. */
+  $('bench-link').href = 'phone-bench.html?board=connections.html';
   $('join-panel').classList.add('on');
 });
 $('join-panel').addEventListener('click', e=>{ if(e.target.id === 'join-panel') $('join-panel').classList.remove('on'); });

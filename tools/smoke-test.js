@@ -1929,6 +1929,16 @@ async function testPhoneTeams(browser){
           /lions/i.test(await p.locator('#who').innerText()),
           await p.locator('#who').innerText());
 
+    /* Both playground boards offer the bench the same way: with themselves loaded
+       as the board, so the phones sit beside the game rather than in a tab of
+       their own. Passing only the code left you with handsets and nothing to
+       watch them act on. */
+    await host.locator('#room-chip').click(); await host.waitForTimeout(300);
+    check('the join panel offers the bench with this board loaded',
+          /board=connections\.html/.test(await host.locator('#bench-link').getAttribute('href')),
+          await host.locator('#bench-link').getAttribute('href'));
+    await host.locator('#join-panel').click({ position:{ x:5, y:5 } }); await host.waitForTimeout(200);
+
     check('phone had no errors', p.__errors.length === 0, p.__errors[0]);
     await p.close();
 
@@ -4163,6 +4173,20 @@ async function testPromptLab(browser){
   const chip = await page.locator('#room-chip').innerText();
   const code = (chip.match(/CODE\s+(\d{5})/i)||[])[1];
   check('the lab opens a room of its own', !!code, chip);
+
+  /* The chip opens the room *here*, and offers the bench with this page as its
+     board. It used to jump to a single handset in another tab, which is the wrong
+     move for a rig whose point is watching several phones against the board at
+     once — you lost sight of the thing the phones were acting on. */
+  await page.locator('#room-chip').click(); await page.waitForTimeout(300);
+  check('clicking the code opens the room panel rather than jumping to one phone',
+        await page.locator('#join-panel.on').count() === 1 &&
+        (await page.locator('#join-code').innerText()) === code,
+        await page.locator('#join-code').innerText());
+  check('and it offers the bench with this board loaded, not just a code',
+        /board=prompt-lab\.html/.test(await page.locator('#bench-link').getAttribute('href')),
+        await page.locator('#bench-link').getAttribute('href'));
+  await page.locator('#join-panel').click({ position:{ x:5, y:5 } }); await page.waitForTimeout(200);
   if(code){
     const ph = await browser.newPage({ viewport:{ width:390, height:844 } });
     ph.__errors = []; ph.on('pageerror', e => ph.__errors.push(String(e)));
