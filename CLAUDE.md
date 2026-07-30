@@ -1155,6 +1155,14 @@ guess passes the turn and the vote moves with it; shared pool of four mistakes;
     implementation rather than two.
   - **Opening a hexagon ends the vote**, before `askPhones`, or the clue's arm is
     immediately overwritten by a vote nobody is still taking.
+  - **A vote you have to scroll is a vote you cannot make.** Sixteen options fit
+    no handset as full-width rows, and choosing between things means seeing them
+    at once — so more than six word-length options lay out as **two columns**
+    (`.opts.compact`), which fits all sixteen on a 360×640 phone with nothing off
+    screen. The minimum column is 140px, not 100: three columns on a 390px phone
+    broke `consequently` mid-letter, which is worse than a longer list. And the
+    prompt for a list like that is a **label** — "Pick a word" — because every
+    line of instruction is a line of words pushed off the screen.
   - The relay's option cap was **6, now 20**: right for a question with four answers,
     wrong for "which letter is still on the board". The phone lays short options out
     as a keypad rather than a list, so the cap is what fits a hand.

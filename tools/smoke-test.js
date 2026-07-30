@@ -3988,17 +3988,28 @@ async function testPlaygroundConnections(browser){
     // the phone landed in the live vote round: 16 words to choose one from
     const opts = await p.locator('#opts button').count();
     check('the phone offers the sixteen words', opts === 16, String(opts));
-    /* Sixteen options do not fit a handset. The body never scrolls by design, so
-       the list has to scroll itself — without this the words past the fold were
-       simply unreachable, on real phones as much as on the bench. */
-    check('and the list scrolls rather than cutting off',
-          await p.evaluate(() => {
-            const o = document.getElementById('opts');
-            return getComputedStyle(o).overflowY === 'auto' && o.scrollHeight > 0;
-          }));
-    const lastWord = await p.locator('#opts button').last().innerText();
-    await p.locator('#opts button').last().scrollIntoViewIfNeeded();
-    check('the last word can be reached', await p.locator('#opts button').last().isVisible(), lastWord);
+    /* **A vote you have to scroll is a vote you cannot make**: choosing between
+       options means seeing them at the same time, and sixteen full-width rows fit
+       no handset. Many words become two columns. Measured on the elements, not the
+       container — a list whose box fits while its children overflow it is exactly
+       the bug that passed a container-based check once before. */
+    const fit = await p.evaluate(() => {
+      const o = document.getElementById('opts');
+      const btns = [...o.querySelectorAll('button')];
+      return { cols: getComputedStyle(o).gridTemplateColumns.split(' ').length,
+               scrolls: o.scrollHeight > o.clientHeight + 1,
+               offscreen: btns.filter(b => b.getBoundingClientRect().bottom > window.innerHeight + 1).length,
+               broken: btns.filter(b => b.scrollWidth > b.clientWidth + 1).length };
+    });
+    check('sixteen words fit on the handset without scrolling',
+          !fit.scrolls && fit.offscreen === 0, JSON.stringify(fit));
+    check('in two columns, with no word broken mid-letter',
+          fit.cols === 2 && fit.broken === 0, JSON.stringify(fit));
+    /* The prompt is a label here, not the question — "Pick a word", not three
+       lines of rules. Every line of instruction is a line of words pushed off. */
+    const prompt = await p.locator('#qtext').innerText();
+    check('and the instruction is short enough to leave room for them',
+          prompt.length <= 24, prompt);
     await p.locator('#opts button', { hasText:/^decision$/i }).click();
     await page.waitForTimeout(600);
     check('the vote lands on the tile, advisory',

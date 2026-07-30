@@ -84,11 +84,11 @@
   /* the question the teacher is asking, pushed from the host — the back of the
      room can read its own phone even when it cannot read the board */
   .qtext{ font-size:1.15rem; line-height:1.4; margin:0 0 18px; color:#e8eefc; min-height:1.4em; }
-  /* The list scrolls within the screen: the body deliberately never scrolls (a
-     buzzer page in a thumb should not move), which cut a sixteen-option vote off
-     at the fold with no way to reach the rest. */
+  /* The list scrolls within the screen as a last resort: the body deliberately
+     never scrolls (a buzzer page in a thumb should not move), which cut a
+     sixteen-option vote off at the fold with no way to reach the rest. */
   .opts{ display:none; flex-direction:column; gap:10px; width:100%;
-         max-height:52vh; overflow-y:auto; }
+         max-height:64vh; overflow-y:auto; }
   .opts button{
     font: inherit; font-size:1.1rem; padding:16px; border-radius:12px; cursor:pointer;
     background:#16204f; color:#eaf0ff; border:2px solid rgba(255,255,255,0.22);
@@ -98,6 +98,21 @@
      would need scrolling to vote, which is the one thing a vote cannot afford. */
   .opts.grid{ flex-direction:row; flex-wrap:wrap; justify-content:center; }
   .opts.grid button{ flex:0 0 auto; min-width:62px; padding:15px 0; font-size:1.35rem; font-weight:800; }
+  /* And whole words are not a list either once there are more than a handful:
+     sixteen full-width rows do not fit any handset, and scrolling to compare the
+     options is the one thing a vote cannot afford — you cannot choose between
+     things you cannot see at once. Two columns, shorter rows, everything on
+     screen. Sized off the count so a four-option question keeps its big buttons. */
+  /* 140px, not 100: a C1 word like "consequently" needs the width, and three
+     columns on a 390px handset broke words mid-letter ("consequentl y"), which is
+     harder to read than a longer list. Two columns on a phone, three on a tablet. */
+  .opts.compact{ display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:8px; }
+  .opts.compact button{ padding:11px 6px; font-size:0.95rem; line-height:1.15;
+                        overflow-wrap:anywhere; }
+  /* A long list needs the room the instruction was using — the prompt is a label
+     here ("Pick a word"), not the question itself. */
+  #screen-play.many-opts #qtext{ font-size:0.95rem; margin-bottom:8px; }
+  #screen-play.many-opts #buzzer{ display:none; }
   .opts button.picked{ background:#ffc83d; color:#0a0d26; border-color:#ffc83d; }
   .write{ display:none; width:100%; gap:10px; flex-direction:column; }
   /* Typing comes before buzzing, so the box sits between the question and the
@@ -159,7 +174,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260801q"></script>
+<script src="game-hub/hub-buzzer.js?v=20260801r"></script>
 <script>
 (function(){
   'use strict';
@@ -320,10 +335,23 @@
     if(mode === 'card-idle') $('buzzer').style.display = 'none';
     $('send').style.display   = mode==='type' ? 'none' : '';   // the buzzer sends it
     $('screen-play').classList.toggle('mode-type', mode==='type');
+    /* Cleared on every round, not only when a vote sets it: it hides the buzzer,
+       so a leftover from the previous question would leave a buzz round with no
+       button at all. */
+    $('screen-play').classList.remove('many-opts');
+    $('opts').classList.remove('compact');
     if(mode==='vote'){
       const box=$('opts'); box.innerHTML='';
-      box.classList.toggle('grid', (opts||[]).length > 4 &&
-                                   (opts||[]).every(o=>String(o).length <= 2));
+      const list = opts || [];
+      const keypad  = list.length > 4 && list.every(o=>String(o).length <= 2);
+      // more than a handful of *words*: two columns, so they all fit at once
+      const compact = !keypad && list.length > 6;
+      box.classList.toggle('grid', keypad);
+      box.classList.toggle('compact', compact);
+      $('screen-play').classList.toggle('many-opts', compact);
+      /* The inline display set above wins over any class, so the layout has to be
+         chosen here rather than in CSS alone. */
+      box.style.display = compact ? 'grid' : 'flex';
       (opts||[]).forEach(o=>{
         const b=document.createElement('button');
         b.type='button'; b.textContent=o;

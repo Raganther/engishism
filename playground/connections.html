@@ -162,8 +162,8 @@
   </div>
 </div>
 
-<script src="../game-hub/hub-buzzer.js?v=20260801q"></script>
-<script src="../game-hub/hub-qr.js?v=20260801q"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260801r"></script>
+<script src="../game-hub/hub-qr.js?v=20260801r"></script>
 <script>
 'use strict';
 /* ================= PUZZLES — edit or add puzzles here =================
@@ -327,8 +327,9 @@ function askPhones(){
   votes = {}; renderVotes();
   if(!host) return;
   if(gameOver || !remaining.length){ host.disarm(); return; }
-  host.arm('Talk it over, then vote for ONE word you think is part of a group. '
-         + 'Votes light up the board — your teacher picks the four.', {
+  /* Short on purpose: the words are the question, and every line of instructions
+     is a line of words pushed off a handset. The board carries the full rules. */
+  host.arm('Pick a word', {
     mode:'vote', options: remaining.slice(), team: active
   });
 }
