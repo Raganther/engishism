@@ -211,7 +211,16 @@ window.HubKit = (function(){
     return {
       register(type, impl){ impls[type] = impl; return impl; },
       render, reveal, suits,
-      types(){ return Object.keys(impls); }
+      types(){ return Object.keys(impls); },
+      /* What a form declares about itself, for anything presenting the set rather
+         than drawing one — the prompt lab lists the forms by asking, so a form
+         registered later appears there without the lab being edited. `games` is
+         null for "suits every board". */
+      info(type){
+        const impl = impls[type];
+        if(!impl) return null;
+        return { type, games: Array.isArray(impl.games) ? impl.games.slice() : null };
+      }
     };
   })();
 
@@ -443,6 +452,64 @@ window.HubKit = (function(){
       if(hit.length !== 1) return 0;          // the answer must be one of the chips
       chips.forEach(c => c.classList.add(c === hit[0] ? 'odd' : 'belongs'));
       return 620;
+    }
+  });
+
+  /* Word bridge. A chain of compounds with one link missing — `FIRE -> ___ -> SHOP`
+     is answered by `work`, because firework and workshop both exist. The links are
+     separated by `->` and exactly one of them is the blank.
+
+     It suits every board, which is rare and worth saying why: the answer is a
+     single ordinary word, so Blockbusters can key it by its initial and Race can
+     put it on a tile, and Millionaire's four options are candidate links rather
+     than a give-away — you still have to test each one against both neighbours.
+
+     The reveal is the point of the form: the answer lands, and then each pair
+     closes up into the compound it makes, so the class sees *why* it was that
+     word. Two compounds is what a bridge is; a chain with more slots would be a
+     different question and is declined rather than half-drawn. */
+  prompt.register('bridge', {
+    render(mount, item){
+      const text  = String((item && item.text) || '');
+      const links = text.split(/\s*->\s*/).map(s => s.trim()).filter(Boolean);
+      const slots = links.filter(l => /^_{2,}$/.test(l));
+      if(links.length < 3 || slots.length !== 1){ mount.textContent = text; return; }
+      const row = document.createElement('span');
+      row.className = 'prompt-bridge';
+      links.forEach((link, i)=>{
+        if(i){
+          const join = document.createElement('span');
+          join.className = 'prompt-join';
+          join.textContent = '+';
+          row.appendChild(join);
+        }
+        const box = document.createElement('span');
+        const blank = /^_{2,}$/.test(link);
+        box.className = 'prompt-link' + (blank ? ' blank' : '');
+        box.textContent = blank ? '?' : link;
+        row.appendChild(box);
+      });
+      mount.appendChild(row);
+    },
+    reveal(mount, item){
+      const row = mount.querySelector('.prompt-bridge');
+      const slot = row && row.querySelector('.prompt-link.blank');
+      const answer = String((item && item.answer) || '').trim();
+      if(!slot || !answer) return 0;
+      if(/\s/.test(answer) || answer.length > 20) return 0;   // a link is one word
+      slot.textContent = answer;
+      slot.classList.remove('blank');
+      slot.classList.add('filled');
+      /* Now say what it built: each neighbouring pair is a real compound, and
+         reading them out is the explanation the answer alone doesn't give. */
+      const words = [...row.querySelectorAll('.prompt-link')].map(b => b.textContent.trim());
+      const made = [];
+      for(let i = 1; i < words.length; i++) made.push((words[i-1] + words[i]).toLowerCase());
+      const out = document.createElement('span');
+      out.className = 'prompt-made';
+      out.textContent = made.join(' · ');
+      mount.appendChild(out);
+      return 760;
     }
   });
 

@@ -209,24 +209,34 @@ Kit.prompt.register('anagram', {
 });
 ```
 
-**Four forms are registered.** `gap` is inferred from `___`; the other three need an
-explicit `type:` on the item, because inferring them would silently re-type the items
-authored before they existed. Each parses what it needs out of the prompt, exactly as
-`gap` reads `___`, so **the item shape stays `{text, answer, type}` and adding a form
-touches no game and no content field** — only the authoring convention for its own
-prompts:
+**Six forms are registered.** `gap` is inferred from `___`; the rest need an explicit
+`type:` on the item, because inferring them would silently re-type the items authored
+before they existed. Each parses what it needs out of the prompt, exactly as `gap`
+reads `___`, so **the item shape stays `{text, answer, type}` and adding a form touches
+no game and no content field** — only the authoring convention for its own prompts:
 
 | Form | Author it like this | Suits | Reveal |
 |---|---|---|---|
 | `gap` | `"held in ___"` | all four | the answer drops into the blank |
 | `anagram` | `"Unscramble: the decision a jury delivers."` + `answer:"Verdict"` | jeopardy, blockbusters | the letters re-sort into the answer |
+| `scramble` | `"Word order:"` + a whole-sentence `answer` | jeopardy | the words re-sort into the sentence |
 | `oddoneout` | `"Which does NOT belong: verdict / jury / sabbatical"` | jeopardy, blockbusters | the odd chip lights, the rest stand down |
 | `errorfix` | `"You *must to* wear a helmet."` + `answer:"must"` | jeopardy, millionaire, race | the struck words swap for the answer |
+| `bridge` | `"FIRE -> ___ -> SHOP"` + `answer:"work"` | every board | the link lands, then the compounds it built are named |
 
 The separators are load-bearing: **`/` between odd-one-out candidates** (with an optional
-lead-in before a `:`), and **`*asterisks*` around the words to correct**. Get them wrong
-and the form declines to plain text rather than rendering nonsense — which is the
-intended failure, but it looks like "the type did nothing".
+lead-in before a `:`), **`*asterisks*` around the words to correct**, and **`->` between
+bridge links, exactly one of them `___`**. Get them wrong and the form declines to plain
+text rather than rendering nonsense — which is the intended failure, but it looks like
+"the type did nothing", and `render()` still hands back the type because the form *ran*.
+The tell is that a declining form leaves **no element children** — bare text — which is
+how the prompt lab tells the two apart.
+
+**`bridge` is the first form that suits every board**, and the reason is worth keeping:
+its answer is one ordinary word, so a hexagon can key it by its initial and a Race tile
+can hold it, while Millionaire's four options are candidate links you still have to test
+against *both* neighbours rather than a give-away. The reveal names the compounds
+(`firework · workshop`) because the answer alone doesn't explain itself.
 
 **Millionaire never gets an anagram** — its four options hand you the letters. Race never
 gets an odd-one-out — the board gives it away. That is what `games:[…]` is for, and the
@@ -595,6 +605,17 @@ straight away. Four rules paid for in advance:
 The `bench` suite drives all of it, including the hub as a board (start Jeopardy
 inside the frame, buzz from a bench phone, assert it reaches `#phone-bar`).
 
+**`prompt-lab.html` — the question forms, on their own, with a room.** A form could
+only ever be met by finding a bank item that happened to carry its type, which is
+why three of them sat at 4% of the content and a round could pass without meeting
+one. The lab **lists whatever `Kit.prompt` holds** (`types()` + the new `info(type)`,
+never a list kept in step by hand, so a form registered later appears for free),
+draws it at board size against the hub's own stylesheet, reveals it, and reports
+which of the three outcomes happened — drawn, *declined to plain text*, or no form
+at all. **Ask the room** puts the same question on the handsets as an everyone-types
+round and judges the replies with `Kit.answer.judge`, exactly as a game would. So a
+form can be tried before a single bank item is authored for it. `promptlab` suite.
+
 Current pages: **`connections.html`** — ESL Connections (find four groups of four;
 groups encode collocations/phrasal verbs/spelling/register; solving a group unlocks
 its mini-lesson). Classroom adaptation: teams on chips (click = turn, dblclick =
@@ -613,6 +634,21 @@ guess passes the turn and the vote moves with it; shared pool of four mistakes;
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Question forms have a rig now, and a sixth form to prove it.** `playground/
+  prompt-lab.html` lists every registered form, draws and reveals it at board size,
+  and pushes the same question to phones — see "The playground". It exists because
+  a form previously had nowhere to be seen: you had to find a bank item carrying
+  its type, which is the same reason density is the open problem. The menu asks
+  `Kit.prompt.types()`/`info()`, so **a form written next month appears in it
+  without the lab being touched**.
+  - **`bridge` is the new form** — `FIRE -> ___ -> SHOP` answered by `work` — and
+    the **first that suits every board**, because its answer is one ordinary word.
+    The reveal names the compounds it built, since the answer alone doesn't explain
+    itself. See the forms table for the authoring convention.
+  - **A form that declines is not a form that did nothing**, and `render()` cannot
+    tell you which happened — it returns the type whenever the form *ran*. The
+    absence of element children is the tell, and the lab reports it; that
+    distinction was a bug in the lab before it was a line in the docs.
 - **The room bench: the board and its phones on one screen.** `playground/
   phone-bench.html` now carries the **projected board too**, not just the
   handsets — because a phone dynamic can only be judged by what it does to the

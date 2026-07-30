@@ -1458,6 +1458,61 @@ async function testPromptTypes(browser){
         forms.errBad.before.errors === 0 && forms.errBad.after.ms === 0,
         JSON.stringify(forms.errBad.before));
 
+  /* Word bridge: a chain of compounds with one link missing. The only form so far
+     that suits every board — the answer is one ordinary word, so a hexagon can key
+     it by its initial and a Race tile can hold it, and Millionaire's four options
+     are candidates you still have to test against both neighbours. */
+  const br = await page.evaluate(() => {
+    const run = (item, game) => {
+      const el = document.createElement('div'); document.body.appendChild(el);
+      const drawn = window.HubKit.prompt.render(el, item, game);
+      const before = { drawn, links: el.querySelectorAll('.prompt-link').length,
+                       blanks: el.querySelectorAll('.prompt-link.blank').length,
+                       text: el.textContent };
+      const ms = window.HubKit.prompt.reveal(el, item);
+      const after = { ms, filled: el.querySelectorAll('.prompt-link.filled').length,
+                      made: (el.querySelector('.prompt-made')||{}).textContent || '',
+                      text: el.textContent };
+      el.remove();
+      return { before, after };
+    };
+    return {
+      ok:    run({ type:'bridge', text:'FIRE -> ___ -> SHOP', answer:'work' }, 'jeopardy'),
+      race:  run({ type:'bridge', text:'NEWS -> ___ -> WORM', answer:'paper' }, 'race'),
+      mill:  run({ type:'bridge', text:'SUN -> ___ -> LIGHT', answer:'day' }, 'millionaire'),
+      noSlot:run({ type:'bridge', text:'FIRE -> WORK -> SHOP', answer:'work' }, 'jeopardy'),
+      phrase:run({ type:'bridge', text:'FIRE -> ___ -> SHOP', answer:'hard work' }, 'jeopardy')
+    };
+  });
+  check('a bridge draws its links with the missing one blank',
+        br.ok.before.links === 3 && br.ok.before.blanks === 1 &&
+        br.ok.before.text.indexOf('work') === -1,
+        JSON.stringify(br.ok.before));
+  check('and reveal lands the answer in the gap',
+        br.ok.after.ms > 0 && br.ok.after.filled === 1, JSON.stringify(br.ok.after));
+  check('and says which compounds it built',
+        /firework/.test(br.ok.after.made) && /workshop/.test(br.ok.after.made), br.ok.after.made);
+  check('it suits every board, not a listed few',
+        br.race.before.links === 3 && br.mill.before.links === 3,
+        JSON.stringify({ race:br.race.before.links, mill:br.mill.before.links }));
+  check('a chain with nothing missing declines to plain text',
+        br.noSlot.before.links === 0 && br.noSlot.after.ms === 0,
+        JSON.stringify(br.noSlot.before));
+  check('and a link that is not one word declines the reveal',
+        br.phrase.after.ms === 0, JSON.stringify(br.phrase.after));
+
+  /* Anything presenting the set of forms — the prompt lab does — has to be able to
+     ask what they are rather than carrying a list that goes stale. */
+  const info = await page.evaluate(() => ({
+    bridge: window.HubKit.prompt.info('bridge'),
+    ana:    window.HubKit.prompt.info('anagram'),
+    none:   window.HubKit.prompt.info('nosuchform')
+  }));
+  check('a form describes the boards it suits, null meaning all',
+        info.bridge && info.bridge.games === null &&
+        info.ana && info.ana.games.indexOf('jeopardy') !== -1 && info.none === null,
+        JSON.stringify(info));
+
   /* Sentence scramble: the words of the answer, out of order. The form that tests
      word order, which is the one thing a gap fill structurally cannot ask. */
   const scr = await page.evaluate(() => {
@@ -4026,6 +4081,96 @@ async function testPlaygroundConnections(browser){
   await page.close();
 }
 
+/* ---- the prompt lab ----
+   The question forms had nowhere to be seen: a form could only be met by finding a
+   bank item that happened to carry its type, which is why three of them sat at 4%
+   of the content. The lab lists whatever the registry holds — never a list kept in
+   step by hand — draws it at board size, and puts the same question on phones. */
+async function testPromptLab(browser){
+  section('Playground: the prompt lab');
+  const page = await browser.newPage({ viewport:{ width:1280, height:900 } });
+  page.__errors = []; page.on('pageerror', e => page.__errors.push(String(e)));
+  await page.goto(BASE + '/playground/prompt-lab.html'); await page.waitForTimeout(800);
+
+  /* The menu is the registry asked, so a form registered later appears without the
+     lab being edited — the same discipline the fit and phone suites use on games. */
+  const listed = await page.locator('#form-pick option').allInnerTexts();
+  const registered = await page.evaluate(() => window.HubKit.prompt.types());
+  check('every registered form is in the menu',
+        registered.every(t => listed.some(l => l.indexOf(t) === 0)),
+        listed.join(' | ') + '  vs  ' + registered.join(','));
+  check('and a form registered after this page was written would be too',
+        await page.evaluate(() => {
+          window.HubKit.prompt.register('__labtest', { render(m){ m.textContent='x'; } });
+          const before = document.querySelectorAll('#form-pick option').length;
+          document.getElementById('form-pick').dispatchEvent(new Event('change'));
+          return window.HubKit.prompt.types().indexOf('__labtest') !== -1 && before > 0;
+        }));
+
+  await page.locator('#form-pick').selectOption('bridge'); await page.waitForTimeout(250);
+  check('picking a form draws its sample at board size',
+        await page.locator('#prompt-text .prompt-link').count() === 3);
+  check('and says which boards it suits',
+        /every board/i.test(await page.locator('#suits').innerText()),
+        await page.locator('#suits').innerText());
+  check('the answer is not on screen before it is revealed',
+        !/work/i.test(await page.locator('#prompt-text').innerText()),
+        await page.locator('#prompt-text').innerText());
+
+  await page.locator('#reveal-btn').click(); await page.waitForTimeout(300);
+  check('reveal lands the answer in the prompt',
+        await page.locator('#prompt-text .prompt-link.filled').count() === 1);
+  /* Exactly the rule every game follows: the separate answer line stands down when
+     the answer landed in the prompt itself, rather than showing the word twice. */
+  check('and the answer line stands down when the form managed it',
+        !(await page.locator('#answer-line').isVisible()));
+  check('the lab says how the form was drawn, not just that it was',
+        /bridge/.test(await page.locator('#meta-drawn').innerText()),
+        await page.locator('#meta-drawn').innerText());
+
+  /* A form that declines prints plain text — the intended failure, and on screen
+     it is indistinguishable from "the type did nothing", because `render` hands
+     back the type whenever the form *ran*. The lab has to tell the two apart. */
+  const labDecline = await page.evaluate(() => {
+    SAMPLES.push({ type:'bridge', text:'no chain in this one at all', answer:'x' });
+    renderItemPick();
+    const sel = document.getElementById('item-pick');
+    sel.value = String(sel.options.length - 1);
+    draw();
+    return { drawn: document.getElementById('meta-drawn').textContent,
+             kids: document.getElementById('prompt-text').children.length };
+  });
+  check('a form that declined is reported as declined, not as drawn',
+        /declined/i.test(labDecline.drawn) && labDecline.kids === 0,
+        JSON.stringify(labDecline));
+
+  // the same question, on the handsets, judged on the host as a game judges it
+  const chip = await page.locator('#room-chip').innerText();
+  const code = (chip.match(/CODE\s+(\d{5})/i)||[])[1];
+  check('the lab opens a room of its own', !!code, chip);
+  if(code){
+    const ph = await browser.newPage({ viewport:{ width:390, height:844 } });
+    ph.__errors = []; ph.on('pageerror', e => ph.__errors.push(String(e)));
+    await ph.goto(BASE + '/join.html?code=' + code + '&name=Ana&team=0&auto=1');
+    await ph.waitForTimeout(700);
+    await page.locator('#form-pick').selectOption('bridge'); await page.waitForTimeout(200);
+    await page.locator('#ask-btn').click(); await ph.waitForTimeout(700);
+    check('asking the room puts the question on the handset',
+          /FIRE/i.test(await ph.locator('#qtext').innerText()),
+          await ph.locator('#qtext').innerText());
+    await ph.fill('#reply', 'work');
+    await ph.locator('#send').click(); await page.waitForTimeout(700);
+    check('and the typed answer comes back judged, by name',
+          /ana/i.test(await page.locator('#reply-list').innerText()) &&
+          /right/.test(await page.locator('#reply-list').innerText()),
+          await page.locator('#reply-list').innerText());
+    check('phone had no errors', ph.__errors.length === 0, ph.__errors[0]);
+    await ph.close();
+  }
+  check('lab had no errors', page.__errors.length === 0, page.__errors[0]);
+  await page.close();
+}
+
 /* ---- the phone bench ----
    Simulated handsets for testing phone dynamics without a class: every "phone" is
    the real join.html in an iframe on the real relay, so nothing is mocked. The two
@@ -4697,7 +4842,8 @@ async function main(){
     reconnect: testRelayReconnect, phonebingo: testPhoneBingo,
     classic: testJeopardyClassic, joinbar: testJoinAlwaysThere,
     together: testJeopardyTogether, jclock: testAnswerClock,
-    playground: testPlaygroundConnections, bench: testPhoneBench
+    playground: testPlaygroundConnections, bench: testPhoneBench,
+    promptlab: testPromptLab
   };
   const toRun = onlyArg ? onlyArg.split(',').map(s => s.trim()).filter(k => suites[k])
                         : Object.keys(suites);

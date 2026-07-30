@@ -293,6 +293,30 @@ body.theme-gameshow .prompt-word{
 }
 body.theme-gameshow .prompt-word.landed{ background: var(--gold); color:#0a0d26; border-color: var(--gold); }
 
+/* word bridge: the chain of links with one blank, and the compounds it makes
+   appearing underneath on reveal — the answer alone doesn't explain itself */
+.prompt-bridge{ display:flex; flex-wrap:wrap; gap:0.3em; justify-content:center; align-items:center; }
+.prompt-link{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:2.2em; padding:0.18em 0.5em; border-radius:8px;
+  background: var(--cream); color: var(--navy); border:2px solid var(--blue);
+  font-weight:700; text-transform:uppercase; line-height:1.2;
+}
+.prompt-link.blank{ background: transparent; border-style:dashed; color: var(--blue); }
+.prompt-link.filled{ background: var(--yellow); border-color: var(--yellow); }
+.prompt-join{ color: var(--blue); font-weight:700; opacity:0.75; }
+.prompt-made{
+  display:block; margin-top:0.55em; font-size:0.72em; letter-spacing:0.04em;
+  text-transform:uppercase; color: var(--blue);
+}
+body.theme-gameshow .prompt-link{
+  background: rgba(255,255,255,0.07); color: var(--paper); border-color: rgba(255,255,255,0.28);
+}
+body.theme-gameshow .prompt-link.blank{ background:transparent; color: var(--glow); }
+body.theme-gameshow .prompt-link.filled{ background: var(--gold); color:#0a0d26; border-color: var(--gold); }
+body.theme-gameshow .prompt-join,
+body.theme-gameshow .prompt-made{ color: var(--glow); }
+
 /* odd one out: candidates as chips, the odd one lit and the rest standing down */
 .prompt-odd{ display:flex; flex-wrap:wrap; gap:0.45em; justify-content:center; }
 .prompt-chip{
