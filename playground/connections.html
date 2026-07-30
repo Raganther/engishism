@@ -327,7 +327,8 @@ function askPhones(){
   votes = {}; renderVotes();
   if(!host) return;
   if(gameOver || !remaining.length){ host.disarm(); return; }
-  host.arm('Your team is choosing: vote for ONE word that belongs in the group of four.', {
+  host.arm('Talk it over, then vote for ONE word you think is part of a group. '
+         + 'Votes light up the board — your teacher picks the four.', {
     mode:'vote', options: remaining.slice(), team: active
   });
 }

@@ -3966,6 +3966,17 @@ async function testPlaygroundConnections(browser){
     // the phone landed in the live vote round: 16 words to choose one from
     const opts = await p.locator('#opts button').count();
     check('the phone offers the sixteen words', opts === 16, String(opts));
+    /* Sixteen options do not fit a handset. The body never scrolls by design, so
+       the list has to scroll itself — without this the words past the fold were
+       simply unreachable, on real phones as much as on the bench. */
+    check('and the list scrolls rather than cutting off',
+          await p.evaluate(() => {
+            const o = document.getElementById('opts');
+            return getComputedStyle(o).overflowY === 'auto' && o.scrollHeight > 0;
+          }));
+    const lastWord = await p.locator('#opts button').last().innerText();
+    await p.locator('#opts button').last().scrollIntoViewIfNeeded();
+    check('the last word can be reached', await p.locator('#opts button').last().isVisible(), lastWord);
     await p.locator('#opts button', { hasText:/^decision$/i }).click();
     await page.waitForTimeout(600);
     check('the vote lands on the tile, advisory',

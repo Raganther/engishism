@@ -84,7 +84,11 @@
   /* the question the teacher is asking, pushed from the host — the back of the
      room can read its own phone even when it cannot read the board */
   .qtext{ font-size:1.15rem; line-height:1.4; margin:0 0 18px; color:#e8eefc; min-height:1.4em; }
-  .opts{ display:none; flex-direction:column; gap:10px; width:100%; }
+  /* The list scrolls within the screen: the body deliberately never scrolls (a
+     buzzer page in a thumb should not move), which cut a sixteen-option vote off
+     at the fold with no way to reach the rest. */
+  .opts{ display:none; flex-direction:column; gap:10px; width:100%;
+         max-height:52vh; overflow-y:auto; }
   .opts button{
     font: inherit; font-size:1.1rem; padding:16px; border-radius:12px; cursor:pointer;
     background:#16204f; color:#eaf0ff; border:2px solid rgba(255,255,255,0.22);
