@@ -653,11 +653,23 @@ written rather than at graduation. The procedure is
 
 Current pages: **`connections.html`** — ESL Connections (find four groups of four;
 groups encode collocations/phrasal verbs/spelling/register; solving a group unlocks
-its mini-lesson). Classroom adaptation: teams on chips (click = turn, dblclick =
-rename), the team on turn votes words from their phones (team-scoped vote, counts
-badge the tiles, top four glow), teacher locks in four tiles and submits; a wrong
-guess passes the turn and the vote moves with it; shared pool of four mistakes;
-`?p=N` pins a puzzle (tests use `?p=1`).
+its mini-lesson). `?p=N` pins a puzzle (tests use `?p=1`). **Two ways to play the
+same board**, picked from the toolbar — the first dynamic here to prove the
+playground's point, that one board can host several:
+- **Turns** — the team on turn votes one word each from their phones (team-scoped,
+  counts badge the tiles, top four glow), the teacher locks in four tiles and
+  submits; a wrong guess passes the turn and the vote moves with it; shared pool of
+  four mistakes.
+- **Race** — no turn: every team plays at once, and **a team's own four picks are
+  its guess**, so the teacher never re-enters them. Each phone holds up to four
+  words (`multi` on the arm) because a team of two could never assemble a group at
+  one vote each; a team's selection is the **union** of its players' picks, which
+  is what forces them to agree — six words up means dropping two. Both teams' picks
+  sit on the board at once in team colours, with a live `n/4` per team. A set of
+  exactly four is judged as soon as it settles (debounced, and remembered so a
+  wrong four is not re-judged until it changes); a wrong four costs nothing but the
+  time, because the race itself is the pressure. First team to a real group takes
+  it, scores it, and the words leave the board for everybody.
 
 ## Source material & specs
 - `material/empower-c1-unit-4/`, `material/empower-c1-unit-5/` — Cambridge Empower

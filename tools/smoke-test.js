@@ -4088,6 +4088,75 @@ async function testPlaygroundConnections(browser){
     await p.close();
   }
 
+  /* ---- race: both teams at once, and the board settles it ----
+     The other way the same board can be played. No turn, both teams' picks on the
+     projector at the same time, and a team's own four *is* its guess — the teacher
+     never re-enters it, which is the whole point of the mode. Each phone holds up
+     to four because a team of two could never assemble a group one vote each. */
+  const race = await browser.newPage({ viewport:{ width:1280, height:820 } });
+  race.__errors = []; race.on('pageerror', e => race.__errors.push(String(e)));
+  await race.goto(BASE + '/playground/connections.html?p=1'); await race.waitForTimeout(900);
+  await race.locator('#play-mode').selectOption('race'); await race.waitForTimeout(500);
+  const rcode = ((await race.locator('#room-chip').innerText()).match(/CODE\s+(\d{5})/i)||[])[1];
+  check('the race opens its own room', !!rcode, rcode || 'none');
+  check('and the turns-only controls stand down',
+        !(await race.locator('#status-row').isVisible()) &&
+        !(await race.locator('#controls-row').isVisible()));
+  if(rcode){
+    const join = async (name, team) => {
+      const ph = await browser.newPage({ viewport:{ width:390, height:844 } });
+      ph.__errors = []; ph.on('pageerror', e => ph.__errors.push(String(e)));
+      await ph.goto(BASE + '/join.html?code=' + rcode + '&name=' + name + '&team=' + team + '&auto=1');
+      await ph.waitForTimeout(800);
+      return ph;
+    };
+    const one = await join('Ana', 0), two = await join('Ben', 1);
+    check('every team is asked at once, not only the team on turn',
+          /choose 4/i.test(await two.locator('#state').innerText()),
+          await two.locator('#state').innerText());
+
+    await two.locator('#opts button', { hasText:/^homework$/ }).click();
+    await two.locator('#opts button', { hasText:/^laundry$/ }).click();
+    for (const w of ['decision','mistake','noise'])
+      await one.locator('#opts button', { hasText: new RegExp('^'+w+'$') }).click();
+    await race.waitForTimeout(700);
+    check('both teams\' picks show on the board at the same time',
+          await race.locator('#grid .tile[data-word="decision"] .pick-dot').count() === 1 &&
+          await race.locator('#grid .tile[data-word="laundry"] .pick-dot').count() === 1);
+    check('and each team is counted toward its four, by name',
+          /Team 1 3\/4/.test(await race.locator('#vote-text').innerText()) &&
+          /Team 2 2\/4/.test(await race.locator('#vote-text').innerText()),
+          await race.locator('#vote-text').innerText());
+    /* One phone holding four is a whole answer, which is what lets a small team
+       play — and tapping a held word again drops it. */
+    check('a phone can hold several words and drop one again',
+          await one.locator('#opts button.picked').count() === 3);
+    await one.locator('#opts button', { hasText:/^noise$/ }).click(); await race.waitForTimeout(400);
+    check('dropping one takes it off the board too',
+          await race.locator('#grid .tile[data-word="noise"] .pick-dot').count() === 0);
+    await one.locator('#opts button', { hasText:/^noise$/ }).click();
+
+    await one.locator('#opts button', { hasText:/^progress$/ }).click();
+    await race.waitForTimeout(1800);
+    check('completing a real group wins it for that team, with no teacher click',
+          await race.locator('.solved-group').count() === 1 &&
+          /Team 1/i.test(await race.locator('.solved-group .gname').innerText()),
+          await race.locator('.solved-group .gname').innerText());
+    check('the team scores it', (await race.locator('.team-chip .score').allInnerTexts()).join('/') === '1/0',
+          (await race.locator('.team-chip .score').allInnerTexts()).join('/'));
+    check('the won words leave the board for everybody',
+          await race.locator('#grid .tile').count() === 12,
+          String(await race.locator('#grid .tile').count()));
+    check('and a fresh round is armed on what is left',
+          await one.locator('#opts button').count() === 12,
+          String(await one.locator('#opts button').count()));
+    check('race phones had no errors', one.__errors.length === 0 && two.__errors.length === 0,
+          one.__errors[0] || two.__errors[0]);
+    await one.close(); await two.close();
+  }
+  check('the race board had no errors', race.__errors.length === 0, race.__errors[0]);
+  await race.close();
+
   // degradation: a dead relay leaves the page fully playable, teacher-only
   const solo = await browser.newPage({ viewport:{ width:1280, height:720 } });
   solo.__errors = []; solo.on('pageerror', e => solo.__errors.push(String(e)));

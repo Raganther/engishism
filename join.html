@@ -289,6 +289,10 @@
      type into. Only one is ever on screen. */
   let mode = 'buzz', answered = false, coolTimer = null, verdictUntil = 0;
   let canRethink = false, timeUp = false, roundTimer = null;
+  /* How many options this phone may hold at once, and which it is holding. One is
+     a vote; more is a *selection*, which is what a team assembling a group needs —
+     a team of two phones cannot build a four-word answer at one vote each. */
+  let maxPicks = 1, myPicks = [];
   // the state line, unless a verdict is still being read
   function say(text){ if(Date.now() > verdictUntil) $('state').textContent = text; }
   /* Some rounds belong to one team: Blockbusters asks the team on turn which
@@ -374,15 +378,27 @@
              this phone's choice instead of locking the handset — the relay keys
              replies by player, so the tally follows. Without it the first tap was
              final and there was nothing left to negotiate with. */
-          if(answered && !canRethink) return;
+          if(answered && !canRethink && maxPicks === 1) return;
           if(timeUp) return;
-          answered = true; blip();
-          [...box.children].forEach(x=>{
-            x.classList.toggle('picked', x===b);
-            if(!canRethink) x.disabled = true;
-          });
-          $('state').textContent = canRethink ? 'Tap another to change' : 'Answer sent';
-          client.respond(o);
+          blip();
+          if(maxPicks > 1){
+            // a selection: tap to add, tap again to drop, up to the cap
+            const at = myPicks.indexOf(o);
+            if(at !== -1) myPicks.splice(at, 1);
+            else if(myPicks.length < maxPicks) myPicks.push(o);
+            else { $('state').textContent = 'Drop one first — ' + maxPicks + ' is the most'; return; }
+          } else {
+            myPicks = [o];
+          }
+          answered = true;
+          paintPicks(box);
+          $('state').textContent = maxPicks > 1
+            ? myPicks.length + ' of ' + maxPicks + ' chosen'
+            : (canRethink ? 'Tap another to change' : 'Answer sent');
+          if(maxPicks === 1 && !canRethink) [...box.children].forEach(x=>{ x.disabled = true; });
+          /* One reply carrying the whole selection: the relay stores one value per
+             player, and what that value *means* is the host's business. */
+          client.respond(myPicks.join('|'));
         });
         box.appendChild(b);
       });
@@ -394,6 +410,14 @@
       setBuzzer('off','Type it');
       setTimeout(()=>{ try{ $('reply').focus(); }catch(e){} }, 60);
     }
+  }
+
+  /* Which of this phone's options are currently held. Kept as a function because
+     the picks come back from the relay on a rejoin as well as from a tap. */
+  function paintPicks(box){
+    [...(box || $('opts')).children].forEach(x=>{
+      x.classList.toggle('picked', myPicks.indexOf(x.textContent) !== -1);
+    });
   }
 
   /* In 'type' the button is dead until they have written something — the whole
@@ -598,6 +622,8 @@
       floorClockStop();          // a fresh floor retires whoever was on the clock
       canRethink = !!(d && d.rethink);
       timeUp = false;
+      maxPicks = Math.max(1, Number(d && d.multi) || 1);
+      myPicks = [];
       // the question has always been sent with the arm; it used to be thrown away
       $('qtext').textContent = (d && d.prompt) || '';
       const spent = (d && d.spent) || [];
@@ -632,16 +658,17 @@
          chose rather than a blank set of options. */
       if(d && d.yours && mode === 'vote'){
         answered = true;
-        [...$('opts').children].forEach(x=>{
-          x.classList.toggle('picked', x.textContent === d.yours);
-          if(!canRethink) x.disabled = true;
-        });
+        myPicks = String(d.yours).split('|').filter(Boolean);
+        paintPicks();
+        if(!canRethink) [...$('opts').children].forEach(x=>{ x.disabled = true; });
+        if(maxPicks > 1) say(myPicks.length + ' of ' + maxPicks + ' chosen');
       }
       if(mode==='buzz') setBuzzer('armed','Buzz');
       if(mode==='type')  syncTypeButton();
       if(mode==='card'){ cardBusy = false; renderCard(); }
       say(mode==='buzz' ? 'Go!'
-        : mode==='vote' ? (canRethink ? 'Tap to choose — you can change it' : 'Pick one')
+        : mode==='vote' ? (maxPicks > 1 ? 'Choose ' + maxPicks + ' — tap to add or drop'
+                          : canRethink ? 'Tap to choose — you can change it' : 'Pick one')
         : mode==='card' ? 'Tap the word'
         : mode==='type' ? 'Type it, then buzz' : 'Type your answer');
       if(navigator.vibrate) navigator.vibrate(40);

@@ -81,7 +81,7 @@ function getRoom(code, create){
     r = { host:null, players:new Map(), teams:[], armed:false, locked:null,
           mode:'buzz', prompt:'', options:[], team:null, responses:new Map(),
           spent:new Set(), cooling:new Map(), cards:new Map(), emptiedAt:0,
-          answerSecs:0, rethink:false, secs:0, armedAt:0 };
+          answerSecs:0, rethink:false, secs:0, armedAt:0, multi:1 };
     rooms.set(code, r);
   }
   return r;
@@ -163,7 +163,7 @@ function openStream(req, res, q){
     id, name, team, teams:room.teams, armed:room.armed, locked:lockedNow(room),
     mode:room.mode, prompt:room.prompt, options:room.options, turnTeam:room.team,
     spent:[...room.spent],
-    rethink: room.rethink, secs: secsLeft(room),
+    rethink: room.rethink, secs: secsLeft(room), multi: room.multi,
     /* what this phone already chose, so a reload comes back with its own vote
        showing rather than looking like it never answered */
     yours: (room.responses.get(id) || {}).value || null,
@@ -247,6 +247,12 @@ function handleSend(req, res){
            the first and the tally recomputes. `secs` is how long the round runs,
            counted from here so a late joiner can be told what is left. */
         room.rethink = !!msg.rethink;
+        /* How many options one phone may hold at once. 1 is a vote; more is a
+           *selection*, which is what a team racing to assemble a group needs —
+           a team of two phones cannot build a four-word answer one vote each.
+           The relay only carries it: what a multi-pick reply means is the host's
+           business, exactly as it never learns what an answer means. */
+        room.multi   = Math.max(1, Math.min(12, Number(msg.multi) || 1));
         room.secs    = Math.max(0, Math.min(900, Number(msg.secs) || 0));
         room.armedAt = Date.now();
         /* 'card' is a round where each phone answers off its own bingo card. It
@@ -280,6 +286,7 @@ function handleSend(req, res){
                                    turnTeam: room.team,
                                    spent: [...room.spent], reopen: !!msg.reopen,
                                    rethink: room.rethink, secs: room.secs,
+                                   multi: room.multi,
                                    cooling: [...room.cooling].map(([id,until])=>({ id, until })) });
         return sendJSON(res, 200, { ok:true });
       }
