@@ -145,8 +145,34 @@ window.HubSettings = (function(){
     defs.forEach(d=>listeners.forEach(fn=>{ try{ fn(d.id, values[d.id], null); }catch(e){} }));
   }
 
+  /* A ruleset picker can carry its bundles (`presets: {name: {id: value}}`), or a
+     game can attach them after the fact with describePresets — J_PRESETS is
+     defined further down hub-engine.js than the settings block, so the attachment
+     has to be able to arrive late. The panel uses it two ways: the picker is
+     hoisted into its own "Ruleset" section at the top of that game's view, and
+     every row a bundle touches says what the chosen ruleset sets it to. Advisory
+     only — a mode *writes* the switches, it never holds them, so the control
+     beside the note is always the truth. */
+  function describePresets(id, presets){ if(byId[id]) byId[id].presets = presets; }
+  function presetPickerFor(game){
+    return defs.find(d => d.presets && scoped(d) && gamesOf(d).indexOf(game) !== -1) || null;
+  }
+  function optionLabel(d, v){
+    const opts = d.type==='variant' ? (d.variants||[]) : (d.options||[]);
+    const o = opts.find(o => String(o.value) === String(v));
+    // labels here read "Classic — as the show plays it"; the note wants the name
+    return o ? String(o.label).split(' — ')[0] : String(v);
+  }
+  function displayValue(d, v){
+    if(d.type==='toggle' || typeof v === 'boolean') return v ? 'on' : 'off';
+    if(d.type==='select' || d.type==='variant') return optionLabel(d, v);
+    return String(v) + (d.unit || '');
+  }
+
   /* ---------- panel ---------- */
   let panel=null, body=null, tabsEl=null, activeTab='master';
+  const collapsed = new Set();   // groups folded shut, per session — not worth persisting
+  let forMount = null;           // the drawer's mount, so a change re-renders it too
 
   // every game any registered setting mentions, in first-registered order
   function gameTabs(){
@@ -273,6 +299,127 @@ window.HubSettings = (function(){
     return wrap;
   }
 
+  /* One row, wherever it is drawn — the panel's game tabs and the in-game drawer
+     are the same rows on purpose, so a control can never behave differently
+     depending on which door the teacher came through. `game` is null only on the
+     All games tab. */
+  function buildRow(d, game){
+    const row=document.createElement('div');
+    row.className='settings-row';
+
+    const text=document.createElement('div');
+    text.className='settings-text';
+    const lab=document.createElement('div');
+    lab.className='settings-label'; lab.textContent=d.label;
+    text.appendChild(lab);
+    if(d.help){
+      const hp=document.createElement('div');
+      hp.className='settings-help'; hp.textContent=d.help;
+      text.appendChild(hp);
+    }
+    /* What the chosen ruleset does to this row — why the value is what it is, and
+       what picking the mode again would write back. */
+    if(game && !d.presets){
+      const picker = presetPickerFor(game);
+      const bundle = picker && picker.presets[String(get(picker.id, game))];
+      if(bundle && (d.id in bundle)){
+        const pn=document.createElement('div');
+        pn.className='settings-preset-note';
+        pn.textContent = optionLabel(picker, get(picker.id, game)) +
+                         ' sets this to ' + displayValue(d, bundle[d.id]);
+        text.appendChild(pn);
+      }
+    }
+    // on a game's view, say plainly whether this game is following the default
+    if(game){
+      const state=document.createElement('div');
+      state.className='settings-state';
+      if(hasOverride(d.id, game)){
+        state.classList.add('overridden');
+        state.textContent='Set for this game · ';
+        const undo=document.createElement('button');
+        undo.type='button'; undo.className='settings-undo';
+        undo.textContent='match All games';
+        undo.addEventListener('click', ()=>{ clearOverride(d.id, game); render(); });
+        state.appendChild(undo);
+      } else {
+        state.textContent='Matching All games';
+      }
+      text.appendChild(state);
+    } else if(scoped(d)){
+      /* On the master tab, changing this value silently does nothing for a game
+         that already has its own — and there was no way to tell, which is
+         exactly the trap that cost a real debugging session: "All games" was
+         set to Off and the drone kept playing, because whichever game had been
+         played with the panel open (it opens on the current game's tab) had
+         quietly picked up its own value the first time a control was touched
+         there. Naming the game and linking straight to its tab turns that from
+         a silent mismatch into one click to fix. */
+      const overriding = gamesOf(d).filter(g => hasOverride(d.id, g));
+      if(overriding.length){
+        const state=document.createElement('div');
+        state.className='settings-state overridden';
+        state.appendChild(document.createTextNode(
+          (overriding.length === 1 ? 'Overridden in ' : overriding.length + ' games have their own value: ')));
+        overriding.forEach((g, i)=>{
+          if(i) state.appendChild(document.createTextNode(', '));
+          const jump=document.createElement('button');
+          jump.type='button'; jump.className='settings-undo';
+          jump.textContent=gameLabel(g);
+          jump.addEventListener('click', ()=>{ activeTab=g; render(); });
+          state.appendChild(jump);
+        });
+        text.appendChild(state);
+      }
+    }
+    row.appendChild(text);
+    row.appendChild(buildControl(d, game));
+    return row;
+  }
+
+  /* The groups, ordered by where the reader is standing. On a game's view the
+     ruleset leads, then the game's own switches, then the shared machinery; on
+     All games the shared groups lead. "Own" is derived, not named — a group is a
+     game's own when everything in it belongs to exactly one game — so a sixth
+     game's group sorts itself without appearing in any list here. Headers fold,
+     because thirty-nine rows is a wall whichever order they come in. */
+  const SHARED_GROUP_ORDER = ['Competition','Questions','Phones','Clue card','Presentation','Sound'];
+
+  function renderRows(mount, game, shown){
+    if(game){
+      const pickers = shown.filter(d => d.presets);
+      if(pickers.length){
+        const h=document.createElement('div');
+        h.className='settings-group settings-ruleset';
+        h.textContent='Ruleset';
+        mount.appendChild(h);
+        pickers.forEach(d => mount.appendChild(buildRow(d, game)));
+        shown = shown.filter(d => !d.presets);
+      }
+    }
+    const groups=[];
+    shown.forEach(d=>{ const g=d.group||'General'; if(!groups.includes(g)) groups.push(g); });
+    const isOwn = g => shown.filter(d=>(d.group||'General')===g).every(d => gamesOf(d).length===1);
+    const own = groups.filter(isOwn);
+    const shared = groups.filter(g => !own.includes(g))
+      .sort((a,b)=>{ const i=SHARED_GROUP_ORDER.indexOf(a), j=SHARED_GROUP_ORDER.indexOf(b);
+                     return (i===-1?99:i)-(j===-1?99:j); });
+    (game ? own.concat(shared) : shared.concat(own)).forEach(g=>{
+      const h=document.createElement('div');
+      h.className='settings-group foldable' + (collapsed.has(g)?' closed':'');
+      h.textContent=g;
+      const wrap=document.createElement('div');
+      wrap.className='settings-groupbody' + (collapsed.has(g)?' closed':'');
+      h.addEventListener('click', ()=>{
+        collapsed.has(g) ? collapsed.delete(g) : collapsed.add(g);
+        h.classList.toggle('closed'); wrap.classList.toggle('closed');
+      });
+      mount.appendChild(h);
+      shown.filter(d=>(d.group||'General')===g).forEach(d=> wrap.appendChild(buildRow(d, game)));
+      mount.appendChild(wrap);
+    });
+  }
+
   function renderBody(){
     body.innerHTML='';
     const game = activeTab==='master' ? null : activeTab;
@@ -285,114 +432,31 @@ window.HubSettings = (function(){
         ' only. Anything left alone follows the All games setting.';
       body.appendChild(intro);
     }
-
-    const groups=[];
-    shown.forEach(d=>{ if(!groups.includes(d.group||'General')) groups.push(d.group||'General'); });
-
-    groups.forEach(g=>{
-      const h=document.createElement('div');
-      h.className='settings-group'; h.textContent=g;
-      body.appendChild(h);
-
-      shown.filter(d=>(d.group||'General')===g).forEach(d=>{
-        const row=document.createElement('div');
-        row.className='settings-row';
-
-        const text=document.createElement('div');
-        text.className='settings-text';
-        const lab=document.createElement('div');
-        lab.className='settings-label'; lab.textContent=d.label;
-        text.appendChild(lab);
-        if(d.help){
-          const hp=document.createElement('div');
-          hp.className='settings-help'; hp.textContent=d.help;
-          text.appendChild(hp);
-        }
-        // on a game tab, say plainly whether this game is following the default
-        if(game){
-          const state=document.createElement('div');
-          state.className='settings-state';
-          if(hasOverride(d.id, game)){
-            state.classList.add('overridden');
-            state.textContent='Set for this game · ';
-            const undo=document.createElement('button');
-            undo.type='button'; undo.className='settings-undo';
-            undo.textContent='match All games';
-            undo.addEventListener('click', ()=>{ clearOverride(d.id, game); render(); });
-            state.appendChild(undo);
-          } else {
-            state.textContent='Matching All games';
-          }
-          text.appendChild(state);
-        } else if(scoped(d)){
-          /* On the master tab, changing this value silently does nothing for a game
-             that already has its own — and there was no way to tell, which is
-             exactly the trap that cost a real debugging session: "All games" was
-             set to Off and the drone kept playing, because whichever game had been
-             played with the panel open (it opens on the current game's tab) had
-             quietly picked up its own value the first time a control was touched
-             there. Naming the game and linking straight to its tab turns that from
-             a silent mismatch into one click to fix. */
-          const overriding = gamesOf(d).filter(g => hasOverride(d.id, g));
-          if(overriding.length){
-            const state=document.createElement('div');
-            state.className='settings-state overridden';
-            state.appendChild(document.createTextNode(
-              (overriding.length === 1 ? 'Overridden in ' : overriding.length + ' games have their own value: ')));
-            overriding.forEach((g, i)=>{
-              if(i) state.appendChild(document.createTextNode(', '));
-              const jump=document.createElement('button');
-              jump.type='button'; jump.className='settings-undo';
-              jump.textContent=gameLabel(g);
-              jump.addEventListener('click', ()=>{ activeTab=g; render(); });
-              state.appendChild(jump);
-            });
-            text.appendChild(state);
-          }
-        }
-        row.appendChild(text);
-        row.appendChild(buildControl(d, game));
-        body.appendChild(row);
-      });
-    });
+    renderRows(body, game, shown);
   }
 
-  function render(){ renderTabs(); renderBody(); }
+  function render(){
+    renderTabs(); renderBody();
+    // the drawer shows the same rows, so a change made anywhere repaints it too
+    if(forMount && forMount.mount && forMount.mount.isConnected)
+      renderInto(forMount.mount, forMount.game, forMount.opts);
+  }
 
-  /* Render one game's settings into any element — used by the in-game Lab drawer,
-     which deliberately shows *only* the game being played. The ⚙ panel exists to
-     see everything at once; this exists to change one thing mid-round without
+  /* Render one game's settings into any element — used by the in-game drawer,
+     which deliberately shows *only* the game being played. The full panel exists
+     to see everything at once; this exists to change one thing mid-round without
      hunting through tabs for other games' switches. */
   function renderFor(mount, game, opts){
+    forMount = { mount, game, opts };
+    renderInto(mount, game, opts);
+  }
+  function renderInto(mount, game, opts){
     if(!mount) return;
     const o = opts || {};
     mount.innerHTML = '';
     const shown = defs.filter(d => scoped(d) && gamesOf(d).indexOf(game) !== -1 &&
                                    (!o.groups || o.groups.indexOf(d.group || 'General') !== -1));
-    const groups = [];
-    shown.forEach(d => { const g = d.group || 'General'; if(!groups.includes(g)) groups.push(g); });
-    groups.forEach(g=>{
-      const h=document.createElement('div');
-      h.className='settings-group'; h.textContent=g;
-      mount.appendChild(h);
-      shown.filter(d => (d.group||'General') === g).forEach(d=>{
-        const row=document.createElement('div');
-        row.className='settings-row';
-        const text=document.createElement('div');
-        text.className='settings-text';
-        const lab=document.createElement('div');
-        lab.className='settings-label'; lab.textContent=d.label;
-        text.appendChild(lab);
-        if(d.help){
-          const hp=document.createElement('div');
-          hp.className='settings-help'; hp.textContent=d.help;
-          text.appendChild(hp);
-        }
-        row.appendChild(text);
-        row.appendChild(buildControl(d, game));
-        mount.appendChild(row);
-      });
-    });
+    renderRows(mount, game, shown);
     if(!shown.length){
       const none=document.createElement('p');
       none.className='settings-intro';
@@ -414,15 +478,17 @@ window.HubSettings = (function(){
 
   /* Adds the gear button to `container` and the panel to <body>. Called by the
      engine once its skeleton is in the DOM (the skeleton overwrites innerHTML,
-     so the button can't be created before that). */
-  function mount(container){
+     so the button can't be created before that). `onClick` lets the engine route
+     the button — during play it opens the docked drawer instead of the panel, so
+     there is one settings entrance whose form suits the moment. */
+  function mount(container, onClick){
     if(!panel) buildPanel();
     if(container && !container.querySelector('#settings-btn')){
       const btn=document.createElement('button');
       btn.id='settings-btn'; btn.type='button';
       btn.title='Settings'; btn.setAttribute('aria-label','Settings');
       btn.textContent='⚙';
-      btn.addEventListener('click', open);
+      btn.addEventListener('click', onClick || open);
       container.insertBefore(btn, container.firstChild);
     }
     document.addEventListener('keydown', e=>{
@@ -432,6 +498,6 @@ window.HubSettings = (function(){
 
   return {
     renderFor, register, get, set, clearOverride, hasOverride, onChange, variantsFor,
-           raw, drop, mount, open, close, resetAll, setContext,
+           raw, drop, mount, open, close, resetAll, setContext, describePresets,
            get storageAvailable(){ return storageOK; } };
 })();

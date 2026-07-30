@@ -482,13 +482,26 @@ falls back to memory for the session (the panel says so).
 definition in a closure — but anything looking *at* the panel does, and without it the
 only handle on a control is its label, which is prose.
 
-### The Lab: this game's switches, inside this game
-⚙ exists to see everything at once; the **Lab drawer** (`Lab` in the header, or `L`)
-exists to change one thing mid-round without hunting through other games' tabs. It is
-`S.renderFor(mount, game)` — the same rows the panel builds, filtered to one game — so a
-new setting appears in it by being registered, exactly as in the panel. A change made
-there is **an override for that game**, never the master, which is what makes trying an
-idea mid-round safe.
+### One gear, two forms: the panel and the drawer
+There is **one settings entrance** — ⚙ — and its form suits the moment: outside a
+game it opens the full panel (tabs: All games + one per game); **during play it
+opens the docked drawer** for the game being played (`L` also toggles it), whose
+"All games" button hands over to the full panel for the rare cross-game edit. The
+drawer is `S.renderFor(mount, game)` — the same `buildRow` the panel uses, filtered
+to one game — so a new setting appears in both by being registered, and a change
+made in the drawer is **an override for that game**, never the master, which is
+what makes trying an idea mid-round safe. There is no separate Lab button any more.
+
+**How a game's settings view is organised** (panel game tab and drawer alike):
+the **Ruleset** section leads (any picker registered with `presets`, or handed them
+via `S.describePresets(id, bundles)`), then the game's own groups, then the shared
+ones in a fixed order (Competition, Questions, Phones, Clue card, Presentation,
+Sound); on All games the shared groups lead instead. "Own" is derived — a group is
+a game's own when everything in it names exactly one game — so a sixth game's group
+sorts itself without being listed anywhere. Group headers fold (per session, not
+persisted). **Every row a ruleset bundle touches carries a note** — "Classic sets
+this to 10s" — advisory beside the control, which stays the truth; the mode writes
+switches, it never holds them.
 
 Three things it has to do, each of which was a bug first:
 - **Stop short of the header.** It holds every control a teacher reaches for *while* the
@@ -543,6 +556,20 @@ still missed.
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **One settings entrance, and the game view is organised.** The separate Lab
+  button is gone: ⚙ during play opens the docked drawer for the game being played
+  (`L` still toggles it; Escape closes it), everywhere else the full panel; the
+  drawer's "All games" button hands over to the panel for cross-game edits. Panel
+  game tabs and the drawer are now literally the same rows (`buildRow`), so a
+  control cannot behave differently depending on the door. Organisation: Ruleset
+  section first (pickers registered with `presets` / `S.describePresets`), then the
+  game's own groups, then shared groups in a fixed order; All games leads with the
+  shared groups instead; headers fold. Rows a ruleset bundle touches say what the
+  chosen mode set them to ("Classic sets this to 10s") — advisory, because a mode
+  writes switches rather than holding them. The two phone groups merged into one
+  `Phones` group. `lab` suite covers the routing, the handover, the ruleset
+  section, the notes and the folding; `scoping` pins the drawer-for-the-game
+  behaviour that replaced "⚙ opens on the current game's tab".
 - **Classic has an answer clock, started by the buzz.** `jAnswerSeconds` (Jeopardy
   group, 0 = off; the `classic` preset writes 10, `hub` and `together` write 0)
   gives the team on the floor that many seconds. Decisions worth keeping:
@@ -1086,12 +1113,12 @@ still missed.
   round's buzz to the team whose round it is, so a phone on the bench can't steal a
   word off someone else's score.
 - **Deployed.** Build `20260801e`; new `strip`, `bbteams` and `jointeams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
-- **The Lab drawer is how a dynamic gets tried.** `Lab` in the header (or `L`) opens
-  the game being played, and only that game, without leaving the board — see "The Lab"
-  above. It exists because prototyping was the bottleneck: comparing two ideas meant
-  ⚙ → find the right tab → change → close → restart, and by then the round was over.
-  Everything registered shows up in it for free, so the next dynamic is a `S.register`
-  call and nothing else.
+- **The settings drawer is how a dynamic gets tried.** ⚙ during play (or `L`) opens
+  the docked drawer for the game being played, without leaving the board — see "One
+  gear, two forms" above. It exists because prototyping was the bottleneck:
+  comparing two ideas meant ⚙ → find the right tab → change → close → restart, and
+  by then the round was over. Everything registered shows up in it for free, so the
+  next dynamic is a `S.register` call and nothing else.
 - **Works on a phone as well as a computer**, and both are enforced by the layout
   contract above rather than assumed — see "Screens: one layout contract". Jeopardy
   scrolls sideways on a handset with legible columns; Millionaire's ladder is a

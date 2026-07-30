@@ -519,12 +519,13 @@ body.lab-open .screen{ margin-right: min(92vw, 420px); }
   font-family:'Space Grotesk',sans-serif; font-weight:700; text-transform:uppercase;
   letter-spacing:0.04em; color:var(--yellow); font-size:1.05rem;
 }
-#lab-close{
+#lab-close, #lab-all{
   background:transparent; color:#cfe0ff; border:2px solid rgba(255,255,255,0.3);
   border-radius:8px; padding:7px 14px; cursor:pointer;
   font-family:'IBM Plex Mono',monospace; font-size:0.7rem; letter-spacing:0.05em; text-transform:uppercase;
 }
-#lab-close:hover{ border-color:var(--yellow); color:var(--yellow); }
+#lab-close:hover, #lab-all:hover{ border-color:var(--yellow); color:var(--yellow); }
+#lab-head > span{ display:flex; gap:8px; }
 #lab-body{ padding:4px 18px 12px; overflow-y:auto; flex:1; }
 #lab-body .settings-label{ color:#eaf0ff; }
 #lab-body .settings-help{ color:#8fa6c8; }
@@ -1359,6 +1360,24 @@ body.theme-gameshow #buzzer-chip .buzz-verdict{ background:rgba(255,200,61,0.18)
 .settings-undo:hover{ color:var(--navy); }
 #settings-body{ padding: 8px 26px 18px; overflow-y:auto; }
 .settings-group{ font-family:'IBM Plex Mono',monospace; font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--blue); margin:20px 0 8px; }
+/* Groups fold — a header is a real control, and the caret says which way it is. */
+.settings-group.foldable{ cursor:pointer; user-select:none; }
+.settings-group.foldable::after{ content:'▾'; margin-left:8px; display:inline-block; transition:transform .15s; }
+.settings-group.foldable.closed::after{ transform:rotate(-90deg); }
+.settings-groupbody.closed{ display:none; }
+@media (prefers-reduced-motion: reduce){ .settings-group.foldable::after{ transition:none; } }
+/* The ruleset section leads a game's settings and does not fold — it is the one
+   choice everything under it hangs off. */
+.settings-ruleset{ color:var(--navy); border-bottom:2px solid var(--yellow); padding-bottom:4px; }
+#lab-body .settings-ruleset{ color:var(--yellow); border-bottom-color:var(--yellow); }
+body.theme-gameshow .settings-ruleset{ color:var(--gold); border-bottom-color:var(--gold); }
+/* What the chosen ruleset sets a row to — advisory, the control is the truth. */
+.settings-preset-note{
+  font-family:'IBM Plex Mono',monospace; font-size:0.68rem; letter-spacing:0.03em;
+  color:#B8860B; margin-top:4px;
+}
+#lab-body .settings-preset-note{ color:var(--yellow); }
+body.theme-gameshow .settings-preset-note{ color:var(--gold); }
 .settings-row{ display:flex; align-items:center; gap:18px; justify-content:space-between; padding:12px 0; border-bottom:1px solid rgba(18,38,63,0.08); }
 .settings-row:last-child{ border-bottom:none; }
 .settings-label{ font-weight:600; color:var(--ink); font-size:0.98rem; }

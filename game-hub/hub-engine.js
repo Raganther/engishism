@@ -419,7 +419,7 @@
      choosing between a class that can buzz and a class that can vote, when the
      Millionaire round wants both at different moments. So the mode is what the
      phones do *for a question*, and the lifeline borrows the room. */
-  S.register({ id:'phoneMode', group:'Phones (prototype)', type:'variant', default:'off',
+  S.register({ id:'phoneMode', group:'Phones', type:'variant', default:'off',
     games:'*',
     label:'What the phones do',
     help:'Pick one dynamic to try. Switch between them between rounds and see which your class learns more from.',
@@ -441,22 +441,22 @@
   /* Two weights for the typing race, both here rather than in the source because
      the right numbers are a classroom question. A wrong answer costs *time*, never
      points — long enough to hurt, short enough that they stay in the round. */
-  S.register({ id:'typeCooldown', group:'Phones (prototype)', type:'range', default:3,
+  S.register({ id:'typeCooldown', group:'Phones', type:'range', default:3,
     min:0, max:10, step:0.5, unit:'s', games:'*',
     label:'Wait after a wrong answer',
     help:'How long that phone is out before it can buzz again. Nobody loses points; they lose the race.' });
 
-  S.register({ id:'typeStrict', group:'Phones (prototype)', type:'toggle', default:false,
+  S.register({ id:'typeStrict', group:'Phones', type:'toggle', default:false,
     games:'*',
     label:'Spelling has to be exact',
     help:'Off: a near miss takes the floor and the phone is told to check its spelling. On: only the exact word counts.' });
 
-  S.register({ id:'phoneOneEach', group:'Phones (prototype)', type:'toggle', default:true,
+  S.register({ id:'phoneOneEach', group:'Phones', type:'toggle', default:true,
     games:'*',
     label:'One answer each per question',
     help:'A student who has answered cannot answer again until the next question. Stops the fastest thumbs owning the game.' });
 
-  S.register({ id:'phonePrompt', group:'Phones (prototype)', type:'toggle', default:true,
+  S.register({ id:'phonePrompt', group:'Phones', type:'toggle', default:true,
     games:'*',
     label:'Show the question on the phones',
     help:'The back of the room reads its own screen. Off keeps their eyes on the board.' });
@@ -650,7 +650,7 @@
      between questions and hands it straight back, exactly like Ask the class. Making
      it a mode would mean a Blockbusters class could pick the hexagon or buzz on the
      clue, never both, when the round wants both at different moments. */
-  S.register({ id:'bbTeamVote', group:'Phones (prototype)', type:'toggle', default:true,
+  S.register({ id:'bbTeamVote', group:'Phones', type:'toggle', default:true,
     games:['blockbusters'],
     label:'The team picks its hexagon on their phones',
     help:'Adds a button that asks the team on turn which letter to attack. Their votes land beside the legend and the hexagons light up; you still click the one that plays. Works alongside whatever the phones are doing during a clue. Needs a room; with no phones the button stays hidden.' });
@@ -716,9 +716,9 @@
     label:'Confer time', help:'How long a team gets to consult when they use Confer.',
     options:[{value:30,label:'30 seconds'},{value:45,label:'45 seconds'},{value:60,label:'60 seconds'}] });
 
-  S.register({ id:'buzzers', group:'Phone buzzers', type:'toggle', default:false,
+  S.register({ id:'buzzers', group:'Phones', type:'toggle', default:false,
     label:'Phone buzzers', help:'Students join on their phones and buzz to win the right to answer. Needs a relay — this will not work from the GitHub Pages copy. See docs/buzzers.md.' });
-  S.register({ id:'buzzerRelay', group:'Phone buzzers', type:'text', default:'',
+  S.register({ id:'buzzerRelay', group:'Phones', type:'text', default:'',
     label:'Relay address', placeholder:'same site as this page',
     help:'Leave empty when the page is being served by the relay itself — which is the simplest setup. Otherwise the https address of a hosted relay.' });
 
@@ -924,7 +924,6 @@
           <button id="tmr-reset" title="Reset">↺</button>
           <button id="tmr-plus" title="+15 seconds">+</button>
         </div>
-        <button id="lab-btn" title="Tune this game (L)">Lab</button>
         <button id="new-game-btn">↺ New game</button>
       </div>
     </header>
@@ -1080,11 +1079,16 @@
       </div>
     </div>
 
-    <!-- Lab: the current game's controls, reachable without leaving the round -->
+    <!-- The docked form of settings: the current game's controls, reachable
+         without leaving the round. Same registry, same rows as the panel — this
+         is ⚙'s shape while a game is being played. -->
     <div id="lab-drawer">
       <div id="lab-head">
-        <span id="lab-title">Lab</span>
-        <button id="lab-close" type="button">Close</button>
+        <span id="lab-title">Settings</span>
+        <span>
+          <button id="lab-all" type="button">All games</button>
+          <button id="lab-close" type="button">Close</button>
+        </span>
       </div>
       <div id="lab-body"></div>
       <div id="lab-foot">Changes apply to this game only, and take effect on the next question.</div>
@@ -1224,7 +1228,6 @@
     document.getElementById(id).classList.add('active');
     hideResult();                       // a banner belongs to the round that raised it
     document.getElementById('new-game-btn').style.display = (id==='screen-play') ? 'inline-block' : 'none';
-    document.getElementById('lab-btn').style.display      = (id==='screen-play') ? 'inline-block' : 'none';
     if(id!=='screen-play') closeLab();
     document.getElementById('timer-widget').style.display = (id==='screen-play') ? 'flex' : 'none';
     // these boards size themselves around the team bar, so they don't need the body
@@ -1801,6 +1804,11 @@
                jTogether:true,  jHints:true, phoneMode:'write',
                stealOnWrong:false, stealFullValue:false, keepControl:false, jAnswerSeconds:0 }
   };
+  /* Hand the bundles to the panel: the picker gets its own "Ruleset" section at
+     the top of Jeopardy's settings, and every row a bundle touches says what the
+     chosen mode set it to — so a teacher can see which switches belong to the
+     mode without the mode owning them. */
+  S.describePresets('jRules', J_PRESETS);
   let jApplyingPreset = false;
   S.onChange(id => {
     if(id !== 'jRules' || jApplyingPreset) return;
@@ -4048,7 +4056,7 @@
   function openLab(){
     if(!activeGame) return;
     document.getElementById('lab-title').textContent =
-      (window.HUB_GAME_TITLES && window.HUB_GAME_TITLES[activeGame]) || 'Lab';
+      ((window.HUB_GAME_TITLES && window.HUB_GAME_TITLES[activeGame]) || 'Game') + ' settings';
     S.renderFor(document.getElementById('lab-body'), activeGame);
     fitLab();
     document.getElementById('lab-drawer').classList.add('on');
@@ -4062,9 +4070,11 @@
   }
   function labOpen(){ return document.getElementById('lab-drawer').classList.contains('on'); }
 
-  document.getElementById('lab-btn').addEventListener('click', ()=> labOpen() ? closeLab() : openLab());
   document.getElementById('lab-close').addEventListener('click', closeLab);
+  // the rare cross-game edit mid-round: the drawer hands over to the full panel
+  document.getElementById('lab-all').addEventListener('click', ()=>{ closeLab(); S.open(); });
   document.addEventListener('keydown', e=>{
+    if(e.key === 'Escape' && labOpen()){ closeLab(); return; }   // it is settings now
     if(e.key !== 'l' && e.key !== 'L') return;
     if(e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
     if(document.getElementById('screen-play').classList.contains('active')){
@@ -5573,7 +5583,17 @@
   /* ================= INIT ================= */
   document.querySelector('.eyebrow').textContent = 'Cambridge Empower C1 · Classroom games';
   document.getElementById('change-unit').style.display = (UNITS.length>1) ? 'inline-block' : 'none';
-  S.mount(document.querySelector('.header-right'));   // gear button + panel
+  /* One settings entrance, whose form suits the moment: mid-game the gear opens
+     the docked drawer for the game being played (the board gives up the width, so
+     a rule can be changed and the next question watched under it); everywhere
+     else it opens the full panel. The drawer's "All games" button reaches the
+     panel for the rare cross-game edit mid-round. */
+  S.mount(document.querySelector('.header-right'), ()=>{
+    const playing = activeGame &&
+      document.getElementById('screen-play').classList.contains('active');
+    if(playing){ labOpen() ? closeLab() : openLab(); }
+    else S.open();
+  });
   renderScorebar();   // team bar visible from the very first screen
 
   // settings that change what's already on screen take effect without a restart

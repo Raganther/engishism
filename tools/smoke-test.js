@@ -625,10 +625,15 @@ async function testPerGameSettings(browser){
   await page.evaluate(() => window.HubSettings.clearOverride('cardFlip', 'blockbusters'));
   check('clearing an override falls back to master', await read('blockbusters') === master);
 
-  // ⚙ opens on the tab for whatever is being played
+  // ⚙ during play opens the drawer for that game; the panel is one click further
   await startGame(page, 'Jeopardy', { sections:3 });
-  await page.locator('#settings-btn').click(); await page.waitForTimeout(250);
-  check('gear opens on the current game\'s tab',
+  await page.locator('#settings-btn').click(); await page.waitForTimeout(300);
+  check('gear during play opens the drawer for the game being played',
+        await page.locator('#lab-drawer.on').count() === 1 &&
+        /jeopardy/i.test(await page.locator('#lab-title').innerText()),
+        await page.locator('#lab-title').innerText());
+  await page.locator('#lab-all').click(); await page.waitForTimeout(250);
+  check('and its All games button lands the panel on that game\'s tab',
         /jeopardy/i.test(await page.locator('.settings-tab.on').innerText()));
   await page.locator('#settings-close').click();
 
@@ -2502,19 +2507,28 @@ async function testSettingsMigration(browser){
    per-game override rather than the master, and that it cannot be left open over
    a screen it does not belong to. */
 async function testLabDrawer(browser){
-  section('Lab drawer — per-game switches in the game');
+  section('Settings drawer — one gear, whose form suits the moment');
   const page = await openHub(browser);
   await page.evaluate(() => window.HubSettings.set('intro','off'));
 
-  check('no lab button before a game is chosen',
-        await page.locator('#lab-btn').isVisible() === false);
+  /* One entrance. Before a game the gear is the full panel; during play it is the
+     docked drawer for the game being played — same registry, same rows. The
+     separate Lab button is gone. */
+  check('there is no separate Lab button any more',
+        await page.locator('#lab-btn').count() === 0);
+  await page.locator('#settings-btn').click(); await page.waitForTimeout(250);
+  check('before a game, the gear opens the full panel',
+        await page.locator('#settings-modal').isVisible() &&
+        await page.locator('#lab-drawer.on').count() === 0);
+  await page.keyboard.press('Escape'); await page.waitForTimeout(150);
 
   await startGame(page, 'Race to the Board', { sections:'all' });
   await page.waitForTimeout(400);
-  check('the lab button is there while playing', await page.locator('#lab-btn').isVisible());
 
-  await page.locator('#lab-btn').click(); await page.waitForTimeout(300);
-  check('it opens', await page.locator('#lab-drawer.on').count() === 1);
+  await page.locator('#settings-btn').click(); await page.waitForTimeout(300);
+  check('during play, the same gear opens the docked drawer',
+        await page.locator('#lab-drawer.on').count() === 1 &&
+        !(await page.locator('#settings-modal').isVisible()));
   check('titled with the game being played',
         /race to the board/i.test(await page.locator('#lab-title').innerText()),
         await page.locator('#lab-title').innerText());
@@ -2578,11 +2592,56 @@ async function testLabDrawer(browser){
   await page.keyboard.press('l'); await page.waitForTimeout(250);
   check('and opens it again', await page.locator('#lab-drawer.on').count() === 1);
 
+  /* The rare cross-game edit mid-round: the drawer hands over to the full panel,
+     already on this game's tab. */
+  await page.locator('#lab-all').click(); await page.waitForTimeout(250);
+  check('"All games" hands over to the full panel',
+        await page.locator('#settings-modal').isVisible() &&
+        await page.locator('#lab-drawer.on').count() === 0);
+  check('landing on the tab for the game being played',
+        /race/i.test(await page.locator('.settings-tab.on').innerText()),
+        await page.locator('.settings-tab.on').innerText());
+  await page.keyboard.press('Escape'); await page.waitForTimeout(150);
+
   /* Leaving the board must take the drawer with it — a panel about Race hanging
      over the game-select screen is a bug the user would meet immediately. */
+  await page.keyboard.press('l'); await page.waitForTimeout(250);
   await page.locator('#new-game-btn').click(); await page.waitForTimeout(400);
   check('leaving the play screen closes it', await page.locator('#lab-drawer.on').count() === 0);
-  check('and the button goes with it', await page.locator('#lab-btn').isVisible() === false);
+
+  /* The ruleset leads a game's settings, and every row a bundle touches says what
+     the chosen mode set it to — advisory beside the control, which stays the
+     truth. Checked on Jeopardy, the game that has a ruleset. */
+  const rules = await page.evaluate(() => {
+    window.HubSettings.set('jRules','classic','jeopardy');
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    window.HubSettings.renderFor(host, 'jeopardy');
+    const out = {
+      first:  (host.querySelector('.settings-group')||{textContent:''}).textContent,
+      note10: /Classic sets this to 10s/.test(host.textContent),
+      noteOn: /Classic sets this to on/.test(host.textContent)
+    };
+    host.remove();
+    window.HubSettings.set('jRules','hub','jeopardy');
+    return out;
+  });
+  check('the ruleset section leads the game view', rules.first === 'Ruleset', rules.first);
+  check('and rows the ruleset governs say what it set them to',
+        rules.note10 && rules.noteOn, JSON.stringify(rules));
+
+  /* Folding: a group header closes its rows and opens them again. */
+  await page.locator('#settings-btn').click(); await page.waitForTimeout(250);
+  const firstFold = page.locator('#settings-body .settings-group.foldable').first();
+  const bodySel = '#settings-body .settings-groupbody';
+  const openBodies = await page.locator(bodySel + ':not(.closed)').count();
+  await firstFold.click(); await page.waitForTimeout(150);
+  check('a group header folds its rows away',
+        await page.locator(bodySel + ':not(.closed)').count() === openBodies - 1);
+  await firstFold.click(); await page.waitForTimeout(150);
+  check('and unfolds them again',
+        await page.locator(bodySel + ':not(.closed)').count() === openBodies);
+  await page.keyboard.press('Escape');
 
   await page.evaluate(() => window.HubSettings.clearOverride('phoneMode','race'));
   checkClean(page);
