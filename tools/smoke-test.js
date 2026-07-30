@@ -4341,6 +4341,24 @@ async function testPhoneBench(browser){
         await board.locator('#grid .tile[data-word="'+word.toLowerCase()+'"] .votes').innerText() === '1',
         word);
 
+  /* ---- the board can change room under the phones ----
+     A playground board mints a fresh code every time it loads, so pressing "Open
+     board" again — or the page reloading — left every racked phone in a room
+     nobody was hosting: connected, showing a room number, and deaf to the board
+     beside it. Reported as "the game no longer interacts with the phones", and
+     the tell was the phone's room number differing from the board's. */
+  const roomBefore = await solo.locator('#code').inputValue();
+  await solo.locator('#board-open').click(); await solo.waitForTimeout(2500);
+  const roomAfter = await solo.locator('#code').inputValue();
+  check('re-opening the board mints a new room', roomAfter !== roomBefore,
+        roomBefore + ' → ' + roomAfter);
+  const phoneRoom = await solo.frameLocator('.phone iframe').first().locator('#room').innerText();
+  check('and the racked phone follows the board into it',
+        phoneRoom.replace(/\D/g,'') === roomAfter, phoneRoom + ' vs ' + roomAfter);
+  check('so the board counts it again',
+        /1 in/.test(await solo.frameLocator('#stage-frame').locator('#room-chip').innerText()),
+        await solo.frameLocator('#stage-frame').locator('#room-chip').innerText());
+
   check('the whole-room bench had no errors', solo.__errors.length === 0, solo.__errors[0]);
   await solo.close();
 

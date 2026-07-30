@@ -181,9 +181,29 @@ function pollBoard(){
   if(host && host.code && $('code').value.trim() !== String(host.code)){
     $('code').value = String(host.code);
     loadTeams(true);
+    /* And take the phones with it. A board mints a fresh room every time it
+       loads — pressing "Open board" again, or a playground page reloading — so
+       phones racked against the previous one were left in a room nobody was
+       hosting: still connected, still showing a room number, and deaf to a board
+       sitting right beside them. Re-pointing an iframe is a deliberate rejoin,
+       which is a different thing from the incidental reload that re-parenting
+       causes and that the rack is built to avoid. */
+    repointPhones();
   }
 }
 setInterval(pollBoard, 1000);
+
+/* Send every racked phone into whatever room the code box now names, keeping its
+   name and team so the rack reads the same before and after. */
+function repointPhones(){
+  if(!phones.length) return;
+  phones.forEach(p=>{
+    const frame = p.el.querySelector('iframe');
+    const want = joinSrc(p.name, p.team);
+    if(frame && frame.getAttribute('src') !== want) frame.setAttribute('src', want);
+  });
+  setStatus(phones.length + ' phone' + (phones.length===1?'':'s') + ' moved to room ' + $('code').value.trim());
+}
 
 $('board-pick').addEventListener('change', ()=>{
   $('board-url').style.display = $('board-pick').value === 'custom' ? '' : 'none';
@@ -212,7 +232,8 @@ function loadTeams(force){
     .catch(()=> setStatus('can’t reach the relay — is the board open?'));
 }
 setInterval(()=> loadTeams(true), 4000);
-$('code').addEventListener('input', ()=> loadTeams());
+// typing a code by hand moves the phones too, for the same reason
+$('code').addEventListener('input', ()=>{ loadTeams(); repointPhones(); });
 
 function setStatus(t){ $('status').textContent = t; }
 

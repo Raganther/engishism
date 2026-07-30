@@ -602,6 +602,13 @@ straight away. Four rules paid for in advance:
 - **The board renders at a projector's logical width (1280) and is scaled to fit**,
   never past 1:1 — a board re-fitting itself to a 500px pane is not the board under
   test, and an upscaled one shows a size no room renders at.
+- **The phones follow the board's room.** A playground board mints a fresh code
+  every time it loads, so re-opening the board left every racked phone in a room
+  nobody was hosting — connected, showing a room number, and deaf to the board
+  beside it. Reported as "Connections no longer interacts with the phones", and
+  the tell was the phone's room number differing from the board's, exactly as
+  `phone-debug` says. Re-pointing an iframe is a *deliberate* rejoin, which is a
+  different thing from the incidental reload that re-parenting causes.
 - **The stage re-fits on a `ResizeObserver`, not on window resize.** The pane
   narrows when a phone is added, which is not a window resize — without it the board
   kept the scale it opened with and was **clipped 115px off its right edge** the
