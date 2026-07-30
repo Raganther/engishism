@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connections — Engishism Playground</title>
+<style>
+  /* Playground page: deliberately NOT the hub skin. This is a sandbox for the
+     game's dynamic — if it graduates, it gets the hub's chrome for free. */
+  :root{
+    --bg:#fafaf8; --text:#121212; --muted:#6b6b6b; --border:#d4d4cc;
+    --tile-bg:#efefe6; --tile-text:#121212;
+    --tile-selected-bg:#5a594e; --tile-selected-text:#fff;
+    --g0:#f9df6d; --g1:#a0c35a; --g2:#b0c4ef; --g3:#ba81c5;
+    --btn-bg:#fff; --btn-border:#121212; --accent:#00A0DF;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display:flex; justify-content:center; min-height:100vh;
+  }
+  .app{ width:100%; max-width:980px; padding:16px; }
+
+  header{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  h1{ font-size:1.6rem; margin:8px 0 2px; }
+  h1 small{ color:var(--muted); font-weight:400; font-size:0.9rem; }
+  .toolbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  select, .toolbar button{
+    font:inherit; font-size:0.85rem; padding:6px 12px; border-radius:999px;
+    border:1px solid var(--border); background:var(--btn-bg); color:var(--text); cursor:pointer;
+  }
+
+  /* teams: score chips, click = whose turn it is; the turn also rotates itself */
+  .teams{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:10px 0 4px; }
+  .team-chip{
+    font:inherit; font-weight:700; font-size:0.95rem; padding:8px 14px; border-radius:999px;
+    border:2px solid var(--border); background:var(--btn-bg); cursor:pointer;
+  }
+  .team-chip.active{ border-color:var(--accent); background:var(--accent); color:#fff; }
+  .team-chip .score{ font-weight:400; opacity:0.85; margin-left:6px; }
+  #add-team{ font:inherit; font-size:0.85rem; padding:8px 12px; border-radius:999px;
+             border:1px dashed var(--border); background:none; cursor:pointer; color:var(--muted); }
+
+  /* the room: code on the right, tap for the join panel */
+  #room-chip{
+    font-family:ui-monospace, monospace; font-size:0.85rem; padding:8px 14px;
+    border-radius:999px; border:1px solid var(--border); background:var(--btn-bg);
+    cursor:pointer; color:var(--muted);
+  }
+  #room-chip b{ color:var(--text); letter-spacing:0.15em; }
+  #join-panel{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55);
+    align-items:center; justify-content:center; z-index:50;
+  }
+  #join-panel.on{ display:flex; }
+  #join-card{
+    background:#fff; color:#121212; border-radius:16px; padding:28px 34px; text-align:center;
+    max-width:520px;
+  }
+  #join-card .code{ font-family:ui-monospace,monospace; font-size:3rem; letter-spacing:0.3em; font-weight:700; }
+  #join-card .url{ font-family:ui-monospace,monospace; color:#555; margin:6px 0 14px; }
+  #join-card svg{ width:min(46vh, 300px); height:auto; }
+
+  .instructions{ color:var(--muted); font-size:0.95rem; margin:6px 0 12px; }
+  #vote-line{ min-height:1.3em; font-size:0.95rem; color:var(--accent); font-weight:600; margin:0 0 8px; }
+
+  .solved-area{ display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
+  .solved-group{ border-radius:10px; padding:10px 14px; text-align:center; color:#121212; animation:pop 0.35s ease; }
+  @keyframes pop{ 0%{ transform:scale(0.92); opacity:0.3; } 100%{ transform:scale(1); opacity:1; } }
+  .solved-group .gname{ font-weight:800; text-transform:uppercase; font-size:1.15rem; letter-spacing:0.03em; }
+  .solved-group .gwords{ font-size:1.1rem; margin-top:2px; }
+  .solved-group .gnote{ font-size:1rem; margin-top:6px; padding-top:6px;
+                        border-top:1px solid rgba(0,0,0,0.18); font-style:italic; }
+  .diff-0{ background:var(--g0); } .diff-1{ background:var(--g1); }
+  .diff-2{ background:var(--g2); } .diff-3{ background:var(--g3); }
+  .revealed{ opacity:0.85; outline:2px dashed rgba(0,0,0,0.3); }
+
+  .grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
+  .tile{
+    position:relative; border:none; border-radius:10px; background:var(--tile-bg); color:var(--tile-text);
+    font-weight:700; text-transform:uppercase; font-size:clamp(0.9rem, 1.8vw, 1.4rem);
+    padding:0 4px; height:clamp(64px, 11vh, 96px); cursor:pointer; font-family:inherit;
+    transition:transform 0.08s ease; overflow-wrap:anywhere;
+  }
+  .tile:active{ transform:scale(0.95); }
+  .tile.selected{ background:var(--tile-selected-bg); color:var(--tile-selected-text); }
+  .tile.shake{ animation:shake 0.35s ease; }
+  @keyframes shake{ 0%,100%{ transform:translateX(0); } 25%{ transform:translateX(-5px); } 75%{ transform:translateX(5px); } }
+  /* the team's votes land on the tiles — advisory, the teacher still clicks */
+  .tile .votes{
+    position:absolute; top:6px; right:8px; min-width:22px; padding:2px 6px; border-radius:999px;
+    background:var(--accent); color:#fff; font-size:0.75rem; font-weight:700;
+  }
+  .tile.hot{ box-shadow:0 0 0 3px var(--accent); }
+
+  .status{ display:flex; justify-content:center; align-items:center; gap:8px; margin:14px 0 4px; font-size:1.05rem; }
+  .dots{ display:inline-flex; gap:5px; }
+  .dot{ width:14px; height:14px; border-radius:50%; background:var(--tile-selected-bg); display:inline-block; }
+  .dot.spent{ background:transparent; border:1.5px solid var(--border); }
+  .message{ text-align:center; min-height:1.4em; font-weight:600; margin:6px 0; font-size:1.2rem; }
+
+  .controls{ display:flex; justify-content:center; gap:10px; margin-top:10px; flex-wrap:wrap; }
+  .controls button{
+    font:inherit; font-weight:600; font-size:1rem; padding:12px 22px; border-radius:999px;
+    cursor:pointer; background:var(--btn-bg); color:var(--text); border:1px solid var(--btn-border);
+  }
+  .controls button.primary{ background:var(--text); color:var(--bg); border-color:var(--text); }
+  .controls button:disabled{ opacity:0.35; cursor:default; }
+
+  footer{ text-align:center; color:var(--muted); font-size:0.8rem; margin:24px 0 8px; }
+  footer a{ color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>Connections <small>· playground</small></h1>
+    </div>
+    <div class="toolbar">
+      <select id="puzzle-select" aria-label="Choose puzzle"></select>
+      <button id="shuffle-btn">Shuffle</button>
+      <button id="restart-btn">Restart</button>
+      <span id="room-chip">phones off</span>
+    </div>
+  </header>
+
+  <div class="teams" id="teams"></div>
+  <p class="instructions">Find four groups of four connected words. The team on turn talks it over —
+     their phones vote on the words — then the teacher locks in four tiles and submits.
+     A wrong guess passes the turn. Solve a group to unlock its mini-lesson.</p>
+  <p id="vote-line"></p>
+
+  <div class="solved-area" id="solved-area"></div>
+  <div class="grid" id="grid"></div>
+
+  <div class="status">
+    <span>Mistakes remaining:</span>
+    <span class="dots" id="dots"></span>
+  </div>
+  <div class="message" id="message"></div>
+
+  <div class="controls">
+    <button id="deselect-btn">Deselect</button>
+    <button id="submit-btn" class="primary" disabled>Submit</button>
+  </div>
+
+  <footer>Engishism playground — a sandbox for game dynamics. Puzzles are editable at the top of this file.
+    · <a href="../index.html">back to the hub</a></footer>
+</div>
+
+<div id="join-panel">
+  <div id="join-card">
+    <div class="code" id="join-code"></div>
+    <div class="url" id="join-url"></div>
+    <div id="join-qr"></div>
+    <div id="join-count" style="margin-top:10px; color:#555;"></div>
+  </div>
+</div>
+
+<script src="../game-hub/hub-buzzer.js?v=20260801n"></script>
+<script src="../game-hub/hub-qr.js?v=20260801n"></script>
+<script>
+'use strict';
+/* ================= PUZZLES — edit or add puzzles here =================
+   Each puzzle: title, level, groups[4], easiest (0, yellow) to hardest (3, purple).
+   Every group: name (shown when solved), words[4], note (the mini-lesson).
+   All 16 words in a puzzle must be different.
+   Carried over from the Learning-games prototype, unchanged. */
+const PUZZLES = [
+  {
+    title: "Collocations: make, do, take, have",
+    level: "B1",
+    groups: [
+      { name: "MAKE a/some ___", words: ["decision", "mistake", "noise", "progress"],
+        note: "We MAKE decisions, mistakes, noise and progress. “Do a mistake” is a classic error — it's always “make a mistake”." },
+      { name: "DO the/your ___", words: ["homework", "laundry", "dishes", "exercise"],
+        note: "DO goes with work and chores: do your homework, do the laundry, do the dishes, do exercise." },
+      { name: "TAKE a ___", words: ["break", "photo", "risk", "nap"],
+        note: "TAKE a break, take a photo, take a risk, take a nap. In British English you can also “have a break” — that was the trap!" },
+      { name: "HAVE (a) ___", words: ["fun", "breakfast", "headache", "party"],
+        note: "HAVE goes with meals, experiences and states: have fun, have breakfast, have a headache, have a party." }
+    ]
+  },
+  {
+    title: "Phrasal verbs: which particle?",
+    level: "B1–B2",
+    groups: [
+      { name: "___ + UP", words: ["grow", "wake", "hurry", "dress"],
+        note: "Grow up (become an adult), wake up, hurry up, dress up (wear special clothes)." },
+      { name: "___ + OUT", words: ["find", "figure", "hang", "work"],
+        note: "Find out = discover. Figure out = solve/understand. Hang out = spend time. Work out = exercise, or find a solution." },
+      { name: "___ + OFF", words: ["take", "turn", "show", "set"],
+        note: "Take off (a plane leaves the ground; remove clothes), turn off, show off (= boast), set off (= start a journey)." },
+      { name: "___ + ON", words: ["try", "put", "rely", "insist"],
+        note: "Try on and put on for clothes. Rely on and insist on always need ON — they are verb + preposition pairs. (Yes, “put off” and “put out” exist too — that was the trap.)" }
+    ]
+  },
+  {
+    title: "Irregular past tense patterns",
+    level: "A2–B1",
+    groups: [
+      { name: "Past is the same word", words: ["cut", "put", "cost", "hit"],
+        note: "These never change: Yesterday I cut, I put, it cost, she hit. No -ed, no new form." },
+      { name: "Past ends in -OUGHT / -AUGHT", words: ["buy", "think", "catch", "teach"],
+        note: "Buy → bought, think → thought, catch → caught, teach → taught. Same sound, two spellings." },
+      { name: "I changes to A", words: ["begin", "drink", "sing", "swim"],
+        note: "Begin → began, drink → drank, sing → sang, swim → swam. (And the third form uses U: begun, drunk, sung, swum.)" },
+      { name: "Past ends in -EW", words: ["grow", "know", "fly", "throw"],
+        note: "Grow → grew, know → knew, fly → flew, throw → threw." }
+    ]
+  },
+  {
+    title: "Silent letters",
+    level: "B1",
+    groups: [
+      { name: "Silent K", words: ["knee", "knife", "know", "knock"],
+        note: "KN- at the start of a word: the K is always silent. Say /n/: knee, knife, know, knock." },
+      { name: "Silent L", words: ["half", "walk", "talk", "calm"],
+        note: "The L disappears: half /hɑːf/, walk /wɔːk/, talk /tɔːk/, calm /kɑːm/." },
+      { name: "Silent B", words: ["climb", "thumb", "comb", "doubt"],
+        note: "B is silent after M at the end (climb, thumb, comb) and in doubt /daʊt/." },
+      { name: "Silent H", words: ["hour", "honest", "ghost", "heir"],
+        note: "Hour and honest start with a vowel sound — so it's “an hour”, “an honest person”. Ghost and heir hide their H too." }
+    ]
+  },
+  {
+    title: "Formal or informal?",
+    level: "B2",
+    groups: [
+      { name: "Informal words for people", words: ["guy", "kid", "mate", "folks"],
+        note: "Casual conversation only: guy = man, kid = child, mate = friend (British), folks = people/parents." },
+      { name: "Formal verbs", words: ["purchase", "assist", "depart", "require"],
+        note: "The formal versions of buy, help, leave and need. Use them in writing and announcements — not with friends." },
+      { name: "Formal linking adverbs", words: ["furthermore", "nevertheless", "therefore", "consequently"],
+        note: "Essay connectors: furthermore adds, nevertheless contrasts, therefore and consequently give results." },
+      { name: "Spoken discourse markers", words: ["anyway", "well", "actually", "right"],
+        note: "The small words that organise real conversation: “Well…”, “Anyway…”, “Actually…”, “Right, let's start.”" }
+    ]
+  }
+];
+/* ================= end of puzzles ================= */
+
+const MAX_MISTAKES = 4;
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+
+/* ---------------- game state ---------------- */
+let puzzleIndex = 0;
+let wordToGroup = {};
+let remaining = [];
+let selected = [];
+let solvedGroups = [];   // [{diff, team}] in solve order
+let mistakes = 0;
+let pastGuesses = [];
+let gameOver = false;
+
+/* ---------------- teams ---------------- */
+/* The teams live on this page, not in the hub — the playground is standalone.
+   Click a chip to hand the turn over; a wrong guess rotates it automatically. */
+let teams = [{ name:'Team 1', score:0 }, { name:'Team 2', score:0 }];
+let active = 0;
+
+function renderTeams(){
+  const bar = $('teams'); bar.innerHTML = '';
+  teams.forEach((t, i)=>{
+    const b = document.createElement('button');
+    b.className = 'team-chip' + (i===active ? ' active' : '');
+    b.innerHTML = '<span class="tname"></span><span class="score"></span>';
+    b.querySelector('.tname').textContent = t.name;
+    b.querySelector('.score').textContent = t.score;
+    b.title = 'Click: their turn · double-click: rename';
+    b.addEventListener('click', ()=> setTurn(i));
+    b.addEventListener('dblclick', ()=>{
+      const n = prompt('Team name', t.name);
+      if(n && n.trim()){ t.name = n.trim(); renderTeams(); pushTeams(); }
+    });
+    bar.appendChild(b);
+  });
+  if(teams.length < 6){
+    const add = document.createElement('button');
+    add.id = 'add-team'; add.textContent = '+ Team';
+    add.addEventListener('click', ()=>{
+      teams.push({ name:'Team '+(teams.length+1), score:0 });
+      renderTeams(); pushTeams();
+    });
+    bar.appendChild(add);
+  }
+}
+
+function setTurn(i){
+  active = i;
+  renderTeams();
+  askPhones();          // the vote belongs to the team on turn, so it moves with it
+}
+
+/* ---------------- the room ----------------
+   Phones are optional: no relay (GitHub Pages, file://) means no room, and the
+   game plays exactly the same with the teacher alone. The vote is advisory on
+   purpose — students never touch the device; their votes land on the tiles and
+   the teacher clicks. */
+const RELAY = params.get('relay') || '';
+let host = null, roomLAN = '', playerCount = 0;
+let votes = {};          // word -> count, this attempt
+
+function openRoom(){
+  if(!window.HubBuzzer) return;
+  HubBuzzer.newCode(RELAY).then(d=>{
+    if(!d) { renderRoom(); return; }
+    roomLAN = d.lan || '';
+    host = HubBuzzer.host({ relay:RELAY, code:d.code });
+    window.HubHost = host;                 // the one handle on the room from outside
+    host.on('ready', ()=>{ pushTeams(); askPhones(); renderRoom(); });
+    host.on('players', ()=>{ playerCount = host.players().length; renderRoom(); });
+    host.on('response', d=>{ votes = d.tally || {}; renderVotes(); });
+    renderRoom();
+  });
+}
+
+function pushTeams(){ if(host) host.setTeams(teams.map(t=>t.name)); }
+
+function askPhones(){
+  votes = {}; renderVotes();
+  if(!host) return;
+  if(gameOver || !remaining.length){ host.disarm(); return; }
+  host.arm('Your team is choosing: vote for ONE word that belongs in the group of four.', {
+    mode:'vote', options: remaining.slice(), team: active
+  });
+}
+
+function joinBase(){
+  if(RELAY) return RELAY;
+  if(location.protocol === 'file:') return roomLAN ? 'http://'+roomLAN : '';
+  return location.origin;
+}
+function joinURL(){ return joinBase() + '/join.html?code=' + (host ? host.code : ''); }
+
+function renderRoom(){
+  const chip = $('room-chip');
+  if(!host){ chip.textContent = 'phones off'; chip.title = 'No relay reachable — the game still plays without phones.'; return; }
+  chip.innerHTML = 'CODE <b></b> · ' + playerCount + ' in';
+  chip.querySelector('b').textContent = host.code;
+}
+$('room-chip').addEventListener('click', ()=>{
+  if(!host) return;
+  $('join-code').textContent = host.code;
+  $('join-url').textContent = joinBase().replace(/^https?:\/\//,'') + '/join.html';
+  const box = $('join-qr'); box.innerHTML = '';
+  try{
+    const q = window.qrcode(0, 'M'); q.addData(joinURL()); q.make();
+    box.innerHTML = q.createSvgTag({ cellSize:8, margin:0, scalable:true });
+  }catch(e){}
+  $('join-count').textContent = playerCount + ' joined';
+  $('join-panel').classList.add('on');
+});
+$('join-panel').addEventListener('click', e=>{ if(e.target.id === 'join-panel') $('join-panel').classList.remove('on'); });
+
+function renderVotes(){
+  // the four most-voted words glow — the team's convergence, readable from the back
+  const counts = Object.entries(votes).filter(([,n])=>n>0).sort((a,b)=>b[1]-a[1]);
+  const hot = new Set(counts.slice(0,4).map(([w])=>w));
+  document.querySelectorAll('#grid .tile').forEach(t=>{
+    const w = t.dataset.word;
+    const n = votes[w] || 0;
+    let badge = t.querySelector('.votes');
+    if(n > 0){
+      if(!badge){ badge = document.createElement('span'); badge.className='votes'; t.appendChild(badge); }
+      badge.textContent = n;
+    } else if(badge) badge.remove();
+    t.classList.toggle('hot', hot.has(w));
+  });
+  const total = counts.reduce((a,[,n])=>a+n, 0);
+  $('vote-line').textContent = (host && total)
+    ? (teams[active] ? teams[active].name : 'The team') + ' has ' + total + ' vote' + (total===1?'':'s') + ' in'
+    : '';
+}
+
+/* ---------------- the board ---------------- */
+function loadPuzzle(i){
+  puzzleIndex = i;
+  const p = PUZZLES[i];
+  wordToGroup = {};
+  p.groups.forEach((g, d)=> g.words.forEach(w=>{ wordToGroup[w] = d; }));
+  remaining = shuffle(p.groups.flatMap(g=>g.words));
+  selected = []; solvedGroups = []; mistakes = 0; pastGuesses = []; gameOver = false;
+  setMessage('');
+  render();
+  askPhones();
+}
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function render(){
+  const p = PUZZLES[puzzleIndex];
+
+  const solvedArea = $('solved-area'); solvedArea.innerHTML = '';
+  for(const s of solvedGroups){
+    const g = p.groups[s.diff];
+    const div = document.createElement('div');
+    div.className = 'solved-group diff-' + s.diff + (s.team == null ? ' revealed' : '');
+    div.innerHTML = '<div class="gname"></div><div class="gwords"></div><div class="gnote"></div>';
+    div.querySelector('.gname').textContent = g.name + (s.team != null && teams[s.team] ? ' — ' + teams[s.team].name : '');
+    div.querySelector('.gwords').textContent = g.words.join(', ');
+    div.querySelector('.gnote').textContent = g.note;
+    solvedArea.appendChild(div);
+  }
+
+  const grid = $('grid'); grid.innerHTML = '';
+  for(const w of remaining){
+    const btn = document.createElement('button');
+    btn.className = 'tile' + (selected.includes(w) ? ' selected' : '');
+    btn.dataset.word = w;
+    btn.textContent = w;
+    btn.addEventListener('click', ()=> toggle(w));
+    grid.appendChild(btn);
+  }
+  renderVotes();
+
+  const dots = $('dots'); dots.innerHTML = '';
+  for(let i=0; i<MAX_MISTAKES; i++){
+    const s = document.createElement('span');
+    s.className = 'dot' + (i < mistakes ? ' spent' : '');
+    dots.appendChild(s);
+  }
+  $('submit-btn').disabled = selected.length !== 4 || !!gameOver;
+}
+
+function toggle(w){
+  if(gameOver) return;
+  if(selected.includes(w)) selected = selected.filter(x=>x!==w);
+  else if(selected.length < 4) selected.push(w);
+  render();
+}
+
+function setMessage(t){ $('message').textContent = t; }
+
+function submitGuess(){
+  if(selected.length !== 4 || gameOver) return;
+  const key = selected.slice().sort().join('|');
+  if(pastGuesses.includes(key)){ setMessage('Already guessed!'); return; }
+  pastGuesses.push(key);
+
+  const diffs = selected.map(w=>wordToGroup[w]);
+  const counts = {};
+  diffs.forEach(d=>{ counts[d] = (counts[d]||0)+1; });
+  const best = Math.max(...Object.values(counts));
+
+  if(best === 4){
+    const d = diffs[0];
+    solvedGroups.push({ diff:d, team:active });
+    if(teams[active]) teams[active].score += 1;
+    remaining = remaining.filter(w=>wordToGroup[w] !== d);
+    selected = [];
+    renderTeams();
+    if(solvedGroups.length === 4){
+      gameOver = 'won';
+      setMessage(finalLine());
+    } else {
+      setMessage('Correct — ' + (teams[active] ? teams[active].name : 'the team') + ' goes again!');
+    }
+    render();
+    askPhones();             // same team, smaller board
+  } else {
+    mistakes++;
+    document.querySelectorAll('.tile.selected').forEach(t=>t.classList.add('shake'));
+    setMessage(best === 3 ? 'One away…' : 'Not a group.');
+    if(mistakes >= MAX_MISTAKES){
+      gameOver = 'lost';
+      for(let d=0; d<4; d++) if(!solvedGroups.some(s=>s.diff===d)) solvedGroups.push({ diff:d, team:null });
+      remaining = []; selected = [];
+      setMessage('Out of guesses — here are the groups. Read the notes!');
+      setTimeout(render, 380);
+      askPhones();
+      return;
+    }
+    selected = [];
+    setTimeout(render, 380);
+    // the turn passes — and the vote passes with it
+    active = (active + 1) % teams.length;
+    renderTeams();
+    askPhones();
+  }
+}
+
+function finalLine(){
+  const top = Math.max(...teams.map(t=>t.score));
+  const winners = teams.filter(t=>t.score===top).map(t=>t.name);
+  return 'Solved it! ' + (winners.length===teams.length ? 'All square.' : winners.join(' & ') + ' take' + (winners.length>1?'':'s') + ' it, ' + top + ' group' + (top===1?'':'s') + '.');
+}
+
+/* ---------------- toolbar ---------------- */
+function initToolbar(){
+  const sel = $('puzzle-select');
+  PUZZLES.forEach((p,i)=>{
+    const o = document.createElement('option');
+    o.value = i; o.textContent = (i+1) + '. ' + p.title + ' (' + p.level + ')';
+    sel.appendChild(o);
+  });
+  sel.value = puzzleIndex;
+  sel.addEventListener('change', ()=> loadPuzzle(Number(sel.value)));
+  $('shuffle-btn').addEventListener('click', ()=>{ remaining = shuffle(remaining); render(); });
+  $('restart-btn').addEventListener('click', ()=>{ teams.forEach(t=>t.score=0); loadPuzzle(puzzleIndex); renderTeams(); });
+  $('deselect-btn').addEventListener('click', ()=>{ selected = []; render(); });
+  $('submit-btn').addEventListener('click', submitGuess);
+}
+
+const start = params.has('p') ? (Number(params.get('p')) - 1)
+            : Math.floor(Date.now()/86400000) % PUZZLES.length;
+initToolbar();
+renderTeams();
+loadPuzzle(Math.min(Math.max(start, 0), PUZZLES.length - 1));
+$('puzzle-select').value = puzzleIndex;
+openRoom();
+</script>
+</body>
+</html>

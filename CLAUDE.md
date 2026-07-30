@@ -546,6 +546,33 @@ while the Millionaire exclusion beside it had a stated reason. That is the argum
 for the checklist in one line — the rule was already written down here, and was
 still missed.
 
+## The playground — prototypes with phones, outside the hub
+`playground/` is the lane between the Learning-games repo's prototypes
+(github.com/Raganther/Learning-games- — 16 solo word-game prototypes plus the
+research catalog in `research/game-dynamics.md`) and the hub. A playground page is
+a **standalone self-contained HTML file**: no `registerGame`, no hub engine, no hub
+skin, zero risk to the teaching tool — but it borrows the **phone room** (`hub-buzzer.js`
++ the relay + `join.html`), which is game-agnostic and needs no phone-side changes
+for vote/write/buzz/card dynamics. The deliberate rules:
+- **Develop the game out fully here first**; port sub-dynamics into the hub loop
+  only after a real classroom run. Three possible fates per game, decided later:
+  stay a standalone class game, graduate whole via `registerGame`, or distil just
+  its question dynamic into a `Kit.prompt` form.
+- **Content lives in a marked block at the top of the file** (the prototypes'
+  convention — teachers can edit it).
+- **Degradation is non-negotiable**: no relay must leave the page fully playable
+  teacher-only. The `playground` smoke suite asserts it.
+- **Votes are advisory** (students never touch the device): they land on the board
+  as counts, the teacher clicks.
+
+Current pages: **`connections.html`** — ESL Connections (find four groups of four;
+groups encode collocations/phrasal verbs/spelling/register; solving a group unlocks
+its mini-lesson). Classroom adaptation: teams on chips (click = turn, dblclick =
+rename), the team on turn votes words from their phones (team-scoped vote, counts
+badge the tiles, top four glow), teacher locks in four tiles and submits; a wrong
+guess passes the turn and the vote moves with it; shared pool of four mistakes;
+`?p=N` pins a puzzle (tests use `?p=1`).
+
 ## Source material & specs
 - `material/empower-c1-unit-4/`, `material/empower-c1-unit-5/` — Cambridge Empower
   C1 workbook page scans (indexed by page/section) the game content is authored from.
@@ -556,6 +583,14 @@ still missed.
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The playground exists, and Connections is its first game.** `playground/
+  connections.html` (linked from index.html) — see "The playground" section for
+  the rules of this lane. Ported from the Learning-games prototype with its five
+  puzzles intact; classroom-adapted with teams, turn rotation and team-scoped
+  phone voting over the existing relay, phones untouched. The `playground` suite
+  (15 checks) drives the whole loop including a phone and the no-relay
+  degradation. Next candidates the user likes: story reveal, emoji idioms, word
+  bridges, word thermometer, close words, double agents, perfect partners.
 - **One settings entrance, and the game view is organised.** The separate Lab
   button is gone: ⚙ during play opens the docked drawer for the game being played
   (`L` still toggles it; Escape closes it), everywhere else the full panel; the

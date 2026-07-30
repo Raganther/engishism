@@ -3936,6 +3936,85 @@ async function testPhoneBingo(browser){
   await page.close();
 }
 
+/* ---- the playground: Connections ----
+   The playground is the lane between the Learning-games prototypes and the hub:
+   a standalone page that borrows only the phone room. This drives the classroom
+   loop — teacher clicks, team votes advisory on the tiles, turn passes on a
+   miss — and the degradation rule: no relay must mean a fully playable page. */
+async function testPlaygroundConnections(browser){
+  section('Playground: Connections');
+  const page = await browser.newPage({ viewport:{ width:1280, height:720 } });
+  page.__errors = []; page.on('pageerror', e => page.__errors.push(String(e)));
+  await page.goto(BASE + '/playground/connections.html?p=1'); await page.waitForTimeout(900);
+
+  check('16 tiles on the board', await page.locator('#grid .tile').count() === 16);
+  check('two teams to start, first on turn',
+        await page.locator('.team-chip').count() === 2 &&
+        /Team 1/.test(await page.locator('.team-chip.active').innerText()));
+
+  const chip = await page.locator('#room-chip').innerText();
+  const code = (chip.match(/CODE\s+(\d{5})/i)||[])[1];
+  check('a room opens on its own', !!code, chip);
+
+  if(code){
+    const p = await browser.newPage({ viewport:{ width:390, height:844 } });
+    p.__errors = []; p.on('pageerror', e => p.__errors.push(String(e)));
+    await p.goto(BASE + '/join.html'); await p.waitForTimeout(250);
+    await p.fill('#code', code); await p.fill('#name','Ana');
+    await p.locator('#join-btn').click(); await p.waitForTimeout(700);
+
+    // the phone landed in the live vote round: 16 words to choose one from
+    const opts = await p.locator('#opts button').count();
+    check('the phone offers the sixteen words', opts === 16, String(opts));
+    await p.locator('#opts button', { hasText:/^decision$/i }).click();
+    await page.waitForTimeout(600);
+    check('the vote lands on the tile, advisory',
+          await page.locator('#grid .tile[data-word="decision"] .votes').innerText() === '1');
+
+    // teacher locks in the MAKE group — the team scores and keeps the turn
+    // (tiles are picked by data-word: a vote badge joins the tile's text, so
+    //  matching on the text passed before the first vote and never after)
+    for (const w of ['decision','mistake','noise','progress'])
+      await page.locator('#grid .tile[data-word="'+w+'"]').click();
+    await page.locator('#submit-btn').click(); await page.waitForTimeout(500);
+    check('a solved group shows its mini-lesson',
+          await page.locator('.solved-group').count() === 1 &&
+          /make a mistake/i.test(await page.locator('.solved-group .gnote').innerText()));
+    check('the solving team scores and keeps the turn',
+          /Team 1/.test(await page.locator('.team-chip.active').innerText()) &&
+          /1/.test(await page.locator('.team-chip.active .score').innerText()));
+
+    // a wrong four passes the turn — and the vote passes with it
+    for (const w of ['homework','laundry','dishes','fun'])
+      await page.locator('#grid .tile[data-word="'+w+'"]').click();
+    await page.locator('#submit-btn').click(); await page.waitForTimeout(600);
+    check('a near miss says one away', /one away/i.test(await page.locator('.message').innerText()),
+          await page.locator('.message').innerText());
+    check('and the turn passes', /Team 2/.test(await page.locator('.team-chip.active').innerText()));
+    check('a phone not on the team on turn is told who is choosing',
+          /choosing/i.test(await p.locator('#state').innerText()),
+          await p.locator('#state').innerText());
+
+    check('phone had no errors', p.__errors.length === 0, p.__errors[0]);
+    await p.close();
+  }
+
+  // degradation: a dead relay leaves the page fully playable, teacher-only
+  const solo = await browser.newPage({ viewport:{ width:1280, height:720 } });
+  solo.__errors = []; solo.on('pageerror', e => solo.__errors.push(String(e)));
+  await solo.goto(BASE + '/playground/connections.html?p=1&relay=http://127.0.0.1:9'); await solo.waitForTimeout(700);
+  check('no relay: the chip says phones off', /phones off/i.test(await solo.locator('#room-chip').innerText()));
+  for (const w of ['decision','mistake','noise','progress'])
+    await solo.locator('#grid .tile[data-word="'+w+'"]').click();
+  await solo.locator('#submit-btn').click(); await solo.waitForTimeout(400);
+  check('and the game still plays', await solo.locator('.solved-group').count() === 1);
+  check('no errors without a relay', solo.__errors.length === 0, solo.__errors[0]);
+  await solo.close();
+
+  check('host page had no errors', page.__errors.length === 0, page.__errors[0]);
+  await page.close();
+}
+
 /* ---- the answer clock ----
    Classic gives a team seconds on the floor once it buzzes in. Started by the buzz,
    never by the clue opening — the teacher reads aloud at their own pace and the
@@ -4439,7 +4518,8 @@ async function main(){
     degradation: testDegradation, file: testFileProtocol,
     reconnect: testRelayReconnect, phonebingo: testPhoneBingo,
     classic: testJeopardyClassic, joinbar: testJoinAlwaysThere,
-    together: testJeopardyTogether, jclock: testAnswerClock
+    together: testJeopardyTogether, jclock: testAnswerClock,
+    playground: testPlaygroundConnections
   };
   const toRun = onlyArg ? onlyArg.split(',').map(s => s.trim()).filter(k => suites[k])
                         : Object.keys(suites);
