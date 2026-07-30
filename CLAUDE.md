@@ -565,6 +565,14 @@ still missed.
     stamped. Stops on `armed`/`disarmed`/`judged`/`reset`.
   - `jclock` suite covers the whole beat: preset writes, buzz starts, clue-open
     doesn't, expiry flags without deciding, reveal retires it, phone follows.
+- **Classic pays the rebound in full.** Asked as "turn steal off, the show doesn't
+  have it" — the show *does* (a missed clue opens to the other contestants), what
+  differed was the price: ours paid half, the show pays full. `stealFullValue`
+  (Competition group, default off, games jeopardy+millionaire — the two that score
+  in values; a hex or a word has nothing to halve) is written on by `classic` and
+  off by `hub`/`together`. The card's "steal for X" and Millionaire's hint read the
+  same setting as `award()`, because shown and paid must agree — the `competition`
+  suite asserts offer, payout and the answer clock starting on the steal claim.
 - **A scanned code outranks the remembered seat.** Reported as "the QR skips the
   name-and-team screen and goes straight to the button". The seat memory
   (`engishism.seat`) auto-rejoined on load without comparing its stored code to the

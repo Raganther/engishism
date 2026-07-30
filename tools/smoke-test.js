@@ -2247,6 +2247,37 @@ async function testCompetition(browser){
     await page.locator('#reveal-btn').click(); await page.waitForTimeout(200);
   };
 
+  /* ---- the classic rebound: full value, as the show pays it ----
+     `stealFullValue` (written on by the classic ruleset) makes the steal earn what
+     the clue was worth. Shown and paid are asserted together, because a card
+     offering one number and award() paying another is the card lying to the room. */
+  {
+    const pg = await openHub(browser);
+    await pg.evaluate(() => {
+      const S = window.HubSettings;
+      S.set('cardFlip','off'); S.set('intro','off'); S.set('sound',false);
+      S.set('jRules','classic','jeopardy');       // writes stealFullValue on
+      S.set('jDailyDoubles', 0, 'jeopardy');      // an ordinary first tile
+      S.set('jDeduct', false, 'jeopardy');        // isolate what the steal pays
+      S.set('phoneMode','off','jeopardy');
+    });
+    await startGame(pg, 'Jeopardy', { sections:3 });
+    await openFirstClue(pg);
+    await pg.locator('#wrong-btn').click(); await pg.waitForTimeout(400);
+    check('classic offers the steal at the full value',
+          /steal for 100\b/.test(await pg.locator('#clue-topline').innerText()),
+          await pg.locator('#clue-topline').innerText());
+    await pg.locator('#clue-claim .claim-team').first().click(); await pg.waitForTimeout(250);
+    check('and claiming it starts the answer clock',
+          await pg.locator('#clue-clock').count() === 1);
+    await pg.locator('#reveal-btn').click(); await pg.waitForTimeout(200);
+    await pg.locator('#correct-btn').click(); await pg.waitForTimeout(900);
+    check('and it pays what it offered',
+          (await scores(pg))[1] === '100', (await scores(pg)).join('/'));
+    checkClean(pg, 'full-value steal');
+    await pg.close();
+  }
+
   // ---- steal on, in Jeopardy
   let page = await openHub(browser);
   await page.evaluate(() => {
@@ -3862,12 +3893,18 @@ async function testAnswerClock(browser){
   });
   const preset = await host.evaluate(() => {
     const S = window.HubSettings, out = {};
-    S.set('jRules','classic','jeopardy'); out.classic = S.get('jAnswerSeconds','jeopardy');
-    S.set('jRules','hub','jeopardy');     out.hub     = S.get('jAnswerSeconds','jeopardy');
+    S.set('jRules','classic','jeopardy');
+    out.classic = S.get('jAnswerSeconds','jeopardy');
+    out.classicSteal = S.get('stealFullValue','jeopardy');
+    S.set('jRules','hub','jeopardy');
+    out.hub = S.get('jAnswerSeconds','jeopardy');
+    out.hubSteal = S.get('stealFullValue','jeopardy');
     return out;
   });
   check('classic turns the clock on and hub turns it back off',
         preset.classic === 10 && preset.hub === 0, JSON.stringify(preset));
+  check('classic pays a steal in full and hub goes back to half',
+        preset.classicSteal === true && preset.hubSteal === false, JSON.stringify(preset));
 
   await host.evaluate(() => {
     window.HubSettings.set('phoneMode','buzz','jeopardy');

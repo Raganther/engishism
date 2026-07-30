@@ -516,7 +516,14 @@
   S.register({ id:'stealOnWrong', group:'Competition', type:'toggle', default:true,
     games:['jeopardy','blockbusters','millionaire','race'],
     label:'Steal on a wrong answer',
-    help:'A missed question passes to the other team for one shot at half the points. Off: a wrong answer simply ends the question, as before.' });
+    help:'A missed question passes to the other team for one shot at the points. Off: a wrong answer simply ends the question, as before.' });
+
+  /* Only the two games that score in values: a Blockbusters hex is one point and a
+     Race word is one word, so halving them has nothing to halve. */
+  S.register({ id:'stealFullValue', group:'Competition', type:'toggle', default:false,
+    games:['jeopardy','millionaire'],
+    label:'Steal pays the full value',
+    help:'As the show plays the rebound — a stolen question earns everything it was worth. Off: a steal pays half, so the miss still cost something.' });
 
   /* ---- Jeopardy's classic rules ----
      The TV game has three things this board never had: a hidden tile you bet on
@@ -1477,7 +1484,7 @@
     const t = teams[teamIdx];
     if(!t || !base) return 0;
     const o = opts || {};
-    let value = o.steal ? base / 2 : base;
+    let value = (o.steal && !S.get('stealFullValue', activeGame)) ? base / 2 : base;
     /* The run is counted *before* this answer, so award() is always called before
        markRun(): the first answer of a streak pays face value, the second 1.5x and
        the third double. Marking first made the very first answer pay a bonus for a
@@ -1771,7 +1778,7 @@
     // the plain game: the teacher marks, the phones sit out
     hub:     { jDailyDoubles:0, jFinalRound:false, jDeduct:false,
                jTogether:false, jHints:false, phoneMode:'off',
-               stealOnWrong:true, keepControl:true, jAnswerSeconds:0 },
+               stealOnWrong:true, stealFullValue:false, keepControl:true, jAnswerSeconds:0 },
     // the show is a race for the floor, so that is what the handsets are for
     /* The show opens a missed clue to the other contestants and lets a correct
        answer keep the board, so the ruleset says both rather than leaving them to
@@ -1780,9 +1787,11 @@
        buzz, ended by a klaxon the teacher can overrule. It is here and not in the
        other two bundles' spirit: a cooperative round should not have a countdown
        pressuring the class, and the plain hub game has no buzz to start it from. */
+    /* The rebound pays in full, as the show plays it: whoever rings in after a miss
+       earns what the clue was worth, not a consolation half. */
     classic: { jDailyDoubles:1, jFinalRound:true,  jDeduct:true,
                jTogether:false, jHints:false, phoneMode:'buzz',
-               stealOnWrong:true, keepControl:true, jAnswerSeconds:10 },
+               stealOnWrong:true, stealFullValue:true, keepControl:true, jAnswerSeconds:10 },
     /* Everything that sets one team against another is off here, and that is the
        whole mode: no hidden wager to find first, no steal, nothing deducted, no
        final round to overtake anyone in. What is left is the board and the room —
@@ -1790,7 +1799,7 @@
        cooperative mechanic rather than a race anybody can lose. */
     together:{ jDailyDoubles:0, jFinalRound:false, jDeduct:false,
                jTogether:true,  jHints:true, phoneMode:'write',
-               stealOnWrong:false, keepControl:false, jAnswerSeconds:0 }
+               stealOnWrong:false, stealFullValue:false, keepControl:false, jAnswerSeconds:0 }
   };
   let jApplyingPreset = false;
   S.onChange(id => {
@@ -3684,8 +3693,9 @@
 
     hideAllActionButtons();
     const line = document.getElementById('clue-topline');
+    // what the card offers has to be what award() will pay — shown and paid must agree
     line.textContent = line.textContent.replace(/ · steal.*$/, '') + '  ·  steal for ' +
-                       Math.round(currentClueValue / 2);
+                       Math.round(currentClueValue / (S.get('stealFullValue','jeopardy') ? 1 : 2));
     clueClaim.show(teams, others);
     const skip = document.getElementById('skip-btn');
     skip.textContent = 'No steal / close';
@@ -4373,7 +4383,8 @@
         mAnswered = false;
         document.getElementById('m-hint').textContent =
           (teams[mCurrent.team] ? teams[mCurrent.team].name : 'The other team') +
-          ' can steal it for ' + Math.round(M_LADDER[Math.min(st.rung, M_LADDER.length-1)] / 2);
+          ' can steal it for ' + Math.round(M_LADDER[Math.min(st.rung, M_LADDER.length-1)] /
+                                            (S.get('stealFullValue','millionaire') ? 1 : 2));
         document.querySelectorAll('#m-options .m-option').forEach(b=>{
           b.classList.remove('right','picked-wrong');
           b.disabled = (mCurrent.removed || []).indexOf(b.dataset.opt) !== -1;
