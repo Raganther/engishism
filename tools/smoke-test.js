@@ -4015,6 +4015,71 @@ async function testPlaygroundConnections(browser){
   await page.close();
 }
 
+/* ---- the phone bench ----
+   Simulated handsets for testing phone dynamics without a class: every "phone" is
+   the real join.html in an iframe on the real relay, so nothing is mocked. The two
+   properties that matter: a simulated phone must never touch the browser's
+   remembered seat (all iframes share one localStorage, and the seat belongs to the
+   real phone), and phones rack up under their team without ever being re-parented
+   (moving an iframe reloads it, which would drop its stream). */
+async function testPhoneBench(browser){
+  section('Playground: the phone bench');
+  const game = await browser.newPage({ viewport:{ width:1280, height:720 } });
+  game.__errors = []; game.on('pageerror', e => game.__errors.push(String(e)));
+  await game.goto(BASE + '/playground/connections.html?p=1'); await game.waitForTimeout(900);
+  const code = ((await game.locator('#room-chip').innerText()).match(/CODE\s+(\d{5})/i)||[])[1];
+  check('a game with a room is up', !!code);
+  if(!code){ await game.close(); return; }
+
+  const bench = await browser.newPage({ viewport:{ width:1400, height:900 } });
+  bench.__errors = []; bench.on('pageerror', e => bench.__errors.push(String(e)));
+  await bench.goto(BASE + '/playground/phone-bench.html?code=' + code);
+  /* Somebody's real seat is already in this browser — the fake phones must
+     neither inherit it nor overwrite it. */
+  await bench.evaluate(() => localStorage.setItem('engishism.seat',
+    JSON.stringify({ code:'11111', name:'Real', team:1, id:'real-seat' })));
+  await bench.waitForTimeout(600);
+
+  await bench.locator('#add').click();
+  await bench.locator('#add').click();
+  await bench.locator('#team-pick').selectOption('1');
+  await bench.locator('#add').click();
+  await bench.waitForTimeout(900);
+
+  check('three phones racked in two team columns',
+        await bench.locator('.phone').count() === 3 &&
+        await bench.locator('.team-col').count() === 2);
+  check('columns are titled with the room\'s team names',
+        /^team 1\/team 2$/i.test((await bench.locator('.team-col h2').allInnerTexts()).join('/')),
+        (await bench.locator('.team-col h2').allInnerTexts()).join('/'));
+  check('the game sees all three join', /3 in/.test(await game.locator('#room-chip').innerText()),
+        await game.locator('#room-chip').innerText());
+
+  // a simulated phone is live: vote from the first frame, watch it land on the board
+  const ph = bench.frameLocator('.phone iframe').first();
+  await ph.locator('#opts button', { hasText:/^decision$/i }).click();
+  await game.waitForTimeout(700);
+  check('a tap inside a simulated phone lands on the board',
+        await game.locator('#grid .tile[data-word="decision"] .votes').innerText() === '1');
+
+  const seat = await bench.evaluate(() => JSON.parse(localStorage.getItem('engishism.seat')));
+  check('the real phone\'s seat is untouched by three fake joins',
+        seat && seat.id === 'real-seat' && seat.code === '11111', JSON.stringify(seat));
+
+  // removing a phone takes it out of the room; an emptied column goes with it
+  await bench.locator('.team-col[data-team="1"] .phone .head button').click();
+  await bench.waitForTimeout(700);
+  check('removing a phone removes its column when it was the last',
+        await bench.locator('.team-col').count() === 1);
+  check('and the room sees it leave', /2 in/.test(await game.locator('#room-chip').innerText()),
+        await game.locator('#room-chip').innerText());
+
+  check('bench had no errors', bench.__errors.length === 0, bench.__errors[0]);
+  await bench.close();
+  check('game page had no errors', game.__errors.length === 0, game.__errors[0]);
+  await game.close();
+}
+
 /* ---- the answer clock ----
    Classic gives a team seconds on the floor once it buzzes in. Started by the buzz,
    never by the clue opening — the teacher reads aloud at their own pace and the
@@ -4519,7 +4584,7 @@ async function main(){
     reconnect: testRelayReconnect, phonebingo: testPhoneBingo,
     classic: testJeopardyClassic, joinbar: testJoinAlwaysThere,
     together: testJeopardyTogether, jclock: testAnswerClock,
-    playground: testPlaygroundConnections
+    playground: testPlaygroundConnections, bench: testPhoneBench
   };
   const toRun = onlyArg ? onlyArg.split(',').map(s => s.trim()).filter(k => suites[k])
                         : Object.keys(suites);

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phone bench — Engishism Playground</title>
+<style>
+  /* A rack of simulated handsets for testing phone dynamics without a class.
+     Every "phone" is the real join.html in an iframe, talking to the real relay —
+     nothing is mocked, so what works here works in the room. */
+  :root{
+    --bg:#fafaf8; --text:#121212; --muted:#6b6b6b; --border:#d4d4cc;
+    --btn-bg:#fff; --btn-border:#121212; --accent:#00A0DF;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding:16px;
+  }
+  h1{ font-size:1.4rem; margin:0 0 2px; }
+  h1 small{ color:var(--muted); font-weight:400; font-size:0.85rem; }
+  .hint{ color:var(--muted); font-size:0.9rem; margin:4px 0 14px; max-width:70ch; }
+
+  .bar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:18px; }
+  .bar input, .bar select, .bar button{
+    font:inherit; font-size:0.9rem; padding:8px 14px; border-radius:999px;
+    border:1px solid var(--border); background:var(--btn-bg); color:var(--text);
+  }
+  .bar input{ font-family:ui-monospace,monospace; letter-spacing:0.2em; width:9em; text-align:center; }
+  .bar button{ cursor:pointer; }
+  .bar button.primary{ background:var(--text); color:var(--bg); border-color:var(--text); }
+  #status{ color:var(--muted); font-size:0.85rem; }
+
+  /* one column per team, phones rack up inside it */
+  #rack{ display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap; }
+  .team-col{ min-width:280px; }
+  .team-col h2{
+    font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--muted); margin:0 0 8px; border-bottom:2px solid var(--border); padding-bottom:4px;
+  }
+  .team-col .phones{ display:flex; gap:12px; flex-wrap:wrap; }
+
+  .phone{
+    width:264px; border:1px solid var(--border); border-radius:18px; overflow:hidden;
+    background:#12263F; box-shadow:0 6px 18px rgba(0,0,0,0.12);
+  }
+  .phone .head{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:6px 12px; background:#0B1830; color:#cfe0ff; font-size:0.78rem;
+  }
+  .phone .head b{ font-weight:600; }
+  .phone .head button{
+    background:none; border:none; color:#cfe0ff; cursor:pointer; font-size:1rem; padding:0 2px;
+  }
+  .phone iframe{ display:block; width:264px; height:520px; border:none; }
+</style>
+</head>
+<body>
+  <h1>Phone bench <small>· simulated handsets for testing</small></h1>
+  <p class="hint">Open a game with a room (the hub or a playground game), put its code here, and add
+     phones. Each phone is the real student page in a frame — tap it exactly as a student would.
+     Simulated phones never touch this browser's remembered seat, so your real phone is unaffected.</p>
+
+  <div class="bar">
+    <input id="code" inputmode="numeric" maxlength="6" placeholder="00000" autocomplete="off">
+    <select id="team-pick"></select>
+    <button id="add" class="primary">+ Phone</button>
+    <button id="add-each">+1 to every team</button>
+    <button id="clear">Remove all</button>
+    <span id="status"></span>
+  </div>
+
+  <div id="rack"></div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const RELAY = params.get('relay') || '';
+
+const NAMES = ['Ana','Ben','Carla','Dan','Eva','Finn','Gia','Hugo','Iris','Jack',
+               'Kira','Leo','Mia','Nico','Olive','Pia','Quinn','Rosa','Sam','Tara'];
+let nextName = 0;
+let teamNames = ['Team 1','Team 2'];
+let phones = [];              // [{name, team, el}]
+
+if(params.get('code')) $('code').value = params.get('code');
+
+/* The room knows its teams — same polling the join screen does, so the bench
+   follows renames and added teams while it is open. Silent on failure. */
+let teamsFor = '';
+function loadTeams(force){
+  const code = $('code').value.trim();
+  if(!/^\d{4,6}$/.test(code)){ setStatus(''); return; }
+  if(!force && code === teamsFor) return;
+  teamsFor = code;
+  fetch((RELAY || '') + '/buzzer/room?code=' + encodeURIComponent(code))
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      if(!d || $('code').value.trim() !== code) return;
+      if(d.teams && d.teams.length) teamNames = d.teams;
+      setStatus(d.players + ' in the room');
+      renderTeamPick(); renderHeaders();
+    })
+    .catch(()=> setStatus('room not found — is the game open?'));
+}
+setInterval(()=> loadTeams(true), 4000);
+$('code').addEventListener('input', ()=> loadTeams());
+
+function setStatus(t){ $('status').textContent = t; }
+
+function renderTeamPick(){
+  const sel = $('team-pick');
+  const was = sel.value;
+  sel.innerHTML = '';
+  teamNames.forEach((n,i)=>{
+    const o = document.createElement('option');
+    o.value = i; o.textContent = n;
+    sel.appendChild(o);
+  });
+  if(was !== '' && Number(was) < teamNames.length) sel.value = was;
+}
+
+function joinSrc(name, team){
+  const code = $('code').value.trim();
+  const qs = new URLSearchParams({ code, name, team, auto:'1' });
+  if(RELAY) qs.set('relay', RELAY);
+  return '../join.html?' + qs.toString();
+}
+
+/* Phones rack up under their team, so a team dynamic reads as a team.
+   Columns are stable and phones are appended exactly once — re-parenting an
+   iframe RELOADS it, so any "re-render the rack" approach would drop every
+   phone's stream each time it ran. Only the headers repaint. */
+function colFor(team){
+  let col = document.querySelector('.team-col[data-team="'+team+'"]');
+  if(col) return col;
+  col = document.createElement('div');
+  col.className = 'team-col'; col.dataset.team = team;
+  col.innerHTML = '<h2></h2><div class="phones"></div>';
+  // keep the columns in team order whatever order the phones arrive in
+  const after = [...document.querySelectorAll('.team-col')]
+    .find(c => Number(c.dataset.team) > team);
+  $('rack').insertBefore(col, after || null);
+  renderHeaders();
+  return col;
+}
+function renderHeaders(){
+  document.querySelectorAll('.team-col').forEach(c=>{
+    const t = Number(c.dataset.team);
+    c.querySelector('h2').textContent = teamNames[t] || ('Team ' + (t+1));
+  });
+}
+
+function addPhone(team){
+  const code = $('code').value.trim();
+  if(!/^\d{4,6}$/.test(code)){ setStatus('enter the room code first'); return; }
+  const name = NAMES[nextName++ % NAMES.length];
+  const el = document.createElement('div');
+  el.className = 'phone';
+  el.innerHTML = '<div class="head"><b></b><button title="Remove this phone">×</button></div>';
+  el.querySelector('b').textContent = name;
+  el.querySelector('button').addEventListener('click', ()=>{
+    phones = phones.filter(p => p.el !== el);
+    const col = el.closest('.team-col');
+    el.remove();
+    if(col && !col.querySelector('.phone')) col.remove();
+  });
+  const frame = document.createElement('iframe');
+  frame.src = joinSrc(name, team);
+  el.appendChild(frame);
+  phones.push({ name, team, el });
+  colFor(team).querySelector('.phones').appendChild(el);
+}
+
+$('add').addEventListener('click', ()=> addPhone(Number($('team-pick').value) || 0));
+$('add-each').addEventListener('click', ()=>{
+  teamNames.forEach((_,i)=> addPhone(i));
+});
+$('clear').addEventListener('click', ()=>{
+  phones.forEach(p=>p.el.remove());
+  phones = [];
+  document.querySelectorAll('.team-col').forEach(c=>c.remove());
+});
+
+loadTeams();
+</script>
+</body>
+</html>

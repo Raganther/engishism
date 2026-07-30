@@ -165,6 +165,12 @@
   // relay defaults to wherever this page came from; ?relay=https://… overrides it
   const RELAY = params.get('relay') || '';
 
+  /* A simulated phone (the bench opens this page in iframes: ?auto=1&name=&team=).
+     It joins by itself and — crucially — never touches the seat: every iframe on
+     the bench shares this origin's localStorage, so one seat key would be fought
+     over by every fake phone and clobber the real phone's. */
+  const SIMULATED = params.get('auto') === '1';
+
   let team = 0, teamNames = ['Team 1','Team 2'], client = null;
 
   function renderTeams(){
@@ -415,7 +421,8 @@
      dealt to a player id, so a reload was dealt a second card and the marks on the
      first were stranded. Same seat, same id, same card. */
   const SEAT = 'engishism.seat';
-  function rememberSeat(d){ try{ localStorage.setItem(SEAT, JSON.stringify(d)); }catch(e){} }
+  function rememberSeat(d){ if(SIMULATED) return;
+    try{ localStorage.setItem(SEAT, JSON.stringify(d)); }catch(e){} }
   function forgetSeat(){ try{ localStorage.removeItem(SEAT); }catch(e){} }
   function seat(){
     try{ const d = JSON.parse(localStorage.getItem(SEAT) || 'null');
@@ -619,6 +626,7 @@
      scanned. Keep the name (they are the same person), drop the stale seat, and let
      them join the scanned room properly. */
   (function resume(){
+    if(SIMULATED) return;      // a fake phone never inherits the real phone's seat
     const d = seat();
     if(!d) return;
     const scanned = params.get('code');
@@ -632,6 +640,16 @@
     $('code').value = d.code; $('name').value = d.name;
     renderTeams();
     joinRoom(d.code, d.name, d.id);
+  })();
+
+  /* The bench's phones join themselves — same path a tap on Join takes. */
+  (function autoJoin(){
+    if(!SIMULATED) return;
+    const code = $('code').value.trim();
+    if(!/^\d{4,6}$/.test(code)) return;
+    team = Math.max(0, parseInt(params.get('team') || '0', 10) || 0);
+    renderTeams();
+    joinRoom(code, params.get('name') || 'Phone', null);
   })();
 
   /* Back to the join form, seat and all. The code and name inputs still hold what

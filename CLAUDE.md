@@ -565,6 +565,20 @@ for vote/write/buzz/card dynamics. The deliberate rules:
 - **Votes are advisory** (students never touch the device): they land on the board
   as counts, the teacher clicks.
 
+**`phone-bench.html` — simulated handsets for testing phone dynamics without a
+class.** Enter any room's code (hub or playground), add phones one at a time or
+one per team; each "phone" is the **real `join.html` in an iframe on the real
+relay** (`?auto=1&name=&team=` self-joins), racked in columns by team, individually
+interactive and removable. Nothing is mocked, so what works on the bench works in
+the room. Two rules paid for in advance:
+- **A simulated phone never touches the seat** (`SIMULATED` guards `rememberSeat`
+  and `resume` in join.html) — every iframe shares the page's localStorage, and the
+  one seat key belongs to the real phone.
+- **Phones are appended once and never re-parented** — moving an iframe reloads
+  it, which drops its stream; only the column headers repaint on the team poll.
+The `bench` suite drives it: three phones join a live game, a tap inside a frame
+lands on the board, the real seat survives, a removed phone leaves the room.
+
 Current pages: **`connections.html`** — ESL Connections (find four groups of four;
 groups encode collocations/phrasal verbs/spelling/register; solving a group unlocks
 its mini-lesson). Classroom adaptation: teams on chips (click = turn, dblclick =
@@ -583,6 +597,12 @@ guess passes the turn and the vote moves with it; shared pool of four mistakes;
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The phone bench: a class in iframes.** `playground/phone-bench.html` simulates
+  any number of handsets against any live room — real join.html, real relay,
+  racked by team, each frame tappable. Linked from the Connections join panel
+  with the code prefilled. Built for experimenting with team/phone dynamics
+  without thirty devices; see "The playground" section for the two rules
+  (seat isolation, no iframe re-parenting). `bench` suite covers it.
 - **The playground exists, and Connections is its first game.** `playground/
   connections.html` (linked from index.html) — see "The playground" section for
   the rules of this lane. Ported from the Learning-games prototype with its five
