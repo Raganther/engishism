@@ -4033,6 +4033,16 @@ async function testPhoneBench(browser){
 
   const bench = await browser.newPage({ viewport:{ width:1400, height:900 } });
   bench.__errors = []; bench.on('pageerror', e => bench.__errors.push(String(e)));
+
+  /* A dead code has to say so on the bench — it used to fail silently there and
+     announce itself only inside every phone after the join attempt. */
+  await bench.goto(BASE + '/playground/phone-bench.html?code=99999'); await bench.waitForTimeout(500);
+  check('a code with no game behind it says so on the bench',
+        /no game with code 99999/i.test(await bench.locator('#status').innerText()),
+        await bench.locator('#status').innerText());
+  check('and the team picker still offers the default pair',
+        await bench.locator('#team-pick option').count() === 2);
+
   await bench.goto(BASE + '/playground/phone-bench.html?code=' + code);
   /* Somebody's real seat is already in this browser — the fake phones must
      neither inherit it nor overwrite it. */

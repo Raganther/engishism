@@ -96,14 +96,18 @@ function loadTeams(force){
   if(!force && code === teamsFor) return;
   teamsFor = code;
   fetch((RELAY || '') + '/buzzer/room?code=' + encodeURIComponent(code))
-    .then(r => r.ok ? r.json() : null)
+    .then(r => r.ok ? r.json() : { missing:true })
     .then(d => {
       if(!d || $('code').value.trim() !== code) return;
+      /* A code with no room behind it used to fail silently here, and the only
+         place the truth appeared was inside every phone after it tried to join.
+         Say it where the code was typed. */
+      if(d.missing){ setStatus('no game with code ' + code + ' — open the game first, then copy its code'); return; }
       if(d.teams && d.teams.length) teamNames = d.teams;
       setStatus(d.players + ' in the room');
       renderTeamPick(); renderHeaders();
     })
-    .catch(()=> setStatus('room not found — is the game open?'));
+    .catch(()=> setStatus('can’t reach the relay — is the game open?'));
 }
 setInterval(()=> loadTeams(true), 4000);
 $('code').addEventListener('input', ()=> loadTeams());
@@ -184,6 +188,7 @@ $('clear').addEventListener('click', ()=>{
   document.querySelectorAll('.team-col').forEach(c=>c.remove());
 });
 
+renderTeamPick();     // the default pair until a room says otherwise — never empty
 loadTeams();
 </script>
 </body>
