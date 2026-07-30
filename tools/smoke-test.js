@@ -1458,58 +1458,15 @@ async function testPromptTypes(browser){
         forms.errBad.before.errors === 0 && forms.errBad.after.ms === 0,
         JSON.stringify(forms.errBad.before));
 
-  /* Word bridge: a chain of compounds with one link missing. The only form so far
-     that suits every board — the answer is one ordinary word, so a hexagon can key
-     it by its initial and a Race tile can hold it, and Millionaire's four options
-     are candidates you still have to test against both neighbours. */
-  const br = await page.evaluate(() => {
-    const run = (item, game) => {
-      const el = document.createElement('div'); document.body.appendChild(el);
-      const drawn = window.HubKit.prompt.render(el, item, game);
-      const before = { drawn, links: el.querySelectorAll('.prompt-link').length,
-                       blanks: el.querySelectorAll('.prompt-link.blank').length,
-                       text: el.textContent };
-      const ms = window.HubKit.prompt.reveal(el, item);
-      const after = { ms, filled: el.querySelectorAll('.prompt-link.filled').length,
-                      made: (el.querySelector('.prompt-made')||{}).textContent || '',
-                      text: el.textContent };
-      el.remove();
-      return { before, after };
-    };
-    return {
-      ok:    run({ type:'bridge', text:'FIRE -> ___ -> SHOP', answer:'work' }, 'jeopardy'),
-      race:  run({ type:'bridge', text:'NEWS -> ___ -> WORM', answer:'paper' }, 'race'),
-      mill:  run({ type:'bridge', text:'SUN -> ___ -> LIGHT', answer:'day' }, 'millionaire'),
-      noSlot:run({ type:'bridge', text:'FIRE -> WORK -> SHOP', answer:'work' }, 'jeopardy'),
-      phrase:run({ type:'bridge', text:'FIRE -> ___ -> SHOP', answer:'hard work' }, 'jeopardy')
-    };
-  });
-  check('a bridge draws its links with the missing one blank',
-        br.ok.before.links === 3 && br.ok.before.blanks === 1 &&
-        br.ok.before.text.indexOf('work') === -1,
-        JSON.stringify(br.ok.before));
-  check('and reveal lands the answer in the gap',
-        br.ok.after.ms > 0 && br.ok.after.filled === 1, JSON.stringify(br.ok.after));
-  check('and says which compounds it built',
-        /firework/.test(br.ok.after.made) && /workshop/.test(br.ok.after.made), br.ok.after.made);
-  check('it suits every board, not a listed few',
-        br.race.before.links === 3 && br.mill.before.links === 3,
-        JSON.stringify({ race:br.race.before.links, mill:br.mill.before.links }));
-  check('a chain with nothing missing declines to plain text',
-        br.noSlot.before.links === 0 && br.noSlot.after.ms === 0,
-        JSON.stringify(br.noSlot.before));
-  check('and a link that is not one word declines the reveal',
-        br.phrase.after.ms === 0, JSON.stringify(br.phrase.after));
-
   /* Anything presenting the set of forms — the prompt lab does — has to be able to
      ask what they are rather than carrying a list that goes stale. */
   const info = await page.evaluate(() => ({
-    bridge: window.HubKit.prompt.info('bridge'),
-    ana:    window.HubKit.prompt.info('anagram'),
-    none:   window.HubKit.prompt.info('nosuchform')
+    gap:  window.HubKit.prompt.info('gap'),
+    ana:  window.HubKit.prompt.info('anagram'),
+    none: window.HubKit.prompt.info('nosuchform')
   }));
   check('a form describes the boards it suits, null meaning all',
-        info.bridge && info.bridge.games === null &&
+        info.gap && info.gap.games === null &&
         info.ana && info.ana.games.indexOf('jeopardy') !== -1 && info.none === null,
         JSON.stringify(info));
 
@@ -4121,15 +4078,49 @@ async function testPromptLab(browser){
       .find(g => /lab only/i.test(g.label))?.textContent || ''
   }));
   check('the lab separates forms that are in the kit from experimental ones',
-        stages.groups.length === 2 && /bridge/.test(stages.inKitGroup) &&
-        /realfake/.test(stages.labGroup), JSON.stringify(stages));
+        stages.groups.length === 2 && /gap/.test(stages.inKitGroup) &&
+        /bridge/.test(stages.labGroup) && /realfake/.test(stages.labGroup),
+        JSON.stringify(stages));
 
   const hub = await openHub(browser);
   const hubForms = await hub.evaluate(() => window.HubKit.prompt.types());
-  await hub.close();
-  check('a lab-only form cannot reach a game, and a graduated one can',
-        hubForms.indexOf('realfake') === -1 && hubForms.indexOf('bridge') !== -1,
+  check('an experimental form cannot reach a game',
+        hubForms.indexOf('bridge') === -1 && hubForms.indexOf('realfake') === -1,
         hubForms.join(','));
+
+  /* ---- compatibility, proved rather than intended ----
+     Every experimental form must be portable into the hub the day it is written,
+     or "we'll graduate it later" is a promise nobody checked. So the lab's whole
+     forms file is dropped into a real hub page and each form is asked to draw on
+     a **live Jeopardy clue card** — the element a graduated form would actually
+     render into. It is driven by what the file registers, so a form added to
+     lab-forms.js next month is covered without this check being edited, and one
+     that quietly depends on something only the lab has fails immediately. */
+  await hub.evaluate(() => {
+    window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
+  });
+  await startGame(hub, 'Jeopardy', { sections:3 });
+  await hub.locator('#board .tile').first().click(); await hub.waitForTimeout(500);
+  await hub.addScriptTag({ path: 'playground/lab-forms.js' });
+  const port = await hub.evaluate(() => {
+    const samples = (window.LabForms || {}).samples || {};
+    const card = document.getElementById('clue-text');
+    return Object.keys(samples).map(type => {
+      const item = samples[type][0];
+      const drawn = window.HubKit.prompt.render(card, item, 'jeopardy');
+      const built = card.children.length;                 // bare text = declined
+      const ms = window.HubKit.prompt.reveal(card, item);
+      return { type, drawn, built, ms };
+    });
+  });
+  await hub.close();
+  check('every experimental form is registered by the file the lab loads',
+        port.length >= 2, JSON.stringify(port.map(p=>p.type)));
+  port.forEach(r => {
+    check('“' + r.type + '” draws on a real clue card, so it is portable today',
+          r.drawn === r.type && r.built > 0, JSON.stringify(r));
+    check('and answers itself there', r.ms > 0, JSON.stringify(r));
+  });
 
   await page.locator('#form-pick').selectOption('bridge'); await page.waitForTimeout(250);
   check('picking a form draws its sample at board size',

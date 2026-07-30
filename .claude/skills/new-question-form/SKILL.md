@@ -18,15 +18,21 @@ migrates 565 items.
 
 | Stage | Where it is registered | Who can see it |
 |---|---|---|
-| **Experimental** | the marked block in `playground/prompt-lab.html` | the lab only — **it cannot reach a game** |
+| **Experimental** | `playground/lab-forms.js` | the lab only — **it cannot reach a game** |
 | **In the kit** | `game-hub/hub-kit.js` | every game, the moment a bank item carries its type |
 
-Games load `hub-kit.js` and never load the lab, so the isolation is structural
-rather than a convention to remember. **Graduating is moving the registration
-block from one file to the other — the code itself does not change.** The lab's
-menu groups the forms by stage so nobody has to hold it in their head, and the
-`promptlab` suite proves both directions (a lab form is absent from the hub; a
-graduated one is present).
+Games load `hub-kit.js` and never load `lab-forms.js`, so the isolation is
+structural rather than a convention to remember. **Graduating is moving the
+registration block from one file to the other — the code itself does not change**,
+because what you write in the lab file is already the shared contract.
+
+**Portability is checked every run.** The `promptlab` suite drops `lab-forms.js`
+into a real hub page, starts Jeopardy, and asserts every form it registers draws
+*and* reveals on a live clue card. It iterates whatever the file registers, so a
+new form is covered without editing the check — and a form that quietly depends on
+something only the lab has fails the day it is written, not at graduation. Give
+each form a sample in `LabForms.samples`; that is what the check renders, and a
+form with no sample cannot be proved.
 
 Start in the lab. A form is cheap to write and expensive to un-ship: once it is in
 the kit, content may be authored against it.

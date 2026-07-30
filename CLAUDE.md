@@ -209,7 +209,7 @@ Kit.prompt.register('anagram', {
 });
 ```
 
-**Six forms are registered.** `gap` is inferred from `___`; the rest need an explicit
+**Five forms are in the kit.** `gap` is inferred from `___`; the rest need an explicit
 `type:` on the item, because inferring them would silently re-type the items authored
 before they existed. Each parses what it needs out of the prompt, exactly as `gap`
 reads `___`, so **the item shape stays `{text, answer, type}` and adding a form touches
@@ -222,7 +222,10 @@ no game and no content field** — only the authoring convention for its own pro
 | `scramble` | `"Word order:"` + a whole-sentence `answer` | jeopardy | the words re-sort into the sentence |
 | `oddoneout` | `"Which does NOT belong: verdict / jury / sabbatical"` | jeopardy, blockbusters | the odd chip lights, the rest stand down |
 | `errorfix` | `"You *must to* wear a helmet."` + `answer:"must"` | jeopardy, millionaire, race | the struck words swap for the answer |
-| `bridge` | `"FIRE -> ___ -> SHOP"` + `answer:"work"` | every board | the link lands, then the compounds it built are named |
+
+Two more are **experimental**, in `playground/lab-forms.js` — `bridge`
+(`"FIRE -> ___ -> SHOP"` + `answer:"work"`) and `realfake` (admit or reject a
+spelling). They are not in the kit, so no game can draw them yet.
 
 The separators are load-bearing: **`/` between odd-one-out candidates** (with an optional
 lead-in before a `:`), **`*asterisks*` around the words to correct**, and **`->` between
@@ -232,11 +235,11 @@ text rather than rendering nonsense — which is the intended failure, but it lo
 The tell is that a declining form leaves **no element children** — bare text — which is
 how the prompt lab tells the two apart.
 
-**`bridge` is the first form that suits every board**, and the reason is worth keeping:
-its answer is one ordinary word, so a hexagon can key it by its initial and a Race tile
-can hold it, while Millionaire's four options are candidate links you still have to test
-against *both* neighbours rather than a give-away. The reveal names the compounds
-(`firework · workshop`) because the answer alone doesn't explain itself.
+**`bridge` would be the first form to suit every board** if graduated, and the reason is
+worth keeping: its answer is one ordinary word, so a hexagon can key it by its initial
+and a Race tile can hold it, while Millionaire's four options are candidate links you
+still have to test against *both* neighbours rather than a give-away. The reveal names
+the compounds (`firework · workshop`) because the answer alone doesn't explain itself.
 
 **Millionaire never gets an anagram** — its four options hand you the letters. Race never
 gets an odd-one-out — the board gives it away. That is what `games:[…]` is for, and the
@@ -621,16 +624,25 @@ round and judges the replies with `Kit.answer.judge`, exactly as a game would. S
 form can be tried before a single bank item is authored for it. `promptlab` suite.
 
 **A form has two stages, and the isolation is structural, not a convention.**
-Registered in the lab's own marked block it is **experimental and cannot reach a
-game** — games load `hub-kit.js` and never load the lab. Registered in `hub-kit.js`
-it is live in every game the moment a bank item carries its type. **Graduating is
-moving the registration block between the two files; the code does not change.**
-The lab's menu groups the forms by stage (`In the kit` / `Lab only`) so nobody has
-to remember which is which, and the suite proves both directions. This matters
-because *the playground page being separate does not make the form separate* — a
-form written straight into the kit is shipped, whatever page you were looking at.
-`realfake` (admit/reject a spelling) is the worked example of a lab-only form.
-The procedure is `.claude/skills/new-question-form`.
+Experimental forms live in **`playground/lab-forms.js`**, which the lab loads and
+**no game ever does** — a game loads `hub-kit.js` and nothing else. Registered in
+`hub-kit.js` a form is live in every game the moment a bank item carries its type.
+**Graduating is moving the block between the two files; the code does not change**,
+because what is written in the lab file is already the shared contract. The lab's
+menu groups the forms by stage (`In the kit` / `Lab only`), reading the set of kit
+forms captured between the two `<script>` tags — the one moment the two are
+distinguishable. This matters because *the playground page being separate does not
+make the form separate*: `bridge` was written straight into the kit and was
+therefore shipped, invisible only because no content used it. It lives in the lab
+file now.
+
+**Portability is checked, not intended.** The `promptlab` suite drops
+`lab-forms.js` into a real hub page, starts Jeopardy, and asserts every form it
+registers draws *and* reveals on a live clue card. It iterates whatever the file
+registers, so a form added next month is covered without the check being edited,
+and one that quietly depends on something only the lab has fails the day it is
+written rather than at graduation. The procedure is
+`.claude/skills/new-question-form`.
 
 Current pages: **`connections.html`** — ESL Connections (find four groups of four;
 groups encode collocations/phrasal verbs/spelling/register; solving a group unlocks
@@ -666,11 +678,14 @@ guess passes the turn and the vote moves with it; shared pool of four mistakes;
     absence of element children is the tell, and the lab reports it; that
     distinction was a bug in the lab before it was a line in the docs.
   - **A form now has two stages, because a separate *page* is not a separate
-    *form*.** Written into the lab's own block it cannot reach a game at all;
-    written into `hub-kit.js` it is live in every game the moment content carries
-    its type. Graduating is moving the block between files. Worth stating plainly:
-    `bridge` went straight into the kit, so it is already shipped — invisible only
-    because no bank item uses it yet, which is density, not isolation.
+    *form*.** Experimental forms live in `playground/lab-forms.js`, which no game
+    loads; `hub-kit.js` is the shipped shelf. Graduating is moving the block.
+    `bridge` went straight into the kit at first — shipped, invisible only for
+    want of content — and has been pulled back to the lab file, which is where a
+    form being experimented with belongs. **Portability is proved, not promised:**
+    the suite drops the lab file into a real hub page and asserts every form in it
+    draws and reveals on a live Jeopardy clue card, iterating whatever the file
+    registers so future forms are covered for free.
     `.claude/skills/new-question-form` is the procedure.
 - **The room bench: the board and its phones on one screen.** `playground/
   phone-bench.html` now carries the **projected board too**, not just the
