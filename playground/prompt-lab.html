@@ -132,7 +132,10 @@ const SAMPLES = [
   { type:'errorfix', text:'You *must to* wear a helmet on site.', answer:'must' },
   { type:'errorfix', text:'She *have been* working here since 2019.', answer:'has been' },
 
-  { type:'scramble', text:'Put it in order:', answer:'The witness whose evidence convicted him has since retracted it' }
+  { type:'scramble', text:'Put it in order:', answer:'The witness whose evidence convicted him has since retracted it' },
+
+  { type:'realfake', text:'Admit or reject: receive', answer:'real' },
+  { type:'realfake', text:'Admit or reject: recieve', answer:'fake' }
 ];
 /* ================= end of samples ================= */
 
@@ -140,6 +143,53 @@ const $ = id => document.getElementById(id);
 const Kit = window.HubKit;
 const params = new URLSearchParams(location.search);
 const RELAY = params.get('relay') || '';
+
+/* Which forms were already in the kit when this page loaded — captured *before*
+   the lab registers its own, which is the only moment the two sets are
+   distinguishable. Everything registered below is lab-only and cannot reach a
+   game, because a game loads hub-kit.js and never loads this page. */
+const IN_THE_KIT = Kit.prompt.types();
+
+/* ================= EXPERIMENTAL FORMS — write new forms here =================
+   A form registered here exists ONLY in this lab. That is the whole point of the
+   two stages: try it against a real room and a real class first, and only then
+   move the `Kit.prompt.register(...)` call into game-hub/hub-kit.js, where every
+   game gets it. Graduating is moving the block — the code does not change.
+
+   The contract is the same either way: render(mount,item), reveal(mount,item)
+   returning how long it runs (0 = declined), and an optional `games:[…]` naming
+   the boards it suits (omit for all). See .claude/skills/new-question-form. */
+
+/* Real or fake — a spelling to admit or reject. Borrowed from the Learning-games
+   'Bouncer' prototype: the class votes admit/reject, which is why it is here
+   rather than in the kit — the vote half is untested with a class. */
+Kit.prompt.register('realfake', {
+  render(mount, item){
+    const text = String((item && item.text) || '');
+    const word = text.replace(/^.*?:\s*/, '').trim();
+    if(!word || /\s/.test(word)){ mount.textContent = text; return; }
+    const lead = document.createElement('span');
+    lead.className = 'prompt-lead';
+    lead.textContent = 'Real word, or not?';
+    const chip = document.createElement('span');
+    chip.className = 'prompt-link';
+    chip.textContent = word;
+    mount.appendChild(lead); mount.appendChild(chip);
+  },
+  reveal(mount, item){
+    const chip = mount.querySelector('.prompt-link');
+    const answer = String((item && item.answer) || '').trim();
+    if(!chip || !answer) return 0;
+    const real = /^(real|yes|true)$/i.test(answer);
+    chip.classList.add(real ? 'filled' : 'blank');
+    const out = document.createElement('span');
+    out.className = 'prompt-made';
+    out.textContent = real ? 'a real spelling' : 'not a word — reject it';
+    mount.appendChild(out);
+    return 560;
+  }
+});
+/* ================= end of experimental forms ================= */
 
 /* The menu is the registry, asked — never a list kept in step by hand. A form
    registered after this page was written appears in it for free, which is the
@@ -153,15 +203,26 @@ function samplesFor(type){
 
 let current = null;
 
+const inKit = type => IN_THE_KIT.indexOf(type) !== -1;
+
 function renderFormPick(){
   const sel = $('form-pick');
   sel.innerHTML = '';
-  formsAvailable().forEach(f=>{
-    const o = document.createElement('option');
-    const n = samplesFor(f.type).length;
-    o.value = f.type;
-    o.textContent = f.type + (n ? ' (' + n + ')' : ' — no sample');
-    sel.appendChild(o);
+  /* Two stages, and which one a form is in is the fact this whole page turns on:
+     a form in the kit is already live in every game (it just needs content), while
+     a lab form cannot reach a game at all. Saying so in the menu means nobody has
+     to remember which is which. */
+  [['In the kit — live in every game', true], ['Lab only — experimental', false]].forEach(([label, kit])=>{
+    const group = document.createElement('optgroup');
+    group.label = label;
+    formsAvailable().filter(f => inKit(f.type) === kit).forEach(f=>{
+      const o = document.createElement('option');
+      const n = samplesFor(f.type).length;
+      o.value = f.type;
+      o.textContent = f.type + (n ? ' (' + n + ')' : ' — no sample');
+      group.appendChild(o);
+    });
+    if(group.children.length) sel.appendChild(group);
   });
 }
 function renderItemPick(){
@@ -182,9 +243,11 @@ function renderItemPick(){
   /* Which boards a form suits is the form's own declaration — an anagram in
      Millionaire is given away by its four options, odd-one-out in Race by the
      board — so it is read here rather than restated. */
-  const info = Kit.prompt.info($('form-pick').value);
+  const type = $('form-pick').value;
+  const info = Kit.prompt.info(type);
   $('suits').textContent = info
-    ? 'suits: ' + (info.games ? info.games.join(', ') : 'every board')
+    ? (inKit(type) ? 'in the kit · ' : 'lab only · ') +
+      'suits: ' + (info.games ? info.games.join(', ') : 'every board')
     : '';
 }
 

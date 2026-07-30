@@ -539,7 +539,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   value, so a later choice can't be overwritten.
 
 ## Skills — the procedures, separated from the history
-`.claude/skills/` holds three invocable checklists. This file is the project's
+`.claude/skills/` holds four invocable checklists. This file is the project's
 *memory*; those are its *procedures*, pulled up at the moment they are needed rather
 than remembered from 1,400 lines.
 - **`new-game`** — the two contracts, registration order, the layout rules, which
@@ -547,6 +547,10 @@ than remembered from 1,400 lines.
   wired up.
 - **`new-mode`** — a mode is a named bundle of settings, never a second code path.
   The preset pattern, and why a preset writes the switches rather than shadowing.
+- **`new-question-form`** — the two stages (lab-only vs in the kit) and why the
+  isolation is structural, the render/reveal contract, declining rather than
+  rendering nonsense, and the step that decides whether a form exists at all:
+  authoring items for it.
 - **`phone-debug`** — the five shapes every phone bug so far has taken, and the one
   question that separates them ("does the phone still show its room number?").
 
@@ -616,6 +620,18 @@ at all. **Ask the room** puts the same question on the handsets as an everyone-t
 round and judges the replies with `Kit.answer.judge`, exactly as a game would. So a
 form can be tried before a single bank item is authored for it. `promptlab` suite.
 
+**A form has two stages, and the isolation is structural, not a convention.**
+Registered in the lab's own marked block it is **experimental and cannot reach a
+game** — games load `hub-kit.js` and never load the lab. Registered in `hub-kit.js`
+it is live in every game the moment a bank item carries its type. **Graduating is
+moving the registration block between the two files; the code does not change.**
+The lab's menu groups the forms by stage (`In the kit` / `Lab only`) so nobody has
+to remember which is which, and the suite proves both directions. This matters
+because *the playground page being separate does not make the form separate* — a
+form written straight into the kit is shipped, whatever page you were looking at.
+`realfake` (admit/reject a spelling) is the worked example of a lab-only form.
+The procedure is `.claude/skills/new-question-form`.
+
 Current pages: **`connections.html`** — ESL Connections (find four groups of four;
 groups encode collocations/phrasal verbs/spelling/register; solving a group unlocks
 its mini-lesson). Classroom adaptation: teams on chips (click = turn, dblclick =
@@ -649,6 +665,13 @@ guess passes the turn and the vote moves with it; shared pool of four mistakes;
     tell you which happened — it returns the type whenever the form *ran*. The
     absence of element children is the tell, and the lab reports it; that
     distinction was a bug in the lab before it was a line in the docs.
+  - **A form now has two stages, because a separate *page* is not a separate
+    *form*.** Written into the lab's own block it cannot reach a game at all;
+    written into `hub-kit.js` it is live in every game the moment content carries
+    its type. Graduating is moving the block between files. Worth stating plainly:
+    `bridge` went straight into the kit, so it is already shipped — invisible only
+    because no bank item uses it yet, which is density, not isolation.
+    `.claude/skills/new-question-form` is the procedure.
 - **The room bench: the board and its phones on one screen.** `playground/
   phone-bench.html` now carries the **projected board too**, not just the
   handsets — because a phone dynamic can only be judged by what it does to the

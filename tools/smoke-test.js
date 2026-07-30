@@ -4107,6 +4107,30 @@ async function testPromptLab(browser){
           return window.HubKit.prompt.types().indexOf('__labtest') !== -1 && before > 0;
         }));
 
+  /* Two stages, and the isolation between them is the point: a form written in the
+     lab must NOT be able to reach a game. Games load hub-kit.js and never load this
+     page, so an experimental form exists only here until its registration is moved
+     into the kit — which is what "graduating" means, and it is a file move, not a
+     rewrite. Proved in both directions rather than asserted. */
+  const stages = await page.evaluate(() => ({
+    labOnly: window.HubKit.prompt.types().indexOf('realfake') !== -1,
+    groups:  [...document.querySelectorAll('#form-pick optgroup')].map(g => g.label),
+    inKitGroup: [...document.querySelectorAll('#form-pick optgroup')]
+      .find(g => /in the kit/i.test(g.label))?.textContent || '',
+    labGroup: [...document.querySelectorAll('#form-pick optgroup')]
+      .find(g => /lab only/i.test(g.label))?.textContent || ''
+  }));
+  check('the lab separates forms that are in the kit from experimental ones',
+        stages.groups.length === 2 && /bridge/.test(stages.inKitGroup) &&
+        /realfake/.test(stages.labGroup), JSON.stringify(stages));
+
+  const hub = await openHub(browser);
+  const hubForms = await hub.evaluate(() => window.HubKit.prompt.types());
+  await hub.close();
+  check('a lab-only form cannot reach a game, and a graduated one can',
+        hubForms.indexOf('realfake') === -1 && hubForms.indexOf('bridge') !== -1,
+        hubForms.join(','));
+
   await page.locator('#form-pick').selectOption('bridge'); await page.waitForTimeout(250);
   check('picking a form draws its sample at board size',
         await page.locator('#prompt-text .prompt-link').count() === 3);
