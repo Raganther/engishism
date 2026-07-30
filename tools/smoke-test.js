@@ -4015,6 +4015,51 @@ async function testPlaygroundConnections(browser){
     check('the vote lands on the tile, advisory',
           await page.locator('#grid .tile[data-word="decision"] .votes').innerText() === '1');
 
+    /* ---- the vote is a negotiation, not a submission ----
+       A team argues its way to one answer, so a player must be able to move their
+       vote. The relay keys replies by player, so a second tap replaces the first
+       and the tally follows; before this the first tap was final and there was
+       nothing left to negotiate with. */
+    check('the phone says the pick can be changed',
+          /change/i.test(await p.locator('#state').innerText()),
+          await p.locator('#state').innerText());
+    await p.locator('#opts button', { hasText:/^homework$/ }).click();
+    await page.waitForTimeout(600);
+    check('changing the vote moves it on the board',
+          await page.locator('#grid .tile[data-word="decision"] .votes').count() === 0 &&
+          await page.locator('#grid .tile[data-word="homework"] .votes').innerText() === '1');
+    check('and the handset stays open rather than locking on the first tap',
+          await p.locator('#opts button:disabled').count() === 0);
+    await p.locator('#opts button', { hasText:/^decision$/ }).click();
+    await page.waitForTimeout(500);
+
+    /* ---- the round clock ----
+       Sent once as a duration and counted down from receipt, so no phone ever
+       compares clocks with anybody. Display plus a local stop; the host decides
+       what expiry means. */
+    check('the phone shows the time left',
+          /^\d+s$/.test((await p.locator('#round-clock').innerText()).trim()),
+          await p.locator('#round-clock').innerText());
+    const late = await browser.newPage({ viewport:{ width:390, height:844 } });
+    await late.goto(BASE + '/join.html?code=' + code + '&name=Zoe&team=0&auto=1');
+    await late.waitForTimeout(900);
+    const leftFor = Number((await late.locator('#round-clock').innerText()).replace(/\D/g,''));
+    check('and a phone joining mid-round is told what is *left*, not the full time',
+          leftFor > 0 && leftFor < 60, String(leftFor));
+    await late.close();
+
+    // expiry, driven with a short round so the suite does not wait a minute
+    await page.evaluate(() => window.HubHost.arm('Pick a word', {
+      mode:'vote', options:['alpha','beta'], team:0, rethink:true, secs:2 }));
+    await p.waitForTimeout(3200);
+    check('when time runs out the phone says so and stops taking taps',
+          /time/i.test(await p.locator('#round-clock').innerText()) &&
+          await p.locator('#opts button:disabled').count() === 2,
+          await p.locator('#round-clock').innerText());
+    // put the real question back for the rest of the run
+    await page.evaluate(() => askPhones());
+    await p.waitForTimeout(700);
+
     // teacher locks in the MAKE group — the team scores and keeps the turn
     // (tiles are picked by data-word: a vote badge joins the tile's text, so
     //  matching on the text passed before the first vote and never after)

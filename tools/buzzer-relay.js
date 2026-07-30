@@ -81,7 +81,7 @@ function getRoom(code, create){
     r = { host:null, players:new Map(), teams:[], armed:false, locked:null,
           mode:'buzz', prompt:'', options:[], team:null, responses:new Map(),
           spent:new Set(), cooling:new Map(), cards:new Map(), emptiedAt:0,
-          answerSecs:0 };
+          answerSecs:0, rethink:false, secs:0, armedAt:0 };
     rooms.set(code, r);
   }
   return r;
@@ -163,6 +163,10 @@ function openStream(req, res, q){
     id, name, team, teams:room.teams, armed:room.armed, locked:lockedNow(room),
     mode:room.mode, prompt:room.prompt, options:room.options, turnTeam:room.team,
     spent:[...room.spent],
+    rethink: room.rethink, secs: secsLeft(room),
+    /* what this phone already chose, so a reload comes back with its own vote
+       showing rather than looking like it never answered */
+    yours: (room.responses.get(id) || {}).value || null,
     cooling:[...room.cooling].map(([pid,until])=>({ id:pid, until })),
     card: room.cards.get(id) || null
   });
@@ -237,6 +241,14 @@ function handleSend(req, res){
         room.armed = true; room.locked = null;
         // seconds to answer once somebody takes the floor; 0 = no clock
         room.answerSecs = Math.max(0, Math.min(120, Number(msg.answerSecs) || 0));
+        /* `rethink` lets a player change their reply while the round is open —
+           the whole point of a team vote is that they argue and move. The
+           responses map is keyed by player id, so a second reply simply replaces
+           the first and the tally recomputes. `secs` is how long the round runs,
+           counted from here so a late joiner can be told what is left. */
+        room.rethink = !!msg.rethink;
+        room.secs    = Math.max(0, Math.min(900, Number(msg.secs) || 0));
+        room.armedAt = Date.now();
         /* 'card' is a round where each phone answers off its own bingo card. It
            collects like 'answer' rather than racing like 'buzz' — everybody taps,
            and the host judges each tap against that player's card. */
@@ -267,6 +279,7 @@ function handleSend(req, res){
                                       the phone runs both through the same handler. */
                                    turnTeam: room.team,
                                    spent: [...room.spent], reopen: !!msg.reopen,
+                                   rethink: room.rethink, secs: room.secs,
                                    cooling: [...room.cooling].map(([id,until])=>({ id, until })) });
         return sendJSON(res, 200, { ok:true });
       }
@@ -292,7 +305,7 @@ function handleSend(req, res){
         /* A bingo tap is not "your one answer this round": a wrong tap is meant to
            be followed by another, and the next call reuses the same open round. So
            spending — which is what enforces one-each — does not apply to cards. */
-        if(room.mode !== 'card' && room.spent.has(p.id))
+        if(room.mode !== 'card' && !room.rethink && room.spent.has(p.id))
           return sendJSON(res, 200, { ok:true, ignored:'already answered' });
         /* A round can belong to one team. The phone is told and shows no controls,
            so this only catches the ones that cannot have been told — a handset that
@@ -301,7 +314,7 @@ function handleSend(req, res){
           return sendJSON(res, 200, { ok:true, ignored:'not your team' });
         const value = String(msg.value == null ? '' : msg.value).slice(0, 120);
         room.responses.set(p.id, { id:p.id, name:p.name, team:p.team, value });
-        if(room.mode !== 'card') room.spent.add(p.id);
+        if(room.mode !== 'card' && !room.rethink) room.spent.add(p.id);
         const all = [...room.responses.values()];
         const tally = {};
         all.forEach(r2 => { tally[r2.value] = (tally[r2.value] || 0) + 1; });
@@ -364,6 +377,13 @@ function serveStatic(req, res, pathname){
     res.writeHead(200, { 'Content-Type':type, 'Cache-Control':'no-cache' });
     fs.createReadStream(file).pipe(res);
   });
+}
+
+/* What is left of a round's clock, computed here where the round was stamped —
+   a phone is never asked to compare its clock with the relay's. */
+function secsLeft(room){
+  if(!room.armed || !room.secs) return 0;
+  return Math.max(0, Math.round(room.secs - (Date.now() - room.armedAt)/1000));
 }
 
 /* A late joiner lands mid-lock with the clock already running, so the duration it

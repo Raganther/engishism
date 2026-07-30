@@ -64,6 +64,11 @@
 
   .instructions{ color:var(--muted); font-size:0.95rem; margin:6px 0 12px; }
   #vote-line{ min-height:1.3em; font-size:0.95rem; color:var(--accent); font-weight:600; margin:0 0 8px; }
+  #vote-clock{
+    font-family:ui-monospace,monospace; margin-left:8px; padding:2px 10px; border-radius:999px;
+    background:rgba(0,160,223,0.12);
+  }
+  #vote-clock.urgent{ background:#C0392B; color:#fff; }
 
   .solved-area{ display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
   .solved-group{ border-radius:10px; padding:10px 14px; text-align:center; color:#121212; animation:pop 0.35s ease; }
@@ -120,6 +125,12 @@
     </div>
     <div class="toolbar">
       <select id="puzzle-select" aria-label="Choose puzzle"></select>
+      <select id="vote-secs" aria-label="How long the team gets" title="How long the team gets to agree">
+        <option value="0">No clock</option>
+        <option value="30">30s</option>
+        <option value="60" selected>60s</option>
+        <option value="90">90s</option>
+      </select>
       <button id="shuffle-btn">Shuffle</button>
       <button id="restart-btn">Restart</button>
       <span id="room-chip">phones off</span>
@@ -130,7 +141,7 @@
   <p class="instructions">Find four groups of four connected words. The team on turn talks it over —
      their phones vote on the words — then the teacher locks in four tiles and submits.
      A wrong guess passes the turn. Solve a group to unlock its mini-lesson.</p>
-  <p id="vote-line"></p>
+  <p id="vote-line"><span id="vote-text"></span> <span id="vote-clock"></span></p>
 
   <div class="solved-area" id="solved-area"></div>
   <div class="grid" id="grid"></div>
@@ -162,8 +173,8 @@
   </div>
 </div>
 
-<script src="../game-hub/hub-buzzer.js?v=20260801r"></script>
-<script src="../game-hub/hub-qr.js?v=20260801r"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260801s"></script>
+<script src="../game-hub/hub-qr.js?v=20260801s"></script>
 <script>
 'use strict';
 /* ================= PUZZLES — edit or add puzzles here =================
@@ -329,9 +340,16 @@ function askPhones(){
   if(gameOver || !remaining.length){ host.disarm(); return; }
   /* Short on purpose: the words are the question, and every line of instructions
      is a line of words pushed off a handset. The board carries the full rules. */
+  const secs = Number($('vote-secs').value) || 0;
+  /* `rethink` is what makes this a negotiation rather than a submission: a player
+     can tap another word and their vote moves, so the team can argue toward one
+     answer. `secs` gives them a deadline to argue against — the phones count it
+     down themselves, and the board runs its own copy for the teacher. */
   host.arm('Pick a word', {
-    mode:'vote', options: remaining.slice(), team: active
+    mode:'vote', options: remaining.slice(), team: active,
+    rethink: true, secs
   });
+  boardClock(secs);
 }
 
 function joinBase(){
@@ -365,6 +383,32 @@ $('room-chip').addEventListener('click', ()=>{
 });
 $('join-panel').addEventListener('click', e=>{ if(e.target.id === 'join-panel') $('join-panel').classList.remove('on'); });
 
+/* The teacher's copy of the same countdown. When it runs out the vote closes —
+   the phones stop taking taps, and whatever the team had converged on is what the
+   teacher is looking at. Nothing is decided automatically: the board is still
+   theirs to click. */
+let clockTimer = null;
+function boardClock(secs){
+  if(clockTimer){ clearInterval(clockTimer); clockTimer = null; }
+  $('vote-clock').textContent = '';
+  if(!secs || !host) return;
+  let left = secs;
+  const paint = ()=>{ $('vote-clock').textContent = left + 's'; 
+                      $('vote-clock').classList.toggle('urgent', left <= 10); };
+  paint();
+  clockTimer = setInterval(()=>{
+    left--;
+    if(left <= 0){
+      clearInterval(clockTimer); clockTimer = null;
+      $('vote-clock').textContent = 'time';
+      if(host) host.disarm();
+      renderVotes();
+      return;
+    }
+    paint();
+  }, 1000);
+}
+
 function renderVotes(){
   // the four most-voted words glow — the team's convergence, readable from the back
   const counts = Object.entries(votes).filter(([,n])=>n>0).sort((a,b)=>b[1]-a[1]);
@@ -380,7 +424,7 @@ function renderVotes(){
     t.classList.toggle('hot', hot.has(w));
   });
   const total = counts.reduce((a,[,n])=>a+n, 0);
-  $('vote-line').textContent = (host && total)
+  $('vote-text').textContent = (host && total)
     ? (teams[active] ? teams[active].name : 'The team') + ' has ' + total + ' vote' + (total===1?'':'s') + ' in'
     : '';
 }
@@ -515,6 +559,8 @@ function initToolbar(){
   });
   sel.value = puzzleIndex;
   sel.addEventListener('change', ()=> loadPuzzle(Number(sel.value)));
+  // changing the clock restarts the round's timer, so a teacher can give more time
+  $('vote-secs').addEventListener('change', askPhones);
   $('shuffle-btn').addEventListener('click', ()=>{ remaining = shuffle(remaining); render(); });
   $('restart-btn').addEventListener('click', ()=>{ teams.forEach(t=>t.score=0); loadPuzzle(puzzleIndex); renderTeams(); });
   $('deselect-btn').addEventListener('click', ()=>{ selected = []; render(); });

@@ -1155,6 +1155,19 @@ guess passes the turn and the vote moves with it; shared pool of four mistakes;
     implementation rather than two.
   - **Opening a hexagon ends the vote**, before `askPhones`, or the clue's arm is
     immediately overwritten by a vote nobody is still taking.
+  - **A vote is a negotiation, so a player can move it.** `rethink` on the arm
+    lets a phone tap another option and have its reply replace the first — the
+    relay keys replies by player id, so the tally follows and nothing is
+    double-counted. Without it the first tap was final, which is a submission,
+    not a team agreeing on something. `spent` is not set for a rethink round, so
+    a reload comes back able to change its mind too — and the join payload
+    carries `yours`, this phone's current choice, so it comes back *showing* it.
+  - **A round can carry a clock**, sent once as a duration with the arm and
+    counted down on each handset from receipt, so no phone ever compares clocks
+    with anybody; a phone joining mid-round is told what is **left**, computed on
+    the relay where the round was stamped. Expiry is a fact, not a verdict: the
+    phones stop taking taps and say so, the board says so, and **the teacher still
+    clicks** — the same rule as Jeopardy's answer clock.
   - **A vote you have to scroll is a vote you cannot make.** Sixteen options fit
     no handset as full-width rows, and choosing between things means seeing them
     at once — so more than six word-length options lay out as **two columns**

@@ -81,6 +81,15 @@
     font-size:0.78rem; color:rgba(251,243,213,0.55); text-decoration:underline;
   }
   .err{ color:#ff8a7d; font-size:0.85rem; min-height:1.2em; }
+  /* The round clock. Its own line rather than the state line, which is busy
+     saying what just happened to *this* phone. */
+  .clock{
+    display:none; font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:0.95rem; letter-spacing:0.12em; color:var(--cream);
+    background:rgba(255,255,255,0.08); border-radius:999px; padding:5px 14px;
+  }
+  .clock.on{ display:block; }
+  .clock.urgent{ background:#C0392B; color:#fff; }
   /* the question the teacher is asking, pushed from the host — the back of the
      room can read its own phone even when it cannot read the board */
   .qtext{ font-size:1.15rem; line-height:1.4; margin:0 0 18px; color:#e8eefc; min-height:1.4em; }
@@ -153,6 +162,8 @@
   <p class="room" id="room"></p>
   <p class="who" id="who"></p>
   <p class="qtext" id="qtext"></p>
+  <!-- how long is left on this round, when the host set a clock -->
+  <p class="clock" id="round-clock"></p>
   <button id="buzzer" disabled>Wait</button>
   <div class="opts" id="opts"></div>
   <!-- Bingo: this phone's own card, which is the first thing here that outlives a
@@ -174,7 +185,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260801r"></script>
+<script src="game-hub/hub-buzzer.js?v=20260801s"></script>
 <script>
 (function(){
   'use strict';
@@ -277,6 +288,7 @@
      a buzzer racing for the floor, a set of options to pick one of, or a box to
      type into. Only one is ever on screen. */
   let mode = 'buzz', answered = false, coolTimer = null, verdictUntil = 0;
+  let canRethink = false, timeUp = false, roundTimer = null;
   // the state line, unless a verdict is still being read
   function say(text){ if(Date.now() > verdictUntil) $('state').textContent = text; }
   /* Some rounds belong to one team: Blockbusters asks the team on turn which
@@ -352,14 +364,24 @@
       /* The inline display set above wins over any class, so the layout has to be
          chosen here rather than in CSS alone. */
       box.style.display = compact ? 'grid' : 'flex';
-      (opts||[]).forEach(o=>{
+      list.forEach(o=>{
         const b=document.createElement('button');
         b.type='button'; b.textContent=o;
         b.addEventListener('click', ()=>{
-          if(answered || !client) return;
+          if(!client) return;
+          /* A team vote is an argument, not a submission: the point is that they
+             talk and move. So while the host allows rethinking, a tap replaces
+             this phone's choice instead of locking the handset — the relay keys
+             replies by player, so the tally follows. Without it the first tap was
+             final and there was nothing left to negotiate with. */
+          if(answered && !canRethink) return;
+          if(timeUp) return;
           answered = true; blip();
-          [...box.children].forEach(x=>{ x.disabled=true; if(x===b) x.classList.add('picked'); });
-          $('state').textContent = 'Answer sent';
+          [...box.children].forEach(x=>{
+            x.classList.toggle('picked', x===b);
+            if(!canRethink) x.disabled = true;
+          });
+          $('state').textContent = canRethink ? 'Tap another to change' : 'Answer sent';
           client.respond(o);
         });
         box.appendChild(b);
@@ -397,6 +419,41 @@
     floorClock = setInterval(()=>{
       left--;
       if(left <= 0){ floorClockStop(); $('state').textContent = text + ' · time!'; return; }
+      paint();
+    }, 1000);
+  }
+
+  /* The round clock — how long the whole room has, as opposed to the answer clock
+     which belongs to whoever took the floor. Sent once as a duration and counted
+     down from receipt, so no phone ever compares clocks with anybody. Display
+     plus a local stop: the host decides what expiry *means*. */
+  function roundClockStop(){
+    if(roundTimer){ clearInterval(roundTimer); roundTimer = null; }
+    const el = $('round-clock');
+    el.className = 'clock'; el.textContent = '';
+  }
+  function roundClockRun(secs){
+    roundClockStop();
+    let left = Math.max(0, Math.round(secs));
+    const el = $('round-clock');
+    if(!left) return;
+    timeUp = false;
+    const paint = ()=>{
+      el.className = 'clock on' + (left <= 10 ? ' urgent' : '');
+      el.textContent = left + 's';
+    };
+    paint();
+    roundTimer = setInterval(()=>{
+      left--;
+      if(left <= 0){
+        clearInterval(roundTimer); roundTimer = null;
+        timeUp = true;
+        el.className = 'clock on urgent'; el.textContent = 'time';
+        // nothing more can be changed, but what was chosen stays on screen
+        $('opts').querySelectorAll('button').forEach(b=>{ b.disabled = true; });
+        say('Time — pencils down');
+        return;
+      }
       paint();
     }, 1000);
   }
@@ -539,6 +596,8 @@
 
     function applyArmed(d){
       floorClockStop();          // a fresh floor retires whoever was on the clock
+      canRethink = !!(d && d.rethink);
+      timeUp = false;
       // the question has always been sent with the arm; it used to be thrown away
       $('qtext').textContent = (d && d.prompt) || '';
       const spent = (d && d.spent) || [];
@@ -568,11 +627,21 @@
         $('state').textContent = 'You have already answered this one';
         return;
       }
+      if(d && d.secs) roundClockRun(d.secs); else roundClockStop();
+      /* Back after a reload, or joining mid-vote: show what this phone already
+         chose rather than a blank set of options. */
+      if(d && d.yours && mode === 'vote'){
+        answered = true;
+        [...$('opts').children].forEach(x=>{
+          x.classList.toggle('picked', x.textContent === d.yours);
+          if(!canRethink) x.disabled = true;
+        });
+      }
       if(mode==='buzz') setBuzzer('armed','Buzz');
       if(mode==='type')  syncTypeButton();
       if(mode==='card'){ cardBusy = false; renderCard(); }
       say(mode==='buzz' ? 'Go!'
-        : mode==='vote' ? 'Pick one'
+        : mode==='vote' ? (canRethink ? 'Tap to choose — you can change it' : 'Pick one')
         : mode==='card' ? 'Tap the word'
         : mode==='type' ? 'Type it, then buzz' : 'Type your answer');
       if(navigator.vibrate) navigator.vibrate(40);
@@ -586,7 +655,7 @@
        whole round. Dropping to the buzzer put a full-screen WAIT button over the
        card they were still reading. */
     function standDown(msg){
-      floorClockStop();
+      floorClockStop(); roundClockStop();
       setBuzzer('off','Wait');
       $('qtext').textContent = '';
       setMode(card ? 'card-idle' : 'buzz');
