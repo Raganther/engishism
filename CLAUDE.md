@@ -704,6 +704,22 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Connections plays two ways, and the bench grew a middle tier.** The board can
+  now be played as **turns** (unchanged) or as a **race** — no turn, both teams at
+  once, each team's picks live on the projector in its own colour, and a team's own
+  four *is* its guess, so the teacher never re-enters it. See "The playground" for
+  the mechanics and why each phone holds up to four rather than one.
+  - **A team's answer is the union of its players' picks**, which is what makes a
+    small team possible *and* what forces the negotiation: six words up means
+    agreeing which two to drop.
+  - **A set of four is judged when it settles**, debounced — four picks arriving
+    from four phones would otherwise be judged three times on the way up — and
+    remembered per team, so a wrong four is not re-judged until it changes.
+  - **`playground/bench-kit.js` is the new tier**: what every *question game*
+    shares, as `hub-kit.js` is what every *game* shares. It exists because
+    `openRoom` had already been written twice in two days. Teams and the round are
+    deliberately still in Connections — one caller is a guess, not an API. The rule
+    and the three tiers are in "The playground".
 - **Question forms have a rig now, and a sixth form to prove it.** `playground/
   prompt-lab.html` lists every registered form, draws and reveals it at board size,
   and pushes the same question to phones — see "The playground". It exists because
@@ -1324,7 +1340,8 @@ playground's point, that one board can host several:
   nothing saying why. Timed rounds ask now too; `raceCanTry()` restricts a timed
   round's buzz to the team whose round it is, so a phone on the bench can't steal a
   word off someone else's score.
-- **Deployed.** Build `20260801e`; new `strip`, `bbteams` and `jointeams` suites alongside `card`, `turns`, `phoneteams`, `teamvote`.
+- **Deployed.** The build stamp is in the three shells and `join.html`; ⚙ reports
+  whichever one is actually running, which is how a stale shell announces itself.
 - **The settings drawer is how a dynamic gets tried.** ⚙ during play (or `L`) opens
   the docked drawer for the game being played, without leaving the board — see "One
   gear, two forms" above. It exists because prototyping was the bottleneck:
@@ -1750,12 +1767,13 @@ runs. Pick the row, run it, push.
 | **Content** (a bank, a unit file) | `--only=content` | ~20s |
 | **One game's own logic** (board, its `tension()`, its stage CSS) | `--only=<game>` | ~40s |
 | **Shared layer 1** — `hub-kit.js`, the header, the team bar, the clue card, `hub.css` outside one stage, settings, the fit | `--only=millionaire,fit,phone,card,turns,gameshow,lab,registry,competition` | ~4 min |
-| **Phones / relay** | add `,buzzers,phonemodes,teamvote,phoneteams,degradation,reconnect` | +5 min |
+| **A playground page** (`playground/*.html`, `bench-kit.js`, `lab-forms.js`) | `--only=playground,promptlab,bench` | ~1 min |
+| **Phones / relay** — `hub-buzzer.js`, `buzzer-relay.js`, `join.html` | add `,buzzers,phonemodes,teamvote,phoneteams,degradation,reconnect,playground,bench` | +6 min |
 | **Before a lesson you will actually teach from**, or on request | the full suite | ~25 min |
 
 ```bash
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=millionaire,fit,phone   # the usual
-NODE_PATH=$(npm root -g) node tools/smoke-test.js                                # 35 suites
+NODE_PATH=$(npm root -g) node tools/smoke-test.js                                # 47 suites
 ```
 
 **Two cheap pre-flights that cost seconds and have each already paid for themselves:**
