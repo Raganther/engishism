@@ -737,10 +737,27 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The thermometer's race is one ladder per team, and it needed a new thing from
+  the relay.** Two teams, two ladders; four teams, four — all climbing the same
+  scale side by side, so **the climb is the picture** and a class can see who is
+  two rungs up without reading a scoreboard. A shared board was the first build and
+  it made a race you had to be told the result of.
+  - **Each team's pool diverges, so each team's phones must be asked a different
+    question.** That is `optionsByTeam` on the relay — the *second* thing a round
+    carries per team, and the first where the **question** differs rather than the
+    rules. It rides the per-recipient `armed` payload built for the pick shares, and
+    falls through to the room-wide `options` for any team not named, so every
+    existing game is untouched.
+  - **A team's guess is drawn in the rung it is aimed at**, on their own ladder, in
+    italic until it settles. That is what replaced a shared pool with dots on it:
+    you watch each side's next answer appear where it will land, then lock or shake.
+  - **Independent ladders removed a bug rather than adding one.** With a shared slot
+    both teams could settle in the same tick and the wrong verdict could land after
+    the right one; with a ladder each, no team's answer can end another's round.
+  - Fits a projector at two, three and four teams (1280×720, nothing clipped) — the
+    suite asserts it, because column width is what a fourth team costs.
 - **The thermometer races too, and the third shared piece came out of it.**
-  Picked from the toolbar like Connections': no turn, both teams voting on the
-  same open slot, and the team whose vote **settles** on the right word first takes
-  it with no teacher click.
+  Picked from the toolbar like Connections'.
   - **A race over a *sequence* is not a race over a *set*.** Connections settles on
     a team's four; this settles on a team's leading word. Both need the same pair —
     debounce, because a team's answer arrives from several phones one at a time,

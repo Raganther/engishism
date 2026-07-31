@@ -88,6 +88,13 @@ function getRoom(code, create){
              means the room-wide `multi` applies to everybody, which is every
              round that existed before this. */
           multiByTeam:null,
+          /* The options a phone is offered, per team index. Null means the whole
+             room is asked the same thing, which is every round that existed before
+             this. It is the second thing a round carries that differs by team, and
+             the first where the *question* differs rather than the rules: a race
+             in which each team climbs its own ladder gives each side a different
+             set of words still to place. */
+          optionsByTeam:null,
           /* Whether a reply in this round is a state the player is *holding*
              rather than an answer they have *given*. A held reply leaves with the
              phone that holds it: a student who walks out mid-round must not go on
@@ -111,6 +118,18 @@ function toPlayers(room, event, data){ room.players.forEach(p=>pushEvent(p.res, 
 function toEachPlayer(room, event, build){
   room.players.forEach(p=>pushEvent(p.res, event, build(p)));
 }
+/* What this phone is being offered. Falls through to the room-wide list for any
+   team the host did not name, so a host that knows nothing about per-team options
+   behaves exactly as it did before they existed. */
+function optionsFor(room, team){
+  const per = room.optionsByTeam;
+  if(per){
+    const mine = per[Math.max(0, Number(team) || 0)];
+    if(Array.isArray(mine)) return mine;
+  }
+  return room.options;
+}
+
 /* One phone's cap. Falls through to the room-wide `multi` for any team the host
    did not name, so a host that knows nothing about shares behaves exactly as it
    did before per-team caps existed. */
@@ -192,7 +211,7 @@ function openStream(req, res, q){
      room's current state travels with the join. */
   pushEvent(res, 'joined', {
     id, name, team, teams:room.teams, armed:room.armed, locked:lockedNow(room),
-    mode:room.mode, prompt:room.prompt, options:room.options, turnTeam:room.team,
+    mode:room.mode, prompt:room.prompt, options:optionsFor(room, team), turnTeam:room.team,
     spent:[...room.spent],
     rethink: room.rethink, secs: secsLeft(room), multi: capFor(room, team),
     /* what this phone already chose, so a reload comes back with its own vote
@@ -309,6 +328,12 @@ function handleSend(req, res){
            with eighteen. The phone lays short options out as a keypad rather than a
            list, so the cap is about what fits a hand, not what fits a question. */
         room.options = Array.isArray(msg.options) ? msg.options.slice(0,20).map(o=>String(o).slice(0,80)) : [];
+        /* Same cap per team as the room-wide list: what fits a hand, not what fits
+           a question. A non-array entry falls through to `options` for that team. */
+        room.optionsByTeam = Array.isArray(msg.optionsByTeam)
+          ? msg.optionsByTeam.slice(0,8).map(list => Array.isArray(list)
+              ? list.slice(0,20).map(o=>String(o).slice(0,80)) : null)
+          : null;
         room.team  = (msg.team === 0 || Number(msg.team) > 0) ? Number(msg.team) : null;
         room.responses = new Map();
         // a new round clears who has already had a go, unless the host is
@@ -327,7 +352,7 @@ function handleSend(req, res){
            player's share of the answer and their team decides it. Everything else
            in here is the same for the whole room. */
         toEachPlayer(room, 'armed', p => ({ prompt: room.prompt,
-                                   mode: room.mode, options: room.options,
+                                   mode: room.mode, options: optionsFor(room, p.team),
                                    /* `turnTeam`, not `team`: the join payload already
                                       carries the player's own team under that name, and
                                       the phone runs both through the same handler. */

@@ -4439,24 +4439,38 @@ async function testThermometer(browser){
   check('host page had no errors', page.__errors.length === 0, page.__errors[0]);
   await page.close();
 
-  /* ---- race: both teams at once, and the board settles it ----
-     The other way the same scale can be played. No turn, both teams voting on the
-     same open slot, and the team whose vote settles on the right word first takes
-     it — the teacher never clicks. Different in shape from Connections' race,
-     which settles on a *set*: this one settles on a team's leading word, which is
-     why `BenchKit.settle` is a shared service rather than one game's helper. */
-  const race = await browser.newPage({ viewport:{ width:1280, height:760 } });
+  /* ---- race: one ladder per team ----
+     A shared board makes a race you have to read a scoreboard to follow. Side by
+     side, the climb *is* the picture. It is also the first round in the project
+     where the *question* differs by team rather than only the rules: each side's
+     pool has diverged, so each phone is offered its own remaining words through
+     the relay's `optionsByTeam`. */
+  const race = await browser.newPage({ viewport:{ width:1280, height:720 } });
   race.__errors = []; race.on('pageerror', e => race.__errors.push(String(e)));
   await race.goto(BASE + '/playground/thermometer.html?p=1'); await race.waitForTimeout(900);
-  await race.locator('#play-mode').selectOption('race'); await race.waitForTimeout(600);
+  await race.locator('#play-mode').selectOption('race'); await race.waitForTimeout(700);
+
+  check('a race draws one ladder per team, on the same scale',
+        await race.locator('.ladder').count() === 2 &&
+        await race.locator('.ladder .slot').count() === 12 &&
+        !(await race.locator('#board-turns').isVisible()));
   /* Everything a race removes the recovery path for is removed with it — the same
-     general shape Connections paid for with its round clock, which disarms every
-     handset and leaves a race with nothing on screen able to act. */
-  check('a race stands down the turn, the budget, the teacher\'s button and the clock',
+     shape Connections paid for with its round clock, which disarms every handset
+     and leaves a race with nothing on screen able to act. */
+  check('and stands down the turn, the budget, the teacher\'s button and the clock',
         !(await race.locator('#status-row').isVisible()) &&
         !(await race.locator('#skip-btn').isVisible()) &&
         !(await race.locator('#vote-secs').isVisible()) &&
         await race.locator('.team-chip.active').count() === 0);
+  /* Still a projected board: four ladders have to fit as well as two. */
+  const rfit = await race.evaluate(() => ({
+    scroll: document.body.scrollHeight, inner: window.innerHeight,
+    clipped: [...document.querySelectorAll('.ladder .slot')]
+      .filter(w => w.scrollWidth > w.clientWidth + 1).length
+  }));
+  check('the ladders fit a projector with nothing clipped',
+        rfit.scroll <= rfit.inner && rfit.clipped === 0, JSON.stringify(rfit));
+
   const rcode = ((await race.locator('#room-chip').innerText()).match(/CODE\s+(\d{5})/i)||[])[1];
   check('the race opens its own room', !!rcode, rcode || 'none');
 
@@ -4477,44 +4491,41 @@ async function testThermometer(browser){
           (await one.locator('#round-clock').innerText()).trim() === '' &&
           (await two.locator('#round-clock').innerText()).trim() === '');
 
-    // Ben leans on the hottest word, Ana on the coldest — both wrong and right at once
+    /* A team's guess is drawn in the rung it is aimed at, on *their* ladder —
+       which is what replaces a shared pool of tiles with dots on it. */
     await two.locator('#opts button', { hasText:/^incensed$/ }).click();
-    await one.locator('#opts button', { hasText:/^annoyed$/ }).click();
     await race.waitForTimeout(450);
-    check('both teams\' answers show on the board at once, in their own colours',
-          await race.locator('#pool .word-btn[data-word="annoyed"] .pick-dot').count() === 1 &&
-          await race.locator('#pool .word-btn[data-word="incensed"] .pick-dot').count() === 1 &&
-          /Team 1 → annoyed/.test(await race.locator('#vote-text').innerText()) &&
-          /Team 2 → incensed/.test(await race.locator('#vote-text').innerText()),
-          await race.locator('#vote-text').innerText());
-    /* The ring is neutral and the dots carry who — the same property Connections
-       asserts, checked here so restyling cannot re-encode the team in the ring. */
-    const rings = await race.evaluate(() => {
-      const look = w => {
-        const b = document.querySelector('#pool .word-btn[data-word="' + w + '"]');
-        return { ring: getComputedStyle(b).boxShadow,
-                 dot: getComputedStyle(b.querySelector('.pick-dot')).backgroundColor };
-      };
-      return { a: look('annoyed'), b: look('incensed') };
-    });
-    check('a word either team is leaning on gets the same neutral ring',
-          rings.a.ring === rings.b.ring && rings.a.dot !== rings.b.dot &&
-          rings.a.ring.indexOf(rings.a.dot) === -1, JSON.stringify(rings));
+    check('a team\'s guess appears in its own ladder, and nobody else\'s',
+          /incensed/i.test(await race.locator('.ladder[data-team="1"] .slot.open .pending').innerText()) &&
+          await race.locator('.ladder[data-team="0"] .slot.open .pending').count() === 0,
+          await race.locator('.ladder[data-team="1"] .slot.open .pending').innerText());
 
-    await race.waitForTimeout(1200);
-    /* Both settle in the same tick. Resolving them in arrival order put "Team 2:
-       not that one" on screen *after* Team 1 had won the slot — the board
-       announcing the wrong headline for a question that had moved on. */
-    check('the right answer takes the slot with no teacher click, and owns the headline',
-          await race.locator('#slots .slot.filled').count() === 1 &&
-          (await race.locator('.team-chip .score').allInnerTexts()).join('/') === '1/0' &&
-          /Team 1 takes it/i.test(await race.locator('.message').innerText()),
-          await race.locator('.message').innerText());
+    // Ana climbs three rungs; each correct answer moves only her ladder
+    for(const w of ['annoyed','irritated','angry']){
+      await one.locator('#opts button', { hasText: new RegExp('^' + w + '$') }).click();
+      await race.waitForTimeout(1100);
+    }
+    check('a right answer climbs that team\'s ladder, with no teacher click',
+          (await race.locator('.ladder h2 .climb').allInnerTexts()).join('|') === '3/6|0/6',
+          (await race.locator('.ladder h2 .climb').allInnerTexts()).join('|'));
+    check('and scores it, while the other team is untouched',
+          (await race.locator('.team-chip .score').allInnerTexts()).join('/') === '3/0',
+          (await race.locator('.team-chip .score').allInnerTexts()).join('/'));
     check('a wrong answer costs nothing but the time',
           await race.locator('#dots .dot.spent').count() === 0);
-    check('and a fresh round is armed on what is left',
-          await one.locator('#opts button').count() === 5,
-          String(await one.locator('#opts button').count()));
+
+    /* The pools have diverged, so the two handsets are being offered different
+       words — the first round whose *question* differs by team. Asserted on the
+       counts, because that is the thing that used to be impossible. */
+    check('each team is offered its own remaining words, not the room\'s',
+          await one.locator('#opts button').count() === 3 &&
+          await two.locator('#opts button').count() === 6,
+          await one.locator('#opts button').count() + ' vs ' +
+          await two.locator('#opts button').count());
+    check('and a team is never offered a word it has already placed',
+          await one.locator('#opts button', { hasText:/^annoyed$/ }).count() === 0 &&
+          await two.locator('#opts button', { hasText:/^annoyed$/ }).count() === 1);
+
     check('race phones had no errors', one.__errors.length === 0 && two.__errors.length === 0,
           one.__errors[0] || two.__errors[0]);
     await one.close(); await two.close();

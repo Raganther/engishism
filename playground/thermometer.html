@@ -150,12 +150,48 @@
   }
   .race-count small{ font-weight:400; color:var(--muted); }
 
+  /* ---- the race: one ladder per team ----
+     A shared board makes a race you have to read the scoreboard to follow. Side by
+     side, the climb *is* the picture: a class can see who is two rungs up without
+     anyone explaining it. Columns rather than rows because the scale is vertical,
+     and the gradient rail repeats down each one so every ladder is the same
+     thermometer. */
+  #ladders{ display:grid; gap:14px; margin-bottom:10px; }
+  .ladder{ min-width:0; }
+  .ladder h2{
+    font-size:0.95rem; margin:0 0 6px; padding:5px 10px; border-radius:999px;
+    border:2px solid var(--border); text-align:center; font-weight:700;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .ladder h2 .climb{ font-weight:400; color:var(--muted); margin-left:6px;
+                     font-variant-numeric:tabular-nums; }
+  .ladder .scale{ margin-bottom:0; gap:10px; }
+  .ladder .rail{ flex:0 0 10px; }
+  /* Word only in a race column — four teams across 1280px cannot also carry a
+     gloss, and the glosses all print together on the winning reveal. */
+  .ladder .slot{ padding:0 10px; gap:8px; }
+  .ladder .slot .word{ font-size:clamp(0.8rem, 1.35vw, 1.05rem); }
+  .ladder .slot .rank{ font-size:0.75rem; flex:0 0 1.4em; }
+  /* The team's vote as it forms, sitting in the slot it is a guess for. This is
+     what makes the race legible without a separate pool: you watch each side's
+     next answer appear in their own ladder and then lock or shake. */
+  .ladder .slot.open .pending{
+    font-weight:700; text-transform:uppercase; opacity:0.55; font-style:italic;
+    font-size:clamp(0.8rem, 1.35vw, 1.05rem);
+  }
+  .ladder.done h2{ background:var(--locked); border-color:var(--locked); }
+
   .message{ text-align:center; min-height:1.4em; font-weight:600; margin:6px 0 2px; font-size:1.15rem; }
   .lesson{
     border:2px solid var(--locked); background:#f2f7e8; border-radius:10px;
     padding:14px 18px; margin-top:12px; font-size:1.02rem; line-height:1.5;
   }
   .lesson b{ text-transform:uppercase; letter-spacing:0.03em; }
+  .lesson-scale{ margin-top:10px; padding-top:8px; border-top:1px solid rgba(0,0,0,0.18);
+                 display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:2px 18px; }
+  .lesson-scale div{ display:flex; gap:8px; font-size:0.92rem; }
+  .lesson-scale b{ text-transform:none; font-weight:700; white-space:nowrap; }
+  .lesson-scale i{ color:var(--muted); }
   .controls{ display:flex; justify-content:center; gap:10px; margin-top:8px; flex-wrap:wrap; }
   .controls button{
     font:inherit; font-weight:600; font-size:1rem; padding:12px 22px; border-radius:999px;
@@ -185,18 +221,25 @@
   <div class="teams" id="teams"></div>
   <p class="instructions" id="instructions-turns">Order the words along the scale, coldest first. The
      team on turn votes on their phones; the teacher clicks. Right keeps the turn, wrong passes it.</p>
-  <p class="instructions" id="instructions-race" style="display:none;">Both teams at once. Every phone
-     votes on the next word up the scale, and the team whose vote settles on the right one first takes
-     the slot. Nothing to click — the dots show what each side is converging on, and the board settles it.</p>
+  <p class="instructions" id="instructions-race" style="display:none;">One ladder per team, all climbing
+     the same scale. Each side votes on their own next word — you can see their guess appear in the rung
+     it is aimed at — and a right answer moves that team up. Wrong costs nothing but the time. First to
+     the top wins. Nothing to click: the ladders settle it.</p>
   <p id="vote-line"><span id="vote-text"></span> <span id="vote-clock"></span></p>
 
   <div class="scale-head"><span id="pole-low"></span><span id="pole-high"></span></div>
-  <div class="scale">
-    <div class="rail"></div>
-    <div class="slots" id="slots"></div>
+
+  <!-- turns: one shared ladder the teacher clicks into -->
+  <div id="board-turns">
+    <div class="scale">
+      <div class="rail"></div>
+      <div class="slots" id="slots"></div>
+    </div>
+    <div class="pool" id="pool"></div>
   </div>
 
-  <div class="pool" id="pool"></div>
+  <!-- race: one ladder per team, climbing the same scale side by side -->
+  <div id="ladders" style="display:none;"></div>
 
   <div class="status" id="status-row">
     <span>Mistakes remaining:</span>
@@ -314,7 +357,8 @@ const params = new URLSearchParams(location.search);
 /* ---------------- game state ---------------- */
 let scaleIndex = 0;
 let pool = [];        // words still to be placed, shuffled
-let placed = [];      // words locked into slots, coldest first
+let placed = [];      // turns: the one shared ladder, coldest first
+let lad = [];         // race: one ladder per team — lad[t] = words that team has placed
 let gameOver = false;
 
 /* ---------------- the round's state ----------------
@@ -359,6 +403,7 @@ const settings = BenchKit.settings($('settings-slot'), [
   /* Switching mode changes who may answer, so the round is re-put rather than left
      to finish under the old rules — and everything a race had drawn comes off. */
   race.reset(); replies = [];
+  lad = teams.list().map(()=> []);   // every team back to the bottom of the scale
   applyMode(); renderVotes(); askPhones();
 });
 
@@ -385,14 +430,25 @@ function pushTeams(){ if(host) host.setTeams(teams.names()); }
 function askPhones(){
   votes = {}; renderVotes();
   if(!host) return;
-  if(gameOver || !pool.length){ host.disarm(); clock.stop(); return; }
+  /* In a race the shared `pool` never empties — each team has its own — so the
+     "is there anything left to ask" test has to be the ladders, not that list. */
+  const nothingLeft = racing()
+    ? teams.list().every((t, i) => finished(i))
+    : !pool.length;
+  if(gameOver || nothingLeft){ host.disarm(); clock.stop(); return; }
   /* A race has no clock. Expiry disarms every handset, and a race hides the
      teacher's controls, so a board could reach one minute with nothing able to
      act — the dead end Connections met first. The pressure here is the other team. */
   const secs = racing() ? 0 : (settings.get('vote-secs') || 0);
+  /* In a race every team is climbing its own ladder, so their pools have diverged
+     and each side has to be offered *its own* remaining words. That is the first
+     round where the question itself differs by team rather than only the rules —
+     `optionsByTeam` on the relay, delivered on the per-recipient arm built for
+     the pick shares. */
   host.arm('Which comes next?', {
     mode:'vote',
-    options: pool.map(w => w.word),
+    options: pool.map(w => w.word),                       // the fallback list
+    optionsByTeam: racing() ? teams.list().map((t, i) => poolFor(i).map(w => w.word)) : null,
     team: racing() ? null : teams.active(),   // a race belongs to the whole room
     multi: 1,
     /* A vote is a state a phone is holding, not an answer it has given, so it
@@ -428,50 +484,26 @@ function renderVotes(){
    reads as contested rather than as one team's, and each side can watch the other
    close in. That is the whole reason a race here is a language task and not a
    speed one. */
+/* In a race the answers are drawn in the ladders themselves, so this line is left
+   with the thing the ladders cannot say: how many of a team's phones are in, which
+   is the teacher's read on whether a side has agreed or is still split. */
 function renderRaceVotes(){
   const byTeam = votesByTeam();
-  const leaders = {};                       // word -> [team indexes leaning on it]
-  Object.keys(byTeam).forEach(ti=>{
-    const top = BenchKit.leading(byTeam[ti], 1)[0];
-    if(!top) return;
-    (leaders[top] || (leaders[top] = [])).push(Number(ti));
-  });
-
-  document.querySelectorAll('#pool .word-btn').forEach(b=>{
-    const w = b.dataset.word;
-    const badge = b.querySelector('.votes'); if(badge) badge.remove();
-    let box = b.querySelector('.picks');
-    const holders = leaders[w] || [];
-    if(!holders.length){ if(box) box.remove(); b.classList.remove('hot'); return; }
-    if(!box){ box = document.createElement('span'); box.className = 'picks'; b.appendChild(box); }
-    box.innerHTML = '';
-    holders.forEach(ti=>{
-      const dot = document.createElement('span');
-      dot.className = 'pick-dot';
-      dot.style.background = BenchKit.teamColour(ti);
-      dot.title = teams.nameAt(ti);
-      box.appendChild(dot);
-    });
-    b.classList.add('hot');                 // neutral ring; the dots say who
-  });
-
-  /* How many of each team's phones are in, and on what — the teacher's read on
-     whether a side has agreed or is still split. */
   $('vote-text').innerHTML = '';
   teams.list().forEach((t, ti)=>{
     const tally = byTeam[ti];
     if(!tally) return;
-    const top = BenchKit.leading(tally, 1)[0];
     const n = Object.values(tally).reduce((a, c)=> a + c, 0);
     const chip = document.createElement('span');
     chip.className = 'race-count';
     chip.style.borderColor = BenchKit.teamColour(ti);
-    chip.textContent = t.name + ' → ' + (top || '—');
+    chip.textContent = t.name;
     const tail = document.createElement('small');
-    tail.textContent = ' · ' + n + (n === 1 ? ' vote' : ' votes');
+    tail.textContent = ' · ' + n + (n === 1 ? ' vote in' : ' votes in');
     chip.appendChild(tail);
     $('vote-text').appendChild(chip);
   });
+  renderLadders();       // the pending guesses live in the rungs
 }
 
 /* ---------------- turns, or a race ----------------
@@ -480,14 +512,28 @@ function renderRaceVotes(){
    guess, so the teacher never clicks — the board settles it. */
 function racing(){ return settings.get('play-mode') === 'race'; }
 
-/* What each team is currently converging on: their own tally, not the room's.
-   Returns team index -> {word: count}. */
+/* A team's own ladder and its own remaining words. Every team climbs the same
+   scale, so the answer for their next rung is simply the nth word of it — nothing
+   else has to record it, exactly as in turns. */
+function ladOf(t){ return lad[t] || (lad[t] = []); }
+function poolFor(t){
+  const done = ladOf(t).map(w => w.word);
+  return SCALES[scaleIndex].words.filter(w => done.indexOf(w.word) === -1);
+}
+function wantedFor(t){ return SCALES[scaleIndex].words[ladOf(t).length]; }
+function climbed(t){ return ladOf(t).length; }
+function finished(t){ return climbed(t) >= SCALES[scaleIndex].words.length; }
+
+/* What each team is currently converging on: their own tally, not the room's, and
+   scoped to the words still on *their* ladder. Returns team index -> {word:count}. */
 function votesByTeam(){
   const out = {};
   replies.forEach(r=>{
     const t = Math.max(0, Number(r.team) || 0);
     const w = String(r.value || '');
-    if(!w || !pool.some(x => x.word === w)) return;
+    if(!w) return;
+    const mine = racing() ? poolFor(t) : pool;
+    if(!mine.some(x => x.word === w)) return;
     const tally = out[t] || (out[t] = {});
     tally[w] = (tally[w] || 0) + 1;
   });
@@ -499,33 +545,49 @@ function votesByTeam(){
    from several phones one at a time, and remembered, so a team sitting on a wrong
    answer is not told off again on every stray reply. Both halves come from the
    shelf; Connections settles on a set of four through the same service. */
+/* The race's judge. Every team is judged against *its own* next rung, so nobody
+   is answering somebody else's question and a team that is two rungs ahead simply
+   has a harder word in front of it. Debounced and remembered through the shelf,
+   the same pair Connections uses to settle on a set of four. */
 const race = BenchKit.settle(700, ()=>{
-  if(gameOver || !pool.length || !racing()) return;
-  const want = wanted().word;
+  if(gameOver || !racing()) return;
   const byTeam = votesByTeam();
-  const guesses = [];
   Object.keys(byTeam).forEach(ti=>{
     const t = Number(ti);
+    if(finished(t)) return;
     const top = BenchKit.leading(byTeam[ti], 1)[0];
     if(!top || !race.fresh(t, top)) return;
-    guesses.push({ team:t, word:top });
+    if(top === wantedFor(t).word) climb(t, top);
+    else missRace(t, top);
   });
-  /* A right answer is resolved before any wrong one, and it ends the round. Both
-     teams can settle in the same tick, and taking them in whatever order the
-     replies happened to arrive put "Team 2: not that one" on screen *after* Team 1
-     had already won the slot — the board announcing the wrong headline for a slot
-     that had moved on. First correct takes it; the rest were answering a question
-     that no longer exists. */
-  const winner = guesses.find(g => g.word === want);
-  if(winner){ lockIn(winner.word, winner.team); return; }
-  guesses.forEach(g => missRace(g.team, g.word));
 });
 
+/* A team takes its next rung. Independent ladders mean no team's answer can end
+   another's round, so there is none of the resolve-the-winner-first ordering a
+   shared slot needed — each side simply moves when it is right. */
+function climb(team, word){
+  const w = poolFor(team).find(x => x.word === word);
+  if(!w) return;
+  ladOf(team).push(w);
+  teams.score(team, 1);
+  race.reset();             // that team's board changed; every answer is worth retrying
+  if(finished(team)){
+    gameOver = 'won';
+    setMessage(teams.nameAt(team) + ' reaches the top!');
+    showLesson();
+  } else {
+    setMessage(teams.nameAt(team) + ' climbs to ' + climbed(team) + '.');
+  }
+  render();
+  askPhones();
+}
+
 /* No penalty: the race itself is the pressure, which is the same reason a wrong
-   four costs nothing in Connections. It shakes and they carry on. */
+   four costs nothing in Connections. It shakes on that team's own ladder and they
+   carry on — a miss must not be drawn on somebody else's climb. */
 function missRace(team, word){
-  const btn = document.querySelector('#pool .word-btn[data-word="' + word + '"]');
-  if(btn){ btn.classList.add('wrong'); setTimeout(()=> btn.classList.remove('wrong'), 380); }
+  const slot = document.querySelector('.ladder[data-team="' + team + '"] .slot.open');
+  if(slot){ slot.classList.add('wrong'); setTimeout(()=> slot.classList.remove('wrong'), 380); }
   setMessage(teams.nameAt(team) + ': not that one.');
 }
 
@@ -540,6 +602,8 @@ function applyMode(){
   $('instructions-turns').style.display = isRace ? 'none' : '';
   $('status-row').style.display = isRace ? 'none' : '';
   $('skip-btn').style.display   = isRace ? 'none' : '';
+  $('board-turns').style.display = isRace ? 'none' : '';
+  $('ladders').style.display     = isRace ? 'grid' : 'none';
   teams.showTurn(!isRace);
   const clockPicker = settings.el('vote-secs');
   if(clockPicker) clockPicker.style.display = isRace ? 'none' : '';
@@ -555,6 +619,7 @@ function loadScale(i){
   gameOver = false;
   mistakes.reset();
   race.reset(); replies = [];
+  lad = teams.list().map(()=> []);   // every team back to the bottom of the scale
   $('pole-low').textContent  = s.low;
   $('pole-high').textContent = s.high;
   setMessage('');
@@ -576,7 +641,68 @@ function shuffle(arr){
    the word for slot n is simply the nth — nothing else records it. */
 function wanted(){ return SCALES[scaleIndex].words[placed.length]; }
 
+/* One ladder per team, side by side. The columns are the race: a class can see
+   who is two rungs up without reading a scoreboard, which is the whole reason this
+   beats a shared board. The grid takes its column count from the team list, so
+   three teams and four teams need no new code. */
+function renderLadders(){
+  const s = SCALES[scaleIndex];
+  const box = $('ladders');
+  box.style.gridTemplateColumns = 'repeat(' + Math.max(1, teams.list().length) + ', minmax(0, 1fr))';
+  box.innerHTML = '';
+
+  const byTeam = votesByTeam();
+  teams.list().forEach((t, ti)=>{
+    const col = document.createElement('div');
+    col.className = 'ladder' + (finished(ti) ? ' done' : '');
+    col.dataset.team = String(ti);
+
+    const head = document.createElement('h2');
+    head.style.borderColor = BenchKit.teamColour(ti);
+    head.textContent = t.name;
+    const climbTag = document.createElement('span');
+    climbTag.className = 'climb';
+    climbTag.textContent = climbed(ti) + '/' + s.words.length;
+    head.appendChild(climbTag);
+    col.appendChild(head);
+
+    const scale = document.createElement('div');
+    scale.className = 'scale';
+    const rail = document.createElement('div'); rail.className = 'rail';
+    const slots = document.createElement('div'); slots.className = 'slots';
+
+    /* This team's own leading vote, drawn in the rung it is a guess for — the
+       answer forming where it will land, rather than in a pool off to one side. */
+    const pending = BenchKit.leading(byTeam[ti] || {}, 1)[0];
+
+    s.words.forEach((_, i)=>{
+      const row = document.createElement('div');
+      const done = i < climbed(ti);
+      const open = i === climbed(ti) && !gameOver;
+      row.className = 'slot' + (done ? ' filled' : '') + (open ? ' open' : '');
+      row.dataset.rank = String(i + 1);
+      const rank = document.createElement('span');
+      rank.className = 'rank'; rank.textContent = (i + 1) + '.';
+      row.appendChild(rank);
+      if(done){
+        const word = document.createElement('span');
+        word.className = 'word'; word.textContent = ladOf(ti)[i].word;
+        row.appendChild(word);
+      } else if(open && pending){
+        const p = document.createElement('span');
+        p.className = 'pending'; p.textContent = pending;
+        row.appendChild(p);
+      }
+      slots.appendChild(row);
+    });
+    scale.appendChild(rail); scale.appendChild(slots);
+    col.appendChild(scale);
+    box.appendChild(col);
+  });
+}
+
 function render(){
+  if(racing()) return renderLadders();
   const s = SCALES[scaleIndex];
 
   const slots = $('slots'); slots.innerHTML = '';
@@ -685,9 +811,22 @@ function showLesson(){
   const s = SCALES[scaleIndex];
   const div = document.createElement('div');
   div.className = 'lesson';
-  div.innerHTML = '<b></b> <span></span>';
+  div.innerHTML = '<b></b> <span class="note"></span>';
   div.querySelector('b').textContent = s.title + ' —';
-  div.querySelector('span').textContent = s.note;
+  div.querySelector('.note').textContent = s.note;
+  /* The whole scale with its glosses. A race column has no room for them, so this
+     is where the teaching actually lands — and it is worth printing in turns mode
+     too, since the glosses arrived one at a time over several minutes. */
+  const list = document.createElement('div');
+  list.className = 'lesson-scale';
+  s.words.forEach((w, i)=>{
+    const row = document.createElement('div');
+    row.innerHTML = '<b></b><i></i>';
+    row.querySelector('b').textContent = (i + 1) + '. ' + w.word;
+    row.querySelector('i').textContent = w.gloss || '';
+    list.appendChild(row);
+  });
+  div.appendChild(list);
   $('lesson-slot').innerHTML = '';
   $('lesson-slot').appendChild(div);
 }
