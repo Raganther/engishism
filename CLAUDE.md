@@ -582,6 +582,29 @@ for vote/write/buzz/card dynamics. The deliberate rules:
 - **Votes are advisory** (students never touch the device): they land on the board
   as counts, the teacher clicks.
 
+**`bench-kit.js` — the middle tier, and the rule that governs it.** `hub-kit.js`
+is what the *games* share; this is what the **question bench** shares. It exists
+because the same code was written twice in two days: `openRoom` was nearly
+byte-for-byte identical in `connections.html` and `prompt-lab.html`, and a third
+question game would have made it three. It holds `BenchKit.room({mount, board,
+on})` — the code, the chip, the join panel, the QR, the bench link, and
+`window.HubHost` — and `BenchKit.settings(mount, defs, onChange)`, a toolbar that
+builds itself from declarations, the same idea as `HubSettings` one tier down.
+
+**The rule is: extract what is already duplicated, not what might be.** A
+playground's value is that pages are allowed to be weird, and abstracting a
+sandbox too early kills the thing it is for. So teams and the round (turns vs
+race, the clock, rethink, multi-pick, judging a set) are **deliberately still in
+Connections** even though nothing about "how a team assembles an answer" is
+Connections-specific: they have one caller, and an API shaped by one caller is a
+guess. They move when the second question game asks for them.
+
+Three tiers, and knowing which one a thing belongs to is the whole discipline:
+**the page** (Connections' grouping, the lab's form menu) · **the bench**
+(`bench-kit.js` — room, settings, and later teams and rounds) · **the hub**
+(`Kit.prompt` forms, `registerGame`). Graduating upward is the same two-stage
+isolation the question forms have, one level up.
+
 **`phone-bench.html` — the whole room on one screen.** The projected board on the
 left, a rack of simulated handsets on the right; both are the **real pages in
 iframes on the real relay** (phones self-join via `?auto=1&name=&team=`), so a tap
