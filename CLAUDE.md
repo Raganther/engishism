@@ -739,6 +739,33 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The first question dynamic has been carried from the bench into a game show.**
+  `game-hub-lab.html` + `game-hub/content/unit-lab.js` — a Lab unit **not loaded by
+  `game-hub.html`**, so it is reachable only from its own shell and never appears in
+  front of a class. Story Reveal was the port: a clue opens terse and each authored
+  layer costs a slice of what the tile pays. Same engine, same clue card, same
+  scoring, same phones — a special engine would have proved nothing about the real
+  one. Verified live: $200 → $150 → $100 across two layers, then the button stands
+  down because the clue has no third.
+  - **These dynamics are not question forms, and that is the headline.** `Kit.prompt`
+    is a *rendering* contract — `render`/`reveal`, no time, no turns, no phones. A
+    bench dynamic is a **round**. Reveal ported cheaply only because the hub already
+    had `jHints`/`jHintCost`, which is the same mechanic; **grouping and ordering
+    would each need a clue that runs a mini-round**, which is real layer-1 work and
+    is not started.
+  - **The normalisation is a whitelist, and that is the real friction.** A clue
+    becomes `{text, answer, type}` on open so the kit never learns Jeopardy calls a
+    prompt `q` — so `reveal` was silently dropped and the hint button never
+    appeared. **Anything an author adds to an item is invisible downstream until it
+    is named there.** Worth knowing before the next dynamic crosses.
+  - **An authored reveal belongs to the clue, not to a ruleset.** Hints were gated
+    behind `together`, where a generated spelling hint is a cooperative crutch. A
+    layer somebody wrote is how the clue was *written*, so it is offered on a
+    competitive board too — still behind `jHints`, and items without `reveal` are
+    exactly as gated as before.
+  - **A $100 tile affords one layer, not two.** Hints cost a minimum of $50 against
+    a $50 floor, so cheap tiles run out. Arguably right, but author two layers only
+    from $200 up or the second is never seen.
 - **Story Reveal is the third bench game, and the first that is typed.** A word
   behind three clues — definition, then the word in use, then its shape — revealed
   one at a time, worth a point less each time. Teams **type**; the board judges.

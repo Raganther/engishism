@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab · question dynamics — Game Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="game-hub/hub.css?v=20260801u">
+</head>
+<body>
+<div id="game-hub-root"></div>
+
+<!-- The lab unit, and only the lab unit. `game-hub.html` deliberately does not
+     load it: this board exists to try question dynamics inside the real engine
+     without any of it reaching a class. Everything below is the ordinary hub —
+     same engine, same clue card, same scoring, same phones. That is the point of
+     the experiment; a special engine would prove nothing about the real one. -->
+<script src="game-hub/content/unit-lab.js?v=20260801u"></script>
+<script src="game-hub/hub-qr.js?v=20260801u"></script>
+<script src="game-hub/hub-buzzer.js?v=20260801u"></script>
+<script src="game-hub/hub-kit.js?v=20260801u"></script>
+<script src="game-hub/hub-settings.js?v=20260801u"></script>
+<script src="game-hub/hub-engine.js?v=20260801u"></script>
+<script>
+/* The reveal clues have nothing to reveal with hints switched off, and this board
+   exists to try them — so it turns them on once, the first time it is opened, and
+   never fights the teacher about it afterwards. A lab that silently does nothing
+   is worse than one that says what it did. */
+(function(){
+  try{
+    const S = window.HubSettings;
+    if(!S || localStorage.getItem('engishism.lab.primed')) return;
+    S.set('jHints', true, 'jeopardy');
+    localStorage.setItem('engishism.lab.primed', '1');
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

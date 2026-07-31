@@ -1715,12 +1715,32 @@
      conversation, which is the point. */
   let jHintsUsed = 0;
 
-  function jHintText(n, answer){
-    const word = String(answer || '').trim();
+  /* A hint is either **authored** or generated. An item carrying `reveal:[…]` says
+     what its next layer is — a definition, then the word in use, then its shape —
+     which is the question bench's Story Reveal dynamic inside a tile: the clue opens
+     terse and each layer costs a slice of what the tile pays. Anything without
+     `reveal` falls back to the spelling hints, so 589 authored items are untouched
+     and an author opts in per item rather than per bank. */
+  function jHintLayers(item){
+    const list = (item && Array.isArray(item.reveal)) ? item.reveal.filter(Boolean) : [];
+    return list;
+  }
+  function jHintText(n, item){
+    const layers = jHintLayers(item);
+    if(layers.length) return layers[n - 1] || '';
+    const word = String((item && item.answer) || '').trim();
     if(!word) return '';
     if(n === 1) return 'It starts with ' + word[0].toUpperCase() + '.';
     return word[0].toUpperCase() + ' ' + '_ '.repeat(Math.max(0, word.length - 1)).trim() +
            '  (' + word.length + ' letters)';
+  }
+  /* How many hints this clue has left. Two for a generated pair; an authored item
+     has exactly as many as it was written with, so a reveal clue is never offered a
+     layer that does not exist — the button standing there doing nothing is worse
+     than it not being there. */
+  function jHintsLeft(item){
+    const layers = jHintLayers(item);
+    return (layers.length ? layers.length : 2) - jHintsUsed;
   }
 
   /* On the same 50 grid the scoring uses. `award()` rounds Jeopardy values to 50s so
@@ -1735,8 +1755,16 @@
   function renderHintButton(){
     const btn = document.getElementById('hint-btn');
     if(!btn) return;
-    const on = jTogether() && S.get('jHints', 'jeopardy') && modalMode === 'jeopardy' &&
-               currentClueItem && jHintsUsed < 2 && !jWager && currentClueValue > 50;
+    /* Hints were built for `together`, where spending a slice of a clue is the
+       cooperative mechanic and the hint itself is a crutch generated from the
+       spelling. An **authored** reveal is a different thing: it is how the clue was
+       written — a definition, then the word in use, then its shape — so it belongs
+       to the clue rather than to a ruleset, and a competitive board should be able
+       to offer it too. Still behind `jHints`, so a teacher can switch the whole
+       idea off; and items without `reveal` are exactly as gated as before. */
+    const authored = jHintLayers(currentClueItem).length > 0;
+    const on = (jTogether() || authored) && S.get('jHints', 'jeopardy') && modalMode === 'jeopardy' &&
+               currentClueItem && jHintsLeft(currentClueItem) > 0 && !jWager && currentClueValue > 50;
     btn.style.display = on ? 'inline-block' : 'none';
     if(on){
       btn.textContent = (jHintsUsed === 0 ? 'Need a hand? (−$' : 'One more? (−$') + jHintCost() + ')';
@@ -1750,7 +1778,7 @@
     currentClueValue = Math.max(50, currentClueValue - cost);
     const hint = document.createElement('div');
     hint.className = 'clue-hint';
-    hint.textContent = jHintText(jHintsUsed, currentClueItem.answer);
+    hint.textContent = jHintText(jHintsUsed, currentClueItem);
     document.getElementById('clue-text').appendChild(hint);
     // the topline is where the value lives, so it has to say what the clue is worth now
     const top = document.getElementById('clue-topline');
@@ -3175,7 +3203,12 @@
       dd ? ('DAILY DOUBLE · ' + cat.name + ' · $' + currentClueValue)
          : (cat.name + ' · $' + clue.v + (review ? '  ·  review' : ''));
     document.getElementById('clue-section').textContent = cat.section;
-    currentClueItem = { text:clue.q, answer:clue.a, type:clue.type };
+    /* `reveal` rides along with the normalised shape. The normalisation exists so
+       the kit never learns that Jeopardy calls a prompt `q` — but it is a
+       whitelist, so anything an author adds to an item is invisible downstream
+       until it is named here. That is the real friction in carrying a question
+       dynamic across from the bench, and it is worth knowing before the next one. */
+    currentClueItem = { text:clue.q, answer:clue.a, type:clue.type, reveal:clue.reveal };
     drawPrompt(document.getElementById('clue-text'), currentClueItem, 'jeopardy');
     // a replayed tile asks nobody, and a Daily Double belongs to one team alone
     if(!review && !dd) askPhones(clue.q, 'jeopardy');
