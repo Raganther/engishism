@@ -285,50 +285,33 @@ let wordToGroup = {};
 let remaining = [];
 let selected = [];
 let solvedGroups = [];   // [{diff, team}] in solve order
-let mistakes = 0;
 let pastGuesses = [];
 let gameOver = false;
 
-/* ---------------- teams ---------------- */
-/* The teams live on this page, not in the hub — the playground is standalone.
-   Click a chip to hand the turn over; a wrong guess rotates it automatically. */
-let teams = [{ name:'Team 1', score:0 }, { name:'Team 2', score:0 }];
-let active = 0;
+/* ---------------- teams, the clock and the budget ----------------
+   All three come from the bench kit now. They were written here first, and the
+   second bench game asking for exactly the same three is what moved them — the
+   rule being *extract what is already duplicated, not what might be*. What is left
+   in this file is the board, the puzzle and the judging, which is the part a game
+   is supposed to write for itself.
 
-function renderTeams(){
-  const bar = $('teams'); bar.innerHTML = '';
-  teams.forEach((t, i)=>{
-    const b = document.createElement('button');
-    // in a race nobody is "on turn" — every team is playing at once
-    b.className = 'team-chip' + (!racing() && i===active ? ' active' : '');
-    b.style.borderColor = teamColour(i);
-    b.innerHTML = '<span class="tname"></span><span class="score"></span>';
-    b.querySelector('.tname').textContent = t.name;
-    b.querySelector('.score').textContent = t.score;
-    b.title = 'Click: their turn · double-click: rename';
-    b.addEventListener('click', ()=> setTurn(i));
-    b.addEventListener('dblclick', ()=>{
-      const n = prompt('Team name', t.name);
-      if(n && n.trim()){ t.name = n.trim(); renderTeams(); pushTeams(); }
-    });
-    bar.appendChild(b);
-  });
-  if(teams.length < 6){
-    const add = document.createElement('button');
-    add.id = 'add-team'; add.textContent = '+ Team';
-    add.addEventListener('click', ()=>{
-      teams.push({ name:'Team '+(teams.length+1), score:0 });
-      renderTeams(); pushTeams();
-    });
-    bar.appendChild(add);
-  }
-}
+   A race has nobody on turn, so the bar is told to stop marking one rather than
+   working it out from some other state — see `applyMode`. */
+const teams = BenchKit.teams({
+  mount: $('teams'),
+  onTurn(){ askPhones(); },   // the vote belongs to the team on turn, so it moves too
+  onChange(){ pushTeams(); }
+});
 
-function setTurn(i){
-  active = i;
-  renderTeams();
-  askPhones();          // the vote belongs to the team on turn, so it moves with it
-}
+/* The teacher's copy of the countdown the handsets are running. What expiry means
+   is this page's business: the vote closes and the board stays the teacher's — see
+   the note in `askPhones` about why a race has no clock at all. */
+const clock = BenchKit.clock({
+  mount: $('vote-clock'),
+  onEnd(){ if(host) host.disarm(); renderVotes(); }
+});
+
+const mistakes = BenchKit.mistakes({ mount: $('dots'), max: MAX_MISTAKES });
 
 /* ---------------- the round's state ----------------
    Declared before the room opens, not after: `ready` fires from a fetch, so the
@@ -362,7 +345,7 @@ const settings = BenchKit.settings($('settings-slot'), [
   document.querySelectorAll('#grid .tile').forEach(t=>{
     t.style.boxShadow=''; t.classList.remove('hot','held');
   });
-  applyMode(); renderTeams(); renderVotes(); askPhones();
+  applyMode(); renderVotes(); askPhones();
 });
 
 let host = null;
@@ -385,12 +368,12 @@ const room = BenchKit.room({
   }
 });
 
-function pushTeams(){ if(host) host.setTeams(teams.map(t=>t.name)); }
+function pushTeams(){ if(host) host.setTeams(teams.names()); }
 
 function askPhones(){
   votes = {}; replies = []; renderVotes();
   if(!host) return;
-  if(gameOver || !remaining.length){ host.disarm(); boardClock(0); return; }
+  if(gameOver || !remaining.length){ host.disarm(); clock.stop(); return; }
   /* A clock belongs to a turn, and a race has none — so it stands down there, the
      same way the mistake dots and Submit do. This was a dead end rather than a
      preference: expiry disarms every handset, and in a race there is no Submit for
@@ -409,7 +392,7 @@ function askPhones(){
      *is* their answer. */
   host.arm(racing() ? 'Find a group of four' : 'Pick a word', {
     mode:'vote', options: remaining.slice(),
-    team: racing() ? null : active,
+    team: racing() ? null : teams.active(),
     multi: racing() ? GROUP : 1,
     // one cap per team, from that team's size — see "a player's share" above
     multiByTeam: racing() ? shares() : null,
@@ -419,7 +402,7 @@ function askPhones(){
     holds: true,
     rethink: true, secs
   });
-  boardClock(secs);
+  clock.start(secs);
 }
 
 /* The teacher's copy of the same countdown. When it runs out the vote closes —
@@ -460,15 +443,7 @@ function boardClock(secs){
    right answer for a board being driven from one handset or none. */
 const GROUP = 4;
 const shareFor = size => Math.max(1, Math.min(GROUP, Math.ceil(GROUP / Math.max(1, size))));
-function teamSizes(){
-  const n = teams.map(()=>0);
-  (host ? host.players() : []).forEach(p=>{
-    const t = Math.max(0, Number(p.team) || 0);
-    if(n[t] != null) n[t]++;
-  });
-  return n;
-}
-function shares(){ return teamSizes().map(shareFor); }
+function shares(){ return teams.sizes(host).map(shareFor); }
 
 /* Somebody joined a team or dropped off one, so the shares have moved. Pushed on
    its own rather than re-armed: a fresh arm clears every handset's picks, and a
@@ -498,8 +473,7 @@ function teamPicks(){
 function renderVotes(){
   if(racing()) return renderRaceVotes();
   // the four most-voted words glow — the team's convergence, readable from the back
-  const counts = Object.entries(votes).filter(([,n])=>n>0).sort((a,b)=>b[1]-a[1]);
-  const hot = new Set(counts.slice(0,4).map(([w])=>w));
+  const hot = new Set(BenchKit.leading(votes, 4));   // a group is four; a slot is one
   document.querySelectorAll('#grid .tile').forEach(t=>{
     const w = t.dataset.word;
     const n = votes[w] || 0;
@@ -511,9 +485,9 @@ function renderVotes(){
     t.classList.toggle('hot', hot.has(w));
     t.classList.remove('held');    // `held` is the race's neutral ring; turns uses `hot`
   });
-  const total = counts.reduce((a,[,n])=>a+n, 0);
+  const total = Object.values(votes).reduce((a,n)=>a+n, 0);
   $('vote-text').textContent = (host && total)
-    ? (teams[active] ? teams[active].name : 'The team') + ' has ' + total + ' vote' + (total===1?'':'s') + ' in'
+    ? teams.nameAt(teams.active()) + ' has ' + total + ' vote' + (total===1?'':'s') + ' in'
     : '';
 }
 
@@ -535,8 +509,8 @@ function renderRaceVotes(){
     holders.forEach(ti=>{
       const dot = document.createElement('span');
       dot.className = 'pick-dot';
-      dot.style.background = teamColour(Number(ti));
-      dot.title = teams[ti] ? teams[ti].name : ('Team ' + (Number(ti)+1));
+      dot.style.background = BenchKit.teamColour(Number(ti));
+      dot.title = teams.nameAt(ti);
       box.appendChild(dot);
     });
     /* The ring is neutral and the dots carry who. It used to take the colour of
@@ -555,14 +529,14 @@ function renderRaceVotes(){
      the chip too, because "two each" is the rule the teacher has to be able to say
      out loud, and it moves on its own whenever somebody joins or drops. Teams with
      neither a phone nor a pick say nothing rather than sitting there at 0/4. */
-  const sizes = teamSizes(), per = sizes.map(shareFor);   // one walk of the roster
+  const sizes = teams.sizes(host), per = sizes.map(shareFor);   // one walk of the roster
   $('vote-text').innerHTML = '';
-  teams.forEach((t, ti)=>{
+  teams.list().forEach((t, ti)=>{
     const n = (picks[ti] || []).length;
     if(!n && !sizes[ti]) return;
     const chip = document.createElement('span');
     chip.className = 'race-count';
-    chip.style.borderColor = teamColour(ti);
+    chip.style.borderColor = BenchKit.teamColour(ti);
     chip.textContent = t.name + ' ' + n + '/' + GROUP + (n > GROUP ? ' — too many' : '');
     if(sizes[ti]){
       const tail = document.createElement('small');
@@ -600,7 +574,7 @@ function judgeRace(){
 function settleRace(team, set){
   const diffs = set.map(w => wordToGroup[w]);
   const right = diffs.every(d => d === diffs[0]);
-  const name = teams[team] ? teams[team].name : 'Team ' + (team+1);
+  const name = teams.nameAt(team);
   if(!right){
     const near = Math.max(...Object.values(diffs.reduce((a,d)=>{ a[d]=(a[d]||0)+1; return a; },{})));
     setMessage(name + (near === 3 ? ': one away…' : ': not a group.'));
@@ -616,10 +590,9 @@ function settleRace(team, set){
      the other team has to find one of the ones that are left. */
   const d = diffs[0];
   solvedGroups.push({ diff:d, team });
-  if(teams[team]) teams[team].score += 1;
+  teams.score(team, 1);
   remaining = remaining.filter(w => wordToGroup[w] !== d);
   raceTried = {};               // the board changed, so every set is worth trying again
-  renderTeams();
   if(solvedGroups.length === 4){
     gameOver = 'won';
     setMessage(finalLine());
@@ -648,12 +621,18 @@ function applyMode(){
   $('instructions-turns').style.display = race ? 'none' : '';
   $('status-row').style.display   = race ? 'none' : '';
   $('controls-row').style.display = race ? 'none' : '';
+  /* In a race nobody is on turn, so the bar is told to stop marking one rather
+     than working it out from the mode — which is what it used to do, and is the
+     kind of thing a shared component must not have to know about one game. */
+  teams.showTurn(!race);
   /* The clock goes with them. Leaving it on the toolbar would offer a setting that
      silently does nothing, which is worse than the control being absent — and it
-     reads as "how long the team gets" over a mode with no team on turn. */
-  const clock = settings.el('vote-secs');
-  if(clock) clock.style.display = race ? 'none' : '';
-  if(race){ selected = []; boardClock(0); }
+     reads as "how long the team gets" over a mode with no team on turn.
+     Named `clockPicker`, not `clock`: the shared countdown is `clock` at module
+     scope, and shadowing it here turned `clock.stop()` into a call on a <select>. */
+  const clockPicker = settings.el('vote-secs');
+  if(clockPicker) clockPicker.style.display = race ? 'none' : '';
+  if(race){ selected = []; clock.stop(); }
 }
 
 /* Each team's colour, so two sets of picks can share one board and still be read
@@ -661,8 +640,7 @@ function applyMode(){
    file the projector and the handsets both load — so a student's phone is the same
    colour as their team's dots here, without two lists being kept in step. Guarded
    because every playground page has to stay playable with no phone layer at all. */
-const teamColour = i => (window.HubBuzzer && HubBuzzer.teamColour)
-                        ? HubBuzzer.teamColour(i) : '#00A0DF';
+const teamColour = BenchKit.teamColour;   // kept as a local alias for readability
 
 /* ---------------- the board ---------------- */
 function loadPuzzle(i){
@@ -671,7 +649,8 @@ function loadPuzzle(i){
   wordToGroup = {};
   p.groups.forEach((g, d)=> g.words.forEach(w=>{ wordToGroup[w] = d; }));
   remaining = shuffle(p.groups.flatMap(g=>g.words));
-  selected = []; solvedGroups = []; mistakes = 0; pastGuesses = []; gameOver = false;
+  selected = []; solvedGroups = []; pastGuesses = []; gameOver = false;
+  mistakes.reset();
   setMessage('');
   render();
   askPhones();
@@ -695,7 +674,7 @@ function render(){
     const div = document.createElement('div');
     div.className = 'solved-group diff-' + s.diff + (s.team == null ? ' revealed' : '');
     div.innerHTML = '<div class="gname"></div><div class="gwords"></div><div class="gnote"></div>';
-    div.querySelector('.gname').textContent = g.name + (s.team != null && teams[s.team] ? ' — ' + teams[s.team].name : '');
+    div.querySelector('.gname').textContent = g.name + (s.team != null ? ' — ' + teams.nameAt(s.team) : '');
     div.querySelector('.gwords').textContent = g.words.join(', ');
     div.querySelector('.gnote').textContent = g.note;
     solvedArea.appendChild(div);
@@ -712,12 +691,6 @@ function render(){
   }
   renderVotes();
 
-  const dots = $('dots'); dots.innerHTML = '';
-  for(let i=0; i<MAX_MISTAKES; i++){
-    const s = document.createElement('span');
-    s.className = 'dot' + (i < mistakes ? ' spent' : '');
-    dots.appendChild(s);
-  }
   $('submit-btn').disabled = selected.length !== 4 || !!gameOver;
 }
 
@@ -743,24 +716,23 @@ function submitGuess(){
 
   if(best === 4){
     const d = diffs[0];
-    solvedGroups.push({ diff:d, team:active });
-    if(teams[active]) teams[active].score += 1;
+    solvedGroups.push({ diff:d, team:teams.active() });
+    teams.score(teams.active(), 1);
     remaining = remaining.filter(w=>wordToGroup[w] !== d);
     selected = [];
-    renderTeams();
     if(solvedGroups.length === 4){
       gameOver = 'won';
       setMessage(finalLine());
     } else {
-      setMessage('Correct — ' + (teams[active] ? teams[active].name : 'the team') + ' goes again!');
+      setMessage('Correct — ' + teams.nameAt(teams.active()) + ' goes again!');
     }
     render();
     askPhones();             // same team, smaller board
   } else {
-    mistakes++;
+    const last = mistakes.spend();
     document.querySelectorAll('.tile.selected').forEach(t=>t.classList.add('shake'));
     setMessage(best === 3 ? 'One away…' : 'Not a group.');
-    if(mistakes >= MAX_MISTAKES){
+    if(last){
       gameOver = 'lost';
       for(let d=0; d<4; d++) if(!solvedGroups.some(s=>s.diff===d)) solvedGroups.push({ diff:d, team:null });
       remaining = []; selected = [];
@@ -771,17 +743,16 @@ function submitGuess(){
     }
     selected = [];
     setTimeout(render, 380);
-    // the turn passes — and the vote passes with it
-    active = (active + 1) % teams.length;
-    renderTeams();
-    askPhones();
+    // the turn passes — and the vote passes with it, through the bar's onTurn
+    teams.pass();
   }
 }
 
 function finalLine(){
-  const top = Math.max(...teams.map(t=>t.score));
-  const winners = teams.filter(t=>t.score===top).map(t=>t.name);
-  return 'Solved it! ' + (winners.length===teams.length ? 'All square.' : winners.join(' & ') + ' take' + (winners.length>1?'':'s') + ' it, ' + top + ' group' + (top===1?'':'s') + '.');
+  const list = teams.list();
+  const top = Math.max(...list.map(t=>t.score));
+  const winners = list.filter(t=>t.score===top).map(t=>t.name);
+  return 'Solved it! ' + (winners.length===list.length ? 'All square.' : winners.join(' & ') + ' take' + (winners.length>1?'':'s') + ' it, ' + top + ' group' + (top===1?'':'s') + '.');
 }
 
 /* ---------------- toolbar ---------------- */
@@ -795,7 +766,7 @@ function initToolbar(){
   sel.value = puzzleIndex;
   sel.addEventListener('change', ()=> loadPuzzle(Number(sel.value)));
   $('shuffle-btn').addEventListener('click', ()=>{ remaining = shuffle(remaining); render(); });
-  $('restart-btn').addEventListener('click', ()=>{ teams.forEach(t=>t.score=0); loadPuzzle(puzzleIndex); renderTeams(); });
+  $('restart-btn').addEventListener('click', ()=>{ teams.reset(); loadPuzzle(puzzleIndex); });
   $('deselect-btn').addEventListener('click', ()=>{ selected = []; render(); });
   $('submit-btn').addEventListener('click', submitGuess);
 }
@@ -804,7 +775,6 @@ const start = params.has('p') ? (Number(params.get('p')) - 1)
             : Math.floor(Date.now()/86400000) % PUZZLES.length;
 initToolbar();
 applyMode();
-renderTeams();
 loadPuzzle(Math.min(Math.max(start, 0), PUZZLES.length - 1));
 $('puzzle-select').value = puzzleIndex;
 </script>

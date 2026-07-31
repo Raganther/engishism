@@ -593,11 +593,34 @@ builds itself from declarations, the same idea as `HubSettings` one tier down.
 
 **The rule is: extract what is already duplicated, not what might be.** A
 playground's value is that pages are allowed to be weird, and abstracting a
-sandbox too early kills the thing it is for. So teams and the round (turns vs
-race, the clock, rethink, multi-pick, judging a set) are **deliberately still in
-Connections** even though nothing about "how a team assembles an answer" is
-Connections-specific: they have one caller, and an API shaped by one caller is a
-guess. They move when the second question game asks for them.
+sandbox too early kills the thing it is for. **The second game is what moves
+something onto the shelf, and Word Thermometer has now done exactly that**: it
+needed teams, the clock, the mistake budget and the vote-leader, so all four moved
+and Connections was rewired onto them in the same change. Rewiring the first game
+is not optional — without it the "shelf" is a second copy under a new name, and
+the 52 unchanged Connections checks are what prove it was behaviour-neutral.
+
+| On the shelf | What it does |
+|---|---|
+| `BenchKit.room` | code, chip, join panel, QR, bench link, `window.HubHost` |
+| `BenchKit.settings` | a toolbar that builds itself from declarations |
+| `BenchKit.teams` | chips, add/rename, turn, scores, colours, `sizes(host)`, relay name push |
+| `BenchKit.clock` | the board's countdown; `onEnd` so each game decides what expiry *means* |
+| `BenchKit.mistakes` | the dots budget |
+| `BenchKit.leading` | top-n options by vote — Connections wants 4, the thermometer wants 1 |
+| `BenchKit.teamColour` | delegates to `hub-buzzer.js`, so the palette has one home |
+
+**Still deliberately in Connections:** the per-team pick share (`shareFor`,
+`shares`, `pushShares`, `teamPicks`) and race mode. The thermometer votes one word
+per slot, so multi-pick still has one caller — it moves when a third game wants a
+team to assemble a multi-part answer.
+
+**Two things the second game taught immediately.** A shared component must not have
+to know about one game's modes — `renderTeams` used to read `racing()` directly, so
+the bar now takes `showTurn(false)` and a race says so rather than the bar guessing.
+And **shadowing bites at the extraction seam**: `applyMode` had a local
+`const clock = settings.el('vote-secs')`, which silently became a call on a
+`<select>` the moment the shared countdown took that name.
 
 Three tiers, and knowing which one a thing belongs to is the whole discipline:
 **the page** (Connections' grouping, the lab's form menu) · **the bench**
@@ -713,6 +736,32 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The bench has a second game, and the shelf grew because of it.**
+  `playground/thermometer.html` — Word Thermometer: order words along a scale
+  (`annoyed → irritated → angry → livid → furious → incensed`), slots filling from
+  the cold end, the team on turn voting on their phones for the next one and the
+  teacher clicking. Right keeps the turn, wrong spends a mistake and passes it,
+  finishing unlocks the mini-lesson. **Five scales** — anger, formality of requests,
+  certainty, frequency, praise — each with a per-word gloss that prints when the
+  word locks in, which is what turns a right answer into a taught one.
+  - **The answer is a *sequence*, not a set**, which is why this was the right
+    second game: two genuinely different callers shape a shared API, two
+    near-identical ones only flatter it. `BenchKit.leading(votes, n)` exists in
+    that shape precisely because Connections wants four and this wants one.
+  - **Four things moved onto the shelf and Connections moved with them** — see
+    "The playground" for the table and the two lessons the seam taught.
+  - **`Reveal this one` costs the point, not a mistake.** A class that cannot
+    separate *livid* from *furious* learns more from being shown than from four
+    wrong guesses, and nobody got it wrong, so the budget is untouched.
+  - **It fits a projector, and only the screenshot said so.** The first build was
+    **167px over** at 1280×720 and cut the mistake dots off the bottom; the slots
+    are sized `clamp(36px, 5.4vh, 56px)` now and the suite pins `scrollHeight <=
+    innerHeight` *and* the dots' bottom edge. Connections is still 63px over —
+    known, not fixed, and the reason the check lives on the new game rather than
+    being made a bench-wide rule today.
+  - Linked from `index.html` and offered in the room bench's board picker.
+    `thermometer` suite, 24 checks including the no-relay degradation every
+    playground page owes.
 - **Connections plays two ways, and the bench grew a middle tier.** The board can
   now be played as **turns** (unchanged) or as a **race** — no turn, both teams at
   once, each team's picks live on the projector in its own colour, and a team's own

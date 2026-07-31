@@ -4305,6 +4305,153 @@ async function testPlaygroundConnections(browser){
   await page.close();
 }
 
+/* ---- the playground: Word Thermometer ----
+   The bench's second game, and the reason the shelf grew. It shares teams, the
+   clock, the mistake budget and the vote-leader with Connections through
+   bench-kit.js — so this suite is also what proves the extraction is real rather
+   than a second copy under a new name. The answer here is a *sequence*, not a set,
+   which is what made it worth building second: two genuinely different callers
+   shape a shared API, two near-identical ones only flatter it. */
+async function testThermometer(browser){
+  section('Playground: Word Thermometer');
+  const page = await browser.newPage({ viewport:{ width:1280, height:720 } });
+  page.__errors = []; page.on('pageerror', e => page.__errors.push(String(e)));
+  // ?p=1 pins the anger scale: annoyed < irritated < angry < livid < furious < incensed
+  await page.goto(BASE + '/playground/thermometer.html?p=1'); await page.waitForTimeout(900);
+
+  check('six slots and six words in the pool',
+        await page.locator('#slots .slot').count() === 6 &&
+        await page.locator('#pool .word-btn').count() === 6);
+  check('the coldest slot is the one open, and it says so',
+        await page.locator('#slots .slot.open').getAttribute('data-rank') === '1' &&
+        /coldest/i.test(await page.locator('#slots .slot.open').innerText()),
+        await page.locator('#slots .slot.open').innerText());
+  check('the poles are named so the direction is never guessed',
+        /annoyed/i.test(await page.locator('#pole-low').innerText()) &&
+        /furious/i.test(await page.locator('#pole-high').innerText()));
+  /* The shared team bar, drawn by bench-kit and not by this page. */
+  check('two teams from the shelf, first on turn',
+        await page.locator('.team-chip').count() === 2 &&
+        /Team 1/.test(await page.locator('.team-chip.active').innerText()));
+  check('and the shared mistake budget is on screen',
+        await page.locator('#dots .dot').count() === 4 &&
+        await page.locator('#dots .dot.spent').count() === 0);
+  /* A projected board a class has to scroll is a board nobody can play. Six slots,
+     a pool, the team bar and the dots all have to sit inside 720px — the first
+     build was 167px over and cut the mistake dots off the bottom, which the
+     numbers found only because the screenshot was taken. */
+  const fit = await page.evaluate(() => ({
+    scroll: document.body.scrollHeight, inner: window.innerHeight,
+    dotsBottom: Math.round(document.querySelector('#dots').getBoundingClientRect().bottom)
+  }));
+  check('the whole board fits a projector without scrolling',
+        fit.scroll <= fit.inner && fit.dotsBottom <= fit.inner,
+        JSON.stringify(fit));
+
+  const chip = await page.locator('#room-chip').innerText();
+  const code = (chip.match(/CODE\s+(\d{5})/i)||[])[1];
+  check('a room opens on its own', !!code, chip);
+
+  if(code){
+    const p = await browser.newPage({ viewport:{ width:390, height:844 } });
+    p.__errors = []; p.on('pageerror', e => p.__errors.push(String(e)));
+    await p.goto(BASE + '/join.html?code=' + code + '&name=Ana&team=0&auto=1');
+    await p.waitForTimeout(900);
+    check('the phone is asked which word comes next, from the pool',
+          await p.locator('#opts button').count() === 6 &&
+          /which comes next/i.test(await p.locator('#qtext').innerText()),
+          await p.locator('#qtext').innerText());
+
+    await p.locator('#opts button', { hasText:/^annoyed$/ }).click();
+    await page.waitForTimeout(700);
+    /* Advisory, exactly as in Connections: the vote lands on the word and the
+       leader is ringed, and the board does not move until the teacher clicks. */
+    check('the vote lands on the word and rings the leader',
+          await page.locator('#pool .word-btn[data-word="annoyed"] .votes').innerText() === '1' &&
+          await page.locator('#pool .word-btn[data-word="annoyed"]').evaluate(
+            b => b.classList.contains('hot')));
+    check('but the board has not moved — the teacher still clicks',
+          await page.locator('#slots .slot.filled').count() === 0 &&
+          await page.locator('#pool .word-btn').count() === 6);
+
+    // the teacher clicks it: the slot locks, the team scores, the same team goes again
+    await page.locator('#pool .word-btn[data-word="annoyed"]').click();
+    await page.waitForTimeout(600);
+    check('a correct click locks the slot and teaches the word',
+          await page.locator('#slots .slot.filled').count() === 1 &&
+          /annoyed/i.test(await page.locator('#slots .slot.filled').innerText()) &&
+          /mildly bothered/i.test(await page.locator('#slots .slot.filled').innerText()),
+          await page.locator('#slots .slot.filled').innerText());
+    check('the team scores through the shared bar and keeps the turn',
+          /Team 1/.test(await page.locator('.team-chip.active').innerText()) &&
+          /1/.test(await page.locator('.team-chip.active .score').innerText()));
+    check('and the open slot moves down the scale',
+          await page.locator('#slots .slot.open').getAttribute('data-rank') === '2');
+    check('the phone is re-asked on the shorter pool',
+          await p.locator('#opts button').count() === 5,
+          String(await p.locator('#opts button').count()));
+
+    /* A wrong click: the word stays available, a mistake goes, and the turn passes
+       — and the vote passes with it, which is the rule Connections established and
+       the shared bar now enforces for both games through onTurn. */
+    await page.locator('#pool .word-btn[data-word="incensed"]').click();
+    await page.waitForTimeout(700);
+    check('a wrong click spends a mistake and leaves the word in the pool',
+          await page.locator('#dots .dot.spent').count() === 1 &&
+          await page.locator('#pool .word-btn[data-word="incensed"]').count() === 1 &&
+          await page.locator('#slots .slot.filled').count() === 1);
+    check('the turn passes', /Team 2/.test(await page.locator('.team-chip.active').innerText()),
+          await page.locator('.team-chip.active').innerText());
+    check('and the vote passes with it — Ana is told who is choosing now',
+          /choosing/i.test(await p.locator('#state').innerText()),
+          await p.locator('#state').innerText());
+
+    check('phone had no errors', p.__errors.length === 0, p.__errors[0]);
+    await p.close();
+  }
+
+  /* Reveal-one gives a word away without spending a mistake: nobody got it wrong,
+     and a class that cannot separate livid from furious learns more from being
+     shown than from four wrong guesses. */
+  const spentBefore = await page.locator('#dots .dot.spent').count();
+  await page.locator('#skip-btn').click(); await page.waitForTimeout(500);
+  check('revealing one costs the point, not a mistake',
+        await page.locator('#slots .slot.filled').count() === 2 &&
+        await page.locator('#dots .dot.spent').count() === spentBefore,
+        String(await page.locator('#dots .dot.spent').count()));
+
+  // finish the scale off and check the lesson lands
+  for(let i = 0; i < 6; i++){
+    if(await page.locator('#skip-btn').isDisabled()) break;
+    await page.locator('#skip-btn').click(); await page.waitForTimeout(220);
+  }
+  check('completing the scale unlocks the lesson',
+        await page.locator('.lesson').count() === 1 &&
+        /incensed/i.test(await page.locator('.lesson').innerText()),
+        (await page.locator('.lesson').innerText() || '').slice(0, 80));
+  /* Lower-cased before comparing: the words are laid out with `text-transform`,
+     so innerText comes back shouting while the DOM text does not. */
+  check('and every slot is filled in the authored order',
+        (await page.locator('#slots .slot .word').allInnerTexts()).join('<').toLowerCase()
+          === 'annoyed<irritated<angry<livid<furious<incensed',
+        (await page.locator('#slots .slot .word').allInnerTexts()).join('<'));
+
+  check('host page had no errors', page.__errors.length === 0, page.__errors[0]);
+  await page.close();
+
+  /* Degradation is non-negotiable for every playground page: no relay must leave
+     the board fully playable teacher-only. */
+  const solo = await browser.newPage({ viewport:{ width:1280, height:720 } });
+  solo.__errors = []; solo.on('pageerror', e => solo.__errors.push(String(e)));
+  await solo.goto(BASE + '/playground/thermometer.html?p=1&relay=http://127.0.0.1:9');
+  await solo.waitForTimeout(700);
+  check('no relay: the chip says phones off', /phones off/i.test(await solo.locator('#room-chip').innerText()));
+  await solo.locator('#pool .word-btn[data-word="annoyed"]').click(); await solo.waitForTimeout(400);
+  check('and the game still plays', await solo.locator('#slots .slot.filled').count() === 1);
+  check('no errors without a relay', solo.__errors.length === 0, solo.__errors[0]);
+  await solo.close();
+}
+
 /* ---- the prompt lab ----
    The question forms had nowhere to be seen: a form could only be met by finding a
    bank item that happened to carry its type, which is why three of them sat at 4%
@@ -5180,7 +5327,7 @@ async function main(){
     classic: testJeopardyClassic, joinbar: testJoinAlwaysThere,
     together: testJeopardyTogether, jclock: testAnswerClock,
     playground: testPlaygroundConnections, bench: testPhoneBench,
-    promptlab: testPromptLab
+    promptlab: testPromptLab, thermometer: testThermometer
   };
   const toRun = onlyArg ? onlyArg.split(',').map(s => s.trim()).filter(k => suites[k])
                         : Object.keys(suites);

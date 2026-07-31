@@ -156,5 +156,183 @@ window.BenchKit = (function(){
     return { get, el(id){ return els[id] && els[id].el; } };
   }
 
-  return { room, settings, relay: RELAY };
+  /* ---------- a team's colour ----------
+     Delegated to `hub-buzzer.js` rather than held here, because the projector and
+     the handset both load that file and a team's colour has to be the same fact in
+     both places. Guarded: every bench page must stay playable with no phone layer
+     at all, and a missing colour is not a reason for a board to fail. */
+  const teamColour = i => (window.HubBuzzer && HubBuzzer.teamColour)
+                          ? HubBuzzer.teamColour(i) : '#00A0DF';
+
+  /* ---------- teams ----------
+     Who is playing, whose turn it is, and what they have scored. Every question
+     game on the bench needs exactly this and Connections had written all of it;
+     the second game asking for the same thing is what moved it here.
+
+     The turn is *this* module's, but what a turn change means is not — so `onTurn`
+     fires and the page decides (Connections re-asks the phones, because its vote
+     belongs to the team on turn). `onChange` fires when the roster itself moves,
+     which is when the relay needs the new names.
+
+       const teams = BenchKit.teams({ mount:$('teams'), onTurn(){…}, onChange(){…} });
+       teams.list()      [{name, score}]
+       teams.active()    index, or -1 when the page has said nobody is on turn
+       teams.setActive(i)
+       teams.score(i, n) add n to team i and repaint
+       teams.pass()      hand the turn to the next team
+       teams.sizes(host) phones per team, from the room's roster
+       teams.reset()     zero the scores, keep the names  */
+  function teams(opts){
+    const o = opts || {};
+    const mount = o.mount;
+    const max = o.max || 6;
+    let list = (o.names || ['Team 1','Team 2']).map(n => ({ name:n, score:0 }));
+    let active = 0;
+    /* A page with no turn — a race, where every team plays at once — says so by
+       setting -1 rather than by the bar guessing from some other state. */
+    let turnShown = true;
+
+    function render(){
+      if(!mount) return;
+      mount.innerHTML = '';
+      list.forEach((t, i)=>{
+        const b = document.createElement('button');
+        b.className = 'team-chip' + (turnShown && i === active ? ' active' : '');
+        b.dataset.team = String(i);
+        b.style.borderColor = teamColour(i);
+        b.innerHTML = '<span class="tname"></span><span class="score"></span>';
+        b.querySelector('.tname').textContent = t.name;
+        b.querySelector('.score').textContent = t.score;
+        b.title = 'Click: their turn · double-click: rename';
+        b.addEventListener('click', ()=> setActive(i));
+        b.addEventListener('dblclick', ()=>{
+          const n = prompt('Team name', t.name);
+          if(n && n.trim()){ t.name = n.trim(); render(); fire('change'); }
+        });
+        mount.appendChild(b);
+      });
+      if(list.length < max){
+        const add = document.createElement('button');
+        add.id = 'add-team'; add.textContent = '+ Team';
+        add.addEventListener('click', ()=>{
+          list.push({ name:'Team ' + (list.length + 1), score:0 });
+          render(); fire('change');
+        });
+        mount.appendChild(add);
+      }
+    }
+    function fire(what){
+      if(what === 'turn' && o.onTurn) o.onTurn(active);
+      if(what === 'change' && o.onChange) o.onChange(list.slice());
+    }
+    function setActive(i){ active = i; render(); fire('turn'); }
+
+    render();
+    return {
+      list: ()=> list,
+      names: ()=> list.map(t=>t.name),
+      active: ()=> (turnShown ? active : -1),
+      at: i => list[i],
+      nameAt: i => (list[i] ? list[i].name : 'Team ' + (Number(i) + 1)),
+      colour: teamColour,
+      setActive,
+      /* The turn moves on, and it is the module's business how — a page should not
+         have to know that six teams wrap round to zero. */
+      pass(){ setActive((active + 1) % list.length); },
+      showTurn(on){ turnShown = !!on; render(); },
+      score(i, n){ if(list[i]) list[i].score += n; render(); },
+      reset(){ list.forEach(t=> t.score = 0); render(); },
+      /* How many phones each team has, from the room's roster. Returns a count per
+         team index, so a page can turn it into whatever it needs — Connections
+         turns it into a per-player share of a four-word answer. */
+      sizes(host){
+        const n = list.map(()=> 0);
+        (host ? host.players() : []).forEach(p=>{
+          const t = Math.max(0, Number(p.team) || 0);
+          if(n[t] != null) n[t]++;
+        });
+        return n;
+      },
+      render
+    };
+  }
+
+  /* ---------- the board's clock ----------
+     The teacher's copy of the countdown the handsets are running. The phones count
+     their own down from a duration sent with the arm, so this never agrees a time
+     with anybody — it is the same number started at the same moment.
+
+     What expiry *means* is the page's business, not this module's, so it calls
+     back rather than deciding: Connections closes the vote and leaves the board to
+     the teacher, because nothing on this bench is ever decided automatically. */
+  function clock(opts){
+    const o = opts || {};
+    const el = o.mount;
+    let timer = null;
+    function stop(){
+      if(timer){ clearInterval(timer); timer = null; }
+      if(el){ el.textContent = ''; el.classList.remove('urgent'); }
+    }
+    function start(secs){
+      stop();
+      if(!secs || !el) return;
+      let left = secs;
+      const paint = ()=>{
+        el.textContent = left + 's';
+        el.classList.toggle('urgent', left <= 10);
+      };
+      paint();
+      timer = setInterval(()=>{
+        left--;
+        if(left <= 0){
+          clearInterval(timer); timer = null;
+          el.textContent = 'time';
+          if(o.onEnd) o.onEnd();
+          return;
+        }
+        paint();
+      }, 1000);
+    }
+    return { start, stop, running(){ return !!timer; } };
+  }
+
+  /* ---------- the mistake budget ----------
+     Dots that go out. Both games so far run one; a page that does not want a
+     budget simply never builds one. */
+  function mistakes(opts){
+    const o = opts || {};
+    const mount = o.mount;
+    const max = o.max || 4;
+    let spent = 0;
+    function render(){
+      if(!mount) return;
+      mount.innerHTML = '';
+      for(let i = 0; i < max; i++){
+        const s = document.createElement('span');
+        s.className = 'dot' + (i < spent ? ' spent' : '');
+        mount.appendChild(s);
+      }
+    }
+    render();
+    return {
+      spend(){ spent++; render(); return spent >= max; },   // true = that was the last one
+      reset(){ spent = 0; render(); },
+      left(){ return Math.max(0, max - spent); },
+      out(){ return spent >= max; },
+      render
+    };
+  }
+
+  /* ---------- who is winning a vote ----------
+     The top `n` options by count, highest first, ignoring anything with no votes.
+     Connections wants four (a group), the thermometer wants one (a slot). */
+  function leading(votes, n){
+    return Object.entries(votes || {})
+      .filter(([, c]) => c > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, Math.max(1, n || 1))
+      .map(([w]) => w);
+  }
+
+  return { room, settings, teams, clock, mistakes, leading, teamColour, relay: RELAY };
 })();

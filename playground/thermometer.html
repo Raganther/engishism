@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Thermometer — Engishism Playground</title>
+<style>
+  /* Playground page: deliberately NOT the hub skin, the same as Connections. What
+     is shared between the two lives in bench-kit.js, not in a copied stylesheet —
+     the chrome each board wears is its own business. */
+  :root{
+    --bg:#fafaf8; --text:#121212; --muted:#6b6b6b; --border:#d4d4cc;
+    --tile-bg:#efefe6; --tile-text:#121212;
+    --btn-bg:#fff; --btn-border:#121212; --accent:#00A0DF;
+    --pick-ring:#7a7a72;
+    /* The scale itself. Cold to hot reads as a temperature, which is the whole
+       metaphor — but it has to survive a projector, so these are saturated rather
+       than pastel and the type on them stays near-black throughout. */
+    --cold:#7FC7E8; --warm:#F5C542; --hot:#E2603B;
+    --locked:#A0C35A;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display:flex; justify-content:center; min-height:100vh;
+  }
+  .app{ width:100%; max-width:1040px; padding:12px 16px; }
+
+  header{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  h1{ font-size:1.5rem; margin:4px 0 2px; }
+  h1 small{ color:var(--muted); font-weight:400; font-size:0.9rem; }
+  .toolbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  select, .toolbar button{
+    font:inherit; font-size:0.85rem; padding:6px 12px; border-radius:999px;
+    border:1px solid var(--border); background:var(--btn-bg); color:var(--text); cursor:pointer;
+  }
+
+  /* The team bar and the mistake dots are drawn by bench-kit, so these classes are
+     the contract between the two — same names as Connections uses. */
+  .teams{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:10px 0 4px; }
+  .team-chip{
+    font:inherit; font-weight:700; font-size:0.95rem; padding:8px 14px; border-radius:999px;
+    border:2px solid var(--border); background:var(--btn-bg); cursor:pointer;
+  }
+  .team-chip.active{ border-color:var(--accent); background:var(--accent); color:#fff; }
+  .team-chip .score{ font-weight:400; opacity:0.85; margin-left:6px; }
+  #add-team{ font:inherit; font-size:0.85rem; padding:8px 12px; border-radius:999px;
+             border:1px dashed var(--border); background:none; cursor:pointer; color:var(--muted); }
+  .dots{ display:inline-flex; gap:5px; }
+  .dot{ width:14px; height:14px; border-radius:50%; background:#5a594e; display:inline-block; }
+  .dot.spent{ background:transparent; border:1.5px solid var(--border); }
+
+  #room-chip{
+    font-family:ui-monospace, monospace; font-size:0.85rem; padding:8px 14px;
+    border-radius:999px; border:1px solid var(--border); background:var(--btn-bg);
+    cursor:pointer; color:var(--muted);
+  }
+  #room-chip b{ color:var(--text); letter-spacing:0.15em; }
+  #join-panel{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55);
+    align-items:center; justify-content:center; z-index:50;
+  }
+  #join-panel.on{ display:flex; }
+  #join-card{
+    background:#fff; color:#121212; border-radius:16px; padding:28px 34px; text-align:center;
+    max-width:520px;
+  }
+  #join-card .code{ font-family:ui-monospace,monospace; font-size:3rem; letter-spacing:0.3em; font-weight:700; }
+  #join-card .url{ font-family:ui-monospace,monospace; color:#555; margin:6px 0 14px; }
+  #join-card svg{ width:min(46vh, 300px); height:auto; }
+
+  .instructions{ color:var(--muted); font-size:0.92rem; margin:4px 0 8px; }
+  #vote-line{ min-height:1.3em; font-size:0.95rem; color:var(--accent); font-weight:600; margin:0 0 6px; }
+  #vote-clock{
+    font-family:ui-monospace,monospace; margin-left:8px; padding:2px 10px; border-radius:999px;
+    background:rgba(0,160,223,0.12);
+  }
+  #vote-clock.urgent{ background:#C0392B; color:#fff; }
+  #vote-clock:empty{ display:none; }
+
+  /* ---- the scale ----
+     Rows rather than a free canvas: a word has to be readable from the back of a
+     room, and a diagonal gradient with words floating on it is a poster, not a
+     board you can play. The gradient runs down the rail beside the slots, so the
+     ordering is carried by position and the colour only reinforces it. */
+  .scale-head{
+    display:flex; justify-content:space-between; font-size:0.9rem; font-weight:700;
+    color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px;
+  }
+  .scale{ display:flex; gap:14px; align-items:stretch; margin-bottom:12px; }
+  .rail{
+    flex:0 0 14px; border-radius:999px;
+    background:linear-gradient(to bottom, var(--cold), var(--warm), var(--hot));
+  }
+  .slots{ flex:1 1 auto; display:flex; flex-direction:column; gap:6px; }
+  /* Sized off the viewport, not a fixed height: six slots, a pool and the team
+     bar have to sit inside a projector's 720px without scrolling, and a board a
+     class has to scroll is a board nobody can play. Floors at 36px so a phone
+     preview stays tappable. */
+  .slot{
+    display:flex; align-items:center; gap:12px; min-height:clamp(36px, 5.4vh, 56px);
+    border:2px dashed var(--border); border-radius:10px; padding:0 14px;
+    background:var(--tile-bg); transition:border-color .15s, background .15s;
+  }
+  .slot .rank{
+    font-family:ui-monospace,monospace; font-size:0.85rem; color:var(--muted);
+    flex:0 0 1.6em; font-variant-numeric:tabular-nums;
+  }
+  .slot .word{ font-weight:700; text-transform:uppercase; font-size:clamp(1rem, 1.9vw, 1.35rem); }
+  .slot .gloss{ color:var(--muted); font-size:0.88rem; margin-left:auto; text-align:right; }
+  .slot.filled{ border-style:solid; border-color:var(--locked); background:#f2f7e8; }
+  /* The slot being played for. Neutral, and dashed the way Connections marks the
+     teacher's own pointer — nothing on this board is decided by the board. */
+  .slot.open{ border-color:var(--pick-ring); border-style:solid; background:#fff;
+              box-shadow:0 0 0 3px rgba(122,122,114,0.18); }
+  .slot.open .rank{ color:var(--text); font-weight:700; }
+  .slot .hint{ color:var(--muted); font-style:italic; font-size:0.92rem; }
+  .slot.wrong{ animation:shake 0.35s ease; border-color:#C0392B; }
+  @keyframes shake{ 0%,100%{ transform:translateX(0); } 25%{ transform:translateX(-5px); } 75%{ transform:translateX(5px); } }
+
+  /* ---- the pool ---- */
+  .pool{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:6px; }
+  .word-btn{
+    position:relative; border:2px solid var(--border); border-radius:10px; background:var(--tile-bg);
+    color:var(--tile-text); font-family:inherit; font-weight:700; text-transform:uppercase;
+    font-size:clamp(0.85rem, 1.5vw, 1.15rem); padding:11px 16px; cursor:pointer;
+    transition:transform 0.08s ease;
+  }
+  .word-btn:active{ transform:scale(0.95); }
+  .word-btn:disabled{ opacity:0.3; cursor:default; }
+  /* Votes land on the words exactly as they do in Connections — a count badge, and
+     a neutral ring on whichever the team is converging toward. Advisory: the
+     teacher clicks. */
+  .word-btn .votes{
+    position:absolute; top:-8px; right:-8px; min-width:22px; padding:2px 6px; border-radius:999px;
+    background:var(--accent); color:#fff; font-size:0.75rem; font-weight:700;
+  }
+  .word-btn.hot{ box-shadow:0 0 0 3px var(--pick-ring); }
+
+  .message{ text-align:center; min-height:1.4em; font-weight:600; margin:6px 0 2px; font-size:1.15rem; }
+  .lesson{
+    border:2px solid var(--locked); background:#f2f7e8; border-radius:10px;
+    padding:14px 18px; margin-top:12px; font-size:1.02rem; line-height:1.5;
+  }
+  .lesson b{ text-transform:uppercase; letter-spacing:0.03em; }
+  .controls{ display:flex; justify-content:center; gap:10px; margin-top:8px; flex-wrap:wrap; }
+  .controls button{
+    font:inherit; font-weight:600; font-size:1rem; padding:12px 22px; border-radius:999px;
+    cursor:pointer; background:var(--btn-bg); color:var(--text); border:1px solid var(--btn-border);
+  }
+  .status{ display:flex; justify-content:center; align-items:center; gap:8px; margin:10px 0 2px; font-size:1.05rem; }
+
+  footer{ text-align:center; color:var(--muted); font-size:0.8rem; margin:14px 0 6px; }
+  footer a{ color:var(--muted); }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation:none !important; transition:none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div><h1>Word Thermometer <small>· playground</small></h1></div>
+    <div class="toolbar">
+      <select id="scale-select" aria-label="Choose a scale"></select>
+      <span id="settings-slot"></span>
+      <button id="restart-btn">Restart</button>
+      <span id="room-slot"></span>
+    </div>
+  </header>
+
+  <div class="teams" id="teams"></div>
+  <p class="instructions">Order the words along the scale, coldest first. The team on turn votes on
+     their phones; the teacher clicks. Right keeps the turn, wrong passes it.</p>
+  <p id="vote-line"><span id="vote-text"></span> <span id="vote-clock"></span></p>
+
+  <div class="scale-head"><span id="pole-low"></span><span id="pole-high"></span></div>
+  <div class="scale">
+    <div class="rail"></div>
+    <div class="slots" id="slots"></div>
+  </div>
+
+  <div class="pool" id="pool"></div>
+
+  <div class="status" id="status-row">
+    <span>Mistakes remaining:</span>
+    <span class="dots" id="dots"></span>
+  </div>
+  <div class="message" id="message"></div>
+  <div id="lesson-slot"></div>
+
+  <div class="controls">
+    <button id="skip-btn" title="Give this one away and move on">Reveal this one</button>
+  </div>
+
+  <footer>Engishism playground — a sandbox for game dynamics. Scales are editable at the top of this
+    file. · <a href="../index.html">back to the hub</a></footer>
+</div>
+
+<script src="../game-hub/hub-buzzer.js?v=20260801u"></script>
+<script src="../game-hub/hub-qr.js?v=20260801u"></script>
+<script src="bench-kit.js?v=20260801u"></script>
+<script>
+'use strict';
+/* ================= SCALES — edit or add scales here =================
+   Each scale: title, level, low/high pole labels, note (the mini-lesson), and
+   words[] **in the correct order, coldest first**. The order in this array IS the
+   answer, so nothing else has to record it.
+
+   `gloss` is optional and prints beside the word once it is locked in — it is what
+   turns a right answer into a taught one, and costs nothing while the slot is
+   still open.
+
+   Keep a scale to 5 or 6 words. Seven is a long turn on a projector, and the
+   discriminations at the ends stop being defensible. */
+const SCALES = [
+  {
+    title: "How angry? (intensity)", level: "B2–C1",
+    low: "Mildly annoyed", high: "Absolutely furious",
+    words: [
+      { word:"annoyed",   gloss:"mildly bothered" },
+      { word:"irritated", gloss:"annoyed, and it is nagging at you" },
+      { word:"angry",     gloss:"the neutral, everyday word" },
+      { word:"livid",     gloss:"very angry — informal, vivid" },
+      { word:"furious",   gloss:"the top of the ordinary scale" },
+      { word:"incensed",  gloss:"formal, and usually about an injustice" }
+    ],
+    note: "English grades anger finely, and the register moves with the intensity. " +
+          "“Annoyed” and “irritated” are everyday; “livid” is strong but conversational; " +
+          "“incensed” is formal and almost always used about something unjust."
+  },
+  {
+    title: "Asking for something (formality)", level: "B2–C1",
+    low: "Most informal", high: "Most formal",
+    words: [
+      { word:"gimme",              gloss:"spoken only — never write this" },
+      { word:"can I have",         gloss:"neutral spoken English" },
+      { word:"could I have",       gloss:"a little softer, still everyday" },
+      { word:"would you mind",     gloss:"polite, and common in an email" },
+      { word:"I would appreciate", gloss:"formal writing" },
+      { word:"I should be grateful", gloss:"very formal — a letter of complaint" }
+    ],
+    note: "Politeness in English is built with distance: the further the language " +
+          "gets from a bare imperative, the more formal it sounds. Notice that the " +
+          "top two are writing, not speech — saying “I should be grateful” aloud sounds odd."
+  },
+  {
+    title: "How certain? (hedging)", level: "C1",
+    low: "Least certain", high: "Most certain",
+    words: [
+      { word:"conceivably", gloss:"it is not impossible" },
+      { word:"possibly",    gloss:"a real but small chance" },
+      { word:"perhaps",     gloss:"the neutral hedge" },
+      { word:"probably",    gloss:"more likely than not" },
+      { word:"presumably",  gloss:"I am inferring it, and I expect to be right" },
+      { word:"undoubtedly", gloss:"no room left for doubt" }
+    ],
+    note: "Academic writing lives on this scale. “Presumably” is the odd one — it is " +
+          "high certainty but it flags that you are *inferring* rather than reporting, " +
+          "which is why it belongs above “probably” and below “undoubtedly”."
+  },
+  {
+    title: "How often? (frequency)", level: "B1–B2",
+    low: "Never", high: "Always",
+    words: [
+      { word:"rarely",      gloss:"almost never" },
+      { word:"occasionally",gloss:"now and then" },
+      { word:"sometimes",   gloss:"the neutral middle" },
+      { word:"often",       gloss:"more times than not" },
+      { word:"usually",     gloss:"the normal case" },
+      { word:"invariably",  gloss:"formal — without exception" }
+    ],
+    note: "“Usually” is stronger than “often”: often counts occasions, usually " +
+          "describes the rule. “Invariably” is the formal end and means there are " +
+          "no exceptions at all — so it cannot be softened with “nearly”."
+  },
+  {
+    title: "How good? (praise)", level: "B2–C1",
+    low: "Faint praise", high: "The highest praise",
+    words: [
+      { word:"adequate",    gloss:"it will do — often a criticism" },
+      { word:"decent",      gloss:"genuinely fine, informal" },
+      { word:"impressive",  gloss:"clearly above expectation" },
+      { word:"outstanding", gloss:"the top of ordinary praise" },
+      { word:"exceptional", gloss:"formal, and rare by definition" }
+    ],
+    note: "“Adequate” is the trap: it is positive in form and negative in use — " +
+          "calling an essay adequate is a complaint. Watch for the same move in " +
+          "“interesting” and “ambitious”."
+  }
+];
+/* ================= end of scales ================= */
+
+const MAX_MISTAKES = 4;
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+
+/* ---------------- game state ---------------- */
+let scaleIndex = 0;
+let pool = [];        // words still to be placed, shuffled
+let placed = [];      // words locked into slots, coldest first
+let gameOver = false;
+
+/* ---------------- the round's state ----------------
+   Declared before the room opens: `ready` fires from a fetch, so the first thing
+   it does — arm a round — can land before a `let` further down the file has been
+   initialised, and a temporal-dead-zone error there looks exactly like the phones
+   never being asked. Learned on Connections; it applies to every bench page. */
+let votes = {};
+let host = null;
+
+/* ---------------- the shelf ----------------
+   Teams, the clock and the mistake budget come from bench-kit — this game wrote
+   none of them. What is left below is the board, the scale and the judging, which
+   is exactly the part a game is supposed to write for itself. */
+const teams = BenchKit.teams({
+  mount: $('teams'),
+  // the vote belongs to the team on turn, so it moves when the turn does
+  onTurn(){ askPhones(); },
+  onChange(){ pushTeams(); }
+});
+
+const clock = BenchKit.clock({
+  mount: $('vote-clock'),
+  /* Time up closes the vote and stops there. Nothing on this bench decides a
+     question by itself — the teacher still clicks, and the recovery path stays on
+     screen because this game never hides its board. */
+  onEnd(){ if(host) host.disarm(); renderVotes(); }
+});
+
+const mistakes = BenchKit.mistakes({ mount: $('dots'), max: MAX_MISTAKES });
+
+const settings = BenchKit.settings($('settings-slot'), [
+  { id:'vote-secs', label:'How long the team gets', default:60, number:true, options:[
+      { value:0,  label:'No clock' }, { value:30, label:'30s' },
+      { value:60, label:'60s' },      { value:90, label:'90s' } ] }
+], ()=> askPhones());
+
+const room = BenchKit.room({
+  mount: $('room-slot'),
+  board: 'thermometer.html',
+  on: {
+    ready(h){ host = h; pushTeams(); askPhones(); },
+    response(d){ votes = d.tally || {}; renderVotes(); }
+  }
+});
+
+function pushTeams(){ if(host) host.setTeams(teams.names()); }
+
+/* ---------------- the phones ----------------
+   One word for one slot, so a single pick each — the team argues its way to one
+   answer rather than assembling a set. `rethink` is what makes that an argument
+   instead of a submission. */
+function askPhones(){
+  votes = {}; renderVotes();
+  if(!host) return;
+  if(gameOver || !pool.length){ host.disarm(); clock.stop(); return; }
+  const secs = settings.get('vote-secs') || 0;
+  host.arm('Which comes next?', {
+    mode:'vote',
+    options: pool.map(w => w.word),
+    team: teams.active(),
+    multi: 1,
+    /* A vote is a state a phone is holding, not an answer it has given, so it
+       leaves with the phone if the phone leaves. */
+    holds: true,
+    rethink: true, secs
+  });
+  clock.start(secs);
+}
+
+function renderVotes(){
+  const hot = new Set(BenchKit.leading(votes, 1));
+  document.querySelectorAll('#pool .word-btn').forEach(b=>{
+    const w = b.dataset.word;
+    const n = votes[w] || 0;
+    let badge = b.querySelector('.votes');
+    if(n > 0){
+      if(!badge){ badge = document.createElement('span'); badge.className = 'votes'; b.appendChild(badge); }
+      badge.textContent = n;
+    } else if(badge) badge.remove();
+    b.classList.toggle('hot', hot.has(w));
+  });
+  const total = Object.values(votes).reduce((a, n)=> a + n, 0);
+  $('vote-text').textContent = (host && total)
+    ? teams.nameAt(teams.active()) + ' has ' + total + ' vote' + (total === 1 ? '' : 's') + ' in'
+    : '';
+}
+
+/* ---------------- the board ---------------- */
+function loadScale(i){
+  scaleIndex = i;
+  const s = SCALES[i];
+  placed = [];
+  pool = shuffle(s.words.slice());
+  gameOver = false;
+  mistakes.reset();
+  $('pole-low').textContent  = s.low;
+  $('pole-high').textContent = s.high;
+  setMessage('');
+  $('lesson-slot').innerHTML = '';
+  render();
+  askPhones();
+}
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* Which word the open slot wants. The scale's own array order is the answer, so
+   the word for slot n is simply the nth — nothing else records it. */
+function wanted(){ return SCALES[scaleIndex].words[placed.length]; }
+
+function render(){
+  const s = SCALES[scaleIndex];
+
+  const slots = $('slots'); slots.innerHTML = '';
+  s.words.forEach((_, i)=>{
+    const row = document.createElement('div');
+    const done = i < placed.length;
+    const open = i === placed.length && !gameOver;
+    row.className = 'slot' + (done ? ' filled' : '') + (open ? ' open' : '');
+    row.dataset.rank = String(i + 1);
+    row.innerHTML = '<span class="rank"></span><span class="word"></span><span class="gloss"></span>';
+    row.querySelector('.rank').textContent = (i + 1) + '.';
+    if(done){
+      row.querySelector('.word').textContent  = placed[i].word;
+      row.querySelector('.gloss').textContent = placed[i].gloss || '';
+    } else if(open){
+      const hint = document.createElement('span');
+      hint.className = 'hint';
+      hint.textContent = placed.length === 0 ? 'coldest — pick the first' : 'next along the scale';
+      row.appendChild(hint);
+    }
+    slots.appendChild(row);
+  });
+
+  const box = $('pool'); box.innerHTML = '';
+  pool.forEach(w=>{
+    const b = document.createElement('button');
+    b.className = 'word-btn';
+    b.dataset.word = w.word;
+    b.textContent = w.word;
+    b.disabled = !!gameOver;
+    b.addEventListener('click', ()=> place(w));
+    box.appendChild(b);
+  });
+  renderVotes();
+  $('skip-btn').disabled = !!gameOver || !pool.length;
+}
+
+/* The teacher's click is the only thing that places a word. The phones say what
+   the team thinks; they never move the board. */
+function place(w){
+  if(gameOver || !pool.length) return;
+  const want = wanted();
+  if(w.word === want.word){
+    pool = pool.filter(x => x.word !== w.word);
+    placed.push(w);
+    teams.score(teams.active(), 1);
+    if(!pool.length){
+      gameOver = 'won';
+      setMessage(finalLine());
+      showLesson();
+      render();
+      askPhones();
+      return;
+    }
+    setMessage('Yes — ' + teams.nameAt(teams.active()) + ' goes again.');
+    render();
+    askPhones();            // same team, shorter pool
+    return;
+  }
+
+  // wrong: the word stays in the pool, the turn passes, and the vote goes with it
+  const slot = document.querySelector('#slots .slot.open');
+  if(slot){
+    slot.classList.add('wrong');
+    setTimeout(()=> slot.classList.remove('wrong'), 380);
+  }
+  const last = mistakes.spend();
+  setMessage('Not that one — ' + teams.nameAt(teams.active()) + ' loses the turn.');
+  if(last){
+    gameOver = 'lost';
+    revealRest();
+    setMessage('Out of guesses — here is the whole scale.');
+    showLesson();
+    render();
+    askPhones();
+    return;
+  }
+  teams.pass();             // fires onTurn, which re-asks the phones
+  render();
+}
+
+/* Give a word away rather than stalling on it. The scale is a teaching object as
+   much as a game, and a class that cannot separate "livid" from "furious" learns
+   more from being shown than from four wrong guesses. Costs the point, not a
+   mistake — nobody got it wrong. */
+function revealOne(){
+  if(gameOver || !pool.length) return;
+  const want = wanted();
+  pool = pool.filter(x => x.word !== want.word);
+  placed.push(want);
+  if(!pool.length){
+    gameOver = 'won';
+    setMessage(finalLine());
+    showLesson();
+  } else {
+    setMessage('Shown: ' + want.word + '. No points for that one.');
+  }
+  render();
+  askPhones();
+}
+
+function revealRest(){
+  SCALES[scaleIndex].words.slice(placed.length).forEach(w => placed.push(w));
+  pool = [];
+}
+
+function showLesson(){
+  const s = SCALES[scaleIndex];
+  const div = document.createElement('div');
+  div.className = 'lesson';
+  div.innerHTML = '<b></b> <span></span>';
+  div.querySelector('b').textContent = s.title + ' —';
+  div.querySelector('span').textContent = s.note;
+  $('lesson-slot').innerHTML = '';
+  $('lesson-slot').appendChild(div);
+}
+
+function setMessage(t){ $('message').textContent = t; }
+
+function finalLine(){
+  const list = teams.list();
+  const top = Math.max(...list.map(t => t.score));
+  if(!top) return 'Scale complete.';
+  const winners = list.filter(t => t.score === top).map(t => t.name);
+  return 'Scale complete! ' + (winners.length === list.length
+    ? 'All square.'
+    : winners.join(' & ') + ' take' + (winners.length > 1 ? '' : 's') + ' it, ' + top + '.');
+}
+
+/* ---------------- toolbar ---------------- */
+function initToolbar(){
+  const sel = $('scale-select');
+  SCALES.forEach((s, i)=>{
+    const o = document.createElement('option');
+    o.value = i; o.textContent = (i + 1) + '. ' + s.title + ' (' + s.level + ')';
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', ()=> loadScale(Number(sel.value)));
+  $('restart-btn').addEventListener('click', ()=>{
+    teams.reset(); loadScale(scaleIndex);
+  });
+  $('skip-btn').addEventListener('click', revealOne);
+}
+
+const start = params.has('p') ? (Number(params.get('p')) - 1)
+            : Math.floor(Date.now() / 86400000) % SCALES.length;
+initToolbar();
+loadScale(Math.min(Math.max(start, 0), SCALES.length - 1));
+$('scale-select').value = scaleIndex;
+</script>
+</body>
+</html>
