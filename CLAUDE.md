@@ -715,6 +715,22 @@ playground's point, that one board can host several:
   - **A set of four is judged when it settles**, debounced — four picks arriving
     from four phones would otherwise be judged three times on the way up — and
     remembered per team, so a wrong four is not re-judged until it changes.
+  - **The clock stands down in a race, and that was a dead end rather than a
+    preference.** The round clock disarms every handset when it expires; turns mode
+    recovers because the teacher still has Submit, but a race hides Submit — so on
+    the **default 60s** a race board reached one minute with no phone able to tap
+    and no control on screen to click, and only Restart got out of it. The clock
+    now goes the way the mistake dots and Submit already do, on the board *and* on
+    the handsets: a race's pressure is the other team, which is the same reason a
+    wrong four costs nothing there. **The general shape: a control that a mode
+    removes the recovery path for has to be removed with it** — the two race checks
+    were proved against the reverted fix.
+  - **Race has no ending but solving all four.** Turns mode has the mistake budget;
+    a race that stalls on the last group runs until somebody gets it. A whole-game
+    clock — "as many groups as you can in 90 seconds" — is the obvious candidate
+    and would reuse the setting that just stood down, but it invents a third
+    guessed number on top of the two the classroom run is meant to settle. Open,
+    deliberately.
   - **`playground/bench-kit.js` is the new tier**: what every *question game*
     shares, as `hub-kit.js` is what every *game* shares. It exists because
     `openRoom` had already been written twice in two days. Teams and the round are

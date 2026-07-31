@@ -360,8 +360,14 @@ function pushTeams(){ if(host) host.setTeams(teams.map(t=>t.name)); }
 function askPhones(){
   votes = {}; replies = []; renderVotes();
   if(!host) return;
-  if(gameOver || !remaining.length){ host.disarm(); return; }
-  const secs = settings.get('vote-secs') || 0;
+  if(gameOver || !remaining.length){ host.disarm(); boardClock(0); return; }
+  /* A clock belongs to a turn, and a race has none — so it stands down there, the
+     same way the mistake dots and Submit do. This was a dead end rather than a
+     preference: expiry disarms every handset, and in a race there is no Submit for
+     the teacher to recover with, so the default 60s left the board unfinishable
+     with nothing on screen to click. The race's pressure is the other team, which
+     is the same reason a wrong four costs nothing there. */
+  const secs = racing() ? 0 : (settings.get('vote-secs') || 0);
   /* `rethink` is what makes this a negotiation rather than a submission: a player
      can tap another word and their vote moves, so the team can argue toward one
      answer. `secs` gives them a deadline to argue against — the phones count it
@@ -554,7 +560,12 @@ function applyMode(){
   $('instructions-turns').style.display = race ? 'none' : '';
   $('status-row').style.display   = race ? 'none' : '';
   $('controls-row').style.display = race ? 'none' : '';
-  if(race){ selected = []; }
+  /* The clock goes with them. Leaving it on the toolbar would offer a setting that
+     silently does nothing, which is worse than the control being absent — and it
+     reads as "how long the team gets" over a mode with no team on turn. */
+  const clock = settings.el('vote-secs');
+  if(clock) clock.style.display = race ? 'none' : '';
+  if(race){ selected = []; boardClock(0); }
 }
 
 /* Each team's colour, so two sets of picks can share one board and still be read

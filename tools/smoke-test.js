@@ -4102,6 +4102,16 @@ async function testPlaygroundConnections(browser){
   check('and the turns-only controls stand down',
         !(await race.locator('#status-row').isVisible()) &&
         !(await race.locator('#controls-row').isVisible()));
+  /* The clock is one of them, and it was a dead end rather than a preference.
+     Expiry disarms every handset; turns mode recovers because the teacher still
+     has Submit, but a race hides Submit — so on the *default* 60s a race board
+     reached one minute with no phone able to tap and no control on screen to
+     click, and only Restart got out of it. A race's pressure is the other team,
+     which is the same reason a wrong four costs nothing there. */
+  check('and so does the clock, which a race has nothing to end',
+        !(await race.locator('#vote-secs').isVisible()) &&
+        (await race.locator('#vote-clock').innerText()).trim() === '',
+        await race.locator('#vote-clock').innerText());
   if(rcode){
     const join = async (name, team) => {
       const ph = await browser.newPage({ viewport:{ width:390, height:844 } });
@@ -4114,6 +4124,14 @@ async function testPlaygroundConnections(browser){
     check('every team is asked at once, not only the team on turn',
           /choose 4/i.test(await two.locator('#state').innerText()),
           await two.locator('#state').innerText());
+    /* The handsets have to agree with the board about there being no clock — the
+       phone counts its own copy down from a duration sent with the arm, so a board
+       that stood the clock down while still sending `secs` would disarm the room
+       from the phone side and look exactly like the bug that was fixed. */
+    check('and no round clock reaches their phones either',
+          (await one.locator('#round-clock').innerText()).trim() === '' &&
+          (await two.locator('#round-clock').innerText()).trim() === '',
+          await one.locator('#round-clock').innerText());
 
     await two.locator('#opts button', { hasText:/^homework$/ }).click();
     await two.locator('#opts button', { hasText:/^laundry$/ }).click();
