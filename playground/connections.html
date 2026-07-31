@@ -320,8 +320,9 @@ const mistakes = BenchKit.mistakes({ mount: $('dots'), max: MAX_MISTAKES });
    like the phones never being asked. */
 let votes = {};          // word -> count, this attempt
 let replies = [];        // every reply as {id,name,team,value} — a race needs the team
-let raceTimer = null;    // debounce, so a set forming word by word is judged once
-let raceTried = {};      // team -> sets already judged, so a wrong four isn't re-judged
+/* The debounce and the "already judged" memory both come from the shelf now
+   (`BenchKit.settle`) — the thermometer's race needed the same pair, settling on a
+   leading word where this one settles on a set of four. */
 
 /* ---------------- the room and the settings ----------------
    Both come from BenchKit now: the chip, the join panel, the QR and the bench
@@ -340,7 +341,7 @@ const settings = BenchKit.settings($('settings-slot'), [
   /* Switching between turns and a race changes what the phones are being asked
      for — one vote or a set of four — so the round is re-put rather than left to
      finish under the old rules. */
-  raceTried = {}; replies = [];
+  race.reset(); replies = [];
   document.querySelectorAll('#grid .picks').forEach(e=>e.remove());
   document.querySelectorAll('#grid .tile').forEach(t=>{
     t.style.boxShadow=''; t.classList.remove('hot','held');
@@ -363,7 +364,7 @@ const room = BenchKit.room({
       votes = d.tally || {};
       replies = (d && d.all) || [];
       renderVotes();
-      if(racing()) judgeRace();
+      if(racing()) race.poke();
     }
   }
 });
@@ -552,24 +553,18 @@ function renderRaceVotes(){
    teacher never re-enters it, which is the whole point of the mode — so it is
    checked as soon as the set settles. Debounced, because four picks arriving from
    four phones would otherwise be judged three times on the way up. */
-function judgeRace(){
-  if(raceTimer) clearTimeout(raceTimer);
-  raceTimer = setTimeout(()=>{
-    raceTimer = null;
-    if(gameOver || !remaining.length) return;
-    const picks = teamPicks();
-    Object.keys(picks).forEach(ti=>{
-      const t = Number(ti);
-      const set = picks[ti];
-      if(set.length !== 4) return;
-      const key = set.slice().sort().join('|');
-      const tried = raceTried[t] || (raceTried[t] = []);
-      if(tried.indexOf(key) !== -1) return;       // already judged; wait for a change
-      tried.push(key);
-      settleRace(t, set);
-    });
-  }, 700);
-}
+const race = BenchKit.settle(700, ()=>{
+  if(gameOver || !remaining.length) return;
+  const picks = teamPicks();
+  Object.keys(picks).forEach(ti=>{
+    const t = Number(ti);
+    const set = picks[ti];
+    if(set.length !== 4) return;
+    // fresh() is the "already judged; wait for a change" half, on the shelf now
+    if(!race.fresh(t, set.slice().sort().join('|'))) return;
+    settleRace(t, set);
+  });
+});
 
 function settleRace(team, set){
   const diffs = set.map(w => wordToGroup[w]);
@@ -592,7 +587,7 @@ function settleRace(team, set){
   solvedGroups.push({ diff:d, team });
   teams.score(team, 1);
   remaining = remaining.filter(w => wordToGroup[w] !== d);
-  raceTried = {};               // the board changed, so every set is worth trying again
+  race.reset();                 // the board changed, so every set is worth trying again
   if(solvedGroups.length === 4){
     gameOver = 'won';
     setMessage(finalLine());

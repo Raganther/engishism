@@ -137,6 +137,18 @@
     background:var(--accent); color:#fff; font-size:0.75rem; font-weight:700;
   }
   .word-btn.hot{ box-shadow:0 0 0 3px var(--pick-ring); }
+  /* A race puts both teams' answers on one board at once. The ring stays neutral
+     and the dots carry who — the same rule Connections pays for: a ring in one
+     team's colour paints a contested word as that team's, and a team reading what
+     the other side is converging on is most of what makes this a language task. */
+  .word-btn .picks{ position:absolute; top:-9px; left:-6px; display:flex; gap:4px; }
+  .pick-dot{ width:14px; height:14px; border-radius:50%; box-shadow:0 0 0 2px var(--bg); }
+  .word-btn.wrong{ animation:shake 0.35s ease; }
+  .race-count{
+    display:inline-block; margin-right:8px; padding:2px 10px; border-radius:999px;
+    border:2px solid var(--accent); color:var(--text); font-size:0.85rem;
+  }
+  .race-count small{ font-weight:400; color:var(--muted); }
 
   .message{ text-align:center; min-height:1.4em; font-weight:600; margin:6px 0 2px; font-size:1.15rem; }
   .lesson{
@@ -171,8 +183,11 @@
   </header>
 
   <div class="teams" id="teams"></div>
-  <p class="instructions">Order the words along the scale, coldest first. The team on turn votes on
-     their phones; the teacher clicks. Right keeps the turn, wrong passes it.</p>
+  <p class="instructions" id="instructions-turns">Order the words along the scale, coldest first. The
+     team on turn votes on their phones; the teacher clicks. Right keeps the turn, wrong passes it.</p>
+  <p class="instructions" id="instructions-race" style="display:none;">Both teams at once. Every phone
+     votes on the next word up the scale, and the team whose vote settles on the right one first takes
+     the slot. Nothing to click — the dots show what each side is converging on, and the board settles it.</p>
   <p id="vote-line"><span id="vote-text"></span> <span id="vote-clock"></span></p>
 
   <div class="scale-head"><span id="pole-low"></span><span id="pole-high"></span></div>
@@ -307,7 +322,8 @@ let gameOver = false;
    it does — arm a round — can land before a `let` further down the file has been
    initialised, and a temporal-dead-zone error there looks exactly like the phones
    never being asked. Learned on Connections; it applies to every bench page. */
-let votes = {};
+let votes = {};       // word -> count, room-wide (turns mode reads this)
+let replies = [];     // every reply as {id,name,team,value} — a race needs the team
 let host = null;
 
 /* ---------------- the shelf ----------------
@@ -332,17 +348,31 @@ const clock = BenchKit.clock({
 const mistakes = BenchKit.mistakes({ mount: $('dots'), max: MAX_MISTAKES });
 
 const settings = BenchKit.settings($('settings-slot'), [
+  { id:'play-mode', label:'How the teams play', default:'turns', options:[
+      { value:'turns', label:'Turns — one team at a time' },
+      { value:'race',  label:'Race — both teams at once' } ] },
   { id:'vote-secs', label:'How long the team gets', default:60, number:true, options:[
       { value:0,  label:'No clock' }, { value:30, label:'30s' },
       { value:60, label:'60s' },      { value:90, label:'90s' } ] }
-], ()=> askPhones());
+], id => {
+  if(id === 'vote-secs'){ askPhones(); return; }
+  /* Switching mode changes who may answer, so the round is re-put rather than left
+     to finish under the old rules — and everything a race had drawn comes off. */
+  race.reset(); replies = [];
+  applyMode(); renderVotes(); askPhones();
+});
 
 const room = BenchKit.room({
   mount: $('room-slot'),
   board: 'thermometer.html',
   on: {
     ready(h){ host = h; pushTeams(); askPhones(); },
-    response(d){ votes = d.tally || {}; renderVotes(); }
+    response(d){
+      votes = d.tally || {};
+      replies = (d && d.all) || [];
+      renderVotes();
+      if(racing()) race.poke();
+    }
   }
 });
 
@@ -356,11 +386,14 @@ function askPhones(){
   votes = {}; renderVotes();
   if(!host) return;
   if(gameOver || !pool.length){ host.disarm(); clock.stop(); return; }
-  const secs = settings.get('vote-secs') || 0;
+  /* A race has no clock. Expiry disarms every handset, and a race hides the
+     teacher's controls, so a board could reach one minute with nothing able to
+     act — the dead end Connections met first. The pressure here is the other team. */
+  const secs = racing() ? 0 : (settings.get('vote-secs') || 0);
   host.arm('Which comes next?', {
     mode:'vote',
     options: pool.map(w => w.word),
-    team: teams.active(),
+    team: racing() ? null : teams.active(),   // a race belongs to the whole room
     multi: 1,
     /* A vote is a state a phone is holding, not an answer it has given, so it
        leaves with the phone if the phone leaves. */
@@ -371,6 +404,7 @@ function askPhones(){
 }
 
 function renderVotes(){
+  if(racing()) return renderRaceVotes();
   const hot = new Set(BenchKit.leading(votes, 1));
   document.querySelectorAll('#pool .word-btn').forEach(b=>{
     const w = b.dataset.word;
@@ -381,11 +415,135 @@ function renderVotes(){
       badge.textContent = n;
     } else if(badge) badge.remove();
     b.classList.toggle('hot', hot.has(w));
+    const picks = b.querySelector('.picks'); if(picks) picks.remove();
   });
   const total = Object.values(votes).reduce((a, n)=> a + n, 0);
   $('vote-text').textContent = (host && total)
     ? teams.nameAt(teams.active()) + ' has ' + total + ' vote' + (total === 1 ? '' : 's') + ' in'
     : '';
+}
+
+/* Both teams converging on one board. A word carries a coloured dot per team
+   currently leaning on it, and the ring stays neutral — so a word both teams want
+   reads as contested rather than as one team's, and each side can watch the other
+   close in. That is the whole reason a race here is a language task and not a
+   speed one. */
+function renderRaceVotes(){
+  const byTeam = votesByTeam();
+  const leaders = {};                       // word -> [team indexes leaning on it]
+  Object.keys(byTeam).forEach(ti=>{
+    const top = BenchKit.leading(byTeam[ti], 1)[0];
+    if(!top) return;
+    (leaders[top] || (leaders[top] = [])).push(Number(ti));
+  });
+
+  document.querySelectorAll('#pool .word-btn').forEach(b=>{
+    const w = b.dataset.word;
+    const badge = b.querySelector('.votes'); if(badge) badge.remove();
+    let box = b.querySelector('.picks');
+    const holders = leaders[w] || [];
+    if(!holders.length){ if(box) box.remove(); b.classList.remove('hot'); return; }
+    if(!box){ box = document.createElement('span'); box.className = 'picks'; b.appendChild(box); }
+    box.innerHTML = '';
+    holders.forEach(ti=>{
+      const dot = document.createElement('span');
+      dot.className = 'pick-dot';
+      dot.style.background = BenchKit.teamColour(ti);
+      dot.title = teams.nameAt(ti);
+      box.appendChild(dot);
+    });
+    b.classList.add('hot');                 // neutral ring; the dots say who
+  });
+
+  /* How many of each team's phones are in, and on what — the teacher's read on
+     whether a side has agreed or is still split. */
+  $('vote-text').innerHTML = '';
+  teams.list().forEach((t, ti)=>{
+    const tally = byTeam[ti];
+    if(!tally) return;
+    const top = BenchKit.leading(tally, 1)[0];
+    const n = Object.values(tally).reduce((a, c)=> a + c, 0);
+    const chip = document.createElement('span');
+    chip.className = 'race-count';
+    chip.style.borderColor = BenchKit.teamColour(ti);
+    chip.textContent = t.name + ' → ' + (top || '—');
+    const tail = document.createElement('small');
+    tail.textContent = ' · ' + n + (n === 1 ? ' vote' : ' votes');
+    chip.appendChild(tail);
+    $('vote-text').appendChild(chip);
+  });
+}
+
+/* ---------------- turns, or a race ----------------
+   The scale and the content are identical; what differs is who may answer at once
+   and what counts as an answer. In a race a team's own leading vote *is* their
+   guess, so the teacher never clicks — the board settles it. */
+function racing(){ return settings.get('play-mode') === 'race'; }
+
+/* What each team is currently converging on: their own tally, not the room's.
+   Returns team index -> {word: count}. */
+function votesByTeam(){
+  const out = {};
+  replies.forEach(r=>{
+    const t = Math.max(0, Number(r.team) || 0);
+    const w = String(r.value || '');
+    if(!w || !pool.some(x => x.word === w)) return;
+    const tally = out[t] || (out[t] = {});
+    tally[w] = (tally[w] || 0) + 1;
+  });
+  return out;
+}
+
+/* The race's own judge. A team whose vote has stopped moving has made a guess, so
+   it is checked as soon as it settles — debounced, because a team's votes arrive
+   from several phones one at a time, and remembered, so a team sitting on a wrong
+   answer is not told off again on every stray reply. Both halves come from the
+   shelf; Connections settles on a set of four through the same service. */
+const race = BenchKit.settle(700, ()=>{
+  if(gameOver || !pool.length || !racing()) return;
+  const want = wanted().word;
+  const byTeam = votesByTeam();
+  const guesses = [];
+  Object.keys(byTeam).forEach(ti=>{
+    const t = Number(ti);
+    const top = BenchKit.leading(byTeam[ti], 1)[0];
+    if(!top || !race.fresh(t, top)) return;
+    guesses.push({ team:t, word:top });
+  });
+  /* A right answer is resolved before any wrong one, and it ends the round. Both
+     teams can settle in the same tick, and taking them in whatever order the
+     replies happened to arrive put "Team 2: not that one" on screen *after* Team 1
+     had already won the slot — the board announcing the wrong headline for a slot
+     that had moved on. First correct takes it; the rest were answering a question
+     that no longer exists. */
+  const winner = guesses.find(g => g.word === want);
+  if(winner){ lockIn(winner.word, winner.team); return; }
+  guesses.forEach(g => missRace(g.team, g.word));
+});
+
+/* No penalty: the race itself is the pressure, which is the same reason a wrong
+   four costs nothing in Connections. It shakes and they carry on. */
+function missRace(team, word){
+  const btn = document.querySelector('#pool .word-btn[data-word="' + word + '"]');
+  if(btn){ btn.classList.add('wrong'); setTimeout(()=> btn.classList.remove('wrong'), 380); }
+  setMessage(teams.nameAt(team) + ': not that one.');
+}
+
+/* What the board shows depends on who is playing. A race has no turn, no shared
+   mistake budget and nothing for the teacher to click — and no clock either: the
+   round clock disarms every handset when it expires, and a race has no Submit for
+   the teacher to recover with, which was a dead end the first time Connections
+   met it. Those controls stand down rather than sitting there inert. */
+function applyMode(){
+  const isRace = racing();
+  $('instructions-race').style.display  = isRace ? '' : 'none';
+  $('instructions-turns').style.display = isRace ? 'none' : '';
+  $('status-row').style.display = isRace ? 'none' : '';
+  $('skip-btn').style.display   = isRace ? 'none' : '';
+  teams.showTurn(!isRace);
+  const clockPicker = settings.el('vote-secs');
+  if(clockPicker) clockPicker.style.display = isRace ? 'none' : '';
+  if(isRace) clock.stop();
 }
 
 /* ---------------- the board ---------------- */
@@ -396,6 +554,7 @@ function loadScale(i){
   pool = shuffle(s.words.slice());
   gameOver = false;
   mistakes.reset();
+  race.reset(); replies = [];
   $('pole-low').textContent  = s.low;
   $('pole-high').textContent = s.high;
   setMessage('');
@@ -457,26 +616,35 @@ function render(){
 
 /* The teacher's click is the only thing that places a word. The phones say what
    the team thinks; they never move the board. */
-function place(w){
-  if(gameOver || !pool.length) return;
-  const want = wanted();
-  if(w.word === want.word){
-    pool = pool.filter(x => x.word !== w.word);
-    placed.push(w);
-    teams.score(teams.active(), 1);
-    if(!pool.length){
-      gameOver = 'won';
-      setMessage(finalLine());
-      showLesson();
-      render();
-      askPhones();
-      return;
-    }
-    setMessage('Yes — ' + teams.nameAt(teams.active()) + ' goes again.');
-    render();
-    askPhones();            // same team, shorter pool
-    return;
+/* A word going into the open slot, whoever decided it: the teacher's click in
+   turns, or a team's settled vote in a race. One definition, because a slot
+   filling has to mean the same thing either way — and because the two paths
+   disagreeing about scoring is exactly the bug that shape invites. */
+function lockIn(word, team){
+  const w = pool.find(x => x.word === word);
+  if(!w) return;
+  pool = pool.filter(x => x.word !== word);
+  placed.push(w);
+  if(team != null) teams.score(team, 1);
+  race.reset();             // the board changed, so every answer is worth trying again
+  if(!pool.length){
+    gameOver = 'won';
+    setMessage(finalLine());
+    showLesson();
+  } else {
+    setMessage(team == null ? 'Shown: ' + word + '. No points for that one.'
+      : racing() ? teams.nameAt(team) + ' takes it!'
+                 : 'Yes — ' + teams.nameAt(team) + ' goes again.');
   }
+  render();
+  askPhones();              // a fresh round on the shorter pool
+}
+
+/* The teacher's click. In a race there is nothing for them to click — the teams'
+   own votes settle it — so the board only listens in turns. */
+function place(w){
+  if(gameOver || !pool.length || racing()) return;
+  if(w.word === wanted().word){ lockIn(w.word, teams.active()); return; }
 
   // wrong: the word stays in the pool, the turn passes, and the vote goes with it
   const slot = document.querySelector('#slots .slot.open');
@@ -505,18 +673,7 @@ function place(w){
    mistake — nobody got it wrong. */
 function revealOne(){
   if(gameOver || !pool.length) return;
-  const want = wanted();
-  pool = pool.filter(x => x.word !== want.word);
-  placed.push(want);
-  if(!pool.length){
-    gameOver = 'won';
-    setMessage(finalLine());
-    showLesson();
-  } else {
-    setMessage('Shown: ' + want.word + '. No points for that one.');
-  }
-  render();
-  askPhones();
+  lockIn(wanted().word, null);    // null = nobody scored it
 }
 
 function revealRest(){
@@ -565,6 +722,7 @@ function initToolbar(){
 const start = params.has('p') ? (Number(params.get('p')) - 1)
             : Math.floor(Date.now() / 86400000) % SCALES.length;
 initToolbar();
+applyMode();
 loadScale(Math.min(Math.max(start, 0), SCALES.length - 1));
 $('scale-select').value = scaleIndex;
 </script>

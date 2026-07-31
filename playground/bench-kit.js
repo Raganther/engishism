@@ -323,6 +323,41 @@ window.BenchKit = (function(){
     };
   }
 
+  /* ---------- letting an answer settle before judging it ----------
+     A race has no teacher click, so the board judges a team's answer by itself —
+     and an answer arriving from several phones arrives *in pieces*. Four picks
+     landing one at a time would otherwise be judged three times on the way up, and
+     the wrong verdicts are the ones the room would see first.
+
+     So `poke()` on every reply, and `run` fires once the stream goes quiet.
+     `fresh(team, key)` is the other half — without it a team sitting on a wrong
+     answer is re-judged on every stray reply and the board shouts at them again
+     for a mistake they already made. `reset()` when the board itself changes,
+     because then every answer is worth trying again.
+
+     Two callers with genuinely different candidates: Connections settles on a
+     *set* of four, the thermometer on a team's *leading word*. That is what makes
+     this a shared shape rather than one game's helper. */
+  function settle(ms, run){
+    let timer = null;
+    let tried = {};
+    return {
+      poke(){
+        if(timer) clearTimeout(timer);
+        timer = setTimeout(()=>{ timer = null; run(); }, ms || 700);
+      },
+      // true the first time this team offers this answer, and remembers it
+      fresh(team, key){
+        const seen = tried[team] || (tried[team] = []);
+        if(seen.indexOf(key) !== -1) return false;
+        seen.push(key);
+        return true;
+      },
+      reset(){ tried = {}; },
+      stop(){ if(timer){ clearTimeout(timer); timer = null; } }
+    };
+  }
+
   /* ---------- who is winning a vote ----------
      The top `n` options by count, highest first, ignoring anything with no votes.
      Connections wants four (a group), the thermometer wants one (a slot). */
@@ -334,5 +369,5 @@ window.BenchKit = (function(){
       .map(([w]) => w);
   }
 
-  return { room, settings, teams, clock, mistakes, leading, teamColour, relay: RELAY };
+  return { room, settings, teams, clock, mistakes, leading, settle, teamColour, relay: RELAY };
 })();

@@ -608,6 +608,7 @@ the 52 unchanged Connections checks are what prove it was behaviour-neutral.
 | `BenchKit.clock` | the board's countdown; `onEnd` so each game decides what expiry *means* |
 | `BenchKit.mistakes` | the dots budget |
 | `BenchKit.leading` | top-n options by vote — Connections wants 4, the thermometer wants 1 |
+| `BenchKit.settle` | debounce + "already judged" memory, for a race with no teacher click |
 | `BenchKit.teamColour` | delegates to `hub-buzzer.js`, so the palette has one home |
 
 **Still deliberately in Connections:** the per-team pick share (`shareFor`,
@@ -736,6 +737,28 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The thermometer races too, and the third shared piece came out of it.**
+  Picked from the toolbar like Connections': no turn, both teams voting on the
+  same open slot, and the team whose vote **settles** on the right word first takes
+  it with no teacher click.
+  - **A race over a *sequence* is not a race over a *set*.** Connections settles on
+    a team's four; this settles on a team's leading word. Both need the same pair —
+    debounce, because a team's answer arrives from several phones one at a time,
+    and a memory, or a team sitting on a wrong answer is told off again on every
+    stray reply. That pair is `BenchKit.settle` now, and **Connections was rewired
+    onto it in the same change** — the second caller is what made it a service
+    rather than one game's helper.
+  - **The right answer is resolved before any wrong one.** Both teams can settle in
+    the same tick, and taking them in arrival order put *"Team 2: not that one"* on
+    screen **after** Team 1 had already won the slot — the board announcing the
+    wrong headline for a question that had moved on.
+  - **Everything a race removes the recovery path for is removed with it** — the
+    turn, the mistake budget, `Reveal this one`, and the clock. That last one is
+    Connections' lesson applied without having to re-learn it: expiry disarms every
+    handset, and a race has no teacher control left to recover with.
+  - `lockIn(word, team)` is one definition for a slot filling, whoever decided it —
+    teacher click, settled race vote, or a reveal (`team == null`, so nobody
+    scores). Two paths disagreeing about scoring is the bug that shape invites.
 - **The bench has a second game, and the shelf grew because of it.**
   `playground/thermometer.html` — Word Thermometer: order words along a scale
   (`annoyed → irritated → angry → livid → furious → incensed`), slots filling from

@@ -4439,6 +4439,89 @@ async function testThermometer(browser){
   check('host page had no errors', page.__errors.length === 0, page.__errors[0]);
   await page.close();
 
+  /* ---- race: both teams at once, and the board settles it ----
+     The other way the same scale can be played. No turn, both teams voting on the
+     same open slot, and the team whose vote settles on the right word first takes
+     it — the teacher never clicks. Different in shape from Connections' race,
+     which settles on a *set*: this one settles on a team's leading word, which is
+     why `BenchKit.settle` is a shared service rather than one game's helper. */
+  const race = await browser.newPage({ viewport:{ width:1280, height:760 } });
+  race.__errors = []; race.on('pageerror', e => race.__errors.push(String(e)));
+  await race.goto(BASE + '/playground/thermometer.html?p=1'); await race.waitForTimeout(900);
+  await race.locator('#play-mode').selectOption('race'); await race.waitForTimeout(600);
+  /* Everything a race removes the recovery path for is removed with it — the same
+     general shape Connections paid for with its round clock, which disarms every
+     handset and leaves a race with nothing on screen able to act. */
+  check('a race stands down the turn, the budget, the teacher\'s button and the clock',
+        !(await race.locator('#status-row').isVisible()) &&
+        !(await race.locator('#skip-btn').isVisible()) &&
+        !(await race.locator('#vote-secs').isVisible()) &&
+        await race.locator('.team-chip.active').count() === 0);
+  const rcode = ((await race.locator('#room-chip').innerText()).match(/CODE\s+(\d{5})/i)||[])[1];
+  check('the race opens its own room', !!rcode, rcode || 'none');
+
+  if(rcode){
+    const rjoin = async (name, team) => {
+      const ph = await browser.newPage({ viewport:{ width:390, height:844 } });
+      ph.__errors = []; ph.on('pageerror', e => ph.__errors.push(String(e)));
+      await ph.goto(BASE + '/join.html?code=' + rcode + '&name=' + name + '&team=' + team + '&auto=1');
+      await ph.waitForTimeout(900);
+      return ph;
+    };
+    const one = await rjoin('Ana', 0), two = await rjoin('Ben', 1);
+    check('every team is asked at once, not only the team on turn',
+          await two.locator('#opts button').count() === 6 &&
+          !/choosing/i.test(await two.locator('#state').innerText()),
+          await two.locator('#state').innerText());
+    check('and no clock reaches the handsets',
+          (await one.locator('#round-clock').innerText()).trim() === '' &&
+          (await two.locator('#round-clock').innerText()).trim() === '');
+
+    // Ben leans on the hottest word, Ana on the coldest — both wrong and right at once
+    await two.locator('#opts button', { hasText:/^incensed$/ }).click();
+    await one.locator('#opts button', { hasText:/^annoyed$/ }).click();
+    await race.waitForTimeout(450);
+    check('both teams\' answers show on the board at once, in their own colours',
+          await race.locator('#pool .word-btn[data-word="annoyed"] .pick-dot').count() === 1 &&
+          await race.locator('#pool .word-btn[data-word="incensed"] .pick-dot').count() === 1 &&
+          /Team 1 → annoyed/.test(await race.locator('#vote-text').innerText()) &&
+          /Team 2 → incensed/.test(await race.locator('#vote-text').innerText()),
+          await race.locator('#vote-text').innerText());
+    /* The ring is neutral and the dots carry who — the same property Connections
+       asserts, checked here so restyling cannot re-encode the team in the ring. */
+    const rings = await race.evaluate(() => {
+      const look = w => {
+        const b = document.querySelector('#pool .word-btn[data-word="' + w + '"]');
+        return { ring: getComputedStyle(b).boxShadow,
+                 dot: getComputedStyle(b.querySelector('.pick-dot')).backgroundColor };
+      };
+      return { a: look('annoyed'), b: look('incensed') };
+    });
+    check('a word either team is leaning on gets the same neutral ring',
+          rings.a.ring === rings.b.ring && rings.a.dot !== rings.b.dot &&
+          rings.a.ring.indexOf(rings.a.dot) === -1, JSON.stringify(rings));
+
+    await race.waitForTimeout(1200);
+    /* Both settle in the same tick. Resolving them in arrival order put "Team 2:
+       not that one" on screen *after* Team 1 had won the slot — the board
+       announcing the wrong headline for a question that had moved on. */
+    check('the right answer takes the slot with no teacher click, and owns the headline',
+          await race.locator('#slots .slot.filled').count() === 1 &&
+          (await race.locator('.team-chip .score').allInnerTexts()).join('/') === '1/0' &&
+          /Team 1 takes it/i.test(await race.locator('.message').innerText()),
+          await race.locator('.message').innerText());
+    check('a wrong answer costs nothing but the time',
+          await race.locator('#dots .dot.spent').count() === 0);
+    check('and a fresh round is armed on what is left',
+          await one.locator('#opts button').count() === 5,
+          String(await one.locator('#opts button').count()));
+    check('race phones had no errors', one.__errors.length === 0 && two.__errors.length === 0,
+          one.__errors[0] || two.__errors[0]);
+    await one.close(); await two.close();
+  }
+  check('the race board had no errors', race.__errors.length === 0, race.__errors[0]);
+  await race.close();
+
   /* Degradation is non-negotiable for every playground page: no relay must leave
      the board fully playable teacher-only. */
   const solo = await browser.newPage({ viewport:{ width:1280, height:720 } });
