@@ -4546,6 +4546,132 @@ async function testThermometer(browser){
   await solo.close();
 }
 
+/* ---- the playground: Story Reveal ----
+   The bench's third game, and the first to use *typed* answers rather than a
+   vote — so it is also the first to exercise `Kit.answer.judge` out here: right,
+   close and wrong, with a spelling tolerance that scales with the word. Two
+   verdicts would have made "produced the word but mis-spelled it" and "did not
+   know it" the same fact about a student, which they are not. */
+async function testStoryReveal(browser){
+  section('Playground: Story Reveal');
+  const page = await browser.newPage({ viewport:{ width:1280, height:720 } });
+  page.__errors = []; page.on('pageerror', e => page.__errors.push(String(e)));
+  await page.goto(BASE + '/playground/story-reveal.html?p=1'); await page.waitForTimeout(900);
+
+  check('three clues, one revealed, the rest held back but visible',
+        await page.locator('.clue').count() === 3 &&
+        await page.locator('.clue:not(.hidden)').count() === 1 &&
+        /still to come/i.test(await page.locator('.clue.hidden').first().innerText()),
+        await page.locator('.clue.hidden').first().innerText());
+  check('the round opens at full value',
+        /worth 5 points/i.test(await page.locator('#worth').innerText()),
+        await page.locator('#worth').innerText());
+  check('teams and the turn come from the shelf',
+        await page.locator('.team-chip').count() === 2 &&
+        /Team 1/.test(await page.locator('.team-chip.active').innerText()));
+  const sfit = await page.evaluate(() => ({
+    scroll: document.body.scrollHeight, inner: window.innerHeight }));
+  check('the board fits a projector without scrolling',
+        sfit.scroll <= sfit.inner, JSON.stringify(sfit));
+
+  const chip = await page.locator('#room-chip').innerText();
+  const code = (chip.match(/CODE\s+(\d{5})/i)||[])[1];
+  check('a room opens on its own', !!code, chip);
+
+  if(code){
+    const p = await browser.newPage({ viewport:{ width:390, height:844 } });
+    p.__errors = []; p.on('pageerror', e => p.__errors.push(String(e)));
+    await p.goto(BASE + '/join.html?code=' + code + '&name=Ana&team=0&auto=1');
+    await p.waitForTimeout(900);
+    /* A typed round, not a vote: there is nothing to choose between, the student
+       has to produce the word. */
+    check('the phone gets a box to type in, not a list to pick from',
+          await p.locator('#opts button').count() === 0 &&
+          await p.locator('#reply').isVisible());
+    check('and the clue itself is the prompt on the handset',
+          /lost their job/i.test(await p.locator('#qtext').innerText()),
+          await p.locator('#qtext').innerText());
+
+    /* Wrong: shown on the board with what they actually typed, because a miss is
+       the most useful thing on that strip — and in turns it passes the turn. */
+    await p.fill('#reply', 'dismissed'); await p.locator('#send').click();
+    await page.waitForTimeout(700);
+    check('a wrong answer is shown with the word they typed',
+          await page.locator('.reply.wrong').count() === 1 &&
+          /dismissed/.test(await page.locator('.reply').first().innerText()),
+          await page.locator('.reply').first().innerText());
+    check('and in turns it passes the turn',
+          /Team 2/.test(await page.locator('.team-chip.active').innerText()),
+          await page.locator('.team-chip.active').innerText());
+
+    /* The whole reason this game was worth building third: a misspelling is its
+       own verdict. `redundent` is one letter out of nine, so it is `close` —
+       reported as nearly, and it does NOT take the word. */
+    await page.locator('.team-chip').first().click(); await page.waitForTimeout(500);
+    await p.fill('#reply', 'redundent'); await p.locator('#send').click();
+    await page.waitForTimeout(700);
+    check('a misspelling is its own verdict, not just a miss',
+          await page.locator('.reply.close').count() === 1 &&
+          /nearly/i.test(await page.locator('.reply.close').innerText()),
+          await page.locator('.reply.close').innerText());
+    check('and being close does not take the word or score it',
+          (await page.locator('.team-chip .score').allInnerTexts()).join('/') === '0/0' &&
+          await page.locator('.lesson').count() === 0);
+
+    /* Another clue makes it easier and worth a point less — the decision the whole
+       game turns on. */
+    await page.locator('#clue-btn').click(); await page.waitForTimeout(600);
+    check('a further clue costs a point and reaches the handsets',
+          /worth 4 points/i.test(await page.locator('#worth').innerText()) &&
+          await page.locator('.clue:not(.hidden)').count() === 2 &&
+          /three hundred staff/i.test(await p.locator('#qtext').innerText()),
+          await page.locator('#worth').innerText() + ' | ' + await p.locator('#qtext').innerText());
+
+    await p.fill('#reply', 'Redundant'); await p.locator('#send').click();
+    await page.waitForTimeout(700);
+    check('the right answer takes it, at what the round is now worth',
+          (await page.locator('.team-chip .score').allInnerTexts()).join('/') === '4/0' &&
+          /Ana got it/i.test(await page.locator('.message').innerText()),
+          await page.locator('.message').innerText());
+    check('and the lesson lands with it',
+          await page.locator('.lesson').count() === 1 &&
+          /made redundant/i.test(await page.locator('.lesson').innerText()));
+    check('phone had no errors', p.__errors.length === 0, p.__errors[0]);
+    await p.close();
+  }
+  check('host page had no errors', page.__errors.length === 0, page.__errors[0]);
+  await page.close();
+
+  /* A race takes the turn and the clock away, for the reason the other two bench
+     games each paid for separately. */
+  const race = await browser.newPage({ viewport:{ width:1280, height:720 } });
+  race.__errors = []; race.on('pageerror', e => race.__errors.push(String(e)));
+  await race.goto(BASE + '/playground/story-reveal.html?p=1'); await race.waitForTimeout(900);
+  await race.locator('#play-mode').selectOption('race'); await race.waitForTimeout(600);
+  check('a race stands down the turn and the clock',
+        await race.locator('.team-chip.active').count() === 0 &&
+        !(await race.locator('#vote-secs').isVisible()));
+  check('but the teacher keeps the clue controls in either mode',
+        await race.locator('#clue-btn').isVisible() &&
+        await race.locator('#reveal-btn').isVisible());
+  check('the race board had no errors', race.__errors.length === 0, race.__errors[0]);
+  await race.close();
+
+  // degradation: a dead relay leaves the board fully playable, teacher-only
+  const solo = await browser.newPage({ viewport:{ width:1280, height:720 } });
+  solo.__errors = []; solo.on('pageerror', e => solo.__errors.push(String(e)));
+  await solo.goto(BASE + '/playground/story-reveal.html?p=1&relay=http://127.0.0.1:9');
+  await solo.waitForTimeout(700);
+  check('no relay: the chip says phones off', /phones off/i.test(await solo.locator('#room-chip').innerText()));
+  await solo.locator('#clue-btn').click(); await solo.waitForTimeout(300);
+  await solo.locator('#reveal-btn').click(); await solo.waitForTimeout(300);
+  check('and the game still plays',
+        await solo.locator('.clue:not(.hidden)').count() === 2 &&
+        await solo.locator('.lesson').count() === 1);
+  check('no errors without a relay', solo.__errors.length === 0, solo.__errors[0]);
+  await solo.close();
+}
+
 /* ---- the prompt lab ----
    The question forms had nowhere to be seen: a form could only be met by finding a
    bank item that happened to carry its type, which is why three of them sat at 4%
@@ -5421,7 +5547,8 @@ async function main(){
     classic: testJeopardyClassic, joinbar: testJoinAlwaysThere,
     together: testJeopardyTogether, jclock: testAnswerClock,
     playground: testPlaygroundConnections, bench: testPhoneBench,
-    promptlab: testPromptLab, thermometer: testThermometer
+    promptlab: testPromptLab, thermometer: testThermometer,
+    storyreveal: testStoryReveal
   };
   const toRun = onlyArg ? onlyArg.split(',').map(s => s.trim()).filter(k => suites[k])
                         : Object.keys(suites);

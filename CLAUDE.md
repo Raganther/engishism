@@ -609,6 +609,8 @@ the 52 unchanged Connections checks are what prove it was behaviour-neutral.
 | `BenchKit.mistakes` | the dots budget |
 | `BenchKit.leading` | top-n options by vote — Connections wants 4, the thermometer wants 1 |
 | `BenchKit.settle` | debounce + "already judged" memory, for a race with no teacher click |
+| `BenchKit.modeSetting` / `racing` | the turns-vs-race declaration all three games share |
+| `BenchKit.judge` | typed answers, through `HubKit.answer.judge` — right / close / wrong |
 | `BenchKit.teamColour` | delegates to `hub-buzzer.js`, so the palette has one home |
 
 **Still deliberately in Connections:** the per-team pick share (`shareFor`,
@@ -737,6 +739,27 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Story Reveal is the third bench game, and the first that is typed.** A word
+  behind three clues — definition, then the word in use, then its shape — revealed
+  one at a time, worth a point less each time. Teams **type**; the board judges.
+  - **A misspelling is its own verdict.** Every other bench round is a vote, where
+    an answer is a choice; this is the first where a student *produces* the word,
+    so `HubKit.answer.judge` finally has a caller out here. `redundent` shows as
+    **nearly** in amber and does not take the word — "produced it but mis-spelled
+    it" is a different fact about a student from "did not know it".
+  - **The guard hid the wiring mistake.** `BenchKit.judge` reached for `window.Kit`,
+    which does not exist — the hub aliases `HubKit` to `Kit` inside its own closure
+    — so it fell silently through to an exact match and downgraded every near miss
+    to a flat wrong. **A guard that hides a wiring error is worse than none**;
+    `judge.full()` now says which one is running.
+  - **The reply strip belongs to the word, not the round.** A wrong answer passes
+    the turn, which re-asks the phones within a frame, and `askPhones` was clearing
+    the strip — so what the class typed vanished as it was typed. Exactly the bug
+    the hub's `lastScored` already paid for, met again one tier down.
+  - **The third caller moved the mode picker onto the shelf.** All three games had
+    declared turns-vs-race identically; that is `BenchKit.modeSetting` now, with
+    each game naming its own modes (*a ladder each*, *both teams at once*,
+    *anyone can answer*). What a mode *means* stays in the game, as it must.
 - **The thermometer's race is one ladder per team, and it needed a new thing from
   the relay.** Two teams, two ladders; four teams, four — all climbing the same
   scale side by side, so **the climb is the picture** and a class can see who is

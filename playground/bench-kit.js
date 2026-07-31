@@ -323,6 +323,46 @@ window.BenchKit = (function(){
     };
   }
 
+  /* ---------- turns, or a race ----------
+     Two games declared this identically before a third wanted it, which is the
+     signal to move it. The *setting* is shared; what a mode means to a board never
+     will be, so each page still writes its own `applyMode` — this only supplies
+     the declaration and the question "are we racing".
+
+       settings = BenchKit.settings(mount, [BenchKit.modeSetting(), …], onChange)
+       BenchKit.racing(settings)      // true when the picker says race
+
+     `labels` lets a game name its own modes without redeclaring the control:
+     Connections races over a set, the thermometer over a ladder. */
+  function modeSetting(labels){
+    const l = labels || {};
+    return { id:'play-mode', label:'How the teams play', default:'turns', options:[
+      { value:'turns', label: l.turns || 'Turns — one team at a time' },
+      { value:'race',  label: l.race  || 'Race — both teams at once' } ] };
+  }
+  function racing(settings){ return !!settings && settings.get('play-mode') === 'race'; }
+
+  /* ---------- judging what a student typed ----------
+     Delegates to the hub's `Kit.answer.judge`, which returns 'right' | 'close' |
+     'wrong' with a tolerance that scales with the word — one wrong letter in
+     `jury` is a different kind of error from one in `incarceration`. Kept behind a
+     guard because a bench page must stay playable with no hub kit loaded at all,
+     and there the honest fallback is an exact match rather than a crash. */
+  function judge(typed, expected){
+    /* `window.HubKit`, not `Kit` — the hub aliases it to `Kit` inside its own
+       closure, and reaching for that name out here found nothing, fell silently
+       through to the exact match below, and downgraded every near miss to a flat
+       "wrong". A guard that hides a wiring mistake is worse than none, so the
+       fallback now says so. */
+    const K = window.HubKit;
+    if(K && K.answer && K.answer.judge) return K.answer.judge(typed, expected);
+    const norm = v => String(v == null ? '' : v).trim().toLowerCase();
+    return norm(typed) && norm(typed) === norm(expected) ? 'right' : 'wrong';
+  }
+  /* Whether the real judge is available. A page that cares about the difference
+     between "close" and "wrong" can say so rather than quietly losing a verdict. */
+  judge.full = () => !!(window.HubKit && HubKit.answer && HubKit.answer.judge);
+
   /* ---------- letting an answer settle before judging it ----------
      A race has no teacher click, so the board judges a team's answer by itself —
      and an answer arriving from several phones arrives *in pieces*. Four picks
@@ -369,5 +409,6 @@ window.BenchKit = (function(){
       .map(([w]) => w);
   }
 
-  return { room, settings, teams, clock, mistakes, leading, settle, teamColour, relay: RELAY };
+  return { room, settings, teams, clock, mistakes, leading, settle,
+           modeSetting, racing, judge, teamColour, relay: RELAY };
 })();

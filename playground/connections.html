@@ -330,9 +330,7 @@ let replies = [];        // every reply as {id,name,team,value} — a race needs
    duplication the bench kit exists to end. What stays here is what this game
    does with a room — arming a round, and what a reply means. */
 const settings = BenchKit.settings($('settings-slot'), [
-  { id:'play-mode', label:'How the teams play', default:'turns', options:[
-      { value:'turns', label:'Turns — one team at a time' },
-      { value:'race',  label:'Race — both teams at once' } ] },
+  BenchKit.modeSetting({ race:'Race — both teams at once' }),
   { id:'vote-secs', label:'How long the team gets', default:60, number:true, options:[
       { value:0,  label:'No clock' }, { value:30, label:'30s' },
       { value:60, label:'60s' },      { value:90, label:'90s' } ] }
@@ -603,7 +601,7 @@ function settleRace(team, set){
 /* Turns or a race. The board and the content are identical; what differs is who
    may answer at once and what counts as an answer — in a race a team's own four
    picks are their guess, so the teacher never re-enters them. */
-function racing(){ return settings.get('play-mode') === 'race'; }
+function racing(){ return BenchKit.racing(settings); }
 
 /* What the board shows depends on who is playing. In a race there is no shared
    pool of mistakes and nothing for the teacher to submit — the teams' own picks

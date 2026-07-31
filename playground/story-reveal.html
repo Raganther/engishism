@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Story Reveal — Engishism Playground</title>
+<style>
+  /* Playground page: its own chrome, like the other two. What the bench games
+     share lives in bench-kit.js, never in a copied stylesheet. */
+  :root{
+    --bg:#fafaf8; --text:#121212; --muted:#6b6b6b; --border:#d4d4cc;
+    --tile-bg:#efefe6; --btn-bg:#fff; --btn-border:#121212; --accent:#00A0DF;
+    --pick-ring:#7a7a72; --locked:#A0C35A; --miss:#C0392B; --close:#E8A33B;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display:flex; justify-content:center; min-height:100vh;
+  }
+  .app{ width:100%; max-width:1040px; padding:12px 16px; }
+
+  header{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  h1{ font-size:1.5rem; margin:4px 0 2px; }
+  h1 small{ color:var(--muted); font-weight:400; font-size:0.9rem; }
+  .toolbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  select, .toolbar button{
+    font:inherit; font-size:0.85rem; padding:6px 12px; border-radius:999px;
+    border:1px solid var(--border); background:var(--btn-bg); color:var(--text); cursor:pointer;
+  }
+
+  /* Drawn by bench-kit — these class names are the contract between the two. */
+  .teams{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:10px 0 4px; }
+  .team-chip{
+    font:inherit; font-weight:700; font-size:0.95rem; padding:8px 14px; border-radius:999px;
+    border:2px solid var(--border); background:var(--btn-bg); cursor:pointer;
+  }
+  .team-chip.active{ border-color:var(--accent); background:var(--accent); color:#fff; }
+  .team-chip .score{ font-weight:400; opacity:0.85; margin-left:6px; }
+  #add-team{ font:inherit; font-size:0.85rem; padding:8px 12px; border-radius:999px;
+             border:1px dashed var(--border); background:none; cursor:pointer; color:var(--muted); }
+
+  #room-chip{
+    font-family:ui-monospace, monospace; font-size:0.85rem; padding:8px 14px;
+    border-radius:999px; border:1px solid var(--border); background:var(--btn-bg);
+    cursor:pointer; color:var(--muted);
+  }
+  #room-chip b{ color:var(--text); letter-spacing:0.15em; }
+  #join-panel{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55);
+    align-items:center; justify-content:center; z-index:50;
+  }
+  #join-panel.on{ display:flex; }
+  #join-card{
+    background:#fff; color:#121212; border-radius:16px; padding:28px 34px; text-align:center;
+    max-width:520px;
+  }
+  #join-card .code{ font-family:ui-monospace,monospace; font-size:3rem; letter-spacing:0.3em; font-weight:700; }
+  #join-card .url{ font-family:ui-monospace,monospace; color:#555; margin:6px 0 14px; }
+  #join-card svg{ width:min(46vh, 300px); height:auto; }
+
+  .instructions{ color:var(--muted); font-size:0.92rem; margin:4px 0 8px; }
+  #vote-line{ min-height:1.3em; font-size:0.95rem; color:var(--accent); font-weight:600; margin:0 0 6px; }
+  #vote-clock{
+    font-family:ui-monospace,monospace; margin-left:8px; padding:2px 10px; border-radius:999px;
+    background:rgba(0,160,223,0.12);
+  }
+  #vote-clock.urgent{ background:var(--miss); color:#fff; }
+  #vote-clock:empty{ display:none; }
+
+  /* ---- the clues ----
+     One per row, revealed downward, because the order is the game: the first clue
+     is worth the most and the last one nearly gives it away. Unrevealed rows stay
+     on the board as empty slots so the room can see how much help is still coming
+     — a clue you did not know existed is not a decision. */
+  .worth{
+    display:inline-block; font-family:ui-monospace,monospace; font-weight:700;
+    padding:4px 14px; border-radius:999px; background:var(--tile-bg);
+    border:2px solid var(--pick-ring); font-size:1rem;
+  }
+  .worth.low{ border-color:var(--close); }
+  .clues{ display:flex; flex-direction:column; gap:8px; margin:10px 0 12px; }
+  .clue{
+    display:flex; gap:14px; align-items:flex-start; padding:12px 16px;
+    border:2px solid var(--border); border-radius:10px; background:var(--tile-bg);
+    min-height:clamp(44px, 6.4vh, 68px);
+  }
+  .clue .n{
+    font-family:ui-monospace,monospace; font-size:0.8rem; color:var(--muted);
+    flex:0 0 3.4em; font-variant-numeric:tabular-nums; padding-top:3px;
+  }
+  .clue .body{ font-size:clamp(0.98rem, 1.7vw, 1.25rem); line-height:1.35; }
+  .clue.hidden{ border-style:dashed; opacity:0.55; }
+  .clue.hidden .body{ font-style:italic; color:var(--muted); }
+  .clue.newest{ border-color:var(--pick-ring); background:#fff; }
+
+  /* ---- what the room typed ----
+     Every answer on screen, right or wrong, because a near miss is the most useful
+     thing here: who is nearly there, and how. The same reasoning as the hub's
+     phone strip, and the same fixed height so what the class does can never
+     resize the board underneath it. */
+  .replies{
+    display:flex; gap:8px; align-items:center; overflow-x:auto; min-height:52px;
+    padding:6px 2px; margin-bottom:6px;
+  }
+  .reply{
+    flex:0 0 auto; padding:6px 12px; border-radius:999px; font-size:0.9rem;
+    border:2px solid var(--border); background:var(--btn-bg); white-space:nowrap;
+  }
+  .reply b{ font-weight:700; }
+  .reply .said{ font-style:italic; }
+  .reply.right{ border-color:var(--locked); background:#f2f7e8; }
+  .reply.close{ border-color:var(--close); background:#fdf4e4; }
+  .reply.wrong{ opacity:0.75; }
+  .replies:empty::after{
+    content:'Nothing typed yet.'; color:var(--muted); font-size:0.9rem; font-style:italic;
+  }
+
+  .message{ text-align:center; min-height:1.4em; font-weight:600; margin:6px 0 2px; font-size:1.15rem; }
+  .lesson{
+    border:2px solid var(--locked); background:#f2f7e8; border-radius:10px;
+    padding:14px 18px; margin-top:10px; font-size:1.02rem; line-height:1.5;
+  }
+  .lesson b{ text-transform:uppercase; letter-spacing:0.03em; }
+  .controls{ display:flex; justify-content:center; gap:10px; margin-top:10px; flex-wrap:wrap; }
+  .controls button{
+    font:inherit; font-weight:600; font-size:1rem; padding:12px 22px; border-radius:999px;
+    cursor:pointer; background:var(--btn-bg); color:var(--text); border:1px solid var(--btn-border);
+  }
+  .controls button.primary{ background:var(--text); color:var(--bg); border-color:var(--text); }
+  .controls button:disabled{ opacity:0.35; cursor:default; }
+
+  footer{ text-align:center; color:var(--muted); font-size:0.8rem; margin:14px 0 6px; }
+  footer a{ color:var(--muted); }
+  @media (prefers-reduced-motion: reduce){ *{ animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div><h1>Story Reveal <small>· playground</small></h1></div>
+    <div class="toolbar">
+      <select id="item-select" aria-label="Choose a word"></select>
+      <span id="settings-slot"></span>
+      <button id="restart-btn">Restart</button>
+      <span id="room-slot"></span>
+    </div>
+  </header>
+
+  <div class="teams" id="teams"></div>
+  <p class="instructions" id="instructions-turns">One word, revealed a clue at a time. The team on turn
+     types their guess; each new clue makes it easier and worth less. A wrong guess passes the turn.</p>
+  <p class="instructions" id="instructions-race" style="display:none;">One word, revealed a clue at a
+     time. Every phone in the room can type — first correct answer takes it, and it is worth less with
+     every clue you needed. Nothing to click: the typing settles it.</p>
+  <p id="vote-line"><span id="vote-text"></span> <span id="vote-clock"></span></p>
+
+  <p><span class="worth" id="worth"></span></p>
+  <div class="clues" id="clues"></div>
+  <div class="replies" id="replies"></div>
+
+  <div class="message" id="message"></div>
+  <div id="lesson-slot"></div>
+
+  <div class="controls" id="controls-row">
+    <button id="clue-btn">Next clue</button>
+    <button id="reveal-btn">Give the answer</button>
+    <button id="next-btn" class="primary">Next word</button>
+  </div>
+
+  <footer>Engishism playground — a sandbox for game dynamics. Words are editable at the top of this
+    file. · <a href="../index.html">back to the hub</a></footer>
+</div>
+
+<script src="../game-hub/hub-buzzer.js?v=20260801u"></script>
+<script src="../game-hub/hub-qr.js?v=20260801u"></script>
+<script src="../game-hub/hub-kit.js?v=20260801u"></script>
+<script src="bench-kit.js?v=20260801u"></script>
+<script>
+'use strict';
+/* ================= WORDS — edit or add them here =================
+   Each item: answer, level, clues[] **in reveal order**, and note (the lesson).
+
+   The clues run from hardest to easiest and that ordering *is* the game — the
+   first should be answerable by a student who knows the word cold, and the last
+   should nearly give it away. Three or four is the range: two is a coin flip, five
+   is a round nobody is still listening to.
+
+   Write the first clue as a definition, the second as the word in use (gapped),
+   the third as its shape — letters and a starting letter. That pattern is not
+   enforced anywhere, but it is what makes the value drop feel earned. */
+const ITEMS = [
+  {
+    answer: "redundant", level: "C1",
+    clues: [
+      "An adjective for someone who has lost their job — but not because of anything they did wrong.",
+      "Three hundred staff were made ___ when the plant closed.",
+      "Nine letters, begins with R. The noun is “redundancy”."
+    ],
+    note: "“Made redundant” is the standard British phrasing and it is passive — the person did not " +
+          "choose it. Note it is not “fired” or “sacked”, which both imply fault."
+  },
+  {
+    answer: "sabbatical", level: "C1",
+    clues: [
+      "A long, planned break from work — usually paid, and usually to study or travel.",
+      "She took a six-month ___ to finish her book.",
+      "Ten letters, begins with S. It shares a root with “Sabbath”."
+    ],
+    note: "Common with academics and increasingly in industry. It is countable — “a sabbatical” — and " +
+          "collocates with take, be on, and go on."
+  },
+  {
+    answer: "verdict", level: "B2–C1",
+    clues: [
+      "The decision a jury delivers at the end of a trial.",
+      "After four days, the jury returned a ___ of not guilty.",
+      "Seven letters, begins with V."
+    ],
+    note: "The verbs matter: a jury *returns* or *delivers* a verdict, a judge *passes* a sentence. " +
+          "Using “gives a verdict” is understandable but not idiomatic."
+  },
+  {
+    answer: "procrastinate", level: "C1",
+    clues: [
+      "To keep putting off something you know you should be doing.",
+      "I always ___ when the deadline is still weeks away.",
+      "Thirteen letters, begins with P. The noun ends in -ation."
+    ],
+    note: "Intransitive — you procrastinate, you do not procrastinate *something*. The everyday " +
+          "equivalent is the phrasal verb “put off”, which does take an object."
+  },
+  {
+    answer: "unanimous", level: "C1",
+    clues: [
+      "An adjective for a decision that everybody agreed on — nobody against.",
+      "The vote was ___: all twelve members backed the proposal.",
+      "Nine letters, begins with U. Stress on the second syllable."
+    ],
+    note: "The stress trips people up: u-NAN-i-mous, not UN-a-nimous. The adverb “unanimously” is " +
+          "very common in reporting: “the committee voted unanimously to…”."
+  },
+  {
+    answer: "overwhelmed", level: "B2–C1",
+    clues: [
+      "How you feel when there is far more to deal with than you can manage.",
+      "She felt completely ___ by the number of emails waiting for her.",
+      "Eleven letters, begins with O. There is a verb “to whelm”, but nobody uses it."
+    ],
+    note: "Usually passive — you *are* or *feel* overwhelmed *by* something. It also has a positive " +
+          "use: “overwhelmed by their generosity”, which surprises learners."
+  }
+];
+/* ================= end of words ================= */
+
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const TOP_VALUE = 5;          // worth of a first-clue answer; drops one per reveal
+
+/* ---------------- game state ---------------- */
+let itemIndex = 0;
+let shown = 1;                // how many clues are on the board
+let done = false;             // this word has been won or given away
+let said = [];                // every reply this word: {name, team, value, verdict}
+let host = null;
+
+/* ---------------- the shelf ----------------
+   Teams, the clock, the mode declaration and the answer judging all come from
+   bench-kit. This file writes the board, the clues and what a verdict means. */
+const teams = BenchKit.teams({
+  mount: $('teams'),
+  onTurn(){ askPhones(); },
+  onChange(){ pushTeams(); }
+});
+
+const clock = BenchKit.clock({
+  mount: $('vote-clock'),
+  onEnd(){ if(host) host.disarm(); }
+});
+
+const settings = BenchKit.settings($('settings-slot'), [
+  BenchKit.modeSetting({ turns:'Turns — one team at a time',
+                         race: 'Race — anyone can answer' }),
+  { id:'vote-secs', label:'How long the team gets', default:0, number:true, options:[
+      { value:0,  label:'No clock' }, { value:30, label:'30s' },
+      { value:60, label:'60s' } ] }
+], id => {
+  if(id === 'vote-secs'){ askPhones(); return; }
+  applyMode(); loadItem(itemIndex);
+});
+
+const room = BenchKit.room({
+  mount: $('room-slot'),
+  board: 'story-reveal.html',
+  on: {
+    ready(h){ host = h; pushTeams(); askPhones(); },
+    /* Every reply is judged the moment it lands. Nothing is debounced here and
+       nothing settles: a typed answer is complete when it is sent, unlike a vote
+       that a team is still moving between options. First right one takes it. */
+    response(d){ (d && d.all ? d.all : []).forEach(consider); }
+  }
+});
+
+function pushTeams(){ if(host) host.setTeams(teams.names()); }
+function racing(){ return BenchKit.racing(settings); }
+function worth(){ return Math.max(1, TOP_VALUE - (shown - 1)); }
+
+/* ---------------- the phones ---------------- */
+function askPhones(){
+  /* `said` is deliberately NOT cleared here. A wrong answer passes the turn, which
+     re-asks the phones within a frame — so anything shown only until the next arm
+     was gone before the room could read it, which is exactly the bug the hub's
+     phone strip already paid for. What the class typed belongs to the *word*, not
+     to the round, so it is cleared in loadItem and nowhere else. */
+  renderReplies();
+  if(!host) return;
+  if(done){ host.disarm(); clock.stop(); return; }
+  /* A race has no clock, for the reason Connections established: expiry disarms
+     every handset, and a race takes the teacher's controls off the board, so a
+     round could reach one minute with nothing on screen able to act. */
+  const secs = racing() ? 0 : (settings.get('vote-secs') || 0);
+  /* `answer` rather than `vote`: there is nothing to choose between, the student
+     has to produce the word. The relay never learns what the word is — it collects
+     what was typed and this page judges it, exactly as the hub does. */
+  host.arm(ITEMS[itemIndex].clues[shown - 1], {
+    mode:'answer',
+    team: racing() ? null : teams.active(),   // a race belongs to the whole room
+    holds: false,        // a typed answer is *given*, so it stays if the phone goes
+    rethink: true,       // they may try again — a wrong guess is not the end of it
+    secs
+  });
+  clock.start(secs);
+}
+
+/* One reply, judged. Three verdicts, not two: "produced the word but mis-spelled
+   it" is a different fact about a student from "did not know it", and the room
+   should hear it differently — so `close` is shown as its own thing and does not
+   take the word. */
+function consider(r){
+  if(done || !r || !r.value) return;
+  const already = said.some(x => x.id === r.id && x.value === r.value);
+  if(already) return;
+  const team = Math.max(0, Number(r.team) || 0);
+  /* In turns the round already belongs to one team, but a handset that joined
+     mid-round has not been told — the same gap the relay's own team check covers. */
+  if(!racing() && team !== teams.active()) return;
+
+  const verdict = BenchKit.judge(r.value, ITEMS[itemIndex].answer);
+  said.push({ id:r.id, name:r.name || 'Someone', team, value:r.value, verdict });
+  renderReplies();
+
+  if(verdict === 'right') return win(team, r.name || 'Someone');
+  if(verdict === 'close'){
+    setMessage((r.name || 'Someone') + ' is nearly there — check the spelling.');
+    return;
+  }
+  /* A wrong answer in turns passes the turn; in a race it costs nothing but the
+     time, which is the same rule both other bench games settled on. */
+  if(!racing()){
+    setMessage('Not it — ' + teams.nameAt(team) + ' loses the turn.');
+    teams.pass();            // fires onTurn, which re-asks the phones
+  }
+}
+
+function win(team, who){
+  done = true;
+  const points = worth();
+  teams.score(team, points);
+  setMessage(who + ' got it — ' + teams.nameAt(team) + ' takes ' + points +
+             (points === 1 ? ' point.' : ' points.'));
+  showLesson();
+  render();
+  askPhones();               // disarms: the word is finished
+}
+
+/* ---------------- the board ---------------- */
+function loadItem(i){
+  itemIndex = i;
+  shown = 1; done = false; said = [];
+  setMessage('');
+  $('lesson-slot').innerHTML = '';
+  render();
+  askPhones();
+}
+
+function render(){
+  const item = ITEMS[itemIndex];
+  const w = worth();
+  $('worth').textContent = 'Worth ' + w + (w === 1 ? ' point' : ' points');
+  $('worth').classList.toggle('low', w <= 2);
+
+  const box = $('clues'); box.innerHTML = '';
+  item.clues.forEach((text, i)=>{
+    const row = document.createElement('div');
+    const open = i < shown;
+    row.className = 'clue' + (open ? '' : ' hidden') + (open && i === shown - 1 ? ' newest' : '');
+    row.dataset.clue = String(i + 1);
+    row.innerHTML = '<span class="n"></span><span class="body"></span>';
+    row.querySelector('.n').textContent = 'Clue ' + (i + 1);
+    /* An unrevealed clue still occupies its row: the room can see how much help is
+       still coming, which is what makes waiting a decision rather than a guess. */
+    row.querySelector('.body').textContent = open ? text
+      : (done ? text : 'still to come — costs a point');
+    box.appendChild(row);
+  });
+
+  $('clue-btn').disabled   = done || shown >= item.clues.length;
+  $('reveal-btn').disabled = done;
+  renderReplies();
+}
+
+function renderReplies(){
+  const box = $('replies'); box.innerHTML = '';
+  said.forEach(s=>{
+    const el = document.createElement('span');
+    el.className = 'reply ' + s.verdict;
+    el.style.borderColor = s.verdict === 'wrong' ? BenchKit.teamColour(s.team) : '';
+    el.innerHTML = '<b></b> <span class="said"></span>';
+    el.querySelector('b').textContent = s.name;
+    el.querySelector('.said').textContent = '“' + s.value + '”' +
+      (s.verdict === 'close' ? ' — nearly' : s.verdict === 'right' ? ' ✓' : '');
+    box.appendChild(el);
+  });
+  $('vote-text').textContent = said.length
+    ? said.length + (said.length === 1 ? ' answer in' : ' answers in')
+    : '';
+}
+
+/* Another clue: easier, and worth a point less. The teacher decides when, because
+   only they can hear whether the room is still thinking or has gone quiet. */
+function nextClue(){
+  const item = ITEMS[itemIndex];
+  if(done || shown >= item.clues.length) return;
+  shown++;
+  render();
+  askPhones();               // the handsets show the newest clue as their prompt
+}
+
+/* Give it away. Costs the point rather than anything else — nobody got it wrong,
+   and a class that cannot reach the word learns more from being shown it. */
+function giveAnswer(){
+  if(done) return;
+  done = true;
+  setMessage('The word was “' + ITEMS[itemIndex].answer + '”. No points for that one.');
+  showLesson();
+  render();
+  askPhones();
+}
+
+function showLesson(){
+  const item = ITEMS[itemIndex];
+  const div = document.createElement('div');
+  div.className = 'lesson';
+  div.innerHTML = '<b></b> <span></span>';
+  div.querySelector('b').textContent = item.answer + ' —';
+  div.querySelector('span').textContent = item.note;
+  $('lesson-slot').innerHTML = '';
+  $('lesson-slot').appendChild(div);
+}
+
+function setMessage(t){ $('message').textContent = t; }
+
+/* What the board shows depends on who is playing. A race has no turn and no clock;
+   the teacher's clue controls stay, because revealing a clue is the one thing that
+   is theirs in either mode. */
+function applyMode(){
+  const isRace = racing();
+  $('instructions-race').style.display  = isRace ? '' : 'none';
+  $('instructions-turns').style.display = isRace ? 'none' : '';
+  teams.showTurn(!isRace);
+  const clockPicker = settings.el('vote-secs');
+  if(clockPicker) clockPicker.style.display = isRace ? 'none' : '';
+  if(isRace) clock.stop();
+}
+
+/* ---------------- toolbar ---------------- */
+function initToolbar(){
+  const sel = $('item-select');
+  ITEMS.forEach((it, i)=>{
+    const o = document.createElement('option');
+    o.value = i; o.textContent = (i + 1) + '. ' + it.answer + ' (' + it.level + ')';
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', ()=> loadItem(Number(sel.value)));
+  $('clue-btn').addEventListener('click', nextClue);
+  $('reveal-btn').addEventListener('click', giveAnswer);
+  $('next-btn').addEventListener('click', ()=>{
+    const next = (itemIndex + 1) % ITEMS.length;
+    $('item-select').value = next;
+    loadItem(next);
+  });
+  $('restart-btn').addEventListener('click', ()=>{ teams.reset(); loadItem(itemIndex); });
+}
+
+const start = params.has('p') ? (Number(params.get('p')) - 1)
+            : Math.floor(Date.now() / 86400000) % ITEMS.length;
+initToolbar();
+applyMode();
+loadItem(Math.min(Math.max(start, 0), ITEMS.length - 1));
+$('item-select').value = itemIndex;
+</script>
+</body>
+</html>

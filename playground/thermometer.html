@@ -392,9 +392,7 @@ const clock = BenchKit.clock({
 const mistakes = BenchKit.mistakes({ mount: $('dots'), max: MAX_MISTAKES });
 
 const settings = BenchKit.settings($('settings-slot'), [
-  { id:'play-mode', label:'How the teams play', default:'turns', options:[
-      { value:'turns', label:'Turns — one team at a time' },
-      { value:'race',  label:'Race — both teams at once' } ] },
+  BenchKit.modeSetting({ race:'Race — a ladder each' }),
   { id:'vote-secs', label:'How long the team gets', default:60, number:true, options:[
       { value:0,  label:'No clock' }, { value:30, label:'30s' },
       { value:60, label:'60s' },      { value:90, label:'90s' } ] }
@@ -510,7 +508,7 @@ function renderRaceVotes(){
    The scale and the content are identical; what differs is who may answer at once
    and what counts as an answer. In a race a team's own leading vote *is* their
    guess, so the teacher never clicks — the board settles it. */
-function racing(){ return settings.get('play-mode') === 'race'; }
+function racing(){ return BenchKit.racing(settings); }
 
 /* A team's own ladder and its own remaining words. Every team climbs the same
    scale, so the answer for their next rung is simply the nth word of it — nothing
