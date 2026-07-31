@@ -98,7 +98,7 @@
     <button id="reveal-btn" class="primary">Reveal</button>
     <span class="sep"></span>
     <button id="ask-btn">Ask the room</button>
-    <span id="room-chip">phones off</span>
+    <span id="room-slot"></span>
     <span id="suits"></span>
   </div>
 
@@ -122,16 +122,7 @@
     · <a href="../index.html">back to the hub</a> · <a href="phone-bench.html?board=prompt-lab.html">open in the room bench</a></footer>
 </div>
 
-<div id="join-panel">
-  <div id="join-card">
-    <div class="code" id="join-code"></div>
-    <div class="url" id="join-url"></div>
-    <div id="join-qr"></div>
-    <a id="bench-link" href="phone-bench.html?board=prompt-lab.html">Simulate phones beside the board →</a>
-    <span class="aside">The bench opens this page as its board and racks the handsets next to it,
-      so you can watch several phones and the question together. The code above is for real phones.</span>
-  </div>
-</div>
+
 
 <script src="../game-hub/hub-kit.js?v=20260801t"></script>
 <!-- Captured between the two files, which is the only moment the sets are
@@ -141,6 +132,7 @@
 <script src="lab-forms.js?v=20260801t"></script>
 <script src="../game-hub/hub-buzzer.js?v=20260801t"></script>
 <script src="../game-hub/hub-qr.js?v=20260801t"></script>
+<script src="bench-kit.js?v=20260801t"></script>
 <script>
 'use strict';
 /* ================= SAMPLES — edit or add samples here =================
@@ -284,58 +276,18 @@ $('draw-btn').addEventListener('click', draw);
 $('reveal-btn').addEventListener('click', reveal);
 
 /* ---------------- the room ----------------
-   The same question, on the handsets, answered by typing — so a form can be
-   judged by what the class does with it, not only by how it looks. */
-let host = null, roomLAN = '', playerCount = 0;
-
-function openRoom(){
-  if(!window.HubBuzzer) return;
-  HubBuzzer.newCode(RELAY).then(d=>{
-    if(!d){ renderRoom(); return; }
-    roomLAN = d.lan || '';
-    host = HubBuzzer.host({ relay:RELAY, code:d.code });
-    window.HubHost = host;                  // what room this board is running
-    host.on('ready',   ()=> renderRoom());
-    host.on('players', ()=>{ playerCount = host.players().length; renderRoom(); });
-    host.on('response', onReply);
-    renderRoom();
-  });
-}
-function renderRoom(){
-  const chip = $('room-chip');
-  if(!host){ chip.textContent = 'phones off'; return; }
-  chip.innerHTML = 'CODE <b></b> · ' + playerCount + ' in';
-  chip.querySelector('b').textContent = host.code;
-}
-/* The chip opens the room, the same way Connections' does — a panel, not a jump.
-   It used to `window.open` one handset, which is the wrong thing for a rig whose
-   whole point is watching several phones against the board at once: you landed on
-   a single phone in another tab with the board no longer in sight. */
-function joinBase(){
-  if(RELAY) return RELAY;
-  if(location.protocol === 'file:') return roomLAN ? 'http://'+roomLAN : '';
-  return location.origin;
-}
-$('room-chip').addEventListener('click', ()=>{
-  if(!host) return;
-  $('join-code').textContent = host.code;
-  $('join-url').textContent  = joinBase().replace(/^https?:\/\//,'') + '/join.html';
-  const box = $('join-qr'); box.innerHTML = '';
-  try{
-    const q = window.qrcode(0, 'M');
-    q.addData(joinBase() + '/join.html?code=' + host.code);
-    q.make();
-    box.innerHTML = q.createSvgTag({ cellSize:7, margin:0, scalable:true });
-  }catch(e){}
-  /* The bench loads *this page* as its board, so you get the question card and a
-     rack of phones in one window — which is the way to judge a phone dynamic, and
-     what the chip should have offered in the first place. It opens its own room
-     there; this tab's code is for real handsets. */
-  $('bench-link').href = 'phone-bench.html?board=prompt-lab.html';
-  $('join-panel').classList.add('on');
-});
-$('join-panel').addEventListener('click', e=>{
-  if(e.target.id === 'join-panel') $('join-panel').classList.remove('on');
+   The chip, the join panel, the QR and the bench link all come from BenchKit —
+   this page and Connections had written them separately, which is what the kit
+   exists to stop. What stays here is what the lab does with a room: put the same
+   question on the handsets and judge what comes back. */
+let host = null;
+const room = BenchKit.room({
+  mount: $('room-slot'),
+  board: 'prompt-lab.html',
+  on: {
+    ready(h){ host = h; },
+    response: onReply
+  }
 });
 
 function askRoom(){
@@ -368,7 +320,6 @@ renderFormPick();
 if(params.get('form')) $('form-pick').value = params.get('form');
 renderItemPick();
 draw();
-openRoom();
 </script>
 </body>
 </html>
