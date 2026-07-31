@@ -4517,6 +4517,29 @@ async function testPhoneBench(browser){
   check('the game sees all three join', /3 in/.test(await game.locator('#room-chip').innerText()),
         await game.locator('#room-chip').innerText());
 
+  /* ---- a racked phone is a real handset, scaled ----
+     The board renders at a projector's logical 1280 and is scaled to the pane,
+     because a board re-fitting itself to a 500px pane is not the board under
+     test. The phones were laid out at the rack column's width instead — 264px,
+     leaving join.html 220px for its options, under the 288px two columns need. So
+     a sixteen-word vote appeared here as one long scrolling list while every real
+     handset showed two columns: the bench misreporting the one thing it exists to
+     show. Asserted on the *inner* width and the resulting layout, not on the card,
+     since it is the page inside that has to be a phone. */
+  const rack = await bench.frameLocator('.phone iframe').first().locator('#opts').evaluate(o => ({
+    inner: window.innerWidth,
+    cols: getComputedStyle(o).gridTemplateColumns.split(' ').length,
+    opts: o.querySelectorAll('button').length,
+    scrolls: o.scrollHeight > o.clientHeight + 1,
+    offscreen: [...o.querySelectorAll('button')]
+      .filter(x => x.getBoundingClientRect().bottom > window.innerHeight + 1).length
+  }));
+  check('a racked phone lays out at a real handset width, not the rack column\'s',
+        rack.inner === 390, JSON.stringify(rack));
+  check('so the sixteen words come out in two columns here too, without scrolling',
+        rack.opts === 16 && rack.cols === 2 && !rack.scrolls && rack.offscreen === 0,
+        JSON.stringify(rack));
+
   // a simulated phone is live: vote from the first frame, watch it land on the board
   const ph = bench.frameLocator('.phone iframe').first();
   await ph.locator('#opts button', { hasText:/^decision$/i }).click();

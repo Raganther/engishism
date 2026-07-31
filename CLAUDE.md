@@ -625,6 +625,15 @@ straight away. Four rules paid for in advance:
 - **The board renders at a projector's logical width (1280) and is scaled to fit**,
   never past 1:1 — a board re-fitting itself to a 500px pane is not the board under
   test, and an upscaled one shows a size no room renders at.
+- **And so does every racked phone — 390×844, scaled to the column.** The same rule,
+  and it was missed on the phones for months: they were laid out at the rack
+  column's 264px directly, which left `join.html` 220px for its options, under the
+  288px two columns need. So a sixteen-word vote appeared on the bench as one long
+  scrolling list with ten words below the fold, while every real handset showed two
+  columns — **the bench misreporting the one thing it exists to show**, and reported
+  as "can we stop having to scroll". A scaled element still occupies its full layout
+  size, so the iframe needs a clip box with an explicit height or the card is 844px
+  tall around 571px of picture. Asserted on the frame's *inner* width, not the card.
 - **The phones follow the board's room.** A playground board mints a fresh code
   every time it loads, so re-opening the board left every racked phone in a room
   nobody was hosting — connected, showing a room number, and deaf to the board
@@ -776,6 +785,20 @@ playground's point, that one board can host several:
     `openRoom` had already been written twice in two days. Teams and the round are
     deliberately still in Connections — one caller is a guess, not an API. The rule
     and the three tiers are in "The playground".
+- **The bench's phones are real handsets now, scaled — they were 264px wide.**
+  Reported as "each form lists each word underneath it, which means you have to
+  scroll down". The two-column layout was working: it just cannot fit two 140px
+  columns into the 220px `join.html` had inside a 264px rack column, so the bench
+  showed a layout no phone shows and ten of sixteen words sat below the fold. The
+  board had had the fix since the bench was written (render at the projector's
+  logical width, scale to the pane); the phones never got it. **A scaled thing
+  still occupies its full layout size**, so the iframe needed a clip box with an
+  explicit height. The two checks were proved against the reverted build —
+  `inner:264, cols:1, scrolls:true, offscreen:10`.
+  - **The bare bench opens empty and that reads as broken.** `index.html` links it
+    with no `?board=`, so the projector pane is blank while the picker already says
+    "Playground · Connections" — selected but not opened. Opening the picker's
+    default on load would fix it; not done yet.
 - **Question forms have a rig now, and a sixth form to prove it.** `playground/
   prompt-lab.html` lists every registered form, draws and reveals it at board size,
   and pushes the same question to phones — see "The playground". It exists because

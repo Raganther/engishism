@@ -14,6 +14,14 @@
   :root{
     --bg:#fafaf8; --text:#121212; --muted:#6b6b6b; --border:#d4d4cc;
     --btn-bg:#fff; --btn-border:#121212; --accent:#00A0DF;
+    /* A racked phone renders at a real handset's logical size and is scaled down
+       to the column — exactly what the board already does with a projector's
+       1280, and for the same reason. It used to be 264px *directly*, which left
+       join.html 220px for its options, under the 288px two columns need: a
+       sixteen-word vote showed here as one long scrolling list and on every real
+       handset as two columns. The bench was misreporting the one thing it exists
+       to show. 0.677 is 264/390. */
+    --phone-w:390px; --phone-h:844px; --phone-scale:0.677;
   }
   *{ box-sizing:border-box; }
   body{
@@ -71,7 +79,8 @@
   .team-col .phones{ display:flex; flex-direction:column; gap:12px; }
 
   .phone{
-    width:264px; border:1px solid var(--border); border-radius:18px; overflow:hidden;
+    width:calc(var(--phone-w) * var(--phone-scale));
+    border:1px solid var(--border); border-radius:18px; overflow:hidden;
     background:#12263F; box-shadow:0 6px 18px rgba(0,0,0,0.12);
   }
   .phone .head{
@@ -82,7 +91,18 @@
   .phone .head button{
     background:none; border:none; color:#cfe0ff; cursor:pointer; font-size:1rem; padding:0 2px;
   }
-  .phone iframe{ display:block; width:264px; height:500px; border:none; }
+  /* The clip box. A scaled element still occupies its full layout size, so
+     without an explicit height here the card would be 844px tall with 571px of
+     picture in it — the same trap `#stage-pane`'s min-width note describes. */
+  .phone .glass{
+    position:relative; overflow:hidden;
+    width:calc(var(--phone-w) * var(--phone-scale));
+    height:calc(var(--phone-h) * var(--phone-scale));
+  }
+  .phone iframe{
+    display:block; width:var(--phone-w); height:var(--phone-h); border:none;
+    transform-origin:top left; transform:scale(var(--phone-scale));
+  }
 </style>
 </head>
 <body>
@@ -294,9 +314,15 @@ function addPhone(team){
     el.remove();
     if(col && !col.querySelector('.phone')) col.remove();
   });
+  /* The iframe goes inside a clip box rather than straight into the card: it is
+     laid out at a real handset's width and scaled down, so something has to bound
+     the space it actually occupies. `repointPhones` still finds it by tag. */
+  const glass = document.createElement('div');
+  glass.className = 'glass';
   const frame = document.createElement('iframe');
   frame.src = joinSrc(name, team);
-  el.appendChild(frame);
+  glass.appendChild(frame);
+  el.appendChild(glass);
   phones.push({ name, team, el });
   colFor(team).querySelector('.phones').appendChild(el);
 }
