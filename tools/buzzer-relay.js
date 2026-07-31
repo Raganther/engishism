@@ -81,7 +81,21 @@ function getRoom(code, create){
     r = { host:null, players:new Map(), teams:[], armed:false, locked:null,
           mode:'buzz', prompt:'', options:[], team:null, responses:new Map(),
           spent:new Set(), cooling:new Map(), cards:new Map(), emptiedAt:0,
-          answerSecs:0, rethink:false, secs:0, armedAt:0, multi:1 };
+          answerSecs:0, rethink:false, secs:0, armedAt:0, multi:1,
+          /* How many options one phone may hold, per team index — because teams
+             are not the same size, and "one player's share of a four-word answer"
+             is four words split between however many phones that team has. Null
+             means the room-wide `multi` applies to everybody, which is every
+             round that existed before this. */
+          multiByTeam:null,
+          /* Whether a reply in this round is a state the player is *holding*
+             rather than an answer they have *given*. A held reply leaves with the
+             phone that holds it: a student who walks out mid-round must not go on
+             occupying two of their team's four words with nobody able to drop
+             them. A given answer stays — the teacher wants to see what the class
+             typed even if a handset died afterwards. Off unless the host says so,
+             so nothing that existed before this changes. */
+          holds:false };
     rooms.set(code, r);
   }
   return r;
@@ -91,6 +105,23 @@ function pushEvent(res, event, data){
 }
 function toHost(room, event, data){ if(room.host) pushEvent(room.host, event, data); }
 function toPlayers(room, event, data){ room.players.forEach(p=>pushEvent(p.res, event, data)); }
+/* The same event with a payload built per recipient. Needed the moment anything a
+   round carries differs by team — a player's pick cap does, because it is their
+   share of one answer and teams are different sizes. */
+function toEachPlayer(room, event, build){
+  room.players.forEach(p=>pushEvent(p.res, event, build(p)));
+}
+/* One phone's cap. Falls through to the room-wide `multi` for any team the host
+   did not name, so a host that knows nothing about shares behaves exactly as it
+   did before per-team caps existed. */
+function capFor(room, team){
+  const per = room.multiByTeam;
+  if(per && per.length){
+    const n = Math.floor(Number(per[Math.max(0, Number(team) || 0)]));
+    if(n >= 1) return Math.min(12, n);
+  }
+  return room.multi;
+}
 function roster(room){
   return [...room.players.values()].map(p=>({ id:p.id, name:p.name, team:p.team }));
 }
@@ -163,7 +194,7 @@ function openStream(req, res, q){
     id, name, team, teams:room.teams, armed:room.armed, locked:lockedNow(room),
     mode:room.mode, prompt:room.prompt, options:room.options, turnTeam:room.team,
     spent:[...room.spent],
-    rethink: room.rethink, secs: secsLeft(room), multi: room.multi,
+    rethink: room.rethink, secs: secsLeft(room), multi: capFor(room, team),
     /* what this phone already chose, so a reload comes back with its own vote
        showing rather than looking like it never answered */
     yours: (room.responses.get(id) || {}).value || null,
@@ -184,7 +215,17 @@ function openStream(req, res, q){
     const cur = room.players.get(id);
     if(!cur || cur.res !== res) return;
     room.players.delete(id);
+    /* A held reply leaves with the phone holding it. Without this a student who
+       walks out mid-round goes on occupying two of their team's four words for the
+       rest of the game, with nobody able to drop them and the host still counting
+       them — the team is simply stuck. A *given* answer stays put: the teacher
+       wants to see what the class typed even from a handset that died afterwards.
+       Which of the two this is, is the host's declaration on the arm. */
+    const dropped = room.holds && room.responses.delete(id);
     toHost(room, 'leave', { id, name, players:roster(room) });
+    // the host's picture of the round has to change with it, or nothing tells it
+    if(dropped) toHost(room, 'response', Object.assign(
+      { latest:null, left:id, of:room.players.size }, tallyOf(room)));
   });
 }
 
@@ -253,6 +294,10 @@ function handleSend(req, res){
            The relay only carries it: what a multi-pick reply means is the host's
            business, exactly as it never learns what an answer means. */
         room.multi   = Math.max(1, Math.min(12, Number(msg.multi) || 1));
+        room.multiByTeam = readShares(msg.multiByTeam);
+        /* See the room's own note: a held reply leaves with its phone, a given
+           answer does not. */
+        room.holds   = !!msg.holds;
         room.secs    = Math.max(0, Math.min(900, Number(msg.secs) || 0));
         room.armedAt = Date.now();
         /* 'card' is a round where each phone answers off its own bingo card. It
@@ -278,7 +323,10 @@ function handleSend(req, res){
         if(msg.reopen){ room.cooling.forEach((t,id)=>{ if(t <= now) room.cooling.delete(id); }); }
         else room.cooling = new Map();
         room.prompt = String(msg.prompt||'').slice(0,200);
-        toPlayers(room, 'armed', { prompt: room.prompt,
+        /* Built per recipient rather than broadcast, because `multi` is now that
+           player's share of the answer and their team decides it. Everything else
+           in here is the same for the whole room. */
+        toEachPlayer(room, 'armed', p => ({ prompt: room.prompt,
                                    mode: room.mode, options: room.options,
                                    /* `turnTeam`, not `team`: the join payload already
                                       carries the player's own team under that name, and
@@ -286,8 +334,21 @@ function handleSend(req, res){
                                    turnTeam: room.team,
                                    spent: [...room.spent], reopen: !!msg.reopen,
                                    rethink: room.rethink, secs: room.secs,
-                                   multi: room.multi,
-                                   cooling: [...room.cooling].map(([id,until])=>({ id, until })) });
+                                   multi: capFor(room, p.team),
+                                   cooling: [...room.cooling].map(([id,until])=>({ id, until })) }));
+        return sendJSON(res, 200, { ok:true });
+      }
+      /* A team's share of the answer changed — somebody joined it or dropped off
+         it — without the question itself changing. Deliberately not an `arm`: a
+         fresh arm clears every handset's picks, and a latecomer walking in must
+         not wipe what four other people had just agreed on. So the cap moves and
+         what they are holding stays, which also means a phone can be left holding
+         more than its new share. That is the honest state and the team resolves it
+         by talking, which is the point of the mode — the handset says so and
+         refuses to add more. */
+      case 'shares': {
+        room.multiByTeam = readShares(msg.multiByTeam);
+        toEachPlayer(room, 'shares', p => ({ multi: capFor(room, p.team) }));
         return sendJSON(res, 200, { ok:true });
       }
       case 'disarm':
@@ -322,9 +383,7 @@ function handleSend(req, res){
         const value = String(msg.value == null ? '' : msg.value).slice(0, 120);
         room.responses.set(p.id, { id:p.id, name:p.name, team:p.team, value });
         if(room.mode !== 'card' && !room.rethink) room.spent.add(p.id);
-        const all = [...room.responses.values()];
-        const tally = {};
-        all.forEach(r2 => { tally[r2.value] = (tally[r2.value] || 0) + 1; });
+        const { all, tally } = tallyOf(room);
         toHost(room, 'response', { latest:{ id:p.id, name:p.name, team:p.team, value },
                                    total: all.length, of: room.players.size,
                                    tally, all });
@@ -388,6 +447,23 @@ function serveStatic(req, res, pathname){
 
 /* What is left of a round's clock, computed here where the round was stamped —
    a phone is never asked to compare its clock with the relay's. */
+/* Everybody's replies and the count against each value. Two callers now: a reply
+   arriving, and a held reply leaving with the phone that held it. */
+function tallyOf(room){
+  const all = [...room.responses.values()];
+  const tally = {};
+  all.forEach(r => { tally[r.value] = (tally[r.value] || 0) + 1; });
+  return { all, total: all.length, tally };
+}
+
+/* Per-team caps off the wire. Null for anything that is not a list, which is what
+   restores the room-wide `multi` — so a host can hand shares back as easily as it
+   set them. */
+function readShares(v){
+  if(!Array.isArray(v) || !v.length) return null;
+  return v.slice(0, 8).map(n => Math.max(1, Math.min(12, Math.floor(Number(n)) || 1)));
+}
+
 function secsLeft(room){
   if(!room.armed || !room.secs) return 0;
   return Math.max(0, Math.round(room.secs - (Date.now() - room.armedAt)/1000));

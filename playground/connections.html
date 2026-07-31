@@ -13,6 +13,9 @@
     --tile-selected-bg:#5a594e; --tile-selected-text:#fff;
     --g0:#f9df6d; --g1:#a0c35a; --g2:#b0c4ef; --g3:#ba81c5;
     --btn-bg:#fff; --btn-border:#121212; --accent:#00A0DF;
+    /* Neutral, and load-bearing: on the race board every highlight is this colour
+       and the team colours appear only in the dots. See .tile.held below. */
+    --pick-ring:#7a7a72;
   }
   *{ box-sizing:border-box; }
   body{
@@ -69,6 +72,9 @@
     background:rgba(0,160,223,0.12);
   }
   #vote-clock.urgent{ background:#C0392B; color:#fff; }
+  /* An empty clock still painted its pill — a stray blue dot beside the team
+     counts on a race board, which has no clock at all. */
+  #vote-clock:empty{ display:none; }
 
   .solved-area{ display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
   .solved-group{ border-radius:10px; padding:10px 14px; text-align:center; color:#121212; animation:pop 0.35s ease; }
@@ -101,10 +107,26 @@
   /* a race puts two sets of picks on one board, so each team gets a colour */
   .tile .picks{ position:absolute; top:6px; right:8px; display:flex; gap:4px; }
   .pick-dot{ width:14px; height:14px; border-radius:50%; box-shadow:0 0 0 2px #fff; }
+  /* A word somebody is holding. The ring is neutral and the dots carry who: it
+     used to take the colour of whichever team grabbed the word first, which paints
+     a contested word as one team's and buries the other team's dot as a footnote.
+     Both sets have to be equally legible — a team reading what the other side is
+     assembling is how the race stays a language task rather than a speed one. */
+  .tile.held{ box-shadow:0 0 0 3px var(--pick-ring); }
+  /* Nothing on a race board is the teacher's to lock in — the teams' own four
+     settles it, as the instruction on screen says — so a click here is a pointer,
+     not a selection. Dashed and inset so it cannot be mistaken for a held word,
+     and neutral so it never blacks out the dots that matter. */
+  body.racing .tile.selected{
+    background:var(--tile-bg); color:var(--tile-text);
+    outline:3px dashed var(--pick-ring); outline-offset:-7px;
+  }
   .race-count{
     display:inline-block; margin-right:8px; padding:2px 10px; border-radius:999px;
     border:2px solid var(--accent); color:var(--text); font-size:0.85rem;
   }
+  /* the share, which is context rather than the count itself */
+  .race-count small{ font-weight:400; color:var(--muted); }
 
   .status{ display:flex; justify-content:center; align-items:center; gap:8px; margin:14px 0 4px; font-size:1.05rem; }
   .dots{ display:inline-flex; gap:5px; }
@@ -144,8 +166,9 @@
      talks it over — their phones vote on the words — then the teacher locks in four tiles and submits.
      A wrong guess passes the turn. Solve a group to unlock its mini-lesson.</p>
   <p class="instructions" id="instructions-race" style="display:none;">Both teams at once. Each player holds up
-     to four words on their phone; a team's picks together are their answer, and the first team holding a real
-     group of four takes it. Nothing to click — the board settles it.</p>
+     a share of the four on their phone — two words each on a team of two, one each on a team of four — and a
+     team's picks together are their answer. The first team holding a real group takes it. Nothing to click:
+     the dots show who is holding what, and the board settles it.</p>
   <p id="vote-line"><span id="vote-text"></span> <span id="vote-clock"></span></p>
 
   <div class="solved-area" id="solved-area"></div>
@@ -168,9 +191,9 @@
 
 
 
-<script src="../game-hub/hub-buzzer.js?v=20260801t"></script>
-<script src="../game-hub/hub-qr.js?v=20260801t"></script>
-<script src="bench-kit.js?v=20260801t"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260801u"></script>
+<script src="../game-hub/hub-qr.js?v=20260801u"></script>
+<script src="bench-kit.js?v=20260801u"></script>
 <script>
 'use strict';
 /* ================= PUZZLES — edit or add puzzles here =================
@@ -336,7 +359,9 @@ const settings = BenchKit.settings($('settings-slot'), [
      finish under the old rules. */
   raceTried = {}; replies = [];
   document.querySelectorAll('#grid .picks').forEach(e=>e.remove());
-  document.querySelectorAll('#grid .tile').forEach(t=>{ t.style.boxShadow=''; });
+  document.querySelectorAll('#grid .tile').forEach(t=>{
+    t.style.boxShadow=''; t.classList.remove('hot','held');
+  });
   applyMode(); renderTeams(); renderVotes(); askPhones();
 });
 
@@ -346,6 +371,11 @@ const room = BenchKit.room({
   board: 'connections.html',
   on: {
     ready(h){ host = h; pushTeams(); askPhones(); },
+    /* A team gaining or losing a phone changes what one player's share of the four
+       is, and a dropped phone's picks have already left with it (the relay does
+       that for a round armed `holds`) — so both halves of the board have to catch
+       up: the caps on the handsets, and the counts on the tiles. */
+    players(){ pushShares(); renderVotes(); },
     response(d){
       votes = d.tally || {};
       replies = (d && d.all) || [];
@@ -380,7 +410,13 @@ function askPhones(){
   host.arm(racing() ? 'Find a group of four' : 'Pick a word', {
     mode:'vote', options: remaining.slice(),
     team: racing() ? null : active,
-    multi: racing() ? 4 : 1,
+    multi: racing() ? GROUP : 1,
+    // one cap per team, from that team's size — see "a player's share" above
+    multiByTeam: racing() ? shares() : null,
+    /* A vote here is a state a phone is *holding*, not an answer it has given, so
+       it leaves with the phone: a student who walks out mid-round must not go on
+       occupying two of their team's four words with nobody able to drop them. */
+    holds: true,
     rethink: true, secs
   });
   boardClock(secs);
@@ -412,6 +448,38 @@ function boardClock(secs){
   }, 1000);
 }
 
+/* ---------- a player's share of the answer ----------
+   Four words assembled by four phones is one word each; by two phones it is two
+   each. So the cap is per team and comes from that team's size, rather than one
+   number for the room — teams are not the same size, and a team of four each
+   holding four words is not a negotiation, it is four separate answers.
+
+   It is a *share*, not a quota: nobody has to hold all of theirs, and a team
+   holding five between them is over and has to talk one of them down. That
+   argument is the mode. A team with no phones gets the whole four, which is the
+   right answer for a board being driven from one handset or none. */
+const GROUP = 4;
+const shareFor = size => Math.max(1, Math.min(GROUP, Math.ceil(GROUP / Math.max(1, size))));
+function teamSizes(){
+  const n = teams.map(()=>0);
+  (host ? host.players() : []).forEach(p=>{
+    const t = Math.max(0, Number(p.team) || 0);
+    if(n[t] != null) n[t]++;
+  });
+  return n;
+}
+function shares(){ return teamSizes().map(shareFor); }
+
+/* Somebody joined a team or dropped off one, so the shares have moved. Pushed on
+   its own rather than re-armed: a fresh arm clears every handset's picks, and a
+   student walking in late must not wipe what the rest of their team had just
+   agreed on. Phones already over their new share keep what they hold and are told
+   to drop one — see the handset's `shares` handler. */
+function pushShares(){
+  if(!host || !racing() || gameOver || !remaining.length) return;
+  host.shares(shares());
+}
+
 /* What each team is currently holding: the union of its players' picks, because a
    team of two phones could never assemble four words one vote each. Returns
    team index -> [words]. */
@@ -441,6 +509,7 @@ function renderVotes(){
       badge.textContent = n;
     } else if(badge) badge.remove();
     t.classList.toggle('hot', hot.has(w));
+    t.classList.remove('held');    // `held` is the race's neutral ring; turns uses `hot`
   });
   const total = counts.reduce((a,[,n])=>a+n, 0);
   $('vote-text').textContent = (host && total)
@@ -457,7 +526,10 @@ function renderRaceVotes(){
     const w = t.dataset.word;
     let box = t.querySelector('.picks');
     const holders = Object.keys(picks).filter(ti => picks[ti].indexOf(w) !== -1);
-    if(!holders.length){ if(box) box.remove(); t.classList.remove('hot'); t.style.boxShadow=''; return; }
+    if(!holders.length){
+      if(box) box.remove();
+      t.classList.remove('hot','held'); t.style.boxShadow=''; return;
+    }
     if(!box){ box = document.createElement('span'); box.className = 'picks'; t.appendChild(box); }
     box.innerHTML = '';
     holders.forEach(ti=>{
@@ -467,23 +539,37 @@ function renderRaceVotes(){
       dot.title = teams[ti] ? teams[ti].name : ('Team ' + (Number(ti)+1));
       box.appendChild(dot);
     });
-    /* The ring takes the holder's colour rather than the board's accent — a blue
-       ring around a tile only Team 2 is holding says the wrong thing at a glance,
-       which on a projector is the only glance you get. */
-    t.classList.add('hot');
-    t.style.boxShadow = '0 0 0 3px ' + teamColour(Number(holders[0]));
+    /* The ring is neutral and the dots carry who. It used to take the colour of
+       whoever grabbed the word *first*, which paints the whole tile for one team
+       when two are holding it — and the second team's dot then reads as a footnote
+       on somebody else's word rather than as their own pick. Both teams' picks
+       being equally legible is the point: a team watching what the other side is
+       assembling can infer the group, which is most of what makes the race a
+       language task rather than a speed one. */
+    t.classList.remove('hot');       // `hot` is the turns-mode accent; a race is neutral
+    t.classList.add('held');
+    t.style.boxShadow = '';
   });
   /* How close each team is, named and counted — four means it is about to be
-     judged, more than four means they have to agree to drop some. */
+     judged, more than four means they have to agree to drop some. The share is on
+     the chip too, because "two each" is the rule the teacher has to be able to say
+     out loud, and it moves on its own whenever somebody joins or drops. Teams with
+     neither a phone nor a pick say nothing rather than sitting there at 0/4. */
+  const sizes = teamSizes(), per = sizes.map(shareFor);   // one walk of the roster
   $('vote-text').innerHTML = '';
-  Object.keys(picks).forEach(ti=>{
-    const n = picks[ti].length;
-    if(!n) return;
+  teams.forEach((t, ti)=>{
+    const n = (picks[ti] || []).length;
+    if(!n && !sizes[ti]) return;
     const chip = document.createElement('span');
     chip.className = 'race-count';
-    chip.style.borderColor = teamColour(Number(ti));
-    chip.textContent = (teams[ti] ? teams[ti].name : 'Team ' + (Number(ti)+1)) + ' ' + n + '/4' +
-                       (n > 4 ? ' — too many' : '');
+    chip.style.borderColor = teamColour(ti);
+    chip.textContent = t.name + ' ' + n + '/' + GROUP + (n > GROUP ? ' — too many' : '');
+    if(sizes[ti]){
+      const tail = document.createElement('small');
+      tail.textContent = ' · ' + sizes[ti] + (sizes[ti] === 1 ? ' phone, ' : ' phones, ') +
+                         per[ti] + ' each';
+      chip.appendChild(tail);
+    }
     $('vote-text').appendChild(chip);
   });
 }
@@ -556,6 +642,8 @@ function racing(){ return settings.get('play-mode') === 'race'; }
    settle it — so those controls stand down rather than sitting there inert. */
 function applyMode(){
   const race = racing();
+  // the race board's highlights are all neutral — see .tile.held and the note there
+  document.body.classList.toggle('racing', race);
   $('instructions-race').style.display  = race ? '' : 'none';
   $('instructions-turns').style.display = race ? 'none' : '';
   $('status-row').style.display   = race ? 'none' : '';
@@ -569,9 +657,12 @@ function applyMode(){
 }
 
 /* Each team's colour, so two sets of picks can share one board and still be read
-   from the back of the room. */
-const TEAM_COLOURS = ['#00A0DF','#E8743B','#7BC043','#A162E8','#E8C547','#E85A8A'];
-const teamColour = i => TEAM_COLOURS[i % TEAM_COLOURS.length];
+   from the back of the room. The palette itself lives in `hub-buzzer.js` — the one
+   file the projector and the handsets both load — so a student's phone is the same
+   colour as their team's dots here, without two lists being kept in step. Guarded
+   because every playground page has to stay playable with no phone layer at all. */
+const teamColour = i => (window.HubBuzzer && HubBuzzer.teamColour)
+                        ? HubBuzzer.teamColour(i) : '#00A0DF';
 
 /* ---------------- the board ---------------- */
 function loadPuzzle(i){

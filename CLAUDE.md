@@ -725,6 +725,46 @@ playground's point, that one board can host several:
     wrong four costs nothing there. **The general shape: a control that a mode
     removes the recovery path for has to be removed with it** — the two race checks
     were proved against the reverted fix.
+  - **A player's share of the four comes from their team's size.** One phone holds
+    all four, two hold two each, four hold one each (`ceil(4/size)`). One room-wide
+    cap could not say that, because teams are not the same size — and a team of
+    four each holding four words is not a negotiation, it is four separate answers.
+    It is a *share*, not a quota: a team holding five between them is over and has
+    to talk one of them down, which is the mechanic.
+    - **`multi` is now per team on the relay** (`multiByTeam`), delivered on a
+      per-recipient `armed` payload rather than one broadcast — the first thing a
+      round carries that differs by team. Falls through to the room-wide `multi`
+      for any team not named, so every existing game is untouched.
+    - **A share that moves is pushed, never re-armed.** A fresh arm clears every
+      handset's picks, so a latecomer walking in would wipe what the rest of the
+      team had just agreed on — the same rule as the hub's "a re-ask never cancels
+      what is in progress". `host.shares([…])` moves the cap and leaves the picks.
+    - **Being over your share is a state, not an error.** Nothing is stripped: the
+      handset says "Drop 1 — it is 1 each now" and refuses to add. Forcing a trim
+      would take a word off a student who did nothing wrong.
+  - **A held reply leaves with the phone that holds it.** A dropped phone's picks
+    used to sit in `room.responses` forever, still counted toward its team's union,
+    with nobody able to drop them — the team was simply stuck. But a *typed* answer
+    must stay, because the teacher wants to see what the class wrote even from a
+    handset that died. So the host declares which kind of round it is (`holds` on
+    the arm) rather than the relay guessing, and the leave path recomputes the
+    tally and tells the host. **The distinction is holding versus having given.**
+  - **The highlight is neutral; only the dots carry the team.** The pick ring took
+    the colour of whichever team grabbed a word *first*, which paints a contested
+    word as one team's and leaves the other's dot reading as a footnote on somebody
+    else's pick. Both sets have to be equally legible — a team reading what the
+    other side is assembling is what makes the race a language task rather than a
+    speed one. The teacher's own click is a neutral dashed outline for the same
+    reason: on a race board nothing is theirs to lock in. Asserted as a property
+    (two words held by different teams look identical), so restyling the ring
+    cannot quietly re-encode the team in it.
+  - **One team palette, in `hub-buzzer.js`.** A team's colour has to be the same
+    fact on the projector and in the hand, so it lives in the one file both ends
+    load rather than in two lists kept in step — and it costs the relay nothing,
+    which is right, since a colour is presentation. The handset paints its team
+    pill, its join-screen swatches and its held words with it, so a student matches
+    the colour in their hand to the dots on the board without being told which are
+    theirs. The hub's own team bar has not adopted it yet.
   - **Race has no ending but solving all four.** Turns mode has the mistake budget;
     a race that stalls on the last group runs until somebody gets it. A whole-game
     clock — "as many groups as you can in 90 seconds" — is the obvious candidate

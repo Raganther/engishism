@@ -15,6 +15,24 @@
 window.HubBuzzer = (function(){
   'use strict';
 
+  /* ---------- the team palette ----------
+     A team's colour has to be the same fact on the projector and in the hand: a
+     student holding an orange handset is on the orange team, and the dots beside
+     their team's words on the board are orange. It lives here because this is the
+     one file the board and the handset both load, so the two ends agree by
+     construction rather than by two lists being kept in step — and it costs the
+     relay nothing, which is right, since a colour is presentation and the relay
+     deliberately learns as little as it can.
+
+     Indexed by team number, which both ends already have. Chosen to stay apart
+     under projector wash and the commonest colour blindness: blue, orange, green,
+     violet, yellow, pink — never red-against-green as the first pair. */
+  const TEAM_COLOURS = ['#00A0DF','#E8743B','#7BC043','#A162E8','#E8C547','#E85A8A'];
+  function teamColour(i){
+    const n = Number(i);
+    return TEAM_COLOURS[((n >= 0 ? n : 0) | 0) % TEAM_COLOURS.length];
+  }
+
   function emitter(){
     const map = Object.create(null);
     return {
@@ -89,6 +107,12 @@ window.HubBuzzer = (function(){
          the relay never learns the answer, so it cannot be asked for it. */
       judge:    (id, verdict, opts) => post(relay, Object.assign(
                   { room:code, type:'judge', id, verdict }, opts || {})),
+      /* How many options one phone may hold, per team. Separate from `arm` on
+         purpose: a team's share changes when somebody joins or drops, and a fresh
+         arm would clear every handset's picks — throwing away a negotiation in
+         progress because a latecomer walked in. This changes the cap and leaves
+         what they are holding alone. */
+      shares:   per    => post(relay, { room:code, type:'shares', multiByTeam:per }),
       disarm:   ()     => post(relay, { room:code, type:'disarm' }),
       reset:    ()     => post(relay, { room:code, type:'reset' }),
       setTeams: names  => post(relay, { room:code, type:'teams', teams:names }),
@@ -103,7 +127,8 @@ window.HubBuzzer = (function(){
     const ev    = emitter();
     const src   = stream(relay, { room:code, role:'player', id, name:opts.name||'Player', team:opts.team||0 }, ev);
 
-    ['joined','armed','disarmed','locked','reset','teams','judged','card','marked','nope'].forEach(name=>{
+    ['joined','armed','disarmed','locked','reset','teams','judged','card','marked','nope',
+     'shares'].forEach(name=>{
       src.addEventListener(name, e=>{
         let d = {}; try{ d = JSON.parse(e.data); }catch(_){}
         ev.emit(name, d);
@@ -129,5 +154,5 @@ window.HubBuzzer = (function(){
       .catch(()=>null);
   }
 
-  return { host, player, newCode };
+  return { host, player, newCode, teamColour, TEAM_COLOURS };
 })();

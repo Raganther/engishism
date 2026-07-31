@@ -33,7 +33,21 @@
     background:var(--navy2); color:var(--white); font-family:inherit; font-weight:700; font-size:0.95rem; cursor:pointer;
     min-width:0; overflow-wrap:anywhere;   /* a team called something long stays inside its button */
   }
-  .teams button.on{ background:var(--yellow); color:var(--navy); border-color:var(--yellow); }
+  /* A team is a colour, not only a name — the same colour the projector puts
+     beside that team's words, so a student can match the handset in their hand to
+     the dots on the board without reading anything. The palette is in
+     hub-buzzer.js, the one file the board and the handset both load, so the two
+     ends cannot drift apart. The swatch is painted per button from there; `.on`
+     fills with it, which is why this rule no longer names a colour of its own. */
+  .teams button.on{ color:var(--navy); }
+  .teams button .swatch{
+    display:block; height:6px; border-radius:999px; margin:0 auto 7px; width:34px;
+  }
+  /* Whose handset this is, in their team's colour, on screen all lesson. */
+  .who .tteam{
+    display:inline-block; padding:3px 11px; border-radius:999px; margin-left:7px;
+    background:var(--team, var(--blue)); color:var(--navy); font-weight:700;
+  }
   .card{ display:none; grid-template-columns:repeat(3, 1fr); gap:8px; width:100%; }
   .card button{
     padding:14px 5px; border-radius:12px; border:2px solid rgba(255,255,255,0.22);
@@ -122,7 +136,13 @@
      here ("Pick a word"), not the question itself. */
   #screen-play.many-opts #qtext{ font-size:0.95rem; margin-bottom:8px; }
   #screen-play.many-opts #buzzer{ display:none; }
-  .opts button.picked{ background:#ffc83d; color:#0a0d26; border-color:#ffc83d; }
+  /* A held word takes the team's own colour, not one shared yellow — so what this
+     phone is holding and the dots beside that word on the projector are the same
+     colour, and a student can check their team's answer against the board without
+     being told which dots are theirs. */
+  .opts button.picked{
+    background:var(--team, #ffc83d); color:#0a0d26; border-color:var(--team, #ffc83d);
+  }
   .write{ display:none; width:100%; gap:10px; flex-direction:column; }
   /* Typing comes before buzzing, so the box sits between the question and the
      button: the flow reads top to bottom and the thumb ends on the thing that
@@ -185,7 +205,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260801t"></script>
+<script src="game-hub/hub-buzzer.js?v=20260801u"></script>
 <script>
 (function(){
   'use strict';
@@ -203,16 +223,47 @@
 
   let team = 0, teamNames = ['Team 1','Team 2'], client = null;
 
+  /* The one palette, shared with the projector via hub-buzzer.js. Guarded because
+     this page has to survive that script being absent — the whole phone layer is
+     optional, and a missing colour must not stop anybody joining. */
+  const colourOf = i => (window.HubBuzzer && HubBuzzer.teamColour)
+                        ? HubBuzzer.teamColour(i) : '#00A0DF';
+
   function renderTeams(){
     const wrap = $('teams'); wrap.innerHTML='';
     teamNames.forEach((n,i)=>{
       const b=document.createElement('button');
-      b.textContent=n; b.className = (i===team) ? 'on' : '';
+      const sw = document.createElement('span');
+      sw.className = 'swatch';
+      /* On the chosen button the whole surface is already the team's colour, so
+         the swatch goes dark to stay visible against it. Decided here rather than
+         in a `.on .swatch` rule, which an inline background would have beaten. */
+      sw.style.background = (i===team) ? 'rgba(18,38,63,0.42)' : colourOf(i);
+      b.appendChild(sw);
+      b.appendChild(document.createTextNode(n));
+      b.className = (i===team) ? 'on' : '';
+      // the chosen team fills with its own colour rather than one shared yellow,
+      // so the choice and the identity are the same fact
+      b.style.background   = (i===team) ? colourOf(i) : '';
+      b.style.borderColor  = colourOf(i);
       b.addEventListener('click', ()=>{ team=i; renderTeams(); });
       wrap.appendChild(b);
     });
   }
   renderTeams();
+
+  /* Who this handset belongs to, in their team's colour. One definition because it
+     was written out in two places already. Takes the name rather than reading one:
+     the player's name is a parameter of joinRoom, and an undeclared `name` here
+     would quietly resolve to `window.name` — an empty string, on every handset. */
+  function paintWho(who){
+    const label = teamNames[team] || ('Team ' + (team+1));
+    document.documentElement.style.setProperty('--team', colourOf(team));
+    $('who').textContent = who + ' ';
+    const pill = document.createElement('span');
+    pill.className = 'tteam'; pill.textContent = label;
+    $('who').appendChild(pill);
+  }
 
   /* The real teams, before joining. This screen used to offer a hard-coded two, so
      a class split into four could only pick from the first half — and a team the
@@ -392,8 +443,7 @@
           }
           answered = true;
           paintPicks(box);
-          $('state').textContent = maxPicks > 1
-            ? myPicks.length + ' of ' + maxPicks + ' chosen'
+          $('state').textContent = maxPicks > 1 ? shareLine()
             : (canRethink ? 'Tap another to change' : 'Answer sent');
           if(maxPicks === 1 && !canRethink) [...box.children].forEach(x=>{ x.disabled = true; });
           /* One reply carrying the whole selection: the relay stores one value per
@@ -410,6 +460,17 @@
       setBuzzer('off','Type it');
       setTimeout(()=>{ try{ $('reply').focus(); }catch(e){} }, 60);
     }
+  }
+
+  /* How this phone is doing against its share. Separate from the tap handler
+     because the share can move without anybody tapping: a team gains or loses a
+     player and every handset on it gets a new cap mid-round. Being *over* the cap
+     is a legitimate state — it is what a team has to talk its way out of — so it
+     is reported rather than corrected. */
+  function shareLine(){
+    if(myPicks.length > maxPicks)
+      return 'Drop ' + (myPicks.length - maxPicks) + ' — it is ' + maxPicks + ' each now';
+    return myPicks.length + ' of ' + maxPicks + ' chosen';
   }
 
   /* Which of this phone's options are currently held. Kept as a function because
@@ -566,7 +627,7 @@
     client.on('joined', d=>{
       if(d.teams && d.teams.length){ teamNames = d.teams; }
       $('room').innerHTML = 'Room <b>' + String(code).replace(/[^0-9]/g,'') + '</b>';
-      $('who').textContent = name + ' · ' + (teamNames[team] || ('Team '+(team+1)));
+      paintWho(name);
       show('screen-play');
       rememberSeat({ code, name, team, id:client.id });
       /* Students trickle in — late, on the wrong WiFi, phone locked — so a join
@@ -614,7 +675,7 @@
       if(d.teams && d.teams.length){
         teamNames = d.teams;
         renderTeams();
-        $('who').textContent = name + ' · ' + (teamNames[team] || ('Team '+(team+1)));
+        paintWho(name);
       }
     });
 
@@ -674,6 +735,21 @@
       if(navigator.vibrate) navigator.vibrate(40);
     }
     client.on('armed', applyArmed);
+    /* The team's share of the answer changed under a live round: somebody joined
+       this team or dropped off it, and four words split three ways is not what it
+       was split two ways. Deliberately not a re-arm — that clears every handset's
+       picks, and a latecomer walking in must not wipe what the others had just
+       agreed on. So the cap moves and what this phone holds stays, which can leave
+       it holding more than its share. That is the honest state: the handset says
+       what to drop and refuses to add, and the team settles it by talking, which
+       is the whole reason this mode exists. */
+    client.on('shares', d=>{
+      const next = Math.max(1, Number(d && d.multi) || 1);
+      if(next === maxPicks || mode !== 'vote') return;
+      maxPicks = next;
+      paintPicks();
+      say(myPicks.length ? shareLine() : 'Choose ' + maxPicks + ' — tap to add or drop');
+    });
     /* Both go through say(), because a claimed word resets the room immediately —
        and "waiting for the teacher" landing on top of "you got it" takes the win
        away from the student who just earned it. */

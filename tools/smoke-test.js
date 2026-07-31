@@ -4168,9 +4168,123 @@ async function testPlaygroundConnections(browser){
     check('and a fresh round is armed on what is left',
           await one.locator('#opts button').count() === 12,
           String(await one.locator('#opts button').count()));
-    check('race phones had no errors', one.__errors.length === 0 && two.__errors.length === 0,
-          one.__errors[0] || two.__errors[0]);
-    await one.close(); await two.close();
+
+    /* ---- the ring is neutral, the dots carry who ----
+       It used to take the colour of whichever team grabbed the word *first*, which
+       paints a contested word as one team's and leaves the other team's dot
+       reading as a footnote on somebody else's pick. Both sets have to be equally
+       legible: a team reading what the other side is assembling is what makes the
+       race a language task rather than a speed one. Asserted as a property — two
+       words held by *different* teams look the same — rather than against a hex
+       code, so restyling the ring cannot quietly re-encode the team in it. */
+    await one.locator('#opts button', { hasText:/^dishes$/ }).click();
+    await two.locator('#opts button', { hasText:/^break$/ }).click();
+    await race.waitForTimeout(700);
+    const rings = await race.evaluate(() => {
+      const look = w => {
+        const t = document.querySelector('#grid .tile[data-word="' + w + '"]');
+        return { ring: getComputedStyle(t).boxShadow,
+                 dots: [...t.querySelectorAll('.pick-dot')].map(d => getComputedStyle(d).backgroundColor) };
+      };
+      return { a: look('dishes'), b: look('break') };
+    });
+    check('a word held by either team gets the same neutral ring',
+          rings.a.ring === rings.b.ring && rings.a.ring !== 'none',
+          JSON.stringify(rings));
+    check('and the team is said by the dot, which is not that ring',
+          rings.a.dots.length === 1 && rings.b.dots.length === 1 &&
+          rings.a.dots[0] !== rings.b.dots[0] &&
+          rings.a.ring.indexOf(rings.a.dots[0]) === -1,
+          JSON.stringify(rings));
+    /* The same palette reaches the handset — a student matches the colour in their
+       hand to the dots on the board without being told which are theirs. It lives
+       in hub-buzzer.js because that is the one file both ends load. */
+    /* Null-guarded rather than dereferenced: on a build without the team pill this
+       threw, which aborts the whole block — so the checks after it never reported
+       and a real regression would hide behind one stack trace. A layout assertion
+       that cannot fail cleanly is not much of an assertion. */
+    const paint = await one.evaluate(() => {
+      const bg = sel => { const e = document.querySelector(sel);
+                          return e ? getComputedStyle(e).backgroundColor : null; };
+      const want = (window.HubBuzzer && HubBuzzer.teamColour)
+        ? (c => 'rgb(' + [0,2,4].map(i=>parseInt(c.substr(i,2),16)).join(', ') + ')')
+          (HubBuzzer.teamColour(0).replace('#',''))
+        : null;
+      return { pill: bg('.who .tteam'), held: bg('#opts button.picked'), want };
+    });
+    check('the phone carries its own team colour, from the shared palette',
+          !!paint.want && paint.pill === paint.want && paint.held === paint.want,
+          JSON.stringify(paint));
+
+    /* ---- a player's share of the four comes from their team's size ----
+       Four words assembled by four phones is one word each; by two phones it is
+       two each. One room-wide cap could not express that, because teams are not
+       the same size — and a team of four each holding four words is not a
+       negotiation, it is four separate answers. */
+    check('one phone on a team holds the whole four',
+          /Team 1 1\/4 · 1 phone, 4 each/.test(await race.locator('#vote-text').innerText()),
+          await race.locator('#vote-text').innerText());
+    const three = await join('Cara', 0);
+    await race.waitForTimeout(900);
+    check('a second phone on the team halves the share, live',
+          /Team 1 1\/4 · 2 phones, 2 each/.test(await race.locator('#vote-text').innerText()) &&
+          /Choose 2/.test(await three.locator('#state').innerText()),
+          await race.locator('#vote-text').innerText() + ' | ' + await three.locator('#state').innerText());
+    /* The share moving must not wipe the round. A fresh arm clears every handset's
+       picks, so a latecomer walking in would throw away what the rest of the team
+       had just agreed on — the same rule as the hub's "a re-ask never cancels what
+       is in progress". The cap is pushed on its own instead. */
+    check('and the phone already holding a word keeps it',
+          await one.locator('#opts button.picked').count() === 1 &&
+          await race.locator('#grid .tile[data-word="dishes"] .pick-dot').count() === 1);
+    // fill this phone's share, then try to exceed it
+    await one.locator('#opts button', { hasText:/^exercise$/ }).click();
+    await one.locator('#opts button', { hasText:/^laundry$/ }).click();
+    await race.waitForTimeout(500);
+    check('the cap refuses a word past the share and says so',
+          await one.locator('#opts button.picked').count() === 2 &&
+          /2 is the most/.test(await one.locator('#state').innerText()),
+          await one.locator('#state').innerText());
+
+    /* Two more join, so the share halves again *under* a phone already holding its
+       old one. Nothing is taken off it: forcing a trim would drop a word from a
+       student who did nothing wrong, and the team talking one of them down is the
+       whole mechanic. So being over is a state, and the handset names it. */
+    const four = await join('Dan', 0), five = await join('Eve', 0);
+    await race.waitForTimeout(1200);
+    check('four phones on a team is one word each',
+          /Team 1 2\/4 · 4 phones, 1 each/.test(await race.locator('#vote-text').innerText()),
+          await race.locator('#vote-text').innerText());
+    check('and a phone left over its new share keeps its words and is told to drop one',
+          await one.locator('#opts button.picked').count() === 2 &&
+          /Drop 1 — it is 1 each now/.test(await one.locator('#state').innerText()),
+          await one.locator('#state').innerText());
+
+    /* ---- a phone that drops takes its picks with it ----
+       A reply here is a state the phone is *holding*, not an answer it has given.
+       Left behind, a student who walks out mid-round goes on occupying words of
+       their team's four for the rest of the game with nobody able to drop them —
+       the team is simply stuck. A typed answer is the other case and stays put,
+       which is why the host declares which it is on the arm. */
+    await one.close();
+    await race.waitForTimeout(1200);
+    check('a dropped phone\'s words leave the board with it',
+          await race.locator('#grid .tile[data-word="dishes"] .pick-dot').count() === 0 &&
+          await race.locator('#grid .tile[data-word="exercise"] .pick-dot').count() === 0,
+          await race.locator('#vote-text').innerText());
+    check('and its team gets the share back',
+          /Team 1 0\/4 · 3 phones, 2 each/.test(await race.locator('#vote-text').innerText()),
+          await race.locator('#vote-text').innerText());
+    /* The other team is untouched by any of it — a drop is one team's business. */
+    check('while the other team is left exactly as it was',
+          /Team 2 1\/4/.test(await race.locator('#vote-text').innerText()) &&
+          await race.locator('#grid .tile[data-word="break"] .pick-dot').count() === 1,
+          await race.locator('#vote-text').innerText());
+
+    check('race phones had no errors',
+          one.__errors.length === 0 && two.__errors.length === 0 && three.__errors.length === 0,
+          one.__errors[0] || two.__errors[0] || three.__errors[0]);
+    await two.close(); await three.close(); await four.close(); await five.close();
   }
   check('the race board had no errors', race.__errors.length === 0, race.__errors[0]);
   await race.close();
