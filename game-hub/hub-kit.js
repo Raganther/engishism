@@ -484,6 +484,69 @@ window.HubKit = (function(){
     }
   });
 
+  /* ---- word bridge ----
+     Graduated from playground/lab-forms.js the day a bank actually used it. It is
+     the first form that suits *every* board, because its answer is one ordinary
+     word: a hexagon can key it by its initial, a Race tile can hold it, and
+     Millionaire's four options are candidate links you still have to test against
+     both neighbours rather than a give-away. */
+  /* ---- word bridge ----
+     A chain of compounds with one link missing: `FIRE -> ___ -> SHOP` is answered
+     by `work`, because firework and workshop both exist. The links are separated
+     by `->` and exactly one of them is the blank.
+
+     It would suit every board if graduated — the answer is a single ordinary word,
+     so a hexagon can key it by its initial and a Race tile can hold it, and
+     Millionaire's four options are candidate links you still have to test against
+     both neighbours rather than a give-away. That is why `games` is omitted.
+
+     The reveal is the point of the form: the answer lands, and then each pair is
+     named as the compound it makes, because the answer alone doesn't explain
+     itself. Two compounds is what a bridge is; a chain with more blanks would be a
+     different question and is declined rather than half-drawn. */
+  prompt.register('bridge', {
+    render(mount, item){
+      const text  = String((item && item.text) || '');
+      const links = text.split(/\s*->\s*/).map(s => s.trim()).filter(Boolean);
+      const slots = links.filter(l => /^_{2,}$/.test(l));
+      if(links.length < 3 || slots.length !== 1){ mount.textContent = text; return; }
+      const row = document.createElement('span');
+      row.className = 'prompt-bridge';
+      links.forEach((link, i)=>{
+        if(i){
+          const join = document.createElement('span');
+          join.className = 'prompt-join';
+          join.textContent = '+';
+          row.appendChild(join);
+        }
+        const box = document.createElement('span');
+        const blank = /^_{2,}$/.test(link);
+        box.className = 'prompt-link' + (blank ? ' blank' : '');
+        box.textContent = blank ? '?' : link;
+        row.appendChild(box);
+      });
+      mount.appendChild(row);
+    },
+    reveal(mount, item){
+      const row = mount.querySelector('.prompt-bridge');
+      const slot = row && row.querySelector('.prompt-link.blank');
+      const answer = String((item && item.answer) || '').trim();
+      if(!slot || !answer) return 0;
+      if(/\s/.test(answer) || answer.length > 20) return 0;   // a link is one word
+      slot.textContent = answer;
+      slot.classList.remove('blank');
+      slot.classList.add('filled');
+      const words = [...row.querySelectorAll('.prompt-link')].map(b => b.textContent.trim());
+      const made = [];
+      for(let i = 1; i < words.length; i++) made.push((words[i-1] + words[i]).toLowerCase());
+      const out = document.createElement('span');
+      out.className = 'prompt-made';
+      out.textContent = made.join(' · ');
+      mount.appendChild(out);
+      return 760;
+    }
+  });
+
   /* ---------- "which team gets this?" ----------
      One screen can't tell the engine who spoke, buzzed or touched first, so the
      teacher supplies that one fact. Chips plus number keys, so it can be answered

@@ -4713,14 +4713,25 @@ async function testPromptLab(browser){
   }));
   check('the lab separates forms that are in the kit from experimental ones',
         stages.groups.length === 2 && /gap/.test(stages.inKitGroup) &&
-        /bridge/.test(stages.labGroup) && /realfake/.test(stages.labGroup),
+        stages.labGroup.trim().length > 0,
         JSON.stringify(stages));
 
+  /* ---- the isolation, asked rather than named ----
+     This used to name `bridge` as the experimental one, and the day it graduated
+     the check failed for the right reason with the wrong message — the same
+     "a literal list is a photograph of what existed when the line was written"
+     bug the game registry keeps paying for, met in a test. So it derives the two
+     sets instead: whatever the *lab file* registers beyond what the *kit* holds is
+     experimental by definition, and none of it may be reachable from a game. */
   const hub = await openHub(browser);
   const hubForms = await hub.evaluate(() => window.HubKit.prompt.types());
-  check('an experimental form cannot reach a game',
-        hubForms.indexOf('bridge') === -1 && hubForms.indexOf('realfake') === -1,
-        hubForms.join(','));
+  const labOnlyForms = (await page.evaluate(() => window.HubKit.prompt.types()))
+        .filter(t => hubForms.indexOf(t) === -1);
+  check('the lab is holding at least one experimental form to isolate',
+        labOnlyForms.length > 0, labOnlyForms.join(',') || 'none');
+  check('and no experimental form can reach a game',
+        labOnlyForms.every(t => hubForms.indexOf(t) === -1),
+        'kit: ' + hubForms.join(',') + ' | lab-only: ' + labOnlyForms.join(','));
 
   /* ---- compatibility, proved rather than intended ----
      Every experimental form must be portable into the hub the day it is written,

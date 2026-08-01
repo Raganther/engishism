@@ -739,6 +739,29 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The Lab board is a mixing desk: one question type per category.** A category is
+  Jeopardy's unit of choice, so making each one a single form turns the section
+  screen into a way of comparing them — pick three forms, play a board, and judge
+  each against the others in the same round. Eight categories over three sections:
+  six forms (gap, anagram, odd one out, error fix, word order, **word bridge**) and
+  two Reveal. Every clue is drawn from the same small vocabulary field on purpose,
+  so the only thing that varies is *how it was asked*.
+  - **`bridge` graduated the day a bank actually used it**, which is what it had
+    been waiting for since it was written — a form with no content is a form the
+    class never meets. The move was the documented one: the block out of
+    `playground/lab-forms.js` and into `hub-kit.js`, no rewrite, and `hub.css`
+    already carried its styling.
+  - **Every category needs all five values.** Jeopardy indexes tiles by row, so a
+    category short of one is not a narrower column — it is
+    `Cannot read properties of undefined`. Four-clue reveal categories crashed the
+    board build.
+  - **A $100 tile affords exactly one reveal layer**, so author one at $100 and two
+    from $200 up. Eight categories × 5 fits 1280×720 exactly.
+  - **The `promptlab` suite named `bridge` as the experimental form**, so graduating
+    it failed the check for the right reason with the wrong message. It derives the
+    two sets now — whatever the lab file registers beyond what the kit holds is
+    experimental *by definition*. The same "a literal list is a photograph" bug the
+    game registry keeps paying for, met in a test this time.
 - **The first question dynamic has been carried from the bench into a game show.**
   `game-hub-lab.html` + `game-hub/content/unit-lab.js` — a Lab unit **not loaded by
   `game-hub.html`**, so it is reachable only from its own shell and never appears in
