@@ -966,11 +966,12 @@ async function testGameShowRace(browser){
    all word transformations added during the vary-the-forms pass. Sharing an *answer*
    between games is the design working; sharing a *prompt* is the thing it avoids.
    Runs over every unit loaded in the hub, so a new unit is checked for free. */
-async function testContentIntegrity(browser){
-  section('Content integrity');
-  const page = await openHub(browser);
-
-  const report = await page.evaluate(() => {
+/* The audit itself, lifted out of the suite so it can be run against more than one
+   page. It walks `window.UNITS`, so a unit is checked by being loaded — which is
+   the property that matters, and the reason the Lab shell is now opened too: the
+   Lab unit is deliberately absent from `game-hub.html`, so for two sessions it was
+   authored with no gate on it at all. */
+const UNIT_AUDIT = () => {
     const norm = s => String(s).toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
     const out = [];
     (window.UNITS || []).forEach(u => {
@@ -988,6 +989,36 @@ async function testContentIntegrity(browser){
       }));
       where.forEach((set, k) => { if(set.size > 1)
         out.push({kind:'dupe', msg:id + ': prompt in ' + [...set].join(' + ') + ' — "' + k.slice(0,60) + '"'}); });
+
+      /* Grouping clues. The answer is the set, so `group` is the only place it is
+         written down — and everything that could silently reduce what the room is
+         actually offered is checked here, because none of it throws. */
+      (u.jeopardyCategories||[]).forEach(c => c.clues.forEach(x => {
+        const g = x.group; if(!g) return;
+        const tag = id + ': "' + String(x.q).slice(0, 40) + '"';
+        const pick = Array.isArray(g.pick) ? g.pick : [];
+        const rest = Array.isArray(g.with) ? g.with : [];
+        if(pick.length < 2) out.push({kind:'grouping', msg:tag + ' — needs at least 2 words to find'});
+        if(!rest.length)    out.push({kind:'grouping', msg:tag + ' — has no decoys, so there is nothing to discriminate'});
+        /* A word appearing twice makes the union ambiguous: a team holding it once
+           would be judged against a set that contains it twice. */
+        const seen = new Set(), all = pick.concat(rest);
+        all.forEach(w => {
+          const k = String(w).toLowerCase();
+          if(seen.has(k)) out.push({kind:'grouping', msg:tag + ' — word appears twice: ' + w});
+          seen.add(k);
+        });
+        /* The relay slices the option list at 20, silently. Beyond that the phones
+           are offered fewer words than the board shows, and a team could never
+           assemble a group containing one of the missing ones. */
+        if(all.length > 20) out.push({kind:'grouping', msg:tag + ' — ' + all.length + ' words, over the relay’s cap of 20'});
+        /* The answer line is derived from `pick`, so an authored `a` is a second
+           copy of one fact — which is how a hexagon came to show `U` over an answer
+           beginning with I. */
+        if(x.a) out.push({kind:'grouping', msg:tag + ' — carries an `a` as well as a group; the answer is derived'});
+        // a grouping clue is a round, not a rendered form: the two do not compose
+        if(x.type) out.push({kind:'grouping', msg:tag + ' — carries type "' + x.type + '" as well as a group'});
+      }));
 
       // Jeopardy: equal-length categories, sections contiguous (or a heading prints twice)
       const cats = u.jeopardyCategories || [];
@@ -1041,11 +1072,35 @@ async function testContentIntegrity(browser){
       });
     });
     return { problems: out, units: (window.UNITS||[]).length };
-  });
+};
+
+async function testContentIntegrity(browser){
+  section('Content integrity');
+  const page = await openHub(browser);
+  const report = await page.evaluate(UNIT_AUDIT);
+
+  /* The Lab board, behind its own shell. It is not lesson content and never reaches
+     a class, but it is authored by hand like everything else and its grouping clues
+     have constraints no engine check would catch. */
+  const lab = await browser.newPage({ viewport:{ width:1280, height:720 } });
+  lab.__errors = []; lab.__console = [];
+  lab.on('pageerror', e => lab.__errors.push(String(e)));
+  await lab.goto(BASE + '/game-hub-lab.html'); await lab.waitForTimeout(350);
+  const labReport = await lab.evaluate(UNIT_AUDIT);
+  report.problems = report.problems.concat(labReport.problems);
 
   const of = k => report.problems.filter(p => p.kind === k);
   const first = k => (of(k)[0] || {}).msg;
   check('every unit loaded', report.units > 0, report.units + ' units');
+  check('the Lab unit is checked too, behind its own shell',
+        labReport.units === 1, labReport.units + ' units on the lab shell');
+  /* The one thing that must stay true of that shell: it does not put the Lab in
+     front of a class. Asserted on the hub, not on the lab page. */
+  check('and the Lab unit is not on the ordinary hub',
+        !(await page.evaluate(() => (window.UNITS||[]).some(u => u.id === 'unit-lab'))));
+  check('grouping clues are well formed',
+        !of('grouping').length,     first('grouping'));
+  await lab.close();
   check('no prompt appears in two banks',        !of('dupe').length,         first('dupe'));
   check('Blockbusters answers are one word, keyed by their initial',
         !of('blockbusters').length, first('blockbusters'));
@@ -4672,6 +4727,368 @@ async function testStoryReveal(browser){
   await solo.close();
 }
 
+/* ---- a grouping clue, on the Lab board ----
+   Connections carried into a tile, and the first dynamic off the question bench
+   that is a *round* rather than a form: eight words, four that belong together,
+   assembled from the phones and judged before the tile scores.
+
+   The Lab board had no coverage at all until this suite — the Reveal categories
+   shipped last session untested — so this drives the shell as well as the round.
+
+   Two of these checks were proved against the reverted fix and say so where they
+   are; the rest are the loop itself. */
+async function testGroupingClue(browser){
+  section('Jeopardy: a grouping clue');
+
+  /* The Lab unit lives behind its own shell, deliberately — `game-hub.html` does
+     not load it, so nothing here can reach a class. Categories are ticked by name
+     rather than by position: `startGame` ticks the first N, which would never
+     reach the ninth. */
+  const openLab = async (cats, opts) => {
+    const page = await browser.newPage({ viewport:{ width:1280, height:720 } });
+    page.__errors = []; page.__console = [];
+    page.on('pageerror', e => page.__errors.push(String(e)));
+    page.on('console', m => {
+      if (m.type() === 'error' && !/ERR_CONNECTION_RESET|fonts\.(googleapis|gstatic)/.test(m.text()))
+        page.__console.push(m.text());
+    });
+    await page.goto(BASE + '/game-hub-lab.html' + ((opts||{}).query || ''));
+    await page.waitForTimeout(400);
+    await page.evaluate(p => {
+      window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
+      window.HubSettings.set('buzzers', !!p.phones);
+    }, { phones: !!(opts||{}).phones });
+    await page.getByText('Lab', { exact:false }).first().click();
+    await page.waitForTimeout(220);
+    await page.locator('h3:visible', { hasText:'Jeopardy' }).first().click();
+    await page.waitForTimeout(220);
+    for (const name of cats)
+      await page.locator('#content-list label', { hasText:name }).first().locator('input').check();
+    await page.waitForTimeout(150);
+    await page.locator('#start-btn').click();
+    await page.waitForTimeout(600);
+    if (await page.locator('#intro-overlay.on').count()){
+      await page.keyboard.press('Space'); await page.waitForTimeout(300);
+    }
+    return page;
+  };
+  /* The board is a CSS grid, so a tile's column is its position within the row —
+     there is no data-col to ask for. Row 0 is $100. */
+  const openTile = async (page, cat, row) => {
+    const at = await page.evaluate(name => {
+      const heads = [...document.querySelectorAll('#board .cat-header')];
+      return { col: heads.findIndex(h => new RegExp(name,'i').test(h.textContent)), n: heads.length };
+    }, cat);
+    await page.locator('#board .tile').nth(at.n * row + at.col).click();
+    await page.waitForTimeout(500);
+  };
+  const codeOf = async page =>
+    ((await page.locator('#buzzer-chip').innerText().catch(()=>'')).match(/CODE\s+(\d{5})/i)||[])[1];
+  const join = async (code, name, team) => {
+    const p = await browser.newPage({ viewport:{ width:390, height:844 } });
+    p.__errors = []; p.on('pageerror', e => p.__errors.push(String(e)));
+    await p.goto(`${BASE}/join.html?code=${code}&name=${name}&team=${team}&auto=1`);
+    await p.waitForTimeout(600);
+    return p;
+  };
+  const tap = async (p, words) => {
+    for (const w of words){
+      await p.locator('#opts button', { hasText:new RegExp('^'+w+'$') }).first().click();
+      await p.waitForTimeout(120);
+    }
+  };
+  const words   = page => page.locator('#clue-group .gword').allInnerTexts();
+  const scoresOf= page => page.locator('.team .score').allInnerTexts();
+
+  /* ---------- the content is on the board at all ---------- */
+  let page = await openLab(['Find the Four','Anagram','Gap Fill'], { phones:true });
+  check('the Lab board offers the grouping category',
+        (await page.locator('#board .cat-header').allInnerTexts()).some(t => /Find the Four/i.test(t)));
+
+  await openTile(page, 'Find the Four', 1);          // $200 — the courtroom set
+  const eight = await words(page);
+  check('opening the tile draws the whole set of words',
+        eight.length === 8 && eight.includes('verdict') && eight.includes('sabbatical'),
+        eight.join('|'));
+  check('and the answer is not on the card yet',
+        !(await page.locator('#clue-answer').isVisible()));
+  /* The answer is *derived* from `group.pick` — these clues carry no `a`, because
+     two copies of one fact are two things that can drift. */
+  check('the answer line is derived from the set',
+        /verdict/.test(await page.locator('#clue-answer').innerText()) &&
+        /acquittal/.test(await page.locator('#clue-answer').innerText()),
+        await page.locator('#clue-answer').innerText());
+
+  const code = await codeOf(page);
+  check('a room is open for it', !!code);
+
+  if (code){
+    /* ---------- the phones ---------- */
+    const ana = await join(code, 'Ana', 0);
+    const bo  = await join(code, 'Bo',  0);
+    await page.waitForTimeout(800);
+    const opts = await ana.locator('#opts button').allInnerTexts();
+    check('every phone gets the whole set to choose from, not a buzzer',
+          opts.length === 8 && !(await ana.locator('#buzzer').isVisible()),
+          opts.join('|'));
+    /* The share, and it is the mechanic rather than a detail: four words assembled
+       by two phones is two each, so the team has to agree. */
+    check('two phones on a team hold two words each',
+          /Choose 2\b/i.test(await ana.locator('#opts ~ *, .hint, body').first().innerText()
+                              .catch(()=>'')) ||
+          /2/.test(await ana.evaluate(() => document.body.innerText.match(/Choose \d/)?.[0] || '')),
+          await ana.evaluate(() => document.body.innerText.match(/Choose \d[^\n]*/)?.[0] || '(none)'));
+    check('and the board says the same share out loud',
+          /2 phones, 2 each/.test(await page.locator('.group-tally').innerText()),
+          await page.locator('.group-tally').innerText());
+
+    /* ---------- a wrong four costs nothing but the time ---------- */
+    await tap(ana, ['verdict','jury']);
+    await tap(bo,  ['sabbatical','overtime']);
+    await page.waitForTimeout(1400);
+    check('a wrong four is named and refused',
+          /not a group/i.test(await page.locator('.group-say').innerText()),
+          await page.locator('.group-say').innerText());
+    check('and it costs nothing — the tile is still on the table',
+          (await scoresOf(page)).join('/') === '0/0' &&
+          await page.locator('#clue-group').count() === 1,
+          (await scoresOf(page)).join('/'));
+
+    /* ---------- a stray buzz must not replace the round ----------
+       The relay locks the room on the first buzz whoever sent it, and the engine's
+       refusal path re-armed a *buzzer* — the code meant to recover from a stray
+       buzz would have replaced the grouping round with the very thing the game had
+       said it did not want. Proved against the reverted fix: this check and the one
+       below it both fail on the old build. */
+    await ana.evaluate(() => window.HubPlayer && window.HubPlayer.buzz());
+    await page.waitForTimeout(900);
+    const after = await ana.locator('#opts button').allInnerTexts();
+    check('a stray buzz leaves the room in the grouping round, not on a buzzer',
+          after.length === 8 && !(await ana.locator('#buzzer').isVisible()),
+          after.join('|') || '(no options — it armed a buzzer)');
+    check('and the words on the handset are still the clue’s',
+          after.includes('verdict') && after.includes('overtime'), after.join('|'));
+
+    /* ---------- the right four takes the tile ---------- */
+    await tap(ana, ['verdict','jury']);          // the buzz cleared the picks
+    await tap(bo,  ['testimony','acquittal']);
+    await page.waitForTimeout(1100);
+    check('the four that belong are lit before anything is scored',
+          await page.locator('#clue-group .gword.right').count() === 4,
+          String(await page.locator('#clue-group .gword.right').count()));
+    await page.waitForTimeout(1800);
+    check('the tile scores to the team that found it',
+          (await scoresOf(page)).join('/') === '200/0', (await scoresOf(page)).join('/'));
+    check('and the strip names them with what it paid',
+          /\+200/.test(await page.locator('#phone-bar').innerText()),
+          await page.locator('#phone-bar').innerText().then(t=>t.replace(/\n/g,' ')));
+    /* Leaving eight words up and tappable is what "not asking them at all" did to
+       the Daily Double: indistinguishable from broken, and a phone still holding a
+       live control for a question that has gone. Asserted on what is *offered*, not
+       on the DOM — `standDown` hides the list rather than emptying it, which is the
+       handset's business and not a fact this round should be pinning. */
+    check('the round ends on the handsets when the tile is taken',
+          !(await ana.locator('#opts').isVisible()) &&
+          /waiting for the teacher/i.test(await ana.locator('#state').innerText().catch(()=>'')),
+          await ana.evaluate(() => document.body.innerText.replace(/\n+/g,' / ').slice(0,120)));
+    check('phones had no errors', ana.__errors.length === 0 && bo.__errors.length === 0,
+          ana.__errors[0] || bo.__errors[0]);
+    await ana.close(); await bo.close();
+  }
+  checkClean(page, 'lab board');
+  await page.close();
+
+  /* ---------- no phones at all ----------
+     Degradation is not optional anywhere in this app, and a clue the teacher cannot
+     play without a relay would be the first place it broke. */
+  page = await openLab(['Find the Four','Anagram','Gap Fill'], { phones:false });
+  await openTile(page, 'Find the Four', 0);          // $100 — the anger set
+  check('with no room, the words are still on the card',
+        (await words(page)).length === 8);
+  const btn = page.locator('#group-btn');
+  check('and the teacher gets a button to judge their own set',
+        await btn.isVisible() && await btn.isDisabled(),
+        await btn.innerText().catch(()=>'(missing)'));
+  const pickOnBoard = async list => {
+    for (const w of list){
+      await page.locator(`#clue-group .gword[data-word="${w}"]`).click();
+      await page.waitForTimeout(80);
+    }
+  };
+  await pickOnBoard(['livid','furious','grateful','serene']);
+  check('four clicked words enable it', !(await btn.isDisabled()),
+        await btn.innerText());
+  await btn.click(); await page.waitForTimeout(500);
+  check('a wrong set is refused and costs nothing',
+        /not a group/i.test(await page.locator('.group-say').innerText()) &&
+        (await scoresOf(page)).join('/') === '0/0');
+  await pickOnBoard(['grateful','serene','incensed','irate']);   // swap the two decoys out
+  await btn.click(); await page.waitForTimeout(1600);
+  check('and the right set takes the tile for the team on turn',
+        (await scoresOf(page)).join('/') === '100/0', (await scoresOf(page)).join('/'));
+  checkClean(page, 'no-phones board');
+  await page.close();
+
+  /* ---------- an ordinary clue is untouched ----------
+     Every other category on this board runs through the same card, so the cheapest
+     way to know the round has not leaked into them is to play one. */
+  page = await openLab(['Anagram','Gap Fill','Word Bridge'], { phones:false });
+  await openTile(page, 'Gap Fill', 0);
+  check('a clue with no group draws no word set',
+        await page.locator('#clue-group').count() === 0 &&
+        !(await page.locator('#group-btn').isVisible()));
+  check('and reveals normally',
+        await page.locator('#reveal-btn').isVisible());
+  await page.locator('#reveal-btn').click(); await page.waitForTimeout(300);
+  check('with the usual Correct / Wrong pair',
+        await page.locator('#correct-btn').isVisible() &&
+        await page.locator('#wrong-btn').isVisible());
+  checkClean(page, 'ordinary clue');
+  await page.close();
+
+  /* ---------- who plays it is a switch ----------
+     The whole room racing is the Connections dynamic and the default; the team on
+     turn alone is the ordinary Jeopardy contract. Scoping reaches three places at
+     once — the relay stores the team, an unentitled phone shows the question with
+     no controls, and a reply that arrives anyway is dropped — so the check is that
+     the other team's handset can see the clue and not answer it. */
+  page = await openLab(['Find the Four','Anagram','Gap Fill'], { phones:true });
+  await page.evaluate(() => window.HubSettings.set('jGroupWho', 'turn', 'jeopardy'));
+  await openTile(page, 'Find the Four', 1);
+  const turnCode = await codeOf(page);
+  if (turnCode){
+    const on  = await join(turnCode, 'Cal', 0);      // the team on turn
+    const off = await join(turnCode, 'Di',  1);      // the other team
+    await page.waitForTimeout(800);
+    check('scoped to the turn: that team gets the words',
+          await on.locator('#opts button').count() === 8,
+          String(await on.locator('#opts button').count()));
+    check('and the other team sees the question with nothing to tap',
+          await off.locator('#opts button').count() === 0 &&
+          /court|belong/i.test(await off.locator('#qtext').innerText().catch(()=>'')),
+          await off.locator('#qtext').innerText().catch(()=>'(none)'));
+    check('phones had no errors', on.__errors.length === 0 && off.__errors.length === 0,
+          on.__errors[0] || off.__errors[0]);
+    await on.close(); await off.close();
+  }
+  checkClean(page, 'scoped round');
+  await page.close();
+
+  /* ---------- a miss has no rebound and no bill ----------
+     Both follow from one fact: nobody held the floor. The steal exists so a team
+     shut out of a question gets it when the team holding it misses, and `jDeduct`
+     charges the team that missed — but every team was assembling this clue at once,
+     so `missed` is only "whoever happened to be on turn". Checked with both
+     switches deliberately on, which is what the `classic` ruleset writes. */
+  page = await openLab(['Find the Four','Anagram','Gap Fill'], { phones:false });
+  await page.evaluate(() => {
+    window.HubSettings.set('stealOnWrong', true, 'jeopardy');
+    window.HubSettings.set('jDeduct', true, 'jeopardy');
+  });
+  await openTile(page, 'Find the Four', 1);
+  await page.locator('#reveal-btn').click(); await page.waitForTimeout(300);
+  /* Reveal answers it on the board — the four light up where they stand, which is
+     the thing worth seeing. It also ends the round, and that is the trap: Correct
+     and Wrong only exist *after* Reveal, so anything below that asked "is the round
+     still live?" would find it closed and let the steal and the deduction back in.
+     They ask "was this a grouping clue?" instead. */
+  check('Reveal lights the four on the card',
+        await page.locator('#clue-group .gword.right').count() === 4 &&
+        !(await page.locator('#group-btn').isVisible()),
+        String(await page.locator('#clue-group .gword.right').count()));
+  await page.locator('#wrong-btn').click();  await page.waitForTimeout(900);
+  check('a missed grouping clue offers no steal',
+        !(await page.locator('#clue-claim button').count()) &&
+        !(await page.locator('#clue-modal').isVisible()),
+        String(await page.locator('#clue-claim button').count()));
+  check('and nobody is charged for it',
+        (await scoresOf(page)).join('/') === '0/0', (await scoresOf(page)).join('/'));
+  /* The same two switches on an ordinary clue on the same board, or this would
+     pass by having quietly broken the steal for everything. */
+  await openTile(page, 'Gap Fill', 1);
+  await page.locator('#reveal-btn').click(); await page.waitForTimeout(250);
+  await page.locator('#wrong-btn').click();  await page.waitForTimeout(400);
+  check('an ordinary clue on the same board still offers one',
+        await page.locator('#clue-claim button').count() > 0,
+        String(await page.locator('#clue-claim button').count()));
+  checkClean(page, 'miss');
+  await page.close();
+
+  /* ---------- a Daily Double on a grouping tile ----------
+     Two dynamics that contradict each other on the face of it: a Daily Double
+     belongs to the team that found it, a grouping clue is the whole room at once.
+     The phones are what a Daily Double excludes, not the words — without the round
+     the tile opened on an instruction with nothing to pick from, and the wager was
+     unanswerable. `jCorrect` already pays a Daily Double to whoever found it, so
+     the teacher-click path needed nothing else. */
+  page = await openLab(['Find the Four','Anagram','Gap Fill'], { phones:false });
+  await page.evaluate(() => window.HubSettings.set('jDailyDoubles', 1, 'jeopardy'));
+  await page.waitForTimeout(200);
+  // plant one deliberately on a grouping tile rather than waiting for chance
+  const planted = await page.evaluate(() => {
+    const heads = [...document.querySelectorAll('#board .cat-header')];
+    const col = heads.findIndex(h => /Find the Four/i.test(h.textContent));
+    const tiles = [...document.querySelectorAll('#board .tile')];
+    tiles.forEach(t => delete t.dataset.dd);
+    const t = tiles[heads.length * 2 + col];      // $300
+    t.dataset.dd = '1';
+    return !!t.dataset.dd;
+  });
+  check('a Daily Double can be planted on a grouping tile', planted);
+  await page.locator('#board .tile').nth(
+    (await page.evaluate(() => document.querySelectorAll('#board .cat-header').length)) * 2 +
+    (await page.evaluate(() => [...document.querySelectorAll('#board .cat-header')]
+        .findIndex(h => /Find the Four/i.test(h.textContent))))).click();
+  await page.waitForTimeout(500);
+  check('it opens on the wager, not on the words',
+        await page.locator('#wager-panel').isVisible() &&
+        await page.locator('#clue-group').count() === 0);
+  await page.locator('#wager-ok').click(); await page.waitForTimeout(500);
+  check('and once the bet is in, the words are there to play',
+        (await words(page)).length === 8 &&
+        await page.locator('#group-btn').isVisible(),
+        String((await words(page)).length));
+  for (const w of ['dismissed','sacked','redundant','discharged']){
+    await page.locator(`#clue-group .gword[data-word="${w}"]`).click();
+    await page.waitForTimeout(70);
+  }
+  await page.locator('#group-btn').click(); await page.waitForTimeout(1600);
+  check('the wager pays the team that found it',
+        Number((await scoresOf(page))[0]) > 0, (await scoresOf(page)).join('/'));
+  checkClean(page, 'daily double');
+  await page.close();
+
+  /* ---------- it fits, on both screens ----------
+     The `fit` and `phone` suites ask every registered game about its *stage*; a clue
+     card is not a stage and neither of them opens one, so a set of words that
+     overflowed the card would pass both. Checked on the $500 clue, whose eight words
+     are the longest in the category, and on a handset as well as a projector because
+     a teacher checks a lesson on their phone. */
+  for (const vp of [{ width:1280, height:720, tag:'a projector' },
+                    { width:390,  height:844, tag:'a handset' }]){
+    const p = await openLab(['Find the Four','Anagram','Gap Fill'], { phones:false });
+    await p.setViewportSize({ width:vp.width, height:vp.height });
+    await p.waitForTimeout(250);
+    await openTile(p, 'Find the Four', 4);
+    const m = await p.evaluate(() => {
+      const card  = document.getElementById('clue-card');
+      const r     = card.getBoundingClientRect();
+      const chips = [...document.querySelectorAll('#clue-group .gword')].map(e => e.getBoundingClientRect());
+      const acts  = document.getElementById('clue-actions').getBoundingClientRect();
+      return { chips: chips.length,
+               below: chips.filter(c => c.bottom > r.bottom - 1).length,
+               past:  chips.filter(c => c.right  > r.right  - 1).length,
+               clipped: card.scrollHeight > card.clientHeight + 1,
+               actionsOn: acts.bottom <= window.innerHeight && acts.top >= 0 };
+    });
+    check(`on ${vp.tag}: the words stay inside the card`,
+          m.chips === 8 && !m.below && !m.past && !m.clipped, JSON.stringify(m));
+    check(`on ${vp.tag}: and the buttons are still reachable`, m.actionsOn, JSON.stringify(m));
+    checkClean(p, vp.tag);
+    await p.close();
+  }
+}
+
 /* ---- the prompt lab ----
    The question forms had nowhere to be seen: a form could only be met by finding a
    bank item that happened to carry its type, which is why three of them sat at 4%
@@ -5559,7 +5976,7 @@ async function main(){
     together: testJeopardyTogether, jclock: testAnswerClock,
     playground: testPlaygroundConnections, bench: testPhoneBench,
     promptlab: testPromptLab, thermometer: testThermometer,
-    storyreveal: testStoryReveal
+    storyreveal: testStoryReveal, grouping: testGroupingClue
   };
   const toRun = onlyArg ? onlyArg.split(',').map(s => s.trim()).filter(k => suites[k])
                         : Object.keys(suites);

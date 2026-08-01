@@ -177,18 +177,29 @@
     askingNow:   () => clueIsOpen() && jDoubleTeam == null && !jWager,
     /* A Daily Double is answered by the team that found it, alone: no race to win,
        so a buzz already in flight when the wager opened is refused rather than
-       taking a floor that does not exist. */
-    buzzEntitled: () => jDoubleTeam == null && !jWager,
+       taking a floor that does not exist. A grouping clue refuses for the opposite
+       reason — every team is playing it at once, and there is no floor to take. */
+    buzzEntitled: () => jDoubleTeam == null && !jWager && !jGroupLive(),
     /* The final clue is the one beat of Jeopardy where every team answers at once,
        privately, against the clock — that is the whole mechanic, and a buzzer would
        hand it to one thumb. So the game owns the round while it runs, exactly as
        Bingo owns it while the cards are in their hands, and `phoneMode` picks up
        again afterwards. */
     phoneRound(){
+      /* A grouping clue owns the round for the same reason: it *is* the phone
+         dynamic, so the mode has nothing to say about eight words to assemble. */
+      if(jGroupLive()) return jGroupRound();
       if(!jFinalState || !jFinalState.asking) return null;
       return { mode:'write',
                prompt: S.get('phonePrompt', 'jeopardy') ? (jFinalState.clue.q || '') : '' };
     },
+    /* A room is worth having open for a grouping clue even at `phoneMode: off`, the
+       same shape as Millionaire's Ask the class and Bingo's cards — and the chip has
+       to say so, because "idle here" reads as "don't bother joining" to a room that
+       is about to be handed eight words. */
+    wantsVote:   () => jGroupLive(),
+    roomNote:    () => jGroupLive() ? 'find the group' : null,
+    onVoteReply(all){ jGroupOnReplies(all); },
     // the buzz decides who answers, so it selects that team: the teacher stops
     // being the one who chooses, which is the whole point of buzzing for a tile
     /* A plain buzz starts the answer clock; a typed one does not — the typed word
@@ -566,6 +577,20 @@
     min:10, max:50, step:10, unit:'%', games:['jeopardy'],
     label:'What a hint costs',
     help:'Each hint takes this much off the value of the clue it is used on.' });
+
+  /* A grouping clue is the one clue every team can genuinely play at the same time,
+     and whether they should is a teaching decision rather than a number to tune —
+     which is what makes it a variant. The whole room racing is the Connections
+     dynamic and the reason the clue is worth having; the team on turn alone is the
+     ordinary Jeopardy contract, and is the right answer for a class where one team
+     is running away with it. Written as a switch because a choice between
+     iterations is exactly what a variant is for, and the drawer is where a teacher
+     tries the other one between rounds. */
+  S.register({ id:'jGroupWho', group:'Jeopardy', type:'variant', default:'room',
+    games:['jeopardy'], label:'Who plays a grouping clue',
+    variants:[{ value:'room', label:'The whole class races — first group found takes the tile' },
+              { value:'turn', label:'Only the team on turn' }],
+    help:'A grouping clue asks the room to assemble a set on their phones. It can be a race between every team, or belong to the team whose turn it is like any other tile.' });
 
   S.register({ id:'jDailyDoubles', group:'Jeopardy', type:'range', default:0,
     min:0, max:3, step:1, unit:' hidden', games:['jeopardy'],
@@ -1126,6 +1151,7 @@
         <div id="clue-answer"></div>
         <div id="clue-actions">
           <button id="hint-btn" style="display:none;">Need a hand?</button>
+          <button id="group-btn" style="display:none;">Check these</button>
           <button id="wager-ok" style="display:none;">Lock it in</button>
           <button id="reveal-btn">Reveal answer</button>
           <button id="correct-btn" style="display:none;">✓ Correct</button>
@@ -1477,6 +1503,12 @@
 
   function nextTurn(){ if(teams.length){ active=Kit.passTurn(teams.length, active); renderScorebar(); } }
 
+  /* What to call a team when it has to be named in prose — a strip chip, a dot's
+     tooltip, a board saying who just took a tile. A team index can outrun the list
+     (a reply from a handset still holding a team that has since been removed), so
+     this never returns undefined. */
+  function teamName(i){ return teams[i] ? teams[i].name : ('Team ' + (Number(i) + 1)); }
+
   /* ---------- one scoring path, so a mechanic is written once ----------
      Every award in the app goes through here. `opts.steal` halves the value (you
      get the chance the other team dropped, not the full prize) and `opts.streak`
@@ -1770,6 +1802,22 @@
       btn.textContent = (jHintsUsed === 0 ? 'Need a hand? (−$' : 'One more? (−$') + jHintCost() + ')';
     }
   }
+
+  /* The teacher's own set, judged by the same function a team's is. Right lights the
+     four and takes the tile for whoever is on turn; wrong shakes them and costs
+     nothing, exactly as it costs a team nothing. */
+  document.getElementById('group-btn').addEventListener('click', () => {
+    if(!jGroupLive() || jGroup.chosen.size !== jGroup.need) return;
+    const set = [...jGroup.chosen];
+    if(jGroupIsRight(set)){ jGroupTake(active); return; }
+    jGroup.say = 'Not a group' + (jGroupHits(set) === jGroup.need - 1 ? ' — one away…' : '.');
+    Sound.play('wrong');
+    renderJGroup();
+    document.querySelectorAll('#clue-group .gword.chosen').forEach(el=>{
+      el.classList.add('shake');
+      setTimeout(()=> el.classList.remove('shake'), 380);
+    });
+  });
 
   document.getElementById('hint-btn').addEventListener('click', () => {
     if(!currentClueItem) return;
@@ -3157,9 +3205,346 @@
   });
 
   function hideAllActionButtons(){
-    ['reveal-btn','correct-btn','wrong-btn','skip-btn','close-btn','hint-btn']
+    ['reveal-btn','correct-btn','wrong-btn','skip-btn','close-btn','hint-btn','group-btn']
       .forEach(id=>{ document.getElementById(id).style.display='none'; });
     clueClaim.hide();
+  }
+
+  /* ================= A GROUPING CLUE =================
+     Connections inside a tile: eight words on the card, four of which belong
+     together, and the room assembles the four from their phones. It is the first
+     dynamic carried over from the question bench that is a **round** in the full
+     sense, and that is the headline. `Kit.prompt` is a *rendering* contract —
+     render and reveal, with no time, no turns and no phones anywhere in it — so
+     none of this could live there however much it looks like a question form. Story
+     Reveal ported cheaply because the hub already had hints costing clue value;
+     grouping had nothing to land on.
+
+     What it does not need to build is the half the relay already grew and nothing
+     in the hub had ever used: multi-pick, and `multiByTeam` — a per-phone cap
+     derived from that team's size, so four words assembled by four phones is one
+     each and by two phones is two each. That share is the mechanic rather than a
+     detail: a team holding five between them is over, and has to talk one of them
+     down. Being over is a state, not an error — nothing is stripped.
+
+     Every team plays at once and the first to settle a correct set takes the tile.
+     A wrong set costs nothing but the time, exactly as it costs nothing in
+     Connections' race: the other team is the pressure, and a class that is charged
+     for a guess stops guessing. */
+  let jGroup = null;      // the live round, or null
+
+  /* The bench's two guessed numbers, and they are still guesses — nothing here has
+     met a class. 700ms is long enough that four picks arriving from four phones are
+     judged once rather than three times on the way up. */
+  const J_GROUP_SETTLE_MS = 700;
+  /* A beat between the four words lighting up and the card flipping away. Without
+     it the room never sees which four it was: the answer and the card leaving would
+     land in the same frame. */
+  const J_GROUP_TAKE_MS   = 700;
+
+  /* Two different questions, and using the wrong one is a live trap. `jGroupClue()`
+     is "this clue is a grouping clue", true until the card closes. `jGroupLive()` is
+     "the round is still being played", which stops the moment it is taken or
+     revealed. The steal and the deduction ask the first — they run *after* Reveal,
+     so asking the second would have silently let both back in. */
+  function jGroupClue(){ return !!jGroup; }
+  function jGroupLive(){ return !!jGroup && !jGroup.done; }
+
+  /* `group:{pick, with}` and nothing else — the answer *is* the set, so there is no
+     `a` on these clues to drift out of step with it. Anything malformed returns null
+     and the clue plays as an ordinary one, which is the same way a mis-authored
+     question form declines to plain text. */
+  function jGroupOf(item){
+    const g = item && item.group;
+    if(!g || !Array.isArray(g.pick) || g.pick.length < 2) return null;
+    const pick = g.pick.map(String);
+    const rest = (Array.isArray(g.with) ? g.with : []).map(String)
+                   .filter(w => pick.indexOf(w) === -1);
+    return rest.length ? { pick, words: pick.concat(rest) } : null;
+  }
+
+  function jGroupOpen(item){
+    const g = jGroupOf(item);
+    if(!g) return null;
+    jGroup = { words: shuffle(g.words.slice()), pick: g.pick, need: g.pick.length,
+               chosen: new Set(),   // what the teacher has clicked, with no phones in the room
+               picks: {},           // team index -> the union of its players' picks
+               judged: {},          // team index -> the set already ruled on
+               say: '', done:false, timer:null };
+    renderJGroup();
+    return jGroup;
+  }
+
+  /* The round the phones are put into. Read through `phoneRound()`, so it reaches
+     the relay by the same path Bingo's cards do and the mode is not consulted. */
+  function jGroupRound(){
+    if(!jGroupLive()) return null;
+    /* A label, not a sentence. Eight options already fill a handset, and every line
+       of instruction is a line of words pushed off the screen — the same lesson
+       Blockbusters' eighteen-letter vote paid for. The clue itself rides along only
+       when the teacher has asked for prompts on phones. */
+    const label = 'Find the group of ' + jGroup.need;
+    return { mode:'vote',
+             prompt: S.get('phonePrompt', 'jeopardy')
+                       ? ((currentClueItem && currentClueItem.text) || label) : label,
+             options: jGroup.words.slice(),
+             multi: jGroup.need,
+             multiByTeam: jGroupShares(),
+             /* A pick is a state a phone is *holding*, not an answer it has given, so
+                it leaves with the phone. Otherwise a student who walks out goes on
+                occupying two of their team's four words with nobody able to drop them. */
+             holds: true,
+             /* The whole point is that a team argues and moves, so a tap must be able
+                to replace the last one. */
+             rethink: true,
+             /* `null` is the whole room. Scoping it to one team reaches three places
+                at once — the relay stores it, the phones that are not entitled show
+                the question with no controls, and replies that arrive anyway are
+                dropped — so the setting needs nothing else to be true. */
+             team: S.get('jGroupWho', 'jeopardy') === 'turn' ? active : null };
+  }
+
+  /* Each team's share of the answer, from that team's size. One phone holds all
+     four; four phones hold one each. A team with no phones gets the whole set,
+     which is the right answer for a room being driven from one handset. */
+  function jGroupShares(){
+    if(!buzzHost || !jGroup || !teams.length) return null;
+    const sizes = teams.map(()=>0);
+    buzzHost.players().forEach(p=>{
+      const t = Number(p.team);
+      if(t >= 0 && t < sizes.length) sizes[t]++;
+    });
+    return sizes.map(n => Math.max(1, Math.min(jGroup.need,
+                          Math.ceil(jGroup.need / Math.max(1, n)))));
+  }
+
+  /* Somebody joined a team or dropped off one, so the shares have moved. Pushed on
+     its own rather than re-armed, because a fresh arm clears every handset's picks
+     and a latecomer walking in must not wipe what the rest of the team had just
+     agreed on. */
+  function jGroupPushShares(){
+    if(!buzzHost || !jGroupLive()) return;
+    const per = jGroupShares();
+    if(per) buzzHost.shares(per);
+  }
+
+  function renderJGroup(){
+    const text = document.getElementById('clue-text');
+    let host = document.getElementById('clue-group');
+    if(!jGroup){ if(host) host.remove(); return; }
+    if(!host || host.parentNode !== text){
+      if(host) host.remove();
+      host = document.createElement('div');
+      host.id = 'clue-group'; host.className = 'clue-group';
+      text.appendChild(host);
+    }
+    host.innerHTML = '';
+
+    const grid = document.createElement('div');
+    grid.className = 'group-words';
+    jGroup.words.forEach(w=>{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'gword';
+      b.dataset.word = w;
+      const label = document.createElement('span');
+      label.className = 'gw-text';
+      label.textContent = w;
+      b.appendChild(label);
+      // once it is over, the four that were right say so whoever found them
+      if(jGroup.done && jGroup.pick.indexOf(w) !== -1) b.classList.add('right');
+      /* The teacher's own selection is a neutral dashed ring and never a team
+         colour: on a board every team is playing at once, nothing the teacher
+         clicks belongs to anybody. Connections paid for this once — a coloured
+         ring reads as one team's word and makes the other team's dot a footnote
+         on it. */
+      if(jGroup.chosen.has(w)) b.classList.add('chosen');
+      const holders = Object.keys(jGroup.picks)
+                        .filter(t => (jGroup.picks[t]||[]).indexOf(w) !== -1);
+      if(holders.length){
+        b.classList.add('held');
+        const dots = document.createElement('span');
+        dots.className = 'gdots';
+        holders.forEach(t=>{
+          const d = document.createElement('span');
+          d.className = 'gdot';
+          d.style.background = window.HubBuzzer ? HubBuzzer.teamColour(Number(t)) : '';
+          d.title = teamName(Number(t));
+          dots.appendChild(d);
+        });
+        b.appendChild(dots);
+      }
+      b.addEventListener('click', ()=> jGroupTeacherPick(w));
+      grid.appendChild(b);
+    });
+    host.appendChild(grid);
+
+    /* How close each team is, named and counted. Four means it is about to be
+       judged; more than four means they have to agree to drop some, and saying so
+       is what turns being over into a conversation rather than an error. */
+    const sizes = teams.map(()=>0);
+    if(buzzHost) buzzHost.players().forEach(p=>{
+      const t = Number(p.team);
+      if(t >= 0 && t < sizes.length) sizes[t]++;
+    });
+    const line = document.createElement('div');
+    line.className = 'group-tally';
+    teams.forEach((t, i)=>{
+      const n = (jGroup.picks[i] || []).length;
+      // a team with neither a phone nor a pick says nothing rather than sitting at 0/4
+      if(!n && !sizes[i]) return;
+      const chip = document.createElement('span');
+      chip.className = 'group-count';
+      if(window.HubBuzzer) chip.style.borderColor = HubBuzzer.teamColour(i);
+      chip.textContent = t.name + ' ' + n + '/' + jGroup.need +
+                         (n > jGroup.need ? ' — too many' : '');
+      if(sizes[i]){
+        /* "two each" is the rule the teacher has to be able to say out loud, and it
+           moves on its own whenever somebody joins or drops. */
+        const tail = document.createElement('small');
+        tail.textContent = ' · ' + sizes[i] + (sizes[i] === 1 ? ' phone, ' : ' phones, ') +
+                           Math.max(1, Math.min(jGroup.need,
+                             Math.ceil(jGroup.need / sizes[i]))) + ' each';
+        chip.appendChild(tail);
+      }
+      line.appendChild(chip);
+    });
+    if(line.children.length) host.appendChild(line);
+
+    if(jGroup.say){
+      const say = document.createElement('div');
+      say.className = 'group-say' + (jGroup.done ? ' good' : '');
+      say.textContent = jGroup.say;
+      host.appendChild(say);
+    }
+    renderJGroupButton();
+  }
+
+  /* The no-phones path, and it is not a fallback — a teacher with a dead relay has
+     to be able to play this clue, which is the rule every playground page owes too.
+     Clicking the words assembles a set on the board and the button judges it. */
+  function jGroupTeacherPick(w){
+    if(!jGroupLive()) return;
+    if(jGroup.chosen.has(w)) jGroup.chosen.delete(w);
+    else if(jGroup.chosen.size < jGroup.need) jGroup.chosen.add(w);
+    renderJGroup();
+  }
+
+  function renderJGroupButton(){
+    const btn = document.getElementById('group-btn');
+    if(!btn) return;
+    const on = jGroupLive() && modalMode === 'jeopardy';
+    btn.style.display = on ? 'inline-block' : 'none';
+    if(!on) return;
+    btn.disabled = jGroup.chosen.size !== jGroup.need;
+    btn.textContent = 'Check these ' + jGroup.need +
+                      ' (' + jGroup.chosen.size + '/' + jGroup.need + ')';
+  }
+
+  function jGroupIsRight(set){
+    if(!jGroup || !set || set.length !== jGroup.need) return false;
+    const got = set.map(w => String(w).toLowerCase());
+    return jGroup.pick.every(w => got.indexOf(String(w).toLowerCase()) !== -1);
+  }
+  // how many of the four they actually had — "one away" is worth saying
+  function jGroupHits(set){
+    const want = jGroup.pick.map(w => String(w).toLowerCase());
+    return (set||[]).filter(w => want.indexOf(String(w).toLowerCase()) !== -1).length;
+  }
+
+  /* Replies off the wire. A team's answer is the **union of its players' picks**,
+     because a team of two phones could never assemble four words at one vote each —
+     and the union is also what forces the negotiation, since six words up means
+     agreeing which two to drop. */
+  function jGroupOnReplies(all){
+    if(!jGroupLive()) return;
+    const picks = {};
+    (all || []).forEach(r=>{
+      const t = Number(r.team) || 0;
+      const set = picks[t] || (picks[t] = []);
+      String(r.value == null ? '' : r.value).split('|').filter(Boolean).forEach(w=>{
+        if(jGroup.words.indexOf(w) !== -1 && set.indexOf(w) === -1) set.push(w);
+      });
+    });
+    jGroup.picks = picks;
+    renderJGroup();
+    if(jGroup.timer) clearTimeout(jGroup.timer);
+    jGroup.timer = setTimeout(jGroupSettle, J_GROUP_SETTLE_MS);
+  }
+
+  /* Debounced, and with a memory of what has already been ruled on. Both halves are
+     needed and the bench learned each separately: four picks arriving from four
+     phones would be judged three times on the way up, and a team sitting on a wrong
+     four would be told off again on every stray reply from anybody. */
+  function jGroupSettle(){
+    if(!jGroupLive()) return;
+    jGroup.timer = null;
+    const full = Object.keys(jGroup.picks).map(Number)
+                   .filter(t => (jGroup.picks[t] || []).length === jGroup.need);
+    /* The right answer is resolved before any wrong one. Two teams can settle in the
+       same tick, and taking them in arrival order puts "not a group" on screen
+       *after* the other team has already taken the tile — the board announcing the
+       wrong headline for a question that has moved on. */
+    const winner = full.filter(t => jGroupIsRight(jGroup.picks[t]))[0];
+    if(winner != null){ jGroupTake(winner); return; }
+    full.forEach(t=>{
+      const key = jGroup.picks[t].slice().sort().join('|');
+      if(jGroup.judged[t] === key) return;
+      jGroup.judged[t] = key;
+      jGroupMiss(t, jGroup.picks[t]);
+    });
+  }
+
+  function jGroupMiss(team, set){
+    const hits = jGroupHits(set);
+    jGroup.say = teamName(team) +
+                 (hits === jGroup.need - 1 ? ': one away…' : ': not a group.');
+    Sound.play('wrong');
+    renderJGroup();
+    notePhoneMiss(teamName(team), team, set.join(', '), 'wrong');
+    document.querySelectorAll('#clue-group .gword').forEach(el=>{
+      if(set.indexOf(el.dataset.word) === -1) return;
+      el.classList.add('shake');
+      setTimeout(()=> el.classList.remove('shake'), 380);
+    });
+  }
+
+  function jGroupTake(team){
+    if(jGroup.timer){ clearTimeout(jGroup.timer); jGroup.timer = null; }
+    jGroup.done = true;
+    jGroup.say  = teamName(team) + ' has it.';
+    renderJGroup();
+    Sound.play(document.getElementById('play-jeopardy').classList.contains('lit')
+               ? 'sting' : 'correct');
+    /* The class produced the answer and the host judged it, so there is nothing left
+       for the teacher to confirm — the same rule a typed word has always followed.
+       A beat first, or the four lighting up and the card leaving land in one frame
+       and the room never sees which four it was. */
+    const value = currentClueValue;
+    setTimeout(()=>{
+      if(!jGroup) return;                 // the teacher closed the card in the meantime
+      const paid = jCorrect(team);
+      notePhoneScore(teamName(team), team, null, paid || value);
+    }, J_GROUP_TAKE_MS);
+  }
+
+  /* The round is over — because the tile was taken, or because the teacher closed
+     the card on it. Say the true thing to thirty handsets rather than leaving eight
+     words up with a dead button: that is what "not asking them at all" did to the
+     Daily Double, and it reads as broken rather than deliberate. */
+  function jGroupEnd(){
+    if(!jGroup) return;
+    if(jGroup.timer) clearTimeout(jGroup.timer);
+    jGroup = null;
+    const host = document.getElementById('clue-group');
+    if(host) host.remove();
+    if(buzzHost){
+      buzzWinner = null;
+      lastAsk = { mode:'off', prompt:'' };
+      buzzHost.disarm();
+      renderBuzzChip();
+    }
+    clearReplies();
   }
 
   function openJeopardyClue(cat, clue, tile){
@@ -3203,17 +3588,35 @@
       dd ? ('DAILY DOUBLE · ' + cat.name + ' · $' + currentClueValue)
          : (cat.name + ' · $' + clue.v + (review ? '  ·  review' : ''));
     document.getElementById('clue-section').textContent = cat.section;
-    /* `reveal` rides along with the normalised shape. The normalisation exists so
-       the kit never learns that Jeopardy calls a prompt `q` — but it is a
+    /* `reveal` and `group` ride along with the normalised shape. The normalisation
+       exists so the kit never learns that Jeopardy calls a prompt `q` — but it is a
        whitelist, so anything an author adds to an item is invisible downstream
        until it is named here. That is the real friction in carrying a question
-       dynamic across from the bench, and it is worth knowing before the next one. */
-    currentClueItem = { text:clue.q, answer:clue.a, type:clue.type, reveal:clue.reveal };
+       dynamic across from the bench: `reveal` was silently dropped once and the
+       hint button simply never appeared, with nothing anywhere saying why. */
+    currentClueItem = { text:clue.q, answer:clue.a, type:clue.type, reveal:clue.reveal,
+                        group:clue.group };
+    /* A grouping clue's answer *is* its set, so it is derived rather than authored —
+       two copies of one fact are two things that can drift, which is how a hexagon
+       came to show `U` over an answer beginning with I. */
+    const grp = jGroupOf(currentClueItem);
+    if(grp) currentClueItem.answer = grp.pick.join(', ');
     drawPrompt(document.getElementById('clue-text'), currentClueItem, 'jeopardy');
+    /* Before `askPhones`, which consults `phoneRound()` — and `phoneRound()` cannot
+       answer until the round exists. Also after `drawPrompt`, which owns `#clue-text`
+       and clears it. */
+    jGroupEnd();
+    /* A Daily Double still gets its words — it is only the *phones* that a Daily
+       Double excludes, because the clue belongs to the team that found it. Without
+       the round the tile would open on an instruction with nothing to pick from,
+       and the wager would be unanswerable. The team names their four out loud and
+       the teacher clicks them, which is the no-relay path doing a second job;
+       `jCorrect` already routes the payout to `jDoubleTeam` whoever is passed in. */
+    if(!review && grp) jGroupOpen(currentClueItem);
     // a replayed tile asks nobody, and a Daily Double belongs to one team alone
     if(!review && !dd) askPhones(clue.q, 'jeopardy');
     const ansEl=document.getElementById('clue-answer');
-    ansEl.textContent=clue.a;
+    ansEl.textContent = currentClueItem.answer || clue.a || '';
     hideAllActionButtons();
     if(review){
       // already played — show everything, score nothing
@@ -3228,6 +3631,10 @@
     jTension(review ? 0 : (dd ? Math.max(clue.v, currentClueValue) : clue.v));
     jHintsUsed = 0;
     renderHintButton();
+    /* After `hideAllActionButtons()`, which is the whole reason this is here rather
+       than inside `jGroupOpen` — the round has to exist before `askPhones` asks the
+       game what it is, and the buttons are cleared after that. */
+    renderJGroupButton();
   }
 
   function openBlockbustersClue(clueObj, hex){
@@ -3599,6 +4006,7 @@
      behind the card. */
   function closeModal(hold, then){
     jClockStop();
+    jGroupEnd();
     const modal  = document.getElementById('clue-modal');
     const card   = document.getElementById('clue-card');
     const origin = currentTile;
@@ -3645,6 +4053,16 @@
     // twice; when it couldn't (a long or explanatory answer) it is still needed.
     const inPlace = Kit.prompt.reveal(document.getElementById('clue-text'), currentClueItem);
     document.getElementById('clue-answer').style.display = inPlace ? 'none' : 'block';
+    /* A grouping clue answers itself on the board: the four light up where they
+       stand, which is the thing worth seeing. The answer line still prints them,
+       because "which four" and "why those four" are different questions and the
+       teacher is about to say the second one out loud. */
+    if(jGroupLive()){
+      jGroup.done = true;                  // the answer is out; nothing left to judge
+      if(jGroup.timer){ clearTimeout(jGroup.timer); jGroup.timer = null; }
+      jGroup.chosen = new Set();
+      renderJGroup();
+    }
     /* The final settles team by team rather than once, so revealing it hands over
        to that sequence instead of showing a single pair of buttons. */
     if(jFinalState){
@@ -3719,6 +4137,12 @@
   }
 
   function jOfferSteal(teamIdx){
+    /* A grouping clue has no rebound, because it had no floor. The steal exists so
+       a team that was shut out of a question gets it when the team holding it
+       misses — but every team was assembling this one at once, and nobody was
+       excluded, so there is nothing to offer and nobody to offer it to. It burns
+       the tile and passes the turn, as a miss did before the steal existed. */
+    if(jGroupClue()) return false;
     if(!S.get('stealOnWrong', 'jeopardy')) return false;
     if(jSteal) return false;                       // one steal per clue, then it's gone
     const others = teams.map((_, i) => i).filter(i => i !== teamIdx);
@@ -3814,7 +4238,11 @@
        default here: a class that goes 500 down in the first two minutes stops
        trying, which is the opposite of what any of this is for. Scores may go
        negative — that is the rule, not an accident. */
-    if(S.get('jDeduct', 'jeopardy') && teams[missed] && modalMode === 'jeopardy'){
+    /* …but not on a grouping clue, where `missed` is only "whoever happened to be
+       on turn". Every team was playing it at once, so charging one of them is
+       charging the wrong people — the same reason `keepControl` stands down when
+       the whole room answered. */
+    if(S.get('jDeduct', 'jeopardy') && teams[missed] && modalMode === 'jeopardy' && !jGroupClue()){
       teams[missed].score -= currentClueValue;
       renderScorebar();
     }
@@ -4674,7 +5102,6 @@
     bar.style.display='flex';
     bar.innerHTML='';
     const add=(cls,txt)=>{ const s=document.createElement('span'); s.className=cls; s.textContent=txt; bar.appendChild(s); return s; };
-    const teamName = i => teams[i] ? teams[i].name : ('Team ' + (i+1));
     const teamChip = i => { const s = add('pb-team team-'+Math.min(i,3), teamName(i)); return s; };
 
     // 1. somebody has the floor — the loudest thing that can be true
@@ -4721,10 +5148,18 @@
   function phoneBarHint(){
     if(!activeGame) return 'Waiting for the class';
     if(voteLive())  return 'The class is voting';
-    const mode = S.get('phoneMode', activeGame);
+    /* A game driving its own round outranks the mode here, exactly as it does at
+       the arming end — it supplies the mode rather than a second answer, so there is
+       still one map. Without it a grouping clue said "Phones are idle here" over a
+       room that had just been handed eight words, with the chip beside it saying the
+       opposite. */
+    const own  = hook('phoneRound');
+    const mode = own ? own.mode : S.get('phoneMode', activeGame);
     return mode === 'buzz'  ? 'Waiting for a buzz'
          : mode === 'type'  ? 'Waiting for someone to type it'
          : mode === 'write' ? 'Waiting for the class to answer'
+         : mode === 'vote'  ? 'The class is choosing'
+         : mode === 'card'  ? 'Waiting for the class'
          : 'Phones are idle here';
   }
 
@@ -4864,7 +5299,12 @@
                                   renderBBVote(); });
       buzzHost.on('players', list=>{ buzzPlayers=list.length; renderBuzzChip(); renderJoinCount();
                                      // a student who joins mid-round gets a card
-                                     bingoDealHands(); });
+                                     bingoDealHands();
+                                     /* …and a team that just grew or shrank gets a
+                                        new share of the group. Pushed, never
+                                        re-armed: a latecomer must not wipe what the
+                                        rest of their team had already agreed on. */
+                                     jGroupPushShares(); renderJGroup(); });
       buzzHost.on('buzz',    onBuzz);
       buzzHost.on('response', onResponse);
       renderBuzzChip();
@@ -4965,8 +5405,15 @@
      they did, and a reconnect then replaced a bingo card with a buzzer. */
   function phoneRoundNow(game, prompt){
     const own = hook('phoneRound');
+    /* Everything after `options` is carried through rather than interpreted: what a
+       multi-pick reply means, or whose round it is, is the game's business exactly
+       as it is the relay's business to carry it and not to read it. `undefined`
+       drops out of the JSON, so a game that says nothing about them — which is four
+       of the five, and Bingo's cards — arms exactly as it did before. */
     if(own) return { mode: own.mode, prompt: own.prompt || '', options: own.options || [],
-                     keepSpent: own.keepSpent !== false };
+                     keepSpent: own.keepSpent !== false,
+                     multi: own.multi, multiByTeam: own.multiByTeam,
+                     holds: own.holds, rethink: own.rethink, team: own.team };
     return { mode: S.get('phoneMode', game), prompt: prompt || '', options: [] };
   }
 
@@ -4977,8 +5424,17 @@
     /* A game driving its own round arms directly: the mode branches below are the
        four shared dynamics, and a game's own is by definition not one of them. */
     if(hook('phoneRound')){
-      clearReplies(); lastScored = null; buzzWinner = null;
-      buzzHost.arm(round.prompt, { mode:round.mode, options:round.options, keepSpent:round.keepSpent });
+      /* `lastTyped` as well as `lastScored`: a new question retires *both* halves of
+         the last one. The shared modes get this from `armBuzzers`, which clears it
+         unless the arm is a reopen — a game driving its own round never goes through
+         there, so a grouping clue's "not a group" would have sat on the strip over
+         the next clue, naming a team for a question that had gone. */
+      clearReplies(); lastScored = null; lastTyped = null; buzzWinner = null;
+      buzzHost.arm(round.prompt, { mode:round.mode, options:round.options,
+                                   keepSpent:round.keepSpent,
+                                   multi:round.multi, multiByTeam:round.multiByTeam,
+                                   holds:round.holds, rethink:round.rethink,
+                                   team:round.team });
       renderBuzzChip('asking');
       renderPhoneBar();
       return;
@@ -5158,7 +5614,20 @@
          open to the room at all: a Daily Double belongs to one team, so re-arming
          there would put the buzzers back for a question nobody may answer. Two
          different refusals, and the difference is whether a question is live. */
-      if(hook('askingNow')) armBuzzers(currentPhonePrompt());
+      /* Put the room back into whatever it *should* be in — which is not always a
+         buzzer. `armBuzzers` was written when the only shared dynamics were the
+         phone modes, so it hard-codes one: a game that owns its round would have had
+         its round replaced by a buzzer, by the very code meant to recover from a
+         stray buzz. Same shape as every other list that named what it should have
+         asked. `askPhones` consults `phoneRound()` and re-establishes the real one.
+
+         It costs the round's collected replies, because the relay clears them on any
+         arm — but the buzz has already taken the room out of the round (it sets
+         `armed:false` and locks), so there is nothing left to protect. */
+      if(hook('askingNow')){
+        if(hook('phoneRound')) askPhones(currentPhonePrompt(), activeGame);
+        else armBuzzers(currentPhonePrompt());
+      }
       else if(buzzHost){ buzzWinner = null; buzzHost.disarm(); renderBuzzChip(); }
       return;
     }

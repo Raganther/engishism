@@ -14,6 +14,25 @@ stores, and a form parses what it needs out of the prompt it is given. If a form
 wants a new content *field*, stop: that is a different kind of change, and it
 migrates 565 items.
 
+## First: is it a form at all, or a round?
+
+`Kit.prompt` is a **rendering** contract — `render` and `reveal`, nothing else. No
+time, no turns, no phones, no scoring. If the idea needs any of those it is a
+**round**, and no amount of pushing will make it fit here:
+
+| It is a form if… | It is a round if… |
+|---|---|
+| it draws a prompt and answers it in place | it arms the phones, or collects from them |
+| the class watches, the teacher clicks | teams do something *simultaneously* |
+| `render`/`reveal` and you are done | it has to decide when the answer has settled |
+
+Rounds go in the game, not the kit. `reveal:[…]` (Story Reveal) was cheap because
+Jeopardy already had hints costing clue value; `group:{pick, with}` (the grouping
+clue) was ~330 lines with its own state, arming, settle and judge. **Budget against
+the second, not the first** — and add the field to the clue normalisation in
+`jShowClue` as the very first step, because that whitelist silently drops anything
+it has not been told about and the symptom is your feature simply never appearing.
+
 ## The two stages — know which one you are in
 
 | Stage | Where it is registered | Who can see it |

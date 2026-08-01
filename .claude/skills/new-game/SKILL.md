@@ -83,10 +83,21 @@ re-arm, which clears it.
 strip without knowing what scoring means on your board — a tile, a hexagon, a word,
 a bingo square.
 
-**`phoneRound()` is for a game that *is* the phone dynamic** (Bingo's cards). If you
-return a round, `phoneMode` gets no say — otherwise the mode and your dynamic arm the
-same handset and fight, which is invisible until a reconnect re-asks and replaces one
-with the other.
+**`phoneRound()` is for a game that *is* the phone dynamic** (Bingo's cards,
+Jeopardy's grouping clue). If you return a round, `phoneMode` gets no say — otherwise
+the mode and your dynamic arm the same handset and fight, which is invisible until a
+reconnect re-asks and replaces one with the other.
+
+**What you return past `{mode, prompt, options}` is carried to the relay, not read.**
+`multi`, `multiByTeam`, `holds`, `rethink` and `team` all pass straight through, so a
+game can use a round shape the engine has never heard of — the same way the relay
+carries them without learning what they mean. It was a whitelist until the grouping
+clue, which asked for a multi-pick and silently got a plain vote.
+
+**And a refused buzz re-arms *your* round, not a buzzer.** `buzzEntitled` returning
+false makes the engine put the room back the way it should be, which it works out by
+asking `phoneRound()` again. If you are debugging a round that turns into a buzzer
+after somebody taps a stale handset, that is the path.
 
 ## 4. Content: consume, don't author, if you can
 

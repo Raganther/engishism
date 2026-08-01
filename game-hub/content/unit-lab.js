@@ -20,9 +20,14 @@
      across as `reveal:[…]` layers that cost a slice of the tile. Not a form: this
      is a *round* shape, and it only ported cheaply because the hub already had
      hints costing clue value.
-   - **Connections and the thermometer are NOT here yet.** Grouping and ordering
-     each need a clue that runs a mini-round — arming phones with a multi-pick or a
-     sequence and judging a set. That is real layer-1 work and is not started.
+   - **One grouping category** — Connections inside a tile, as `group:{pick, with}`.
+     This one is a *round* in the full sense: it arms every phone with a multi-pick
+     selection, collects each team's picks as a union, and judges a set of four the
+     moment it settles. Nothing on the shipped shelf could do that, so it is the
+     first dynamic carried over that needed new engine work rather than a field.
+   - **The thermometer is NOT here yet.** Ordering needs a clue whose answer is a
+     *sequence*, which the grouping round deliberately does not model — a set has no
+     order and judging one is a comparison, not a walk.
 
    Authoring rules that bit, in order of how much time they cost:
    - **A $100 tile affords exactly one layer.** A hint costs a minimum of $50
@@ -38,6 +43,11 @@
      than rendering nonsense — which is the intended failure, but it looks like the
      type did nothing.
    - **No prompt may repeat across banks** (the content gate enforces it).
+   - **A grouping clue's decoys must themselves be a group.** Eight words split
+     4/4 is what makes it a real discrimination; eight words where four obviously
+     belong and four are noise is a spotting exercise. Every `with` list here is a
+     second coherent set, which is Connections' whole trick. The gate checks the
+     count and the overlap, but it cannot check that — read it.
 
    To play it: game-hub-lab.html → Lab → Jeopardy → tick the sections you want to
    compare. Hints are switched on for you by the shell, or the reveal clues have
@@ -47,13 +57,14 @@
   label: "Lab · question dynamics",
   card: { num: "Lab", title: "Question dynamics",
           blurb: "One question type per category, so forms can be mixed and compared in a real game show. Not lesson content.",
-          sections: "L1–L3" },
+          sections: "L1–L4" },
   intro: "A test board, not a lesson. Each category is a single question type — pick the ones you want to compare.",
 
   jeopardySectionLabels: {
     'L1': "L1 · Word-level forms (anagram, bridge, odd one out)",
     'L2': "L2 · Sentence-level forms (gap, error fix, word order)",
     'L3': "L3 · Reveal — a clue that costs to open further",
+    'L4': "L4 · Grouping — a clue the whole room plays at once",
   },
 
   jeopardyCategories: [
@@ -151,6 +162,41 @@
         a:"testimony",
         reveal:["Her ___ was the only thing linking him to the scene.",
                 "Nine letters, begins with T. The verb is “testify”."]},
+    ]},
+
+    /* ---------- L4 · the Connections dynamic ----------
+       `group:{pick, with}` and nothing else — no `a`, because the answer *is* the
+       set and writing it twice is two facts that can drift (the same mistake as a
+       hexagon showing `U` over an answer beginning with I). The engine joins the
+       two lists, shuffles them, and derives the answer line from `pick`.
+
+       Eight words, four to find. The four decoys are a coherent group of their own
+       in every clue here: courtroom against workplace, sacked against hired,
+       hedging against certainty. That is what makes it a discrimination rather than
+       a spotting exercise, and it is the one authoring rule the gate cannot check.
+
+       Unlike every other category on this board these clues are worth the same
+       whatever the tile — a set of four is a set of four — so the difficulty is in
+       how close the two groups sit, not in how much is being asked for. */
+    { id:'lab-group', section:'L4', name:'Find the Four', clues:[
+      {v:100, q:"Four of these mean the same as “very angry”. Find the four.",
+        group:{ pick:["livid","furious","incensed","irate"],
+                with:["grateful","content","serene","cautious"] }},
+      {v:200, q:"Four of these belong in a courtroom. Find the four.",
+        group:{ pick:["verdict","jury","testimony","acquittal"],
+                with:["sabbatical","promotion","redundancy","overtime"] }},
+      {v:300, q:"Four of these mean “let go from a job”. Find the four.",
+        group:{ pick:["dismissed","sacked","redundant","discharged"],
+                with:["promoted","appointed","recruited","hired"] }},
+      {v:400, q:"Four of these hedge a claim — they say you are not certain. Find the four.",
+        group:{ pick:["perhaps","possibly","arguably","conceivably"],
+                with:["undoubtedly","certainly","definitely","unquestionably"] }},
+      /* The hardest kind, and the reason the category tops out here: every one of
+         the eight is a courtroom word, so the semantic field gives nothing away and
+         only the compound works. */
+      {v:500, q:"Four of these follow “court” to make a word or phrase. Find the four.",
+        group:{ pick:["room","case","order","martial"],
+                with:["bench","trial","judge","verdict"] }},
     ]},
   ],
 });

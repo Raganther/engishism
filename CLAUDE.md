@@ -169,7 +169,9 @@ buzz whoever sent it, so a phone that isn't entitled would hold the lock and the
 team that is could never get in — `buzzEntitled` returning false makes the engine
 re-arm, which clears it. Race's steal rule and Millionaire's `speaker` role are both
 this, and were both written out by name in `onBuzz` until the fifth game proved the
-point.
+point. **What it re-arms is `phoneRound()`'s answer, not a buzzer** — hard-coding
+`armBuzzers` there meant the recovery from a stray buzz would replace a game's own
+round with the thing it had just refused, which killed a grouping clue outright.
 
 `window.HubGames.register(...)` is exposed so a game can eventually live in its own
 file the way units do via `window.UNITS`; the four built-ins still declare themselves
@@ -195,6 +197,13 @@ Anything more than one game needs lives in `hub-kit.js`, not in a game:
 | `Kit.prompt.register/render/reveal` | a question's *form* being a convention in how the prompt was worded | all four games |
 | `Kit.answer.judge(typed, expected)` | `===` deciding whether a student produced the word | the typing race; any game that ever accepts typed input |
 | `Kit.vote.open({options,team})` | Millionaire's Ask the class being the only way to ask the room to choose | Ask the class; Blockbusters' hexagon vote |
+
+**Deliberately *not* on the shelf: the grouping round.** Its union-of-a-team's-picks
+and its settle-with-a-memory are the same two ideas `BenchKit` holds one tier down,
+so the pull to extract them is real — and it is one caller, which is a guess rather
+than an API. It lives in `hub-engine.js` with Jeopardy's other clue mechanics until a
+second board wants it; **rewiring the first caller is what proves an extraction**, and
+there is nothing to rewire yet. Written so the move is mechanical when that happens.
 
 ### Question forms are a registry too
 A question's *form* — gap fill, anagram, odd one out — used to exist only in how the
@@ -739,13 +748,99 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A grouping clue: Connections inside a Jeopardy tile, and the first bench dynamic
+  that needed real engine work.** Eight words on the clue card, four that belong
+  together; every phone in the room is armed with a multi-pick selection, a team's
+  answer is the **union of its players' picks**, and a set of four is judged the
+  moment it settles. First team to a real group takes the tile and it scores
+  normally. Ninth category on the Lab board (`L4 · Find the Four`).
+  - **Story Reveal ported cheaply and this did not, and the difference is the whole
+    lesson.** Reveal landed on `jHints`/`jHintCost`, which was already the same
+    mechanic. Grouping had nothing to land on: it is ~330 lines in `hub-engine.js`
+    with its own state, arming, settle and judge, where Reveal was a field name in a
+    whitelist. `Kit.prompt` could never have held it — that is `render`/`reveal`, no
+    time, no turns, no phones. **Budget the next dynamic against this one, not
+    against Reveal.**
+  - **Nothing on the phone side had to be built.** `multiByTeam` and multi-pick were
+    grown for Connections' race and used by nothing in the hub; the share
+    (`ceil(4/size)`, so two phones hold two words each) is the mechanic rather than
+    a detail, and being over your share is a state, not an error. This is the first
+    thing to prove that the relay work generalised.
+  - **`phoneRound()` now carries what it returns instead of interpreting it.** It
+    was `{mode, prompt, options, keepSpent}` — a whitelist that silently dropped
+    `multi`, `multiByTeam`, `holds`, `rethink` and `team`, so a game could ask for a
+    round the relay already supported and get a plain vote. Carried through
+    verbatim now, exactly as the relay carries them without reading them.
+    `undefined` drops out of the JSON, so Bingo's arm is unchanged on the wire.
+  - **Refusing a buzz re-armed a *buzzer*, which is the bug this shape keeps
+    producing.** The recovery path in `onBuzz` hard-coded `armBuzzers` — written
+    when the only dynamics were the phone modes — so a stray buzz during a grouping
+    round would have been "recovered" by replacing the round with the very thing the
+    game had said it did not want, leaving the class unable to finish the clue at
+    all. It asks `phoneRound()` now. **Anything that names the shared dynamic is a
+    bug waiting for the next game**, same as `gameIds()` and the `.lit` stage list.
+  - **`jGroupWho` is the switch, and it is the only one worth having.** Whether the
+    whole class races for the tile or it belongs to the team on turn is a *teaching*
+    decision — a choice between iterations, which is what a variant is for — where
+    the settle delay and the eight-words-four-to-find are guessed numbers that want
+    a classroom run, not a slider. Scoping costs one line because `team` on the arm
+    already reaches all three places it has to: the relay stores it, an unentitled
+    phone shows the question with no controls, and a reply that arrives anyway is
+    dropped.
+  - **A wrong four costs nothing but the time**, as in Connections' race: the other
+    team is the pressure, and a class charged for a guess stops guessing. The right
+    answer is resolved before any wrong one, because two teams can settle in the
+    same tick and arrival order put *"not a group"* on screen after the tile had
+    already gone.
+  - **`jGroupClue()` and `jGroupLive()` are different questions, and mixing them is a
+    live trap.** The first is "this clue is a grouping clue", true until the card
+    closes; the second is "the round is still being played", which stops the moment
+    it is taken or revealed. Correct and Wrong only exist *after* Reveal, so the two
+    guards below asked the first — written against the second they would have looked
+    right, passed a casual read, and silently let both rules back in.
+  - **Nobody held the floor, and two of Jeopardy's rules assume somebody did.** The
+    steal exists so a team shut out of a question gets it when the team holding it
+    misses; `jDeduct` charges the team that missed. On a clue every team was
+    assembling at once there is nobody to exclude and nobody to charge — `missed`
+    is only "whoever happened to be on turn", and on a Classic board that team was
+    docked **$200 for a clue the whole room was playing**. Both stand down now, from
+    the one fact rather than two special cases.
+  - **The teacher can play it with no relay at all** — click four words on the card
+    and Check. Not a fallback; degradation is the rule, and this is the first hub
+    clue that would have broken it. It then did a second job for free: **a Daily
+    Double on a grouping tile** looked like two contradictory dynamics, but what a
+    Daily Double excludes is the *phones*, not the words — the finding team names
+    their four aloud and the teacher clicks them, and `jCorrect` was already routing
+    a Daily Double's payout to whoever found it. Without the round the tile opened
+    on an instruction with nothing to pick from and the wager was unanswerable.
+  - **Two CSS rules that had never applied, both found by looking rather than
+    measuring.** (1) The game-show styling was hung off `#play-jeopardy.lit`, but the
+    clue card sits *outside* the stage — which is exactly why `openClueCard` has to
+    set `--tension` on it by hand — so it reached nothing; `.clue-hint` had the same
+    dead selector and had never applied since hints shipped. Both are scoped to
+    `#clue-card` now. (2) `#clue-actions button` sets `border:none` and
+    out-specifies a bare `#hint-btn` or `#group-btn` (1,0,1 against 1,0,0), so the
+    outline those two secondary buttons are meant to have was never drawn; the
+    parent id is in the selector to win that. **CSS has no way to say a rule lost**,
+    so both of these looked merely plain rather than broken, and no assertion would
+    ever have caught either.
+  - **The Lab board had no test coverage at all** until this — the Reveal categories
+    shipped untested last session. `grouping` suite (56 checks) drives the round,
+    the no-phones path, both settings of `jGroupWho`, the Daily Double, a miss under
+    Classic's rules, an ordinary
+    clue on the same card, and the card's own fit at 1280x720 and 390x844 — neither
+    `fit` nor `phone` opens a clue card, so a set of words overflowing it would have
+    passed both. The content gate now opens the Lab shell too, so those nine
+    categories are finally audited. **Five of the fixes above were proved by
+    reverting them and watching the right check go red**, which is how the `-200/0`
+    was found rather than reasoned about.
 - **The Lab board is a mixing desk: one question type per category.** A category is
   Jeopardy's unit of choice, so making each one a single form turns the section
   screen into a way of comparing them — pick three forms, play a board, and judge
-  each against the others in the same round. Eight categories over three sections:
-  six forms (gap, anagram, odd one out, error fix, word order, **word bridge**) and
-  two Reveal. Every clue is drawn from the same small vocabulary field on purpose,
-  so the only thing that varies is *how it was asked*.
+  each against the others in the same round. **Nine categories over four sections**:
+  six forms (gap, anagram, odd one out, error fix, word order, **word bridge**),
+  two Reveal and one **grouping**. Every clue is drawn from the same small
+  vocabulary field on purpose, so the only thing that varies is *how it was asked*.
   - **`bridge` graduated the day a bank actually used it**, which is what it had
     been waiting for since it was written — a form with no content is a form the
     class never meets. The move was the documented one: the block out of
@@ -773,14 +868,15 @@ playground's point, that one board can host several:
   - **These dynamics are not question forms, and that is the headline.** `Kit.prompt`
     is a *rendering* contract — `render`/`reveal`, no time, no turns, no phones. A
     bench dynamic is a **round**. Reveal ported cheaply only because the hub already
-    had `jHints`/`jHintCost`, which is the same mechanic; **grouping and ordering
-    would each need a clue that runs a mini-round**, which is real layer-1 work and
-    is not started.
+    had `jHints`/`jHintCost`, which is the same mechanic. **Grouping has since been
+    built as a real mini-round** (see above) and cost what that predicted;
+    **ordering is still open**, and is the harder one.
   - **The normalisation is a whitelist, and that is the real friction.** A clue
-    becomes `{text, answer, type}` on open so the kit never learns Jeopardy calls a
-    prompt `q` — so `reveal` was silently dropped and the hint button never
-    appeared. **Anything an author adds to an item is invisible downstream until it
-    is named there.** Worth knowing before the next dynamic crosses.
+    becomes `{text, answer, type, reveal, group}` on open so the kit never learns
+    Jeopardy calls a prompt `q` — so `reveal` was silently dropped once and the hint
+    button never appeared. **Anything an author adds to an item is invisible
+    downstream until it is named there.** `group` was added to it deliberately as
+    the first line of the next dynamic, which is what that warning was for.
   - **An authored reveal belongs to the clue, not to a ruleset.** Hints were gated
     behind `together`, where a generated spelling hint is a cooperative crutch. A
     layer somebody wrote is how the clue was *written*, so it is offered on a
@@ -1281,7 +1377,7 @@ playground's point, that one board can host several:
   | `onTypedWin(b)` | typed and correct: score it, return the points (`null` = didn't) |
   | `wantsVote()` / `onVoteReply(all)` | the vote half — whether the game ever asks the room, and where the counts are painted |
 | `roomNote()` | what the chip says when a game wants a room without a phone mode |
-| `phoneRound()` | the game drives the phones itself (Bingo's cards); `null` = `phoneMode` decides |
+| `phoneRound()` | the game drives the phones itself (Bingo's cards, Jeopardy's grouping clue); `null` = `phoneMode` decides. Whatever it returns beyond `{mode, prompt, options}` — `multi`, `multiByTeam`, `holds`, `rethink`, `team` — is **carried to the relay, not interpreted**, so a game can use a round shape the engine has never heard of |
 
   - **Every hook defaults to a no-op**, so a game that declares none has idle
     phones — a visible, correct state rather than a half-wired one.
@@ -1913,6 +2009,18 @@ playground's point, that one board can host several:
 - To change unit mid-session: game screen → "New game" → "Change unit".
 
 ## Next
+- **Ordering as a clue is the next dynamic, and it is the harder one.** Grouping
+  worked because a set has no order: judging it is a comparison, and every team can
+  assemble one at once from a pool the relay already knows how to hand out. A
+  thermometer clue has to model a *sequence* — which slot is being filled, what a
+  partially-built ladder looks like on a card the size of a clue, and whether the
+  room fills it cold-end-first (a walk, so one team at a time) or all at once. The
+  relay needs nothing new; the shape does.
+- **Nothing on the bench or in the Lab has met a class, and the guessed numbers are
+  piling up.** The 700ms settle and the 4-mistake budget from the bench, Story
+  Reveal's 5→3 drop, and now the grouping clue's 700ms take-beat and its
+  eight-words-four-to-find. Eight may be too many to read from the back of a room;
+  the only way to find out is to play it.
 - **Type-then-buzz has never met a class.** It is built, switchable and tested, but every
   number in it is a guess: 3 seconds for a miss, one letter of tolerance at five letters,
   spelling forgiven by default. Run it against plain `buzz` from the Lab between rounds —
@@ -2009,12 +2117,13 @@ runs. Pick the row, run it, push.
 | **One game's own logic** (board, its `tension()`, its stage CSS) | `--only=<game>` | ~40s |
 | **Shared layer 1** — `hub-kit.js`, the header, the team bar, the clue card, `hub.css` outside one stage, settings, the fit | `--only=millionaire,fit,phone,card,turns,gameshow,lab,registry,competition` | ~4 min |
 | **A playground page** (`playground/*.html`, `bench-kit.js`, `lab-forms.js`) | `--only=playground,promptlab,bench` | ~1 min |
+| **The Lab board** (`unit-lab.js`, `game-hub-lab.html`, a clue that runs a round) | `--only=grouping,content,jeopardy,card` | ~2 min |
 | **Phones / relay** — `hub-buzzer.js`, `buzzer-relay.js`, `join.html` | add `,buzzers,phonemodes,teamvote,phoneteams,degradation,reconnect,playground,bench` | +6 min |
 | **Before a lesson you will actually teach from**, or on request | the full suite | ~25 min |
 
 ```bash
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=millionaire,fit,phone   # the usual
-NODE_PATH=$(npm root -g) node tools/smoke-test.js                                # 47 suites
+NODE_PATH=$(npm root -g) node tools/smoke-test.js                                # 50 suites
 ```
 
 **Two cheap pre-flights that cost seconds and have each already paid for themselves:**
