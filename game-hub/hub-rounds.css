@@ -19,6 +19,20 @@
 
    The words sit *under* the prompt inside `#clue-text`, the way the hint does, so
    the class is still reading the instruction while they work. */
+/* The card's palette is four custom properties, not four hard-coded colours. A
+   shared card is mounted in hosts that do not agree about their background — the
+   hub's clue card is light by default and dark under the game-show skin, and a
+   bench page is dark all the time — so the host says what "the card's surface" is
+   and the round reads it. Hard-coding the light theme made the words render as
+   white blocks on the bench: the round looked wrong in the very place it is
+   supposed to be tuned. Defaults are the hub's light theme, so nothing that was
+   already correct had to change. */
+/* The defaults are **fallbacks inside each `var()`**, never a declaration block on
+   the round's own element. Declaring them here would out-specify anything the host
+   set on an ancestor — which is exactly what happened: the bench set a dark surface
+   on the card frame, the round redeclared the light one on itself, and the words
+   rendered as white blocks on a dark page. A fallback yields to an inherited value;
+   a declaration beats it. */
 .clue-group{ margin-top:14px; }
 /* Two columns, the same rule the handset uses for a list this long (`.opts.compact`
    in join.html): a set of words is something you choose *between*, so they have to
@@ -30,30 +44,33 @@
 .gword{ position:relative; font:inherit; font-size:0.92em; line-height:1.15;
   padding:11px 12px; border-radius:10px; cursor:pointer; min-width:0;
   overflow-wrap:anywhere;      /* a C1 vocabulary word is often long; break it properly */
-  border:2px solid rgba(18,38,63,0.18); background:var(--white); color:var(--navy);
+  border:2px solid var(--gw-line, rgba(18,38,63,0.18));
+  background:var(--gw-bg, #fff); color:var(--gw-fg, #12263F);
   transition:background .15s, border-color .15s, transform .15s; }
-.gword:hover{ border-color:rgba(0,122,201,0.5); }
+.gword:hover{ border-color:var(--gw-hot, rgba(0,122,201,0.5)); }
 /* The teacher's own selection is a neutral dashed ring and never a team colour: on
    a board every team is playing at once, so nothing the teacher clicks is theirs to
    claim. Connections paid for this — a coloured ring paints a contested word as one
    team's and makes the other team's dot read as a footnote on somebody else's pick. */
-.gword.chosen{ border-style:dashed; border-color:var(--navy); background:rgba(18,38,63,0.07); }
+.gword.chosen{ border-style:dashed; border-color:var(--gw-ink, #12263F);
+  background:var(--gw-wash, rgba(18,38,63,0.07)); }
 /* `held` is likewise neutral: only the dots say who, and both teams' picks have to
    be equally legible or the race stops being a language task. */
-.gword.held{ border-color:rgba(18,38,63,0.5); }
-.gword.right{ border-color:#2FA84F; background:rgba(47,168,79,0.14); color:#1B6B32; }
+.gword.held{ border-color:var(--gw-ink, rgba(18,38,63,0.6)); }
+.gword.right{ border-color:var(--gw-good, #2FA84F); background:var(--gw-goodwash, rgba(47,168,79,0.14));
+  color:var(--gw-goodink, #1B6B32); }
 .gdots{ display:flex; gap:3px; position:absolute; top:-4px; right:-4px; }
-.gdot{ width:9px; height:9px; border-radius:50%; border:1.5px solid var(--white); }
+.gdot{ width:9px; height:9px; border-radius:50%; border:1.5px solid var(--gw-bg, #fff); }
 .gword.shake{ animation:gShake .38s ease; }
 @keyframes gShake{ 0%,100%{ transform:translateX(0); } 25%{ transform:translateX(-5px); }
   75%{ transform:translateX(5px); } }
 
 .group-tally{ display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-top:12px; }
 .group-count{ font-size:0.72em; padding:3px 9px; border-radius:99px;
-  border:1.5px solid rgba(18,38,63,0.3); }
+  border:1.5px solid var(--gw-line, rgba(18,38,63,0.3)); }
 .group-count small{ opacity:0.7; }
 .group-say{ margin-top:10px; font-size:0.85em; opacity:0.85; }
-.group-say.good{ color:#2FA84F; opacity:1; font-weight:600; }
+.group-say.good{ color:var(--gw-good, #2FA84F); opacity:1; font-weight:600; }
 /* Same specificity fight as `#hint-btn` above — see the note there. */
 #clue-actions #group-btn{ background:transparent; border:1px solid rgba(0,122,201,0.45); color:var(--blue); }
 #clue-actions #group-btn:hover:not(:disabled){ background:var(--blue); color:var(--white); }

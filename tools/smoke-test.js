@@ -5089,6 +5089,127 @@ async function testGroupingClue(browser){
   }
 }
 
+/* ---- the question bench ----
+   The card and its phones on one screen. It matters more than it looks: this is the
+   **second caller** of `Kit.round`, and a shelf with one caller is a guess rather
+   than an API. What this suite really asserts is that the card a class meets and
+   the card you tune are the same code — so it checks the round is drawn here by the
+   registry, not by the page, and that a tap on a real handset lands on it. */
+async function testQuestionBench(browser){
+  section('Playground: the question bench');
+  const page = await browser.newPage({ viewport:{ width:1500, height:900 } });
+  page.__errors = []; page.__console = [];
+  page.on('pageerror', e => page.__errors.push(String(e)));
+  page.on('console', m => {
+    /* A racked handset asks to vibrate on a tap, and Chromium refuses it until the
+       frame has been touched by a real finger. That is the simulation being a
+       simulation, not the phone misbehaving. */
+    if (m.type() === 'error' &&
+        !/ERR_CONNECTION_RESET|fonts\.(googleapis|gstatic)|navigator\.vibrate/.test(m.text()))
+      page.__console.push(m.text());
+  });
+  await page.goto(BASE + '/playground/question-bench.html'); await page.waitForTimeout(1200);
+
+  /* The menu is the registry asked, never a list kept in step by hand — the same
+     discipline the prompt lab and the fit suite use, so a round written next month
+     appears here without this page or this check being edited. */
+  const listed = await page.locator('#type-pick option').allInnerTexts();
+  const ids    = await page.evaluate(() => window.HubKit.round.ids());
+  check('every registered round is in the menu', listed.length === ids.length && ids.length > 0,
+        listed.join('|') + ' vs ' + ids.join('|'));
+  check('the card draws the whole set of words',
+        await page.locator('#card-round .gword').count() === 8);
+  /* The card is drawn from `hub-rounds.css`, which this page loads instead of
+     `hub.css` — if that ever stopped being true the words would be unstyled text. */
+  const styled = await page.evaluate(() => {
+    const g = document.querySelector('#card-round .gword');
+    const cs = getComputedStyle(g);
+    return { cols: getComputedStyle(document.querySelector('.group-words')).gridTemplateColumns,
+             border: cs.borderTopWidth, radius: cs.borderTopLeftRadius };
+  });
+  check('two columns, the same shape as the handset',
+        styled.cols.split(' ').length === 2 && styled.border !== '0px',
+        JSON.stringify(styled));
+
+  const chip = await page.locator('#room-chip').innerText();
+  const code = (chip.match(/(\d{5})/)||[])[1];
+  check('a room opens on its own', !!code, chip.replace(/\n/g,' '));
+
+  if(code){
+    await page.locator('#add-phone').click(); await page.waitForTimeout(1100);
+    await page.locator('#add-phone').click(); await page.waitForTimeout(1100);
+    await page.locator('#add-phone').click(); await page.waitForTimeout(1400);
+    check('real handsets rack up beside the card',
+          await page.locator('.phone .clip iframe').count() === 3);
+    /* The room bench's lesson, one level down: a scaled phone still has to be laid
+       out at a real handset's width, or the bench shows a layout no phone shows. */
+    const inner = await page.evaluate(() => {
+      const f = document.querySelector('.phone .clip iframe');
+      return { w: f.getBoundingClientRect().width, attr: f.offsetWidth,
+               cols: f.contentWindow.getComputedStyle(
+                       f.contentDocument.getElementById('opts')).gridTemplateColumns };
+    });
+    check('and are laid out at a handset width, then scaled',
+          inner.attr === 390 && inner.w < 390, JSON.stringify(inner));
+    check('so the phone shows the two columns a real one does',
+          inner.cols.split(' ').length === 2, inner.cols);
+
+    const frames = page.frames().filter(f => /join\.html/.test(f.url()));
+    const tap = async (f, words) => {
+      for(const w of words){
+        await f.locator('#opts button', { hasText:new RegExp('^'+w+'$') }).first().click();
+        await f.waitForTimeout(120);
+      }
+    };
+    // Ana and Cal are both Team 1 — the union of their picks is their answer
+    await tap(frames[0], ['verdict','jury']);
+    await tap(frames[2], ['sabbatical','overtime']);
+    await page.waitForTimeout(1400);
+    check('a wrong set is named on the card',
+          /not a group/i.test(await page.locator('#card-round .group-say').innerText()),
+          await page.locator('#card-round .group-say').innerText());
+    check('and the board says the share out loud',
+          /2 phones, 2 each/.test(await page.locator('#card-round .group-tally').innerText()),
+          await page.locator('#card-round .group-tally').innerText());
+
+    await tap(frames[2], ['sabbatical','overtime']);      // drop them
+    await page.waitForTimeout(300);
+    await tap(frames[2], ['testimony','acquittal']);
+    await page.waitForTimeout(1500);
+    check('the right set is taken and the four light up',
+          await page.locator('#card-round .gword.right').count() === 4 &&
+          /has it/i.test(await page.locator('#card-round .group-say').innerText()),
+          await page.locator('#card-round .group-say').innerText());
+    /* No score anywhere on this page, and that is the contract rather than an
+       omission: a round has no points, no turn and no clock. */
+    check('and nothing on the bench scored it',
+          await page.locator('.score, .team-chip').count() === 0);
+  }
+  checkClean(page, 'question bench');
+  await page.close();
+
+  /* Degradation, which every playground page owes: no relay leaves the card fully
+     playable teacher-only. */
+  const solo = await browser.newPage({ viewport:{ width:1280, height:900 } });
+  solo.__errors = []; solo.on('pageerror', e => solo.__errors.push(String(e)));
+  await solo.goto(BASE + '/playground/question-bench.html?relay=http://127.0.0.1:9');
+  await solo.waitForTimeout(900);
+  check('no relay: the chip says phones off',
+        /phones off/i.test(await solo.locator('#room-chip').innerText()));
+  check('but the card is still drawn',
+        await solo.locator('#card-round .gword').count() === 8);
+  for(const w of ['verdict','jury','testimony','acquittal']){
+    await solo.locator(`#card-round .gword[data-word="${w}"]`).click();
+    await solo.waitForTimeout(70);
+  }
+  await solo.locator('#check-btn').click(); await solo.waitForTimeout(400);
+  check('and the teacher can still answer it by clicking',
+        await solo.locator('#card-round .gword.right').count() === 4,
+        String(await solo.locator('#card-round .gword.right').count()));
+  check('no errors without a relay', solo.__errors.length === 0, solo.__errors[0]);
+  await solo.close();
+}
+
 /* ---- the prompt lab ----
    The question forms had nowhere to be seen: a form could only be met by finding a
    bank item that happened to carry its type, which is why three of them sat at 4%
@@ -5976,7 +6097,8 @@ async function main(){
     together: testJeopardyTogether, jclock: testAnswerClock,
     playground: testPlaygroundConnections, bench: testPhoneBench,
     promptlab: testPromptLab, thermometer: testThermometer,
-    storyreveal: testStoryReveal, grouping: testGroupingClue
+    storyreveal: testStoryReveal, grouping: testGroupingClue,
+    qbench: testQuestionBench
   };
   const toRun = onlyArg ? onlyArg.split(',').map(s => s.trim()).filter(k => suites[k])
                         : Object.keys(suites);
