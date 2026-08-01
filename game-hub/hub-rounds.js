@@ -69,6 +69,77 @@
       Math.max(1, Math.min(need, Math.ceil(need / Math.max(1, Number(n) || 1)))));
   }
 
+  /* What a room of handsets is saying, per team. Two rounds now need the identical
+     four facts out of a pile of replies — who said what, what most of a team is
+     saying, how many of them agree, and whether that is the whole team — so it lives
+     here rather than twice. The second caller is what moved it: written once it was
+     ordering's business, written twice it is the bench's.
+
+     What is *not* in here is which words are legal, because that is the round's own
+     business and differs completely: ordering rejects a word already on that team's
+     ladder, a multiple choice rejects anything that is not one of its four. That is
+     `valid(word, team)`.
+
+       const p = Kit.round.poll(replies, { valid, sizes, unanimous:true });
+       p.answers   // team -> [word]   the team's *committed* answer; what gets judged
+       p.leading   // team -> [word]   what most of them are saying; what the card draws
+       p.votes     // team -> { for:{word:n}, said, agreed }
+       p.by        // team -> the last name to reply
+
+     **`answers` and `leading` are deliberately not the same map.** With `unanimous`
+     set, a team short of agreement has a leading word and no answer — the card shows
+     what they are converging on while nothing lands. Collapsing the two is how a
+     majority quietly starts winning again.
+
+     **A missing count never freezes a round.** With no relay, or before the host has
+     counted anybody, `sizes[t]` is 0 and the leading vote is the answer exactly as it
+     would be without the gate. A round that deadlocks on a number it does not have is
+     worse than one that never asked for unanimity. */
+  function poll(replies, opts){
+    const o = opts || {};
+    const ok = o.valid || (()=> true);
+    const sizes = o.sizes || [];
+    const tally = {}, said = {}, by = {};
+    (replies || []).forEach(r=>{
+      const t = Number(r && r.team) || 0;
+      /* The relay preserves the order taps were made in and joins them with `|`, so
+         the first legal word is the one meant — a sequence needs nothing more than
+         this, which is why no round has ever needed drag-and-drop. */
+      const pick = String((r && r.value) == null ? '' : r.value)
+                     .split('|').filter(Boolean)
+                     .find(w => ok(w, t));
+      if(pick == null) return;
+      const box = tally[t] || (tally[t] = {});
+      box[pick] = (box[pick] || 0) + 1;
+      // the relay keys replies by player, so one reply is one person
+      said[t] = (said[t] || 0) + 1;
+      by[t] = r.name;
+    });
+    const answers = {}, leading = {}, votes = {};
+    Object.keys(tally).forEach(t=>{
+      const box  = tally[t];
+      const lead = Object.keys(box).sort((a,b)=> box[b] - box[a])[0];
+      if(lead == null) return;
+      const agreed = box[lead];
+      leading[t] = [lead];
+      votes[t]   = { for:box, said:said[t] || 0, agreed };
+      const size = Number(sizes[t]) || 0;
+      if(!o.unanimous || !size || agreed >= size) answers[t] = [lead];
+    });
+    return { answers, leading, votes, by };
+  }
+
+  /* How close a team is to agreeing, or null when there is nobody to count. The size
+     is read from the host at draw time rather than from anything the round stored,
+     because students join and drop all lesson and a stale count is worse than none —
+     it would show a team as one short of a rung it had already earned. */
+  function agreement(state, ctx, team){
+    const size = Number(((ctx && ctx.sizes) || [])[team]) || 0;
+    if(!size) return null;
+    const agreed = ((state.votes || {})[team] || {}).agreed || 0;
+    return { size, agreed, all: agreed >= size };
+  }
+
   /* Debounce, plus a memory of what has already been ruled on. Both halves are
      needed and each was learned separately: four picks arriving from four phones
      would be judged three times on the way up, and a team sitting on a wrong answer
@@ -146,6 +217,6 @@
       }
       return null;
     },
-    shares, settle
+    shares, settle, poll, agreement
   };
 })();

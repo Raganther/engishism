@@ -1048,6 +1048,33 @@ const UNIT_AUDIT = () => {
         if(x.group) out.push({kind:'ordering', msg:tag + ' — carries a group as well as a scale'});
       }));
 
+      /* Multiple choice. The plainest round on the board and the one whose defects
+         are hardest to see by reading, because a clue with a mistyped answer looks
+         completely normal — it is simply impossible to get right. `setup` returns
+         null on all of these, so the card says the question is incomplete and the
+         tile is dead; none of it throws, which is exactly why it is checked here. */
+      (u.jeopardyCategories||[]).forEach(c => c.clues.forEach(x => {
+        const ch = x.choice; if(!ch) return;
+        const tag = id + ': "' + String(x.q).slice(0, 40) + '"';
+        const opts = Array.isArray(ch.options) ? ch.options.map(w => String(w).trim()) : [];
+        if(opts.length < 2) out.push({kind:'choice', msg:tag + ' — needs at least 2 options to be a choice'});
+        if(opts.length > 8) out.push({kind:'choice', msg:tag + ' — ' + opts.length + ' options; more than 8 stops being a choice'});
+        const seen = new Set();
+        opts.forEach(w => {
+          const k = w.toLowerCase();
+          if(seen.has(k)) out.push({kind:'choice', msg:tag + ' — option appears twice: ' + w});
+          seen.add(k);
+        });
+        /* **The one that cannot be seen by reading.** The answer is written out as
+           the option because the options are shuffled, so a letter could not survive
+           and an index is off by one the first time somebody writes 1 meaning the
+           first. A typo matches nothing and the clue is unanswerable. */
+        if(!opts.some(w => w.toLowerCase() === String(ch.answer||'').trim().toLowerCase()))
+          out.push({kind:'choice', msg:tag + ' — answer "' + ch.answer + '" is not one of the options'});
+        if(x.a) out.push({kind:'choice', msg:tag + ' — carries an `a` as well as a choice; the answer is in the choice'});
+        if(x.type) out.push({kind:'choice', msg:tag + ' — carries type "' + x.type + '" as well as a choice'});
+      }));
+
       // Jeopardy: equal-length categories, sections contiguous (or a heading prints twice)
       const cats = u.jeopardyCategories || [];
       const lens = new Set(cats.map(c => c.clues.length));
@@ -1130,6 +1157,10 @@ async function testContentIntegrity(browser){
         !of('grouping').length,     first('grouping'));
   check('ordering clues are well formed, and every step is glossed',
         !of('ordering').length,     first('ordering'));
+  /* The one a reader cannot catch: a multiple choice whose answer is not one of its
+     own options looks completely normal and is simply impossible to get right. */
+  check('multiple choice clues are well formed, and every answer is one of its options',
+        !of('choice').length,       first('choice'));
   await lab.close();
   check('no prompt appears in two banks',        !of('dupe').length,         first('dupe'));
   check('Blockbusters answers are one word, keyed by their initial',
@@ -5131,6 +5162,41 @@ async function testGroupingClue(browser){
   checkClean(page, 'ordering clue');
   await page.close();
 
+  /* ---------- a multiple choice clue ----------
+     The third round, and the one that proves the contract holds for something
+     ordinary rather than something that shaped it. **The engine gained nothing to
+     host this** — the normaliser asks `Kit.round.fields()`, the tile asks
+     `Kit.round.of()`, and ⚙ builds its mode row from `modes` — so the assertion
+     worth making is that a plain question plays exactly like any other tile. */
+  page = await openLab(['Multiple Choice','Anagram','Gap Fill'], { phones:false });
+  await openTile(page, 'Multiple Choice', 0);
+  check('a multiple choice clue draws its options on a Jeopardy card, lettered',
+        await page.locator('#clue-group .mc-opt').count() === 4 &&
+        (await page.locator('#clue-group .mc-letter').allInnerTexts()).join('') === 'ABCD',
+        (await page.locator('#clue-group .mc-letter').allInnerTexts()).join(''));
+  /* Degradation is the rule, not a fallback: a teacher with a dead relay has to be
+     able to play the clue, and this is the whole of it. */
+  const pick = async w => {
+    await page.locator(`#clue-group .gword[data-word="${w}"]`).click();
+    await page.waitForTimeout(90);
+    await page.locator('#group-btn').click();
+    await page.waitForTimeout(600);
+  };
+  await pick('give');
+  check('a wrong option costs nothing and the clue stays live',
+        (await scoresOf(page)).join('/') === '0/0' &&
+        /not that one/i.test(await page.locator('#clue-group .group-say').innerText()),
+        await page.locator('#clue-group .group-say').innerText());
+  await pick('pass');
+  await page.waitForTimeout(1500);
+  /* Unlike an ordering climb, being right *is* the ending here — so the tile pays
+     on the first correct answer. That is the host's `done !== false` default doing
+     its job for a round that never had to think about progress. */
+  check('and the right one takes the tile outright, first time',
+        (await scoresOf(page)).join('/') === '100/0', (await scoresOf(page)).join('/'));
+  checkClean(page, 'multiple choice clue');
+  await page.close();
+
   /* The ladder plus its pool plus the buttons is the tallest thing any round has
      put on a clue card, and empty rungs sized like full ones pushed it past both
      edges at 1280x720. Measured on the $500 clue, whose words are the longest. */
@@ -5563,6 +5629,107 @@ async function testQuestionBench(browser){
   }
   checkClean(una, 'ordering unanimity');
   await una.close();
+
+  /* ---------- the third round: plain multiple choice ----------
+     The one that proves the contract holds for something ordinary. Grouping and
+     ordering *shaped* it, so of course they fit; this was written against it
+     unchanged, and the whole integration into the game show is a `<script>` line. */
+  const mc = await browser.newPage({ viewport:{ width:1500, height:950 } });
+  mc.__errors = []; mc.__console = [];
+  mc.on('pageerror', e => mc.__errors.push(String(e)));
+  mc.on('console', m => {
+    if (m.type() === 'error' &&
+        !/ERR_CONNECTION_RESET|fonts\.(googleapis|gstatic)|navigator\.vibrate/.test(m.text()))
+      mc.__console.push(m.text());
+  });
+  await mc.goto(BASE + '/playground/question-bench.html'); await mc.waitForTimeout(1300);
+  await mc.locator('#type-pick').selectOption('choice'); await mc.waitForTimeout(800);
+  check('the card draws every option, lettered',
+        await mc.locator('#card-round .mc-opt').count() === 4 &&
+        (await mc.locator('#card-round .mc-letter').allInnerTexts()).join('') === 'ABCD',
+        (await mc.locator('#card-round .mc-letter').allInnerTexts()).join(''));
+  /* Two columns, the shape a handset lays four short options out in — the card and
+     the phone have to read as the same question, not two versions of it. */
+  check('in two columns, the same shape as the handset',
+        (await mc.evaluate(() => getComputedStyle(
+           document.querySelector('.mc-options')).gridTemplateColumns)).split(' ').length === 2);
+  /* Authors put the answer first and a class works that out in about two questions. */
+  check('the options are shuffled rather than drawn in authored order',
+        await mc.evaluate(() => {
+          const def = window.HubKit.round.get('choice');
+          const item = { text:'q', choice:{ options:['a','b','c','d','e','f','g','h'], answer:'a' } };
+          const seen = new Set();
+          for(let i=0;i<40;i++) seen.add(def.setup(item, {}).options.join(''));
+          return seen.size > 1;
+        }));
+  /* A typo in the answer is the one defect a reader cannot catch — the clue looks
+     completely normal and is simply impossible to get right. `setup` refusing it is
+     what turns it into a visible "not complete" instead. */
+  check('an answer that is not one of the options refuses to build at all',
+        await mc.evaluate(() => {
+          const def = window.HubKit.round.get('choice');
+          return def.setup({ text:'q', choice:{ options:['a','b'], answer:'zzz' } }, {}) === null &&
+                 def.setup({ text:'q', choice:{ options:['a','b'], answer:'B' } }, {}) !== null;
+        }));
+
+  const mcCode = ((await mc.locator('#room-chip').innerText()).match(/(\d{5})/)||[])[1];
+  if(mcCode){
+    for(let i = 0; i < 4; i++){
+      await mc.locator('#add-phone').click(); await mc.waitForTimeout(1000);
+    }
+    await mc.waitForTimeout(800);
+    const mf = mc.frames().filter(f => /join\.html/.test(f.url()));
+    check('the handsets are offered the four options, in the card’s own order',
+          await mf[0].locator('#opts button').count() === 4 &&
+          (await mf[0].locator('#opts button').allInnerTexts()).join('|') ===
+          (await mc.locator('#card-round .gw-text').allInnerTexts()).join('|'),
+          (await mf[0].locator('#opts button').allInnerTexts()).join('|'));
+
+    /* The answer is deliberately not exposed on the page — the card is what a class
+       sees — so the verdict is read off the card rather than compared against it. */
+    const wrongWord = (await mc.locator('#card-round .gw-text').allInnerTexts())
+      .find(w => w !== 'pass');
+    await mf[0].locator('#opts button', { hasText:new RegExp('^'+wrongWord+'$') }).first().click();
+    await mc.waitForTimeout(1500);
+    check('a wrong answer is named and costs nothing — the card is still live',
+          /not that one/i.test(await mc.locator('#card-round .group-say').innerText()) &&
+          await mc.locator('#card-round .gword.right').count() === 0,
+          await mc.locator('#card-round .group-say').innerText());
+    /* Every team with a vote on an option carries a dot there — in a race that is
+       simply who went for what, and it is the same visual language the other two
+       rounds use rather than a third one. */
+    check('and who went for what is on the option itself',
+          await mc.locator('#card-round .mc-opt.held .gdot').count() >= 1,
+          String(await mc.locator('#card-round .mc-opt.held .gdot').count()));
+
+    await mf[1].locator('#opts button', { hasText:/^pass$/ }).first().click();
+    await mc.waitForTimeout(1500);
+    check('the right answer takes the question outright — no progress to make',
+          /has it/i.test(await mc.locator('#card-round .group-say').innerText()),
+          await mc.locator('#card-round .group-say').innerText());
+    check('and nothing on the bench scored it',
+          await mc.locator('.score, .team-chip').count() === 0);
+
+    /* `agree` mode, the same rule the thermometer plays by and for the same reason:
+       on a four-phone team a race is won by the fastest thumb and the other three
+       never commit to anything. */
+    await mc.locator('#mode-pick').selectOption('agree'); await mc.waitForTimeout(1400);
+    const mf2 = mc.frames().filter(f => /join\.html/.test(f.url()));
+    const word = (await mc.locator('#card-round .gw-text').allInnerTexts())[0];
+    await mf2[0].locator('#opts button', { hasText:new RegExp('^'+word+'$') }).first().click();
+    await mc.waitForTimeout(1500);
+    check('agree: one of a team of two is not the team, so nothing is judged',
+          !(await mc.locator('#card-round .group-say').count()) &&
+          /1\/2/.test(await mc.locator('#card-round .group-tally').innerText()),
+          await mc.locator('#card-round .group-tally').innerText().catch(()=>'(none)'));
+    await mf2[2].locator('#opts button', { hasText:new RegExp('^'+word+'$') }).first().click();
+    await mc.waitForTimeout(1500);
+    check('agree: and it is judged the moment the whole team agrees',
+          (await mc.locator('#card-round .group-say').count()) > 0,
+          await mc.locator('#card-round .group-say').innerText().catch(()=>'(none)'));
+  }
+  checkClean(mc, 'multiple choice bench');
+  await mc.close();
 
   /* Degradation, which every playground page owes: no relay leaves the card fully
      playable teacher-only. */

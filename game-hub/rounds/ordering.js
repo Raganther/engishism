@@ -368,37 +368,20 @@
        out — their own Check button never comes through here, so a class with one
        phone in a drawer is still playable. */
     read(replies, s, ctx){
-      const out = {}, who = {}, tally = {}, said = {};
-      const sizes = (ctx && ctx.sizes) || [];
-      (replies || []).forEach(r=>{
-        const t = Number(r && r.team) || 0;
-        const seq = String((r && r.value) == null ? '' : r.value)
-                      .split('|').filter(Boolean)
-                      .filter(w => s.pool.indexOf(w) !== -1);
-        if(!seq.length) return;
-        // a word already on that team's ladder is a stale tap, not an answer
-        const placed = s.mode === 'race' ? (s.lanes[t] || []) : s.placed;
-        const pick = seq.find(w => placed.indexOf(w) === -1);
-        if(!pick) return;
-        const box = tally[t] || (tally[t] = {});
-        box[pick] = (box[pick] || 0) + 1;
-        said[t] = (said[t] || 0) + 1;   // the relay keys replies by player, so this is people
-        who[t] = r.name;
+      const p = K.round.poll(replies, {
+        sizes: (ctx && ctx.sizes) || [],
+        unanimous: true,
+        /* A word already on that team's ladder is a stale tap, not an answer — and
+           in a race that is a *different* set of words per team, which is why this
+           takes the team and the shared helper does not try to guess it. */
+        valid(w, t){
+          if(s.pool.indexOf(w) === -1) return false;
+          const placed = s.mode === 'race' ? (s.lanes[t] || []) : s.placed;
+          return placed.indexOf(w) === -1;
+        }
       });
-      s.leading = {}; s.votes = {};
-      Object.keys(tally).forEach(t=>{
-        const box  = tally[t];
-        const lead = Object.keys(box).sort((a,b)=> box[b] - box[a])[0];
-        if(!lead) return;
-        const agreed = box[lead];
-        s.leading[t] = [lead];
-        s.votes[t]   = { for:box, said:said[t] || 0, agreed };
-        const size = Number(sizes[t]) || 0;
-        // unanimous, or no count to be unanimous against — never a stalled round
-        if(!size || agreed >= size) out[t] = [lead];
-      });
-      s.by = who;
-      return out;
+      s.leading = p.leading; s.votes = p.votes; s.by = p.by;
+      return p.answers;
     },
 
     judge(answer, s, team){
@@ -440,16 +423,8 @@
     settleMs: 700
   });
 
-  /* How close a team is to agreeing, or null when there is nobody to count. The size
-     comes from the host at draw time rather than from anything the round stored,
-     because students join and drop all lesson and a stale count is worse than none —
-     it would show a team as one short of a rung it had already earned. */
-  function agreement(s, c, team){
-    const size = Number(((c && c.sizes) || [])[team]) || 0;
-    if(!size) return null;
-    const agreed = ((s.votes || {})[team] || {}).agreed || 0;
-    return { size, agreed, all: agreed >= size };
-  }
+  // on the shelf, because the multiple choice card counts the same way
+  const agreement = (s, c, team) => K.round.agreement(s, c, team);
 
   function shuffle(a){
     for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }

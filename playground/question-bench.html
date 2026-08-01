@@ -8,7 +8,7 @@
 <!-- The shared card, exactly as a game show draws it. This is the whole point of
      the page: what you tune here IS what a class meets, not a second implementation
      that resembles it. -->
-<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260801ab">
+<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260801ac">
 <style>
   /* ================= The question bench =================
      One question type at a time, with the card on the left and a rack of real
@@ -184,13 +184,14 @@
   <div id="rack-pane"><div id="rack-warn" class="warn"></div><div id="rack"></div></div>
 </div>
 
-<script src="../game-hub/hub-buzzer.js?v=20260801ab"></script>
-<script src="../game-hub/hub-qr.js?v=20260801ab"></script>
-<script src="../game-hub/hub-kit.js?v=20260801ab"></script>
-<script src="../game-hub/hub-rounds.js?v=20260801ab"></script>
-<script src="../game-hub/rounds/grouping.js?v=20260801ab"></script>
-<script src="../game-hub/rounds/ordering.js?v=20260801ab"></script>
-<script src="bench-kit.js?v=20260801ab"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260801ac"></script>
+<script src="../game-hub/hub-qr.js?v=20260801ac"></script>
+<script src="../game-hub/hub-kit.js?v=20260801ac"></script>
+<script src="../game-hub/hub-rounds.js?v=20260801ac"></script>
+<script src="../game-hub/rounds/grouping.js?v=20260801ac"></script>
+<script src="../game-hub/rounds/ordering.js?v=20260801ac"></script>
+<script src="../game-hub/rounds/choice.js?v=20260801ac"></script>
+<script src="bench-kit.js?v=20260801ac"></script>
 <script>
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -281,35 +282,47 @@ $('for-team').addEventListener('change', draw);
 
 const list = str => str.split(',').map(w => w.trim()).filter(Boolean);
 
-/* One editor, two shapes. The second field is the answer either way — the words
-   that belong together, or the scale in order — which is why the labels change
-   rather than the form. */
-const SAMPLES = {
+/* One editor, one row per round — a table rather than a chain of `if (type === …)`.
+   Two shapes were two branches and that was fine; the third is what makes it a list
+   that has to be kept in step with the registry by hand, which is the shape this
+   project keeps paying for. The fields never change, only what they mean: the second
+   is the answer in every round, which is why the labels move and the form does not. */
+const EDITORS = {
   grouping: { q:'Four of these belong in a courtroom. Find the four.',
               a:'verdict, jury, testimony, acquittal',
-              b:'sabbatical, promotion, redundancy, overtime' },
+              b:'sabbatical, promotion, redundancy, overtime',
+              labelA:'The words that belong together',
+              labelB:'The decoys — they must be a coherent group of their own',
+              build: (text, a, b) => ({ text, group:{ pick:list(a), with:list(b) } }) },
   ordering: { q:'Put these in order — mildest first.',
               a:'annoyed, irritated, angry, livid, furious',
-              b:'mildly bothered | absolutely raging' }
+              b:'mildly bothered | absolutely raging',
+              labelA:'The scale, weakest first — this is the answer',
+              labelB:'The two ends of the scale, separated by |',
+              build: (text, a, b) => {
+                const ends = b.split('|').map(x => x.trim());
+                return { text, order:{ scale:list(a), low:ends[0] || 'weakest',
+                                       high:ends[1] || 'strongest' } };
+              } },
+  choice:   { q:"Which verb goes with 'a sentence'?",
+              a:'pass, make, do, give',
+              b:'pass',
+              labelA:'The options — they are shuffled, so order does not matter',
+              labelB:'The right one, written out as it appears above',
+              build: (text, a, b) => ({ text, choice:{ options:list(a), answer:b.trim() } }) }
 };
 function itemFromEditor(){
+  const ed = EDITORS[type];
   const text = $('ed-q').value.trim();
-  if(type === 'ordering'){
-    const ends = $('ed-with').value.split('|').map(x => x.trim());
-    return { text, order:{ scale:list($('ed-pick').value),
-                           low: ends[0] || 'weakest', high: ends[1] || 'strongest' } };
-  }
-  return { text, group:{ pick: list($('ed-pick').value), with: list($('ed-with').value) } };
+  if(!ed) return { text };
+  return ed.build(text, $('ed-pick').value, $('ed-with').value);
 }
 function fillEditor(){
-  const sample = SAMPLES[type];
-  if(sample){ $('ed-q').value = sample.q; $('ed-pick').value = sample.a; $('ed-with').value = sample.b; }
-  $('lbl-pick').textContent = type === 'ordering'
-    ? 'The scale, weakest first — this is the answer'
-    : 'The words that belong together';
-  $('lbl-with').textContent = type === 'ordering'
-    ? 'The two ends of the scale, separated by |'
-    : 'The decoys — they must be a coherent group of their own';
+  const ed = EDITORS[type];
+  if(!ed) return;
+  $('ed-q').value = ed.q; $('ed-pick').value = ed.a; $('ed-with').value = ed.b;
+  $('lbl-pick').textContent = ed.labelA;
+  $('lbl-with').textContent = ed.labelB;
 }
 
 /* How many the teacher may hold at once — the round says, via what it asks the

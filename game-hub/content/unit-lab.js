@@ -20,14 +20,15 @@
      across as `reveal:[…]` layers that cost a slice of the tile. Not a form: this
      is a *round* shape, and it only ported cheaply because the hub already had
      hints costing clue value.
-   - **One grouping category** — Connections inside a tile, as `group:{pick, with}`.
-     This one is a *round* in the full sense: it arms every phone with a multi-pick
-     selection, collects each team's picks as a union, and judges a set of four the
-     moment it settles. Nothing on the shipped shelf could do that, so it is the
-     first dynamic carried over that needed new engine work rather than a field.
-   - **The thermometer is NOT here yet.** Ordering needs a clue whose answer is a
-     *sequence*, which the grouping round deliberately does not model — a set has no
-     order and judging one is a comparison, not a walk.
+   - **Three round categories** — grouping (`group:{pick, with}`), ordering
+     (`order:{scale, low, high, gloss}`) and multiple choice
+     (`choice:{options, answer}`). These are *rounds* in the full sense: they arm
+     every phone, collect what several students do at once, and judge it when it
+     settles. Grouping needed real engine work; ordering and multiple choice needed
+     none at all, which is what the round registry was extracted for.
+   - **Multiple choice is the control case.** It is the dullest question type here on
+     purpose: if a form does not beat four options on a clue drawn from the same
+     vocabulary, it is not earning the code it costs.
 
    Authoring rules that bit, in order of how much time they cost:
    - **A $100 tile affords exactly one layer.** A hint costs a minimum of $50
@@ -57,7 +58,7 @@
   label: "Lab · question dynamics",
   card: { num: "Lab", title: "Question dynamics",
           blurb: "One question type per category, so forms can be mixed and compared in a real game show. Not lesson content.",
-          sections: "L1–L5" },
+          sections: "L1–L6" },
   intro: "A test board, not a lesson. Each category is a single question type — pick the ones you want to compare.",
 
   jeopardySectionLabels: {
@@ -66,6 +67,7 @@
     'L3': "L3 · Reveal — a clue that costs to open further",
     'L4': "L4 · Grouping — a clue the whole room plays at once",
     'L5': "L5 · Ordering — a scale the room fills in, weakest first",
+    'L6': "L6 · Multiple choice — four options, the plain control case",
   },
 
   jeopardyCategories: [
@@ -256,6 +258,38 @@
                         commendable:"genuinely worth remarking on.",
                         outstanding:"stands out from everything around it.",
                         exemplary:"so good it becomes the example others follow." } }},
+    ]},
+
+    /* ---------- L6 · plain multiple choice ----------
+       `choice:{options, answer}` and nothing else. The dullest question type on the
+       board, here on purpose: it is the control the other nine are compared against.
+       If a form does not beat four options on a clue drawn from the same vocabulary,
+       it is not earning the code it costs.
+
+       **The answer is written out as the option, never as a letter or a number.**
+       The options are shuffled per clue — authors put the answer first and a class
+       works that out in about two questions — so a letter could not survive, and an
+       index is off by one forever the first time somebody writes 1 meaning the
+       first. Written as the word, a typo matches nothing and the card says the
+       question is incomplete rather than marking the wrong answer right.
+
+       **Four options, and the distractors have to be real.** Three obviously wrong
+       ones make a question that tests nothing; every decoy here is a word a C1
+       student might genuinely reach for, which is what makes the choice a piece of
+       language work rather than a coin toss. */
+    { id:'lab-choice', section:'L6', name:'Multiple Choice', clues:[
+      {v:100, q:"Which verb goes with 'a sentence', when a judge delivers one?",
+        choice:{ options:["pass","make","do","give"], answer:"pass" }},
+      {v:200, q:"Which one means a decision has been overturned on appeal?",
+        choice:{ options:["quashed","dismissed","adjourned","suspended"], answer:"quashed" }},
+      {v:300, q:"Which is the formal one you would write in a report?",
+        choice:{ options:["subsequently","after that","later on","then"],
+                 answer:"subsequently" }},
+      {v:400, q:"Which word means made to leave a job because the work no longer exists?",
+        choice:{ options:["redundant","dismissed","resigned","suspended"],
+                 answer:"redundant" }},
+      {v:500, q:"Only one of these can precede 'to the letter'. Which?",
+        choice:{ options:["followed","obeyed","kept","held"], answer:"followed" }},
     ]},
   ],
 });

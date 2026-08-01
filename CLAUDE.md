@@ -759,6 +759,47 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Plain multiple choice is the third round, and it cost a `<script>` line.**
+  `game-hub/rounds/choice.js` — a question and four answers, `choice:{options,
+  answer}`. Eleventh category on the Lab board (`L6 · Multiple Choice`).
+  **The engine gained nothing to host it**: the clue normaliser asks
+  `Kit.round.fields()`, the tile asks `Kit.round.of()`, and ⚙ builds its mode row
+  from `modes`. That is the whole return on the round registry, stated as a
+  measurement rather than a claim.
+  - **It is the control case, and that is why it is on the Lab board.** It is the
+    dullest question type there on purpose: if a form does not beat four options on
+    a clue drawn from the same vocabulary, it is not earning the code it costs.
+  - **The two rounds before it *shaped* the contract, so of course they fitted.**
+    This one was written against it unchanged, which is a different and better
+    piece of evidence. The only thing it needed was already there.
+  - **Two modes.** `first` — the first team with the right answer takes it, the
+    standard quiz beat. `agree` — a team's answer only counts once every player on
+    that team has picked the same option, exactly as the thermometer plays, and for
+    the same reason: on a four-phone team a race is won by the fastest thumb and the
+    other three never commit to anything.
+  - **The answer is authored as the option itself, never a letter or an index.** The
+    options are shuffled per clue — authors put the answer first and a class works
+    that out in about two questions — so a letter could not survive, and an index is
+    off by one forever the first time somebody writes 1 meaning the first. A typo
+    then matches nothing and `setup` returns null, so the card says the question is
+    incomplete rather than marking the wrong answer right. **This is the one defect a
+    reader cannot catch** — a clue with a mistyped answer looks completely normal and
+    is simply impossible to get right — so the content gate checks it by name.
+  - **The letters are a card-side affordance only.** A/B/C/D is what lets a teacher
+    say "who went for B?" out loud; the phones get the words, where a letter would
+    be noise on a screen that is nothing but options. Card and handset carry the
+    same four in the same order, asserted.
+  - **`Kit.round.poll` and `Kit.round.agreement` came off the back of it**, because
+    the tally-leading-unanimity trio was written twice in a day. The rule held:
+    ordering was rewired onto them in the same change and its checks passed
+    unchanged, which is what makes it a shelf rather than a second copy under a new
+    name. What stays in each round is `valid(word, team)` — which words are legal
+    differs completely (ordering rejects a word already on that team's ladder, a
+    choice rejects anything that is not one of its four).
+  - **The bench editor is a table now, not a chain of `if (type === …)`.** Two shapes
+    were two branches and that was fine; the third is what turns it into a list kept
+    in step with the registry by hand, which is the shape this project keeps paying
+    for.
 - **A question is a thing you can pick up and plug in now — `Kit.round`.** The
   grouping round used to be ~300 lines inside `hub-engine.js`; it is one file,
   `game-hub/rounds/grouping.js`, holding all four things a question type is: **the
@@ -1022,10 +1063,12 @@ playground's point, that one board can host several:
 - **The Lab board is a mixing desk: one question type per category.** A category is
   Jeopardy's unit of choice, so making each one a single form turns the section
   screen into a way of comparing them — pick three forms, play a board, and judge
-  each against the others in the same round. **Nine categories over four sections**:
+  each against the others in the same round. **Eleven categories over six sections**:
   six forms (gap, anagram, odd one out, error fix, word order, **word bridge**),
-  two Reveal and one **grouping**. Every clue is drawn from the same small
-  vocabulary field on purpose, so the only thing that varies is *how it was asked*.
+  two Reveal, and three rounds — **grouping**, **ordering** and **multiple choice**.
+  Every clue is drawn from the same small vocabulary field on purpose, so the only
+  thing that varies is *how it was asked*. **Multiple choice is the control**: a form
+  that cannot beat four options on the same vocabulary is not earning its code.
   - **`bridge` graduated the day a bank actually used it**, which is what it had
     been waiting for since it was written — a form with no content is a form the
     class never meets. The move was the documented one: the block out of
