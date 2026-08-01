@@ -891,9 +891,15 @@ playground's point, that one board can host several:
     the order they were made, so a sequence is expressible with no drag-and-drop and
     no `join.html` change at all.
   - **Empty rungs cost 44px each to say nothing** and pushed a five-step ladder past
-    both edges of a 1280x720 clue card. They are a thin line now; the card is
-    asserted on screen at 1280x720 and 390x844, which neither `fit` nor `phone`
-    would have caught because neither opens a clue card.
+    both edges of a 1280x720 clue card. Making them a thin line bought the height
+    back and cost the thing the ladder is *for*: as each word landed the rungs above
+    resized, so the column shifted and progress read as the ladder lurching rather
+    than filling — and with a lane each, no two teams' rungs lined up with one
+    another. **A ladder whose rungs move is not a ladder.** Every rung is the same
+    box now, filled or not, differing only in opacity; the height comes back from
+    making *every* rung shorter, which costs type size and nothing structural. The
+    card is asserted on screen at 1280x720 and 390x844, which neither `fit` nor
+    `phone` would have caught because neither opens a clue card.
   - **A wrong check now releases the teacher's words.** Leaving them selected meant
     the next click deselected instead of choosing, so a second attempt silently did
     nothing — worst on a climb, where one word is the whole answer and the button

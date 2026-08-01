@@ -125,23 +125,21 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
 .ord-cap{ font-size:0.66em; letter-spacing:0.16em; text-transform:uppercase; opacity:0.5; }
 .ord-cap.hot{ margin-bottom:2px; }
 .ord-cap.cold{ margin-top:2px; }
+/* **Every rung is the same box, filled or not.** Making the empty ones a thin line
+   saved height and cost the thing the ladder is for: as each word landed, the rungs
+   above resized and the whole column shifted, so progress read as the ladder
+   lurching rather than filling — and with a lane each, no two teams' rungs lined up
+   with one another. A ladder whose rungs move is not a ladder. The height is bought
+   back by making every rung a little shorter, which costs nothing but type size. */
 .ord-rung{
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   gap:1px; padding:4px 10px; border-radius:9px;
+  min-height:clamp(24px, 3.2vh, 34px);
   border:2px dashed var(--gw-line, rgba(18,38,63,0.18));
   font-size:0.86em; line-height:1.15;
 }
-/* An empty rung only has to say "a slot is here", so it is a thin line rather than
-   a full-height box. Sizing every rung alike put a five-step ladder plus its pool
-   and its buttons past both edges of a 1280x720 clue card — the empty ones were
-   spending 44px each to say nothing. */
-/* Slim, but it still has to *read* as a waiting slot from the back of a room. The
-   first pass took them to 10px at 40% and the ladder became blank space above the
-   next rung, which says nothing about how far there is to go. */
-.ord-rung.empty{ opacity:0.7; min-height:14px; padding:0; border-width:2px;
-  background:linear-gradient(var(--gw-wash, rgba(18,38,63,0.07)),
-                             var(--gw-wash, rgba(18,38,63,0.07))); }
-.ord-rung.filled, .ord-rung.next{ min-height:clamp(26px, 3.6vh, 38px); }
+/* Same shape, only quieter. */
+.ord-rung.empty{ opacity:0.55; }
 .ord-rung.next{ border-style:solid; border-color:var(--gw-hot, rgba(0,122,201,0.5));
   opacity:0.85; font-size:0.72em; letter-spacing:0.12em; text-transform:uppercase; }
 .ord-rung.filled{ border-style:solid; border-color:var(--gw-good, #2FA84F);
@@ -171,9 +169,11 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
   font-weight:700; margin-bottom:4px; overflow:hidden; text-overflow:ellipsis;
   white-space:nowrap; }
 .ord-who.won::after{ content:' ✓'; }
-.round-ordering.racing .ord-rung{ font-size:0.78em; padding:3px 6px; }
-.round-ordering.racing .ord-rung.filled,
-.round-ordering.racing .ord-rung.next{ min-height:clamp(22px, 3vh, 32px); }
+/* Same box for every rung here too — a lane whose empty rungs are a different size
+   from its filled ones does not line up with the lane beside it, and four ladders
+   that disagree about where rung three sits is not a race you can read. */
+.round-ordering.racing .ord-rung{ font-size:0.78em; padding:3px 6px;
+  min-height:clamp(20px, 2.7vh, 29px); }
 .round-ordering.racing .ord-cap{ font-size:0.58em; }
 /* A team's next answer sits in the rung it is aimed at, in italic until it settles —
    so the room watches it land or shake rather than reading a verdict afterwards. */
@@ -191,9 +191,6 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
   grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:6px; margin-top:4px; }
 .round-ordering.racing .ord-pool .gword{ font-size:0.78em; padding:6px 8px; }
 .round-ordering.racing .ord-lanes{ margin:4px 0 2px; }
-/* Slim rungs still have to read as waiting slots from the back of a room, and four
-   narrow lanes of them is where that is hardest. */
-.round-ordering.racing .ord-rung.empty{ min-height:12px; opacity:0.75; }
 .round-ordering.racing .ord-who{ margin-bottom:2px; }
 /* A word the teacher's own lane has already used. It stays on the card — every team
    has placed different words, so removing one because *some* team used it makes the
