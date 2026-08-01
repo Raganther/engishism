@@ -5252,14 +5252,18 @@ async function testQuestionBench(browser){
     const shape = await page.evaluate(() => {
       const card = document.getElementById('card-frame').getBoundingClientRect();
       const ed   = document.getElementById('editor').getBoundingClientRect();
-      const rows = new Set([...document.querySelectorAll('.phone')]
-                     .map(p => Math.round(p.getBoundingClientRect().top)));
+      const rows = [...document.querySelectorAll('.rack-row')];
       return { card:Math.round(card.width), editor:Math.round(ed.width),
-               rows:rows.size, wide: document.body.scrollWidth > window.innerWidth };
+               rows:rows.length, perRow: rows.map(r => r.children.length),
+               wide: document.body.scrollWidth > window.innerWidth };
     });
     check('the card keeps its width when phones are added — they shrink, it does not',
           shape.card === cardBefore, cardBefore + ' -> ' + shape.card);
-    check('four phones fit on one row', shape.rows === 1, shape.rows + ' rows');
+    /* A row per team, not one row of everything: the rack reads the way the room
+       does. Four phones across two teams is two rows of two. */
+    check('phones are grouped by team, side by side within a team',
+          shape.rows === 2 && shape.perRow.join(',') === '2,2',
+          JSON.stringify(shape));
     /* The editor sits under the card and no wider. Spanning the page pushed the
        rack over and made three inputs the widest thing on screen, which is the
        wrong emphasis: the card is the subject, these are its controls. */
@@ -5324,6 +5328,49 @@ async function testQuestionBench(browser){
   }
   checkClean(page, 'question bench');
   await page.close();
+
+  /* ---------- teams, and the rack grouped by them ----------
+     A round can give each team its own board, so the bench has to be able to make
+     more than two — and the rack reads the way the room does, a row per team, so
+     which handsets belong together is visible at a glance. */
+  const tm = await browser.newPage({ viewport:{ width:1500, height:950 } });
+  tm.__errors = []; tm.__console = [];
+  tm.on('pageerror', e => tm.__errors.push(String(e)));
+  tm.on('console', m => {
+    if (m.type() === 'error' &&
+        !/ERR_CONNECTION_RESET|fonts\.(googleapis|gstatic)|navigator\.vibrate/.test(m.text()))
+      tm.__console.push(m.text());
+  });
+  await tm.goto(BASE + '/playground/question-bench.html'); await tm.waitForTimeout(1300);
+  await tm.locator('#type-pick').selectOption('ordering'); await tm.waitForTimeout(500);
+  await tm.locator('#mode-pick').selectOption('race'); await tm.waitForTimeout(700);
+  check('the rack starts with a row per team', await tm.locator('.rack-row').count() === 2);
+  await tm.locator('#add-team').click(); await tm.waitForTimeout(800);
+  await tm.locator('#add-team').click(); await tm.waitForTimeout(800);
+  check('teams can be added, and a new team gets a lane and a row',
+        await tm.locator('.rack-row').count() === 4 &&
+        await tm.locator('.ord-lane').count() === 4,
+        (await tm.locator('.rack-row').count()) + ' rows, ' +
+        (await tm.locator('.ord-lane').count()) + ' lanes');
+  check('and it stops at four, which is where a clue card stops being readable',
+        await tm.locator('#add-team').isDisabled());
+  const tmCode = ((await tm.locator('#room-chip').innerText()).match(/(\d{5})/)||[])[1];
+  if(tmCode){
+    for(let i = 0; i < 4; i++){
+      await tm.locator('#add-phone').click(); await tm.waitForTimeout(1000);
+    }
+    await tm.waitForTimeout(700);
+    /* Evenly, so a race actually has two sides to it — all the phones on one team
+       tests nothing. */
+    const spread = await tm.evaluate(() =>
+      [...document.querySelectorAll('.rack-row')].map(r => r.children.length));
+    check('phones fill the teams evenly and land in their own team’s row',
+          spread.join(',') === '1,1,1,1', spread.join(','));
+    check('and every row is labelled with its team',
+          await tm.locator('.rack-label').count() === 4);
+  }
+  checkClean(tm, 'bench teams');
+  await tm.close();
 
   /* ---------- the second round, and both its modes ----------
      This is the real test of the contract. Grouping shaped it; ordering is the one

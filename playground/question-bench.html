@@ -92,8 +92,14 @@
   #editor input{ width:100%; }
   .hint{ font-size:0.76rem; opacity:0.55; margin-top:8px; line-height:1.5; }
 
-  /* Four to a row, wrapping. The phones give up the width, never the card. */
-  #rack{ display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; }
+  /* A row per team, so the rack reads the way the room does: you can see at a
+     glance which handsets belong together, which matters most in a race where each
+     team has its own board. The phones give up the width, never the card. */
+  #rack{ display:flex; flex-direction:column; gap:14px; }
+  .rack-row{ display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; }
+  .rack-label{ font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase;
+               font-weight:700; margin-bottom:5px; }
+  .rack-label .none{ opacity:0.45; font-weight:400; letter-spacing:0; text-transform:none; }
   .phone{ flex:0 0 auto; }
   .phone .who{ font-size:0.7rem; text-align:center; opacity:0.7; margin-bottom:5px;
                font-family:'IBM Plex Mono',monospace; }
@@ -136,6 +142,7 @@
       <button id="ask-btn">Ask the room</button>
       <button id="reveal-btn" class="ghost">Reveal</button>
       <button id="reset-btn" class="ghost">Reset</button>
+      <button id="add-team" class="ghost">+ team</button>
       <button id="add-phone" class="ghost">+ phone</button>
       <select id="for-team" style="display:none" title="Which team the teacher is playing for"></select>
     </div>
@@ -184,10 +191,11 @@ const params = new URLSearchParams(location.search);
 const RELAY  = params.get('relay') || '';
 const Kit = window.HubKit;
 
-/* Two teams, because the interesting behaviour of a team-based round is what
-   happens when two of them are assembling at once. Names only — there is no score
-   here on purpose. */
-const TEAMS = ['Team 1', 'Team 2'];
+/* Two teams to start, up to four — because a round can give each team its own
+   board (the ordering race gives each a ladder) and four lanes is where a clue card
+   stops being readable. Names only: there is no score here on purpose. */
+const MAX_TEAMS = 4;
+let TEAMS = ['Team 1', 'Team 2'];
 
 let type  = Kit.round.ids()[0] || null;
 let state = null;
@@ -465,10 +473,19 @@ function fitAll(){
   const pane = document.getElementById('rack-pane');
   if(!pane) return;
   const gap = 12;
-  const per = Math.max(1, Math.min(PER_ROW, $('rack').children.length || 1));
+  /* The busiest row sets the scale, so rows with fewer phones simply leave space
+     rather than every row being sized by the total. */
+  const rows = [...document.querySelectorAll('.rack-row')].map(r => r.children.length);
+  const per = Math.max(1, Math.min(PER_ROW, Math.max(1, ...rows)));
   const each = (pane.clientWidth - (per - 1) * gap) / per;
+  /* Height matters as much as width once the rack is a row per team: four rows of
+     full-size handsets is a rack you have to scroll past to see, which defeats
+     watching the phones and the card together. Both constraints, floored so a phone
+     never becomes unreadable — below the floor the pane simply scrolls, which is
+     the honest outcome rather than a phone nobody can read. */
+  const perRow = (pane.clientHeight / Math.max(1, rows.length)) - 26;
   root.setProperty('--phone-scale',
-    Math.max(PHONE_MIN, Math.min(PHONE_MAX, each / 390)).toFixed(4));
+    Math.max(PHONE_MIN, Math.min(PHONE_MAX, each / 390, perRow / 844)).toFixed(4));
 }
 window.addEventListener('resize', fitAll);
 if(window.ResizeObserver){
@@ -495,16 +512,65 @@ if(window.ResizeObserver){
 const RACK_MAX = 4;
 let seat = 0;
 const NAMES = ['Ana','Bo','Cal','Di'];
+const teamOf = [];                     // seat -> team, so the rack can group them
+
+/* A row per team, created once and never rebuilt. **Rows are added, never
+   re-parented**: moving an iframe reloads it, which drops its stream — the room
+   bench's rule, and the reason a team is given its row the moment it exists rather
+   than when its first phone arrives. */
+function rackRow(team){
+  let row = document.getElementById('rack-team-' + team);
+  if(row) return row.querySelector('.rack-row');
+  const box = document.createElement('div');
+  box.id = 'rack-team-' + team;
+  const label = document.createElement('div');
+  label.className = 'rack-label';
+  label.style.color = window.HubBuzzer ? HubBuzzer.teamColour(team) : '';
+  label.textContent = TEAMS[team];
+  const none = document.createElement('span');
+  none.className = 'none'; none.textContent = ' — no phones yet';
+  label.appendChild(none);
+  const row2 = document.createElement('div');
+  row2.className = 'rack-row';
+  box.appendChild(label); box.appendChild(row2);
+  $('rack').appendChild(box);
+  return row2;
+}
+
+function addTeam(){
+  if(TEAMS.length >= MAX_TEAMS) return;
+  TEAMS.push('Team ' + (TEAMS.length + 1));
+  rackRow(TEAMS.length - 1);
+  $('add-team').disabled = TEAMS.length >= MAX_TEAMS;
+  fillTeamPick();
+  /* A round builds its lanes from the team list at setup, so a new team means a new
+     question — there is no way to grow a ladder that was never dealt. */
+  build();
+  if(host){ pushTeams(); ask(); }
+  fitAll();
+}
+
+/* Whichever team has the fewest, so the rack fills evenly rather than stacking one
+   side — a race with all the phones on one team tests nothing. */
+function nextTeam(){
+  const n = TEAMS.map((_, i) => teamOf.filter(t => t === i).length);
+  return n.indexOf(Math.min(...n));
+}
+
 function addPhone(){
   if(!host || seat >= RACK_MAX) return;
   const name = NAMES[seat];
-  const team = seat % TEAMS.length;
+  const team = nextTeam();
+  teamOf[seat] = team;
   seat++;
+  const row = rackRow(team);
+  const label = row.parentNode.querySelector('.rack-label .none');
+  if(label) label.remove();
   const box = document.createElement('div');
   box.className = 'phone';
   const who = document.createElement('div');
   who.className = 'who';
-  who.textContent = name + ' · ' + TEAMS[team];
+  who.textContent = name;
   const clip = document.createElement('div');
   clip.className = 'clip';
   const f = document.createElement('iframe');
@@ -513,8 +579,8 @@ function addPhone(){
           (RELAY ? '&relay=' + encodeURIComponent(RELAY) : '');
   clip.appendChild(f);
   box.appendChild(who); box.appendChild(clip);
-  $('rack').appendChild(box);
-  fitAll();                           // four to a row: the phones shrink, the card does not
+  row.appendChild(box);
+  fitAll();                           // the phones shrink, the card does not
   setTimeout(()=>{ draw(); fitAll(); }, 900);   // the share moves when a team grows
   if(seat >= RACK_MAX){
     const b = $('add-phone');
@@ -525,13 +591,17 @@ function addPhone(){
               'handsets are separate browsers and have no such limit.';
   }
 }
+function pushTeams(){ if(host) host.setTeams(TEAMS.slice()); }
+$('add-team').addEventListener('click', addTeam);
 $('add-phone').addEventListener('click', addPhone);
+
+TEAMS.forEach((_, i) => rackRow(i));
 
 const room = BenchKit.room({
   mount: $('room-slot'),
   board: 'question-bench.html',
   on: {
-    ready(h){ host = h; $('add-phone').disabled = false; ask(); },
+    ready(h){ host = h; $('add-phone').disabled = false; pushTeams(); ask(); },
     response: onResponse
   }
 });

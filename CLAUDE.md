@@ -793,6 +793,17 @@ playground's point, that one board can host several:
     fallbacks inside each `var()`, never a declaration block**: a declaration on the
     round's own element out-specifies anything the host sets on an ancestor, which is
     exactly how the first attempt failed and looked like the host being ignored.
+  - **The bench makes teams, and racks its phones a row per team.** A round can give
+    each team its own board, so two was not enough to try one — and the rack now
+    reads the way the room does: a labelled row per team, phones filling the teams
+    evenly, so which handsets belong together is visible at a glance. Rows are added
+    and never re-parented, because moving an iframe reloads it and drops its stream.
+    Four teams is the cap, which is where a clue card stops being readable.
+  - **The phone scale follows the row count, not just the width.** Four rows of
+    full-size handsets is a rack you have to scroll past to see, which defeats
+    watching the phones and the card together. Both constraints now, floored — below
+    the floor the pane simply scrolls, which is honest, where an unreadable phone is
+    not.
   - **The bench racks four phones and no more, and the ceiling is the browser's.** A
     browser allows six connections to one origin and every live page holds one open
     permanently — the board's event stream plus one per racked handset. At five that
