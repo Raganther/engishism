@@ -1827,9 +1827,9 @@
        silently did nothing. */
     if(!jGroupLive() || jGroup.chosen.length !== jRoundCap()) return;
     const def = jRoundDef();
-    const r = def.judge(jGroup.chosen, jGroup);
+    const r = def.judge(jGroup.chosen, jGroup, active);
     if(r.verdict === 'right'){
-      def.accept(jGroup.chosen.slice(), jGroup);
+      def.accept(jGroup.chosen.slice(), jGroup, active);
       jGroup.chosen = [];
       if(r.done !== false || jGroup.done){ jGroupTake(active); return; }
       jGroup.say = 'Yes — keep going.';
@@ -3311,6 +3311,8 @@
       // `null` is the whole room; a scoped round belongs to the team on turn
       team:   S.get('jGroupWho', 'jeopardy') === 'turn' ? active : null,
       mode:   jRoundMode(id || jRoundId),
+      // which lane the teacher's own clicks act on, when a round gives each team one
+      forTeam: active,
       onPick: jGroupTeacherPick
     };
   }
@@ -3422,7 +3424,7 @@
     if(!jGroupLive()) return;
     const def = jRoundDef();
     const verdicts = Object.keys(jGroup.picks).map(t => ({
-      team: Number(t), set: jGroup.picks[t], r: def.judge(jGroup.picks[t], jGroup)
+      team: Number(t), set: jGroup.picks[t], r: def.judge(jGroup.picks[t], jGroup, Number(t))
     })).filter(v => v.r.verdict !== 'incomplete');
     /* The right answer is resolved before any wrong one. Two teams can settle in the
        same tick, and taking them in arrival order puts "not a group" on screen
@@ -3441,7 +3443,7 @@
          nothing must mean the ordinary case. Defaulting the other way made a
          correct grouping card report "yes, keep going" and never pay out, which is
          exactly the kind of silent wrong-way-round a second caller exists to find. */
-      def.accept(won.set, jGroup);
+      def.accept(won.set, jGroup, won.team);
       if(won.r.done !== false || jGroup.done){ jGroupTake(won.team); return; }
       jGroup.say = teamName(won.team) + ' — yes.';
       jGroupSettler.reset();          // the question moved on, so every answer is worth trying again

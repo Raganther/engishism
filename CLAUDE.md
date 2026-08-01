@@ -823,18 +823,37 @@ playground's point, that one board can host several:
   which is the whole return on the extraction. Ninth… tenth category on the Lab
   board (`L5 · Word Thermometer`), and it plays on the bench and in Jeopardy from
   the same code.
-  - **Two ways to play it, both real lessons.** `climb` fills the ladder a rung at a
-    time from the cold end — everyone votes on what comes next, it locks, its gloss
-    prints as it lands, so a five-word scale is five teachable moments. `whole` has
-    each team tap out a complete order for one verdict. The picker is built from what
-    the round *declares* (`modes`), so neither the bench nor the hub learns what a
-    mode means; the hub turns it into a ⚙ row automatically.
+  - **Two ways to play it, both real lessons.** `climb` fills one shared ladder a
+    rung at a time from the cold end — everyone votes on what comes next, it locks,
+    its gloss prints as it lands, so a five-word scale is five teachable moments.
+    `race` gives **every team its own ladder, side by side**, and the first team to
+    finish theirs takes the question. The picker is built from what the round
+    *declares* (`modes`), so neither the bench nor the hub learns what a mode means;
+    the hub turns it into a ⚙ row automatically.
+  - **The race needed the last unused thing on the relay.** Each team has placed
+    different words, so each has a different set left — which means **each team must
+    be asked a different question**. That is `optionsByTeam`, built for the
+    thermometer's bench game and used by nothing until now. A team not named falls
+    through to the room-wide list, so nothing else in the app is affected.
+  - **The ladder is the picture, which is the whole reason for a lane each.** You can
+    see who is two rungs up without reading a scoreboard, and a team's next answer
+    appears in the rung it is aimed at — so the room watches it land or shake rather
+    than reading a verdict afterwards. Fits a projector at two, three and four teams
+    (152px a lane at four), asserted at each.
+  - **The game-show skin now sets the card's *palette* rather than one round's word
+    tiles.** It restyled `.gword` directly, so the second round inherited nothing and
+    the ordering ladder's empty rungs kept the light theme's border on a dark card —
+    invisible. Any round drawn in that card is now correct by construction, including
+    ones not written yet. **A theme that names one round's classes is a bug waiting
+    for the next round**, the same shape as every other list that named what it
+    should have asked.
   - **A sequence is not a set, and that is what the second round was for.** Grouping
     merges a team's phones with a union — four words from four handsets are one
     answer. An order cannot be merged: two students tapping different sequences do
     not combine into a third. So `whole` takes the fullest single submission and the
-    board says **who is driving**. Not a compromise — it is what the shape permits,
-    and only a second question type could have shown it.
+    board says **who is driving**. That is what killed the first "everyone submits a
+    whole order" mode and replaced it with a lane each: a race asks one rung at a
+    time, so nothing has to be merged and every team argues out loud instead.
   - **A right answer is not always an ending, and defaulting that wrongly is silent.**
     A grouping card is over the moment a team has the set; an ordering climb has four
     more rungs. `judge` returns `done`, and the host treats **`done !== false`** as

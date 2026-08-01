@@ -82,17 +82,29 @@
    the words simply keep their light-theme paint on a dark card and look merely
    plain rather than broken. (`.clue-hint` below had the same dead selector and had
    never applied.) */
-body.theme-gameshow #clue-card .gword{
-  background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.22); color:var(--paper); }
-body.theme-gameshow #clue-card .gword:hover{ border-color:rgba(255,255,255,0.5); }
-body.theme-gameshow #clue-card .gword.chosen{
-  border-color:var(--paper); background:rgba(255,255,255,0.16); }
-body.theme-gameshow #clue-card .gword.held{ border-color:rgba(255,255,255,0.62); }
-/* The skin already glows, so a slightly brighter glow marks nothing and the fill
-   has to change — the same reason Blockbusters' leading hexagon does. */
-body.theme-gameshow #clue-card .gword.right{
-  border-color:#5BE08A; background:rgba(91,224,138,0.24); color:#DFFFE9; }
-body.theme-gameshow #clue-card .group-count{ border-color:rgba(255,255,255,0.35); color:var(--paper); }
+/* The game-show skin sets the **card's palette**, not one round's word tiles. It
+   used to restyle `.gword` directly, which meant every round after the first
+   inherited nothing — the ordering ladder's empty rungs kept the light theme's
+   border on a dark card and became invisible. Setting the properties here makes any
+   round drawn in this card correct by construction, including ones not written yet.
+
+   Scoped to the card, NOT to `#play-jeopardy.lit`: the clue card sits outside the
+   stage — which is why `openClueCard` has to set `--tension` on it by hand — so a
+   rule hung off the stage reaches nothing at all. */
+body.theme-gameshow #clue-card{
+  --gw-bg:rgba(255,255,255,0.06);
+  --gw-fg:var(--paper);
+  --gw-line:rgba(255,255,255,0.30);
+  --gw-hot:rgba(255,255,255,0.55);
+  --gw-ink:var(--paper);
+  --gw-wash:rgba(255,255,255,0.14);
+  /* The skin already glows, so a slightly brighter glow marks nothing and the fill
+     has to change — the same reason Blockbusters' leading hexagon does. */
+  --gw-good:#5BE08A;
+  --gw-goodwash:rgba(91,224,138,0.24);
+  --gw-goodink:#DFFFE9;
+}
+body.theme-gameshow #clue-card .group-count,
 body.theme-gameshow #clue-card .group-say{ color:var(--paper); }
 body.theme-gameshow #clue-card .group-say.good{ color:#7BE8A2; }
 body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5); color:var(--cream); }
@@ -143,3 +155,43 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
    lands, which is the moment the room is actually looking at it. */
 .ord-gloss{ font-size:0.72em; opacity:0.75; font-weight:400; }
 .ord-pool{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
+
+/* ---- a ladder per team ----
+   A race gives each side its own ladder side by side, because the climb *is* the
+   picture: you should be able to see who is two rungs up without reading a
+   scoreboard. A shared pool with coloured dots on it was the first build and it
+   made a race you had to be told the result of.
+
+   Four lanes is the most a clue card can hold and still be read from the back, so
+   the rungs lose their gloss and their padding as lanes are added rather than the
+   card growing. */
+.ord-lanes{ display:flex; gap:10px; align-items:flex-start; justify-content:center; }
+.ord-lane{ flex:1 1 0; min-width:0; }
+.ord-who{ font-size:0.68em; letter-spacing:0.1em; text-transform:uppercase;
+  font-weight:700; margin-bottom:4px; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap; }
+.ord-who.won::after{ content:' ✓'; }
+.round-ordering.racing .ord-rung{ font-size:0.78em; padding:3px 6px; }
+.round-ordering.racing .ord-rung.filled,
+.round-ordering.racing .ord-rung.next{ min-height:clamp(22px, 3vh, 32px); }
+.round-ordering.racing .ord-cap{ font-size:0.58em; }
+/* A team's next answer sits in the rung it is aimed at, in italic until it settles —
+   so the room watches it land or shake rather than reading a verdict afterwards. */
+.ord-rung.guessing{ font-style:italic; text-transform:none; letter-spacing:0;
+  border-style:dashed; }
+
+/* In a race the pool is the *teacher's* control — every team's own remaining words
+   are on their handsets — so it packs down to make room for the lanes. Four ladders
+   plus a full-width two-column pool came to within 2px of a 720px card, which is
+   not a margin, it is a coincidence waiting to break on a longer word. */
+.round-ordering.racing .ord-pool{
+  /* 130, not 110: a C1 vocabulary word is long and `overflow-wrap:anywhere` will
+     break it mid-syllable rather than overflow — "outstandin/g" is worse than a
+     narrower grid. */
+  grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:6px; margin-top:4px; }
+.round-ordering.racing .ord-pool .gword{ font-size:0.78em; padding:6px 8px; }
+.round-ordering.racing .ord-lanes{ margin:4px 0 2px; }
+/* Slim rungs still have to read as waiting slots from the back of a room, and four
+   narrow lanes of them is where that is hardest. */
+.round-ordering.racing .ord-rung.empty{ min-height:12px; opacity:0.75; }
+.round-ordering.racing .ord-who{ margin-bottom:2px; }

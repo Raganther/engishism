@@ -137,6 +137,7 @@
       <button id="reveal-btn" class="ghost">Reveal</button>
       <button id="reset-btn" class="ghost">Reset</button>
       <button id="add-phone" class="ghost">+ phone</button>
+      <select id="for-team" style="display:none" title="Which team the teacher is playing for"></select>
     </div>
 
     <div id="card-stage">
@@ -220,6 +221,7 @@ function ctx(){
     prompt: true,
     team: null,                       // the whole room; a host may scope it, this does not
     mode: $('mode-pick').value || null,
+    forTeam: teacherTeam(),
     onPick: word => {
       if(!state || state.done) return;
       const cap = capOf();
@@ -234,6 +236,20 @@ function ctx(){
 /* The picker is built from what the round *declares*, so the bench never learns
    what a mode means — exactly as a game show does not. A round with one way to be
    played gets no picker at all. */
+/* Only a race has a team to choose — a shared ladder is one board. */
+function fillTeamPick(){
+  const sel = $('for-team');
+  const racing = $('mode-pick').value === 'race';
+  sel.innerHTML = '';
+  sel.style.display = racing ? '' : 'none';
+  if(!racing) return;
+  TEAMS.forEach((t, i)=>{
+    const o = document.createElement('option');
+    o.value = String(i); o.textContent = 'playing for ' + t;
+    sel.appendChild(o);
+  });
+}
+
 function fillModes(){
   const def = Kit.round.get(type);
   const sel = $('mode-pick');
@@ -246,7 +262,8 @@ function fillModes(){
     sel.appendChild(o);
   });
 }
-$('mode-pick').addEventListener('change', ()=>{ build(); if(host) ask(); });
+$('mode-pick').addEventListener('change', ()=>{ fillTeamPick(); build(); if(host) ask(); });
+$('for-team').addEventListener('change', draw);
 
 const list = str => str.split(',').map(w => w.trim()).filter(Boolean);
 
@@ -283,6 +300,13 @@ function fillEditor(){
 
 /* How many the teacher may hold at once — the round says, via what it asks the
    phones for. An ordering climb wants one at a time; a grouping card wants four. */
+/* With no phones the teacher plays for one team at a time. In a race that has to
+   be a real choice — there is a ladder each — so it follows the picker; on a shared
+   ladder there is only one board and the team is irrelevant. */
+function teacherTeam(){
+  return Number($('for-team') && $('for-team').value || 0) || 0;
+}
+
 function capOf(){
   if(!state) return 1;
   const a = Kit.round.get(type).arm(state, ctx());
@@ -339,14 +363,14 @@ function onSettle(){
   if(!state || state.done) return;
   const def = Kit.round.get(type);
   const verdicts = Object.keys(state.picks).map(t => ({
-    team: Number(t), set: state.picks[t], r: def.judge(state.picks[t], state)
+    team: Number(t), set: state.picks[t], r: def.judge(state.picks[t], state, Number(t))
   })).filter(v => v.r.verdict !== 'incomplete');
   // the right answer is resolved before any wrong one — two teams can settle in one tick
   const won = verdicts.filter(v => v.r.verdict === 'right')[0];
   if(won){
     /* Right is not always the end. A grouping card is over the moment a team has the
        set; an ordering climb has four more rungs to go. The round says which. */
-    def.accept(won.set, state);
+    def.accept(won.set, state, won.team);
     if(won.r.done !== false || state.done){ take(won.team); return; }
     state.say = ctx().teamName(won.team) + ' — yes.';
     settler.reset();
@@ -381,9 +405,9 @@ function shake(set){
 $('check-btn').addEventListener('click', ()=>{
   if(!state || state.done) return;
   const def = Kit.round.get(type);
-  const r = def.judge(state.chosen, state);
+  const r = def.judge(state.chosen, state, teacherTeam());
   if(r.verdict === 'right'){
-    def.accept(state.chosen.slice(), state);
+    def.accept(state.chosen.slice(), state, teacherTeam());
     state.chosen = [];
     if(r.done !== false || state.done){ take(-1); state.say = 'That is it.'; draw(); return; }
     state.say = 'Yes — keep going.';
@@ -406,7 +430,7 @@ $('reveal-btn').addEventListener('click', ()=>{
 $('reset-btn').addEventListener('click', ()=>{ build(); if(host) host.disarm(); });
 $('ask-btn').addEventListener('click', ask);
 $('type-pick').addEventListener('change', e => {
-  type = e.target.value; fillModes(); fillEditor(); build(); if(host) ask();
+  type = e.target.value; fillModes(); fillTeamPick(); fillEditor(); build(); if(host) ask();
 });
 
 /* ---------------- sizing ----------------
@@ -515,6 +539,7 @@ const room = BenchKit.room({
 /* Degradation is the rule, not a fallback: with no relay the card is still drawn
    and still playable by clicking the words and pressing Check. */
 fillModes();
+fillTeamPick();
 build();
 fitAll();
 </script>

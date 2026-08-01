@@ -5376,28 +5376,39 @@ async function testQuestionBench(browser){
           /not that one/i.test(await ord.locator('.group-say').innerText()),
           await ord.locator('.group-say').innerText());
 
-    /* Whole: the order is tapped in sequence. The relay preserves tap order, which
-       is what makes a sequence expressible on a phone with no drag at all. */
-    await ord.locator('#mode-pick').selectOption('whole'); await ord.waitForTimeout(1200);
-    const of1 = ord.frames().filter(f => /join\.html/.test(f.url()))[0];
-    for(const w of ['annoyed','irritated','livid','angry','furious']) await tapW(of1, w);
-    await ord.waitForTimeout(1400);
-    check('whole: a near-miss order is named as one',
-          /wrong way round/i.test(await ord.locator('.group-say').innerText()),
-          await ord.locator('.group-say').innerText());
-    /* A sequence cannot be merged across phones, so a team's answer is one player's
-       and the board says whose — the finding this round exists to surface. */
-    check('and the board shows the order, and who is driving it',
-          /annoyed → irritated/.test(await ord.locator('.group-tally').innerText()) &&
-          /driving/.test(await ord.locator('.group-tally').innerText()),
-          await ord.locator('.group-tally').innerText());
-    for(const w of ['annoyed','irritated','livid','angry','furious']) await tapW(of1, w);
-    await ord.waitForTimeout(300);
-    for(const w of ['annoyed','irritated','angry','livid','furious']) await tapW(of1, w);
-    await ord.waitForTimeout(1500);
-    check('whole: the right order fills the ladder and ends it',
-          await ord.locator('.ord-rung.filled').count() === 5 &&
-          /has it/i.test(await ord.locator('.group-say').innerText()),
+    /* A ladder each, racing. This is the mode that needed the one relay feature
+       nothing had ever used: **each team is asked a different question**, because
+       each has placed different words and so has a different set left. */
+    await ord.locator('#mode-pick').selectOption('race'); await ord.waitForTimeout(1300);
+    check('a race gives every team its own ladder',
+          await ord.locator('.ord-lane').count() === 2 &&
+          await ord.locator('.ord-who').count() === 2,
+          String(await ord.locator('.ord-lane').count()));
+    /* Named once above and below the lanes, not per lane: the two ends belong to the
+       question, and four copies of them is three copies of noise. */
+    check('and the two ends of the scale are named once, not per lane',
+          await ord.locator('.ord-cap').count() === 2);
+
+    const fr = ord.frames().filter(f => /join\.html/.test(f.url()));
+    await tapW(fr[0], 'annoyed'); await ord.waitForTimeout(1200);
+    await tapW(fr[0], 'irritated'); await ord.waitForTimeout(1200);
+    await tapW(fr[1], 'annoyed'); await ord.waitForTimeout(1200);
+    check('each team climbs its own ladder independently',
+          await ord.locator('.ord-lane').nth(0).locator('.ord-rung.filled').count() === 2 &&
+          await ord.locator('.ord-lane').nth(1).locator('.ord-rung.filled').count() === 1,
+          (await ord.locator('.ord-lane').nth(0).locator('.ord-rung.filled').count()) + '/' +
+          (await ord.locator('.ord-lane').nth(1).locator('.ord-rung.filled').count()));
+    /* The proof that `optionsByTeam` is doing its job: two handsets in the same room
+       are being offered different words. */
+    check('and each phone is asked about its own team’s remaining words',
+          await fr[0].locator('#opts button').count() === 3 &&
+          await fr[1].locator('#opts button').count() === 4,
+          (await fr[0].locator('#opts button').count()) + ' vs ' +
+          (await fr[1].locator('#opts button').count()));
+    for(const w of ['angry','livid','furious']){ await tapW(fr[0], w); await ord.waitForTimeout(1100); }
+    check('and the first ladder finished takes the question',
+          /has it/i.test(await ord.locator('.group-say').innerText()) &&
+          await ord.locator('.ord-who.won').count() === 1,
           await ord.locator('.group-say').innerText());
   }
   checkClean(ord, 'ordering bench');

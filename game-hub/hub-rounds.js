@@ -25,8 +25,8 @@
    | `render(mount, s, c)` | draw the card into `mount` — the projector's view |
    | `arm(s, c)`           | what the handsets are put into; the payload goes to the relay unread |
    | `read(replies, s)`    | the room's replies -> one answer per team |
-   | `judge(answer, s)`    | is that answer right, how close, and is the round over |
-   | `accept(answer, s)`   | commit a correct answer, when being right is not yet the end |
+   | `judge(answer, s, t)` | is that answer right, how close, and is the round over |
+   | `accept(answer, s, t)`| commit a correct answer, when being right is not yet the end |
    | `modes`               | the ways this question can be played, if more than one |
    | `settleMs`            | how long to wait after the last tap before judging |
 
@@ -101,6 +101,9 @@
         arm(){ return null; },
         read(){ return {}; },
         judge(){ return { verdict:'wrong', hits:0 }; },
+        /* `t` is which team is being judged, and it is not decoration: a round can
+           give each team its own board — the ordering race gives each a ladder — so
+           whether an answer is right depends on where *that* team has got to. */
         /* Commit a correct answer to the round's state. Grouping leaves this out —
            being right *is* the ending there — and ordering's climb is the case that
            needed it: a right answer means progress, not the end. So `judge` says
