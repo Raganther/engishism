@@ -1,0 +1,85 @@
+/* ================= Question rounds — the shared card =================
+   The innards of a question card, in their own file because **both the game shows
+   and the playground draw it** and the playground cannot load `hub.css` to get it:
+   that stylesheet carries the whole hub theme, and a bench page is not a hub page.
+   One file, loaded by both, so what you tune on the bench is literally what a class
+   meets rather than a second implementation that resembles it.
+
+   The game-show overrides are here too. They are scoped to `body.theme-gameshow`,
+   which never matches on a bench page, so they cost it nothing.
+
+   Nothing in here positions the card — that is the host's job. A clue card floats
+   over a Jeopardy board and the bench gives it a panel; the round only ever fills
+   whatever box it is handed. */
+
+/* ---- a grouping clue -------------------------------------------------------
+   Eight words on the clue card, four of which belong together. The room assembles
+   the four on their phones; the teacher can click them here instead when there is
+   no room, which is the same degradation every playground page owes.
+
+   The words sit *under* the prompt inside `#clue-text`, the way the hint does, so
+   the class is still reading the instruction while they work. */
+.clue-group{ margin-top:14px; }
+/* Two columns, the same rule the handset uses for a list this long (`.opts.compact`
+   in join.html): a set of words is something you choose *between*, so they have to
+   be seen at once and comparable at a glance. Centred wrapping put four on one row
+   and three on the next, which reads as a paragraph rather than a set — and it made
+   the card and the phone look like two different questions. Same shape in the hand
+   and on the projector is the point. */
+.group-words{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
+.gword{ position:relative; font:inherit; font-size:0.92em; line-height:1.15;
+  padding:11px 12px; border-radius:10px; cursor:pointer; min-width:0;
+  overflow-wrap:anywhere;      /* a C1 vocabulary word is often long; break it properly */
+  border:2px solid rgba(18,38,63,0.18); background:var(--white); color:var(--navy);
+  transition:background .15s, border-color .15s, transform .15s; }
+.gword:hover{ border-color:rgba(0,122,201,0.5); }
+/* The teacher's own selection is a neutral dashed ring and never a team colour: on
+   a board every team is playing at once, so nothing the teacher clicks is theirs to
+   claim. Connections paid for this — a coloured ring paints a contested word as one
+   team's and makes the other team's dot read as a footnote on somebody else's pick. */
+.gword.chosen{ border-style:dashed; border-color:var(--navy); background:rgba(18,38,63,0.07); }
+/* `held` is likewise neutral: only the dots say who, and both teams' picks have to
+   be equally legible or the race stops being a language task. */
+.gword.held{ border-color:rgba(18,38,63,0.5); }
+.gword.right{ border-color:#2FA84F; background:rgba(47,168,79,0.14); color:#1B6B32; }
+.gdots{ display:flex; gap:3px; position:absolute; top:-4px; right:-4px; }
+.gdot{ width:9px; height:9px; border-radius:50%; border:1.5px solid var(--white); }
+.gword.shake{ animation:gShake .38s ease; }
+@keyframes gShake{ 0%,100%{ transform:translateX(0); } 25%{ transform:translateX(-5px); }
+  75%{ transform:translateX(5px); } }
+
+.group-tally{ display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-top:12px; }
+.group-count{ font-size:0.72em; padding:3px 9px; border-radius:99px;
+  border:1.5px solid rgba(18,38,63,0.3); }
+.group-count small{ opacity:0.7; }
+.group-say{ margin-top:10px; font-size:0.85em; opacity:0.85; }
+.group-say.good{ color:#2FA84F; opacity:1; font-weight:600; }
+/* Same specificity fight as `#hint-btn` above — see the note there. */
+#clue-actions #group-btn{ background:transparent; border:1px solid rgba(0,122,201,0.45); color:var(--blue); }
+#clue-actions #group-btn:hover:not(:disabled){ background:var(--blue); color:var(--white); }
+#clue-actions #group-btn:disabled{ opacity:0.45; cursor:default; }
+
+/* Scoped to the card, NOT to `#play-jeopardy.lit`. The clue card sits outside the
+   stage — which is why `openClueCard` has to set `--tension` on it by hand — so a
+   rule hung off the stage never reaches anything in here. It is a silent failure:
+   the words simply keep their light-theme paint on a dark card and look merely
+   plain rather than broken. (`.clue-hint` below had the same dead selector and had
+   never applied.) */
+body.theme-gameshow #clue-card .gword{
+  background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.22); color:var(--paper); }
+body.theme-gameshow #clue-card .gword:hover{ border-color:rgba(255,255,255,0.5); }
+body.theme-gameshow #clue-card .gword.chosen{
+  border-color:var(--paper); background:rgba(255,255,255,0.16); }
+body.theme-gameshow #clue-card .gword.held{ border-color:rgba(255,255,255,0.62); }
+/* The skin already glows, so a slightly brighter glow marks nothing and the fill
+   has to change — the same reason Blockbusters' leading hexagon does. */
+body.theme-gameshow #clue-card .gword.right{
+  border-color:#5BE08A; background:rgba(91,224,138,0.24); color:#DFFFE9; }
+body.theme-gameshow #clue-card .group-count{ border-color:rgba(255,255,255,0.35); color:var(--paper); }
+body.theme-gameshow #clue-card .group-say{ color:var(--paper); }
+body.theme-gameshow #clue-card .group-say.good{ color:#7BE8A2; }
+body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5); color:var(--cream); }
+
+@media (prefers-reduced-motion:reduce){
+  .gword.shake{ animation:none; }
+}
