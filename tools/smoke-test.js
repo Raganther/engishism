@@ -5264,6 +5264,10 @@ async function testQuestionBench(browser){
     check('phones are grouped by team, side by side within a team',
           shape.rows === 2 && shape.perRow.join(',') === '2,2',
           JSON.stringify(shape));
+    /* A race keeps every word on the card. Each team has placed different ones, so
+       removing a word because *some* team used it makes the card lie to the rest —
+       and filtering by the teacher's own lane made the list shrink as Team 1
+       climbed, which reads as words vanishing for no reason anybody can see. */
     /* The editor sits under the card and no wider. Spanning the page pushed the
        rack over and made three inputs the widest thing on screen, which is the
        wrong emphasis: the card is the subject, these are its controls. */
@@ -5271,15 +5275,9 @@ async function testQuestionBench(browser){
           shape.editor <= shape.card + 2, JSON.stringify(shape));
     check('and nothing runs off the right edge', !shape.wide, JSON.stringify(shape));
 
-    /* Four is the browser's ceiling, not ours: six connections per origin, and the
-       board plus each racked phone holds one open permanently. At five the POST
-       carrying a tap has nothing left to travel on — the phone marks the word and
-       the board never hears it, which looks like a broken round while both ends are
-       behaving perfectly. Proved by driving a fifth phone and watching the tap
-       vanish. Real handsets are separate browsers and have no such limit. */
-    check('a fifth phone is refused, because the browser would silently drop its taps',
-          await page.locator('#add-phone').isDisabled() &&
-          /4 phones max/i.test(await page.locator('#add-phone').innerText()),
+    check('the cap is twenty, not four — more phones can still be racked',
+          !(await page.locator('#add-phone').isDisabled()) &&
+          /\+ phone \(4\)/.test(await page.locator('#add-phone').innerText()),
           await page.locator('#add-phone').innerText());
     /* The room bench's lesson, one level down: a scaled phone still has to be laid
        out at a real handset's width, or the bench shows a layout no phone shows. */
@@ -5326,6 +5324,18 @@ async function testQuestionBench(browser){
     check('and nothing on the bench scored it',
           await page.locator('.score, .team-chip').count() === 0);
   }
+  /* Last, because racking a fifth phone on plain http is exactly what stops taps
+     arriving — the thing this warning is about — so anything after it would be
+     testing the limit rather than the round. Over HTTP/1.1 a browser allows six
+     connections per origin and the board's own stream is one of them; the deployed
+     site is HTTP/2, where streams share a connection and none of it applies. The
+     bench says which situation you are in rather than pretending one number is
+     true everywhere. */
+  await page.locator('#add-phone').click(); await page.waitForTimeout(900);
+  check('past four racked phones on plain http, the bench warns rather than lying',
+        await page.locator('#rack-warn').isVisible() &&
+        /six connections per origin/i.test(await page.locator('#rack-warn').innerText()),
+        await page.locator('#rack-warn').innerText().catch(()=>'(hidden)'));
   checkClean(page, 'question bench');
   await page.close();
 
@@ -5452,6 +5462,12 @@ async function testQuestionBench(browser){
           await fr[1].locator('#opts button').count() === 4,
           (await fr[0].locator('#opts button').count()) + ' vs ' +
           (await fr[1].locator('#opts button').count()));
+    /* The card is the reference list of what is in play — every word stays on it
+       while teams climb, because each has placed different ones and removing a word
+       because *some* team used it makes the card lie to the rest. */
+    check('and the card keeps every word while teams climb',
+          await ord.locator('.ord-pool .gword').count() === 5,
+          String(await ord.locator('.ord-pool .gword').count()));
     for(const w of ['angry','livid','furious']){ await tapW(fr[0], w); await ord.waitForTimeout(1100); }
     check('and the first ladder finished takes the question',
           /has it/i.test(await ord.locator('.group-say').innerText()) &&

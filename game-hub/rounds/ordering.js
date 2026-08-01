@@ -178,11 +178,20 @@
       /* What is left to place. On a shared ladder this is the ballot; in a race each
          team has its own remaining words on their phones, so the card shows the full
          set as a reminder of what is in play. */
-      /* In a race the phones each hold their own team's remaining words, so the
-         card's pool is only for the teacher — and it has to be the lane they are
-         actually playing for, or it offers words that ladder has already used. */
+      /* **In a race the card keeps every word, always.** Each team has placed
+         different ones, so removing a word because *some* team used it makes the
+         card lie to the other three — and filtering by the teacher's own lane made
+         the shared list shrink as Team 1 climbed, which reads as words vanishing for
+         no reason anybody else can see. The card is the reference list of what is in
+         play; each team's own remaining set is on their handsets, where it belongs.
+         On one shared ladder there is only one lane, so a placed word really is
+         gone and the pool follows it. */
+      const left = s.mode === 'race'
+        ? s.pool.slice()
+        : s.pool.filter(w => s.placed.indexOf(w) === -1);
+      // …but the teacher's own lane still marks what it has used, so a click that
+      // could only be wrong is visibly so
       const mine = s.mode === 'race' ? (s.lanes[c.forTeam || 0] || []) : s.placed;
-      const left = s.pool.filter(w => mine.indexOf(w) === -1);
       if(!s.done && left.length){
         const pool = document.createElement('div');
         pool.className = 'ord-pool';
@@ -195,6 +204,7 @@
           t.textContent = at === -1 ? w : (at + 1) + '. ' + w;
           b.appendChild(t);
           if(at !== -1) b.classList.add('chosen');
+          if(s.mode === 'race' && mine.indexOf(w) !== -1) b.classList.add('spent');
           if(s.mode === 'climb'){
             const holders = Object.keys(s.picks).filter(t2 => (s.picks[t2]||[]).indexOf(w) !== -1);
             if(holders.length){

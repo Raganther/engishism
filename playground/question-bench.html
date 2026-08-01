@@ -100,6 +100,9 @@
   .rack-label{ font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase;
                font-weight:700; margin-bottom:5px; }
   .rack-label .none{ opacity:0.45; font-weight:400; letter-spacing:0; text-transform:none; }
+  .warn{ display:none; font-size:0.74rem; line-height:1.45; margin-bottom:10px;
+         padding:8px 10px; border-radius:8px; color:var(--gold);
+         background:rgba(255,194,14,0.1); border:1px solid rgba(255,194,14,0.35); }
   .phone{ flex:0 0 auto; }
   .phone .who{ font-size:0.7rem; text-align:center; opacity:0.7; margin-bottom:5px;
                font-family:'IBM Plex Mono',monospace; }
@@ -175,7 +178,7 @@
     </div>
   </div>
 
-  <div id="rack-pane"><div id="rack"></div></div>
+  <div id="rack-pane"><div id="rack-warn" class="warn"></div><div id="rack"></div></div>
 </div>
 
 <script src="../game-hub/hub-buzzer.js?v=20260801z"></script>
@@ -456,8 +459,8 @@ $('type-pick').addEventListener('change', e => {
    never caught it because they asked what the scale was rather than whether the
    thing still fitted. */
 const CARD_W = 720;                 // what a clue card measures inside a 1280 board
-const PER_ROW = 4;
-const PHONE_MIN = 0.34, PHONE_MAX = 0.62;
+const PER_ROW = 5;   // five to a row; twenty phones across four teams
+const PHONE_MIN = 0.26, PHONE_MAX = 0.62;   // twenty handsets have to fit somewhere
 
 function fitAll(){
   const page = document.getElementById('wrap').clientWidth;
@@ -497,21 +500,27 @@ if(window.ResizeObserver){
    Real join.html pages on the real relay, so a tap lands on the card exactly as it
    would in class. Appended once and never re-parented: moving an iframe reloads it,
    which drops its stream. */
-/* **Four is the ceiling, and it is the browser's rather than ours.** A browser
-   allows six connections to one origin, and every live page here holds one open
-   permanently: the board's own event stream plus one per racked handset. At five
-   phones that is six, and the POST carrying a tap has nothing left to travel on —
-   so the phone marks the word, the board never hears it, and the round looks broken
-   while both ends are behaving perfectly. Found by driving a fifth phone and
-   watching the tap vanish.
+/* **The ceiling is the transport's, not a number we get to choose — and it is not
+   the same everywhere.** Every live page here holds one event stream open forever:
+   the board's, plus one per racked handset.
 
-   It costs a class nothing: thirty real handsets are thirty separate browsers with
-   six connections each. It is only ever a simulation limit, which is exactly the
-   kind of thing a bench must not lie about. `phone-bench.html` racks phones the
-   same way and has the same ceiling. */
-const RACK_MAX = 4;
+   - Over **HTTP/1.1** a browser allows six connections to one origin, so at five
+     phones that is six and the request carrying a tap has nothing left to travel
+     on. The phone marks the word, the board never hears it, and the round looks
+     broken while both ends are behaving perfectly. That is what `tools/buzzer-relay
+     .js` is when you run it locally, and it was measured: four works, five does not,
+     every time.
+   - Over **HTTP/2** — which is what the deployed site speaks — streams are
+     multiplexed onto one connection and the limit does not apply.
+
+   So the cap is 20, and the note below says which situation you are in rather than
+   pretending one number is true everywhere. A real class never meets any of this:
+   thirty handsets are thirty separate browsers. */
+const RACK_MAX = 20;
+const HTTP1_SAFE = 4;               // measured against the local plain-http relay
 let seat = 0;
-const NAMES = ['Ana','Bo','Cal','Di'];
+const NAMES = ['Ana','Bo','Cal','Di','Eli','Fen','Gus','Hana','Ivo','Jo',
+               'Kit','Lex','Mo','Nia','Ola','Pia','Quin','Ravi','Sam','Tam'];
 const teamOf = [];                     // seat -> team, so the rack can group them
 
 /* A row per team, created once and never rebuilt. **Rows are added, never
@@ -582,14 +591,27 @@ function addPhone(){
   row.appendChild(box);
   fitAll();                           // the phones shrink, the card does not
   setTimeout(()=>{ draw(); fitAll(); }, 900);   // the share moves when a team grows
+  const btn = $('add-phone');
   if(seat >= RACK_MAX){
-    const b = $('add-phone');
-    b.disabled = true;
-    b.textContent = '4 phones max';
-    b.title = 'A browser allows six connections to one origin and each phone holds ' +
-              'one open, so a fifth would have nothing left to send a tap on. Real ' +
-              'handsets are separate browsers and have no such limit.';
+    btn.disabled = true;
+    btn.textContent = RACK_MAX + ' phones max';
+  } else {
+    btn.textContent = '+ phone (' + seat + ')';
   }
+  /* Say which situation you are in rather than which number is true. Over plain
+     http a browser runs out of connections at six per origin — the board's stream
+     plus five phones — and a tap simply never arrives, which looks like a broken
+     round. The deployed site is https/2, where streams share one connection and
+     none of this applies. */
+  const warn = $('rack-warn');
+  const risky = location.protocol === 'http:' && seat > HTTP1_SAFE;
+  // `block`, not '' — the class sets display:none, so clearing the inline style
+  // falls straight back to hidden
+  warn.style.display = risky ? 'block' : 'none';
+  if(risky) warn.textContent =
+    'Over plain http a browser allows six connections per origin, so past ' +
+    HTTP1_SAFE + ' racked phones a tap may never reach the board. Not a limit on ' +
+    'the deployed https site, and never one in a real class.';
 }
 function pushTeams(){ if(host) host.setTeams(TEAMS.slice()); }
 $('add-team').addEventListener('click', addTeam);

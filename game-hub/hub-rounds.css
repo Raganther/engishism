@@ -195,3 +195,8 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
    narrow lanes of them is where that is hardest. */
 .round-ordering.racing .ord-rung.empty{ min-height:12px; opacity:0.75; }
 .round-ordering.racing .ord-who{ margin-bottom:2px; }
+/* A word the teacher's own lane has already used. It stays on the card — every team
+   has placed different words, so removing one because *some* team used it makes the
+   card lie to the other three — but it is dimmed, because clicking it for that lane
+   could only ever be wrong. */
+.round-ordering.racing .ord-pool .gword.spent{ opacity:0.4; }

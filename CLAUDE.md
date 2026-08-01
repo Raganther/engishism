@@ -793,6 +793,12 @@ playground's point, that one board can host several:
     fallbacks inside each `var()`, never a declaration block**: a declaration on the
     round's own element out-specifies anything the host sets on an ancestor, which is
     exactly how the first attempt failed and looked like the host being ignored.
+  - **In a race the card keeps every word.** Each team has placed different ones, so
+    removing a word because *some* team used it makes the card lie to the other
+    three — and filtering by the teacher's own lane made the shared list shrink as
+    Team 1 climbed, which reads as words vanishing for no reason anybody else can
+    see. The card is the reference list of what is in play; each team's own remaining
+    set is on their handsets. Only the teacher's own lane dims what it has used.
   - **The bench makes teams, and racks its phones a row per team.** A round can give
     each team its own board, so two was not enough to try one — and the rack now
     reads the way the room does: a labelled row per team, phones filling the teams
@@ -804,17 +810,18 @@ playground's point, that one board can host several:
     watching the phones and the card together. Both constraints now, floored — below
     the floor the pane simply scrolls, which is honest, where an unreadable phone is
     not.
-  - **The bench racks four phones and no more, and the ceiling is the browser's.** A
-    browser allows six connections to one origin and every live page holds one open
-    permanently — the board's event stream plus one per racked handset. At five that
-    is six, and the POST carrying a tap has nothing left to travel on: **the phone
-    marks the word, the board never hears it, and the round looks broken while both
-    ends are behaving perfectly.** Found by driving a fifth phone and watching the
-    tap vanish; four works, five does not, every time. It costs a class nothing —
-    thirty real handsets are thirty separate browsers — so it is purely a simulation
-    limit, which is exactly the kind of thing a bench must not lie about.
-    **`phone-bench.html` racks phones the same way and has the same ceiling**, and
-    has not been capped yet.
+  - **The bench racks twenty phones, and the ceiling is the transport's — which is
+    not the same everywhere.** Every live page holds one event stream open forever:
+    the board's, plus one per racked handset. Over **HTTP/1.1** a browser allows six
+    connections per origin, so at five phones that is six and the request carrying a
+    tap has nothing left to travel on — **the phone marks the word, the board never
+    hears it, and the round looks broken while both ends are behaving perfectly.**
+    That is the local relay, and it was measured. Over **HTTP/2**, which the deployed
+    site speaks, streams share one connection and none of it applies. The cap is
+    twenty and the bench **says which situation you are in** rather than pretending
+    one number is true everywhere. A class never meets any of it: thirty handsets are
+    thirty separate browsers. *(This corrects an earlier note here that gave four as
+    the ceiling — that was the local measurement generalised too far.)*
   - **The card never gives up width; the phones do.** Adding a handset used to
     squeeze the card, which defeats the whole page: a card that changes size when you
     rack a phone is not the card a class meets. The card is drawn at a projector's
