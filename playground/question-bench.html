@@ -460,7 +460,11 @@ $('type-pick').addEventListener('change', e => {
    thing still fitted. */
 const CARD_W = 720;                 // what a clue card measures inside a 1280 board
 const PER_ROW = 5;   // five to a row; twenty phones across four teams
-const PHONE_MIN = 0.26, PHONE_MAX = 0.62;   // twenty handsets have to fit somewhere
+/* Up to 1:1 and never past it — the room bench's rule for a board, applied to a
+   handset: an upscaled phone shows a size no phone renders at, and a downscaled one
+   is still the real layout. So a rack with room to spare draws its phones bigger
+   rather than leaving the width empty. */
+const PHONE_MIN = 0.26, PHONE_MAX = 1;
 
 function fitAll(){
   const page = document.getElementById('wrap').clientWidth;
@@ -478,17 +482,18 @@ function fitAll(){
   const gap = 12;
   /* The busiest row sets the scale, so rows with fewer phones simply leave space
      rather than every row being sized by the total. */
+  /* **Width fills, height scrolls.** The phones are sized to fill the row they are
+     actually in, and the pane scrolls if that puts more rows on screen than fit.
+     Constraining by height as well was the obvious-looking thing and it was wrong:
+     with four rows it shrank every handset to the floor while a third of the pane's
+     width sat empty, which is the one thing a bench must not do — a phone too small
+     to read is a phone you cannot judge a dynamic from. Scrolling costs a moment;
+     an unreadable rack costs the whole page. */
   const rows = [...document.querySelectorAll('.rack-row')].map(r => r.children.length);
-  const per = Math.max(1, Math.min(PER_ROW, Math.max(1, ...rows)));
+  const per = Math.max(1, Math.max(1, ...rows));
   const each = (pane.clientWidth - (per - 1) * gap) / per;
-  /* Height matters as much as width once the rack is a row per team: four rows of
-     full-size handsets is a rack you have to scroll past to see, which defeats
-     watching the phones and the card together. Both constraints, floored so a phone
-     never becomes unreadable — below the floor the pane simply scrolls, which is
-     the honest outcome rather than a phone nobody can read. */
-  const perRow = (pane.clientHeight / Math.max(1, rows.length)) - 26;
   root.setProperty('--phone-scale',
-    Math.max(PHONE_MIN, Math.min(PHONE_MAX, each / 390, perRow / 844)).toFixed(4));
+    Math.max(PHONE_MIN, Math.min(PHONE_MAX, each / 390)).toFixed(4));
 }
 window.addEventListener('resize', fitAll);
 if(window.ResizeObserver){
