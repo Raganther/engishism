@@ -165,10 +165,30 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
    card growing. */
 .ord-lanes{ display:flex; gap:10px; align-items:flex-start; justify-content:center; }
 .ord-lane{ flex:1 1 0; min-width:0; }
-.ord-who{ font-size:0.68em; letter-spacing:0.1em; text-transform:uppercase;
-  font-weight:700; margin-bottom:4px; overflow:hidden; text-overflow:ellipsis;
-  white-space:nowrap; }
-.ord-who.won::after{ content:' ✓'; }
+/* A row rather than a line of text, because the agreement count rides on the end of
+   it and must not be the thing a long team name ellipsises away — the name is the
+   part that can afford to be shortened. */
+.ord-who{ display:flex; align-items:baseline; justify-content:center; gap:5px;
+  font-size:0.68em; letter-spacing:0.1em; text-transform:uppercase;
+  font-weight:700; margin-bottom:4px; white-space:nowrap; }
+.ord-name{ overflow:hidden; text-overflow:ellipsis; min-width:0; }
+.ord-who.won::after{ content:'✓'; flex:0 0 auto; }
+/* **How many of the team have agreed.** It lives on the team's label and never on a
+   rung: a count inside a rung makes that rung two lines tall, so the lanes stop
+   lining up with each other and the ladder lurches as answers arrive — which is
+   exactly what the equal-height rungs above were written to stop. */
+.ord-agree{ flex:0 0 auto; font-size:0.92em; font-weight:700; letter-spacing:0.04em;
+  opacity:0.55; }
+.ord-agree.all{ opacity:1; color:var(--gw-good, #2FA84F); }
+/* On a shared ladder every word a team has a vote on carries a dot, so the room can
+   see *where* it disagrees; the word a team is leading with is additionally filled.
+   A fill rather than a thicker border on purpose — a border that changes width moves
+   every word below it, which is the ladder-lurching bug one grid over. */
+.round-ordering .gword.leading{ background:var(--gw-wash, rgba(18,38,63,0.07)); }
+/* On a shared ladder there is no lane label, so the count goes in the tally strip
+   the grouping card already uses. */
+.group-count.all{ border-color:var(--gw-good, #2FA84F); }
+.group-count.all small{ opacity:1; font-weight:700; color:var(--gw-good, #2FA84F); }
 /* Same box for every rung here too — a lane whose empty rungs are a different size
    from its filled ones does not line up with the lane beside it, and four ladders
    that disagree about where rung three sits is not a race you can read. */

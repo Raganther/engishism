@@ -8,20 +8,23 @@
    **Two ways to play it, and they are genuinely different lessons rather than two
    speeds of one.** The host picks with `ctx.mode`:
 
-   - **`climb`** — the ladder fills one rung at a time from the cold end. Everyone
-     votes on what comes next, it locks in, and its gloss prints as it lands. Slower,
-     but every student is in every decision and the teacher gets five teachable
-     moments instead of one.
-   - **`whole`** — each team taps out a complete order and the board scores it. Fast
-     and competitive; one verdict at the end.
+   - **`climb`** — one shared ladder, filled a rung at a time from the cold end.
+     Everyone votes on what comes next, it locks in, and its gloss prints as it lands.
+     Slower, but every student is in every decision and the teacher gets five
+     teachable moments instead of one.
+   - **`race`** — a ladder each, side by side, and the first team to fill theirs takes
+     the question. Each team has placed different words and so has a different set
+     left, which is why this is the one round that asks each team a *different*
+     question (`optionsByTeam`).
 
    **A sequence is not a set, and that is the whole reason this was built second.**
    Grouping merges a team's phones with a union — four words from four handsets are
-   one answer. An order cannot be merged: two students tapping different sequences
-   do not combine into a third. So in `whole` a team's answer is the fullest single
-   submission among its players, and the board names whose it is. That is not a
-   compromise, it is what the shape actually permits, and it is the kind of thing
-   only a second question type could reveal.
+   one answer whatever order they arrived in. An order cannot be merged: two students
+   tapping different words do not combine into a third. So a team answers **one rung
+   at a time**, and the rung does not land until every player on that team has picked
+   it. A majority used to be enough, which let three students carry a fourth who was
+   never asked to commit; the argument that brings the fourth round is the lesson,
+   not an obstacle to it.
 
    Authoring shape — the scale is written cold-end first, which is the answer:
 
@@ -82,7 +85,16 @@
         lanes,                      // team -> that team's own ladder, `race` only
         pool:   shuffle(scale.slice()),
         chosen: [],                 // the teacher's own working order, with no phones
-        picks:  {},                 // team -> that team's proposed order
+        /* Three facts about what the room is saying, and they are deliberately not
+           one. `picks` is a team's *committed* answer — the thing that gets judged —
+           and it only exists once the whole team agrees. `leading` is what most of
+           them are saying right now, which is what the card draws while they argue.
+           `votes` is the count behind it, so the room can see how far off agreeing
+           they are. Collapsing these back into one field is how a majority would
+           quietly start winning rungs again. */
+        picks:  {},                 // team -> the answer the whole team has agreed on
+        leading:{},                 // team -> the word most of them are saying, for the card
+        votes:  {},                 // team -> { for:{word:n}, said, agreed }
         by:     {},                 // team -> whose phone the answer came from
         won:    null,               // the team that finished first, `race` only
         say:    '',
@@ -113,9 +125,24 @@
         if(team != null){
           const who = document.createElement('div');
           who.className = 'ord-who';
-          who.textContent = c.teamName ? c.teamName(team) : ('Team ' + (team + 1));
           who.style.color = colourOf(team);
           if(s.won === team) who.classList.add('won');
+          const nm = document.createElement('span');
+          nm.className = 'ord-name';
+          nm.textContent = c.teamName ? c.teamName(team) : ('Team ' + (team + 1));
+          who.appendChild(nm);
+          /* **How many of them agree, on the team's own label rather than on a rung.**
+             It has to sit outside the ladder: a count on the `next` rung makes that
+             one rung two lines tall, the lanes stop lining up with each other, and
+             the ladder goes back to lurching — the exact bug the equal-height rungs
+             were written to kill. */
+          const ag = agreement(s, c, team);
+          if(ag){
+            const n = document.createElement('small');
+            n.className = 'ord-agree' + (ag.all ? ' all' : '');
+            n.textContent = ag.agreed + '/' + ag.size;
+            who.appendChild(n);
+          }
           lane.appendChild(who);
         }
         const ladder = document.createElement('div');
@@ -144,8 +171,11 @@
           } else if(isNext){
             rung.classList.add('next');
             /* A team's own next answer, shown in the rung it is aimed at rather than
-               in a list somewhere else — so you watch it land or shake. */
-            const guess = team != null && (s.picks[team] || [])[0];
+               in a list somewhere else — so you watch it land or shake. It is the
+               *leading* word, not the agreed one: the room has to be able to see what
+               it is converging on while it is still arguing, or a team a vote short
+               of unanimous would look like a team that had done nothing. */
+            const guess = team != null && (s.leading[team] || [])[0];
             rung.textContent = guess || 'next?';
             if(guess) rung.classList.add('guessing');
           } else {
@@ -206,7 +236,17 @@
           if(at !== -1) b.classList.add('chosen');
           if(s.mode === 'race' && mine.indexOf(w) !== -1) b.classList.add('spent');
           if(s.mode === 'climb'){
-            const holders = Object.keys(s.picks).filter(t2 => (s.picks[t2]||[]).indexOf(w) !== -1);
+            /* A dot for **any** team with a vote on this word, not just the ones
+               leading with it. Now that a rung waits for a whole team, the useful
+               thing on the card is where they disagree — a tally saying "1/2" with
+               nothing showing what the other student wants tells the room it is
+               stuck without telling it what to argue about. The ring still marks the
+               word a team is leading with, so which is which stays readable. */
+            const votes  = s.votes || {};
+            const wants  = Object.keys(votes).filter(t2 => ((votes[t2].for || {})[w] || 0) > 0);
+            const leads  = Object.keys(s.leading).filter(t2 => (s.leading[t2]||[]).indexOf(w) !== -1);
+            const holders = wants.length ? wants : leads;
+            if(leads.length) b.classList.add('leading');
             if(holders.length){
               b.classList.add('held');
               const dots = document.createElement('span');
@@ -227,6 +267,33 @@
         mount.appendChild(pool);
       }
 
+      /* On a shared ladder there is no per-team header to hang the count on, so it
+         goes in a strip of its own — the same chips a grouping card counts with. It
+         says the same thing the race's lane labels say: this is how close your team
+         is to agreeing, and nothing lands until it reads 4/4. */
+      if(s.mode === 'climb' && !s.done){
+        const chips = ((c.sizes || []).map((_, i) => i))
+          .map(t => ({ t, ag: agreement(s, c, t) }))
+          .filter(x => x.ag);
+        if(chips.length){
+          const tally = document.createElement('div');
+          tally.className = 'group-tally';
+          chips.forEach(({ t, ag })=>{
+            const chip = document.createElement('span');
+            chip.className = 'group-count' + (ag.all ? ' all' : '');
+            chip.style.borderColor = colourOf(t);
+            const lead = (s.leading[t] || [])[0];
+            chip.textContent = (c.teamName ? c.teamName(t) : ('Team ' + (t + 1)))
+                             + (lead ? ' · ' + lead + ' ' : ' ');
+            const n = document.createElement('small');
+            n.textContent = ag.agreed + '/' + ag.size;
+            chip.appendChild(n);
+            tally.appendChild(chip);
+          });
+          mount.appendChild(tally);
+        }
+      }
+
       if(s.say){
         const say = document.createElement('div');
         say.className = 'group-say' + (s.done ? ' good' : '');
@@ -240,6 +307,8 @@
       s.placed = s.scale.slice();       // the whole ladder, in the right order
       Object.keys(s.lanes || {}).forEach(t => { s.lanes[t] = s.scale.slice(); });
       s.chosen = [];
+      // the answer is out, so what the room was part-way to agreeing is no longer news
+      s.picks = {}; s.leading = {}; s.votes = {};
       this.render(mount, s, ctx);
       return 0;
     },
@@ -284,8 +353,23 @@
        different orders do not combine into a third. So a team answers one rung at a
        time and the team argues out loud about which — which is also why a race
        needs no share and no per-phone cap. */
-    read(replies, s){
-      const out = {}, who = {}, tally = {};
+    /* **The whole team, or nobody.** A rung used to land on whatever most of the team
+       had said, which meant three students could carry a fourth who was never asked
+       to commit — and on a two-phone team it meant one student playing and one
+       watching. The rung now waits until *every* player on that team has chosen, and
+       chosen the same word. Getting there is the lesson: they have to talk each other
+       round, which is the whole reason a scale is worth playing rather than telling.
+       Being split is not being wrong, so it draws no verdict at all — the card shows
+       `2/4` and the room works out for itself what is missing.
+
+       Two things it must never do. It must not deadlock on a number it does not
+       have: with no relay, or before the host has counted anybody, `size` is 0 and
+       the leading vote lands exactly as it used to. And it must not lock the teacher
+       out — their own Check button never comes through here, so a class with one
+       phone in a drawer is still playable. */
+    read(replies, s, ctx){
+      const out = {}, who = {}, tally = {}, said = {};
+      const sizes = (ctx && ctx.sizes) || [];
       (replies || []).forEach(r=>{
         const t = Number(r && r.team) || 0;
         const seq = String((r && r.value) == null ? '' : r.value)
@@ -298,12 +382,20 @@
         if(!pick) return;
         const box = tally[t] || (tally[t] = {});
         box[pick] = (box[pick] || 0) + 1;
+        said[t] = (said[t] || 0) + 1;   // the relay keys replies by player, so this is people
         who[t] = r.name;
       });
-      // the team's answer is whatever most of them said — they argue, then it lands
+      s.leading = {}; s.votes = {};
       Object.keys(tally).forEach(t=>{
-        const lead = Object.keys(tally[t]).sort((a,b)=> tally[t][b] - tally[t][a])[0];
-        if(lead) out[t] = [lead];
+        const box  = tally[t];
+        const lead = Object.keys(box).sort((a,b)=> box[b] - box[a])[0];
+        if(!lead) return;
+        const agreed = box[lead];
+        s.leading[t] = [lead];
+        s.votes[t]   = { for:box, said:said[t] || 0, agreed };
+        const size = Number(sizes[t]) || 0;
+        // unanimous, or no count to be unanimous against — never a stalled round
+        if(!size || agreed >= size) out[t] = [lead];
       });
       s.by = who;
       return out;
@@ -331,13 +423,15 @@
         lane.push(word);
         /* The answer has landed, so it stops being that team's *guess* — otherwise
            the rung above shows the word that was just locked in below it, which
-           reads as the team proposing something they have already placed. */
-        delete s.picks[team];
+           reads as the team proposing something they have already placed. The count
+           goes with it: a lane still reading 4/4 over an empty rung says the team has
+           agreed on something when in fact they have not been asked yet. */
+        delete s.picks[team]; delete s.leading[team]; delete s.votes[team];
         if(lane.length >= s.need){ s.done = true; s.won = team; }
         return;
       }
       s.placed.push(word);
-      s.picks = {};
+      s.picks = {}; s.leading = {}; s.votes = {};
       if(s.placed.length >= s.need) s.done = true;
     },
 
@@ -345,6 +439,17 @@
 
     settleMs: 700
   });
+
+  /* How close a team is to agreeing, or null when there is nobody to count. The size
+     comes from the host at draw time rather than from anything the round stored,
+     because students join and drop all lesson and a stale count is worse than none —
+     it would show a team as one short of a rung it had already earned. */
+  function agreement(s, c, team){
+    const size = Number(((c && c.sizes) || [])[team]) || 0;
+    if(!size) return null;
+    const agreed = ((s.votes || {})[team] || {}).agreed || 0;
+    return { size, agreed, all: agreed >= size };
+  }
 
   function shuffle(a){
     for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }

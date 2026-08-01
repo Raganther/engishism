@@ -8,7 +8,7 @@
 <!-- The shared card, exactly as a game show draws it. This is the whole point of
      the page: what you tune here IS what a class meets, not a second implementation
      that resembles it. -->
-<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260801aa">
+<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260801ab">
 <style>
   /* ================= The question bench =================
      One question type at a time, with the card on the left and a rack of real
@@ -184,13 +184,13 @@
   <div id="rack-pane"><div id="rack-warn" class="warn"></div><div id="rack"></div></div>
 </div>
 
-<script src="../game-hub/hub-buzzer.js?v=20260801aa"></script>
-<script src="../game-hub/hub-qr.js?v=20260801aa"></script>
-<script src="../game-hub/hub-kit.js?v=20260801aa"></script>
-<script src="../game-hub/hub-rounds.js?v=20260801aa"></script>
-<script src="../game-hub/rounds/grouping.js?v=20260801aa"></script>
-<script src="../game-hub/rounds/ordering.js?v=20260801aa"></script>
-<script src="bench-kit.js?v=20260801aa"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260801ab"></script>
+<script src="../game-hub/hub-qr.js?v=20260801ab"></script>
+<script src="../game-hub/hub-kit.js?v=20260801ab"></script>
+<script src="../game-hub/hub-rounds.js?v=20260801ab"></script>
+<script src="../game-hub/rounds/grouping.js?v=20260801ab"></script>
+<script src="../game-hub/rounds/ordering.js?v=20260801ab"></script>
+<script src="bench-kit.js?v=20260801ab"></script>
 <script>
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -368,7 +368,7 @@ function ask(){
 function onResponse(d){
   if(!state || state.done) return;
   replies = (d && d.all) || [];
-  state.picks = Kit.round.get(type).read(replies, state);
+  state.picks = Kit.round.get(type).read(replies, state, ctx());
   draw();
   if(settler) settler.bump();
 }
@@ -376,15 +376,16 @@ function onResponse(d){
 function onSettle(){
   if(!state || state.done) return;
   const def = Kit.round.get(type);
+  const c = ctx();
   const verdicts = Object.keys(state.picks).map(t => ({
-    team: Number(t), set: state.picks[t], r: def.judge(state.picks[t], state, Number(t))
+    team: Number(t), set: state.picks[t], r: def.judge(state.picks[t], state, Number(t), c)
   })).filter(v => v.r.verdict !== 'incomplete');
   // the right answer is resolved before any wrong one — two teams can settle in one tick
   const won = verdicts.filter(v => v.r.verdict === 'right')[0];
   if(won){
     /* Right is not always the end. A grouping card is over the moment a team has the
        set; an ordering climb has four more rungs to go. The round says which. */
-    def.accept(won.set, state, won.team);
+    def.accept(won.set, state, won.team, c);
     if(won.r.done !== false || state.done){ take(won.team); return; }
     state.say = ctx().teamName(won.team) + ' — yes.';
     settler.reset();
@@ -419,9 +420,12 @@ function shake(set){
 $('check-btn').addEventListener('click', ()=>{
   if(!state || state.done) return;
   const def = Kit.round.get(type);
-  const r = def.judge(state.chosen, state, teacherTeam());
+  /* The teacher's answer never goes through `read()`, so a round that holds a rung
+     until every handset agrees does not hold this one. */
+  const c = ctx();
+  const r = def.judge(state.chosen, state, teacherTeam(), c);
   if(r.verdict === 'right'){
-    def.accept(state.chosen.slice(), state, teacherTeam());
+    def.accept(state.chosen.slice(), state, teacherTeam(), c);
     state.chosen = [];
     if(r.done !== false || state.done){ take(-1); state.say = 'That is it.'; draw(); return; }
     state.say = 'Yes — keep going.';

@@ -1827,9 +1827,14 @@
        silently did nothing. */
     if(!jGroupLive() || jGroup.chosen.length !== jRoundCap()) return;
     const def = jRoundDef();
-    const r = def.judge(jGroup.chosen, jGroup, active);
+    /* The teacher's own answer, which deliberately does not go through `read()` — so
+       a round that holds a rung until every handset agrees does not hold *this* one.
+       A class with one phone in a drawer has to stay playable, and the teacher is the
+       authority when they click. */
+    const ctx = jGroupCtx();
+    const r = def.judge(jGroup.chosen, jGroup, active, ctx);
     if(r.verdict === 'right'){
-      def.accept(jGroup.chosen.slice(), jGroup, active);
+      def.accept(jGroup.chosen.slice(), jGroup, active, ctx);
       jGroup.chosen = [];
       if(r.done !== false || jGroup.done){ jGroupTake(active); return; }
       jGroup.say = 'Yes — keep going.';
@@ -3415,7 +3420,7 @@
      decides what that is worth on a Jeopardy board. */
   function jGroupOnReplies(all){
     if(!jGroupLive()) return;
-    jGroup.picks = jRoundDef().read(all, jGroup);
+    jGroup.picks = jRoundDef().read(all, jGroup, jGroupCtx());
     renderJGroup();
     jGroupSettler.bump();
   }
@@ -3423,8 +3428,9 @@
   function jGroupSettle(){
     if(!jGroupLive()) return;
     const def = jRoundDef();
+    const ctx = jGroupCtx();
     const verdicts = Object.keys(jGroup.picks).map(t => ({
-      team: Number(t), set: jGroup.picks[t], r: def.judge(jGroup.picks[t], jGroup, Number(t))
+      team: Number(t), set: jGroup.picks[t], r: def.judge(jGroup.picks[t], jGroup, Number(t), ctx)
     })).filter(v => v.r.verdict !== 'incomplete');
     /* The right answer is resolved before any wrong one. Two teams can settle in the
        same tick, and taking them in arrival order puts "not a group" on screen
@@ -3443,7 +3449,7 @@
          nothing must mean the ordinary case. Defaulting the other way made a
          correct grouping card report "yes, keep going" and never pay out, which is
          exactly the kind of silent wrong-way-round a second caller exists to find. */
-      def.accept(won.set, jGroup, won.team);
+      def.accept(won.set, jGroup, won.team, ctx);
       if(won.r.done !== false || jGroup.done){ jGroupTake(won.team); return; }
       jGroup.say = teamName(won.team) + ' — yes.';
       jGroupSettler.reset();          // the question moved on, so every answer is worth trying again

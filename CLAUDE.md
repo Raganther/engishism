@@ -871,11 +871,40 @@ playground's point, that one board can host several:
     should have asked.
   - **A sequence is not a set, and that is what the second round was for.** Grouping
     merges a team's phones with a union — four words from four handsets are one
-    answer. An order cannot be merged: two students tapping different sequences do
-    not combine into a third. So `whole` takes the fullest single submission and the
-    board says **who is driving**. That is what killed the first "everyone submits a
-    whole order" mode and replaced it with a lane each: a race asks one rung at a
-    time, so nothing has to be merged and every team argues out loud instead.
+    answer. An order cannot be merged: two students tapping different words do not
+    combine into a third. That is what killed the first "everyone submits a whole
+    order" mode and replaced it with a lane each: a race asks one rung at a time, so
+    nothing has to be merged and every team argues out loud instead.
+  - **The whole team, or nobody — a rung waits for unanimity.** It used to land on
+    whatever *most* of a team had said, so three students could carry a fourth who
+    was never asked to commit, and on a two-phone team it meant one playing and one
+    watching. Every player on the team now has to pick the same word. Both modes,
+    because the reason is the same in each.
+    - **Being split is not being wrong**, so it draws no verdict at all — no shake,
+      no "not that one". A team that disagrees has done the interesting part; telling
+      them off for it is the opposite of the lesson.
+    - **What the card shows instead is the count**, and it goes on the *team's label*
+      — the lane header in a race, a tally chip on a shared ladder. Never on a rung:
+      a count inside the `next` rung makes that one rung two lines tall, the lanes
+      stop lining up, and the ladder lurches again. Same bug, one grid over.
+    - **The leading word still shows while they argue.** `picks` is the team's agreed
+      answer and is the only thing judged; `leading` is what most of them are saying
+      and is what the card draws. Collapsing them back into one field is exactly how
+      a majority would quietly start winning rungs again.
+    - **The card says where they disagree, not just that they do.** Every word a team
+      has a vote on carries that team's dot; the one they lead with is filled. A
+      tally reading `1/2` with nothing showing what the other student wants tells the
+      room it is stuck without telling it what to argue about.
+    - **Two ways it must never lock up**, both checked: with no count to be unanimous
+      against (`sizes[t]` is 0 — no relay, or nobody counted yet) the leading vote
+      lands exactly as before, so a missing number can never freeze a round; and the
+      teacher's own Check never goes through `read()`, so one phone in a drawer does
+      not make a clue unfinishable.
+    - **`read`, `judge` and `accept` take `ctx` now**, like every other hook already
+      did. They were the odd ones out and it showed the moment a round needed to know
+      how many students are on a team. Stashing the size in the round's own state
+      from `arm()` would have worked and would have been a lie — the size is the
+      host's live fact, not something the round was told once.
   - **A right answer is not always an ending, and defaulting that wrongly is silent.**
     A grouping card is over the moment a team has the set; an ordering climb has four
     more rungs. `judge` returns `done`, and the host treats **`done !== false`** as

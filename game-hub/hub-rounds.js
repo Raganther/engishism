@@ -24,9 +24,9 @@
    | `setup(item, ctx)`    | the authored item -> the round's own state, or null if it cannot |
    | `render(mount, s, c)` | draw the card into `mount` — the projector's view |
    | `arm(s, c)`           | what the handsets are put into; the payload goes to the relay unread |
-   | `read(replies, s)`    | the room's replies -> one answer per team |
-   | `judge(answer, s, t)` | is that answer right, how close, and is the round over |
-   | `accept(answer, s, t)`| commit a correct answer, when being right is not yet the end |
+   | `read(replies, s, c)` | the room's replies -> one answer per team |
+   | `judge(answer, s, t, c)` | is that answer right, how close, and is the round over |
+   | `accept(answer, s, t, c)`| commit a correct answer, when being right is not yet the end |
    | `modes`               | the ways this question can be played, if more than one |
    | `settleMs`            | how long to wait after the last tap before judging |
 
@@ -37,7 +37,15 @@
 
    `ctx` is what the host lends the round: the team list, who is on turn, the team
    colours, and the sizes of each team. It is passed in rather than reached for,
-   because the bench has no team bar and the hub does. */
+   because the bench has no team bar and the hub does.
+
+   **Every hook takes it, including the three that judge.** `read`, `judge` and
+   `accept` were the odd ones out and it showed the moment a round needed to know
+   *how many students are on a team* — the ordering round holds a rung until all of
+   them agree, and `ctx.sizes` is the only place that number exists. Stashing it in
+   the round's own state from `arm()` would have worked and would have been a lie:
+   the size is the host's live fact, not something the round was told once. It is
+   the last parameter on each, so a round that ignores it is unaffected. */
 (function(){
   'use strict';
 

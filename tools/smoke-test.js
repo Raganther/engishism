@@ -5477,6 +5477,93 @@ async function testQuestionBench(browser){
   checkClean(ord, 'ordering bench');
   await ord.close();
 
+  /* ---------- the whole team, or nobody ----------
+     A rung used to land on whatever most of a team had said, so three students could
+     carry a fourth who was never asked to commit — and on a two-phone team it meant
+     one playing and one watching. Two phones on one team is the smallest arrangement
+     that can tell the difference, and a majority of one out of two is exactly what
+     the old code would have accepted. */
+  const una = await browser.newPage({ viewport:{ width:1500, height:950 } });
+  una.__errors = []; una.__console = [];
+  una.on('pageerror', e => una.__errors.push(String(e)));
+  una.on('console', m => {
+    if (m.type() === 'error' &&
+        !/ERR_CONNECTION_RESET|fonts\.(googleapis|gstatic)|navigator\.vibrate/.test(m.text()))
+      una.__console.push(m.text());
+  });
+  await una.goto(BASE + '/playground/question-bench.html'); await una.waitForTimeout(1300);
+  await una.locator('#type-pick').selectOption('ordering'); await una.waitForTimeout(800);
+  const unaCode = ((await una.locator('#room-chip').innerText()).match(/(\d{5})/)||[])[1];
+  if(unaCode){
+    // four phones, two teams — the bench seats them alternately, so 0 and 2 are one team
+    for(let i = 0; i < 4; i++){
+      await una.locator('#add-phone').click(); await una.waitForTimeout(1000);
+    }
+    await una.waitForTimeout(800);
+    const uf = una.frames().filter(f => /join\.html/.test(f.url()));
+    const tapW = async (fr, w) => {
+      await fr.locator('#opts button', { hasText:new RegExp('^'+w+'$') }).first().click();
+      await fr.waitForTimeout(150);
+    };
+
+    await tapW(uf[0], 'annoyed'); await una.waitForTimeout(1400);
+    check('climb: one of a team of two is not the team, so the rung holds',
+          await una.locator('.ord-rung.filled').count() === 0,
+          String(await una.locator('.ord-rung.filled').count()));
+    /* The count is what stops that reading as a broken board. It is also the whole
+       teaching move: the room can see which of them still has to be talked round. */
+    check('and the card says how far off agreeing they are',
+          /1\/2/.test(await una.locator('.group-tally').innerText()),
+          await una.locator('.group-tally').innerText().catch(()=>'(none)'));
+    /* Being split is not being wrong. A verdict here would tell off a team that has
+       done nothing but disagree, which is the part of the lesson worth having. */
+    check('and being short of agreement draws no verdict at all',
+          !(await una.locator('.group-say').count()),
+          await una.locator('.group-say').innerText().catch(()=>'(none)'));
+
+    await tapW(uf[2], 'annoyed'); await una.waitForTimeout(1400);
+    check('climb: the rung lands the moment the whole team has it',
+          await una.locator('.ord-rung.filled').count() === 1,
+          String(await una.locator('.ord-rung.filled').count()));
+
+    /* A ladder each, same rule. The count moves onto the team's own lane label,
+       because a count inside a rung makes that rung taller than the others and the
+       lanes stop lining up — the bug the equal-height rungs were written to kill. */
+    await una.locator('#mode-pick').selectOption('race'); await una.waitForTimeout(1400);
+    await tapW(uf[0], 'annoyed'); await una.waitForTimeout(1400);
+    check('race: one of two holds the lane, and the lane label carries the count',
+          await una.locator('.ord-lane').nth(0).locator('.ord-rung.filled').count() === 0 &&
+          /1\/2/.test(await una.locator('.ord-lane').nth(0).locator('.ord-agree').innerText()),
+          await una.locator('.ord-lane').nth(0).locator('.ord-who').innerText().catch(()=>'-'));
+    /* The leading word still shows while they argue — a team one vote short must not
+       look like a team that has done nothing. */
+    check('and the word they are converging on is already on the rung',
+          /annoyed/i.test(await una.locator('.ord-lane').nth(0)
+                                   .locator('.ord-rung.guessing').innerText()),
+          await una.locator('.ord-lane').nth(0).locator('.ord-rung.next').innerText().catch(()=>'-'));
+    await tapW(uf[2], 'annoyed'); await una.waitForTimeout(1400);
+    check('race: and it lands when the second phone agrees',
+          await una.locator('.ord-lane').nth(0).locator('.ord-rung.filled').count() === 1,
+          String(await una.locator('.ord-lane').nth(0).locator('.ord-rung.filled').count()));
+
+    /* The teacher is never locked out by a phone in a drawer. Their answer does not
+       come through `read()`, so it is not gated — with one handset silent the round
+       would otherwise be unfinishable and only Reveal would get out of it. */
+    await tapW(uf[1], 'annoyed'); await una.waitForTimeout(1200);
+    const lane1 = await una.locator('.ord-lane').nth(1).locator('.ord-rung.filled').count();
+    await una.locator('#for-team').selectOption('1'); await una.waitForTimeout(300);
+    await una.locator('#card-round .gword[data-word="annoyed"]').click();
+    await una.waitForTimeout(200);
+    await una.locator('#check-btn').click(); await una.waitForTimeout(600);
+    check('a half-agreed team can still be moved on by the teacher',
+          lane1 === 0 &&
+          await una.locator('.ord-lane').nth(1).locator('.ord-rung.filled').count() === 1,
+          lane1 + ' -> ' +
+          (await una.locator('.ord-lane').nth(1).locator('.ord-rung.filled').count()));
+  }
+  checkClean(una, 'ordering unanimity');
+  await una.close();
+
   /* Degradation, which every playground page owes: no relay leaves the card fully
      playable teacher-only. */
   const solo = await browser.newPage({ viewport:{ width:1280, height:900 } });
