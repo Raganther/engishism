@@ -563,6 +563,10 @@ than remembered from 1,400 lines.
   isolation is structural, the render/reveal contract, declining rather than
   rendering nonsense, and the step that decides whether a form exists at all:
   authoring items for it.
+- **`new-round`** — the tier above a form: a question the room *plays*. The
+  form-or-round test, what a round must never contain, why the card's palette is
+  fallbacks rather than declarations, and the two traps the grouping round paid for
+  (the normalisation whitelist, and "is a round clue" vs "is the round still live").
 - **`phone-debug`** — the five shapes every phone bug so far has taken, and the one
   question that separates them ("does the phone still show its room number?").
 
@@ -634,11 +638,18 @@ And **shadowing bites at the extraction seam**: `applyMode` had a local
 `const clock = settings.el('vote-secs')`, which silently became a call on a
 `<select>` the moment the shared countdown took that name.
 
-Three tiers, and knowing which one a thing belongs to is the whole discipline:
-**the page** (Connections' grouping, the lab's form menu) · **the bench**
-(`bench-kit.js` — room, settings, and later teams and rounds) · **the hub**
-(`Kit.prompt` forms, `registerGame`). Graduating upward is the same two-stage
-isolation the question forms have, one level up.
+Four tiers now, and knowing which one a thing belongs to is the whole discipline:
+**the page** (Connections' 16-word board, the lab's form menu) · **the bench**
+(`bench-kit.js` — room, settings, teams, clock) · **the round** (`Kit.round` +
+`game-hub/rounds/*.js` — a question that is *played*, shared by the question bench
+and every game show) · **the hub** (`Kit.prompt` forms, `registerGame`). Graduating
+upward is the same two-stage isolation the question forms have.
+
+**The round tier is the one a teacher's ideas travel on.** A question type is
+authored and iterated on `question-bench.html` — card and phones side by side — and
+a game show then calls it by name. That is why nothing in a round may know about
+scoring, turns or tiles: those are the host's, and a round holding one could never
+be plugged into a second game.
 
 **`phone-bench.html` — the whole room on one screen.** The projected board on the
 left, a rack of simulated handsets on the right; both are the **real pages in
@@ -748,6 +759,50 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A question is a thing you can pick up and plug in now — `Kit.round`.** The
+  grouping round used to be ~300 lines inside `hub-engine.js`; it is one file,
+  `game-hub/rounds/grouping.js`, holding all four things a question type is: **the
+  card the projector draws, what the handsets are put into, how several students'
+  taps become one team answer, and whether that answer is right**. A game show calls
+  it by name and gets all four.
+  - **This is the tier above `Kit.prompt`, not a replacement for it.** `Kit.prompt`
+    is a *rendering* contract — render and reveal, no time, no turns, no phones —
+    and six question forms live there quite happily. A round is a question that is
+    *played*. Every hook past `setup` and `render` is optional, so a simple type is
+    two functions and Connections uses everything; that is the same "declare what
+    you need" shape the game registry uses.
+  - **What a round never contains: scoring, turns, timers, the board.** Jeopardy
+    pays a tile and passes a turn when the round says a team has it; the bench pays
+    nothing. A round that knew about points could only ever live in one game — and
+    when something you want to tune is missing from the bench, that is the boundary
+    telling you it belongs to the host.
+  - **`playground/question-bench.html` is the second caller, and that is the point.**
+    A shelf with one caller is a guess. The bench draws the card *through the
+    registry* — the same code a Jeopardy tile runs — with a rack of real handsets
+    beside it, so a question is authored and iterated where you can see the card and
+    the phones react together. All 56 grouping checks passed unchanged across the
+    extraction, which is what makes it a refactor rather than a rewrite.
+  - **The card's styling had to leave `hub.css`.** A playground page cannot load that
+    file to get the card — it carries the whole hub theme — so the card's innards are
+    `game-hub/hub-rounds.css`, loaded by both. The game-show overrides ride along in
+    it, scoped to `body.theme-gameshow`, which never matches on a bench page.
+  - **A shared card cannot assume its host's background**, and only a second host
+    proved it: the palette was the hub's light theme hard-coded, so on the dark bench
+    the words rendered as white blocks — the round looking wrong in the one place it
+    exists to be tuned. It reads six custom properties now, and **the defaults are
+    fallbacks inside each `var()`, never a declaration block**: a declaration on the
+    round's own element out-specifies anything the host sets on an ancestor, which is
+    exactly how the first attempt failed and looked like the host being ignored.
+  - **Still deliberately separate: `playground/connections.html`.** The full 16-word,
+    four-group game is not a question card — it is a whole game that happens to share
+    a mechanic, and forcing it through the round contract would change a working page
+    to prove a point the bench already proves. The shared pieces it could adopt
+    (`Kit.round.shares`, `Kit.round.settle`) duplicate `BenchKit`'s by four lines; that
+    is a smaller problem than a refactor nobody asked for.
+- **Ordering is the next round, and the contract is what makes it cheap.** Grouping
+  cost ~330 lines built from nothing. A second type through a working contract is a
+  `setup`/`render`/`arm`/`read`/`judge` and no engine change at all — which is the
+  whole return on the extraction, and the thing to check the day it is written.
 - **A grouping clue: Connections inside a Jeopardy tile, and the first bench dynamic
   that needed real engine work.** Eight words on the clue card, four that belong
   together; every phone in the room is armed with a multi-pick selection, a team's
@@ -2116,14 +2171,15 @@ runs. Pick the row, run it, push.
 | **Content** (a bank, a unit file) | `--only=content` | ~20s |
 | **One game's own logic** (board, its `tension()`, its stage CSS) | `--only=<game>` | ~40s |
 | **Shared layer 1** — `hub-kit.js`, the header, the team bar, the clue card, `hub.css` outside one stage, settings, the fit | `--only=millionaire,fit,phone,card,turns,gameshow,lab,registry,competition` | ~4 min |
-| **A playground page** (`playground/*.html`, `bench-kit.js`, `lab-forms.js`) | `--only=playground,promptlab,bench` | ~1 min |
+| **A playground page** (`playground/*.html`, `bench-kit.js`, `lab-forms.js`) | `--only=playground,promptlab,bench,qbench` | ~1 min |
+| **A question round** (`hub-rounds.js`, `hub-rounds.css`, `rounds/*.js`) | `--only=qbench,grouping,card,gameshow` | ~4 min |
 | **The Lab board** (`unit-lab.js`, `game-hub-lab.html`, a clue that runs a round) | `--only=grouping,content,jeopardy,card` | ~2 min |
 | **Phones / relay** — `hub-buzzer.js`, `buzzer-relay.js`, `join.html` | add `,buzzers,phonemodes,teamvote,phoneteams,degradation,reconnect,playground,bench` | +6 min |
 | **Before a lesson you will actually teach from**, or on request | the full suite | ~25 min |
 
 ```bash
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=millionaire,fit,phone   # the usual
-NODE_PATH=$(npm root -g) node tools/smoke-test.js                                # 50 suites
+NODE_PATH=$(npm root -g) node tools/smoke-test.js                                # 51 suites
 ```
 
 **Two cheap pre-flights that cost seconds and have each already paid for themselves:**
