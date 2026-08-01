@@ -57,7 +57,7 @@
   label: "Lab · question dynamics",
   card: { num: "Lab", title: "Question dynamics",
           blurb: "One question type per category, so forms can be mixed and compared in a real game show. Not lesson content.",
-          sections: "L1–L4" },
+          sections: "L1–L5" },
   intro: "A test board, not a lesson. Each category is a single question type — pick the ones you want to compare.",
 
   jeopardySectionLabels: {
@@ -65,6 +65,7 @@
     'L2': "L2 · Sentence-level forms (gap, error fix, word order)",
     'L3': "L3 · Reveal — a clue that costs to open further",
     'L4': "L4 · Grouping — a clue the whole room plays at once",
+    'L5': "L5 · Ordering — a scale the room fills in, weakest first",
   },
 
   jeopardyCategories: [
@@ -197,6 +198,64 @@
       {v:500, q:"Four of these follow “court” to make a word or phrase. Find the four.",
         group:{ pick:["room","case","order","martial"],
                 with:["bench","trial","judge","verdict"] }},
+    ]},
+
+    /* ---------- L5 · the Word Thermometer dynamic ----------
+       `order:{scale, low, high, gloss}` and nothing else — the scale *is* the
+       answer, written cold-end first because that is the order it gets filled in.
+
+       Grouping asks *does this belong?*; this asks *how much?*, which is the harder
+       question and the one C1 students actually plateau on. They have "angry" and
+       "furious"; the distance between *irritated* and *livid* is what they are short
+       of, and no gap fill can teach it because the whole point is the comparison.
+
+       **The gloss is the teaching**, not decoration: it prints as a word locks into
+       its rung, which is the one moment the room is looking straight at it. Author
+       one for every word or the round is a sorting exercise.
+
+       Five words a rung, deliberately: four is too easy to guess by elimination and
+       six will not fit a clue card above the buttons. */
+    { id:'lab-order', section:'L5', name:'Word Thermometer', clues:[
+      {v:100, q:"Put these in order — mildest first.",
+        order:{ scale:["annoyed","irritated","angry","livid","furious"],
+                low:"mildly bothered", high:"absolutely raging",
+                gloss:{ annoyed:"mildly put out — the everyday one.",
+                        irritated:"nagging, repeated: something keeps doing it.",
+                        angry:"the plain, unmarked word.",
+                        livid:"so angry you have gone quiet.",
+                        furious:"visibly, loudly out of control." } }},
+      {v:200, q:"Put these requests in order — most direct first.",
+        order:{ scale:["Give me","Can you","Could you","Would you mind","I was wondering whether"],
+                low:"blunt", high:"very polite",
+                gloss:{ "Give me":"an order, not a request. Only among close friends.",
+                        "Can you":"neutral and everyday; fine with colleagues.",
+                        "Could you":"one step softer — the safe default at work.",
+                        "Would you mind":"asks permission rather than for the thing.",
+                        "I was wondering whether":"maximum distance; use with strangers and bad news." } }},
+      {v:300, q:"Put these in order — least certain first.",
+        order:{ scale:["conceivably","possibly","probably","almost certainly","undoubtedly"],
+                low:"barely a guess", high:"no doubt at all",
+                gloss:{ conceivably:"it is not impossible — barely a claim at all.",
+                        possibly:"a real but open possibility.",
+                        probably:"more likely than not; the everyday hedge.",
+                        "almost certainly":"you would bet on it.",
+                        undoubtedly:"no room left for doubt." } }},
+      {v:400, q:"Put these in order — least often first.",
+        order:{ scale:["hardly ever","occasionally","fairly often","frequently","invariably"],
+                low:"almost never", high:"every single time",
+                gloss:{ "hardly ever":"close to never, but not never.",
+                        occasionally:"now and then, with gaps.",
+                        "fairly often":"more than sometimes, less than usually.",
+                        frequently:"a regular pattern.",
+                        invariably:"without exception — a strong claim." } }},
+      {v:500, q:"Put this praise in order — faintest first.",
+        order:{ scale:["adequate","satisfactory","commendable","outstanding","exemplary"],
+                low:"damning with faint praise", high:"the highest praise there is",
+                gloss:{ adequate:"it will do. In a report this is a warning.",
+                        satisfactory:"meets the standard and no more.",
+                        commendable:"genuinely worth remarking on.",
+                        outstanding:"stands out from everything around it.",
+                        exemplary:"so good it becomes the example others follow." } }},
     ]},
   ],
 });

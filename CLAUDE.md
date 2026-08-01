@@ -817,10 +817,46 @@ playground's point, that one board can host several:
     to prove a point the bench already proves. The shared pieces it could adopt
     (`Kit.round.shares`, `Kit.round.settle`) duplicate `BenchKit`'s by four lines; that
     is a smaller problem than a refactor nobody asked for.
-- **Ordering is the next round, and the contract is what makes it cheap.** Grouping
-  cost ~330 lines built from nothing. A second type through a working contract is a
-  `setup`/`render`/`arm`/`read`/`judge` and no engine change at all — which is the
-  whole return on the extraction, and the thing to check the day it is written.
+- **Ordering is the second round, and the contract held.** `game-hub/rounds/
+  ordering.js` — Word Thermometer as a clue: five words on a scale, a ladder on the
+  card, and the room puts them in order. One file, **no engine change to host it**,
+  which is the whole return on the extraction. Ninth… tenth category on the Lab
+  board (`L5 · Word Thermometer`), and it plays on the bench and in Jeopardy from
+  the same code.
+  - **Two ways to play it, both real lessons.** `climb` fills the ladder a rung at a
+    time from the cold end — everyone votes on what comes next, it locks, its gloss
+    prints as it lands, so a five-word scale is five teachable moments. `whole` has
+    each team tap out a complete order for one verdict. The picker is built from what
+    the round *declares* (`modes`), so neither the bench nor the hub learns what a
+    mode means; the hub turns it into a ⚙ row automatically.
+  - **A sequence is not a set, and that is what the second round was for.** Grouping
+    merges a team's phones with a union — four words from four handsets are one
+    answer. An order cannot be merged: two students tapping different sequences do
+    not combine into a third. So `whole` takes the fullest single submission and the
+    board says **who is driving**. Not a compromise — it is what the shape permits,
+    and only a second question type could have shown it.
+  - **A right answer is not always an ending, and defaulting that wrongly is silent.**
+    A grouping card is over the moment a team has the set; an ordering climb has four
+    more rungs. `judge` returns `done`, and the host treats **`done !== false`** as
+    the end — a round that has never had to think about progress says nothing, and
+    saying nothing must mean the ordinary case. Defaulting the other way made a
+    correct grouping card report *"yes, keep going"* and never pay out.
+  - **The normalisation whitelist bit again, exactly as written down.** `order` was
+    not in it, so the clue drew as plain text with nothing anywhere saying why —
+    the same failure `reveal` had when Story Reveal shipped. It is not a whitelist
+    now: each round declares the item field it owns and `Kit.round.fields()` is
+    asked, so **a round added later is carried through without anybody remembering.**
+  - **Nothing new was needed from the phones.** A handset already sends its taps in
+    the order they were made, so a sequence is expressible with no drag-and-drop and
+    no `join.html` change at all.
+  - **Empty rungs cost 44px each to say nothing** and pushed a five-step ladder past
+    both edges of a 1280x720 clue card. They are a thin line now; the card is
+    asserted on screen at 1280x720 and 390x844, which neither `fit` nor `phone`
+    would have caught because neither opens a clue card.
+  - **A wrong check now releases the teacher's words.** Leaving them selected meant
+    the next click deselected instead of choosing, so a second attempt silently did
+    nothing — worst on a climb, where one word is the whole answer and the button
+    just sat there disabled.
 - **A grouping clue: Connections inside a Jeopardy tile, and the first bench dynamic
   that needed real engine work.** Eight words on the clue card, four that belong
   together; every phone in the room is armed with a multi-pick selection, a team's

@@ -586,6 +586,21 @@
      is running away with it. Written as a switch because a choice between
      iterations is exactly what a variant is for, and the drawer is where a teacher
      tries the other one between rounds. */
+  /* One row per round that offers ways to be played, built from what each round
+     declares. The engine never learns what a mode *means* — it hands the chosen
+     value back through `ctx.mode` and the round does the rest. Registered here with
+     everything else, because a setting registered later than init is a row the
+     panel has already been built without. */
+  (Kit.round ? Kit.round.ids() : []).forEach(id => {
+    const def = Kit.round.get(id);
+    if(!def || !def.modes || !def.modes.length) return;
+    S.register({ id:'jRound_' + id, group:'Jeopardy', type:'variant',
+      default: def.modes[0].value, games:['jeopardy'],
+      label:'How ' + (def.label || id) + ' is played',
+      variants: def.modes.slice(),
+      help:'The same question played more than one way. These are different lessons rather than two speeds of the same one, so it is a teaching choice.' });
+  });
+
   S.register({ id:'jGroupWho', group:'Jeopardy', type:'variant', default:'room',
     games:['jeopardy'], label:'Who plays a grouping clue',
     variants:[{ value:'room', label:'The whole class races — first group found takes the tile' },
@@ -1807,16 +1822,35 @@
      four and takes the tile for whoever is on turn; wrong shakes them and costs
      nothing, exactly as it costs a team nothing. */
   document.getElementById('group-btn').addEventListener('click', () => {
-    if(!jGroupLive() || jGroup.chosen.length !== jGroup.need) return;
-    const r = jRoundDef().judge(jGroup.chosen, jGroup);
-    if(r.verdict === 'right'){ jGroupTake(active); return; }
-    jGroup.say = jRoundDef().saidOf('Not a group', r, jGroup).replace(/^Not a group: /, 'Not a group — ');
+    /* `jRoundCap()`, not the whole answer: an ordering climb asks for one word at a
+       time, so guarding on the full scale meant the button could be pressed and
+       silently did nothing. */
+    if(!jGroupLive() || jGroup.chosen.length !== jRoundCap()) return;
+    const def = jRoundDef();
+    const r = def.judge(jGroup.chosen, jGroup);
+    if(r.verdict === 'right'){
+      def.accept(jGroup.chosen.slice(), jGroup);
+      jGroup.chosen = [];
+      if(r.done !== false || jGroup.done){ jGroupTake(active); return; }
+      jGroup.say = 'Yes — keep going.';
+      Sound.play('correct');
+      renderJGroup();
+      if(buzzHost) askPhones(currentClueItem.text, 'jeopardy');
+      return;
+    }
+    jGroup.say = def.saidOf('Not that', r, jGroup).replace(/^Not that: /, '');
     Sound.play('wrong');
-    renderJGroup();
-    document.querySelectorAll('#clue-group .gword.chosen').forEach(el=>{
+    /* Shake what they picked, *then* let it go. Leaving the selection standing meant
+       the next click deselected instead of choosing, so the teacher's second attempt
+       silently did nothing — worst on an ordering climb, where one word is the whole
+       answer and the button just sat there disabled. */
+    const shaking = [...document.querySelectorAll('#clue-group .gword.chosen')];
+    shaking.forEach(el=>{
       el.classList.add('shake');
       setTimeout(()=> el.classList.remove('shake'), 380);
     });
+    setTimeout(()=>{ if(jGroupLive()){ jGroup.chosen = []; renderJGroup(); } }, 380);
+    renderJGroup();
   });
 
   document.getElementById('hint-btn').addEventListener('click', () => {
@@ -3259,10 +3293,11 @@
      That split is the whole point. A round that knew about tiles could not be
      plugged into a second game, and a game that held the round could not have it
      tuned anywhere but inside itself. */
-  function jRoundDef(){ return Kit.round.get('grouping'); }
+  let jRoundId = null;                 // which round this clue is running
+  function jRoundDef(){ return jRoundId ? Kit.round.get(jRoundId) : null; }
 
   // what the round is lent: the team list, their sizes, and what a click means here
-  function jGroupCtx(){
+  function jGroupCtx(id){
     const sizes = teams.map(()=>0);
     if(buzzHost) buzzHost.players().forEach(p=>{
       const t = Number(p.team);
@@ -3275,22 +3310,37 @@
       prompt: !!S.get('phonePrompt', 'jeopardy'),
       // `null` is the whole room; a scoped round belongs to the team on turn
       team:   S.get('jGroupWho', 'jeopardy') === 'turn' ? active : null,
+      mode:   jRoundMode(id || jRoundId),
       onPick: jGroupTeacherPick
     };
   }
 
+  /* Which round this clue wants, asked of the registry rather than named here — so
+     a round written next month is playable the day a bank item carries its field,
+     with no engine change at all. That is the whole return on the extraction. */
   function jGroupOf(item){
-    const def = jRoundDef();
-    return (def && def.claims(item)) ? def.setup(item) : null;
+    const hit = Kit.round.of(item);
+    if(!hit) return null;
+    const st = hit.def.setup(item, jGroupCtx(hit.id));
+    return st ? { id:hit.id, state:st } : null;
   }
 
-  function jGroupOpen(item){
-    const s = jGroupOf(item);
-    if(!s) return null;
-    jGroup = s;
+  function jGroupOpen(found){
+    if(!found) return null;
+    jRoundId = found.id;
+    jGroup   = found.state;
     jGroupSettler = Kit.round.settle(jRoundDef().settleMs, jGroupSettle);
     renderJGroup();
     return jGroup;
+  }
+
+  /* Which way a round is being played, when it offers more than one. The row is
+     built from what the round *declares*, so the engine never learns what a mode
+     means — and a round added later gets its own row for free. */
+  function jRoundMode(id){
+    const def = id ? Kit.round.get(id) : null;
+    if(!def || !def.modes || !def.modes.length) return null;
+    return S.get('jRound_' + id, 'jeopardy');
   }
 
   /* The round the phones are put into, read through `phoneRound()` so it reaches the
@@ -3329,12 +3379,22 @@
   /* The no-phones path, and it is not a fallback — a teacher with a dead relay has
      to be able to play this clue, which is the rule every playground page owes too.
      Clicking the words assembles a set on the board and the button judges it. */
+  /* The teacher's own working answer. `push` order is load-bearing for a round
+     whose answer is a *sequence* — an ordering card numbers them as they are
+     clicked — and harmless for one whose answer is a set. */
   function jGroupTeacherPick(w){
     if(!jGroupLive()) return;
+    const cap = jRoundCap();
     const at = jGroup.chosen.indexOf(w);
     if(at !== -1) jGroup.chosen.splice(at, 1);
-    else if(jGroup.chosen.length < jGroup.need) jGroup.chosen.push(w);
+    else if(jGroup.chosen.length < cap) jGroup.chosen.push(w);
     renderJGroup();
+  }
+  /* How many the teacher may hold at once. An ordering climb wants one at a time —
+     the ladder takes the next rung, not the whole scale. */
+  function jRoundCap(){
+    const arm = jGroup ? jRoundDef().arm(jGroup, jGroupCtx()) : null;
+    return Math.max(1, Math.min(jGroup ? jGroup.need : 1, (arm && arm.multi) || 1));
   }
 
   function renderJGroupButton(){
@@ -3343,9 +3403,10 @@
     const on = jGroupLive() && modalMode === 'jeopardy';
     btn.style.display = on ? 'inline-block' : 'none';
     if(!on) return;
-    btn.disabled = jGroup.chosen.length !== jGroup.need;
-    btn.textContent = 'Check these ' + jGroup.need +
-                      ' (' + jGroup.chosen.length + '/' + jGroup.need + ')';
+    const cap = jRoundCap();
+    btn.disabled = jGroup.chosen.length !== cap;
+    btn.textContent = cap === 1 ? 'Check it'
+      : ('Check these ' + cap + ' (' + jGroup.chosen.length + '/' + cap + ')');
   }
 
   /* Replies off the wire. The round works out what each team is holding; this only
@@ -3368,7 +3429,27 @@
        *after* the other team has already taken the tile — the board announcing the
        wrong headline for a question that has moved on. */
     const won = verdicts.filter(v => v.r.verdict === 'right')[0];
-    if(won){ jGroupTake(won.team); return; }
+    if(won){
+      /* Right does not always mean the round is over. A grouping clue ends the
+         moment a team has the set; an ordering climb has four more rungs to fill,
+         so the round says which happened and this only pays the tile when it is
+         genuinely finished. Getting this wrong would have scored a $400 tile on the
+         first correct rung.
+
+         **The default is that it ends.** `done !== false` rather than `done` — a
+         round that has never had to think about progress says nothing, and saying
+         nothing must mean the ordinary case. Defaulting the other way made a
+         correct grouping card report "yes, keep going" and never pay out, which is
+         exactly the kind of silent wrong-way-round a second caller exists to find. */
+      def.accept(won.set, jGroup);
+      if(won.r.done !== false || jGroup.done){ jGroupTake(won.team); return; }
+      jGroup.say = teamName(won.team) + ' — yes.';
+      jGroupSettler.reset();          // the question moved on, so every answer is worth trying again
+      renderJGroup();
+      Sound.play('correct');
+      askPhones(currentClueItem.text, 'jeopardy');   // the next rung is a new question
+      return;
+    }
     verdicts.forEach(v=>{
       if(!jGroupSettler.fresh(v.team, v.set.slice().sort().join('|'))) return;
       jGroupMiss(v.team, v.r);
@@ -3415,7 +3496,7 @@
   function jGroupEnd(){
     if(!jGroup) return;
     if(jGroupSettler) jGroupSettler.stop();
-    jGroup = null; jGroupSettler = null;
+    jGroup = null; jGroupSettler = null; jRoundId = null;
     const host = document.getElementById('clue-group');
     if(host) host.remove();
     if(buzzHost){
@@ -3474,13 +3555,20 @@
        until it is named here. That is the real friction in carrying a question
        dynamic across from the bench: `reveal` was silently dropped once and the
        hint button simply never appeared, with nothing anywhere saying why. */
-    currentClueItem = { text:clue.q, answer:clue.a, type:clue.type, reveal:clue.reveal,
-                        group:clue.group };
+    currentClueItem = { text:clue.q, answer:clue.a, type:clue.type, reveal:clue.reveal };
+    /* Whatever field a registered round claims, carried across by asking the
+       registry rather than by naming them here. Naming them is what silently
+       dropped `reveal` when Story Reveal shipped and `order` the day the second
+       round was written — the symptom both times being the feature simply never
+       appearing. */
+    Kit.round.fields().forEach(f => { if(clue[f] !== undefined) currentClueItem[f] = clue[f]; });
     /* A grouping clue's answer *is* its set, so it is derived rather than authored —
        two copies of one fact are two things that can drift, which is how a hexagon
        came to show `U` over an answer beginning with I. */
+    /* Set up once and keep it: `setup` shuffles, so asking twice would draw one
+       order for the answer line and another for the card. */
     const grp = jGroupOf(currentClueItem);
-    if(grp) currentClueItem.answer = grp.pick.join(', ');
+    if(grp) currentClueItem.answer = grp.state.answer;
     drawPrompt(document.getElementById('clue-text'), currentClueItem, 'jeopardy');
     /* Before `askPhones`, which consults `phoneRound()` — and `phoneRound()` cannot
        answer until the round exists. Also after `drawPrompt`, which owns `#clue-text`
@@ -3492,7 +3580,7 @@
        and the wager would be unanswerable. The team names their four out loud and
        the teacher clicks them, which is the no-relay path doing a second job;
        `jCorrect` already routes the payout to `jDoubleTeam` whoever is passed in. */
-    if(!review && grp) jGroupOpen(currentClueItem);
+    if(!review && grp) jGroupOpen(grp);
     // a replayed tile asks nobody, and a Daily Double belongs to one team alone
     if(!review && !dd) askPhones(clue.q, 'jeopardy');
     const ansEl=document.getElementById('clue-answer');

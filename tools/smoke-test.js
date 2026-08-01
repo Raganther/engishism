@@ -1020,6 +1020,34 @@ const UNIT_AUDIT = () => {
         if(x.type) out.push({kind:'grouping', msg:tag + ' — carries type "' + x.type + '" as well as a group'});
       }));
 
+      /* Ordering clues. The scale is the answer, so it is the only place the truth
+         lives — and everything that would quietly reduce or contradict it is checked
+         here, because none of it throws. */
+      (u.jeopardyCategories||[]).forEach(c => c.clues.forEach(x => {
+        const o = x.order; if(!o) return;
+        const tag = id + ': "' + String(x.q).slice(0, 40) + '"';
+        const scale = Array.isArray(o.scale) ? o.scale : [];
+        if(scale.length < 3) out.push({kind:'ordering', msg:tag + ' — a scale needs at least 3 steps'});
+        // beyond the relay's cap the phones are offered fewer words than the board shows
+        if(scale.length > 20) out.push({kind:'ordering', msg:tag + ' — ' + scale.length + ' steps, over the relay’s cap of 20'});
+        const seen = new Set();
+        scale.forEach(w => {
+          const k = String(w).toLowerCase();
+          if(seen.has(k)) out.push({kind:'ordering', msg:tag + ' — step appears twice: ' + w});
+          seen.add(k);
+        });
+        /* Both ends have to be named or the ladder is a list of words with no
+           direction, which is the one thing that makes it an ordering question. */
+        if(!o.low || !o.high) out.push({kind:'ordering', msg:tag + ' — needs both ends of the scale named'});
+        /* The gloss is the teaching. Without one a right answer is a sorting
+           exercise: the class gets it right and learns nothing about why. */
+        scale.forEach(w => {
+          if(!o.gloss || !o.gloss[w]) out.push({kind:'ordering', msg:tag + ' — no gloss for "' + w + '"'});
+        });
+        if(x.a) out.push({kind:'ordering', msg:tag + ' — carries an `a` as well as a scale; the answer is the scale'});
+        if(x.group) out.push({kind:'ordering', msg:tag + ' — carries a group as well as a scale'});
+      }));
+
       // Jeopardy: equal-length categories, sections contiguous (or a heading prints twice)
       const cats = u.jeopardyCategories || [];
       const lens = new Set(cats.map(c => c.clues.length));
@@ -1100,6 +1128,8 @@ async function testContentIntegrity(browser){
         !(await page.evaluate(() => (window.UNITS||[]).some(u => u.id === 'unit-lab'))));
   check('grouping clues are well formed',
         !of('grouping').length,     first('grouping'));
+  check('ordering clues are well formed, and every step is glossed',
+        !of('ordering').length,     first('ordering'));
   await lab.close();
   check('no prompt appears in two banks',        !of('dupe').length,         first('dupe'));
   check('Blockbusters answers are one word, keyed by their initial',
@@ -4922,7 +4952,13 @@ async function testGroupingClue(browser){
   check('a wrong set is refused and costs nothing',
         /not a group/i.test(await page.locator('.group-say').innerText()) &&
         (await scoresOf(page)).join('/') === '0/0');
-  await pickOnBoard(['grateful','serene','incensed','irate']);   // swap the two decoys out
+  /* A wrong check releases the selection — otherwise the next click deselects
+     instead of choosing — so this starts from empty rather than swapping two out. */
+  await page.waitForTimeout(500);
+  check('a wrong check releases the words, ready for another go',
+        await page.locator('#clue-group .gword.chosen').count() === 0,
+        String(await page.locator('#clue-group .gword.chosen').count()));
+  await pickOnBoard(['livid','furious','incensed','irate']);
   await btn.click(); await page.waitForTimeout(1600);
   check('and the right set takes the tile for the team on turn',
         (await scoresOf(page)).join('/') === '100/0', (await scoresOf(page)).join('/'));
@@ -5057,6 +5093,69 @@ async function testGroupingClue(browser){
         Number((await scoresOf(page))[0]) > 0, (await scoresOf(page)).join('/'));
   checkClean(page, 'daily double');
   await page.close();
+
+  /* ---------- the second round, on the real board ----------
+     The whole return on the extraction: a round written as one file, playable in a
+     game show with no engine change. And the thing grouping never had to model —
+     **a right answer is progress, not an ending** — which if defaulted wrongly pays
+     the tile four rungs early. */
+  page = await openLab(['Word Thermometer','Anagram','Gap Fill'], { phones:false });
+  await openTile(page, 'Word Thermometer', 0);
+  check('an ordering clue draws its ladder on a Jeopardy card',
+        await page.locator('#clue-group .ord-rung').count() === 5 &&
+        await page.locator('#clue-group .ord-cap').count() === 2,
+        String(await page.locator('#clue-group .ord-rung').count()));
+  check('and asks for one rung at a time, not the whole scale',
+        /Check it/i.test(await page.locator('#group-btn').innerText()),
+        await page.locator('#group-btn').innerText());
+  const climb = async w => {
+    await page.locator(`#clue-group .gword[data-word="${w}"]`).click();
+    await page.waitForTimeout(90);
+    await page.locator('#group-btn').click();
+    await page.waitForTimeout(600);      // long enough for a wrong pick to be released
+  };
+  await climb('annoyed');
+  check('a right rung locks in and the tile is NOT yet paid',
+        await page.locator('#clue-group .ord-rung.filled').count() === 1 &&
+        (await scoresOf(page)).join('/') === '0/0',
+        (await scoresOf(page)).join('/'));
+  await climb('furious');
+  check('a wrong rung costs nothing and the ladder holds',
+        await page.locator('#clue-group .ord-rung.filled').count() === 1 &&
+        /not that one/i.test(await page.locator('#clue-group .group-say').innerText()),
+        await page.locator('#clue-group .group-say').innerText());
+  for(const w of ['irritated','angry','livid','furious']) await climb(w);
+  await page.waitForTimeout(1500);
+  check('and only the last rung pays the tile',
+        (await scoresOf(page)).join('/') === '100/0', (await scoresOf(page)).join('/'));
+  checkClean(page, 'ordering clue');
+  await page.close();
+
+  /* The ladder plus its pool plus the buttons is the tallest thing any round has
+     put on a clue card, and empty rungs sized like full ones pushed it past both
+     edges at 1280x720. Measured on the $500 clue, whose words are the longest. */
+  for (const vp of [{ width:1280, height:720, tag:'a projector' },
+                    { width:390,  height:844, tag:'a handset' }]){
+    const p2 = await openLab(['Word Thermometer','Anagram','Gap Fill'], { phones:false });
+    await p2.setViewportSize({ width:vp.width, height:vp.height });
+    await p2.waitForTimeout(250);
+    await openTile(p2, 'Word Thermometer', 4);
+    const m = await p2.evaluate(() => {
+      const card = document.getElementById('clue-card').getBoundingClientRect();
+      const acts = document.getElementById('clue-actions').getBoundingClientRect();
+      const rungs = [...document.querySelectorAll('#clue-group .ord-rung')]
+                      .map(e => e.getBoundingClientRect());
+      return { rungs: rungs.length,
+               below: rungs.filter(r => r.bottom > card.bottom - 1).length,
+               top: Math.round(card.top), bottom: Math.round(card.bottom),
+               vh: window.innerHeight,
+               actionsOn: acts.bottom <= window.innerHeight && acts.top >= 0 };
+    });
+    check(`ordering on ${vp.tag}: the whole card is on screen`,
+          m.top >= 0 && m.bottom <= m.vh && !m.below, JSON.stringify(m));
+    check(`ordering on ${vp.tag}: and the buttons are reachable`, m.actionsOn, JSON.stringify(m));
+    await p2.close();
+  }
 
   /* ---------- it fits, on both screens ----------
      The `fit` and `phone` suites ask every registered game about its *stage*; a clue
@@ -5225,6 +5324,84 @@ async function testQuestionBench(browser){
   }
   checkClean(page, 'question bench');
   await page.close();
+
+  /* ---------- the second round, and both its modes ----------
+     This is the real test of the contract. Grouping shaped it; ordering is the one
+     that finds out whether the shape was right — a sequence is not a set, and a
+     right answer is progress rather than an ending. Both of those are new here. */
+  const ord = await browser.newPage({ viewport:{ width:1500, height:950 } });
+  ord.__errors = []; ord.__console = [];
+  ord.on('pageerror', e => ord.__errors.push(String(e)));
+  ord.on('console', m => {
+    if (m.type() === 'error' &&
+        !/ERR_CONNECTION_RESET|fonts\.(googleapis|gstatic)|navigator\.vibrate/.test(m.text()))
+      ord.__console.push(m.text());
+  });
+  await ord.goto(BASE + '/playground/question-bench.html'); await ord.waitForTimeout(1300);
+  await ord.locator('#type-pick').selectOption('ordering'); await ord.waitForTimeout(800);
+
+  /* The picker is built from what the round declares, so the bench never learns what
+     a mode means — a round with one way to play gets no picker at all. */
+  check('a round with two ways to play offers both',
+        await ord.locator('#mode-pick').isVisible() &&
+        await ord.locator('#mode-pick option').count() === 2,
+        (await ord.locator('#mode-pick option').allInnerTexts()).join(' | '));
+  check('the ladder is drawn with a rung per step and both ends named',
+        await ord.locator('.ord-rung').count() === 5 &&
+        await ord.locator('.ord-cap').count() === 2,
+        String(await ord.locator('.ord-rung').count()));
+  check('and the next rung is marked, since the room fills it cold end first',
+        await ord.locator('.ord-rung.next').count() === 1);
+
+  const ordCode = ((await ord.locator('#room-chip').innerText()).match(/(\d{5})/)||[])[1];
+  if(ordCode){
+    await ord.locator('#add-phone').click(); await ord.waitForTimeout(1100);
+    await ord.locator('#add-phone').click(); await ord.waitForTimeout(1300);
+    const of0 = ord.frames().filter(f => /join\.html/.test(f.url()))[0];
+    const tapW = async (fr, w) => {
+      await fr.locator('#opts button', { hasText:new RegExp('^'+w+'$') }).first().click();
+      await fr.waitForTimeout(150);
+    };
+    /* Climb: one tap, and — the thing grouping never had to model — **a right
+       answer is progress, not the end**. Scoring on the first correct rung would
+       have paid a tile four rungs early. */
+    await tapW(of0, 'annoyed'); await ord.waitForTimeout(1300);
+    check('climb: a right word locks its rung and the round keeps going',
+          await ord.locator('.ord-rung.filled').count() === 1 &&
+          !(await ord.locator('.group-say.good').count()),
+          await ord.locator('.group-say').innerText().catch(()=>'-'));
+    await tapW(of0, 'furious'); await ord.waitForTimeout(1300);
+    check('climb: a wrong word costs nothing and the ladder holds',
+          await ord.locator('.ord-rung.filled').count() === 1 &&
+          /not that one/i.test(await ord.locator('.group-say').innerText()),
+          await ord.locator('.group-say').innerText());
+
+    /* Whole: the order is tapped in sequence. The relay preserves tap order, which
+       is what makes a sequence expressible on a phone with no drag at all. */
+    await ord.locator('#mode-pick').selectOption('whole'); await ord.waitForTimeout(1200);
+    const of1 = ord.frames().filter(f => /join\.html/.test(f.url()))[0];
+    for(const w of ['annoyed','irritated','livid','angry','furious']) await tapW(of1, w);
+    await ord.waitForTimeout(1400);
+    check('whole: a near-miss order is named as one',
+          /wrong way round/i.test(await ord.locator('.group-say').innerText()),
+          await ord.locator('.group-say').innerText());
+    /* A sequence cannot be merged across phones, so a team's answer is one player's
+       and the board says whose — the finding this round exists to surface. */
+    check('and the board shows the order, and who is driving it',
+          /annoyed → irritated/.test(await ord.locator('.group-tally').innerText()) &&
+          /driving/.test(await ord.locator('.group-tally').innerText()),
+          await ord.locator('.group-tally').innerText());
+    for(const w of ['annoyed','irritated','livid','angry','furious']) await tapW(of1, w);
+    await ord.waitForTimeout(300);
+    for(const w of ['annoyed','irritated','angry','livid','furious']) await tapW(of1, w);
+    await ord.waitForTimeout(1500);
+    check('whole: the right order fills the ladder and ends it',
+          await ord.locator('.ord-rung.filled').count() === 5 &&
+          /has it/i.test(await ord.locator('.group-say').innerText()),
+          await ord.locator('.group-say').innerText());
+  }
+  checkClean(ord, 'ordering bench');
+  await ord.close();
 
   /* Degradation, which every playground page owes: no relay leaves the card fully
      playable teacher-only. */

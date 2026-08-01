@@ -46,7 +46,14 @@
   #left{ flex:0 0 auto; min-width:0; }
   #rack-pane{ flex:1 1 auto; min-width:0; max-height:calc(100vh - 120px); overflow-y:auto; }
 
-  #bar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+  /* Constrained to the card's width like everything else in this column. The mode
+     picker's label is a sentence, so an unconstrained toolbar became the widest
+     thing in the column and shoved the rack off to the side — the same fault the
+     editor had, arriving by a different door. Anything added to this column has to
+     be told the width; it will not work it out. */
+  #bar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px;
+        width:var(--card-w, 720px); max-width:100%; }
+  #mode-pick{ max-width:100%; }
   select, button, input{ font-family:inherit; font-size:0.88rem; }
   select, input{ background:var(--navy2); color:var(--paper); border:1px solid rgba(255,255,255,0.2);
                  border-radius:8px; padding:8px 10px; }
@@ -125,6 +132,7 @@
   <div id="left">
     <div id="bar">
       <select id="type-pick"></select>
+      <select id="mode-pick" style="display:none"></select>
       <button id="ask-btn">Ask the room</button>
       <button id="reveal-btn" class="ghost">Reveal</button>
       <button id="reset-btn" class="ghost">Reset</button>
@@ -146,9 +154,9 @@
     <div id="editor">
       <label for="ed-q">The question</label>
       <input id="ed-q" value="Four of these belong in a courtroom. Find the four.">
-      <label for="ed-pick">The words that belong together</label>
+      <label for="ed-pick" id="lbl-pick">The words that belong together</label>
       <input id="ed-pick" value="verdict, jury, testimony, acquittal">
-      <label for="ed-with">The decoys — they must be a coherent group of their own</label>
+      <label for="ed-with" id="lbl-with">The decoys — they must be a coherent group of their own</label>
       <input id="ed-with" value="sabbatical, promotion, redundancy, overtime">
       <p class="hint">
         Edit and press <strong>Ask the room</strong> to push it to every handset. The card
@@ -167,6 +175,7 @@
 <script src="../game-hub/hub-kit.js?v=20260801y"></script>
 <script src="../game-hub/hub-rounds.js?v=20260801y"></script>
 <script src="../game-hub/rounds/grouping.js?v=20260801y"></script>
+<script src="../game-hub/rounds/ordering.js?v=20260801y"></script>
 <script src="bench-kit.js?v=20260801y"></script>
 <script>
 const $ = id => document.getElementById(id);
@@ -210,25 +219,79 @@ function ctx(){
     teamName: i => TEAMS[i] || ('Team ' + (i+1)),
     prompt: true,
     team: null,                       // the whole room; a host may scope it, this does not
+    mode: $('mode-pick').value || null,
     onPick: word => {
       if(!state || state.done) return;
+      const cap = capOf();
       const at = state.chosen.indexOf(word);
       if(at !== -1) state.chosen.splice(at, 1);
-      else if(state.chosen.length < state.need) state.chosen.push(word);
+      else if(state.chosen.length < cap) state.chosen.push(word);
       draw();
     }
   };
 }
 
+/* The picker is built from what the round *declares*, so the bench never learns
+   what a mode means — exactly as a game show does not. A round with one way to be
+   played gets no picker at all. */
+function fillModes(){
+  const def = Kit.round.get(type);
+  const sel = $('mode-pick');
+  const modes = (def && def.modes) || [];
+  sel.innerHTML = '';
+  sel.style.display = modes.length ? '' : 'none';
+  modes.forEach(m=>{
+    const o = document.createElement('option');
+    o.value = m.value; o.textContent = m.label;
+    sel.appendChild(o);
+  });
+}
+$('mode-pick').addEventListener('change', ()=>{ build(); if(host) ask(); });
+
+const list = str => str.split(',').map(w => w.trim()).filter(Boolean);
+
+/* One editor, two shapes. The second field is the answer either way — the words
+   that belong together, or the scale in order — which is why the labels change
+   rather than the form. */
+const SAMPLES = {
+  grouping: { q:'Four of these belong in a courtroom. Find the four.',
+              a:'verdict, jury, testimony, acquittal',
+              b:'sabbatical, promotion, redundancy, overtime' },
+  ordering: { q:'Put these in order — mildest first.',
+              a:'annoyed, irritated, angry, livid, furious',
+              b:'mildly bothered | absolutely raging' }
+};
 function itemFromEditor(){
-  const list = s => s.split(',').map(w => w.trim()).filter(Boolean);
-  return { text: $('ed-q').value.trim(),
-           group: { pick: list($('ed-pick').value), with: list($('ed-with').value) } };
+  const text = $('ed-q').value.trim();
+  if(type === 'ordering'){
+    const ends = $('ed-with').value.split('|').map(x => x.trim());
+    return { text, order:{ scale:list($('ed-pick').value),
+                           low: ends[0] || 'weakest', high: ends[1] || 'strongest' } };
+  }
+  return { text, group:{ pick: list($('ed-pick').value), with: list($('ed-with').value) } };
+}
+function fillEditor(){
+  const sample = SAMPLES[type];
+  if(sample){ $('ed-q').value = sample.q; $('ed-pick').value = sample.a; $('ed-with').value = sample.b; }
+  $('lbl-pick').textContent = type === 'ordering'
+    ? 'The scale, weakest first — this is the answer'
+    : 'The words that belong together';
+  $('lbl-with').textContent = type === 'ordering'
+    ? 'The two ends of the scale, separated by |'
+    : 'The decoys — they must be a coherent group of their own';
+}
+
+/* How many the teacher may hold at once — the round says, via what it asks the
+   phones for. An ordering climb wants one at a time; a grouping card wants four. */
+function capOf(){
+  if(!state) return 1;
+  const a = Kit.round.get(type).arm(state, ctx());
+  return Math.max(1, Math.min(state.need, (a && a.multi) || 1));
 }
 
 function build(){
   const def = Kit.round.get(type);
-  state = def ? def.setup(itemFromEditor()) : null;
+  state = def ? def.setup(itemFromEditor(), ctx()) : null;
   replies = [];
   if(settler) settler.stop();
   settler = state ? Kit.round.settle(def.settleMs, onSettle) : null;
@@ -249,9 +312,11 @@ function draw(){
   def.render($('card-round'), state, ctx());
   $('card-answer').textContent = state.answer;
   fitAll();                            // the card's height moves as the words wrap
-  $('check-btn').disabled = state.done || state.chosen.length !== state.need;
+  const cap = capOf();
+  $('check-btn').disabled = state.done || state.chosen.length !== cap;
   $('check-btn').textContent = state.done ? 'Answered'
-    : 'Check these ' + state.need + ' (' + state.chosen.length + '/' + state.need + ')';
+    : cap === 1 ? 'Check it'
+    : ('Check these ' + cap + ' (' + state.chosen.length + '/' + cap + ')');
 }
 
 /* ---------------- the phones ---------------- */
@@ -278,7 +343,17 @@ function onSettle(){
   })).filter(v => v.r.verdict !== 'incomplete');
   // the right answer is resolved before any wrong one — two teams can settle in one tick
   const won = verdicts.filter(v => v.r.verdict === 'right')[0];
-  if(won){ take(won.team); return; }
+  if(won){
+    /* Right is not always the end. A grouping card is over the moment a team has the
+       set; an ordering climb has four more rungs to go. The round says which. */
+    def.accept(won.set, state);
+    if(won.r.done !== false || state.done){ take(won.team); return; }
+    state.say = ctx().teamName(won.team) + ' — yes.';
+    settler.reset();
+    draw();
+    if(host){ const a = def.arm(state, ctx()); host.arm(a.prompt, a); }
+    return;
+  }
   verdicts.forEach(v=>{
     if(!settler.fresh(v.team, v.set.slice().sort().join('|'))) return;
     state.say = def.saidOf(ctx().teamName(v.team), v.r, state);
@@ -307,7 +382,15 @@ $('check-btn').addEventListener('click', ()=>{
   if(!state || state.done) return;
   const def = Kit.round.get(type);
   const r = def.judge(state.chosen, state);
-  if(r.verdict === 'right'){ take(-1); state.say = 'That is the group.'; draw(); return; }
+  if(r.verdict === 'right'){
+    def.accept(state.chosen.slice(), state);
+    state.chosen = [];
+    if(r.done !== false || state.done){ take(-1); state.say = 'That is it.'; draw(); return; }
+    state.say = 'Yes — keep going.';
+    draw();
+    if(host){ const a = def.arm(state, ctx()); host.arm(a.prompt, a); }
+    return;
+  }
   state.say = def.saidOf('Not a group', r, state).replace(/^Not a group: /, 'Not a group — ');
   draw();
   shake(state.chosen);
@@ -322,7 +405,9 @@ $('reveal-btn').addEventListener('click', ()=>{
 });
 $('reset-btn').addEventListener('click', ()=>{ build(); if(host) host.disarm(); });
 $('ask-btn').addEventListener('click', ask);
-$('type-pick').addEventListener('change', e => { type = e.target.value; build(); });
+$('type-pick').addEventListener('change', e => {
+  type = e.target.value; fillModes(); fillEditor(); build(); if(host) ask();
+});
 
 /* ---------------- sizing ----------------
    Two rules, and the first is the point of the page: **the card never gives up
@@ -429,6 +514,7 @@ const room = BenchKit.room({
 
 /* Degradation is the rule, not a fallback: with no relay the card is still drawn
    and still playable by clicking the words and pressing Check. */
+fillModes();
 build();
 fitAll();
 </script>

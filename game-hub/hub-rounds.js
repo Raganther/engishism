@@ -21,11 +21,13 @@
 
    | hook | answers |
    |---|---|
-   | `setup(item)`         | the authored item -> the round's own state, or null if it cannot |
+   | `setup(item, ctx)`    | the authored item -> the round's own state, or null if it cannot |
    | `render(mount, s, c)` | draw the card into `mount` — the projector's view |
    | `arm(s, c)`           | what the handsets are put into; the payload goes to the relay unread |
    | `read(replies, s)`    | the room's replies -> one answer per team |
-   | `judge(answer, s)`    | is that answer right, and how close was it |
+   | `judge(answer, s)`    | is that answer right, how close, and is the round over |
+   | `accept(answer, s)`   | commit a correct answer, when being right is not yet the end |
+   | `modes`               | the ways this question can be played, if more than one |
    | `settleMs`            | how long to wait after the last tap before judging |
 
    **What a round never contains: scoring, turns, timers, the board.** Those belong
@@ -98,12 +100,29 @@
         render(){},
         arm(){ return null; },
         read(){ return {}; },
-        judge(){ return { verdict:'wrong', hits:0 }; }
+        judge(){ return { verdict:'wrong', hits:0 }; },
+        /* Commit a correct answer to the round's state. Grouping leaves this out —
+           being right *is* the ending there — and ordering's climb is the case that
+           needed it: a right answer means progress, not the end. So `judge` says
+           whether the *round* is over (`done`) and this is where getting there is
+           recorded. */
+        accept(){},
+        /* Ways the same question can be played, if it has more than one. A host
+           builds its picker from this rather than knowing the round's business —
+           the bench puts it in a dropdown, the hub registers it as a setting. */
+        modes: null
       }, def || {});
       return ROUNDS[String(id)];
     },
     get(id){ return ROUNDS[String(id)] || null; },
     ids(){ return Object.keys(ROUNDS); },
+    /* Every item field any registered round claims. A host copies these across when
+       it normalises a question, so **a round added later is carried through without
+       anybody remembering to widen a whitelist**. That whitelist has now silently
+       dropped a feature twice — `reveal` when Story Reveal shipped, `order` the day
+       this was written — and both times the symptom was the feature simply never
+       appearing, with nothing anywhere saying why. */
+    fields(){ return Object.keys(ROUNDS).map(id => ROUNDS[id].field).filter(Boolean); },
     /* Which round an authored item wants, or null for an ordinary question. Asked
        rather than told, so a game does not have to learn every round's field name —
        the same move `hasBank()` makes for content. */

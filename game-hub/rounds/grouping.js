@@ -36,6 +36,10 @@
 
     /* An item carries a `group`, or it is not this round. Asked this way so a host
        never has to learn the field name. */
+    /* The item field this round owns. The normaliser copies it across on its own,
+       so nobody has to remember to widen a whitelist — see `Kit.round.fields()`. */
+    field: 'group',
+
     claims(item){ return !!(item && item.group && Array.isArray(item.group.pick)); },
 
     /* The authored item becomes the round's own state. Anything malformed returns
@@ -204,7 +208,9 @@
       const want = s.pick.map(w => w.toLowerCase());
       const hits = set.filter(w => want.indexOf(String(w).toLowerCase()) !== -1).length;
       if(set.length !== s.need) return { verdict:'incomplete', hits };
-      return { verdict: hits === s.need ? 'right' : 'wrong', hits };
+      /* `done` because being right *is* the ending here — there is nothing left to
+         fill in. An ordering climb is the round that needed the distinction. */
+      return { verdict: hits === s.need ? 'right' : 'wrong', hits, done: hits === s.need };
     },
 
     // how a wrong set is described — "one away" is worth saying and costs nothing

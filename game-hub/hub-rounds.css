@@ -100,3 +100,46 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
 @media (prefers-reduced-motion:reduce){
   .gword.shake{ animation:none; }
 }
+
+/* ---- the ordering round ----------------------------------------------------
+   The ladder is the picture. The bench game's first build used a shared pool with
+   dots on it and made a race you had to be *told* the result of; you want to see
+   how far up the room has got without reading anything.
+
+   Drawn top-down so the strongest sits at the top, which is where a room expects
+   it — the state is stored cold-end-first because that is the order it is filled
+   in, and the two are deliberately not the same thing. */
+.ord-ladder{ display:flex; flex-direction:column; gap:4px; margin:4px 0 10px; }
+.ord-cap{ font-size:0.66em; letter-spacing:0.16em; text-transform:uppercase; opacity:0.5; }
+.ord-cap.hot{ margin-bottom:2px; }
+.ord-cap.cold{ margin-top:2px; }
+.ord-rung{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:1px; padding:4px 10px; border-radius:9px;
+  border:2px dashed var(--gw-line, rgba(18,38,63,0.18));
+  font-size:0.86em; line-height:1.15;
+}
+/* An empty rung only has to say "a slot is here", so it is a thin line rather than
+   a full-height box. Sizing every rung alike put a five-step ladder plus its pool
+   and its buttons past both edges of a 1280x720 clue card — the empty ones were
+   spending 44px each to say nothing. */
+/* Slim, but it still has to *read* as a waiting slot from the back of a room. The
+   first pass took them to 10px at 40% and the ladder became blank space above the
+   next rung, which says nothing about how far there is to go. */
+.ord-rung.empty{ opacity:0.7; min-height:14px; padding:0; border-width:2px;
+  background:linear-gradient(var(--gw-wash, rgba(18,38,63,0.07)),
+                             var(--gw-wash, rgba(18,38,63,0.07))); }
+.ord-rung.filled, .ord-rung.next{ min-height:clamp(26px, 3.6vh, 38px); }
+.ord-rung.next{ border-style:solid; border-color:var(--gw-hot, rgba(0,122,201,0.5));
+  opacity:0.85; font-size:0.72em; letter-spacing:0.12em; text-transform:uppercase; }
+.ord-rung.filled{ border-style:solid; border-color:var(--gw-good, #2FA84F);
+  background:var(--gw-goodwash, rgba(47,168,79,0.14)); color:var(--gw-goodink, #1B6B32); }
+/* A revealed ladder shows what the room actually had, so a rung in the wrong place
+   has to look different from one they earned. */
+.ord-rung.filled.wrong{ border-color:#C0392B; background:rgba(192,57,43,0.14);
+  color:var(--gw-fg, #12263F); }
+.ord-word{ font-weight:700; }
+/* The gloss is what turns a right answer into a taught one — it prints as the word
+   lands, which is the moment the room is actually looking at it. */
+.ord-gloss{ font-size:0.72em; opacity:0.75; font-weight:400; }
+.ord-pool{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
