@@ -96,7 +96,10 @@
      glance which handsets belong together, which matters most in a race where each
      team has its own board. The phones give up the width, never the card. */
   #rack{ display:flex; flex-direction:column; gap:14px; }
-  .rack-row{ display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; }
+  /* Four to a row and wrap: a team of five puts its fifth on a second line rather
+     than squeezing all five, so a phone is the same size wherever it is. */
+  .rack-row{ display:grid; gap:12px; align-items:start;
+             grid-template-columns:repeat(4, calc(var(--phone-w) * var(--phone-scale))); }
   .rack-label{ font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase;
                font-weight:700; margin-bottom:5px; }
   .rack-label .none{ opacity:0.45; font-weight:400; letter-spacing:0; text-transform:none; }
@@ -459,12 +462,17 @@ $('type-pick').addEventListener('change', e => {
    never caught it because they asked what the scale was rather than whether the
    thing still fitted. */
 const CARD_W = 720;                 // what a clue card measures inside a 1280 board
-const PER_ROW = 5;   // five to a row; twenty phones across four teams
-/* Up to 1:1 and never past it — the room bench's rule for a board, applied to a
-   handset: an upscaled phone shows a size no phone renders at, and a downscaled one
-   is still the real layout. So a rack with room to spare draws its phones bigger
-   rather than leaving the width empty. */
-const PHONE_MIN = 0.26, PHONE_MAX = 1;
+/* Four to a row, fixed. It is a *divisor*, not a maximum: every row is sized as if
+   it held four, so a team of two draws phones the same size as a team of four and
+   simply leaves the space. Sizing by whatever the busiest row happened to hold made
+   handsets change size as teams filled up, which is exactly the instability the
+   card is protected from and the rack should be too. */
+const PER_ROW = 4;
+/* Never past 0.62 — a handset drawn much bigger than this stops being a phone you
+   glance at beside the card and starts competing with it for attention, which is
+   the opposite of what the rack is for. The floor is where a phone stops being
+   readable at all; below it the pane scrolls instead. */
+const PHONE_MIN = 0.26, PHONE_MAX = 0.62;
 
 function fitAll(){
   const page = document.getElementById('wrap').clientWidth;
@@ -489,9 +497,7 @@ function fitAll(){
      width sat empty, which is the one thing a bench must not do — a phone too small
      to read is a phone you cannot judge a dynamic from. Scrolling costs a moment;
      an unreadable rack costs the whole page. */
-  const rows = [...document.querySelectorAll('.rack-row')].map(r => r.children.length);
-  const per = Math.max(1, Math.max(1, ...rows));
-  const each = (pane.clientWidth - (per - 1) * gap) / per;
+  const each = (pane.clientWidth - (PER_ROW - 1) * gap) / PER_ROW;
   root.setProperty('--phone-scale',
     Math.max(PHONE_MIN, Math.min(PHONE_MAX, each / 390)).toFixed(4));
 }

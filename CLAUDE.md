@@ -805,14 +805,15 @@ playground's point, that one board can host several:
     evenly, so which handsets belong together is visible at a glance. Rows are added
     and never re-parented, because moving an iframe reloads it and drops its stream.
     Four teams is the cap, which is where a clue card stops being readable.
-  - **Width fills, height scrolls.** Sizing the phones by row count *as well as*
-    width was the obvious-looking move and it was wrong: with four rows it shrank
-    every handset to the floor while a third of the pane's width sat empty — a phone
-    too small to read is a phone you cannot judge a dynamic from, which is the one
-    thing this page must never produce. They fill the row they are in now, up to 1:1
-    and never past it (the room bench's rule for a board, applied to a handset), and
-    the pane scrolls if that puts more rows on screen than fit. Scrolling costs a
-    moment; an unreadable rack costs the whole page.
+  - **Four to a row, and it is a divisor rather than a maximum.** Every row is sized
+    as if it held four, so a team of two draws the same size as a team of four and
+    simply leaves the space — sizing by whatever the busiest row happened to hold
+    made handsets change size as teams filled up, which is exactly the instability
+    the card is protected from and the rack should be too. Capped at 0.62: a phone
+    drawn much bigger stops being something you glance at beside the card and starts
+    competing with it. **Width divides, height scrolls** — constraining by height as
+    well shrank every handset to the floor while a third of the pane sat empty, and a
+    phone too small to read is a phone you cannot judge a dynamic from.
   - **The bench racks twenty phones, and the ceiling is the transport's — which is
     not the same everywhere.** Every live page holds one event stream open forever:
     the board's, plus one per racked handset. Over **HTTP/1.1** a browser allows six
