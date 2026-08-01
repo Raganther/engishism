@@ -178,7 +178,7 @@
        Unlike every other category on this board these clues are worth the same
        whatever the tile — a set of four is a set of four — so the difficulty is in
        how close the two groups sit, not in how much is being asked for. */
-    { id:'lab-group', section:'L4', name:'Find the Four', clues:[
+    { id:'lab-group', section:'L4', name:'Connections', clues:[
       {v:100, q:"Four of these mean the same as “very angry”. Find the four.",
         group:{ pick:["livid","furious","incensed","irate"],
                 with:["grateful","content","serene","cautious"] }},

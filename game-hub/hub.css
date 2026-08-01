@@ -1683,9 +1683,16 @@ body.theme-gameshow #clue-actions #hint-btn{ border-color:rgba(255,200,61,0.5); 
    The words sit *under* the prompt inside `#clue-text`, the way the hint does, so
    the class is still reading the instruction while they work. */
 .clue-group{ margin-top:14px; }
-.group-words{ display:flex; flex-wrap:wrap; justify-content:center; gap:8px; }
-.gword{ position:relative; font:inherit; font-size:0.92em; line-height:1.1;
-  padding:9px 14px; border-radius:10px; cursor:pointer;
+/* Two columns, the same rule the handset uses for a list this long (`.opts.compact`
+   in join.html): a set of words is something you choose *between*, so they have to
+   be seen at once and comparable at a glance. Centred wrapping put four on one row
+   and three on the next, which reads as a paragraph rather than a set — and it made
+   the card and the phone look like two different questions. Same shape in the hand
+   and on the projector is the point. */
+.group-words{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
+.gword{ position:relative; font:inherit; font-size:0.92em; line-height:1.15;
+  padding:11px 12px; border-radius:10px; cursor:pointer; min-width:0;
+  overflow-wrap:anywhere;      /* a C1 vocabulary word is often long; break it properly */
   border:2px solid rgba(18,38,63,0.18); background:var(--white); color:var(--navy);
   transition:background .15s, border-color .15s, transform .15s; }
 .gword:hover{ border-color:rgba(0,122,201,0.5); }

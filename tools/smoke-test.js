@@ -4801,11 +4801,11 @@ async function testGroupingClue(browser){
   const scoresOf= page => page.locator('.team .score').allInnerTexts();
 
   /* ---------- the content is on the board at all ---------- */
-  let page = await openLab(['Find the Four','Anagram','Gap Fill'], { phones:true });
+  let page = await openLab(['Connections','Anagram','Gap Fill'], { phones:true });
   check('the Lab board offers the grouping category',
-        (await page.locator('#board .cat-header').allInnerTexts()).some(t => /Find the Four/i.test(t)));
+        (await page.locator('#board .cat-header').allInnerTexts()).some(t => /Connections/i.test(t)));
 
-  await openTile(page, 'Find the Four', 1);          // $200 — the courtroom set
+  await openTile(page, 'Connections', 1);          // $200 — the courtroom set
   const eight = await words(page);
   check('opening the tile draws the whole set of words',
         eight.length === 8 && eight.includes('verdict') && eight.includes('sabbatical'),
@@ -4901,8 +4901,8 @@ async function testGroupingClue(browser){
   /* ---------- no phones at all ----------
      Degradation is not optional anywhere in this app, and a clue the teacher cannot
      play without a relay would be the first place it broke. */
-  page = await openLab(['Find the Four','Anagram','Gap Fill'], { phones:false });
-  await openTile(page, 'Find the Four', 0);          // $100 — the anger set
+  page = await openLab(['Connections','Anagram','Gap Fill'], { phones:false });
+  await openTile(page, 'Connections', 0);          // $100 — the anger set
   check('with no room, the words are still on the card',
         (await words(page)).length === 8);
   const btn = page.locator('#group-btn');
@@ -4952,9 +4952,9 @@ async function testGroupingClue(browser){
      once — the relay stores the team, an unentitled phone shows the question with
      no controls, and a reply that arrives anyway is dropped — so the check is that
      the other team's handset can see the clue and not answer it. */
-  page = await openLab(['Find the Four','Anagram','Gap Fill'], { phones:true });
+  page = await openLab(['Connections','Anagram','Gap Fill'], { phones:true });
   await page.evaluate(() => window.HubSettings.set('jGroupWho', 'turn', 'jeopardy'));
-  await openTile(page, 'Find the Four', 1);
+  await openTile(page, 'Connections', 1);
   const turnCode = await codeOf(page);
   if (turnCode){
     const on  = await join(turnCode, 'Cal', 0);      // the team on turn
@@ -4980,12 +4980,12 @@ async function testGroupingClue(browser){
      charges the team that missed — but every team was assembling this clue at once,
      so `missed` is only "whoever happened to be on turn". Checked with both
      switches deliberately on, which is what the `classic` ruleset writes. */
-  page = await openLab(['Find the Four','Anagram','Gap Fill'], { phones:false });
+  page = await openLab(['Connections','Anagram','Gap Fill'], { phones:false });
   await page.evaluate(() => {
     window.HubSettings.set('stealOnWrong', true, 'jeopardy');
     window.HubSettings.set('jDeduct', true, 'jeopardy');
   });
-  await openTile(page, 'Find the Four', 1);
+  await openTile(page, 'Connections', 1);
   await page.locator('#reveal-btn').click(); await page.waitForTimeout(300);
   /* Reveal answers it on the board — the four light up where they stand, which is
      the thing worth seeing. It also ends the round, and that is the trap: Correct
@@ -5021,13 +5021,13 @@ async function testGroupingClue(browser){
      the tile opened on an instruction with nothing to pick from, and the wager was
      unanswerable. `jCorrect` already pays a Daily Double to whoever found it, so
      the teacher-click path needed nothing else. */
-  page = await openLab(['Find the Four','Anagram','Gap Fill'], { phones:false });
+  page = await openLab(['Connections','Anagram','Gap Fill'], { phones:false });
   await page.evaluate(() => window.HubSettings.set('jDailyDoubles', 1, 'jeopardy'));
   await page.waitForTimeout(200);
   // plant one deliberately on a grouping tile rather than waiting for chance
   const planted = await page.evaluate(() => {
     const heads = [...document.querySelectorAll('#board .cat-header')];
-    const col = heads.findIndex(h => /Find the Four/i.test(h.textContent));
+    const col = heads.findIndex(h => /Connections/i.test(h.textContent));
     const tiles = [...document.querySelectorAll('#board .tile')];
     tiles.forEach(t => delete t.dataset.dd);
     const t = tiles[heads.length * 2 + col];      // $300
@@ -5038,7 +5038,7 @@ async function testGroupingClue(browser){
   await page.locator('#board .tile').nth(
     (await page.evaluate(() => document.querySelectorAll('#board .cat-header').length)) * 2 +
     (await page.evaluate(() => [...document.querySelectorAll('#board .cat-header')]
-        .findIndex(h => /Find the Four/i.test(h.textContent))))).click();
+        .findIndex(h => /Connections/i.test(h.textContent))))).click();
   await page.waitForTimeout(500);
   check('it opens on the wager, not on the words',
         await page.locator('#wager-panel').isVisible() &&
@@ -5066,10 +5066,10 @@ async function testGroupingClue(browser){
      a teacher checks a lesson on their phone. */
   for (const vp of [{ width:1280, height:720, tag:'a projector' },
                     { width:390,  height:844, tag:'a handset' }]){
-    const p = await openLab(['Find the Four','Anagram','Gap Fill'], { phones:false });
+    const p = await openLab(['Connections','Anagram','Gap Fill'], { phones:false });
     await p.setViewportSize({ width:vp.width, height:vp.height });
     await p.waitForTimeout(250);
-    await openTile(p, 'Find the Four', 4);
+    await openTile(p, 'Connections', 4);
     const m = await p.evaluate(() => {
       const card  = document.getElementById('clue-card');
       const r     = card.getBoundingClientRect();
