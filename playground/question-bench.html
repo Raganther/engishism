@@ -8,7 +8,7 @@
 <!-- The shared card, exactly as a game show draws it. This is the whole point of
      the page: what you tune here IS what a class meets, not a second implementation
      that resembles it. -->
-<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260801x">
+<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260801y">
 <style>
   /* ================= The question bench =================
      One question type at a time, with the card on the left and a rack of real
@@ -38,9 +38,13 @@
   .sub{ font-size:0.82rem; opacity:0.6; }
   a{ color:var(--blue); font-size:0.8rem; }
 
+  /* The card column is a fixed width and the rack takes what is left. The other way
+     round — the card flexing — is what made adding a phone squeeze the card, which
+     is the one thing this page must never do: a card that changes size when you add
+     a handset is not the card a class meets. */
   #wrap{ display:flex; gap:18px; align-items:flex-start; }
-  #left{ flex:1 1 auto; min-width:0; }
-  #rack-pane{ flex:0 0 auto; max-height:calc(100vh - 120px); overflow-y:auto; }
+  #left{ flex:0 0 auto; min-width:0; }
+  #rack-pane{ flex:1 1 auto; min-width:0; max-height:calc(100vh - 120px); overflow-y:auto; }
 
   #bar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
   select, button, input{ font-family:inherit; font-size:0.88rem; }
@@ -51,9 +55,19 @@
   button.ghost{ background:transparent; border:1px solid rgba(255,255,255,0.3); color:var(--paper); }
   button:disabled{ opacity:0.4; cursor:default; }
 
-  /* The card at the size a clue card actually renders — 720px wide inside a
-     1280px board. A card tuned at full page width is not the card. */
-  #card-frame{ width:720px; max-width:100%; background:#101B33; border:1px solid rgba(255,255,255,0.14);
+  /* The card is drawn at the size a clue card actually renders — 720px wide inside
+     a 1280px board — and then *scaled* to whatever column it is given. That is the
+     room bench's rule applied to a card rather than a board: re-laying it out at a
+     narrower width would reflow the words and show a layout no projector renders,
+     while scaling shows the real thing, smaller. Never past 1:1, because an
+     upscaled card is a size no room sees either.
+
+     A scaled element still occupies its full layout box, so the stage owns the
+     height and clips. */
+  #card-stage{ width:var(--card-w, 720px); overflow:hidden; }
+  #card-frame{ width:var(--card-natural, 720px); background:#101B33;
+               border:1px solid rgba(255,255,255,0.14);
+               transform:scale(var(--card-scale, 1)); transform-origin:top left;
                border-radius:16px; padding:26px 30px 22px; text-align:center;
                box-shadow:0 18px 50px rgba(0,0,0,0.45); }
   #card-top{ font-family:'IBM Plex Mono',monospace; font-size:0.72rem; letter-spacing:0.18em;
@@ -62,13 +76,17 @@
   #card-answer{ margin-top:14px; font-weight:700; color:var(--gold); display:none; }
   #card-actions{ display:flex; gap:10px; justify-content:center; margin-top:18px; flex-wrap:wrap; }
 
-  #editor{ margin-top:16px; }
+  /* Under the card and no wider than it. Spanning the page pushed the rack over and
+     made the three inputs the widest thing on screen, which is the wrong emphasis:
+     the card is the subject and these are its controls. */
+  #editor{ margin-top:16px; width:var(--card-w, 720px); max-width:100%; }
   #editor label{ display:block; font-size:0.72rem; letter-spacing:0.12em; text-transform:uppercase;
                  opacity:0.55; margin:10px 0 4px; }
   #editor input{ width:100%; }
   .hint{ font-size:0.76rem; opacity:0.55; margin-top:8px; line-height:1.5; }
 
-  #rack{ display:flex; gap:12px; align-items:flex-start; }
+  /* Four to a row, wrapping. The phones give up the width, never the card. */
+  #rack{ display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; }
   .phone{ flex:0 0 auto; }
   .phone .who{ font-size:0.7rem; text-align:center; opacity:0.7; margin-bottom:5px;
                font-family:'IBM Plex Mono',monospace; }
@@ -113,6 +131,7 @@
       <button id="add-phone" class="ghost">+ phone</button>
     </div>
 
+    <div id="card-stage">
     <div id="card-frame">
       <div id="card-top"></div>
       <div id="card-prompt"></div>
@@ -121,6 +140,7 @@
       <div id="card-actions">
         <button id="check-btn" class="ghost" disabled>Check</button>
       </div>
+    </div>
     </div>
 
     <div id="editor">
@@ -142,12 +162,12 @@
   <div id="rack-pane"><div id="rack"></div></div>
 </div>
 
-<script src="../game-hub/hub-buzzer.js?v=20260801x"></script>
-<script src="../game-hub/hub-qr.js?v=20260801x"></script>
-<script src="../game-hub/hub-kit.js?v=20260801x"></script>
-<script src="../game-hub/hub-rounds.js?v=20260801x"></script>
-<script src="../game-hub/rounds/grouping.js?v=20260801x"></script>
-<script src="bench-kit.js?v=20260801x"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260801y"></script>
+<script src="../game-hub/hub-qr.js?v=20260801y"></script>
+<script src="../game-hub/hub-kit.js?v=20260801y"></script>
+<script src="../game-hub/hub-rounds.js?v=20260801y"></script>
+<script src="../game-hub/rounds/grouping.js?v=20260801y"></script>
+<script src="bench-kit.js?v=20260801y"></script>
 <script>
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -228,6 +248,7 @@ function draw(){
   $('card-prompt').textContent = state.text;
   def.render($('card-round'), state, ctx());
   $('card-answer').textContent = state.answer;
+  fitAll();                            // the card's height moves as the words wrap
   $('check-btn').disabled = state.done || state.chosen.length !== state.need;
   $('check-btn').textContent = state.done ? 'Answered'
     : 'Check these ' + state.need + ' (' + state.chosen.length + '/' + state.need + ')';
@@ -303,14 +324,70 @@ $('reset-btn').addEventListener('click', ()=>{ build(); if(host) host.disarm(); 
 $('ask-btn').addEventListener('click', ask);
 $('type-pick').addEventListener('change', e => { type = e.target.value; build(); });
 
+/* ---------------- sizing ----------------
+   Two rules, and the first is the point of the page: **the card never gives up
+   width, the phones do.** A card that changes size when a handset is added is not
+   the card a class meets, and the whole value of this bench is that it is.
+
+   The card is drawn at a projector's logical width and scaled — never past 1:1 —
+   so the words never reflow into a layout no room renders. The phones are given
+   whatever is left and scaled so four fit across.
+
+   Re-run on a `ResizeObserver`, not just on window resize: the rack changes width
+   because a phone was added, which is not a window resize. The room bench was
+   clipped 115px off its right edge for exactly this reason, and its assertions
+   never caught it because they asked what the scale was rather than whether the
+   thing still fitted. */
+const CARD_W = 720;                 // what a clue card measures inside a 1280 board
+const PER_ROW = 4;
+const PHONE_MIN = 0.34, PHONE_MAX = 0.62;
+
+function fitAll(){
+  const page = document.getElementById('wrap').clientWidth;
+  const cardW = Math.max(360, Math.min(CARD_W, Math.round(page * 0.46)));
+  const root = document.documentElement.style;
+  root.setProperty('--card-w', cardW + 'px');
+  root.setProperty('--card-natural', CARD_W + 'px');
+  const scale = Math.min(1, cardW / CARD_W);
+  root.setProperty('--card-scale', scale.toFixed(4));
+  const frame = $('card-frame');
+  if(frame) $('card-stage').style.height = Math.round(frame.offsetHeight * scale) + 'px';
+
+  const pane = document.getElementById('rack-pane');
+  if(!pane) return;
+  const gap = 12;
+  const per = Math.max(1, Math.min(PER_ROW, $('rack').children.length || 1));
+  const each = (pane.clientWidth - (per - 1) * gap) / per;
+  root.setProperty('--phone-scale',
+    Math.max(PHONE_MIN, Math.min(PHONE_MAX, each / 390)).toFixed(4));
+}
+window.addEventListener('resize', fitAll);
+if(window.ResizeObserver){
+  new ResizeObserver(fitAll).observe(document.getElementById('wrap'));
+  new ResizeObserver(fitAll).observe(document.getElementById('card-frame'));
+}
+
 /* ---------------- the rack ----------------
    Real join.html pages on the real relay, so a tap lands on the card exactly as it
    would in class. Appended once and never re-parented: moving an iframe reloads it,
    which drops its stream. */
+/* **Four is the ceiling, and it is the browser's rather than ours.** A browser
+   allows six connections to one origin, and every live page here holds one open
+   permanently: the board's own event stream plus one per racked handset. At five
+   phones that is six, and the POST carrying a tap has nothing left to travel on —
+   so the phone marks the word, the board never hears it, and the round looks broken
+   while both ends are behaving perfectly. Found by driving a fifth phone and
+   watching the tap vanish.
+
+   It costs a class nothing: thirty real handsets are thirty separate browsers with
+   six connections each. It is only ever a simulation limit, which is exactly the
+   kind of thing a bench must not lie about. `phone-bench.html` racks phones the
+   same way and has the same ceiling. */
+const RACK_MAX = 4;
 let seat = 0;
-const NAMES = ['Ana','Bo','Cal','Di','Eli','Fen'];
+const NAMES = ['Ana','Bo','Cal','Di'];
 function addPhone(){
-  if(!host || seat >= NAMES.length) return;
+  if(!host || seat >= RACK_MAX) return;
   const name = NAMES[seat];
   const team = seat % TEAMS.length;
   seat++;
@@ -328,7 +405,16 @@ function addPhone(){
   clip.appendChild(f);
   box.appendChild(who); box.appendChild(clip);
   $('rack').appendChild(box);
-  setTimeout(draw, 900);              // the share moves when a team grows
+  fitAll();                           // four to a row: the phones shrink, the card does not
+  setTimeout(()=>{ draw(); fitAll(); }, 900);   // the share moves when a team grows
+  if(seat >= RACK_MAX){
+    const b = $('add-phone');
+    b.disabled = true;
+    b.textContent = '4 phones max';
+    b.title = 'A browser allows six connections to one origin and each phone holds ' +
+              'one open, so a fifth would have nothing left to send a tap on. Real ' +
+              'handsets are separate browsers and have no such limit.';
+  }
 }
 $('add-phone').addEventListener('click', addPhone);
 
@@ -344,6 +430,7 @@ const room = BenchKit.room({
 /* Degradation is the rule, not a fallback: with no relay the card is still drawn
    and still playable by clicking the words and pressing Check. */
 build();
+fitAll();
 </script>
 </body>
 </html>

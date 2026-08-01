@@ -793,6 +793,24 @@ playground's point, that one board can host several:
     fallbacks inside each `var()`, never a declaration block**: a declaration on the
     round's own element out-specifies anything the host sets on an ancestor, which is
     exactly how the first attempt failed and looked like the host being ignored.
+  - **The bench racks four phones and no more, and the ceiling is the browser's.** A
+    browser allows six connections to one origin and every live page holds one open
+    permanently — the board's event stream plus one per racked handset. At five that
+    is six, and the POST carrying a tap has nothing left to travel on: **the phone
+    marks the word, the board never hears it, and the round looks broken while both
+    ends are behaving perfectly.** Found by driving a fifth phone and watching the
+    tap vanish; four works, five does not, every time. It costs a class nothing —
+    thirty real handsets are thirty separate browsers — so it is purely a simulation
+    limit, which is exactly the kind of thing a bench must not lie about.
+    **`phone-bench.html` racks phones the same way and has the same ceiling**, and
+    has not been capped yet.
+  - **The card never gives up width; the phones do.** Adding a handset used to
+    squeeze the card, which defeats the whole page: a card that changes size when you
+    rack a phone is not the card a class meets. The card is drawn at a projector's
+    720px and *scaled* — the room bench's rule applied to a card rather than a board,
+    because re-laying it out narrower reflows the words into a layout no projector
+    renders. The editor sits under it at the same width rather than spanning the
+    page, which was pushing the rack over.
   - **Still deliberately separate: `playground/connections.html`.** The full 16-word,
     four-group game is not a question card — it is a whole game that happens to share
     a mechanic, and forcing it through the round contract would change a working page

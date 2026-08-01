@@ -5136,11 +5136,48 @@ async function testQuestionBench(browser){
   check('a room opens on its own', !!code, chip.replace(/\n/g,' '));
 
   if(code){
-    await page.locator('#add-phone').click(); await page.waitForTimeout(1100);
-    await page.locator('#add-phone').click(); await page.waitForTimeout(1100);
-    await page.locator('#add-phone').click(); await page.waitForTimeout(1400);
+    /* The card's width before any phone exists. Everything below is measured
+       against it, because **the card giving up width is the one thing this page
+       must never do** — a card that changes size when a handset is added is not the
+       card a class meets, and the entire value of the bench is that it is. */
+    const cardBefore = await page.evaluate(() =>
+      Math.round(document.getElementById('card-frame').getBoundingClientRect().width));
+
+    for(let i = 0; i < 4; i++){
+      await page.locator('#add-phone').click(); await page.waitForTimeout(1100);
+    }
+    await page.waitForTimeout(600);
     check('real handsets rack up beside the card',
-          await page.locator('.phone .clip iframe').count() === 3);
+          await page.locator('.phone .clip iframe').count() === 4);
+
+    const shape = await page.evaluate(() => {
+      const card = document.getElementById('card-frame').getBoundingClientRect();
+      const ed   = document.getElementById('editor').getBoundingClientRect();
+      const rows = new Set([...document.querySelectorAll('.phone')]
+                     .map(p => Math.round(p.getBoundingClientRect().top)));
+      return { card:Math.round(card.width), editor:Math.round(ed.width),
+               rows:rows.size, wide: document.body.scrollWidth > window.innerWidth };
+    });
+    check('the card keeps its width when phones are added — they shrink, it does not',
+          shape.card === cardBefore, cardBefore + ' -> ' + shape.card);
+    check('four phones fit on one row', shape.rows === 1, shape.rows + ' rows');
+    /* The editor sits under the card and no wider. Spanning the page pushed the
+       rack over and made three inputs the widest thing on screen, which is the
+       wrong emphasis: the card is the subject, these are its controls. */
+    check('the editor sits under the card, not across the page',
+          shape.editor <= shape.card + 2, JSON.stringify(shape));
+    check('and nothing runs off the right edge', !shape.wide, JSON.stringify(shape));
+
+    /* Four is the browser's ceiling, not ours: six connections per origin, and the
+       board plus each racked phone holds one open permanently. At five the POST
+       carrying a tap has nothing left to travel on — the phone marks the word and
+       the board never hears it, which looks like a broken round while both ends are
+       behaving perfectly. Proved by driving a fifth phone and watching the tap
+       vanish. Real handsets are separate browsers and have no such limit. */
+    check('a fifth phone is refused, because the browser would silently drop its taps',
+          await page.locator('#add-phone').isDisabled() &&
+          /4 phones max/i.test(await page.locator('#add-phone').innerText()),
+          await page.locator('#add-phone').innerText());
     /* The room bench's lesson, one level down: a scaled phone still has to be laid
        out at a real handset's width, or the bench shows a layout no phone shows. */
     const inner = await page.evaluate(() => {
@@ -5161,7 +5198,8 @@ async function testQuestionBench(browser){
         await f.waitForTimeout(120);
       }
     };
-    // Ana and Cal are both Team 1 — the union of their picks is their answer
+    // seats alternate teams, so frames 0 and 2 are both Team 1 — the union of
+    // their picks is that team's answer
     await tap(frames[0], ['verdict','jury']);
     await tap(frames[2], ['sabbatical','overtime']);
     await page.waitForTimeout(1400);
