@@ -5239,12 +5239,23 @@ async function testQuestionBench(browser){
   const listed = groups.reduce((a, g) => a.concat(g.opts), []);
   const ids    = await page.evaluate(() => window.HubKit.round.ids());
   const forms  = await page.evaluate(() => window.HubKit.prompt.types());
+  /* **Namespaced, because the two registries can hold the same name.** `anagram` is
+     both — a form that draws scattered letters and re-sorts them on reveal, and a
+     round where every handset drags them into boxes. Keyed by name alone the round
+     shadowed the form completely and the form became unreachable from the menu,
+     which is the exact failure the prompt lab was built to stop. Expect the pairing
+     to recur: a round is often the played version of a form. */
   check('every registered round is in the menu',
-        ids.length > 0 && ids.every(id => listed.indexOf(id) !== -1),
+        ids.length > 0 && ids.every(id => listed.indexOf('r:' + id) !== -1),
         listed.join('|') + ' vs ' + ids.join('|'));
   check('and every registered question form is too',
-        forms.length > 0 && forms.every(t => listed.indexOf(t) !== -1),
+        forms.length > 0 && forms.every(t => listed.indexOf('f:' + t) !== -1),
         listed.join('|') + ' vs ' + forms.join('|'));
+  const clash = ids.filter(id => forms.indexOf(id) !== -1);
+  check('a name held by both registries appears twice, once as each',
+        clash.length > 0 &&
+        clash.every(n => listed.indexOf('r:' + n) !== -1 && listed.indexOf('f:' + n) !== -1),
+        'shared names: ' + (clash.join(',') || 'none') + ' | ' + listed.join('|'));
   /* A form in the kit is live in every game the day a bank item carries its type;
      a lab form can reach no game at all. `bridge` shipped invisibly once because
      that difference was not said out loud anywhere, so the menu says it. Derived
@@ -5255,10 +5266,10 @@ async function testQuestionBench(browser){
   const kitGroup = groups.find(g => /in the kit/i.test(g.label));
   const labGroup = groups.find(g => /lab only/i.test(g.label));
   check('the menu separates forms that are in the kit from experimental ones',
-        !!kitGroup && !!labGroup && kit.every(t => kitGroup.opts.indexOf(t) !== -1),
+        !!kitGroup && !!labGroup && kit.every(t => kitGroup.opts.indexOf('f:' + t) !== -1),
         JSON.stringify(groups.map(g => g.label)));
   check('and no experimental form is offered as if a game could draw it',
-        labOnly.length > 0 && labOnly.every(t => labGroup && labGroup.opts.indexOf(t) !== -1),
+        labOnly.length > 0 && labOnly.every(t => labGroup && labGroup.opts.indexOf('f:' + t) !== -1),
         labOnly.join('|') + ' vs ' + JSON.stringify(labGroup));
   check('the card draws the whole set of words',
         await page.locator('#card-round .gword').count() === 8);
@@ -5396,7 +5407,7 @@ async function testQuestionBench(browser){
       tm.__console.push(m.text());
   });
   await tm.goto(BASE + '/playground/question-bench.html'); await tm.waitForTimeout(1300);
-  await tm.locator('#type-pick').selectOption('ordering'); await tm.waitForTimeout(500);
+  await tm.locator('#type-pick').selectOption('r:ordering'); await tm.waitForTimeout(500);
   await tm.locator('#mode-pick').selectOption('race'); await tm.waitForTimeout(700);
   check('the rack starts with a row per team', await tm.locator('.rack-row').count() === 2);
   await tm.locator('#add-team').click(); await tm.waitForTimeout(800);
@@ -5439,7 +5450,7 @@ async function testQuestionBench(browser){
       ord.__console.push(m.text());
   });
   await ord.goto(BASE + '/playground/question-bench.html'); await ord.waitForTimeout(1300);
-  await ord.locator('#type-pick').selectOption('ordering'); await ord.waitForTimeout(800);
+  await ord.locator('#type-pick').selectOption('r:ordering'); await ord.waitForTimeout(800);
 
   /* The picker is built from what the round declares, so the bench never learns what
      a mode means — a round with one way to play gets no picker at all. */
@@ -5536,7 +5547,7 @@ async function testQuestionBench(browser){
       una.__console.push(m.text());
   });
   await una.goto(BASE + '/playground/question-bench.html'); await una.waitForTimeout(1300);
-  await una.locator('#type-pick').selectOption('ordering'); await una.waitForTimeout(800);
+  await una.locator('#type-pick').selectOption('r:ordering'); await una.waitForTimeout(800);
   const unaCode = ((await una.locator('#room-chip').innerText()).match(/(\d{5})/)||[])[1];
   if(unaCode){
     // four phones, two teams — the bench seats them alternately, so 0 and 2 are one team
@@ -5643,7 +5654,7 @@ async function testQuestionBench(browser){
       mc.__console.push(m.text());
   });
   await mc.goto(BASE + '/playground/question-bench.html'); await mc.waitForTimeout(1300);
-  await mc.locator('#type-pick').selectOption('choice'); await mc.waitForTimeout(800);
+  await mc.locator('#type-pick').selectOption('r:choice'); await mc.waitForTimeout(800);
   check('the card draws every option, lettered',
         await mc.locator('#card-round .mc-opt').count() === 4 &&
         (await mc.locator('#card-round .mc-letter').allInnerTexts()).join('') === 'ABCD',
@@ -5755,7 +5766,7 @@ async function testQuestionBench(browser){
      runs, so an author and the gate can never disagree about what a valid question
      is. The message has to name the defect, not just refuse: "not complete" is
      exactly what this replaces. */
-  await au.locator('#type-pick').selectOption('choice'); await au.waitForTimeout(500);
+  await au.locator('#type-pick').selectOption('r:choice'); await au.waitForTimeout(500);
   check('a well formed question says so',
         /ready/i.test(await au.locator('#ed-verdict').innerText()),
         await au.locator('#ed-verdict').innerText());
@@ -5774,7 +5785,7 @@ async function testQuestionBench(browser){
   await au.locator('#q-load').selectOption({ label:therm }); await au.waitForTimeout(900);
   check('loading a category brings its questions and picks its type',
         await au.locator('#q-at').innerText() === '1 / 5' &&
-        await au.locator('#type-pick').inputValue() === 'ordering',
+        await au.locator('#type-pick').inputValue() === 'r:ordering',
         (await au.locator('#q-at').innerText()) + ' ' + (await au.locator('#type-pick').inputValue()));
   /* The editor has three fields and an ordering item has four things in it — the
      glosses have no field at all. Without carrying them forward, loading a category
@@ -5788,7 +5799,7 @@ async function testQuestionBench(browser){
   await au.reload(); await au.waitForTimeout(1400);
   check('the set survives a reload — there is no save button to forget',
         await au.locator('#q-at').innerText() === '1 / 5' &&
-        await au.locator('#type-pick').inputValue() === 'ordering',
+        await au.locator('#type-pick').inputValue() === 'r:ordering',
         (await au.locator('#q-at').innerText()) + ' ' + (await au.locator('#type-pick').inputValue()));
 
   /* Out again as a Jeopardy category, because that is the one thing that can consume
@@ -5846,7 +5857,7 @@ async function testQuestionBench(browser){
   const allForms = await fp.evaluate(() => window.HubKit.prompt.types());
   const drewAll = [];
   for(const t of allForms){
-    await fp.locator('#type-pick').selectOption(t); await fp.waitForTimeout(320);
+    await fp.locator('#type-pick').selectOption('f:' + t); await fp.waitForTimeout(320);
     drewAll.push(await fp.evaluate(t => ({
       type: t,
       /* The form draws into the prompt itself, which is what a game does — the form
@@ -5872,7 +5883,7 @@ async function testQuestionBench(browser){
   /* The styling is the point of the move out of `hub.css`: a playground page cannot
      load that file, so before this the letters ran together as one line of text and
      the bench misreported the one thing it exists to show. */
-  await fp.locator('#type-pick').selectOption('anagram'); await fp.waitForTimeout(350);
+  await fp.locator('#type-pick').selectOption('f:anagram'); await fp.waitForTimeout(350);
   const tiles = await fp.evaluate(() => {
     const t = document.querySelector('#card-prompt .prompt-tile');
     if(!t) return null;
@@ -5897,7 +5908,7 @@ async function testQuestionBench(browser){
      looks at a prompt, finds it is not shaped for it, and prints plain text. That is
      the intended behaviour and it is indistinguishable on screen from the type having
      done nothing — which is exactly how it gets reported as a bug. */
-  await fp.locator('#type-pick').selectOption('oddoneout'); await fp.waitForTimeout(300);
+  await fp.locator('#type-pick').selectOption('f:oddoneout'); await fp.waitForTimeout(300);
   await fp.locator('#ed-q').fill('No slash separators anywhere in this one');
   await fp.waitForTimeout(350);
   check('a form that declines says so, rather than looking like it did nothing',
@@ -5907,7 +5918,7 @@ async function testQuestionBench(browser){
   /* A bank calls the prompt `q` and the answer `a`, and neither a round nor a form
      has ever learned that. Exporting `answer:` would produce a category that loads
      without complaint and shows an empty answer line on every clue in it. */
-  await fp.locator('#type-pick').selectOption('anagram'); await fp.waitForTimeout(350);
+  await fp.locator('#type-pick').selectOption('f:anagram'); await fp.waitForTimeout(350);
   const out = await fp.evaluate(() => {
     const old = window.prompt; window.prompt = () => 'Forms';
     let t = ''; try{ t = exportText(); }catch(e){ t = 'THREW ' + e.message; }
@@ -5919,6 +5930,286 @@ async function testQuestionBench(browser){
         /type:"anagram"/.test(out), out.slice(0, 240));
   check('no errors on the form path', fp.__errors.length === 0, fp.__errors[0]);
   await fp.close();
+}
+
+/* ---- the anagram round ----
+   The first round grown out of a question *form*, and the first with a phone
+   interaction the relay had never carried: `arrange`, where every handset drags
+   the letters into boxes. What is worth checking is not the drag itself so much as
+   the two things around it — that the form it grew out of still exists and still
+   behaves as a form, and that duplicate letters work, since keying a tile by its
+   text is what makes SENTENCE impossible to spell. */
+async function testAnagramRound(browser){
+  section('Jeopardy: the anagram round');
+
+  const openLab = async (cats, opts) => {
+    const page = await browser.newPage({ viewport:{ width:1280, height:720 } });
+    page.__errors = []; page.__console = [];
+    page.on('pageerror', e => page.__errors.push(String(e)));
+    page.on('console', m => {
+      if (m.type() === 'error' && !/ERR_CONNECTION_RESET|fonts\.(googleapis|gstatic)/.test(m.text()))
+        page.__console.push(m.text());
+    });
+    await page.goto(BASE + '/game-hub-lab.html');
+    await page.waitForTimeout(400);
+    await page.evaluate(p => {
+      window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
+      window.HubSettings.set('buzzers', !!p.phones);
+    }, { phones: !!(opts||{}).phones });
+    await page.getByText('Lab', { exact:false }).first().click();
+    await page.waitForTimeout(220);
+    await page.locator('h3:visible', { hasText:'Jeopardy' }).first().click();
+    await page.waitForTimeout(220);
+    for (const name of cats)
+      await page.locator('#content-list label', { hasText:name }).first().locator('input').check();
+    await page.waitForTimeout(150);
+    await page.locator('#start-btn').click();
+    await page.waitForTimeout(600);
+    if (await page.locator('#intro-overlay.on').count()){
+      await page.keyboard.press('Space'); await page.waitForTimeout(300);
+    }
+    return page;
+  };
+  const openTile = async (page, cat, row) => {
+    const at = await page.evaluate(name => {
+      const heads = [...document.querySelectorAll('#board .cat-header')];
+      return { col: heads.findIndex(h => new RegExp(name,'i').test(h.textContent)), n: heads.length };
+    }, cat);
+    await page.locator('#board .tile').nth(at.n * row + at.col).click();
+    await page.waitForTimeout(500);
+  };
+
+  /* Taking a round *closes the card itself* — the tile has been paid and there is
+     nothing left to look at — so Close is only there when the clue is still open.
+     Clicking it unconditionally is what hung the first run of this suite. */
+  const closeCard = async (page) => {
+    if(await page.locator('#close-btn:visible').count()){
+      await page.locator('#close-btn').click();
+    }
+    await page.waitForTimeout(450);
+  };
+
+  /* ---------- the engine hosts it without having learned anything ---------- */
+  let page = await openLab(['Drag the Letters', 'Anagram', 'Gap Fill']);
+  check('the Lab board offers the anagram round as its own category',
+        await page.locator('#board .cat-header', { hasText:'Drag the Letters' }).count() === 1);
+
+  await openTile(page, 'Drag the Letters', 0);          // $100 — VERDICT
+  const tiles = await page.locator('#clue-card .ana-tile').count();
+  const boxes = await page.locator('#clue-card .ana-box').count();
+  check('a tile opens the round: a tray of letters and a box for each',
+        tiles === 7 && boxes === 7, tiles + ' tiles, ' + boxes + ' boxes');
+  /* The letters are scrambled, or it is not a puzzle. `setup` re-scrambles until it
+     is not the word itself, which on a short word comes up often enough to matter. */
+  const shown = (await page.locator('#clue-card .ana-tile').allInnerTexts()).join('');
+  check('and they are scrambled rather than in order', shown !== 'VERDICT', shown);
+  check('the clue is the definition, never the word',
+        !/verdict/i.test(await page.locator('#clue-text').innerText()),
+        await page.locator('#clue-text').innerText());
+
+  /* ---------- the teacher's path, which every round owes ---------- */
+  const clickLetters = async (word) => {
+    const used = [];
+    for(const ch of word){
+      const at = await page.evaluate(([c, done]) => {
+        const els = [...document.querySelectorAll('#clue-card .ana-tile')];
+        return els.findIndex((e, i) => e.textContent === c && done.indexOf(i) === -1);
+      }, [ch, used]);
+      used.push(at);
+      await page.locator('#clue-card .ana-tile').nth(at).click();
+      await page.waitForTimeout(90);
+    }
+  };
+  await clickLetters('VERDICT');
+  check('the teacher can spell it by clicking, with no relay at all',
+        await page.locator('#clue-card .ana-box.filled').count() === 7,
+        String(await page.locator('#clue-card .ana-box.filled').count()));
+  const before = (await page.locator('.team .score').allInnerTexts())[0];
+  await page.locator('#group-btn').click(); await page.waitForTimeout(700);
+  const after = (await page.locator('.team .score').allInnerTexts())[0];
+  check('and a correct arrangement pays the tile',
+        before !== after, before + ' -> ' + after);
+  await closeCard(page);
+
+  /* ---------- duplicate letters, which is what this round is built around ----------
+     SENTENCE has three Es and two Ns. Keyed by text — which is how every other
+     pick in this app works — the first E would stand for all three and the word
+     could never be assembled. The card gives each tile a token instead. */
+  await openTile(page, 'Drag the Letters', 3);          // $400 — SENTENCE
+  const dup = await page.locator('#clue-card .ana-tile').allInnerTexts();
+  check('a word with repeated letters puts a tile out for each one',
+        dup.filter(c => c === 'E').length === 3 && dup.length === 8,
+        dup.join(''));
+  await clickLetters('SENTENCE');
+  const filled = await page.locator('#clue-card .ana-box').allInnerTexts();
+  check('and all three can be placed independently',
+        filled.join('') === 'SENTENCE', filled.join(''));
+  /* Asserted on the payout rather than on anything the card says, because taking a
+     round closes the card — so the first version of this check was reading a
+     `.group-say` that had already gone with it. */
+  const dupBefore = (await page.locator('.team .score').allInnerTexts())[0];
+  await page.locator('#group-btn').click(); await page.waitForTimeout(800);
+  check('so a repeated-letter word can actually be answered, and pays',
+        (await page.locator('.team .score').allInnerTexts())[0] !== dupBefore,
+        dupBefore + ' -> ' + (await page.locator('.team .score').allInnerTexts())[0]);
+
+  /* A wrong arrangement says how close it was, which is the only useful thing to
+     say about one — "four of seven are in the right place" is actionable. */
+  await closeCard(page);
+  await openTile(page, 'Drag the Letters', 1);          // $200 — BAIL
+  await clickLetters('BALI');
+  await page.locator('#group-btn').click(); await page.waitForTimeout(600);
+  check('a wrong arrangement is told how many letters are in place',
+        /letters are in the right place/i.test(
+          await page.locator('#clue-card .group-say').innerText().catch(()=>'')),
+        await page.locator('#clue-card .group-say').innerText().catch(()=>'—'));
+
+  /* ---------- the form it grew out of is untouched ----------
+     A round claiming `type:'anagram'` would have silently converted the eight items
+     already authored in Units 4 and 5, which is the one thing a new round must
+     never do. The two are keyed by different fields and both are on this board. */
+  await closeCard(page);
+  await openTile(page, 'Anagram', 0);
+  check('the anagram *form* still draws as a form, not as the round',
+        await page.locator('#clue-card .prompt-tile').count() > 0 &&
+        await page.locator('#clue-card .ana-box').count() === 0,
+        (await page.locator('#clue-card .prompt-tile').count()) + ' form tiles, ' +
+        (await page.locator('#clue-card .ana-box').count()) + ' round boxes');
+  checkClean(page, 'lab board');
+  await page.close();
+
+  /* ---------- the card fits, at both sizes ----------
+     Neither `fit` nor `phone` opens a clue card, so a tray running off the edge
+     would pass both of them. */
+  for(const vp of [{ width:1280, height:720 }, { width:390, height:844 }]){
+    const p2 = await openLab(['Drag the Letters', 'Anagram', 'Gap Fill']);
+    await p2.setViewportSize(vp); await p2.waitForTimeout(400);
+    await openTile(p2, 'Drag the Letters', 2);          // $300 — SABBATICAL, ten letters
+    const box = await p2.evaluate(() => {
+      const c = document.getElementById('clue-card').getBoundingClientRect();
+      const els = [...document.querySelectorAll('#clue-card .ana-tile, #clue-card .ana-box')];
+      return {
+        right: Math.max(...els.map(e => e.getBoundingClientRect().right)),
+        bottom: Math.max(...els.map(e => e.getBoundingClientRect().bottom)),
+        cr: c.right, cb: c.bottom, w: window.innerWidth, h: window.innerHeight
+      };
+    });
+    check('the tray and boxes stay inside the card at ' + vp.width + 'x' + vp.height,
+          box.right <= box.cr + 1 && box.bottom <= box.cb + 1, JSON.stringify(box));
+    check('and the card stays on screen at ' + vp.width + 'x' + vp.height,
+          box.cr <= box.w + 1 && box.cb <= box.h + 1, JSON.stringify(box));
+    await p2.close();
+  }
+
+  /* ---------- the room, which is the whole reason this is a round ---------- */
+  const live = await openLab(['Drag the Letters', 'Anagram', 'Gap Fill'], { phones:true });
+  const code = ((await live.locator('#buzzer-chip').innerText().catch(()=>'')).match(/CODE\s+(\d{5})/i)||[])[1];
+  check('the board opens a room for it', !!code,
+        await live.locator('#buzzer-chip').innerText().catch(()=>'—'));
+  if(code){
+    await live.evaluate(() => window.HubSettings.set('phoneMode','buzz'));
+    const ph = await browser.newPage({ viewport:{ width:390, height:844 }, hasTouch:true });
+    ph.__errors = []; ph.on('pageerror', e => ph.__errors.push(String(e)));
+    await ph.goto(BASE + '/join.html?code=' + code + '&name=Ana&team=0&auto=1');
+    await ph.waitForTimeout(700);
+    await openTile(live, 'Drag the Letters', 0);        // VERDICT
+    await ph.waitForTimeout(900);
+
+    /* The round drives the handsets itself through `phoneRound()`, so the mode the
+       teacher happens to have set is overridden — exactly as Bingo's cards are. */
+    check('the round puts every handset into the drag puzzle, whatever the phone mode is',
+          await ph.locator('.ana-tile').count() === 7 &&
+          await ph.locator('.ana-slot').count() === 7,
+          (await ph.locator('.ana-tile').count()) + ' tiles, ' +
+          (await ph.locator('.ana-slot').count()) + ' slots');
+    const handTray = (await ph.locator('#ana-tray').innerText()).replace(/\s/g,'');
+    const cardTray = (await live.locator('#clue-card .ana-tile').allInnerTexts()).join('');
+    check('and the tray in the hand is the tray on the wall, in the same order',
+          handTray === cardTray, handTray + ' vs ' + cardTray);
+
+    /* Read off the card rather than out of the engine: the round's state is a
+       closure variable and exposing one for a test would be the test changing the
+       thing it measures. The answer line carries the word (hidden until reveal) and
+       the tray *is* the pool. */
+    const word = (await live.locator('#clue-answer').innerText()).trim().toUpperCase();
+    const pool = await live.locator('#clue-card .ana-tile').allInnerTexts();
+    const drag = async (ti, si) => {
+      const t = await ph.locator('.ana-tile').nth(ti).boundingBox();
+      const s = await ph.locator('.ana-slot').nth(si).boundingBox();
+      await ph.mouse.move(t.x + t.width/2, t.y + t.height/2);
+      await ph.mouse.down();
+      await ph.mouse.move(s.x + s.width/2, s.y + s.height/2, { steps:8 });
+      await ph.mouse.up();
+      await ph.waitForTimeout(180);
+    };
+    const used = [];
+    for(let i = 0; i < 3; i++){
+      const idx = pool.findIndex((c, j) => c === word[i] && used.indexOf(j) === -1);
+      used.push(idx); await drag(idx, i);
+    }
+    await live.waitForTimeout(900);
+    check('dragging on the handset moves the letter into the box',
+          (await ph.locator('#ana-slots').innerText()).replace(/\s/g,'') === word.slice(0,3),
+          (await ph.locator('#ana-slots').innerText()).replace(/\s/g,''));
+    /* The board showing progress is the round's whole picture on a projector: you
+       can see one team three letters in without reading a scoreboard. */
+    check('and the board shows how far that team has got',
+          /to go/i.test(await live.locator('#clue-card .ana-teams').innerText().catch(()=>'')),
+          (await live.locator('#clue-card .ana-teams').innerText().catch(()=>'—')).replace(/\n/g,' '));
+
+    /* A tap fills the next empty box. Not a nicety: dragging on a phone misses, and
+       a letter that will not move because the thumb travelled four pixels reads as
+       a broken round. */
+    const tapIdx = pool.findIndex((c, j) => c === word[3] && used.indexOf(j) === -1);
+    used.push(tapIdx);
+    const tb = await ph.locator('.ana-tile').nth(tapIdx).boundingBox();
+    await ph.mouse.click(tb.x + tb.width/2, tb.y + tb.height/2);
+    await ph.waitForTimeout(400);
+    check('a tap fills the next empty box, for a thumb that misses',
+          (await ph.locator('#ana-slots').innerText()).replace(/\s/g,'') === word.slice(0,4),
+          (await ph.locator('#ana-slots').innerText()).replace(/\s/g,''));
+
+    const scoreBefore = (await live.locator('.team .score').allInnerTexts())[0];
+    for(let i = 4; i < word.length; i++){
+      const idx = pool.findIndex((c, j) => c === word[i] && used.indexOf(j) === -1);
+      used.push(idx); await drag(idx, i);
+    }
+    await live.waitForTimeout(1600);
+    check('finishing the word takes the tile and scores it',
+          (await live.locator('.team .score').allInnerTexts())[0] !== scoreBefore,
+          scoreBefore + ' -> ' + (await live.locator('.team .score').allInnerTexts())[0]);
+    check('phone had no errors', ph.__errors.length === 0, ph.__errors[0]);
+    await ph.close();
+  }
+  checkClean(live, 'live lab board');
+  await live.close();
+
+  /* ---------- what the round says about a bad item ----------
+     Read straight off the registry, which is the same `check` the content gate and
+     the bench editor run — one rulebook, so an author and the gate can never
+     disagree about what a valid question is. */
+  const audit = await browser.newPage();
+  await audit.goto(BASE + '/playground/question-bench.html'); await audit.waitForTimeout(900);
+  const said = await audit.evaluate(() => {
+    const r = window.HubKit.round.get('anagram');
+    return {
+      giveaway: r.check({ text:'the verdict a jury delivers', anagram:{ word:'verdict' } }),
+      tooLong:  r.check({ text:'a long one', anagram:{ word:'incomprehensible' } }),
+      spaces:   r.check({ text:'two words', anagram:{ word:'not guilty' } }),
+      noClue:   r.check({ text:'', anagram:{ word:'verdict' } }),
+      fine:     r.check({ text:'the decision a jury delivers', anagram:{ word:'verdict' } })
+    };
+  });
+  check('a clue containing its own answer is called out',
+        /gives it away/i.test((said.giveaway||[]).join(' ')), JSON.stringify(said.giveaway));
+  check('a word longer than a handset can arrange is called out',
+        /most a handset/i.test((said.tooLong||[]).join(' ')), JSON.stringify(said.tooLong));
+  check('a word with a space in it is called out',
+        /cannot be a tile/i.test((said.spaces||[]).join(' ')), JSON.stringify(said.spaces));
+  check('an anagram with no clue is called out',
+        /needs a clue/i.test((said.noClue||[]).join(' ')), JSON.stringify(said.noClue));
+  check('and a good one says nothing at all', (said.fine||[]).length === 0, JSON.stringify(said.fine));
+  await audit.close();
 }
 
 /* ---- the question forms ----
@@ -5996,27 +6287,27 @@ async function testQuestionForms(browser){
      every board — an anagram in Millionaire is given away by its four options, an
      odd one out in Race by the board — and an author who cannot see that writes a
      question that cannot work where they meant to use it. */
-  await page.locator('#type-pick').selectOption('bridge'); await page.waitForTimeout(300);
+  await page.locator('#type-pick').selectOption('f:bridge'); await page.waitForTimeout(300);
   check('picking a form draws its sample at board size',
         await page.locator('#card-prompt .prompt-link').count() === 3,
         String(await page.locator('#card-prompt .prompt-link').count()));
   check('and says which boards it suits',
         /every board/i.test(await page.locator('#suits').innerText()),
         await page.locator('#suits').innerText());
-  await page.locator('#type-pick').selectOption('anagram'); await page.waitForTimeout(300);
+  await page.locator('#type-pick').selectOption('f:anagram'); await page.waitForTimeout(300);
   check('a form that suits only some boards names them, rather than claiming all',
         /jeopardy/i.test(await page.locator('#suits').innerText()) &&
         !/every board/i.test(await page.locator('#suits').innerText()),
         await page.locator('#suits').innerText());
   check('and a lab-only form says no game can draw it yet',
         await (async ()=>{
-          await page.locator('#type-pick').selectOption(labOnlyForms[0]);
+          await page.locator('#type-pick').selectOption('f:' + labOnlyForms[0]);
           await page.waitForTimeout(300);
           return /lab only/i.test(await page.locator('#suits').innerText());
         })(),
         await page.locator('#suits').innerText());
 
-  await page.locator('#type-pick').selectOption('bridge'); await page.waitForTimeout(300);
+  await page.locator('#type-pick').selectOption('f:bridge'); await page.waitForTimeout(300);
   check('the answer is not on screen before it is revealed',
         !/\bwork\b/i.test(await page.locator('#card-prompt').innerText()),
         await page.locator('#card-prompt').innerText());
@@ -6055,7 +6346,7 @@ async function testQuestionForms(browser){
        could ever come back `close`. Re-asked first, because an `answer` round is
        one reply per phone — the handset is spent until the room is asked again,
        which is the mode working rather than a fault. */
-    await page.locator('#type-pick').selectOption('anagram'); await page.waitForTimeout(400);
+    await page.locator('#type-pick').selectOption('f:anagram'); await page.waitForTimeout(400);
     await page.locator('#ask-btn').click(); await ph.waitForTimeout(900);
     await ph.fill('#reply', 'verdct');
     await ph.locator('#send').click(); await page.waitForTimeout(900);
@@ -6782,7 +7073,7 @@ async function main(){
     classic: testJeopardyClassic, joinbar: testJoinAlwaysThere,
     together: testJeopardyTogether, jclock: testAnswerClock,
     playground: testPlaygroundConnections, bench: testPhoneBench,
-    forms: testQuestionForms, thermometer: testThermometer,
+    forms: testQuestionForms, anagram: testAnagramRound, thermometer: testThermometer,
     storyreveal: testStoryReveal, grouping: testGroupingClue,
     qbench: testQuestionBench
   };

@@ -322,7 +322,12 @@ function handleSend(req, res){
         /* 'card' is a round where each phone answers off its own bingo card. It
            collects like 'answer' rather than racing like 'buzz' — everybody taps,
            and the host judges each tap against that player's card. */
-        room.mode  = ['buzz','vote','answer','type','card'].indexOf(msg.mode) !== -1 ? msg.mode : 'buzz';
+        /* 'arrange' is a round where each phone puts a set of tiles into an order —
+           the anagram's letters into boxes. It collects like a multi-pick vote and
+           the reply is the same `|`-joined list in the order they were placed; what
+           differs is only what the handset draws, which is the handset's business
+           and not the relay's. The relay learns nothing new by carrying it. */
+        room.mode  = ['buzz','vote','answer','type','card','arrange'].indexOf(msg.mode) !== -1 ? msg.mode : 'buzz';
         /* Was six, which is right for a question with four answers and wrong for
            "which of the letters still on the board" — a Blockbusters board opens
            with eighteen. The phone lays short options out as a keypad rather than a

@@ -269,6 +269,7 @@
 <script src="../game-hub/rounds/grouping.js?v=20260802a"></script>
 <script src="../game-hub/rounds/ordering.js?v=20260802a"></script>
 <script src="../game-hub/rounds/choice.js?v=20260802a"></script>
+<script src="../game-hub/rounds/anagram.js?v=20260802a"></script>
 <!-- Data only, and the reason the bench can be a round trip rather than a blank
      page: an existing category can be loaded, edited and exported back. Loading a
      unit here puts nothing in front of a class — these files are inert until a hub
@@ -289,7 +290,10 @@ const Kit = window.HubKit;
 const MAX_TEAMS = 4;
 let TEAMS = ['Team 1', 'Team 2'];
 
-let type  = Kit.round.ids()[0] || null;
+/* Assigned below rather than here: the namespacing helpers are `const`, so naming
+   one at this point is a temporal-dead-zone error — which threw before the menu was
+   built and left an empty picker with no type selected. */
+let type  = null;
 let state = null;
 let host  = null;
 let replies = [];
@@ -307,8 +311,35 @@ let settler = null;
    which page to open. So the menu holds both and the page adapts to whichever is
    picked — the phones go quiet for a form, because a form has nothing for them to
    do, which is the honest picture rather than a missing feature. */
-const ROUND_IDS = Kit.round.ids();
-const isRound   = t => ROUND_IDS.indexOf(t) !== -1;
+/* **The two registries can hold the same name, so the menu namespaces them.**
+   `anagram` is now both — a *form* that draws scattered letters and re-sorts them
+   on reveal, and a *round* where every handset drags them into boxes. They are
+   different question types that share a subject, and each is correct in its own
+   registry; it is only this one flat menu that has to tell them apart. Keyed by
+   name alone the round shadowed the form completely and the form became
+   unreachable, which is the exact failure the whole prompt lab was built to stop.
+   Expect the pairing to recur: a round is often the played version of a form. */
+const RKEY = 'r:', FKEY = 'f:';
+const isRound  = t => String(t).indexOf(RKEY) === 0;
+const nameOf   = t => String(t).slice(2);
+const keyRound = id => RKEY + id;
+const keyForm  = t  => FKEY + t;
+/* The round in hand, asked of the registry by its real name. Everything that used
+   to say `roundDef()` says this, so the namespacing lives in one place. */
+function roundDef(){ return isRound(type) ? Kit.round.get(nameOf(type)) : null; }
+type = keyRound(Kit.round.ids()[0] || '');
+/* A value stored before the menu was namespaced, or one that no longer exists. A
+   value naming something nothing can look up is worse than a wrong one — nothing
+   matches it, so the card goes blank while the menu still claims a type is
+   selected. A round wins the bare name, which is what it did then. */
+function resolveType(t){
+  if(!t) return null;
+  if(isRound(t) || String(t).indexOf(FKEY) === 0)
+    return (isRound(t) ? Kit.round.get(nameOf(t)) : Kit.prompt.info(nameOf(t))) ? t : null;
+  if(Kit.round.get(t)) return keyRound(t);
+  if(Kit.prompt.types().indexOf(t) !== -1) return keyForm(t);
+  return null;
+}
 
 /* Which forms were in the kit when this page loaded, captured between the two
    script tags above. A kit form is live in every game the day a bank item carries
@@ -355,19 +386,19 @@ function renderTypePick(){
     sel.appendChild(g);
   };
   group('Rounds — the class plays these',
-        ROUND_IDS.map(id => ({ value:id, label:(Kit.round.get(id).label || id) })));
+        Kit.round.ids().map(id => ({ value:keyRound(id), label:(Kit.round.get(id).label || id) })));
   const forms = Kit.prompt.types();
   group('Question forms — in the kit, live in every game',
-        forms.filter(inKit).map(t => ({ value:t, label:t })));
+        forms.filter(inKit).map(t => ({ value:keyForm(t), label:t })));
   group('Question forms — lab only, can reach no game',
-        forms.filter(t => !inKit(t)).map(t => ({ value:t, label:t })));
+        forms.filter(t => !inKit(t)).map(t => ({ value:keyForm(t), label:t })));
 }
 renderTypePick();
 
 /* What the picked type is called and what it can do, said once so the page never
    asks the question in four places. */
 function labelOf(t){
-  return isRound(t) ? (Kit.round.get(t).label || t) : t;
+  return isRound(t) ? (Kit.round.get(nameOf(t)).label || nameOf(t)) : nameOf(t);
 }
 
 function sizes(){
@@ -417,7 +448,7 @@ function fillTeamPick(){
 }
 
 function fillModes(){
-  const def = isRound(type) ? Kit.round.get(type) : null;
+  const def = roundDef();
   const sel = $('mode-pick');
   /* A form is played one way — drawn, then revealed — so it declares no modes and
      gets no picker, which is the same rule a one-mode round already follows. */
@@ -470,6 +501,16 @@ const EDITORS = {
               },
               read: it => ({ q:it.text || '', a:(it.order.scale||[]).join(', '),
                              b:(it.order.low || '') + ' | ' + (it.order.high || '') }) },
+  /* Two fields, not three — the same `labelB:null` a question form uses, which is
+     why that was written as the editor saying so rather than as "is this a form".
+     A round with two fields needed no change here at all. */
+  anagram:  { q:'the decision a jury delivers',
+              a:'Verdict',
+              b:'',
+              labelA:'The word to scramble — this is the answer',
+              labelB:null,
+              build: (text, a) => ({ text, anagram:{ word:String(a || '').trim() } }),
+              read: it => ({ q:it.text || '', a:(it.anagram || {}).word || '', b:'' }) },
   choice:   { q:"Which verb goes with 'a sentence'?",
               a:'pass, make, do, give',
               b:'pass',
@@ -501,7 +542,7 @@ function formEditor(t){
     read: it => ({ q:it.text || '', a:it.answer || '', b:'' })
   };
 }
-function editorFor(t){ return isRound(t) ? EDITORS[t] : formEditor(t); }
+function editorFor(t){ return isRound(t) ? EDITORS[nameOf(t)] : formEditor(nameOf(t)); }
 
 function itemFromEditor(){
   const ed = editorFor(type);
@@ -545,7 +586,8 @@ function loadBank(){
   try{
     const d = JSON.parse(localStorage.getItem(STORE) || 'null');
     if(d && Array.isArray(d.bank) && d.bank.length){
-      if(d.type && (isRound(d.type) || Kit.prompt.types().indexOf(d.type) !== -1)) type = d.type;
+      const t = resolveType(d.type);
+      if(t) type = t;
       bank = d.bank; at = 0; return true;
     }
   }catch(e){}
@@ -633,7 +675,7 @@ function clueIsType(x, t){
    **Only the form in hand**, because 336 of the authored items are gap fills, and
    a menu holding every category in both units is not a menu. */
 function loadable(x){
-  return isRound(type) ? !!Kit.round.of(x) : clueIsType(x, type);
+  return isRound(type) ? !!Kit.round.of(x) : clueIsType(x, nameOf(type));
 }
 
 function fillLoad(){
@@ -666,7 +708,7 @@ $('q-load').addEventListener('change', e=>{
   /* The type follows what was loaded, for a round. A form was already the filter,
      so there is nothing to switch to. */
   const hit = isRound(type) ? Kit.round.of(loaded[0]) : null;
-  if(hit) type = hit.id;
+  if(hit) type = keyRound(hit.id);
   bank = loaded; at = 0;
   $('type-pick').value = type;
   fillModes(); fillTeamPick(); saveBank(); goTo(0);
@@ -751,7 +793,7 @@ function teacherTeam(){
 
 function capOf(){
   if(!state) return 1;
-  const a = Kit.round.get(type).arm(state, ctx());
+  const a = roundDef().arm(state, ctx());
   return Math.max(1, Math.min(state.need, (a && a.multi) || 1));
 }
 
@@ -791,8 +833,8 @@ function renderSuits(){
        so nothing is claimed. */
     return;
   }
-  const info  = Kit.prompt.info(type) || {};
-  const stage = inKit(type) ? 'in the kit — live in every game'
+  const info  = Kit.prompt.info(nameOf(type)) || {};
+  const stage = inKit(nameOf(type)) ? 'in the kit — live in every game'
                             : 'lab only — no game can draw this yet';
   box.appendChild(document.createTextNode(stage + '  ·  suits: '));
   const b = document.createElement('b');
@@ -803,7 +845,7 @@ function renderSuits(){
 function build(){
   applyKind();
   if(!isRound(type)) return buildForm();
-  const def = Kit.round.get(type);
+  const def = roundDef();
   state = def ? def.setup(itemFromEditor(), ctx()) : null;
   replies = [];
   if(settler) settler.stop();
@@ -824,7 +866,7 @@ function buildForm(){
 
 function draw(){
   if(!isRound(type)) return drawForm();
-  const def = Kit.round.get(type);
+  const def = roundDef();
   $('card-top').textContent = def ? (def.label || type) : '';
   if(!state){
     $('card-prompt').textContent = 'That question is not complete yet.';
@@ -848,7 +890,7 @@ function draw(){
    `#card-round` stays empty, which is the visible difference between the two kinds
    of question on this page. */
 function drawForm(){
-  $('card-top').textContent = type + (inKit(type) ? '' : ' · lab only');
+  $('card-top').textContent = nameOf(type) + (inKit(nameOf(type)) ? '' : ' · lab only');
   $('card-round').innerHTML = '';
   const mount = $('card-prompt');
   mount.textContent = '';
@@ -877,7 +919,7 @@ function ask(){
     return;
   }
   if(!state) return;
-  const arm = Kit.round.get(type).arm(state, ctx());
+  const arm = roundDef().arm(state, ctx());
   host.arm(arm.prompt, arm);          // carried to the relay unread, exactly as a game show does
 }
 
@@ -885,7 +927,7 @@ function onResponse(d){
   if(!isRound(type)) return onFormResponse(d);
   if(!state || state.done) return;
   replies = (d && d.all) || [];
-  state.picks = Kit.round.get(type).read(replies, state, ctx());
+  state.picks = roundDef().read(replies, state, ctx());
   draw();
   if(settler) settler.bump();
 }
@@ -918,7 +960,7 @@ function onFormResponse(d){
 
 function onSettle(){
   if(!state || state.done) return;
-  const def = Kit.round.get(type);
+  const def = roundDef();
   const c = ctx();
   const verdicts = Object.keys(state.picks).map(t => ({
     team: Number(t), set: state.picks[t], r: def.judge(state.picks[t], state, Number(t), c)
@@ -962,7 +1004,7 @@ function shake(set){
 
 $('check-btn').addEventListener('click', ()=>{
   if(!state || state.done) return;
-  const def = Kit.round.get(type);
+  const def = roundDef();
   /* The teacher's answer never goes through `read()`, so a round that holds a rung
      until every handset agrees does not hold this one. */
   const c = ctx();
@@ -994,7 +1036,7 @@ $('reveal-btn').addEventListener('click', ()=>{
   }
   if(!state) return;
   if(settler) settler.stop();
-  Kit.round.get(type).reveal($('card-round'), state, ctx());
+  roundDef().reveal($('card-round'), state, ctx());
   $('card-answer').style.display = 'block';
   draw();
   if(host) host.disarm();

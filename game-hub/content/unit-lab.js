@@ -68,6 +68,7 @@
     'L4': "L4 · Grouping — a clue the whole room plays at once",
     'L5': "L5 · Ordering — a scale the room fills in, weakest first",
     'L6': "L6 · Multiple choice — four options, the plain control case",
+    'L7': "L7 · Anagram — the letters dragged into boxes on every handset",
   },
 
   jeopardyCategories: [
@@ -290,6 +291,29 @@
                  answer:"redundant" }},
       {v:500, q:"Only one of these can precede 'to the letter'. Which?",
         choice:{ options:["followed","obeyed","kept","held"], answer:"followed" }},
+    ]},
+
+    /* ---------- L7 · the anagram round ----------
+       The played version of the `anagram` *form* in L1, which is why the two sit on
+       one board: same subject, same vocabulary field, and the only thing that
+       differs is whether the class shouts the word at the teacher or every handset
+       arranges it. Play both in a round and the comparison is the point.
+
+       The clue is the definition and never the word — an anagram whose own clue
+       contains the answer gives itself away, and the round's `check` says so.
+       $400 and $500 carry **repeated letters** deliberately: three Es and a double
+       S are the case both ends of this round are built around, and a board with
+       only distinct-letter words would never exercise it. */
+    { id:'lab-anagram-round', section:'L7', name:'Drag the Letters', clues:[
+      {v:100, q:"the decision a jury delivers", anagram:{ word:'verdict' }},
+      {v:200, q:"money paid so somebody can be released before a trial",
+        anagram:{ word:'bail' }},
+      {v:300, q:"a period of leave from work, often to study",
+        anagram:{ word:'sabbatical' }},
+      {v:400, q:"the punishment a court hands down",
+        anagram:{ word:'sentence' }},
+      {v:500, q:"the facts and objects put before a court to prove something",
+        anagram:{ word:'evidence' }},
     ]},
   ],
 });

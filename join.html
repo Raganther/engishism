@@ -143,6 +143,48 @@
   .opts button.picked{
     background:var(--team, #ffc83d); color:#0a0d26; border-color:var(--team, #ffc83d);
   }
+  /* ---------- the anagram round ----------
+     A tray of letters and the boxes they go into, dragged with pointer events —
+     HTML5 drag-and-drop does not exist on touch, so this is press, move, release,
+     hit-tested with elementFromPoint. A tap is honoured too, and that is not a
+     fallback for tidiness: dragging on a small screen misses, and a letter that
+     refuses to move because the thumb travelled four pixels is a student who thinks
+     the round is broken. */
+  #arrange{ display:none; width:100%; flex-direction:column; gap:14px; align-items:center; }
+  /* `touch-action:none` or the browser claims the gesture as a scroll and the
+     pointermove events stop arriving halfway through a drag. */
+  #arrange *{ touch-action:none; }
+  #ana-slots, #ana-tray{ display:flex; flex-wrap:wrap; gap:7px; justify-content:center; width:100%; }
+  .ana-slot{
+    min-width:44px; height:54px; border-radius:12px;
+    display:inline-flex; align-items:center; justify-content:center;
+    font-size:1.5rem; font-weight:700; text-transform:uppercase;
+    border:2px dashed rgba(255,255,255,0.3); color:#eaf0ff; background:transparent;
+  }
+  .ana-slot.filled{
+    border-style:solid; background:var(--team, #ffc83d); color:#0a0d26;
+    border-color:var(--team, #ffc83d);
+  }
+  /* The box the finger is currently over. Without it a drag is a guess about where
+     the letter will land. */
+  .ana-slot.over{ border-color:var(--blue); border-style:solid; background:rgba(0,160,223,0.25); }
+  .ana-tile{
+    min-width:44px; height:54px; border-radius:12px; padding:0;
+    display:inline-flex; align-items:center; justify-content:center;
+    font-family:inherit; font-size:1.5rem; font-weight:700; text-transform:uppercase;
+    background:#16204f; color:#eaf0ff; border:2px solid rgba(255,255,255,0.28);
+  }
+  /* A letter that is in a box stays in the tray, greyed. Removing it would reflow
+     the tray under the thumb mid-puzzle, and the tray is also the reference list of
+     what the word is made of. */
+  .ana-tile.used{ opacity:0.28; }
+  /* The tile that follows the finger. Fixed, and out of the way of hit-testing, or
+     elementFromPoint would return the clone on every move. */
+  #ana-drag{
+    position:fixed; z-index:99; pointer-events:none; opacity:0.94;
+    transform:translate(-50%,-50%) scale(1.14);
+  }
+  #ana-note{ font-size:0.85rem; opacity:0.7; text-align:center; min-height:1.2em; }
   .write{ display:none; width:100%; gap:10px; flex-direction:column; }
   /* Typing comes before buzzing, so the box sits between the question and the
      button: the flow reads top to bottom and the thumb ends on the thing that
@@ -186,6 +228,15 @@
   <p class="clock" id="round-clock"></p>
   <button id="buzzer" disabled>Wait</button>
   <div class="opts" id="opts"></div>
+  <!-- The anagram round: a tray of letters and the boxes they go into. Its own
+       element rather than a shape inside #opts, because a tile here is identified
+       by its *slot*, not by its text — three Es in SENTENCE are three tiles, and
+       everything in #opts keys a pick by what it says. -->
+  <div id="arrange">
+    <div id="ana-slots"></div>
+    <div id="ana-tray"></div>
+    <p id="ana-note"></p>
+  </div>
   <!-- Bingo: this phone's own card, which is the first thing here that outlives a
        question. Nine words, tap the one the clue is describing. -->
   <div class="card" id="card"></div>
@@ -393,6 +444,7 @@
     // 'type' is both at once: the box to write in and the button to claim the floor
     $('buzzer').style.display = (mode==='buzz' || mode==='type') ? '' : 'none';
     $('opts').style.display   = mode==='vote'   ? 'flex' : 'none';
+    $('arrange').style.display = mode==='arrange' ? 'flex' : 'none';
     $('write').style.display  = (mode==='answer' || mode==='type') ? 'flex' : 'none';
     // the card stays on screen between calls — it is the student's own board, not
     // a control that belongs to one question
@@ -453,6 +505,7 @@
         box.appendChild(b);
       });
     }
+    if(mode==='arrange') buildArrange(opts || []);
     if(mode==='answer'){ $('reply').value=''; $('reply').disabled=false; $('send').disabled=false; }
     if(mode==='type'){
       $('reply').value=''; $('reply').disabled=false;
@@ -460,6 +513,139 @@
       setBuzzer('off','Type it');
       setTimeout(()=>{ try{ $('reply').focus(); }catch(e){} }, 60);
     }
+  }
+
+  /* ---------- the anagram round: letters into boxes ----------
+     Everything here keys a tile by its **slot in the tray**, never by the letter on
+     it. That is the whole reason this is not a shape inside `#opts`: SENTENCE has
+     three Es, and keying by text would light all three at once and make the word
+     impossible to assemble. The relay is untouched by any of it — the reply is the
+     same `|`-joined list a multi-pick vote sends, in the order the letters were
+     placed, and what that means stays the host's business. */
+  let anaTiles = [];        // [{ ch, el }] the tray, in the order the card drew it
+  let anaSlots = [];        // slot -> tray index, or null
+  let anaDrag  = null;      // the in-flight drag, if any
+
+  function buildArrange(list){
+    const tray = $('ana-tray'), slots = $('ana-slots');
+    tray.innerHTML = ''; slots.innerHTML = '';
+    anaTiles = []; anaSlots = list.map(()=> null); anaDrag = null;
+    list.forEach((ch, i)=>{
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'ana-tile'; b.textContent = ch;
+      b.dataset.i = String(i);
+      b.addEventListener('pointerdown', e => anaGrab(e, i, null));
+      tray.appendChild(b);
+      anaTiles.push({ ch, el:b });
+    });
+    list.forEach((_, s)=>{
+      const d = document.createElement('div');
+      d.className = 'ana-slot'; d.dataset.slot = String(s);
+      d.addEventListener('pointerdown', e => anaGrab(e, anaSlots[s], s));
+      slots.appendChild(d);
+    });
+    paintArrange();
+  }
+
+  function paintArrange(){
+    const slots = [...$('ana-slots').children];
+    slots.forEach((d, s)=>{
+      const t = anaSlots[s];
+      d.classList.toggle('filled', t != null);
+      d.classList.remove('over');
+      d.textContent = t == null ? '' : anaTiles[t].ch;
+    });
+    anaTiles.forEach((t, i) => t.el.classList.toggle('used', anaSlots.indexOf(i) !== -1));
+    const placed = anaSlots.filter(x => x != null).length;
+    $('ana-note').textContent = timeUp ? 'Time!'
+      : placed === anaSlots.length ? 'Sent — drag a letter out to change it'
+      : ('Drag the letters into the boxes · ' + placed + ' of ' + anaSlots.length);
+  }
+
+  /* The answer: the letters that are in boxes, in box order. A gap is simply
+     skipped — a part-built word is progress rather than a wrong answer, and the
+     host only judges an arrangement once every box is full. */
+  function sendArrange(){
+    if(!client) return;
+    const seq = anaSlots.filter(x => x != null).map(i => anaTiles[i].ch);
+    answered = true;
+    client.respond(seq.join('|'));
+  }
+
+  function anaPut(tile, slot){
+    if(tile == null) return;
+    // a letter can only be in one box, so taking it somewhere else empties the old
+    const was = anaSlots.indexOf(tile);
+    if(was !== -1) anaSlots[was] = null;
+    if(slot != null){
+      // dropping onto a full box sends whatever was there back to the tray
+      anaSlots[slot] = tile;
+    }
+    paintArrange();
+    sendArrange();
+  }
+
+  function anaGrab(e, tile, fromSlot){
+    if(timeUp || tile == null || !client) return;
+    e.preventDefault();
+    const el = document.createElement('div');
+    el.id = 'ana-drag'; el.className = 'ana-tile filled';
+    el.style.background = 'var(--team, #ffc83d)'; el.style.color = '#0a0d26';
+    el.textContent = anaTiles[tile].ch;
+    document.body.appendChild(el);
+    anaDrag = { tile, fromSlot, el, x:e.clientX, y:e.clientY, moved:0 };
+    anaMoveTo(e.clientX, e.clientY);
+    try{ e.target.setPointerCapture(e.pointerId); }catch(err){}
+    const move = ev => {
+      if(!anaDrag) return;
+      anaDrag.moved += Math.abs(ev.clientX - anaDrag.x) + Math.abs(ev.clientY - anaDrag.y);
+      anaDrag.x = ev.clientX; anaDrag.y = ev.clientY;
+      anaMoveTo(ev.clientX, ev.clientY);
+    };
+    const up = ev => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      anaDrop(ev.clientX, ev.clientY);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+  }
+
+  function anaMoveTo(x, y){
+    if(!anaDrag) return;
+    anaDrag.el.style.left = x + 'px';
+    anaDrag.el.style.top  = y + 'px';
+    const over = anaSlotAt(x, y);
+    [...$('ana-slots').children].forEach((d, s) => d.classList.toggle('over', s === over));
+  }
+
+  /* The clone carries `pointer-events:none`, so this returns what is *under* the
+     finger rather than the thing following it. */
+  function anaSlotAt(x, y){
+    const el = document.elementFromPoint(x, y);
+    const box = el && el.closest ? el.closest('.ana-slot') : null;
+    return box ? Number(box.dataset.slot) : null;
+  }
+
+  function anaDrop(x, y){
+    if(!anaDrag) return;
+    const { tile, fromSlot, moved, el } = anaDrag;
+    el.remove(); anaDrag = null;
+    let target = anaSlotAt(x, y);
+    /* A tap, not a drag. Dragging on a phone misses, and a letter that will not
+       move because the thumb travelled a few pixels reads as a broken round — so a
+       tap on a tray tile fills the first empty box, and a tap on a full box empties
+       it. Same two gestures every word game on a phone offers. */
+    if(moved < 8){
+      if(fromSlot != null) target = null;
+      else target = anaSlots.indexOf(null);
+      if(target === -1){ paintArrange(); return; }   // every box already full
+    }
+    // dropped on nothing: back to the tray, which is how a letter is taken out
+    anaPut(tile, target);
+    blip();
   }
 
   /* How this phone is doing against its share. Separate from the tap handler
@@ -731,6 +917,12 @@
         : mode==='vote' ? (maxPicks > 1 ? 'Choose ' + maxPicks + ' — tap to add or drop'
                           : canRethink ? 'Tap to choose — you can change it' : 'Pick one')
         : mode==='card' ? 'Tap the word'
+        /* Blank, because `#ana-note` under the tray already says what to do and
+           carries the running count. Left to fall through, this line inherited the
+           `answer` mode's "Type your answer" and sat under a drag puzzle telling
+           students to type — two instructions, one of them wrong. `#state` stays
+           free for what the host says back. */
+        : mode==='arrange' ? ''
         : mode==='type' ? 'Type it, then buzz' : 'Type your answer');
       if(navigator.vibrate) navigator.vibrate(40);
     }

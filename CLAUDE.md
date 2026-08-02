@@ -866,6 +866,77 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The anagram round: the first round grown out of a question *form*, and the
+  first phone dynamic the relay had never carried.** `game-hub/rounds/anagram.js` —
+  scrambled letters on the card, a row of empty boxes under them, and every handset
+  dragging the letters into place. Twelfth category on the Lab board
+  (`L7 · Drag the Letters`).
+  - **The form it grew out of is untouched, and that is the load-bearing decision.**
+    `Kit.prompt`'s `anagram` form still draws scattered letters and re-sorts them on
+    reveal; a board with no phones wants exactly that. The round is keyed by a
+    different field (`anagram:{word}` against `type:'anagram'`), so the **eight items
+    already authored in Units 4 and 5 behave exactly as before**. A round claiming
+    the form's own key would have silently converted shipped content a teacher has
+    been using, which is the one thing a new round must never do. Both sit on the
+    Lab board on purpose: same vocabulary, and the only difference is whether the
+    class shouts the word or every handset arranges it.
+  - **`arrange` is a new phone mode, and it is the first thing the relay has had to
+    learn since bingo cards.** One string added to a whitelist — the reply is the
+    same `|`-joined list in placement order that a multi-pick vote sends, so the
+    relay carries it without interpreting it, exactly as its contract says. What
+    differs is entirely what the handset *draws*.
+  - **Duplicate letters are what this round is really built around.** `SENTENCE`
+    has three Es. Every pick in this app is keyed by its **text** — `join.html`
+    matched `myPicks.indexOf(x.textContent)` — so the first E would have stood for
+    all three and the word could never be assembled at all. Two different fixes,
+    because the two ends have different handles: the **card** gives each tile a
+    token (`E#3`, drawn as `E`) and the **handset** keys by slot index. `judge`
+    strips the token, so the teacher's clicks and the room's drags arrive as one
+    shape and the phone never learns the token format exists. **Author a word with
+    repeated letters before believing any change to this file**; `$400` and `$500`
+    on the Lab board are there for that.
+  - **A tap does the same job as a drag, and that is not a nicety.** Dragging on a
+    small screen misses, and a letter that refuses to move because the thumb
+    travelled four pixels reads as a broken round. A tap on a tray tile fills the
+    first empty box; a tap on a full box empties it. Both gestures, one code path,
+    separated by how far the pointer moved.
+  - **Three things the drag needed that are not obvious.** `touch-action:none` or
+    the browser claims the gesture as a scroll and `pointermove` stops arriving
+    mid-drag. The tile that follows the finger carries `pointer-events:none`, or
+    `elementFromPoint` returns the clone on every move and no box is ever found.
+    And the tray keeps a letter that is in a box, greyed — removing it reflows the
+    tray under the thumb mid-puzzle.
+  - **The letters are *not* shared across a team's handsets**, which is what
+    `Kit.round.shares` exists for and what grouping does. An arrangement is a
+    sequence and a sequence cannot be merged: two students holding three letters
+    each do not combine into a word — somebody decides the order, and the moment
+    they do the other handset is a spectator. Same conclusion the ordering round
+    reached about a scale.
+  - **The bench menu had to namespace the two registries.** `anagram` is now a round
+    *and* a form, and the bench's single flat menu keyed by name alone let the round
+    shadow the form completely — the form became unreachable, which is the exact
+    failure the prompt lab was built to stop. Menu values are `r:` / `f:` prefixed
+    now, with a migration for anything stored under a bare name. **Expect the
+    pairing to recur:** a round is often the played version of a form.
+  - **A round with two editor fields needed no bench change at all**, because the
+    form merge had already made that the editor's own declaration (`labelB:null`)
+    rather than a question about what kind of thing was being edited. That is the
+    return on writing it that way, a day later.
+  - **`judge` says how close a wrong arrangement was** — "four of seven letters are
+    in the right place" — because that is the only useful thing to say about a wrong
+    order, and a flat "no" tells a class nothing to act on.
+  - **`check` catches the giveaway a reader misses**: an anagram whose own clue
+    contains the answer looks completely normal written down. Also spaces and
+    hyphens (they cannot be a tile) and anything over 12 letters (the relay's `multi`
+    cap, and past what a class reads off a projector).
+  - `anagram` suite, 32 checks: the Lab board hosting it, the teacher's no-relay
+    path, the repeated-letter word end to end, a wrong arrangement's verdict, the
+    form still drawing as a form, the card fitting at 1280x720 **and** 390x844
+    (neither `fit` nor `phone` opens a clue card), and a real handset dragging,
+    tapping and finishing the word while the board shows the progress.
+  - **Not yet met a class**, like everything else on that board — and the drag is
+    the part most likely to feel wrong under a real thumb, because Chromium's
+    device emulation is not one. That is the first thing to check in a lesson.
 - **One workshop for both kinds of question — the forms moved onto the bench.**
   The bench listed the three rounds and nothing else, so the six question forms
   were only reachable from `prompt-lab.html`, a second page with its own menu, its
@@ -2610,7 +2681,7 @@ runs. Pick the row, run it, push.
 | **One game's own logic** (board, its `tension()`, its stage CSS) | `--only=<game>` | ~40s |
 | **Shared layer 1** — `hub-kit.js`, the header, the team bar, the clue card, `hub.css` outside one stage, settings, the fit | `--only=millionaire,fit,phone,card,turns,gameshow,lab,registry,competition` | ~4 min |
 | **A playground page** (`playground/*.html`, `bench-kit.js`, `lab-forms.js`) | `--only=playground,forms,bench,qbench` | ~1 min |
-| **A question round** (`hub-rounds.js`, `hub-rounds.css`, `rounds/*.js`) | `--only=qbench,grouping,card,gameshow` | ~4 min |
+| **A question round** (`hub-rounds.js`, `hub-rounds.css`, `rounds/*.js`) | `--only=qbench,grouping,anagram,card,gameshow` | ~4 min |
 | **The Lab board** (`unit-lab.js`, `game-hub-lab.html`, a clue that runs a round) | `--only=grouping,content,jeopardy,card` | ~2 min |
 | **Phones / relay** — `hub-buzzer.js`, `buzzer-relay.js`, `join.html` | add `,buzzers,phonemodes,teamvote,phoneteams,degradation,reconnect,playground,bench` | +6 min |
 | **Before a lesson you will actually teach from**, or on request | the full suite | ~25 min |
