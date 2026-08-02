@@ -937,6 +937,17 @@ playground's point, that one board can host several:
     **A form's phone path was nearly lost in the merge** — the first pass covered
     drawing and revealing on the bench and nothing else, and it was only writing the
     replacement suite that caught it.
+  - **"+ phone" looked live and did nothing, on any page with no relay.** Reported
+    against the merged bench and *not* caused by it — the button had never carried a
+    disabled state, and `addPhone` returns silently when there is no room, so the
+    click was swallowed with nothing said anywhere. It only surfaced now because the
+    testing URL given was the **GitHub Pages copy, which has no relay behind it** —
+    a fact this file already records for buzzers and which applies to every phone on
+    every page. The chip beside it had said `phones off` the whole time; the button
+    simply disagreed with it. It starts disabled and says `+ phone — no relay` now,
+    and `ready` turns it on. *The room bench already got this right* ("open a board
+    first, or type a room code"), which is what made the omission obvious once
+    looked at.
   - **Two bad assumptions in my own new checks, both found by running them.** A
     phone is spent after one reply in an `answer` round, so a second verdict needs a
     re-ask — the mode working, not a fault. And `work` is four letters, where the

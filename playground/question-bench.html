@@ -185,7 +185,16 @@
       <button id="reveal-btn" class="ghost">Reveal</button>
       <button id="reset-btn" class="ghost">Reset</button>
       <button id="add-team" class="ghost">+ team</button>
-      <button id="add-phone" class="ghost">+ phone</button>
+      <!-- Disabled until a room exists, which is the same fact the chip beside it
+           opens on. It used to start enabled and `addPhone` returned silently when
+           there was no relay, so on any page with no relay behind it — the GitHub
+           Pages copy, for one — the button looked live and did nothing at all.
+           Reported as "I click add phone and no phone appears", which is exactly
+           what it did. A control that cannot work should say so, not swallow the
+           click. -->
+      <button id="add-phone" class="ghost" disabled
+              title="No relay is reachable, so there is no room for a phone to join.">
+        + phone — no relay</button>
       <select id="for-team" style="display:none" title="Which team the teacher is playing for"></select>
     </div>
 
@@ -1201,7 +1210,12 @@ const room = BenchKit.room({
   mount: $('room-slot'),
   board: 'question-bench.html',
   on: {
-    ready(h){ host = h; $('add-phone').disabled = false; pushTeams(); ask(); },
+    ready(h){
+      host = h;
+      const btn = $('add-phone');
+      btn.disabled = false; btn.textContent = '+ phone'; btn.removeAttribute('title');
+      pushTeams(); ask();
+    },
     response: onResponse,
     /* A phone joined or dropped, so what the replies already in hand *mean* has
        changed — a round that waits for a whole team is judged against the roster,

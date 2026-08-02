@@ -5813,6 +5813,15 @@ async function testQuestionBench(browser){
   await solo.waitForTimeout(900);
   check('no relay: the chip says phones off',
         /phones off/i.test(await solo.locator('#room-chip').innerText()));
+  /* And so does the button, which is the same fact and used to disagree with it.
+     `addPhone` returns silently with no room, so an enabled button swallowed the
+     click and nothing happened anywhere — reported as "I click add phone and no
+     phone appears", which is exactly what it did, on the GitHub Pages copy where
+     there is no relay behind the page at all. A control that cannot work says so. */
+  check('and so does the + phone button, rather than swallowing the click',
+        await solo.locator('#add-phone').isDisabled() &&
+        /no relay/i.test(await solo.locator('#add-phone').innerText()),
+        await solo.locator('#add-phone').innerText());
   check('but the card is still drawn',
         await solo.locator('#card-round .gword').count() === 8);
   for(const w of ['verdict','jury','testimony','acquittal']){
