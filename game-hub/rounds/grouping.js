@@ -214,6 +214,28 @@
     },
 
     // how a wrong set is described — "one away" is worth saying and costs nothing
+    check(item){
+      const g = (item && item.group) || {};
+      if(!Array.isArray(g.pick)) return ['Needs the words that belong together.'];
+      const pick = g.pick.map(w => String(w).trim()).filter(Boolean);
+      const rest = (Array.isArray(g.with) ? g.with : []).map(w => String(w).trim()).filter(Boolean);
+      const bad = [];
+      if(pick.length < 2) bad.push('Needs at least 2 words to find.');
+      if(!rest.length) bad.push('Has no decoys, so there is nothing to discriminate.');
+      /* A word appearing twice makes the union ambiguous: a team holding it once
+         would be judged against a set that contains it twice. */
+      const seen = Object.create(null);
+      pick.concat(rest).forEach(w => {
+        const k = w.toLowerCase();
+        if(seen[k]) bad.push('Word appears twice: “' + w + '”.');
+        seen[k] = true;
+      });
+      if(pick.length + rest.length > 20)
+        bad.push((pick.length + rest.length) + ' words, over the relay’s cap of 20 — the phones would be offered fewer than the board shows.');
+      if(!String((item && item.text) || '').trim()) bad.push('Needs a question.');
+      return bad;
+    },
+
     saidOf(who, r, s){
       return who + (r.hits === s.need - 1 ? ': one away…' : ': not a group.');
     },

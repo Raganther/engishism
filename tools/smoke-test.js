@@ -973,6 +973,7 @@ async function testGameShowRace(browser){
    authored with no gate on it at all. */
 const UNIT_AUDIT = () => {
     const norm = s => String(s).toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+    const ROUNDS = (window.HubKit && window.HubKit.round) || { of:()=>null };
     const out = [];
     (window.UNITS || []).forEach(u => {
       const id = u.id || '?';
@@ -990,89 +991,27 @@ const UNIT_AUDIT = () => {
       where.forEach((set, k) => { if(set.size > 1)
         out.push({kind:'dupe', msg:id + ': prompt in ' + [...set].join(' + ') + ' — "' + k.slice(0,60) + '"'}); });
 
-      /* Grouping clues. The answer is the set, so `group` is the only place it is
-         written down — and everything that could silently reduce what the room is
-         actually offered is checked here, because none of it throws. */
-      (u.jeopardyCategories||[]).forEach(c => c.clues.forEach(x => {
-        const g = x.group; if(!g) return;
-        const tag = id + ': "' + String(x.q).slice(0, 40) + '"';
-        const pick = Array.isArray(g.pick) ? g.pick : [];
-        const rest = Array.isArray(g.with) ? g.with : [];
-        if(pick.length < 2) out.push({kind:'grouping', msg:tag + ' — needs at least 2 words to find'});
-        if(!rest.length)    out.push({kind:'grouping', msg:tag + ' — has no decoys, so there is nothing to discriminate'});
-        /* A word appearing twice makes the union ambiguous: a team holding it once
-           would be judged against a set that contains it twice. */
-        const seen = new Set(), all = pick.concat(rest);
-        all.forEach(w => {
-          const k = String(w).toLowerCase();
-          if(seen.has(k)) out.push({kind:'grouping', msg:tag + ' — word appears twice: ' + w});
-          seen.add(k);
-        });
-        /* The relay slices the option list at 20, silently. Beyond that the phones
-           are offered fewer words than the board shows, and a team could never
-           assemble a group containing one of the missing ones. */
-        if(all.length > 20) out.push({kind:'grouping', msg:tag + ' — ' + all.length + ' words, over the relay’s cap of 20'});
-        /* The answer line is derived from `pick`, so an authored `a` is a second
-           copy of one fact — which is how a hexagon came to show `U` over an answer
-           beginning with I. */
-        if(x.a) out.push({kind:'grouping', msg:tag + ' — carries an `a` as well as a group; the answer is derived'});
-        // a grouping clue is a round, not a rendered form: the two do not compose
-        if(x.type) out.push({kind:'grouping', msg:tag + ' — carries type "' + x.type + '" as well as a group'});
-      }));
+      /* **Every round's own rules, asked of the round.** These were a per-round
+         block here — needs two options, no duplicate steps, an answer that is
+         actually one of the options — which is knowledge the round already has and
+         the bench's editor needed too. Two callers, so it moved onto the shelf as
+         `check(item)`; this asks the registry, so a round written next month is
+         audited without this file being edited. The same move as `fields()`.
 
-      /* Ordering clues. The scale is the answer, so it is the only place the truth
-         lives — and everything that would quietly reduce or contradict it is checked
-         here, because none of it throws. */
+         What stays here is what is Jeopardy's rather than the round's: `a` and
+         `type` are *this bank's* field names, and no round should ever learn that
+         Jeopardy calls an answer `a`. */
       (u.jeopardyCategories||[]).forEach(c => c.clues.forEach(x => {
-        const o = x.order; if(!o) return;
+        const hit = ROUNDS.of(x); if(!hit) return;
         const tag = id + ': "' + String(x.q).slice(0, 40) + '"';
-        const scale = Array.isArray(o.scale) ? o.scale : [];
-        if(scale.length < 3) out.push({kind:'ordering', msg:tag + ' — a scale needs at least 3 steps'});
-        // beyond the relay's cap the phones are offered fewer words than the board shows
-        if(scale.length > 20) out.push({kind:'ordering', msg:tag + ' — ' + scale.length + ' steps, over the relay’s cap of 20'});
-        const seen = new Set();
-        scale.forEach(w => {
-          const k = String(w).toLowerCase();
-          if(seen.has(k)) out.push({kind:'ordering', msg:tag + ' — step appears twice: ' + w});
-          seen.add(k);
-        });
-        /* Both ends have to be named or the ladder is a list of words with no
-           direction, which is the one thing that makes it an ordering question. */
-        if(!o.low || !o.high) out.push({kind:'ordering', msg:tag + ' — needs both ends of the scale named'});
-        /* The gloss is the teaching. Without one a right answer is a sorting
-           exercise: the class gets it right and learns nothing about why. */
-        scale.forEach(w => {
-          if(!o.gloss || !o.gloss[w]) out.push({kind:'ordering', msg:tag + ' — no gloss for "' + w + '"'});
-        });
-        if(x.a) out.push({kind:'ordering', msg:tag + ' — carries an `a` as well as a scale; the answer is the scale'});
-        if(x.group) out.push({kind:'ordering', msg:tag + ' — carries a group as well as a scale'});
-      }));
-
-      /* Multiple choice. The plainest round on the board and the one whose defects
-         are hardest to see by reading, because a clue with a mistyped answer looks
-         completely normal — it is simply impossible to get right. `setup` returns
-         null on all of these, so the card says the question is incomplete and the
-         tile is dead; none of it throws, which is exactly why it is checked here. */
-      (u.jeopardyCategories||[]).forEach(c => c.clues.forEach(x => {
-        const ch = x.choice; if(!ch) return;
-        const tag = id + ': "' + String(x.q).slice(0, 40) + '"';
-        const opts = Array.isArray(ch.options) ? ch.options.map(w => String(w).trim()) : [];
-        if(opts.length < 2) out.push({kind:'choice', msg:tag + ' — needs at least 2 options to be a choice'});
-        if(opts.length > 8) out.push({kind:'choice', msg:tag + ' — ' + opts.length + ' options; more than 8 stops being a choice'});
-        const seen = new Set();
-        opts.forEach(w => {
-          const k = w.toLowerCase();
-          if(seen.has(k)) out.push({kind:'choice', msg:tag + ' — option appears twice: ' + w});
-          seen.add(k);
-        });
-        /* **The one that cannot be seen by reading.** The answer is written out as
-           the option because the options are shuffled, so a letter could not survive
-           and an index is off by one the first time somebody writes 1 meaning the
-           first. A typo matches nothing and the clue is unanswerable. */
-        if(!opts.some(w => w.toLowerCase() === String(ch.answer||'').trim().toLowerCase()))
-          out.push({kind:'choice', msg:tag + ' — answer "' + ch.answer + '" is not one of the options'});
-        if(x.a) out.push({kind:'choice', msg:tag + ' — carries an `a` as well as a choice; the answer is in the choice'});
-        if(x.type) out.push({kind:'choice', msg:tag + ' — carries type "' + x.type + '" as well as a choice'});
+        /* Normalised first, exactly as `jShowClue` does it: a round is handed
+           `{text, …}` and has never learned that this bank calls a prompt `q`.
+           Checking the raw item would report every clue as missing its question. */
+        const item = Object.assign({}, x, { text:x.q });
+        (hit.def.check(item) || []).forEach(m =>
+          out.push({kind:hit.id, msg:tag + ' \u2014 ' + m}));
+        if(x.a) out.push({kind:hit.id, msg:tag + ' \u2014 carries an `a` as well as a ' + hit.id + '; the answer is in the round'});
+        if(x.type) out.push({kind:hit.id, msg:tag + ' \u2014 carries type "' + x.type + '" as well as a ' + hit.id});
       }));
 
       // Jeopardy: equal-length categories, sections contiguous (or a heading prints twice)
@@ -1129,6 +1068,14 @@ const UNIT_AUDIT = () => {
     return { problems: out, units: (window.UNITS||[]).length };
 };
 
+/* Only for the check's wording — the rules are the round's, this is prose. An id
+   with no entry simply reads as itself, so a new round needs nothing here. */
+const ROUND_LABELS = {
+  grouping:'grouping clues are well formed',
+  ordering:'ordering clues are well formed, and every step is glossed',
+  choice:'multiple choice clues are well formed, and every answer is one of its options'
+};
+
 async function testContentIntegrity(browser){
   section('Content integrity');
   const page = await openHub(browser);
@@ -1153,14 +1100,16 @@ async function testContentIntegrity(browser){
      front of a class. Asserted on the hub, not on the lab page. */
   check('and the Lab unit is not on the ordinary hub',
         !(await page.evaluate(() => (window.UNITS||[]).some(u => u.id === 'unit-lab'))));
-  check('grouping clues are well formed',
-        !of('grouping').length,     first('grouping'));
-  check('ordering clues are well formed, and every step is glossed',
-        !of('ordering').length,     first('ordering'));
-  /* The one a reader cannot catch: a multiple choice whose answer is not one of its
-     own options looks completely normal and is simply impossible to get right. */
-  check('multiple choice clues are well formed, and every answer is one of its options',
-        !of('choice').length,       first('choice'));
+  /* One check per registered round, asked of the registry rather than listed here —
+     so a round written next month is audited the day it ships, with this file
+     untouched. The rules themselves live on the round as `check(item)`, which is the
+     same rulebook the bench's editor reads: an author and the gate disagreeing about
+     what a valid question is would be worse than neither existing. */
+  const roundIds = await lab.evaluate(() => window.HubKit.round.ids());
+  check('every registered round is audited, not a list kept by hand',
+        roundIds.length >= 3, roundIds.join(','));
+  roundIds.forEach(rid =>
+    check(ROUND_LABELS[rid] || (rid + ' clues are well formed'), !of(rid).length, first(rid)));
   await lab.close();
   check('no prompt appears in two banks',        !of('dupe').length,         first('dupe'));
   check('Blockbusters answers are one word, keyed by their initial',

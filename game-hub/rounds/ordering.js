@@ -418,6 +418,31 @@
       if(s.placed.length >= s.need) s.done = true;
     },
 
+    check(item){
+      const o = (item && item.order) || {};
+      if(!Array.isArray(o.scale)) return ['Needs a scale — the words in order, weakest first.'];
+      const scale = o.scale.map(w => String(w).trim()).filter(Boolean);
+      const bad = [];
+      if(scale.length < 3) bad.push('A scale needs at least 3 steps.');
+      if(scale.length > 20) bad.push(scale.length + ' steps, over the relay’s cap of 20 — the phones would be offered fewer words than the board shows.');
+      const seen = Object.create(null);
+      scale.forEach(w => {
+        const k = w.toLowerCase();
+        if(seen[k]) bad.push('Step appears twice: “' + w + '”.');
+        seen[k] = true;
+      });
+      /* Both ends named, or the ladder is a list of words with no direction — which
+         is the one thing that makes it an ordering question rather than a set. */
+      if(!o.low || !o.high) bad.push('Needs both ends of the scale named.');
+      /* The gloss is the teaching. Without one a right answer is a sorting exercise:
+         the class gets it right and learns nothing about why. */
+      scale.forEach(w => {
+        if(!o.gloss || !o.gloss[w]) bad.push('No gloss for “' + w + '” — a step with no gloss teaches nothing.');
+      });
+      if(!String((item && item.text) || '').trim()) bad.push('Needs a question.');
+      return bad;
+    },
+
     saidOf(who, r, s){ return who + ': not that one yet.'; },
 
     settleMs: 700

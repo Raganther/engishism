@@ -189,6 +189,25 @@
            whether the *round* is over (`done`) and this is where getting there is
            recorded. */
         accept(){},
+        /* **Why an authored item is not usable**, as a list of sentences — empty
+           means it is fine. `setup` returning null already says *that* something is
+           wrong; this says *what*, which is the difference between an editor that
+           helps and one that goes blank at you.
+
+           It exists because the rules were about to be written twice: the content
+           gate had its own per-round block, and the bench needed the same knowledge
+           to tell an author what is missing. Two callers, so it goes on the shelf —
+           and a round added next month is checked by both for free, the same way
+           `fields()` carries its item field through.
+
+           **The round owns what makes the question invalid; the host owns what makes
+           its own bank untidy.** "Needs at least two options" is the round's. "Also
+           carries an `a` field" is Jeopardy's, because `a` is Jeopardy's word for an
+           answer and no round should ever learn it.
+
+           The default is derived rather than empty, so a round that declares nothing
+           still reports the one thing every round knows. */
+        check(item){ return this.setup(item, {}) ? [] : ['This question is not complete.']; },
         /* Ways the same question can be played, if it has more than one. A host
            builds its picker from this rather than knowing the round's business —
            the bench puts it in a dropdown, the hub registers it as a setting. */
@@ -198,6 +217,12 @@
     },
     get(id){ return ROUNDS[String(id)] || null; },
     ids(){ return Object.keys(ROUNDS); },
+    /* Whatever round an item wants, asked what is wrong with it. `[]` for an item no
+       round claims, because that is an ordinary question rather than a broken one. */
+    checkItem(item){
+      const hit = this.of(item);
+      return hit ? (hit.def.check(item) || []) : [];
+    },
     /* Every item field any registered round claims. A host copies these across when
        it normalises a question, so **a round added later is carried through without
        anybody remembering to widen a whitelist**. That whitelist has now silently

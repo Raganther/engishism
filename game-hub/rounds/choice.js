@@ -232,6 +232,30 @@
       return { verdict: right ? 'right' : 'wrong', hits: right ? 1 : 0 };
     },
 
+    /* What is wrong with an authored item, in the author's language. The last one is
+       the reason this hook exists at all: a clue whose answer is not one of its own
+       options looks completely normal to a reader and is simply impossible to get
+       right, so it has to be *said* rather than left to a null. */
+    check(item){
+      const o = (item && item.choice) || {};
+      const opts = Array.isArray(o.options) ? o.options.map(w => String(w).trim()).filter(Boolean) : [];
+      const bad = [];
+      if(!Array.isArray(o.options)) return ['Needs a list of options.'];
+      if(opts.length < 2) bad.push('Needs at least 2 options to be a choice at all.');
+      if(opts.length > 8) bad.push(opts.length + ' options — more than 8 stops being a choice.');
+      const seen = Object.create(null);
+      opts.forEach(w => {
+        const k = w.toLowerCase();
+        if(seen[k]) bad.push('Option appears twice: “' + w + '”.');
+        seen[k] = true;
+      });
+      if(!String(o.answer || '').trim()) bad.push('Needs an answer.');
+      else if(!opts.some(w => w.toLowerCase() === String(o.answer).trim().toLowerCase()))
+        bad.push('The answer “' + o.answer + '” is not one of the options — nobody could ever get this right.');
+      if(!String((item && item.text) || '').trim()) bad.push('Needs a question.');
+      return bad;
+    },
+
     saidOf(who){ return who + ': not that one.'; },
 
     settleMs: 700
