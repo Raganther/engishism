@@ -866,6 +866,45 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Word order is the second round grown out of a form, and it cost almost
+  nothing — which is the point of having built the anagram one first.**
+  `game-hub/rounds/scramble.js` — a shuffled sentence and a numbered slot for each
+  word, dragged into order on every handset. Thirteenth category on the Lab board
+  (`L8 · Drag the Words`).
+  - **`arrange` needed no change at all.** The mode takes a list of strings and
+    reports the order they were placed in; a word is only a longer string than a
+    letter. The relay was untouched, the drag was untouched, and the handset needed
+    a *layout* branch and nothing else. **Budget the next one against this, not
+    against the anagram** — which is exactly what the anagram's own note said to
+    expect, and is the first time that prediction has been tested.
+  - **Words invert the anagram's layout rule.** Equal columns are right for letters,
+    where every tile is one character wide; a sentence's words are all different
+    lengths, so dividing the row equally makes `a` as wide as `retracted`. Words
+    wrap and are sized to their content — the same split `#opts` already makes
+    between a keypad and a list, and decided the same way, **by looking at how long
+    the options are** rather than by being told which round is running.
+  - **An empty slot shows its number.** A row of ten blank boxes tells a student
+    nothing about which position they are filling. Letters keep blank boxes, because
+    there the boxes spell the word and digits would be noise.
+  - **The slots grow as words land, deliberately unlike the ordering ladder**, whose
+    rungs must never resize. The reason is what each thing *is*: a ladder is a column
+    several teams are compared down, so a rung that resizes makes the lanes stop
+    lining up; a sentence is one line being built. And sizing an empty slot to the
+    word it will hold would give away the answer's shape before anybody placed
+    anything.
+  - **A count per team, not the words.** A sentence per team will not fit on a clue
+    card; what the room needs from the projector is who is close, and the teacher can
+    read an actual attempt off that team's handsets.
+  - **Judged case-insensitively**, because a sentence's first word is capitalised and
+    a student who put it third has still put it third — marking that wrong on a
+    capital letter would be marking the wrong thing.
+  - **Repeated words are the repeated-letter problem again**, solved identically:
+    `the` appears twice or three times in most C1 sentences. Every clue in `L8`
+    repeats a word on purpose, for the same reason `$400` and `$500` in `L7` do.
+  - **No suite of its own**, at the user's request — the fast content gate covers the
+    authored clues (it asks the registry, so `check()` runs for free), and it was
+    verified by hand in a browser: card, handset, one drag, and the board updating.
+    The `anagram` suite is the model if it ever earns one.
 - **Opening a room retries now, in the hub *and* on the bench — the common failure
   is a relay that is merely asleep.** Reported as "it says no relay and I can't
   select any phones for any question". Both ends attempted `newCode` **once** on
