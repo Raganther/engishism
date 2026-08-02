@@ -936,11 +936,29 @@ playground's point, that one board can host several:
       has a vote on carries that team's dot; the one they lead with is filled. A
       tally reading `1/2` with nothing showing what the other student wants tells the
       room it is stuck without telling it what to argue about.
-    - **Two ways it must never lock up**, both checked: with no count to be unanimous
-      against (`sizes[t]` is 0 — no relay, or nobody counted yet) the leading vote
-      lands exactly as before, so a missing number can never freeze a round; and the
-      teacher's own Check never goes through `read()`, so one phone in a drawer does
-      not make a clue unfinishable.
+    - **Three ways it must never lock up**, all checked. With no count to be
+      unanimous against (`sizes[t]` is 0 — no relay, or nobody counted yet) the
+      leading vote lands exactly as before, so a missing number can never freeze a
+      round. The teacher's own Check never goes through `read()`, so one phone in a
+      drawer does not make a clue unfinishable. And **a phone that drops out shrinks
+      its team rather than freezing it** — see below.
+    - **A leaver who never voted was the one case nothing recomputed.** The gate is
+      against the roster, so a team of three sitting at 2 is unanimous the moment the
+      third handset drops off. The relay already had half of this: a *held* reply
+      leaves with the phone holding it, so a leaver who had voted triggers a
+      `response` and the round re-judges. A leaver who never voted sends nothing, and
+      both hosts only ever re-read the room when a reply arrives — so the roster
+      shrank and the team stayed stuck, with only the teacher's Check to get out of
+      it. Both hosts now re-read the replies they already hold when the roster
+      changes: **nothing new has arrived, what changed is the room they are being
+      read against.** Proved by reverting — the tally sits at `1/2` after the handset
+      is gone.
+    - **Rejoining needed no work at all**, which is worth knowing before anybody
+      builds it twice. The phone stores its seat (code, name, team *and player id*)
+      in `localStorage`, so a reload or a dropped connection comes back to the same
+      room, the same team and the same identity — which is why a bingo card survives
+      one. A QR for a different room outranks the seat, and "Not you?" forgets it;
+      both are deliberate.
     - **`read`, `judge` and `accept` take `ctx` now**, like every other hook already
       did. They were the odd ones out and it showed the moment a round needed to know
       how many students are on a team. Stashing the size in the round's own state
