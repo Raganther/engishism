@@ -154,11 +154,29 @@
   /* `touch-action:none` or the browser claims the gesture as a scroll and the
      pointermove events stop arriving halfway through a drag. */
   #arrange *{ touch-action:none; }
-  #ana-slots, #ana-tray{ display:flex; flex-wrap:wrap; gap:7px; justify-content:center; width:100%; }
+  /* **One row each, divided, never wrapped.** A fixed minimum width wrapped a
+     seven-letter word to six-and-one on a 390px handset, which reads as a mistake
+     rather than as a word — and the stray box on its own line is exactly where a
+     thumb aims first. A grid of `n` equal columns keeps the whole word on one line
+     at any length, and it lines the tray up *under its own boxes*, so the letter a
+     student is dragging is directly below where it has to go.
+
+     `--ana-n` is the letter count, set from the arm, because CSS cannot count the
+     children it is laying out. */
+  #ana-slots, #ana-tray{
+    display:grid; grid-template-columns:repeat(var(--ana-n, 7), minmax(0, 1fr));
+    gap:6px; width:100%;
+  }
+  /* Sized off the column rather than fixed, so a ten-letter word shrinks instead of
+     overflowing. Capped, or a three-letter word draws three enormous tiles. */
+  .ana-slot, .ana-tile{
+    font-size:min(1.5rem, calc((100vw - 46px) / var(--ana-n, 7) * 0.62));
+    height:min(54px, calc((100vw - 46px) / var(--ana-n, 7) * 1.25));
+  }
   .ana-slot{
-    min-width:44px; height:54px; border-radius:12px;
+    min-width:0; border-radius:12px;
     display:inline-flex; align-items:center; justify-content:center;
-    font-size:1.5rem; font-weight:700; text-transform:uppercase;
+    font-weight:700; text-transform:uppercase;
     border:2px dashed rgba(255,255,255,0.3); color:#eaf0ff; background:transparent;
   }
   .ana-slot.filled{
@@ -169,9 +187,9 @@
      the letter will land. */
   .ana-slot.over{ border-color:var(--blue); border-style:solid; background:rgba(0,160,223,0.25); }
   .ana-tile{
-    min-width:44px; height:54px; border-radius:12px; padding:0;
+    min-width:0; border-radius:12px; padding:0;
     display:inline-flex; align-items:center; justify-content:center;
-    font-family:inherit; font-size:1.5rem; font-weight:700; text-transform:uppercase;
+    font-family:inherit; font-weight:700; text-transform:uppercase;
     background:#16204f; color:#eaf0ff; border:2px solid rgba(255,255,255,0.28);
   }
   /* A letter that is in a box stays in the tray, greyed. Removing it would reflow
@@ -528,6 +546,8 @@
 
   function buildArrange(list){
     const tray = $('ana-tray'), slots = $('ana-slots');
+    // the column count, which CSS cannot work out for itself
+    $('arrange').style.setProperty('--ana-n', String(list.length || 1));
     tray.innerHTML = ''; slots.innerHTML = '';
     anaTiles = []; anaSlots = list.map(()=> null); anaDrag = null;
     list.forEach((ch, i)=>{

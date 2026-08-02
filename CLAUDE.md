@@ -931,6 +931,15 @@ playground's point, that one board can host several:
     travelled four pixels reads as a broken round. A tap on a tray tile fills the
     first empty box; a tap on a full box empties it. Both gestures, one code path,
     separated by how far the pointer moved.
+  - **The handset divides the row; it never wraps it.** A fixed minimum tile width
+    wrapped a seven-letter word to six-and-one on a 390px screen, which reads as a
+    mistake rather than as a word — and the stray box on its own line is exactly
+    where a thumb aims first. Both rows are a grid of `n` equal columns now (`--n`
+    set from the arm, because CSS cannot count the children it is laying out), so
+    the word is one line at any length **and the tray sits under its own boxes** —
+    the letter being dragged is directly below where it has to go. The tiles shrink
+    instead: ten letters is 29px, which is the intended answer rather than a
+    failure, so the check asserts the *row count* and not the width.
   - **Three things the drag needed that are not obvious.** `touch-action:none` or
     the browser claims the gesture as a scroll and `pointermove` stops arriving
     mid-drag. The tile that follows the finger carries `pointer-events:none`, or

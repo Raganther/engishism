@@ -6149,6 +6149,26 @@ async function testAnagramRound(browser){
           await ph.locator('.ana-slot').count() === 7,
           (await ph.locator('.ana-tile').count()) + ' tiles, ' +
           (await ph.locator('.ana-slot').count()) + ' slots');
+    /* **One row each, whatever the word's length.** A fixed minimum width wrapped
+       seven letters to six-and-one on a 390px handset, which reads as a mistake
+       rather than as a word — and the stray box on its own line is where a thumb
+       aims first. Asserted on the *rows*, not the widths: the tiles are allowed to
+       shrink, and a ten-letter word at 29px is the intended answer rather than a
+       failure. Checked here at seven, and the ladder of lengths lives on the Lab
+       board ($300 is ten letters). */
+    const rowsOf = await ph.evaluate(() => {
+      const tops = sel => new Set([...document.querySelectorAll(sel)]
+        .map(e => Math.round(e.getBoundingClientRect().top))).size;
+      const all = [...document.querySelectorAll('.ana-slot,.ana-tile')];
+      return { slots: tops('.ana-slot'), tiles: tops('.ana-tile'),
+               right: Math.max(...all.map(e => e.getBoundingClientRect().right)),
+               vw: window.innerWidth };
+    });
+    check('the whole word stays on one row on a handset, boxes and tray alike',
+          rowsOf.slots === 1 && rowsOf.tiles === 1, JSON.stringify(rowsOf));
+    check('and nothing runs off the right edge',
+          rowsOf.right <= rowsOf.vw + 1, JSON.stringify(rowsOf));
+
     const handTray = (await ph.locator('#ana-tray').innerText()).replace(/\s/g,'');
     const cardTray = (await live.locator('#clue-card .ana-tile').allInnerTexts()).join('');
     check('and the tray in the hand is the tray on the wall, in the same order',
