@@ -885,6 +885,14 @@ playground's point, that one board can host several:
     this.** `BenchKit.room` reports `connecting`/`ready`/`off` and the bench's
     `+ phone` button follows it, instead of reading `no relay` beside a chip reading
     `connecting…`.
+  - **A page that can never have a relay says so at once, rather than trying.**
+    The retry made the *GitHub Pages* copy worse before it made it better: it sat on
+    `connecting…` for a minute on a page where a relay cannot exist, which is more
+    misleading than the silence it replaced. The hub has known this since buzzers
+    shipped (`buzzerProblem` names Pages and `file://` by hand); the bench never
+    learned it. Both are stated immediately now — `no relay on GitHub Pages` /
+    `opened as a file` — with the fix in the tooltip. An explicit `?relay=` is
+    always tried, whatever the page is served from.
   - **The degradation checks were pinned to the wrong thing** and went red on the
     fix: they asserted the chip says `phones off` within a second. What a page with
     no relay actually owes is that it stays playable and never claims a room nobody

@@ -119,8 +119,34 @@ window.BenchKit = (function(){
     function say(state){ if(on.status) on.status(state); }
     let tries = 0;
     const WAITS = [1500, 3000, 5000, 8000, 12000, 15000, 15000, 15000];
+    /* **Some pages can never have a relay, and "connecting…" on one of those is
+       worse than the silence it replaced.** GitHub Pages serves files and nothing
+       else — there is no relay behind it and there never will be — and a `file://`
+       page has no origin to ask. Both are *stated*, immediately, instead of a
+       minute of retries that were always going to fail. The hub has said this since
+       buzzers shipped (`buzzerProblem`); the bench never learned it, so a teacher
+       on the Pages copy watched it try to connect forever. An explicit `?relay=` is
+       always worth trying, whatever the page is served from. */
+    function hopeless(){
+      if(RELAY) return '';
+      if(location.protocol === 'file:')
+        return { chip:'phones off · opened as a file',
+                 why:'Run: node tools/buzzer-relay.js, then open the address it prints.' };
+      if(/(^|\.)github\.io$/i.test(location.hostname))
+        return { chip:'phones off · no relay on GitHub Pages',
+                 why:'GitHub Pages serves files only. Use the hosted copy, or run ' +
+                     'node tools/buzzer-relay.js and open the address it prints.' };
+      return '';
+    }
+
     function openRoom(){
       if(!window.HubBuzzer) return;
+      const no = hopeless();
+      if(no){
+        chip.textContent = no.chip; chip.title = no.why;
+        say('off');
+        return;
+      }
       chip.textContent = 'connecting…';
       chip.title = 'Looking for a relay. A hosted one that has been idle takes a while to wake.';
       say('connecting');
