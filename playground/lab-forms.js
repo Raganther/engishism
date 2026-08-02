@@ -1,7 +1,7 @@
 /* ================= Experimental question forms =================
    Forms being tried out, before any game can see them.
 
-   **This file is loaded by the prompt lab and by nothing else.** A game loads
+   **This file is loaded by the question bench and by nothing else.** A game loads
    `game-hub/hub-kit.js` and never loads this, so a form written here cannot reach
    a board however long it sits around — which is what makes experimenting free.
 
@@ -14,7 +14,7 @@
        reveal(mount, item){ … return ms }  // answer in place; 0 = declined
      });
 
-   That compatibility is **checked, not intended**: the `promptlab` suite drops
+   That compatibility is **checked, not intended**: the `forms` suite drops
    this whole file into a real hub page and asserts every form in it draws on a
    live Jeopardy clue card. So a form added here is proved portable the day it is
    written, and a form that quietly depends on something only the lab has fails

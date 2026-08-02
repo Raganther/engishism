@@ -213,7 +213,7 @@ window.HubKit = (function(){
       render, reveal, suits,
       types(){ return Object.keys(impls); },
       /* What a form declares about itself, for anything presenting the set rather
-         than drawing one — the prompt lab lists the forms by asking, so a form
+         than drawing one — the question bench lists the forms by asking, so a form
          registered later appears there without the lab being edited. `games` is
          null for "suits every board". */
       info(type){

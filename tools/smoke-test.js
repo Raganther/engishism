@@ -1523,7 +1523,7 @@ async function testPromptTypes(browser){
         forms.errBad.before.errors === 0 && forms.errBad.after.ms === 0,
         JSON.stringify(forms.errBad.before));
 
-  /* Anything presenting the set of forms — the prompt lab does — has to be able to
+  /* Anything presenting the set of forms — the question bench does — has to be able to
      ask what they are rather than carrying a list that goes stale. */
   const info = await page.evaluate(() => ({
     gap:  window.HubKit.prompt.info('gap'),
@@ -5225,7 +5225,7 @@ async function testQuestionBench(browser){
   await page.goto(BASE + '/playground/question-bench.html'); await page.waitForTimeout(1200);
 
   /* The menu is the registry asked, never a list kept in step by hand — the same
-     discipline the prompt lab and the fit suite use, so a round written next month
+     discipline the fit and phone suites use, so a round written next month
      appears here without this page or this check being edited. */
   /* Both registries, because the bench is one workshop for both kinds of question
      now: a **round** is one the class plays (card + phones + judging) and a **form**
@@ -5249,7 +5249,7 @@ async function testQuestionBench(browser){
      a lab form can reach no game at all. `bridge` shipped invisibly once because
      that difference was not said out loud anywhere, so the menu says it. Derived
      from what the two files register, never a literal list — naming a form here is
-     how the promptlab suite came to fail the day one graduated. */
+     how the forms suite came to fail the day one graduated. */
   const kit = await page.evaluate(() => window.IN_THE_KIT || []);
   const labOnly = forms.filter(t => kit.indexOf(t) === -1);
   const kitGroup = groups.find(g => /in the kit/i.test(g.label));
@@ -5912,62 +5912,37 @@ async function testQuestionBench(browser){
   await fp.close();
 }
 
-/* ---- the prompt lab ----
-   The question forms had nowhere to be seen: a form could only be met by finding a
-   bank item that happened to carry its type, which is why three of them sat at 4%
-   of the content. The lab lists whatever the registry holds — never a list kept in
-   step by hand — draws it at board size, and puts the same question on phones. */
-async function testPromptLab(browser){
-  section('Playground: the prompt lab');
-  const page = await browser.newPage({ viewport:{ width:1280, height:900 } });
+/* ---- the question forms ----
+   A form is the smaller of the two kinds of question: render and reveal, no time,
+   no turns, no phones. It used to have a page of its own — `prompt-lab.html`,
+   retired once the question bench grew the same menu — so what is left here is the
+   part that was never about that page: the **isolation** between a form that has
+   graduated into the kit and one that has not, and the **portability** of an
+   experimental form into a real game. Plus the one thing on the bench a round has
+   no equivalent for: a form's replies, typed and judged. */
+async function testQuestionForms(browser){
+  section('The question forms: isolation, portability, the room');
+  const page = await browser.newPage({ viewport:{ width:1400, height:950 } });
   page.__errors = []; page.on('pageerror', e => page.__errors.push(String(e)));
-  await page.goto(BASE + '/playground/prompt-lab.html'); await page.waitForTimeout(800);
+  await page.goto(BASE + '/playground/question-bench.html'); await page.waitForTimeout(1100);
 
-  /* The menu is the registry asked, so a form registered later appears without the
-     lab being edited — the same discipline the fit and phone suites use on games. */
-  const listed = await page.locator('#form-pick option').allInnerTexts();
-  const registered = await page.evaluate(() => window.HubKit.prompt.types());
-  check('every registered form is in the menu',
-        registered.every(t => listed.some(l => l.indexOf(t) === 0)),
-        listed.join(' | ') + '  vs  ' + registered.join(','));
-  check('and a form registered after this page was written would be too',
-        await page.evaluate(() => {
-          window.HubKit.prompt.register('__labtest', { render(m){ m.textContent='x'; } });
-          const before = document.querySelectorAll('#form-pick option').length;
-          document.getElementById('form-pick').dispatchEvent(new Event('change'));
-          return window.HubKit.prompt.types().indexOf('__labtest') !== -1 && before > 0;
-        }));
+  /* ---- the two stages, asked rather than named ----
+     A form written in the lab file must NOT be able to reach a game: a game loads
+     hub-kit.js and never loads `lab-forms.js`, so an experimental form exists only
+     on the bench until its registration is *moved* into the kit — which is what
+     graduating means, and it is a file move rather than a rewrite.
 
-  /* Two stages, and the isolation between them is the point: a form written in the
-     lab must NOT be able to reach a game. Games load hub-kit.js and never load this
-     page, so an experimental form exists only here until its registration is moved
-     into the kit — which is what "graduating" means, and it is a file move, not a
-     rewrite. Proved in both directions rather than asserted. */
-  const stages = await page.evaluate(() => ({
-    labOnly: window.HubKit.prompt.types().indexOf('realfake') !== -1,
-    groups:  [...document.querySelectorAll('#form-pick optgroup')].map(g => g.label),
-    inKitGroup: [...document.querySelectorAll('#form-pick optgroup')]
-      .find(g => /in the kit/i.test(g.label))?.textContent || '',
-    labGroup: [...document.querySelectorAll('#form-pick optgroup')]
-      .find(g => /lab only/i.test(g.label))?.textContent || ''
-  }));
-  check('the lab separates forms that are in the kit from experimental ones',
-        stages.groups.length === 2 && /gap/.test(stages.inKitGroup) &&
-        stages.labGroup.trim().length > 0,
-        JSON.stringify(stages));
-
-  /* ---- the isolation, asked rather than named ----
      This used to name `bridge` as the experimental one, and the day it graduated
-     the check failed for the right reason with the wrong message — the same
-     "a literal list is a photograph of what existed when the line was written"
-     bug the game registry keeps paying for, met in a test. So it derives the two
-     sets instead: whatever the *lab file* registers beyond what the *kit* holds is
-     experimental by definition, and none of it may be reachable from a game. */
+     the check failed for the right reason with the wrong message — the same "a
+     literal list is a photograph of what existed when the line was written" bug
+     the game registry keeps paying for, met in a test. So it derives the two sets:
+     whatever the bench registers beyond what a hub page holds is experimental by
+     definition, and none of it may be reachable from a game. */
   const hub = await openHub(browser);
   const hubForms = await hub.evaluate(() => window.HubKit.prompt.types());
-  const labOnlyForms = (await page.evaluate(() => window.HubKit.prompt.types()))
-        .filter(t => hubForms.indexOf(t) === -1);
-  check('the lab is holding at least one experimental form to isolate',
+  const benchForms = await page.evaluate(() => window.HubKit.prompt.types());
+  const labOnlyForms = benchForms.filter(t => hubForms.indexOf(t) === -1);
+  check('the bench is holding at least one experimental form to isolate',
         labOnlyForms.length > 0, labOnlyForms.join(',') || 'none');
   check('and no experimental form can reach a game',
         labOnlyForms.every(t => hubForms.indexOf(t) === -1),
@@ -5975,12 +5950,12 @@ async function testPromptLab(browser){
 
   /* ---- compatibility, proved rather than intended ----
      Every experimental form must be portable into the hub the day it is written,
-     or "we'll graduate it later" is a promise nobody checked. So the lab's whole
-     forms file is dropped into a real hub page and each form is asked to draw on
-     a **live Jeopardy clue card** — the element a graduated form would actually
-     render into. It is driven by what the file registers, so a form added to
+     or "we'll graduate it later" is a promise nobody checked. So the whole forms
+     file is dropped into a real hub page and each form is asked to draw on a
+     **live Jeopardy clue card** — the element a graduated form would actually
+     render into. Driven by what the file registers, so a form added to
      lab-forms.js next month is covered without this check being edited, and one
-     that quietly depends on something only the lab has fails immediately. */
+     that quietly depends on something only the bench has fails immediately. */
   await hub.evaluate(() => {
     window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
   });
@@ -5999,89 +5974,89 @@ async function testPromptLab(browser){
     });
   });
   await hub.close();
-  check('every experimental form is registered by the file the lab loads',
+  check('every experimental form is registered by the file the bench loads',
         port.length >= 2, JSON.stringify(port.map(p=>p.type)));
   port.forEach(r => {
-    check('“' + r.type + '” draws on a real clue card, so it is portable today',
+    check('\u201c' + r.type + '\u201d draws on a real clue card, so it is portable today',
           r.drawn === r.type && r.built > 0, JSON.stringify(r));
     check('and answers itself there', r.ms > 0, JSON.stringify(r));
   });
 
-  await page.locator('#form-pick').selectOption('bridge'); await page.waitForTimeout(250);
+  /* ---- which boards a form suits ----
+     The form's own declaration, read rather than restated. Not every form survives
+     every board — an anagram in Millionaire is given away by its four options, an
+     odd one out in Race by the board — and an author who cannot see that writes a
+     question that cannot work where they meant to use it. */
+  await page.locator('#type-pick').selectOption('bridge'); await page.waitForTimeout(300);
   check('picking a form draws its sample at board size',
-        await page.locator('#prompt-text .prompt-link').count() === 3);
+        await page.locator('#card-prompt .prompt-link').count() === 3,
+        String(await page.locator('#card-prompt .prompt-link').count()));
   check('and says which boards it suits',
         /every board/i.test(await page.locator('#suits').innerText()),
         await page.locator('#suits').innerText());
+  await page.locator('#type-pick').selectOption('anagram'); await page.waitForTimeout(300);
+  check('a form that suits only some boards names them, rather than claiming all',
+        /jeopardy/i.test(await page.locator('#suits').innerText()) &&
+        !/every board/i.test(await page.locator('#suits').innerText()),
+        await page.locator('#suits').innerText());
+  check('and a lab-only form says no game can draw it yet',
+        await (async ()=>{
+          await page.locator('#type-pick').selectOption(labOnlyForms[0]);
+          await page.waitForTimeout(300);
+          return /lab only/i.test(await page.locator('#suits').innerText());
+        })(),
+        await page.locator('#suits').innerText());
+
+  await page.locator('#type-pick').selectOption('bridge'); await page.waitForTimeout(300);
   check('the answer is not on screen before it is revealed',
-        !/work/i.test(await page.locator('#prompt-text').innerText()),
-        await page.locator('#prompt-text').innerText());
+        !/\bwork\b/i.test(await page.locator('#card-prompt').innerText()),
+        await page.locator('#card-prompt').innerText());
 
-  await page.locator('#reveal-btn').click(); await page.waitForTimeout(300);
-  check('reveal lands the answer in the prompt',
-        await page.locator('#prompt-text .prompt-link.filled').count() === 1);
-  /* Exactly the rule every game follows: the separate answer line stands down when
-     the answer landed in the prompt itself, rather than showing the word twice. */
-  check('and the answer line stands down when the form managed it',
-        !(await page.locator('#answer-line').isVisible()));
-  check('the lab says how the form was drawn, not just that it was',
-        /bridge/.test(await page.locator('#meta-drawn').innerText()),
-        await page.locator('#meta-drawn').innerText());
-
-  /* A form that declines prints plain text — the intended failure, and on screen
-     it is indistinguishable from "the type did nothing", because `render` hands
-     back the type whenever the form *ran*. The lab has to tell the two apart. */
-  const labDecline = await page.evaluate(() => {
-    SAMPLES.push({ type:'bridge', text:'no chain in this one at all', answer:'x' });
-    renderItemPick();
-    const sel = document.getElementById('item-pick');
-    sel.value = String(sel.options.length - 1);
-    draw();
-    return { drawn: document.getElementById('meta-drawn').textContent,
-             kids: document.getElementById('prompt-text').children.length };
-  });
-  check('a form that declined is reported as declined, not as drawn',
-        /declined/i.test(labDecline.drawn) && labDecline.kids === 0,
-        JSON.stringify(labDecline));
-
-  // the same question, on the handsets, judged on the host as a game judges it
+  /* ---- the room ----
+     A form owns no phone dynamic — that is what makes it a form — so the bench
+     supplies the only one that suits any question at all: everyone types, judged
+     on the host by `Kit.answer.judge` exactly as a game judges it. The relay never
+     learns the answer, so it can never be asked for it. */
   const chip = await page.locator('#room-chip').innerText();
-  const code = (chip.match(/CODE\s+(\d{5})/i)||[])[1];
-  check('the lab opens a room of its own', !!code, chip);
-
-  /* The chip opens the room *here*, and offers the bench with this page as its
-     board. It used to jump to a single handset in another tab, which is the wrong
-     move for a rig whose point is watching several phones against the board at
-     once — you lost sight of the thing the phones were acting on. */
-  await page.locator('#room-chip').click(); await page.waitForTimeout(300);
-  check('clicking the code opens the room panel rather than jumping to one phone',
-        await page.locator('#join-panel.on').count() === 1 &&
-        (await page.locator('#join-code').innerText()) === code,
-        await page.locator('#join-code').innerText());
-  check('and it offers the bench with this board loaded, not just a code',
-        /board=prompt-lab\.html/.test(await page.locator('#bench-link').getAttribute('href')),
-        await page.locator('#bench-link').getAttribute('href'));
-  await page.locator('#join-panel').click({ position:{ x:5, y:5 } }); await page.waitForTimeout(200);
+  const code = (chip.match(/(\d{5})/)||[])[1];
+  check('the bench opens a room for a form as well as for a round', !!code, chip);
   if(code){
     const ph = await browser.newPage({ viewport:{ width:390, height:844 } });
     ph.__errors = []; ph.on('pageerror', e => ph.__errors.push(String(e)));
     await ph.goto(BASE + '/join.html?code=' + code + '&name=Ana&team=0&auto=1');
-    await ph.waitForTimeout(700);
-    await page.locator('#form-pick').selectOption('bridge'); await page.waitForTimeout(200);
-    await page.locator('#ask-btn').click(); await ph.waitForTimeout(700);
-    check('asking the room puts the question on the handset',
+    await ph.waitForTimeout(800);
+    await page.locator('#ask-btn').click(); await ph.waitForTimeout(900);
+    check('asking the room puts the form\u2019s question on the handset',
           /FIRE/i.test(await ph.locator('#qtext').innerText()),
           await ph.locator('#qtext').innerText());
     await ph.fill('#reply', 'work');
-    await ph.locator('#send').click(); await page.waitForTimeout(700);
+    await ph.locator('#send').click(); await page.waitForTimeout(900);
     check('and the typed answer comes back judged, by name',
           /ana/i.test(await page.locator('#reply-list').innerText()) &&
           /right/.test(await page.locator('#reply-list').innerText()),
           await page.locator('#reply-list').innerText());
+    /* Three verdicts, not two: "produced the word but mis-spelled it" is a
+       different fact about a student from "did not know it", and the bench has to
+       be *wired* to `Kit.answer.judge` to say so — `BenchKit.judge` once reached
+       for a global that did not exist and fell silently through to an exact match,
+       downgrading every near miss to a flat wrong.
+
+       On `anagram`, whose answer is seven letters: tolerance scales with length and
+       is **zero under five**, so no misspelling of the bridge's four-letter `work`
+       could ever come back `close`. Re-asked first, because an `answer` round is
+       one reply per phone — the handset is spent until the room is asked again,
+       which is the mode working rather than a fault. */
+    await page.locator('#type-pick').selectOption('anagram'); await page.waitForTimeout(400);
+    await page.locator('#ask-btn').click(); await ph.waitForTimeout(900);
+    await ph.fill('#reply', 'verdct');
+    await ph.locator('#send').click(); await page.waitForTimeout(900);
+    check('a near miss is its own verdict, not a flat wrong',
+          /close|nearly/i.test(await page.locator('#reply-list').innerText()),
+          await page.locator('#reply-list').innerText());
     check('phone had no errors', ph.__errors.length === 0, ph.__errors[0]);
     await ph.close();
   }
-  check('lab had no errors', page.__errors.length === 0, page.__errors[0]);
+  check('bench had no errors', page.__errors.length === 0, page.__errors[0]);
   await page.close();
 }
 
@@ -6798,7 +6773,7 @@ async function main(){
     classic: testJeopardyClassic, joinbar: testJoinAlwaysThere,
     together: testJeopardyTogether, jclock: testAnswerClock,
     playground: testPlaygroundConnections, bench: testPhoneBench,
-    promptlab: testPromptLab, thermometer: testThermometer,
+    forms: testQuestionForms, thermometer: testThermometer,
     storyreveal: testStoryReveal, grouping: testGroupingClue,
     qbench: testQuestionBench
   };

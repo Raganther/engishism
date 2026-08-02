@@ -4,7 +4,7 @@
    before anything reaches a lesson.
 
    It exists because the same code was written twice within two days: `openRoom`
-   was nearly byte-for-byte identical in connections.html and prompt-lab.html, and
+   was nearly byte-for-byte identical in connections.html and the prompt lab, and
    a third question game would have made it three. The rule that keeps this honest
    is **extract what is already duplicated, not what might be** — a playground's
    value is that pages are allowed to be weird, and abstracting a sandbox too early

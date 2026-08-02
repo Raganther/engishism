@@ -96,6 +96,16 @@
          min-width:56px; text-align:center; }
   /* Ready is one quiet line; a problem is a list, because "not complete" on its own
      is exactly what this replaces. */
+  /* Which boards this question type can be put on. It is the type's own
+     declaration, read rather than restated — an anagram in Millionaire is given
+     away by its own four options, an odd one out in Race is given away by the
+     board, and a form that says so is the only thing standing between an author
+     and a question that cannot work where they meant to use it. */
+  #suits{ width:var(--card-w, 720px); max-width:100%; margin:0 0 10px;
+          font-family:'IBM Plex Mono',monospace; font-size:0.72rem; letter-spacing:0.06em;
+          opacity:0.6; line-height:1.5; }
+  #suits b{ color:var(--gold); font-weight:500; }
+
   #ed-verdict{ margin-top:12px; font-size:0.8rem; line-height:1.6; }
   #ed-verdict.ready{ color:#5BE08A; }
   #ed-verdict.bad{ color:var(--gold); }
@@ -193,6 +203,8 @@
       <select id="q-load" title="Load a category that already exists"></select>
       <button id="q-export" class="ghost">Export&hellip;</button>
     </div>
+
+    <div id="suits"></div>
 
     <div id="card-stage">
     <div id="card-frame">
@@ -751,6 +763,32 @@ function applyKind(){
   $('for-team').style.display     = round && $('mode-pick').value === 'race' ? '' : 'none';
   $('form-replies').style.display = round ? 'none' : '';
   if(!round) $('mode-pick').style.display = 'none';
+  renderSuits();
+}
+
+/* Which boards this type can be put on, read from its own declaration rather than
+   restated here. Not every form survives every board — an anagram in Millionaire is
+   given away by its four options, an odd one out in Race is given away by the board
+   — and an author who cannot see that writes a question that cannot work where they
+   meant to use it. */
+function renderSuits(){
+  const box = $('suits');
+  box.innerHTML = '';
+  if(isRound(type)){
+    /* A round declares no board list, and that is correct rather than missing:
+       which skins can host a round is a question about **contention** — a round
+       wants the card and the phones, and a skin conflicts only if it already owns
+       one of them — not about the shape of the answer. There is nothing to read,
+       so nothing is claimed. */
+    return;
+  }
+  const info  = Kit.prompt.info(type) || {};
+  const stage = inKit(type) ? 'in the kit — live in every game'
+                            : 'lab only — no game can draw this yet';
+  box.appendChild(document.createTextNode(stage + '  ·  suits: '));
+  const b = document.createElement('b');
+  b.textContent = info.games ? info.games.join(', ') : 'every board';
+  box.appendChild(b);
 }
 
 function build(){

@@ -337,7 +337,7 @@ bridge links, exactly one of them `___`**. Get them wrong and the form declines 
 text rather than rendering nonsense — which is the intended failure, but it looks like
 "the type did nothing", and `render()` still hands back the type because the form *ran*.
 The tell is that a declining form leaves **no element children** — bare text — which is
-how the prompt lab tells the two apart.
+how the question bench tells the two apart, in its verdict line.
 
 **`bridge` would be the first form to suit every board** if graduated, and the reason is
 worth keeping: its answer is one ordinary word, so a hexagon can key it by its initial
@@ -698,7 +698,7 @@ for vote/write/buzz/card dynamics. The deliberate rules:
 **`bench-kit.js` — the middle tier, and the rule that governs it.** `hub-kit.js`
 is what the *games* share; this is what the **question bench** shares. It exists
 because the same code was written twice in two days: `openRoom` was nearly
-byte-for-byte identical in `connections.html` and `prompt-lab.html`, and a third
+byte-for-byte identical in `connections.html` and the prompt lab, and a third
 question game would have made it three. It holds `BenchKit.room({mount, board,
 on})` — the code, the chip, the join panel, the QR, the bench link, and
 `window.HubHost` — and `BenchKit.settings(mount, defs, onChange)`, a toolbar that
@@ -797,13 +797,13 @@ straight away. Four rules paid for in advance:
 The `bench` suite drives all of it, including the hub as a board (start Jeopardy
 inside the frame, buzz from a bench phone, assert it reaches `#phone-bar`).
 
-**The forms now live on the question bench too** — one workshop for both kinds of
-question, three groups in one menu (rounds · forms in the kit · forms lab only).
-See Current status for why, and for the styling that had to move out of `hub.css`
-to make it true. `prompt-lab.html` still exists and is now the duplicate; the
-paragraph below describes what it was built for, which the bench has inherited.
+**`prompt-lab.html` is retired — the bench does this now.** One workshop for both
+kinds of question, three groups in one menu (rounds · forms in the kit · forms lab
+only). See Current status. The paragraph below is why the lab was built and what
+the bench inherited from it; the page itself is gone, and so is the `promptlab`
+suite, whose surviving checks are the `forms` suite.
 
-**`prompt-lab.html` — the question forms, on their own, with a room.** A form could
+**What it was for.** A form could
 only ever be met by finding a bank item that happened to carry its type, which is
 why three of them sat at 4% of the content and a round could pass without meeting
 one. The lab **lists whatever `Kit.prompt` holds** (`types()` + the new `info(type)`,
@@ -812,7 +812,8 @@ draws it at board size against the hub's own stylesheet, reveals it, and reports
 which of the three outcomes happened — drawn, *declined to plain text*, or no form
 at all. **Ask the room** puts the same question on the handsets as an everyone-types
 round and judges the replies with `Kit.answer.judge`, exactly as a game would. So a
-form can be tried before a single bank item is authored for it. `promptlab` suite.
+form can be tried before a single bank item is authored for it. All of that is on
+the question bench now; the `forms` suite covers it.
 
 **A form has two stages, and the isolation is structural, not a convention.**
 Experimental forms live in **`playground/lab-forms.js`**, which the lab loads and
@@ -827,7 +828,7 @@ make the form separate*: `bridge` was written straight into the kit and was
 therefore shipped, invisible only because no content used it. It lives in the lab
 file now.
 
-**Portability is checked, not intended.** The `promptlab` suite drops
+**Portability is checked, not intended.** The `forms` suite drops
 `lab-forms.js` into a real hub page, starts Jeopardy, and asserts every form it
 registers draws *and* reveals on a live clue card. It iterates whatever the file
 registers, so a form added next month is covered without the check being edited,
@@ -919,11 +920,29 @@ playground's point, that one board can host several:
     answer `a`; neither a round nor a form has ever learned that. Exporting
     `answer:` would produce a category that loads without complaint and shows an
     empty answer line on every clue in it.
-  - **`prompt-lab.html` is still there and is now the duplicate.** Retiring it means
-    moving ~20 `promptlab` checks onto the bench; its hub-portability block (drop
-    `lab-forms.js` into a real hub page, assert every form draws *and* reveals on a
-    live clue card) is about forms in a *game* and survives wherever it lives.
-    Not done — the merge was kept additive so nothing that worked was disturbed.
+  - **Which boards a form suits is on the bench too**, and it was the one thing the
+    lab had that the merge missed. It is the form's own declaration, read rather
+    than restated — an anagram in Millionaire is given away by its four options, an
+    odd one out in Race by the board — and an author who cannot see it writes a
+    question that cannot work where they meant to use it. A **round** shows nothing
+    there, and that is correct rather than missing: which skins can host a round is
+    a question about *contention* (a round wants the card and the phones; a skin
+    conflicts only if it already owns one) rather than about answer shape.
+  - **`prompt-lab.html` is retired.** The bench is a superset now, so the page was
+    deleted and `index.html` and the room bench's picker repointed. The `promptlab`
+    suite became **`forms`**, holding what was never about that page: the isolation
+    between a kit form and a lab-only one, the portability check that drops
+    `lab-forms.js` into a real hub page and draws every form on a live Jeopardy clue
+    card, the suits line, and a form's replies typed and judged on a handset.
+    **A form's phone path was nearly lost in the merge** — the first pass covered
+    drawing and revealing on the bench and nothing else, and it was only writing the
+    replacement suite that caught it.
+  - **Two bad assumptions in my own new checks, both found by running them.** A
+    phone is spent after one reply in an `answer` round, so a second verdict needs a
+    re-ask — the mode working, not a fault. And `work` is four letters, where the
+    spelling tolerance is **zero**, so no misspelling of it can ever come back
+    *close*; the near-miss check had to move to a seven-letter answer. Neither would
+    have been visible without the assertion failing.
 - **The bench authors content now, not just question types.** It held one throwaway
   sample and forgot it on reload, so it could be used to iterate a *type* and never
   to write questions — which is the job the moment a type is finished. It now keeps
@@ -1300,7 +1319,7 @@ playground's point, that one board can host several:
     board build.
   - **A $100 tile affords exactly one reveal layer**, so author one at $100 and two
     from $200 up. Eight categories × 5 fits 1280×720 exactly.
-  - **The `promptlab` suite named `bridge` as the experimental form**, so graduating
+  - **The forms suite named `bridge` as the experimental form**, so graduating
     it failed the check for the right reason with the wrong message. It derives the
     two sets now — whatever the lab file registers beyond what the kit holds is
     experimental *by definition*. The same "a literal list is a photograph" bug the
@@ -1505,8 +1524,10 @@ playground's point, that one board can host several:
     with no `?board=`, so the projector pane is blank while the picker already says
     "Playground · Connections" — selected but not opened. Opening the picker's
     default on load would fix it; not done yet.
-- **Question forms have a rig now, and a sixth form to prove it.** `playground/
-  prompt-lab.html` lists every registered form, draws and reveals it at board size,
+- **Question forms have a rig now, and a sixth form to prove it.** *(The rig was
+  `playground/prompt-lab.html`, since retired — the question bench does all of this
+  now. Kept because the reasoning is what the bench inherited.)* It
+  lists every registered form, draws and reveals it at board size,
   and pushes the same question to phones — see "The playground". It exists because
   a form previously had nowhere to be seen: you had to find a bank item carrying
   its type, which is the same reason density is the open problem. The menu asks
@@ -2577,7 +2598,7 @@ runs. Pick the row, run it, push.
 | **Content** (a bank, a unit file) | `--only=content` | ~20s |
 | **One game's own logic** (board, its `tension()`, its stage CSS) | `--only=<game>` | ~40s |
 | **Shared layer 1** — `hub-kit.js`, the header, the team bar, the clue card, `hub.css` outside one stage, settings, the fit | `--only=millionaire,fit,phone,card,turns,gameshow,lab,registry,competition` | ~4 min |
-| **A playground page** (`playground/*.html`, `bench-kit.js`, `lab-forms.js`) | `--only=playground,promptlab,bench,qbench` | ~1 min |
+| **A playground page** (`playground/*.html`, `bench-kit.js`, `lab-forms.js`) | `--only=playground,forms,bench,qbench` | ~1 min |
 | **A question round** (`hub-rounds.js`, `hub-rounds.css`, `rounds/*.js`) | `--only=qbench,grouping,card,gameshow` | ~4 min |
 | **The Lab board** (`unit-lab.js`, `game-hub-lab.html`, a clue that runs a round) | `--only=grouping,content,jeopardy,card` | ~2 min |
 | **Phones / relay** — `hub-buzzer.js`, `buzzer-relay.js`, `join.html` | add `,buzzers,phonemodes,teamvote,phoneteams,degradation,reconnect,playground,bench` | +6 min |

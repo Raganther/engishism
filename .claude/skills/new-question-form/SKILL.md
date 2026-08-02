@@ -1,6 +1,6 @@
 ---
 name: new-question-form
-description: Add a question form to the Engishism Game Hub — a new way a question is *asked*, like a gap fill, anagram, odd-one-out, error correction or word bridge. Use this whenever the user wants a new kind of question, a new prompt dynamic, an interactive puzzle inside a clue, or asks why a typed item renders as plain text. Also use it when trying a question idea in the prompt lab before it reaches the games.
+description: Add a question form to the Engishism Game Hub — a new way a question is *asked*, like a gap fill, anagram, odd-one-out, error correction or word bridge. Use this whenever the user wants a new kind of question, a new prompt dynamic, an interactive puzzle inside a clue, or asks why a typed item renders as plain text. Also use it when trying a question idea on the question bench before it reaches the games.
 ---
 
 # Adding a question form
@@ -50,11 +50,11 @@ structural rather than a convention to remember. **Graduating is moving the
 registration block from one file to the other — the code itself does not change**,
 because what you write in the lab file is already the shared contract.
 
-**Portability is checked every run.** The `promptlab` suite drops `lab-forms.js`
+**Portability is checked every run.** The `forms` suite drops `lab-forms.js`
 into a real hub page, starts Jeopardy, and asserts every form it registers draws
 *and* reveals on a live clue card. It iterates whatever the file registers, so a
 new form is covered without editing the check — and a form that quietly depends on
-something only the lab has fails the day it is written, not at graduation. Give
+something only the bench has fails the day it is written, not at graduation. Give
 each form a sample in `LabForms.samples`; that is what the check renders, and a
 form with no sample cannot be proved.
 
@@ -89,9 +89,9 @@ if(links.length < 3 || slots.length !== 1){ mount.textContent = text; return; }
 
 **A decline and a no-op look identical on screen**, and `render()` cannot tell you
 which happened — it returns the type whenever the form *ran*. The tell is that a
-declining form leaves **no element children**. The prompt lab reports the three
-outcomes separately for exactly this reason; when a form "does nothing", look there
-before debugging the renderer.
+declining form leaves **no element children**. The question bench says so in its
+verdict line for exactly this reason — “… looked at this and declined” — so when a
+form "does nothing", look there before debugging the renderer.
 
 `reveal` declines too, and the existing forms show what for: an answer over ~26
 characters, alternatives (`forbidden / not permitted`), or one carrying a teacher's
@@ -103,12 +103,16 @@ Put the rules beside the other `.prompt-*` blocks, and **add the game-show varia
 in the skin block** — a form styled only for the DCU theme goes invisible on a lit
 board (navy on navy). Check both themes.
 
-## 4. Prove it in the lab
+## 4. Prove it on the bench
 
-Open `playground/prompt-lab.html`, pick the form, draw and reveal. Then **Ask the
-room** with a phone (or the room bench) — a form that reads well on a projector can
-still be unanswerable from a handset. The lab needs no code change to list a new
-form; it asks the registry.
+Open `playground/question-bench.html`, pick the form from the menu — it is grouped
+under **Question forms**, and a lab-only one under *lab only, can reach no game* —
+then draw and reveal. Then **Ask the room** with a phone (or the room bench): a form
+that reads well on a projector can still be unanswerable from a handset. The bench
+needs no code change to list a new form; it asks the registry.
+
+The bench is also where you author the items, which is the step that decides whether
+the form exists at all — write a few, watch the verdict line, and export.
 
 ## 5. Test it
 
@@ -120,7 +124,7 @@ Add to `testPromptTypes` in `tools/smoke-test.js`, both directions:
 - if it names `games`, a board it does not suit gets plain text.
 
 ```bash
-NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=prompts,promptlab,content
+NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=prompts,forms,qbench,content
 ```
 
 Registering in the kit also means the shared gate:
