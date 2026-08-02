@@ -24,7 +24,8 @@ K.round.register('ordering', {
 });
 ```
 
-The hub registers `jRound_<id>` from that at init, so **a round's modes need nothing
+The hub registers `round_<id>` from that at init — in the shared `Questions` group,
+and offered to every board in `ROUND_HOSTS` — so **a round's modes need nothing
 in this procedure** — no `S.register` call, no preset, no panel edit. The bench builds
 a dropdown from the same declaration. Neither host ever learns what a mode *means*.
 

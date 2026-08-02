@@ -83,8 +83,11 @@ owns one of those. This is the whole rule; there is no list of compatible games.
 | Race | **yes** — the scattered words *are* the board | no | needs a stage mount |
 
 Do **not** assume a board with one-word answers can only host word-shaped rounds.
-Blockbusters' hexagon letter is used for its display, the clue topline and the picking
-vote — the win condition searches *claimed* hexagons and never reads it.
+Blockbusters' hexagon letter turned out to be the hexagon's **name** — its display,
+the clue topline and the picking vote — and never a constraint: the win condition
+searches *claimed* hexagons and has never read it. Dropping the rule that the answer
+begins with the letter cost nothing on the board and unlocked every round; the letter
+is still on every hexagon, because a team has to be able to say which one they want.
 
 **Two additions are not built yet**, and a round needing either is blocked:
 - state that outlives one question (Bingo's card persists across many calls),
@@ -116,14 +119,30 @@ registered. Nothing to edit.
 
 ## 5. Wiring it into a game show
 
-The host writes an adapter, and it should be thin. Jeopardy's is ~160 lines and
-every one of them is about *Jeopardy*: where the card is mounted, what winning is
-worth, what happens to the tile. If your adapter is doing anything a second game
-would also have to do, that thing belongs in the round.
+The adapter is shared, and a host is now four declared facts rather than a second
+copy of it. `ROUND_HOSTS` in `hub-engine.js`:
 
-**Only Jeopardy has one.** Every `Kit.round` call site is inside its adapter, so
-adding a round today means it plays on exactly one board. Getting a second host is the
-next piece of work — see the build order in `CLAUDE.md`.
+```js
+blockbusters: {
+  game:'blockbusters', modal:'blockbusters', stage:'play-blockbusters',
+  turn: () => bbTeamOnTurn(),          // whose round it is when it is scoped
+  win:  team => claimHex(team) || 1    // what taking it is worth here; returns what it paid
+}
+```
+
+**Jeopardy and Blockbusters both host rounds, and a third board is an entry in that
+table** — plus the two calls the board itself makes when a clue opens:
+`jGroupOf(item, '<host>')` before `askPhones`, and `jGroupOpen` if it found one.
+
+You should not need to touch a round to add a host. Blockbusters cost no change to
+any of the five, which is the evidence that the tier is a shelf rather than one
+game's helper — one caller was only ever a guess about an API.
+
+**A skin's own affordances have to stand down while a round is live.** Blockbusters
+scores by claiming, so its team chooser is a second way to award the same hexagon;
+it is hidden until the round is over and put back on Reveal, exactly as Jeopardy's
+Correct and Wrong only exist after Reveal. Whatever your board's equivalent is, a
+live round owns the verdict.
 
 Two traps the grouping round paid for:
 

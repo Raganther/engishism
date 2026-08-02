@@ -245,6 +245,10 @@
     onTypedWin(b){ return currentClueItem ? (claimHex(b.team) || 1) : null; },
     wantsVote:   () => !!S.get('bbTeamVote', 'blockbusters'),
     onVoteReply(all){ if(bbVote){ bbVote.apply(all); renderBBVote(); } },
+    /* A hexagon can open a round, and a round owns the handsets while it runs —
+       the same reason Jeopardy's tile does. The mode is not consulted, because
+       what the phones are put into *is* the question here. */
+    phoneRound(){ return jGroupRound(); },
     fit:      layoutBlockbustersBoard,
     deal:     bbDeal,
     tension(){ bbTension(); },
@@ -399,6 +403,46 @@
     tension(){ bingoTension(); },
     onResize: fitBingoCards
   });
+
+  /* ---------- which boards can host a round ----------
+     A round is drawn in the shared clue card, so it is literally the same code
+     whichever board opened it. What differs is only what the *host* contributes,
+     and it comes to four facts: whose settings scope it, which modal mode it
+     belongs to, which stage is lit (so the sting only plays under the skin), and
+     what a team taking it is worth.
+
+     Declared rather than branched, so the adapter further down never learns the
+     name of the game it is running inside — which is what made a second host cheap
+     rather than a rewrite. A third one is an entry in this table.
+
+     **It sits up here so the settings below can be derived from it**, rather than
+     from a list of game names typed out a second time. `games: gameIds()` was
+     exactly that mistake once and it made the fifth game a second-class citizen;
+     anything that names the games is a bug waiting for the next one.
+
+     `win` returns what it paid, because the phone strip names the student *and*
+     the amount, and a tile and a hexagon are worth completely different things.
+     Everything it references is either a hoisted function or read at call time, so
+     the table can be declared before any of it exists. */
+  const ROUND_HOSTS = {
+    jeopardy: {
+      game:'jeopardy', modal:'jeopardy', stage:'play-jeopardy',
+      turn: () => active,
+      win:  team => jCorrect(team)
+    },
+    blockbusters: {
+      game:'blockbusters', modal:'blockbusters', stage:'play-blockbusters',
+      /* Whose turn it is here is the team whose *side* is up. A four-team class
+         plays as two alliances, so the round belongs to whoever is actually at the
+         board rather than to `active`, which follows the last buzz. */
+      turn: () => bbTeamOnTurn(),
+      /* A hexagon is worth what the board says a hexagon is worth — the floor is
+         there because a round that paid nothing would read as not having counted. */
+      win:  team => claimHex(team) || 1
+    }
+  };
+  const ROUND_GAMES = Object.keys(ROUND_HOSTS);
+  let roundHost = ROUND_HOSTS.jeopardy;
 
   /* ---- feature switches. Adding a feature? Register it here and the settings
      panel picks it up automatically — there is no panel markup to edit. ---- */
@@ -591,21 +635,52 @@
      value back through `ctx.mode` and the round does the rest. Registered here with
      everything else, because a setting registered later than init is a row the
      panel has already been built without. */
+  /* `Questions`, not `Jeopardy`, and the ids carry no game in them — a round is
+     drawn in the shared clue card and every board that opens one hosts the same
+     code. A group is a game's own when everything in it names exactly one game, so
+     naming two is what puts these where they belong without a list anywhere. */
   (Kit.round ? Kit.round.ids() : []).forEach(id => {
     const def = Kit.round.get(id);
     if(!def || !def.modes || !def.modes.length) return;
-    S.register({ id:'jRound_' + id, group:'Jeopardy', type:'variant',
-      default: def.modes[0].value, games:['jeopardy'],
+    S.register({ id:'round_' + id, group:'Questions', type:'variant',
+      default: def.modes[0].value, games:ROUND_GAMES,
       label:'How ' + (def.label || id) + ' is played',
       variants: def.modes.slice(),
       help:'The same question played more than one way. These are different lessons rather than two speeds of the same one, so it is a teaching choice.' });
   });
 
-  S.register({ id:'jGroupWho', group:'Jeopardy', type:'variant', default:'room',
-    games:['jeopardy'], label:'Who plays a grouping clue',
-    variants:[{ value:'room', label:'The whole class races — first group found takes the tile' },
+  S.register({ id:'roundWho', group:'Questions', type:'variant', default:'room',
+    games:ROUND_GAMES, label:'Who plays a round',
+    variants:[{ value:'room', label:'The whole class races — first team to get it takes the square' },
               { value:'turn', label:'Only the team on turn' }],
-    help:'A grouping clue asks the room to assemble a set on their phones. It can be a race between every team, or belong to the team whose turn it is like any other tile.' });
+    help:'A round asks the room to assemble an answer on their phones. It can be a race between every team, or belong to the team whose turn it is like any other clue.' });
+
+  /* Rounds were Jeopardy's alone for the first three, so their switches were named
+     and grouped as Jeopardy's: `jGroupWho`, and `jRound_<id>` per round. A second
+     board hosts rounds now, and a shared setting carrying one game's initial in its
+     id is a name that will be wrong for as long as it exists.
+
+     **A per-game override is exactly what a teacher set deliberately**, so it is
+     translated rather than left behind under a key nothing reads any more. The old
+     key being present is itself the signal — asking whether the new id is unset
+     never fires, because `register()` seeds every master with its default — and
+     `drop()` is what makes this run once, before anybody can have chosen a new
+     value. Registered above this, or `set` would be writing to an id that does not
+     exist yet. */
+  (function migrateRoundSettings(){
+    const ids  = Kit.round ? Kit.round.ids() : [];
+    const pairs = [['jGroupWho', 'roundWho']]
+      .concat(ids.map(id => ['jRound_' + id, 'round_' + id]));
+    const dead = [];
+    [''].concat(gameIds().map(g => '@' + g)).forEach(sfx => {
+      pairs.forEach(([old, now]) => {
+        const had = S.raw(old + sfx);
+        if(had != null) S.set(now, had, sfx ? sfx.slice(1) : null);
+        dead.push(old + sfx);
+      });
+    });
+    S.drop(dead);
+  })();
 
   S.register({ id:'jDailyDoubles', group:'Jeopardy', type:'range', default:0,
     min:0, max:3, step:1, unit:' hidden', games:['jeopardy'],
@@ -3289,6 +3364,7 @@
   function jGroupClue(){ return !!jGroup; }
   function jGroupLive(){ return !!jGroup && !jGroup.done; }
 
+
   /* ---------- the adapter ----------
      Everything the round *is* — the card, the phone payload, the union of a team's
      picks, the judging — lives in `game-hub/rounds/grouping.js` and is shared with
@@ -3312,12 +3388,12 @@
       teams:  teams.map((t, i) => teamName(i)),
       sizes,
       teamName,
-      prompt: !!S.get('phonePrompt', 'jeopardy'),
+      prompt: !!S.get('phonePrompt', roundHost.game),
       // `null` is the whole room; a scoped round belongs to the team on turn
-      team:   S.get('jGroupWho', 'jeopardy') === 'turn' ? active : null,
+      team:   S.get('roundWho', roundHost.game) === 'turn' ? roundHost.turn() : null,
       mode:   jRoundMode(id || jRoundId),
       // which lane the teacher's own clicks act on, when a round gives each team one
-      forTeam: active,
+      forTeam: roundHost.turn(),
       onPick: jGroupTeacherPick
     };
   }
@@ -3325,7 +3401,12 @@
   /* Which round this clue wants, asked of the registry rather than named here — so
      a round written next month is playable the day a bank item carries its field,
      with no engine change at all. That is the whole return on the extraction. */
-  function jGroupOf(item){
+  /* The host is named here rather than at `jGroupOpen`, because `setup` is handed a
+     `ctx` and the ctx is scoped to whichever board is asking — the mode, who is
+     entitled and how many are on that team all read the host. Asking first and
+     declaring second would set up the round against the *previous* board. */
+  function jGroupOf(item, host){
+    roundHost = ROUND_HOSTS[host] || ROUND_HOSTS.jeopardy;
     const hit = Kit.round.of(item);
     if(!hit) return null;
     const st = hit.def.setup(item, jGroupCtx(hit.id));
@@ -3347,7 +3428,7 @@
   function jRoundMode(id){
     const def = id ? Kit.round.get(id) : null;
     if(!def || !def.modes || !def.modes.length) return null;
-    return S.get('jRound_' + id, 'jeopardy');
+    return S.get('round_' + id, roundHost.game);
   }
 
   /* The round the phones are put into, read through `phoneRound()` so it reaches the
@@ -3407,7 +3488,7 @@
   function renderJGroupButton(){
     const btn = document.getElementById('group-btn');
     if(!btn) return;
-    const on = jGroupLive() && modalMode === 'jeopardy';
+    const on = jGroupLive() && modalMode === roundHost.modal;
     btn.style.display = on ? 'inline-block' : 'none';
     if(!on) return;
     const cap = jRoundCap();
@@ -3455,7 +3536,7 @@
       jGroupSettler.reset();          // the question moved on, so every answer is worth trying again
       renderJGroup();
       Sound.play('correct');
-      askPhones(currentClueItem.text, 'jeopardy');   // the next rung is a new question
+      askPhones(currentClueItem.text, roundHost.game);  // the next rung is a new question
       return;
     }
     verdicts.forEach(v=>{
@@ -3483,7 +3564,7 @@
     jGroup.done = true;
     jGroup.say  = teamName(team) + ' has it.';
     renderJGroup();
-    Sound.play(document.getElementById('play-jeopardy').classList.contains('lit')
+    Sound.play(document.getElementById(roundHost.stage).classList.contains('lit')
                ? 'sting' : 'correct');
     /* The class produced the answer and the host judged it, so there is nothing left
        for the teacher to confirm — the same rule a typed word has always followed.
@@ -3492,7 +3573,7 @@
     const value = currentClueValue;
     setTimeout(()=>{
       if(!jGroup) return;                 // the teacher closed the card in the meantime
-      const paid = jCorrect(team);
+      const paid = roundHost.win(team);
       notePhoneScore(teamName(team), team, null, paid || value);
     }, J_GROUP_TAKE_MS);
   }
@@ -3575,7 +3656,7 @@
        came to show `U` over an answer beginning with I. */
     /* Set up once and keep it: `setup` shuffles, so asking twice would draw one
        order for the answer line and another for the card. */
-    const grp = jGroupOf(currentClueItem);
+    const grp = jGroupOf(currentClueItem, 'jeopardy');
     if(grp) currentClueItem.answer = grp.state.answer;
     drawPrompt(document.getElementById('clue-text'), currentClueItem, 'jeopardy');
     /* Before `askPhones`, which consults `phoneRound()` — and `phoneRound()` cannot
@@ -3617,25 +3698,55 @@
     if(bbWon) return;                        // the round has an ending; nothing left to claim
     if(hex.classList.contains('claimed-gold') || hex.classList.contains('claimed-silver')) return;
     currentTile=hex; modalMode='blockbusters';
+    /* The letter stays on the topline whatever is behind the hexagon. It is the
+       hexagon's *name* — how a team says which one they are attacking, and what the
+       picking vote counts — and it stopped being a promise about the answer's first
+       letter the day a hexagon could open a round. A grouping set has four answers
+       and an ordering scale has five; neither has an initial to match. */
     document.getElementById('clue-topline').textContent = clueObj.letter;
     document.getElementById('clue-section').textContent = clueObj.section;
     currentClueItem = { text:clueObj.clue, answer:clueObj.answer, type:clueObj.type };
+    /* Whatever field a registered round claims, carried across by asking the
+       registry rather than by naming them here — the same normalisation Jeopardy
+       does, and for the same reason: naming them by hand is what silently dropped
+       a feature twice, the symptom being that it simply never appeared. */
+    Kit.round.fields().forEach(f => { if(clueObj[f] !== undefined) currentClueItem[f] = clueObj[f]; });
+    /* Set up once and keep it: `setup` shuffles, so asking twice would draw one
+       order for the answer line and another for the card. A round's answer is
+       derived from the round rather than authored beside it, because two copies of
+       one fact are two things that can drift. */
+    const rnd = jGroupOf(currentClueItem, 'blockbusters');
+    if(rnd) currentClueItem.answer = rnd.state.answer;
     /* Opening a hex answers the vote's question, so it ends there rather than
        waiting for the button — and it must end *before* askPhones, or the arm
        below would be overwritten by a vote nobody is still taking. */
     bbVoting = false; bbVote = null; renderBBVote();
-    askPhones(clueObj.clue, 'blockbusters');
     drawPrompt(document.getElementById('clue-text'), currentClueItem, 'blockbusters');
-    const ansEl=document.getElementById('clue-answer'); ansEl.style.display='none'; ansEl.textContent=clueObj.answer;
+    /* After `drawPrompt`, which owns `#clue-text` and clears it, and before
+       `askPhones`, which consults `phoneRound()` — and `phoneRound()` cannot say
+       what the handsets want until the round exists. */
+    jGroupEnd();
+    if(rnd) jGroupOpen(rnd);
+    askPhones(clueObj.clue, 'blockbusters');
+    const ansEl=document.getElementById('clue-answer'); ansEl.style.display='none';
+    ansEl.textContent = currentClueItem.answer || clueObj.answer || '';
     hideAllActionButtons();
     document.getElementById('reveal-btn').style.display='inline-block';
     /* Every team that exists, not the first two. `allow` used to be [0,1] because
        the board is two-sided — but the side a team plays for is `bbSideOf`, so a
-       four-team class can all answer; their hex simply takes their side's colour. */
-    clueClaim.show(teams, teams.map((_, i) => i));
+       four-team class can all answer; their hex simply takes their side's colour.
+
+       A live round judges itself and pays the hexagon out of `roundHost.win`, so
+       the chooser would be a second way to award the same square — it stands down
+       until the round is over, exactly as Jeopardy's Correct and Wrong do, and the
+       reveal puts it back for a class that never got there. */
+    if(!rnd) clueClaim.show(teams, teams.map((_, i) => i));
     const bbSkip = document.getElementById('skip-btn');
     bbSkip.textContent = 'No claim / close';
     bbSkip.style.display='inline-block';
+    /* After `hideAllActionButtons()`, which is the whole reason it is down here:
+       the round's Check button is one of the buttons that clears. */
+    renderJGroupButton();
     bbTension(true);                 // think music while the clue is on the table
     openClueCard(hex);
   }
@@ -4037,6 +4148,11 @@
       if(jGroupSettler) jGroupSettler.stop();   // the answer is out; nothing left to judge
       jRoundDef().reveal(document.getElementById('clue-group'), jGroup, jGroupCtx());
       renderJGroupButton();
+      /* The round has stopped judging, so the hexagon needs a hand to award it
+         again. Blockbusters has no Correct button — claiming *is* how that board
+         scores — so revealing a round clue has to put the chooser back or the
+         square can only be left unclaimed. */
+      if(modalMode === 'blockbusters') clueClaim.show(teams, teams.map((_, i) => i));
     }
     /* The final settles team by team rather than once, so revealing it hands over
        to that sequence instead of showing a single pair of buttons. */

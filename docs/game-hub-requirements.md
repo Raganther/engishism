@@ -23,7 +23,7 @@ section; §3.7's three layers are now four.
 | | |
 |---|---|
 | Games | 5 — Bingo joined the four, consuming an existing bank through a predicate rather than a bank of its own |
-| Rounds | 3 — grouping (Connections), ordering (Word Thermometer), multiple choice. One registry, `Kit.round` |
+| Rounds | 5 — grouping (Connections), ordering (Word Thermometer), multiple choice, anagram and word order (both dragged on the handsets). One registry, `Kit.round` |
 | Question forms | 6 on the shipped shelf (`Kit.prompt`): gap, anagram, odd one out, error fix, word order, word bridge |
 | Workshop | `playground/question-bench.html` — a round's card and a rack of real handsets on one screen, and now a content editor that loads, edits and exports categories |
 | Lab board | `game-hub-lab.html` — 11 categories, one question type each, deliberately not loaded by the class-facing hub |
@@ -31,8 +31,10 @@ section; §3.7's three layers are now four.
 
 **What is NOT yet true, and matters most:**
 
-- **Rounds play in one game show.** Every `Kit.round` call site is inside the Jeopardy
-  adapter. Blockbusters, Millionaire, Race and Bingo cannot host a round at all.
+- **Rounds play in two game shows.** Jeopardy and Blockbusters both host them, and a
+  host is now four declared facts in `ROUND_HOSTS` rather than an adapter — but
+  Millionaire, Race and Bingo still cannot host one, and the last two are blocked on
+  F3.8.8/F3.8.9 rather than on effort.
 - **Phone logic still lives in the game shows**, all five of them. `phoneRound()`
   exists precisely because two of them wanted the handsets at once.
 - **Content is still four hand-authored banks per unit.** §3.2's per-game model is
@@ -449,15 +451,22 @@ phones; a skin conflicts only if it already owns one of them.
 | Skin | Owns the card? | Owns the phones? | Can host any round? |
 |---|---|---|---|
 | Jeopardy | no — a tile opens one | no | **yes** — built |
+| Blockbusters | no — a hexagon opens one | no | **yes** — built |
 | Millionaire | no — a rung opens one | no | **yes** — not built |
-| Blockbusters | no — a hexagon opens one | no | **yes** — not built |
 | Bingo | no | **yes** — every phone holds a card | card-only rounds, teacher-judged |
 | Race | **yes** — the scattered words *are* the board | no | needs F3.8.9 |
 
-**Blockbusters is not restricted to one-word answers.** The hexagon's letter appears in
-its display, the clue card's topline and the hexagon-picking vote; the win condition is
-a search over which hexagons are *claimed* and never reads it. The letter is an
-affordance of the skin, not a structural requirement.
+**Blockbusters is not restricted to one-word answers**, and is now the second host.
+The hexagon's letter appears in its display, the clue card's topline and the
+hexagon-picking vote; the win condition is a search over which hexagons are *claimed*
+and never reads it. The letter is an affordance of the skin — the hexagon's **name**,
+which is how a team says which square they are attacking — not a structural
+requirement, so the rule that an answer begins with it is asked of ordinary clues only.
+
+| ID | Requirement | Priority |
+|---|---|---|
+| F3.8.14 | A game show hosts a round by declaring what it contributes (settings scope, modal mode, stage, whose turn, what winning pays) — never by an adapter that repeats the round's own logic | Must |
+| F3.8.15 | A skin's own way of awarding a question stands down while a round is live; the round owns the verdict | Must |
 
 **Bingo can still host a round**, card-only. Every round already supports a no-relay
 path (F3.8.6), which is exactly the behaviour needed when the skin owns the handsets.
@@ -491,18 +500,28 @@ first caller is what proves the extraction was behaviour-neutral.
 
 #### Build order
 
-1. **Millionaire hosts the multiple choice round.** Cheapest — no contract change — and
+1. ~~**Blockbusters hosts a round.**~~ **Done in v0.4.** A second host and a non-tile
+   geometry, at the cost of no change to any of the five rounds — which is the
+   evidence F3.8.13 was after. A host is now four declared facts in `ROUND_HOSTS`
+   (`game`, `modal`, `stage`, `turn()`, `win()`) rather than a per-game adapter.
+   The hexagon letter turned out to be the hexagon's **name** — its face, the clue
+   topline, and the picking vote's options — and never a constraint: `bbOutcome()`
+   searches *claimed* hexagons and has never read it. "The answer starts with the
+   letter shown" was a rule about the bank, so it is asked of ordinary clues only.
+2. **Millionaire hosts the multiple choice round.** Cheapest — no contract change — and
    it deletes Millionaire's private option rendering, which is the same question drawn
    twice in the codebase today.
-2. **Blockbusters hosts a round.** Proves a third host and a non-tile geometry.
 3. **F3.8.8 and F3.8.9** — persistent round state, and the stage as a mount.
 4. **Bingo extracted.** Forces the persistent-state case, and is smaller than Race.
 5. **Race extracted.** The hardest: the round owns the board.
 6. **Content filing.** Beside the existing banks, migrating a unit at a time.
 
-Steps 1 and 2 come first deliberately: Bingo and Race are working games with a great
-deal of tested behaviour, and the adapter pattern should be proved on the cheap cases
-before anything that works is touched.
+The cheap hosts come first deliberately: Bingo and Race are working games with a great
+deal of tested behaviour, and the pattern should be proved on the cheap cases before
+anything that works is touched. Blockbusters went ahead of Millionaire because the
+question it settled was the larger one — whether a board whose answers are single words
+keyed by an initial could host a round at all, and therefore whether the tier
+generalises.
 
 ---
 

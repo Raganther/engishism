@@ -80,15 +80,24 @@ A round wants the card and the phones. A skin conflicts only if it already owns 
 | Skin | Owns the card? | Owns the phones? | Any round? |
 |---|---|---|---|
 | Jeopardy | no — a tile opens one | no | **yes, built** |
+| Blockbusters | no — a hexagon opens one | no | **yes, built** |
 | Millionaire | no — a rung opens one | no | yes, not built |
-| Blockbusters | no — a hexagon opens one | no | yes, not built |
 | Bingo | no | **yes** — every phone holds a card | card-only, teacher-judged |
 | Race | **yes** — the scattered words *are* the board | no | needs a stage mount |
 
-**Blockbusters is not limited to one-word answers**, contrary to what the hexagon
-suggests: the letter is used for its display, the clue topline and the picking vote,
-and the win condition searches *claimed* hexagons without ever reading it. Checked,
-not assumed.
+**A host is four declared facts now, not an adapter.** `ROUND_HOSTS` in
+`hub-engine.js` names, per board: which game's settings scope the round, which modal
+mode it belongs to, which stage is lit, and what a team taking it is worth. Everything
+else — the card, the phones, the merging, the judging — is the round's and is shared.
+A third host is an entry in that table plus two calls where its clue opens.
+
+**Blockbusters was not limited to one-word answers**, contrary to what the hexagon
+suggests, and it is now the second host. The letter is the hexagon's **name** — its
+display, the clue topline and the picking vote — and the win condition searches
+*claimed* hexagons without ever reading it. So the rule that an answer begins with its
+letter was about the *bank*, never the board: dropped for round clues, kept for
+ordinary ones, and every hexagon still carries a letter because a team has to be able
+to say which one they are attacking.
 
 **Bingo can still host a round, card-only** — every round already owes a no-relay path
 where the teacher clicks and judges, which is exactly the behaviour needed when the
@@ -103,17 +112,21 @@ skin owns the handsets.
   allowed to pass a different one.
 
 ### Build order, and why this order
-1. **Millionaire hosts the multiple choice round.** No contract change, and it deletes
-   Millionaire's private option rendering — the same question drawn twice today.
-2. **Blockbusters hosts a round.** A third host, and a non-tile geometry.
+1. ~~**Blockbusters hosts a round.**~~ **Done** — a second host, a non-tile geometry,
+   and it cost no change to any of the five rounds. See Current status.
+2. **Millionaire hosts the multiple choice round.** No contract change, and it deletes
+   Millionaire's private option rendering — the same question drawn twice today. Now
+   the next thing to build.
 3. **The two contract additions above.**
 4. **Bingo extracted** — forces the persistent-state case, smaller than Race.
 5. **Race extracted** — hardest; the round owns the board.
 6. **Content filing**, beside the existing banks, a unit at a time.
 
-Steps 1–2 first *deliberately*: Bingo and Race are working games with a lot of tested
-behaviour, and the adapter pattern should be proved on the cheap cases before anything
-that works is touched.
+The cheap hosts first *deliberately*: Bingo and Race are working games with a lot of
+tested behaviour, and the pattern should be proved on the cheap cases before anything
+that works is touched. Blockbusters went before Millionaire in the end because the
+question it answered was bigger — whether a board with one-word answers could host a
+round at all — and the answer decides whether the tier generalises.
 
 ### Content: one filing system, not one pool
 §3.2's per-game argument still holds for *answer shape*. What it missed is that **not
@@ -866,6 +879,79 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A hexagon opens a round now — Blockbusters is the second host, and it needed
+  no change to any of the five rounds.** That is the whole measurement. A shelf
+  with one caller is a guess about an API; the five rounds were *shaped* by
+  Jeopardy, so of course they fitted it, and a second board was the only thing
+  that could tell the difference between a tier and one game's helper. Eleven
+  hexagons on the Lab board (`LB1` mixed, `LB2` rounds only).
+  - **The letter was never a constraint — it is the hexagon's *name*.** Checked
+    rather than assumed: it is used in exactly three places (the hexagon's face,
+    the clue topline, and the picking vote's options), and `bbOutcome()` searches
+    *claimed* hexagons without ever reading it. So "the answer starts with the
+    letter shown" was a rule about the **bank**, not about the board — dropped for
+    round clues, kept for ordinary ones, and enforced as before by the content
+    gate for anything that has an answer at all.
+  - **Every hexagon still carries a letter, and that is not sentiment.** It is how
+    a team says which square they are attacking, and it is what `bbOpenLetters()`
+    counts when the team on turn votes from their phones. Removing it would have
+    broken the vote for a cosmetic gain. Keeping it makes the surprise the point:
+    you take `R` and you do not know whether you are getting a one-word definition
+    or Connections — which is what the geometry buys that a Jeopardy category
+    cannot, because a column announces its question type in its heading.
+  - **A host is four declared facts, not an adapter.** `ROUND_HOSTS` names, per
+    board: which game's settings scope the round (`game`), which modal mode it
+    belongs to (`modal`), which stage is lit so the sting only plays under the skin
+    (`stage`), plus `turn()` and `win()`. Everything that used to say `'jeopardy'`
+    by hand reads the table. **A third host is an entry in it** plus the two calls
+    its clue path makes — `jGroupOf(item, '<host>')` and `jGroupOpen`.
+  - **`win()` returns what it paid**, because the phone strip names the student
+    *and* the amount, and a tile and a hexagon are worth completely different
+    things. Blockbusters routes it to `claimHex`, which already did the colouring,
+    the side advance, the turn and the win check — so a round pays out through the
+    board's own claim path rather than beside it.
+  - **The host is named at `jGroupOf`, not at `jGroupOpen`.** `setup` is handed a
+    `ctx`, and the ctx is scoped to whichever board is asking — the mode, who is
+    entitled, how many are on that team. Declaring it second would set the round up
+    against the *previous* board, silently, and only on the second clue.
+  - **A skin's own affordances have to stand down while a round is live.**
+    Blockbusters scores by claiming, so the team chooser is a second way to award
+    the same hexagon — it is hidden until the round is over and put back on Reveal.
+    Jeopardy already had this shape (Correct and Wrong only exist after Reveal);
+    the general rule is that **a live round owns the verdict**, so whatever the
+    board's equivalent is has to give way.
+  - **`ROUND_HOSTS` sits above the settings block so the games list is derived from
+    it.** `games: gameIds()` was exactly this mistake once and it made the fifth
+    game a second-class citizen. Everything the table references is either a
+    hoisted function or read at call time, so it can be declared before any of it
+    exists.
+  - **Two settings stopped being Jeopardy's and were renamed rather than widened.**
+    `jGroupWho` → `roundWho`, `jRound_<id>` → `round_<id>`, both in the shared
+    `Questions` group and offered to both hosts. A shared setting carrying one
+    game's initial in its id is a name that is wrong for as long as it exists — and
+    **a per-game override is exactly what a teacher set deliberately**, so
+    `migrateRoundSettings` translates them rather than leaving them under keys
+    nothing reads. Same two traps as `migratePhoneModes`: the old key being present
+    *is* the signal (asking whether the new id is unset never fires, because
+    `register()` seeds every master with its default), and `drop()` is what makes
+    it run once.
+  - **The content gate splits the same way the Jeopardy block does**: the round is
+    asked its own rules through `check(item)`, and what stays is this bank's
+    tidiness — a round clue that also carries an `answer` or a `type`, and the
+    letter every hexagon owes. The one-word and initial rules are asked of ordinary
+    clues only, because a grouping set has four answers and a scale has five.
+  - **The gate caught nine duplicated prompts the moment the bank was written**,
+    which is the per-game authoring rule working exactly as intended — the Lab
+    Jeopardy board already had "Rebuild the sentence" and "Put these in order —
+    least certain first". Same *answer* in two games is spaced retrieval; same
+    *prompt* is the thing the rule exists to stop.
+  - **No suite of its own yet.** Verified by driving it in a browser: a choice
+    round claiming its hexagon and scoring, a grouping round revealed and then
+    claimed by hand, and an ordinary letter clue untouched — plus a screenshot at
+    1280×720, because the card is drawn in the Blockbusters skin and nothing
+    measured would have shown whether it read. The `blockbusters`, `grouping`,
+    `card`, `gameshow`, `registry`, `lab`, `scoping` and `content` suites all pass
+    unchanged, which is the evidence that nothing shared moved under them.
 - **Word order is the second round grown out of a form, and it cost almost
   nothing — which is the point of having built the anagram one first.**
   `game-hub/rounds/scramble.js` — a shuffled sentence and a numbered slot for each
@@ -1405,7 +1491,9 @@ playground's point, that one board can host several:
     game had said it did not want, leaving the class unable to finish the clue at
     all. It asks `phoneRound()` now. **Anything that names the shared dynamic is a
     bug waiting for the next game**, same as `gameIds()` and the `.lit` stage list.
-  - **`jGroupWho` is the switch, and it is the only one worth having.** Whether the
+  - **`jGroupWho` is the switch, and it is the only one worth having.** *(Renamed
+    `roundWho` when Blockbusters became a second host — see the top of Current
+    status.)* Whether the
     whole class races for the tile or it belongs to the team on turn is a *teaching*
     decision — a choice between iterations, which is what a variant is for — where
     the settle delay and the eight-words-four-to-find are guessed numbers that want
@@ -1452,7 +1540,7 @@ playground's point, that one board can host several:
     ever have caught either.
   - **The Lab board had no test coverage at all** until this — the Reveal categories
     shipped untested last session. `grouping` suite (56 checks) drives the round,
-    the no-phones path, both settings of `jGroupWho`, the Daily Double, a miss under
+    the no-phones path, both settings of `roundWho`, the Daily Double, a miss under
     Classic's rules, an ordinary
     clue on the same card, and the card's own fit at 1280x720 and 390x844 — neither
     `fit` nor `phone` opens a clue card, so a set of words overflowing it would have

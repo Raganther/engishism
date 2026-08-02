@@ -979,7 +979,7 @@ const UNIT_AUDIT = () => {
       const id = u.id || '?';
       const banks = { jeopardy:[], blockbusters:[], race:[], millionaire:[] };
       (u.jeopardyCategories||[]).forEach(c => c.clues.forEach(x => banks.jeopardy.push({ p:x.q, a:x.a, section:c.section })));
-      (u.blockbustersBank||[]).forEach(x => banks.blockbusters.push({ p:x.clue, a:x.answer, section:x.section, letter:x.letter }));
+      (u.blockbustersBank||[]).forEach(x => banks.blockbusters.push({ p:x.clue, a:x.answer, section:x.section, letter:x.letter, round:!!ROUNDS.of(x) }));
       (u.raceBank||[]).forEach(x => banks.race.push({ p:x.prompt, a:x.answer, section:x.section }));
       (u.millionaireBank||[]).forEach(x => banks.millionaire.push({ p:x.prompt, a:x.answer, section:x.section, level:x.level, distractors:x.distractors }));
 
@@ -1022,8 +1022,31 @@ const UNIT_AUDIT = () => {
       secs.forEach((s, i) => { if(i && s !== secs[i-1] && secs.slice(0, i).indexOf(s) !== -1)
         out.push({kind:'jeopardy', msg:id + ': jeopardy section ' + s + ' is not contiguous'}); });
 
-      // Blockbusters: one word, and the hexagon's letter is its initial
+      /* Blockbusters, the same two-part split the Jeopardy block above makes: a
+         round is asked its own rules, and this bank's own tidiness stays here.
+
+         **A hexagon that opens a round has no initial to match.** A grouping set
+         has four answers and an ordering scale has five, so the one-word rule and
+         the letter rule are asked of ordinary clues only. What every hexagon still
+         owes is a `letter`, because that is the hexagon's *name* — how a team says
+         which one they are attacking, and what the picking vote counts — and it is
+         a label rather than a promise about the answer. */
+      (u.blockbustersBank||[]).forEach(x => {
+        const tag = id + ': "' + String(x.clue).slice(0, 40) + '"';
+        if(!String(x.letter || '').trim())
+          out.push({kind:'blockbusters', msg:tag + ' — no letter; a hexagon has to be nameable'});
+        const hit = ROUNDS.of(x);
+        if(!hit) return;
+        // normalised first, exactly as `openBlockbustersClue` does it — a round has
+        // never learned that this bank calls a prompt `clue`
+        const item = Object.assign({}, x, { text:x.clue });
+        (hit.def.check(item) || []).forEach(m =>
+          out.push({kind:hit.id, msg:tag + ' — ' + m}));
+        if(x.answer) out.push({kind:hit.id, msg:tag + ' — carries an `answer` as well as a ' + hit.id + '; the answer is in the round'});
+        if(x.type) out.push({kind:hit.id, msg:tag + ' — carries type "' + x.type + '" as well as a ' + hit.id});
+      });
       banks.blockbusters.forEach(i => {
+        if(i.round) return;
         if(/\s/.test(String(i.a).trim())) out.push({kind:'blockbusters', msg:id + ': answer is not one word — ' + i.a});
         if(String(i.a)[0].toUpperCase() !== String(i.letter).toUpperCase())
           out.push({kind:'blockbusters', msg:id + ': letter ' + i.letter + ' does not match ' + i.a});
@@ -4990,7 +5013,9 @@ async function testGroupingClue(browser){
      no controls, and a reply that arrives anyway is dropped — so the check is that
      the other team's handset can see the clue and not answer it. */
   page = await openLab(['Connections','Anagram','Gap Fill'], { phones:true });
-  await page.evaluate(() => window.HubSettings.set('jGroupWho', 'turn', 'jeopardy'));
+  // `roundWho`, not `jGroupWho` — a round is hosted by two boards now, so its
+  // switches are in the shared Questions group and carry no game in their ids
+  await page.evaluate(() => window.HubSettings.set('roundWho', 'turn', 'jeopardy'));
   await openTile(page, 'Connections', 1);
   const turnCode = await codeOf(page);
   if (turnCode){
@@ -5165,6 +5190,92 @@ async function testGroupingClue(browser){
   check('and the right one takes the tile outright, first time',
         (await scoresOf(page)).join('/') === '100/0', (await scoresOf(page)).join('/'));
   checkClean(page, 'multiple choice clue');
+  await page.close();
+
+  /* ---------- the same round on a second board ----------
+     The measurement the whole tier rests on. Five rounds were *shaped* by Jeopardy,
+     so of course they fitted it; a shelf with one caller is a guess about an API.
+     Blockbusters hosts them with no change to any round, which is the difference
+     between a tier and one game's helper.
+
+     Driven through the hexagons rather than through `ROUND_HOSTS` directly, because
+     what could break is the wiring at the board — the normalisation carrying the
+     round's field across, the host being named before `setup` reads the ctx, and
+     the claim chooser standing down while the round owns the verdict. */
+  page = await browser.newPage({ viewport:{ width:1280, height:720 } });
+  page.__errors = []; page.__console = [];
+  page.on('pageerror', e => page.__errors.push(String(e)));
+  page.on('console', m => {
+    if (m.type() === 'error' && !/ERR_CONNECTION_RESET|fonts\.(googleapis|gstatic)/.test(m.text()))
+      page.__console.push(m.text());
+  });
+  await page.goto(BASE + '/game-hub-lab.html'); await page.waitForTimeout(400);
+  await page.evaluate(() => {
+    window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
+    window.HubSettings.set('buzzers', false);
+  });
+  await page.getByText('Lab', { exact:false }).first().click(); await page.waitForTimeout(220);
+  await page.locator('h3:visible', { hasText:'Blockbusters' }).first().click();
+  await page.waitForTimeout(220);
+  // LB1 alone is exactly 18 items, so every one of them is on the board
+  await page.locator('#content-list input').first().check(); await page.waitForTimeout(150);
+  await page.locator('#start-btn').click(); await page.waitForTimeout(700);
+  if (await page.locator('#intro-overlay.on').count()){
+    await page.keyboard.press('Space'); await page.waitForTimeout(300);
+  }
+  /* Open the hexagon carrying a given clue. The board shuffles, and a letter is a
+     *name* rather than a key — two hexagons may share one — so it is found by its
+     clue rather than by its letter. */
+  const openHex = async want => {
+    for (let i = 0; i < 18; i++){
+      const hex = page.locator('.hex').nth(i);
+      if (await hex.evaluate(h => h.classList.contains('claimed-gold') ||
+                                  h.classList.contains('claimed-silver'))) continue;
+      await hex.click({ force:true }); await page.waitForTimeout(320);
+      if (new RegExp(want, 'i').test(await page.locator('#clue-text').innerText())) return true;
+      await page.locator('#skip-btn').click({ force:true }); await page.waitForTimeout(300);
+    }
+    return false;
+  };
+  const claimVisible = () => page.evaluate(() =>
+    getComputedStyle(document.getElementById('clue-claim')).visibility === 'visible');
+
+  check('a hexagon opens a round', await openHex('Which verb goes with'));
+  check('and the round draws its own card, not a plain clue',
+        await page.locator('#clue-group .gword').count() === 4,
+        String(await page.locator('#clue-group .gword').count()));
+  /* The letter is the hexagon's name and stays on the topline whatever is behind
+     it — it is how a team says which square they are attacking, and what the
+     picking vote counts. */
+  check('the hexagon keeps its letter on the topline',
+        /^[A-Z]$/.test((await page.locator('#clue-topline').innerText()).trim()),
+        await page.locator('#clue-topline').innerText());
+  /* Blockbusters scores by claiming, so the chooser is a second way to award the
+     same hexagon. A live round owns the verdict, so it stands down. */
+  check('the team chooser stands down while the round is live', !(await claimVisible()));
+  /* By `data-word`, not by text: an option carries its A/B/C/D letter in the same
+     element, which is a card-side affordance so a teacher can say "who went for B?"
+     out loud. The phones get the words alone. */
+  await page.locator('#clue-group .gword[data-word="serve"]').click();
+  await page.waitForTimeout(120);
+  await page.locator('#group-btn').click(); await page.waitForTimeout(2400);
+  check('a correct round claims the hexagon and scores it',
+        await page.locator('.hex.claimed-gold, .hex.claimed-silver').count() === 1 &&
+        Number((await scoresOf(page))[0]) > 0,
+        (await scoresOf(page)).join('/'));
+
+  check('a second round type plays on the same board', await openHex('things a court does'));
+  await page.locator('#reveal-btn').click(); await page.waitForTimeout(700);
+  check('Reveal lights the four and hands the chooser back',
+        await page.locator('#clue-group .gword.right').count() === 4 &&
+        await claimVisible(),
+        String(await page.locator('#clue-group .gword.right').count()));
+
+  check('an ordinary letter clue on the same board is untouched',
+        await openHex('twelve jurors') &&
+        await page.locator('#clue-group').count() === 0 &&
+        await claimVisible());
+  checkClean(page, 'blockbusters hosting a round');
   await page.close();
 
   /* The ladder plus its pool plus the buttons is the tallest thing any round has

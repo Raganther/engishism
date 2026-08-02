@@ -344,4 +344,116 @@
         scramble:{ sentence:'The witness whose evidence convicted him has retracted it' }},
     ]},
   ],
+
+  /* ================= THE HEXAGON BOARD =================
+     Blockbusters hosting rounds, which is the second board to do it and therefore
+     the first evidence that the round tier is a shelf rather than one game's
+     helper. Jeopardy alone was a guess about an API.
+
+     **The letter is the hexagon's name, not a promise about the answer.** It is
+     what a team says to pick a square ("we'll take R") and what the picking vote
+     counts; the win condition searches *claimed* hexagons and has never read it.
+     So a hexagon can open a grouping set with four answers or a scale with five,
+     and the letter still does its whole job. What is gone is only the rule that
+     the answer had to begin with it — a rule about the bank, never about the
+     board.
+
+     The mix is the point rather than a compromise. A board of eighteen rounds is
+     exhausting and would tell you nothing about what a round *costs* against an
+     ordinary clue; a board with six of them in it means a team picking `R` does
+     not know whether they are getting a one-word definition or Connections, and
+     the surprise is what the geometry buys you that a Jeopardy category cannot —
+     a Jeopardy column announces its question type in its heading.
+
+     Two sections so they can be compared: LB1 mixes, LB2 is rounds only, which is
+     the version to play when tuning a round rather than a lesson. */
+  blockbustersSectionNames: {
+    'LB1': "LB1 · Mixed board — most hexagons are ordinary, six open a round",
+    'LB2': "LB2 · Rounds only — every hexagon opens one",
+  },
+
+  blockbustersBank: [
+    /* ---------- LB1 · the mixed board ----------
+       Twelve ordinary clues, so one section fills the 5/4/5/4 board on its own and
+       the six rounds land among them unannounced. Every answer here is one word
+       whose initial is its letter, which is the ordinary Blockbusters contract and
+       is still enforced for clues that have an answer at all. */
+    {section:'LB1', letter:'V', clue:"What twelve jurors return at the end of a trial.", answer:"Verdict"},
+    {section:'LB1', letter:'C', clue:"Held by the police or a court, before any trial has happened.", answer:"Custody"},
+    {section:'LB1', letter:'A', clue:"A formal accusation, with nothing proved yet.", answer:"Allegation"},
+    {section:'LB1', letter:'T', clue:"A witness's sworn account, given under oath.", answer:"Testimony"},
+    {section:'LB1', letter:'S', clue:"A long, planned break from work — often to study.", answer:"Sabbatical"},
+    {section:'LB1', letter:'R', clue:"Let go because the job itself no longer exists.", answer:"Redundant"},
+    {section:'LB1', letter:'B', clue:"Money left with a court so an accused person can go home.", answer:"Bail"},
+    {section:'LB1', letter:'P', clue:"Moved up to a more senior job.", answer:"Promoted"},
+    {section:'LB1', letter:'L', clue:"So angry you have gone quiet.", answer:"Livid"},
+    {section:'LB1', letter:'H', clue:"A feeling about something, on very little evidence.", answer:"Hunch"},
+    {section:'LB1', letter:'W', clue:"To take back something you said publicly.", answer:"Withdraw"},
+    {section:'LB1', letter:'E', clue:"Serving as the model others should follow.", answer:"Exemplary"},
+
+    /* The six that open a round. The letter is chosen to sit naturally on the board
+       rather than to encode anything — except the anagram, where the answer really
+       is one word and the initial can honestly be its own. */
+    {section:'LB1', letter:'F', clue:"Four of these are things a court does. Find the four.",
+      group:{ pick:["convict","acquit","sentence","adjourn"],
+              with:["promote","recruit","dismiss","appoint"] }},
+    {section:'LB1', letter:'G', clue:"Four of these describe work that has ended badly. Find the four.",
+      group:{ pick:["sacked","dismissed","redundant","discharged"],
+              with:["seconded","promoted","tenured","shortlisted"] }},
+    {section:'LB1', letter:'O', clue:"Put these sentences in order — lightest first.",
+      order:{ scale:["a caution","a fine","community service","a suspended sentence","a custodial sentence"],
+              low:"barely a punishment", high:"prison",
+              gloss:{ "a caution":"a formal warning on your record and nothing more.",
+                      "a fine":"money, and the matter is closed.",
+                      "community service":"unpaid work — time, not money.",
+                      "a suspended sentence":"prison, held over you unless you offend again.",
+                      "a custodial sentence":"prison, starting now." } }},
+    {section:'LB1', letter:'M', clue:"Which verb goes with “a sentence”?",
+      choice:{ options:["serve","do","make","take"], answer:"serve" }},
+    {section:'LB1', letter:'D', clue:"Unscramble: to say publicly that an earlier statement was wrong.",
+      anagram:{ word:"Retract" }},
+    {section:'LB1', letter:'N', clue:"Build the sentence from these words.",
+      scramble:{ sentence:'The jury was sent home for the night' }},
+
+    /* ---------- LB2 · rounds only ----------
+       Eighteen would be a lot to author and a lot to play; this is deliberately
+       short of a full board, so it is picked *alongside* LB1 rather than instead of
+       it — which is also the honest way to try a round, with ordinary clues around
+       it for contrast. Every round type the registry holds appears at least once,
+       so registering a seventh is the only thing this section will ever need. */
+    {section:'LB2', letter:'C', clue:"Four of these leave you room to be wrong. Find the four.",
+      group:{ pick:["arguably","ostensibly","seemingly","reportedly"],
+              with:["indisputably","categorically","demonstrably","conclusively"] }},
+    {section:'LB2', letter:'K', clue:"Four of these can follow “breach of”. Find the four.",
+      group:{ pick:["contract","trust","the peace","confidence"],
+              with:["custody","tenure","evidence","counsel"] }},
+    {section:'LB2', letter:'T', clue:"Order these claims — weakest first.",
+      order:{ scale:["it is conceivable","there is a chance","it is likely","it is all but certain","it is beyond doubt"],
+              low:"barely a claim", high:"no room left to argue",
+              gloss:{ "it is conceivable":"you are admitting it is not impossible, and no more.",
+                      "there is a chance":"a real possibility, still open.",
+                      "it is likely":"you would expect it; the everyday hedge.",
+                      "it is all but certain":"you would bet on it and say so.",
+                      "it is beyond doubt":"a claim you are staking your credibility on." } }},
+    {section:'LB2', letter:'S', clue:"Put this feedback in order — most damning first.",
+      order:{ scale:["unacceptable","disappointing","adequate","commendable","exemplary"],
+              low:"a formal problem", high:"the model others follow",
+              gloss:{ unacceptable:"a warning in writing; this is a process, not an opinion.",
+                      disappointing:"below what was expected of *you* specifically.",
+                      adequate:"it met the bar and nothing more — faint praise.",
+                      commendable:"genuinely good, and said in public.",
+                      exemplary:"held up as the standard for everybody else." } }},
+    {section:'LB2', letter:'P', clue:"Which word completes “to ___ an allegation”, meaning to deny it flatly?",
+      choice:{ options:["refute","refuse","reject","revoke"], answer:"refute" }},
+    {section:'LB2', letter:'A', clue:"Which of these is the formal one?",
+      choice:{ options:["notwithstanding","even so","all the same","anyway"], answer:"notwithstanding" }},
+    {section:'LB2', letter:'I', clue:"Unscramble: found not guilty and formally released.",
+      anagram:{ word:"Acquitted" }},
+    {section:'LB2', letter:'U', clue:"Unscramble: agreed by every single member, with nobody against.",
+      anagram:{ word:"Unanimous" }},
+    {section:'LB2', letter:'W', clue:"Put this sentence back together.",
+      scramble:{ sentence:'The witness told the court that the letter was not his' }},
+    {section:'LB2', letter:'B', clue:"Arrange these words into a sentence.",
+      scramble:{ sentence:'She was released on bail on the day of the hearing' }},
+  ],
 });
