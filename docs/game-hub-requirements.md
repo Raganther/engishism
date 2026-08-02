@@ -1,9 +1,44 @@
 # Classroom Game Hub — MVP System Requirements
 
-**Version:** 0.2
+**Version:** 0.3
 **Author:** Alistair
-**Date:** July 2026
+**Date:** August 2026
 **Purpose:** Proof-of-concept demonstration to academic management
+
+## Status at v0.3
+
+v0.2 described a system of **games with content**. What has been built since is a
+system of **skins hosting questions**, and that is a different enough idea to be
+stated up front rather than left to be inferred from a changelog.
+
+**The distinction that changed everything:** a *game show* is now a skin — a board
+with question slots, which owns geometry, scoring and turns. A **round** is a question
+that is *played*: the card the projector draws, what the handsets are put into, how
+several students' taps become one team answer, and whether that answer is right. A
+game show calls a round by name and inherits all four. §3.8 is the new architecture
+section; §3.7's three layers are now four.
+
+**Built since v0.2:**
+
+| | |
+|---|---|
+| Games | 5 — Bingo joined the four, consuming an existing bank through a predicate rather than a bank of its own |
+| Rounds | 3 — grouping (Connections), ordering (Word Thermometer), multiple choice. One registry, `Kit.round` |
+| Question forms | 6 on the shipped shelf (`Kit.prompt`): gap, anagram, odd one out, error fix, word order, word bridge |
+| Workshop | `playground/question-bench.html` — a round's card and a rack of real handsets on one screen, and now a content editor that loads, edits and exports categories |
+| Lab board | `game-hub-lab.html` — 11 categories, one question type each, deliberately not loaded by the class-facing hub |
+| Regression | ~50 suites; the content gate now asks each round for its own rules rather than holding a copy |
+
+**What is NOT yet true, and matters most:**
+
+- **Rounds play in one game show.** Every `Kit.round` call site is inside the Jeopardy
+  adapter. Blockbusters, Millionaire, Race and Bingo cannot host a round at all.
+- **Phone logic still lives in the game shows**, all five of them. `phoneRound()`
+  exists precisely because two of them wanted the handsets at once.
+- **Content is still four hand-authored banks per unit.** §3.2's per-game model is
+  intact and is now the main authoring cost.
+- **None of it has been run in front of a class.** Unchanged from v0.2, and now
+  covering considerably more guessed numbers.
 
 ## Status at v0.2
 
@@ -353,6 +388,121 @@ registerGame({
 Layer 1 is therefore best read as *what happens to be shared so far*, not *what is
 inherently shared*. That is the correct state for a system at this stage, but it should
 not be mistaken for a finished abstraction.
+
+### 3.8 Skins and rounds — the architecture from v0.3
+
+§3.7's three layers described *games with content*. The system has since split the
+middle of that in two, and the split is the single most important thing in this
+document.
+
+```
+GAME HUB      the container: units, teams, scores, timer, settings, phone room
+GAME SHOW     a skin with question slots. Owns geometry, scoring, turns
+ROUND         a question that is played: card + phone dynamic + judging
+CONTENT       filed by topic; items declare which rounds they can serve
+```
+
+**A round is four things at once**, and that is why it is a tier rather than a helper:
+the card the projector draws, what the handsets are put into, how several students'
+taps become one team answer, and whether that answer is right. A game show calls it by
+name and gets all four.
+
+**What a round must never contain: scoring, turns, timers, the board, a tile.** Those
+belong to whatever is hosting it — Jeopardy pays a tile and passes a turn when the
+round says a team has it; the question bench pays nothing at all. A round that knew
+about points could only ever live in one game, which defeats the entire purpose. When
+something you want to tune is missing from the bench, that is the boundary telling you
+it belongs to the host.
+
+**Where a round is built: `playground/question-bench.html`.** Not in a game. A phone
+dynamic cannot be judged from the phone — what it produces lands on the card — and two
+browser tabs never show cause and effect at once. The bench draws the card *through
+the registry*, the same code a Jeopardy tile runs, with a rack of real handsets beside
+it. It is a **workshop, not a runtime**: game shows call the round registry, never the
+bench.
+
+#### The direction: game shows become skins
+
+Today all five games carry their own phone handling, and they fight over the handsets —
+`phoneRound()` exists precisely because Bingo's cards and Jeopardy's grouping clue both
+wanted them. **The target is that all phone logic lives in rounds**, and a game show is
+a skin that provides context, geometry and scoring around a question slot. That removes
+the conflict class rather than managing it.
+
+| ID | Requirement | Priority |
+|---|---|---|
+| F3.8.1 | A round is registered once and any game show can call it by name | Must |
+| F3.8.2 | A round contains no scoring, turn, timer, tile or board logic | Must |
+| F3.8.3 | Every round hook past `setup` and `render` is optional | Must |
+| F3.8.4 | A round declares its own item field; hosts carry it through by asking the registry, never by a whitelist | Must |
+| F3.8.5 | A round declares what makes an authored item invalid (`check`); the content gate and the bench editor both read that one rulebook | Must |
+| F3.8.6 | A round must be fully playable with no relay — the teacher clicks and judges | Must |
+| F3.8.7 | Phone behaviour should live in the round, not the game show | Should |
+| F3.8.8 | A round may hold state that outlives one question (for a game like Bingo, where a card persists across many calls) | Should — **not built** |
+| F3.8.9 | A round may be given the stage as its mount, not only the clue card (for a game like Race, where the answers are the board) | Should — **not built** |
+
+#### Which skins can host which rounds
+
+The constraint is **contention, not answer shape**. A round wants the card and the
+phones; a skin conflicts only if it already owns one of them.
+
+| Skin | Owns the card? | Owns the phones? | Can host any round? |
+|---|---|---|---|
+| Jeopardy | no — a tile opens one | no | **yes** — built |
+| Millionaire | no — a rung opens one | no | **yes** — not built |
+| Blockbusters | no — a hexagon opens one | no | **yes** — not built |
+| Bingo | no | **yes** — every phone holds a card | card-only rounds, teacher-judged |
+| Race | **yes** — the scattered words *are* the board | no | needs F3.8.9 |
+
+**Blockbusters is not restricted to one-word answers.** The hexagon's letter appears in
+its display, the clue card's topline and the hexagon-picking vote; the win condition is
+a search over which hexagons are *claimed* and never reads it. The letter is an
+affordance of the skin, not a structural requirement.
+
+**Bingo can still host a round**, card-only. Every round already supports a no-relay
+path (F3.8.6), which is exactly the behaviour needed when the skin owns the handsets.
+
+#### Content, revisited
+
+§3.2 argued for per-game banks and that argument still holds for *answer shape* —
+Blockbusters needs a one-word answer keyed by its initial, Race needs unique single
+words. What v0.3 adds is that **not all content is convertible**: a grouping set or an
+ordering scale cannot be derived from a gap-fill sentence. So content divides in two:
+
+- **Shareable** — a word, its definition, its unit and section. Serves gap fill,
+  Blockbusters, Race, Bingo and multiple choice.
+- **Bespoke** — a grouping, a scale. Authored for one round by nature.
+
+The target is therefore not one universal pool but **one filing system**: content filed
+by *topic* (a lesson is a topic; nobody teaches "all my Connections"), with each item
+declaring which rounds it can serve. A bespoke item simply declares one.
+
+#### Rules that keep the tiers pluggable
+
+| ID | Requirement | Priority |
+|---|---|---|
+| F3.8.10 | The dependency arrow points one way: `playground/` may load `game-hub/`, never the reverse | Must |
+| F3.8.11 | A shared module takes what it needs as parameters and hands back data — no globals, no assumptions about the host's DOM | Must |
+| F3.8.12 | Capability is declared, never special-cased. No list of games or rounds kept in step by hand | Must |
+| F3.8.13 | Nothing is extracted onto a shared shelf until a second caller exists, and the first caller is rewired in the same change | Must |
+
+F3.8.13 is not style. A shelf with one caller is a guess about an API; rewiring the
+first caller is what proves the extraction was behaviour-neutral.
+
+#### Build order
+
+1. **Millionaire hosts the multiple choice round.** Cheapest — no contract change — and
+   it deletes Millionaire's private option rendering, which is the same question drawn
+   twice in the codebase today.
+2. **Blockbusters hosts a round.** Proves a third host and a non-tile geometry.
+3. **F3.8.8 and F3.8.9** — persistent round state, and the stage as a mount.
+4. **Bingo extracted.** Forces the persistent-state case, and is smaller than Race.
+5. **Race extracted.** The hardest: the round owns the board.
+6. **Content filing.** Beside the existing banks, migrating a unit at a time.
+
+Steps 1 and 2 come first deliberately: Bingo and Race are working games with a great
+deal of tested behaviour, and the adapter pattern should be proved on the cheap cases
+before anything that works is touched.
 
 ---
 
@@ -837,3 +987,30 @@ here with their answers rather than deleted, because the reasoning is the useful
     Unit 5 was authored while the games were still changing shape. Unit 4's missing
     Race and Millionaire banks would give a clean measurement of steady-state cost,
     which is the number that actually projects across a coursebook.
+
+### New since v0.2
+
+13. **Does a round survive a skin it was not designed for?** Three rounds exist and all
+    three play in Jeopardy, which is the host whose contract they were shaped against.
+    Nothing is known about how they read on a hexagon or a ladder until Millionaire and
+    Blockbusters host one (§3.8 build order, steps 1–2). Multiple choice is the least
+    interesting case and therefore the right first one.
+14. **Is a card-only round in Bingo worth having, or merely possible?** A grouping clue
+    inside Bingo would be played by the teacher clicking, because the handsets already
+    hold cards. That is coherent, but a round whose whole point is thirty students
+    assembling an answer may lose its reason for existing when the phones are busy.
+    A design question, not an engineering one.
+15. **How is content filed once it serves several rounds?** §3.8 argues for filing by
+    topic with items declaring which rounds they serve. Untested. The specific unknown
+    is how many real items turn out to be shareable rather than bespoke — if most
+    C1 content is bespoke, the filing change buys much less than §3.2's replacement
+    would suggest. **Author ~20 items by hand before writing any consuming code.**
+16. **Does the question bench change how content gets authored in practice?** It can
+    now load, edit and export a category, and every question is drawn on the real card
+    and pushed to real handsets before it is saved. Whether that actually shortens
+    authoring, or simply makes it more pleasant, is unmeasured — and authoring time per
+    unit is the number §1.4.3 rests on.
+17. **What does a round cost to build, now that three exist?** Grouping cost ~330 lines
+    and real engine work. Ordering cost one file and no engine change. Multiple choice
+    cost one file and a `<script>` line. The trend is the argument for the registry,
+    but three points is not a trend — the fourth round is the one that tests it.

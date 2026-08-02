@@ -15,6 +15,25 @@ game with a missing hook runs and quietly does nothing in one specific respect. 
 is why this is a checklist rather than advice: the compiler will not help you, and
 neither will the tests unless you get to step 7.
 
+## 0. Before anything: a new game is a **skin**, not a question machine
+
+The direction of the project (`CLAUDE.md`, "Where this is going") is that a game show
+provides context, geometry, scoring and turns around a **question slot**, and what
+goes in the slot is a **round** — built on `playground/question-bench.html` and called
+by name. A round brings its own card, its own phone dynamic and its own judging.
+
+So before writing any question handling into a new game, ask: **is this a round?** If
+your game needs the class to assemble, order, choose or type an answer, that behaviour
+belongs in a round where every other game show can reuse it — not in your game where
+it is the sixth private copy.
+
+Write into the game only what is genuinely the *skin's*: the board, how a slot is
+chosen, what winning a slot is worth, and whose turn it is.
+
+The existing five predate this and each carries its own phone handling; that is the
+state being moved away from, not a pattern to copy. Jeopardy's round adapter is the
+model — ~160 lines, every one of them about Jeopardy.
+
 ## 1. Register it in the cluster, before the settings block
 
 `registerGame({...})` calls live together near the top of `game-hub/hub-engine.js`,

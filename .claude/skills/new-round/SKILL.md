@@ -29,14 +29,18 @@ where it becomes answered* that no one clicked: that is a round.
 ```js
 HubKit.round.register('ordering', {
   label: 'Word Thermometer',
-  claims(item),              // does this authored item want me?
-  setup(item),               // item -> the round's own state, or null
-  render(mount, s, ctx),     // the card — the projector's view
-  reveal(mount, s, ctx),     // show the answer
-  arm(s, ctx),               // what the handsets are put into
-  read(replies, s),          // the room's replies -> one answer per team
-  judge(answer, s),          // {verdict:'right'|'wrong'|'incomplete', hits}
-  saidOf(who, r, s),         // how a wrong answer is described
+  field: 'order',                 // the item field you own; hosts carry it through
+  claims(item),                   // does this authored item want me?
+  setup(item, ctx),               // item -> the round's own state, or null
+  check(item),                    // WHY an authored item is unusable, as sentences
+  render(mount, s, ctx),          // the card — the projector's view
+  reveal(mount, s, ctx),          // show the answer
+  arm(s, ctx),                    // what the handsets are put into
+  read(replies, s, ctx),          // the room's replies -> one answer per team
+  judge(answer, s, team, ctx),    // {verdict, hits, done}
+  accept(answer, s, team, ctx),   // commit, when being right is not yet the end
+  saidOf(who, r, s),              // how a wrong answer is described
+  modes: [...],                   // the ways it can be played, if more than one
   settleMs: 700
 });
 ```
@@ -65,6 +69,42 @@ blocks on the bench.
 Styles go in `game-hub/hub-rounds.css`, not `hub.css`. A playground page cannot load
 `hub.css` to get the card — it carries the whole hub theme.
 
+## 3b. Which skins can host it — contention, not answer shape
+
+A round wants **the card** and **the phones**. A skin can host it unless it already
+owns one of those. This is the whole rule; there is no list of compatible games.
+
+| Skin | Owns the card? | Owns the phones? | Any round? |
+|---|---|---|---|
+| Jeopardy | no | no | **yes, built** |
+| Millionaire | no | no | yes, not built |
+| Blockbusters | no | no | yes, not built |
+| Bingo | no | **yes** — every phone holds a card | card-only, teacher-judged |
+| Race | **yes** — the scattered words *are* the board | no | needs a stage mount |
+
+Do **not** assume a board with one-word answers can only host word-shaped rounds.
+Blockbusters' hexagon letter is used for its display, the clue topline and the picking
+vote — the win condition searches *claimed* hexagons and never reads it.
+
+**Two additions are not built yet**, and a round needing either is blocked:
+- state that outlives one question (Bingo's card persists across many calls),
+- being handed the stage rather than the clue card as a mount (Race).
+
+## 3c. `check(item)` — say why, not just no
+
+`setup` returning null says *that* something is wrong. `check` says *what*, as
+sentences an author reads. **The content gate and the bench editor both call it**, so
+there is one rulebook rather than two that can disagree.
+
+The split: **the round owns what makes the question invalid; the host owns what makes
+its own bank untidy.** "Needs at least two options" is yours. "Also carries an `a`
+field" is Jeopardy's — `a` is that bank's word for an answer and no round should ever
+learn it.
+
+Write the message an author can act on. The multiple choice round's best line is
+*"the answer is not one of the options — nobody could ever get this right"*, because
+that defect is invisible to a reader.
+
 ## 4. Build it on the bench, not in a game
 
 `playground/question-bench.html` shows the card and a rack of real handsets on one
@@ -81,12 +121,18 @@ every one of them is about *Jeopardy*: where the card is mounted, what winning i
 worth, what happens to the tile. If your adapter is doing anything a second game
 would also have to do, that thing belongs in the round.
 
+**Only Jeopardy has one.** Every `Kit.round` call site is inside its adapter, so
+adding a round today means it plays on exactly one board. Getting a second host is the
+next piece of work — see the build order in `CLAUDE.md`.
+
 Two traps the grouping round paid for:
 
-- **Add the field to the clue normalisation first.** `jShowClue` builds
-  `{text, answer, type, reveal, group}` — a whitelist. Anything an author adds to an
-  item is invisible downstream until it is named there, and the symptom is your
-  feature simply never appearing, with nothing anywhere saying why.
+- **Declare `field`, and the normalisation carries it for you.** This used to be a
+  hand-kept whitelist in `jShowClue` and it silently dropped a feature twice —
+  `reveal` when Story Reveal shipped, `order` the day ordering was written, both times
+  the symptom being the feature simply never appearing with nothing saying why. The
+  host asks `Kit.round.fields()` now, so **the only thing you must do is declare
+  `field` on the round.** Forget it and you are back to the same silent failure.
 - **"Is this a round clue" and "is the round still live" are different questions.**
   Correct/Wrong only exist *after* Reveal, so anything that runs on the wrong path —
   a steal, a deduction — must ask the first. Asking the second looks right, reads

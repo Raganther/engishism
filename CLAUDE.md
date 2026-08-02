@@ -44,6 +44,101 @@ Instagram) hold it hardest and often ignore pull-to-refresh. **Not yet fixed pro
 the shell should send `Cache-Control` of its own so a stale one cannot strand anybody
 on old assets.
 
+## Where this is going — skins hosting rounds
+**Read this before designing anything.** It is the agreed direction, and several things
+below describe a state it is deliberately moving away from. Written up in full as
+`docs/game-hub-requirements.md` §3.8.
+
+```
+GAME HUB      the container: units, teams, scores, timer, settings, phone room
+GAME SHOW     a skin with question slots. Owns geometry, scoring, turns
+ROUND         a question that is played: card + phone dynamic + judging
+CONTENT       filed by topic; items declare which rounds they can serve
+```
+
+**A game show is a skin.** Jeopardy's tiles, Blockbusters' honeycomb, Millionaire's
+ladder — those are context, geometry and scoring around a **question slot**. What goes
+in the slot is a round, called by name.
+
+**A round is four things at once**, which is why it is a tier and not a helper: the
+card the projector draws, what the handsets are put into, how several students' taps
+become one team answer, and whether that answer is right.
+
+**The question bench is the workshop, not a layer.** Rounds are built on
+`playground/question-bench.html` because a phone dynamic cannot be judged from the
+phone — what it produces lands on the card. Game shows call the **registry**, never
+the bench.
+
+**The big move still ahead: all phone logic belongs in rounds.** All five games carry
+their own today and they fight over the handsets — `phoneRound()` exists precisely
+because Bingo's cards and Jeopardy's grouping clue both wanted them. Moving it into
+rounds removes that conflict class rather than managing it.
+
+### Which skins can host which rounds — contention, not answer shape
+A round wants the card and the phones. A skin conflicts only if it already owns one.
+
+| Skin | Owns the card? | Owns the phones? | Any round? |
+|---|---|---|---|
+| Jeopardy | no — a tile opens one | no | **yes, built** |
+| Millionaire | no — a rung opens one | no | yes, not built |
+| Blockbusters | no — a hexagon opens one | no | yes, not built |
+| Bingo | no | **yes** — every phone holds a card | card-only, teacher-judged |
+| Race | **yes** — the scattered words *are* the board | no | needs a stage mount |
+
+**Blockbusters is not limited to one-word answers**, contrary to what the hexagon
+suggests: the letter is used for its display, the clue topline and the picking vote,
+and the win condition searches *claimed* hexagons without ever reading it. Checked,
+not assumed.
+
+**Bingo can still host a round, card-only** — every round already owes a no-relay path
+where the teacher clicks and judges, which is exactly the behaviour needed when the
+skin owns the handsets.
+
+### Two contract additions that are not built
+- **Round state that outlives one question**, for Bingo: a card persists across many
+  calls, and rounds today are set up, played and discarded. The relay already holds
+  per-player state across questions; it is simply not exposed to rounds.
+- **A round handed the stage as its mount**, for Race, where the answers *are* the
+  board. `render(mount, s, ctx)` already takes a mount — the skin just has to be
+  allowed to pass a different one.
+
+### Build order, and why this order
+1. **Millionaire hosts the multiple choice round.** No contract change, and it deletes
+   Millionaire's private option rendering — the same question drawn twice today.
+2. **Blockbusters hosts a round.** A third host, and a non-tile geometry.
+3. **The two contract additions above.**
+4. **Bingo extracted** — forces the persistent-state case, smaller than Race.
+5. **Race extracted** — hardest; the round owns the board.
+6. **Content filing**, beside the existing banks, a unit at a time.
+
+Steps 1–2 first *deliberately*: Bingo and Race are working games with a lot of tested
+behaviour, and the adapter pattern should be proved on the cheap cases before anything
+that works is touched.
+
+### Content: one filing system, not one pool
+§3.2's per-game argument still holds for *answer shape*. What it missed is that **not
+all content is convertible** — a grouping set or an ordering scale cannot be derived
+from a gap-fill sentence. So content divides in two:
+- **Shareable** — a word, its definition, its unit and section. Serves gap fill,
+  Blockbusters, Race, Bingo, multiple choice.
+- **Bespoke** — a grouping, a scale. Authored for one round by nature.
+
+File by **topic** (a lesson is a topic; nobody teaches "all my Connections"), with each
+item declaring which rounds it can serve. A bespoke item declares one. **Author ~20
+items by hand before writing any code that consumes them** — if most C1 content turns
+out bespoke, the change buys much less than it looks like it should.
+
+### The rules that keep the tiers pluggable
+- A round never contains scoring, turns, timers, the board or a tile.
+- The dependency arrow points one way: `playground/` → `game-hub/`, **never back**.
+  A shared module written in `playground/bench-kit.js` is unreachable from the hub.
+- Shared modules take what they need as parameters and hand back data — no globals, no
+  assumptions about the host's DOM. `Kit.vote` is the model: you pass it replies, it
+  hands back counts, the transport stays the host's.
+- **Declare, don't special-case.** No list of games or rounds kept in step by hand.
+- **A second caller is what proves a shelf**, and the first caller is rewired in the
+  same change. One caller is a guess about an API.
+
 ## Architecture — three generations coexist
 1. **Classroom Game Hub (current focus).** The MVP demo. One consolidated app;
    flow is **choose unit → choose game → choose sections → play**.
@@ -2292,13 +2387,21 @@ playground's point, that one board can host several:
 - To change unit mid-session: game screen → "New game" → "Change unit".
 
 ## Next
-- **Ordering as a clue is the next dynamic, and it is the harder one.** Grouping
-  worked because a set has no order: judging it is a comparison, and every team can
-  assemble one at once from a pool the relay already knows how to hand out. A
-  thermometer clue has to model a *sequence* — which slot is being filled, what a
-  partially-built ladder looks like on a card the size of a clue, and whether the
-  room fills it cold-end-first (a walk, so one team at a time) or all at once. The
-  relay needs nothing new; the shape does.
+**The agreed direction and its build order are at the top of this file** — see "Where
+this is going: skins hosting rounds", and `docs/game-hub-requirements.md` §3.8 for the
+full version with requirement IDs. The short form, in order:
+
+1. **Millionaire hosts the multiple choice round.** No contract change, and it deletes
+   Millionaire's private option rendering — the same question drawn twice today. This
+   is the next thing to build, and it is deliberately the dullest case: a shelf with
+   one caller is a guess, and Jeopardy is currently the only caller.
+2. **Blockbusters hosts a round** — a third host, and a non-tile geometry.
+3. **The two contract additions**: round state that outlives a question, and a round
+   handed the stage rather than the clue card as its mount.
+4. **Bingo extracted**, then **Race** — in that order, smaller first.
+5. **Content filing by topic**, beside the existing banks, a unit at a time.
+
+Everything below is either a known gap or a question a classroom run has to answer.
 - **Nothing on the bench or in the Lab has met a class, and the guessed numbers are
   piling up.** The 700ms settle and the 4-mistake budget from the bench, Story
   Reveal's 5→3 drop, and now the grouping clue's 700ms take-beat and its
@@ -2319,16 +2422,21 @@ playground's point, that one board can host several:
   content thin — see "Question forms are a registry too".
 - **A phone check on a real handset**, not Chromium emulation. Jeopardy sideways-scroll
   is the part most likely to feel wrong under a thumb.
-- **Content composability is the open architectural question**, and it is a project
-  rather than a refactor. Today each game has its own bank shape (`jeopardyBank`,
+- **Content filing is a project rather than a refactor**, and it is last in the build
+  order for that reason. Today each game has its own bank shape (`jeopardyBank`,
   `blockbustersBank`, `raceBank`, `millionaireBank`) and the content gate *enforces* no
-  shared prompts — deliberate, because answer shape genuinely differs (Blockbusters needs
-  a one-word answer whose initial matches its hexagon, Race needs unique single words,
-  Millionaire needs four options). The composable version is one pool per unit with items
-  declaring what they are (`{text, answer, options?, forms:[…]}`) and each game declaring
-  what it can consume, so the engine matches items to games instead of four banks being
-  authored by hand. That roughly halves authoring cost — the metric the demo pitch hinges
-  on — but it migrates 565 items, so extend the content gate first.
+  shared prompts — deliberate, because answer shape genuinely differs (Blockbusters
+  needs a one-word answer whose initial matches its hexagon, Race needs unique single
+  words, Millionaire needs four options).
+  - **It is a filing system, not one pool** — see the direction section at the top.
+    Some content is shareable (a word and its definition); a grouping set and an
+    ordering scale are **bespoke by nature** and cannot be derived from anything else.
+    An earlier draft of this note claimed one universal pool; that was wrong.
+  - **Author ~20 items by hand before writing any code that consumes them.** If most
+    C1 content turns out bespoke rather than shareable, the change buys far less than
+    the halved-authoring-cost claim suggests — and that claim is what the demo pitch
+    rests on, so it is worth measuring rather than assuming.
+  - It migrates 565 items when it happens, so the gate goes first.
 - **Jeopardy at 16 categories is legible, not comfortable** (10.5px headings at 1280px).
   Either cap the categories per board or nudge the teacher toward fewer sections on the
   content screen. Not a CSS problem.
