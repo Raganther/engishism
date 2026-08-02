@@ -5243,6 +5243,29 @@
   }
   function forgetRoom(){ try{ window.localStorage.removeItem(ROOM_KEY); }catch(e){} }
 
+  /* **Opening a room retries, because the common failure is a relay that is merely
+     asleep.** This was one attempt, and a hosted relay on a free plan spins down
+     when idle and takes the better part of a minute to wake — so the first load of
+     a lesson failed, the chip settled on "no relay", and nothing tried again for
+     the rest of the hour. The class cannot join a room that was never opened, and
+     nothing on screen said it was worth waiting.
+
+     Backed off rather than hammered, and it says `Connecting…` while it is trying:
+     a room that is about to exist and one that never will are different facts. */
+  let buzzTries = 0;
+  const BUZZ_WAITS = [1500, 3000, 5000, 8000, 12000, 15000, 15000, 15000];
+  function retryBuzzRoom(){
+    const wait = BUZZ_WAITS[buzzTries++];
+    const chip = document.getElementById('buzzer-chip');
+    if(chip){
+      chip.style.display = 'flex'; chip.className = 'off';
+      chip.textContent = wait == null ? buzzerProblem() : 'Connecting…';
+    }
+    if(wait == null) return;
+    // re-checked on the way in: the teacher may have switched phones off meanwhile
+    setTimeout(()=>{ if(buzzersOn() && !buzzHost) openBuzzRoom(); }, wait);
+  }
+
   function openBuzzRoom(){
     if(!buzzersOn() || buzzHost) return;
     const relay = S.get('buzzerRelay') || '';
@@ -5252,12 +5275,9 @@
     HubBuzzer.newCode(relay).then(info=>{
       const code = (info && info.code) ? (rememberedRoom(relay) || info.code) : null;
       buzzLanHost = (info && info.lan) || '';
-      if(!code){                     // no relay — say why, and carry on without it
-        const chip=document.getElementById('buzzer-chip');
-        if(chip){ chip.style.display='flex'; chip.className='off';
-                  chip.textContent = buzzerProblem(); }
-        return;
-      }
+      // no relay answered — say so, and keep trying, because it may only be waking
+      if(!code){ retryBuzzRoom(); return; }
+      buzzTries = 0;
       rememberRoom(code, relay);
       buzzHost = HubBuzzer.host({ relay, code });
       /* The room this page is hosting, stated rather than scraped — the same
@@ -5292,7 +5312,10 @@
       buzzHost.on('buzz',    onBuzz);
       buzzHost.on('response', onResponse);
       renderBuzzChip();
-    });
+    /* A rejected request, not merely a null code — an unreachable relay throws
+       rather than answering, and without this the failure was unhandled and the
+       chip kept whatever it had said before. */
+    }).catch(retryBuzzRoom);
   }
 
   function dropBuzzRoom(){

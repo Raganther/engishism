@@ -77,7 +77,11 @@ window.BenchKit = (function(){
       chip.querySelector('b').textContent = host.code;
     }
     chip.addEventListener('click', ()=>{
-      if(!host) return;
+      /* With no room the chip is the way back in rather than a dead label: it has
+         given up, and tapping it starts the attempts again from the top. Without
+         this the only way out of a relay that was asleep was to reload the page,
+         which nothing on screen ever said. */
+      if(!host){ tries = 0; openRoom(); return; }
       document.getElementById('join-code').textContent = host.code;
       document.getElementById('join-url').textContent  = base().replace(/^https?:\/\//,'') + '/join.html';
       document.getElementById('join-count').textContent = count + ' joined';
@@ -97,22 +101,59 @@ window.BenchKit = (function(){
       panel.classList.add('on');
     });
 
-    if(window.HubBuzzer){
+    /* **Opening a room retries, because the common failure is a relay that is
+       merely asleep.** This was one attempt on page load, and a free hosted
+       instance spins down when idle and takes the better part of a minute to wake —
+       so the *first* load after any gap failed, the chip settled on `phones off`,
+       and nothing ever tried again. Reported as "it says no relay and I cannot
+       select any phones", which is exactly what it did, for a relay that was about
+       to come up.
+
+       Backed off rather than hammered, and it says `connecting…` while it is
+       trying: a page that is about to work and a page that never will are
+       different facts, and only one of them is worth reloading. */
+    /* One place says what the room is doing, so nothing on the page can contradict
+        the chip. Without it the bench's own "+ phone" button still read "no relay"
+        while the chip beside it said "connecting…" — two labels for one fact, which
+        is the shape of the bug that started all this. */
+    function say(state){ if(on.status) on.status(state); }
+    let tries = 0;
+    const WAITS = [1500, 3000, 5000, 8000, 12000, 15000, 15000, 15000];
+    function openRoom(){
+      if(!window.HubBuzzer) return;
+      chip.textContent = 'connecting…';
+      chip.title = 'Looking for a relay. A hosted one that has been idle takes a while to wake.';
+      say('connecting');
       HubBuzzer.newCode(RELAY).then(d=>{
-        if(!d){ paintChip(); return; }
+        if(!d) return again();
         lan = d.lan || '';
         host = HubBuzzer.host({ relay:RELAY, code:d.code });
         /* What room this page is hosting, stated rather than scraped — the phone
            bench asks exactly this of whatever board it has loaded, so it needs to
            know nothing about which game is being played. */
         window.HubHost = host;
-        host.on('ready',   ()=>{ paintChip(); if(on.ready) on.ready(host); });
+        host.on('ready',   ()=>{ paintChip(); say('ready'); if(on.ready) on.ready(host); });
         host.on('players', ()=>{ count = host.players().length; paintChip();
                                  if(on.players) on.players(host.players()); });
         if(on.response) host.on('response', on.response);
         paintChip();
-      }).catch(()=>paintChip());
+      }).catch(again);
     }
+    function again(){
+      const wait = WAITS[tries++];
+      if(wait == null){
+        /* Out of attempts. The chip says so *and* says what to do about it — a dead
+           end with no way back was the whole complaint, and clicking it retries. */
+        chip.textContent = 'phones off · tap to retry';
+        chip.title = 'No relay answered. Tap to try again.';
+        say('off');
+        return;
+      }
+      chip.textContent = 'connecting…';
+      say('connecting');
+      setTimeout(openRoom, wait);
+    }
+    openRoom();
 
     return {
       host(){ return host; },

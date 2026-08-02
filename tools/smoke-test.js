@@ -4358,7 +4358,14 @@ async function testPlaygroundConnections(browser){
   const solo = await browser.newPage({ viewport:{ width:1280, height:720 } });
   solo.__errors = []; solo.on('pageerror', e => solo.__errors.push(String(e)));
   await solo.goto(BASE + '/playground/connections.html?p=1&relay=http://127.0.0.1:9'); await solo.waitForTimeout(700);
-  check('no relay: the chip says phones off', /phones off/i.test(await solo.locator('#room-chip').innerText()));
+  /* Not showing a room, which is what "no relay" actually has to mean. The chip
+     says `connecting…` first and settles on `phones off` only after the retries run
+     out — a relay that is merely asleep is the common failure, so giving up in the
+     first second was the wrong behaviour to pin. What the page owes with no relay is
+     that it stays playable and never claims a room nobody can join. */
+  check('no relay: the chip never shows a room code',
+        !/\d{5}/.test(await solo.locator('#room-chip').innerText()),
+        await solo.locator('#room-chip').innerText());
   for (const w of ['decision','mistake','noise','progress'])
     await solo.locator('#grid .tile[data-word="'+w+'"]').click();
   await solo.locator('#submit-btn').click(); await solo.waitForTimeout(400);
@@ -4604,7 +4611,14 @@ async function testThermometer(browser){
   solo.__errors = []; solo.on('pageerror', e => solo.__errors.push(String(e)));
   await solo.goto(BASE + '/playground/thermometer.html?p=1&relay=http://127.0.0.1:9');
   await solo.waitForTimeout(700);
-  check('no relay: the chip says phones off', /phones off/i.test(await solo.locator('#room-chip').innerText()));
+  /* Not showing a room, which is what "no relay" actually has to mean. The chip
+     says `connecting…` first and settles on `phones off` only after the retries run
+     out — a relay that is merely asleep is the common failure, so giving up in the
+     first second was the wrong behaviour to pin. What the page owes with no relay is
+     that it stays playable and never claims a room nobody can join. */
+  check('no relay: the chip never shows a room code',
+        !/\d{5}/.test(await solo.locator('#room-chip').innerText()),
+        await solo.locator('#room-chip').innerText());
   await solo.locator('#pool .word-btn[data-word="annoyed"]').click(); await solo.waitForTimeout(400);
   check('and the game still plays', await solo.locator('#slots .slot.filled').count() === 1);
   check('no errors without a relay', solo.__errors.length === 0, solo.__errors[0]);
@@ -4727,7 +4741,14 @@ async function testStoryReveal(browser){
   solo.__errors = []; solo.on('pageerror', e => solo.__errors.push(String(e)));
   await solo.goto(BASE + '/playground/story-reveal.html?p=1&relay=http://127.0.0.1:9');
   await solo.waitForTimeout(700);
-  check('no relay: the chip says phones off', /phones off/i.test(await solo.locator('#room-chip').innerText()));
+  /* Not showing a room, which is what "no relay" actually has to mean. The chip
+     says `connecting…` first and settles on `phones off` only after the retries run
+     out — a relay that is merely asleep is the common failure, so giving up in the
+     first second was the wrong behaviour to pin. What the page owes with no relay is
+     that it stays playable and never claims a room nobody can join. */
+  check('no relay: the chip never shows a room code',
+        !/\d{5}/.test(await solo.locator('#room-chip').innerText()),
+        await solo.locator('#room-chip').innerText());
   await solo.locator('#clue-btn').click(); await solo.waitForTimeout(300);
   await solo.locator('#reveal-btn').click(); await solo.waitForTimeout(300);
   check('and the game still plays',
@@ -5822,8 +5843,14 @@ async function testQuestionBench(browser){
   solo.__errors = []; solo.on('pageerror', e => solo.__errors.push(String(e)));
   await solo.goto(BASE + '/playground/question-bench.html?relay=http://127.0.0.1:9');
   await solo.waitForTimeout(900);
-  check('no relay: the chip says phones off',
-        /phones off/i.test(await solo.locator('#room-chip').innerText()));
+/* Not showing a room, which is what "no relay" actually has to mean. The chip
+     says `connecting…` first and settles on `phones off` only after the retries run
+     out — a relay that is merely asleep is the common failure, so giving up in the
+     first second was the wrong behaviour to pin. What the page owes with no relay is
+     that it stays playable and never claims a room nobody can join. */
+  check('no relay: the chip never shows a room code',
+        !/\d{5}/.test(await solo.locator('#room-chip').innerText()),
+        await solo.locator('#room-chip').innerText());
   /* And so does the button, which is the same fact and used to disagree with it.
      `addPhone` returns silently with no room, so an enabled button swallowed the
      click and nothing happened anywhere — reported as "I click add phone and no
@@ -5831,7 +5858,7 @@ async function testQuestionBench(browser){
      there is no relay behind the page at all. A control that cannot work says so. */
   check('and so does the + phone button, rather than swallowing the click',
         await solo.locator('#add-phone').isDisabled() &&
-        /no relay/i.test(await solo.locator('#add-phone').innerText()),
+        /no relay|connecting/i.test(await solo.locator('#add-phone').innerText()),
         await solo.locator('#add-phone').innerText());
   check('but the card is still drawn',
         await solo.locator('#card-round .gword').count() === 8);

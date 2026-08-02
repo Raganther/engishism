@@ -866,6 +866,29 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Opening a room retries now, in the hub *and* on the bench — the common failure
+  is a relay that is merely asleep.** Reported as "it says no relay and I can't
+  select any phones for any question". Both ends attempted `newCode` **once** on
+  load and, on failure, settled on `phones off` and never tried again: a hosted
+  relay on a free plan spins down when idle and takes the better part of a minute
+  to wake, so the *first* load of a lesson failed and the room stayed shut for the
+  hour. The class cannot join a room that was never opened.
+  - **Backed off, not hammered**, and it says `Connecting…` while trying — a room
+    that is about to exist and one that never will are different facts, and only one
+    of them is worth reloading for. Eight attempts over about a minute.
+  - **The chip is the way back in**: out of attempts it reads `phones off · tap to
+    retry`, and tapping it starts again. A dead end with nothing on screen saying
+    what to do was the whole complaint.
+  - **The hub's promise had no `.catch` at all**, so an unreachable relay threw and
+    the chip kept whatever it had said before — not even the "no relay" message.
+  - **One source for the state, because two labels for one fact is what started
+    this.** `BenchKit.room` reports `connecting`/`ready`/`off` and the bench's
+    `+ phone` button follows it, instead of reading `no relay` beside a chip reading
+    `connecting…`.
+  - **The degradation checks were pinned to the wrong thing** and went red on the
+    fix: they asserted the chip says `phones off` within a second. What a page with
+    no relay actually owes is that it stays playable and never claims a room nobody
+    can join, so they assert *that* now. Pinning the wording pinned the giving-up.
 - **The anagram round: the first round grown out of a question *form*, and the
   first phone dynamic the relay had never carried.** `game-hub/rounds/anagram.js` —
   scrambled letters on the card, a row of empty boxes under them, and every handset
