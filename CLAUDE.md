@@ -759,6 +759,43 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The bench authors content now, not just question types.** It held one throwaway
+  sample and forgot it on reload, so it could be used to iterate a *type* and never
+  to write questions — which is the job the moment a type is finished. It now keeps
+  a **set**: prev/next/add/duplicate/delete, persisted in `localStorage`, loadable
+  from any category that already exists, and exportable as a Jeopardy category that
+  pastes straight into a unit file.
+  - **A round says why an item is wrong, not just that it is.** `check(item)` joins
+    the round contract and returns sentences an author can read; `setup()` returning
+    null already said *that* something was wrong. It went on the shelf rather than
+    into the bench because the rules were about to exist twice — **the content gate
+    had its own per-round block**, which is knowledge the round already has. The
+    gate now asks the registry, so a round written next month is audited the day it
+    ships with `smoke-test.js` untouched.
+  - **The split: the round owns what makes the *question* invalid, the host owns
+    what makes its own *bank* untidy.** "Needs at least two options" is the round's.
+    "Also carries an `a` field" stays in the gate, because `a` is Jeopardy's word for
+    an answer and no round should ever learn it. For the same reason the gate
+    normalises `q`→`text` before checking, exactly as `jShowClue` does.
+  - **There is no save button.** Every keystroke lands in the bank, because an editor
+    with a live preview *and* a save button is one where the two disagree — and what
+    you would lose is the question you were in the middle of. The card still redraws
+    on Ask or on moving between questions: rebuilding it on each character would
+    throw away a round the room was part-way through answering.
+  - **A round trip must not lose what the editor has no field for.** The editor has
+    three inputs and an ordering item has four things in it — the glosses have no
+    input at all, so `build(text, a, b, prev)` carries them forward. Loading a
+    category and exporting it back used to strip the teaching off every step,
+    silently. Asserted.
+  - **The export knows Jeopardy's shape, and that is allowed.** The bench is a
+    *tool*, not a runtime module, so its output format costs the layering nothing —
+    and a Jeopardy category is the only thing that can consume these today. When a
+    neutral question pool exists this becomes the second exporter rather than a
+    rewrite. Values are 100–500 by position, which is why five is the number the
+    bench nudges you towards.
+  - **Still missing for the stated goal**: nothing consumes a *pool*; content is
+    still four hand-authored banks per unit. See the composability item under Next —
+    that is the migration, and it is a project rather than a refactor.
 - **Plain multiple choice is the third round, and it cost a `<script>` line.**
   `game-hub/rounds/choice.js` — a question and four answers, `choice:{options,
   answer}`. Eleventh category on the Lab board (`L6 · Multiple Choice`).

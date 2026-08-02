@@ -5702,6 +5702,80 @@ async function testQuestionBench(browser){
   checkClean(mc, 'multiple choice bench');
   await mc.close();
 
+  /* ---------- authoring, not just trying ----------
+     The bench held one throwaway question and forgot it on reload, so it could be
+     used to iterate a question *type* and never to write content — which is the job
+     the moment a type is finished.
+
+     It clears its own storage at both ends. Every page in this suite shares one
+     browser context, so a bank left behind would be loaded by the next check and
+     the sample it expects would silently not be there. */
+  const au = await browser.newPage({ viewport:{ width:1500, height:1000 } });
+  au.__errors = []; au.__console = [];
+  au.on('pageerror', e => au.__errors.push(String(e)));
+  au.on('console', m => {
+    if (m.type() === 'error' &&
+        !/ERR_CONNECTION_RESET|fonts\.(googleapis|gstatic)|navigator\.vibrate|favicon/.test(m.text()))
+      au.__console.push(m.text());
+  });
+  await au.goto(BASE + '/playground/question-bench.html'); await au.waitForTimeout(1300);
+  await au.evaluate(() => { try{ localStorage.removeItem('engishism.bench.bank'); }catch(e){} });
+  await au.reload(); await au.waitForTimeout(1300);
+
+  /* The round's own rulebook, read live — the same `check(item)` the content gate
+     runs, so an author and the gate can never disagree about what a valid question
+     is. The message has to name the defect, not just refuse: "not complete" is
+     exactly what this replaces. */
+  await au.locator('#type-pick').selectOption('choice'); await au.waitForTimeout(500);
+  check('a well formed question says so',
+        /ready/i.test(await au.locator('#ed-verdict').innerText()),
+        await au.locator('#ed-verdict').innerText());
+  await au.locator('#ed-with').fill('zzz'); await au.waitForTimeout(400);
+  check('and a broken one says what is wrong, in the round’s own words',
+        /not one of the options/i.test(await au.locator('#ed-verdict').innerText()),
+        (await au.locator('#ed-verdict').innerText()).replace(/\n/g,' | '));
+
+  /* A round trip rather than a blank page: a category that already exists can be
+     loaded, edited and exported back. The list asks the registry which clues are
+     rounds, so a unit that gains one appears without this page being edited. */
+  const cats = await au.locator('#q-load option').allInnerTexts();
+  check('categories that already exist can be loaded',
+        cats.filter(t => /\(\d+\)$/.test(t)).length >= 3, cats.join(' / '));
+  const therm = cats.find(t => /Thermometer/.test(t));
+  await au.locator('#q-load').selectOption({ label:therm }); await au.waitForTimeout(900);
+  check('loading a category brings its questions and picks its type',
+        await au.locator('#q-at').innerText() === '1 / 5' &&
+        await au.locator('#type-pick').inputValue() === 'ordering',
+        (await au.locator('#q-at').innerText()) + ' ' + (await au.locator('#type-pick').inputValue()));
+  /* The editor has three fields and an ordering item has four things in it — the
+     glosses have no field at all. Without carrying them forward, loading a category
+     and saving it back would strip the teaching off every step, silently. A round
+     trip that loses data is worse than no round trip. */
+  check('and a round trip does not strip what the editor has no field for',
+        await au.evaluate(() => Object.keys((bank[0].order || {}).gloss || {}).length) === 5,
+        String(await au.evaluate(() => Object.keys((bank[0].order || {}).gloss || {}).length)));
+
+  await au.locator('#q-next').click(); await au.waitForTimeout(600);
+  await au.reload(); await au.waitForTimeout(1400);
+  check('the set survives a reload — there is no save button to forget',
+        await au.locator('#q-at').innerText() === '1 / 5' &&
+        await au.locator('#type-pick').inputValue() === 'ordering',
+        (await au.locator('#q-at').innerText()) + ' ' + (await au.locator('#type-pick').inputValue()));
+
+  /* Out again as a Jeopardy category, because that is the one thing that can consume
+     these today. Asserted on the shape a unit file actually needs — a `v` per clue
+     and the round's own field — since a paste that does not parse is the whole
+     feature failing quietly. */
+  const dumped = await au.evaluate(() => exportText());
+  check('and comes out as a category that drops straight into a unit',
+        /\{v:100, q:/.test(dumped) && /\{v:500, q:/.test(dumped) &&
+        /order:\{/.test(dumped) && /gloss/.test(dumped),
+        dumped.split('\n').slice(2,4).join(' '));
+
+  await au.evaluate(() => { try{ localStorage.removeItem('engishism.bench.bank'); }catch(e){} });
+  checkClean(au, 'bench authoring');
+  await au.close();
+
   /* Degradation, which every playground page owes: no relay leaves the card fully
      playable teacher-only. */
   const solo = await browser.newPage({ viewport:{ width:1280, height:900 } });

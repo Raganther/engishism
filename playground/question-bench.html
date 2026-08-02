@@ -8,7 +8,7 @@
 <!-- The shared card, exactly as a game show draws it. This is the whole point of
      the page: what you tune here IS what a class meets, not a second implementation
      that resembles it. -->
-<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260801ae">
+<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260801af">
 <style>
   /* ================= The question bench =================
      One question type at a time, with the card on the left and a rack of real
@@ -91,6 +91,15 @@
                  opacity:0.55; margin:10px 0 4px; }
   #editor input{ width:100%; }
   .hint{ font-size:0.76rem; opacity:0.55; margin-top:8px; line-height:1.5; }
+  #bar.second{ margin-top:12px; margin-bottom:0; }
+  #q-at{ font-family:'IBM Plex Mono',monospace; font-size:0.78rem; opacity:0.7;
+         min-width:56px; text-align:center; }
+  /* Ready is one quiet line; a problem is a list, because "not complete" on its own
+     is exactly what this replaces. */
+  #ed-verdict{ margin-top:12px; font-size:0.8rem; line-height:1.6; }
+  #ed-verdict.ready{ color:#5BE08A; }
+  #ed-verdict.bad{ color:var(--gold); }
+  #ed-verdict ul{ margin:4px 0 0 18px; }
 
   /* A row per team, so the rack reads the way the room does: you can see at a
      glance which handsets belong together, which matters most in a race where each
@@ -153,6 +162,21 @@
       <select id="for-team" style="display:none" title="Which team the teacher is playing for"></select>
     </div>
 
+    <!-- The set being written, not one throwaway question. The bench used to hold a
+         single sample and forget it on reload, so it could be used to iterate a
+         question *type* and never to author content — which is the job it exists
+         for the moment a type is finished. -->
+    <div id="bar" class="second">
+      <button id="q-prev" class="ghost" title="Previous question">&lsaquo;</button>
+      <span id="q-at">1 / 1</span>
+      <button id="q-next" class="ghost" title="Next question">&rsaquo;</button>
+      <button id="q-add" class="ghost">+ question</button>
+      <button id="q-dupe" class="ghost">Duplicate</button>
+      <button id="q-del" class="ghost">Delete</button>
+      <select id="q-load" title="Load a category that already exists"></select>
+      <button id="q-export" class="ghost">Export&hellip;</button>
+    </div>
+
     <div id="card-stage">
     <div id="card-frame">
       <div id="card-top"></div>
@@ -172,6 +196,10 @@
       <input id="ed-pick" value="verdict, jury, testimony, acquittal">
       <label for="ed-with" id="lbl-with">The decoys — they must be a coherent group of their own</label>
       <input id="ed-with" value="sabbatical, promotion, redundancy, overtime">
+      <!-- The round's own rulebook, read live. It is the same `check(item)` the
+           content gate runs, deliberately: an author and the gate disagreeing about
+           what a valid question is would be worse than neither existing. -->
+      <div id="ed-verdict"></div>
       <p class="hint">
         Edit and press <strong>Ask the room</strong> to push it to every handset. The card
         and the phones are the same code a game show runs, so what looks right here is
@@ -184,14 +212,21 @@
   <div id="rack-pane"><div id="rack-warn" class="warn"></div><div id="rack"></div></div>
 </div>
 
-<script src="../game-hub/hub-buzzer.js?v=20260801ae"></script>
-<script src="../game-hub/hub-qr.js?v=20260801ae"></script>
-<script src="../game-hub/hub-kit.js?v=20260801ae"></script>
-<script src="../game-hub/hub-rounds.js?v=20260801ae"></script>
-<script src="../game-hub/rounds/grouping.js?v=20260801ae"></script>
-<script src="../game-hub/rounds/ordering.js?v=20260801ae"></script>
-<script src="../game-hub/rounds/choice.js?v=20260801ae"></script>
-<script src="bench-kit.js?v=20260801ae"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260801af"></script>
+<script src="../game-hub/hub-qr.js?v=20260801af"></script>
+<script src="../game-hub/hub-kit.js?v=20260801af"></script>
+<script src="../game-hub/hub-rounds.js?v=20260801af"></script>
+<script src="../game-hub/rounds/grouping.js?v=20260801af"></script>
+<script src="../game-hub/rounds/ordering.js?v=20260801af"></script>
+<script src="../game-hub/rounds/choice.js?v=20260801af"></script>
+<!-- Data only, and the reason the bench can be a round trip rather than a blank
+     page: an existing category can be loaded, edited and exported back. Loading a
+     unit here puts nothing in front of a class — these files are inert until a hub
+     shell reads them. -->
+<script src="../game-hub/content/unit-lab.js?v=20260801af"></script>
+<script src="../game-hub/content/unit-4.js?v=20260801af"></script>
+<script src="../game-hub/content/unit-5.js?v=20260801af"></script>
+<script src="bench-kit.js?v=20260801af"></script>
 <script>
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -293,37 +328,216 @@ const EDITORS = {
               b:'sabbatical, promotion, redundancy, overtime',
               labelA:'The words that belong together',
               labelB:'The decoys — they must be a coherent group of their own',
-              build: (text, a, b) => ({ text, group:{ pick:list(a), with:list(b) } }) },
+              build: (text, a, b) => ({ text, group:{ pick:list(a), with:list(b) } }),
+              read: it => ({ q:it.text || '', a:(it.group.pick||[]).join(', '),
+                             b:(it.group.with||[]).join(', ') }) },
   ordering: { q:'Put these in order — mildest first.',
               a:'annoyed, irritated, angry, livid, furious',
               b:'mildly bothered | absolutely raging',
               labelA:'The scale, weakest first — this is the answer',
               labelB:'The two ends of the scale, separated by |',
-              build: (text, a, b) => {
+              /* `prev` is what the item already was. The editor has three fields and
+                 an ordering item has four things in it — the glosses have no field,
+                 so without carrying them forward, loading a category and saving it
+                 back would silently strip the teaching off every step. A round trip
+                 that loses data is worse than no round trip. */
+              build: (text, a, b, prev) => {
                 const ends = b.split('|').map(x => x.trim());
-                return { text, order:{ scale:list(a), low:ends[0] || 'weakest',
-                                       high:ends[1] || 'strongest' } };
-              } },
+                const scale = list(a);
+                const was = (prev && prev.order && prev.order.gloss) || {};
+                const gloss = {};
+                scale.forEach(w => { if(was[w]) gloss[w] = was[w]; });
+                return { text, order:{ scale, low:ends[0] || 'weakest',
+                                       high:ends[1] || 'strongest', gloss } };
+              },
+              read: it => ({ q:it.text || '', a:(it.order.scale||[]).join(', '),
+                             b:(it.order.low || '') + ' | ' + (it.order.high || '') }) },
   choice:   { q:"Which verb goes with 'a sentence'?",
               a:'pass, make, do, give',
               b:'pass',
               labelA:'The options — they are shuffled, so order does not matter',
               labelB:'The right one, written out as it appears above',
-              build: (text, a, b) => ({ text, choice:{ options:list(a), answer:b.trim() } }) }
+              build: (text, a, b) => ({ text, choice:{ options:list(a), answer:b.trim() } }),
+              read: it => ({ q:it.text || '', a:(it.choice.options||[]).join(', '),
+                             b:it.choice.answer || '' }) }
 };
 function itemFromEditor(){
   const ed = EDITORS[type];
   const text = $('ed-q').value.trim();
   if(!ed) return { text };
-  return ed.build(text, $('ed-pick').value, $('ed-with').value);
+  return ed.build(text, $('ed-pick').value, $('ed-with').value, bank[at]);
 }
 function fillEditor(){
   const ed = EDITORS[type];
   if(!ed) return;
-  $('ed-q').value = ed.q; $('ed-pick').value = ed.a; $('ed-with').value = ed.b;
   $('lbl-pick').textContent = ed.labelA;
   $('lbl-with').textContent = ed.labelB;
+  const it = bank[at];
+  const f = (it && ed.read) ? safeRead(ed, it) : null;
+  $('ed-q').value     = f ? f.q : ed.q;
+  $('ed-pick').value  = f ? f.a : ed.a;
+  $('ed-with').value  = f ? f.b : ed.b;
 }
+/* A bank written for one round, then looked at through another's editor — switch the
+   type picker and the item in hand is the wrong shape. Fall back to the sample rather
+   than throwing, which is what an editor should do with something it cannot read. */
+function safeRead(ed, it){ try{ return ed.read(it); }catch(e){ return null; } }
+
+/* ---------------- the set being written ----------------
+   The bench held one throwaway question and forgot it on reload, so it could be used
+   to iterate a question *type* and never to author content — which is the job the
+   moment a type is finished. A bank, a position in it, and somewhere to put it. */
+const STORE = 'engishism.bench.bank';
+let bank = [];
+let at   = 0;
+
+function saveBank(){
+  try{ localStorage.setItem(STORE, JSON.stringify({ type, bank })); }catch(e){}
+}
+function loadBank(){
+  try{
+    const d = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if(d && Array.isArray(d.bank) && d.bank.length){
+      if(d.type && Kit.round.get(d.type)) type = d.type;
+      bank = d.bank; at = 0; return true;
+    }
+  }catch(e){}
+  return false;
+}
+/* Whatever the current editor says, written back into the set. Called on every
+   keystroke, so the bank is always what is on screen — there is no save button to
+   forget, which is the only way an editor with a live preview can behave. */
+function commit(){
+  if(!bank.length) bank = [null];
+  bank[at] = itemFromEditor();
+  saveBank();
+}
+function renderNav(){
+  $('q-at').textContent = (at + 1) + ' / ' + Math.max(1, bank.length);
+  $('q-prev').disabled = at <= 0;
+  $('q-next').disabled = at >= bank.length - 1;
+  $('q-del').disabled  = bank.length <= 1;
+}
+function goTo(i){
+  at = Math.max(0, Math.min(bank.length - 1, i));
+  fillEditor(); build(); renderNav(); if(host) ask();
+}
+
+/* The round's own rulebook, read live — the same `check(item)` the content gate
+   runs. One rulebook, so an author and the gate can never disagree about what a
+   valid question is. */
+function renderVerdict(){
+  const box = $('ed-verdict');
+  const item = itemFromEditor();
+  const bad = Kit.round.checkItem(item);
+  box.className = bad.length ? 'bad' : 'ready';
+  box.innerHTML = '';
+  if(!bad.length){ box.textContent = 'Ready — this question is well formed.'; return; }
+  box.appendChild(document.createTextNode('Not ready yet:'));
+  const ul = document.createElement('ul');
+  bad.forEach(m => { const li = document.createElement('li'); li.textContent = m; ul.appendChild(li); });
+  box.appendChild(ul);
+}
+
+/* ---------------- loading what already exists ----------------
+   A category that is already authored, so the bench is a round trip rather than a
+   blank page. It asks the registry which clues are rounds, so a unit that gains a
+   round next month appears here without this list being touched. */
+function fillLoad(){
+  const sel = $('q-load');
+  sel.innerHTML = '<option value="">Load a category…</option>';
+  (window.UNITS || []).forEach((u, ui)=>{
+    (u.jeopardyCategories || []).forEach((c, ci)=>{
+      const claimed = (c.clues || []).filter(x => Kit.round.of(x));
+      if(!claimed.length) return;
+      const o = document.createElement('option');
+      o.value = ui + ':' + ci;
+      o.textContent = (u.card && u.card.num ? u.card.num + ' · ' : '') + c.name +
+                      ' (' + claimed.length + ')';
+      sel.appendChild(o);
+    });
+  });
+}
+$('q-load').addEventListener('change', e=>{
+  const [ui, ci] = String(e.target.value).split(':').map(Number);
+  const u = (window.UNITS || [])[ui];
+  const c = u && (u.jeopardyCategories || [])[ci];
+  if(!c) return;
+  /* Normalised on the way in, exactly as `jShowClue` does it: this bank calls a
+     prompt `q` and a round has never learned that. */
+  const loaded = (c.clues || []).filter(x => Kit.round.of(x))
+                   .map(x => Object.assign({}, x, { text:x.q, q:undefined, v:undefined }));
+  if(!loaded.length) return;
+  const hit = Kit.round.of(loaded[0]);
+  if(hit) type = hit.id;
+  bank = loaded; at = 0;
+  $('type-pick').value = type;
+  fillModes(); fillTeamPick(); saveBank(); goTo(0);
+  e.target.value = '';
+});
+
+/* ---------------- getting it out again ----------------
+   A Jeopardy category, because that is the one thing that can consume these today.
+   The bench is a *tool*, not a runtime module, so knowing its output format costs
+   the layering nothing — but when a neutral question pool exists this becomes the
+   second exporter rather than being rewritten.
+
+   Values are 100..500 by position, which is Jeopardy's ladder and the reason five
+   is the number the bench nudges you towards. */
+const VALUES = [100, 200, 300, 400, 500];
+function exportText(){
+  const name = (prompt('Name for this category?', 'New category') || 'New category').trim();
+  const id   = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'category';
+  const rows = bank.map((it, i)=>{
+    const v = VALUES[i] != null ? VALUES[i] : (i + 1) * 100;
+    const body = Object.keys(it).filter(k => k !== 'text' && it[k] !== undefined)
+      .map(k => '\n        ' + k + ':' + JSON.stringify(it[k]));
+    return '      {v:' + v + ', q:' + JSON.stringify(it.text || '') + ',' + body.join(',') + '},';
+  });
+  return [
+    '    /* Authored on the question bench. Every clue below was drawn on the real',
+    '       card and pushed to real handsets before it got here. */',
+    "    { id:" + JSON.stringify(id) + ", section:'??', name:" + JSON.stringify(name) + ', clues:[',
+    rows.join('\n'),
+    '    ]},',
+    '',
+    '    // Jeopardy needs five clues a category and its sections contiguous — set',
+    "    // `section` above to a real one and add a label for it in the unit's",
+    '    // `jeopardySectionLabels`, or the content gate will say so.'
+  ].join('\n');
+}
+$('q-export').addEventListener('click', ()=>{
+  commit();
+  const bad = bank.map((it, i) => ({ i, bad:Kit.round.checkItem(it) })).filter(x => x.bad.length);
+  if(bad.length && !confirm(bad.length + ' of ' + bank.length +
+      ' questions are not well formed yet (the first is #' + (bad[0].i + 1) +
+      ': ' + bad[0].bad[0] + ').\n\nExport anyway?')) return;
+  const text = exportText();
+  const blob = new Blob([text], { type:'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'category.js';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=> URL.revokeObjectURL(a.href), 4000);
+});
+
+$('q-prev').addEventListener('click', ()=>{ commit(); goTo(at - 1); });
+$('q-next').addEventListener('click', ()=>{ commit(); goTo(at + 1); });
+$('q-add').addEventListener('click', ()=>{
+  commit();
+  bank.splice(at + 1, 0, null);       // null means "the sample", so a new one is a start
+  goTo(at + 1); commit(); renderVerdict();
+});
+$('q-dupe').addEventListener('click', ()=>{
+  commit();
+  bank.splice(at + 1, 0, JSON.parse(JSON.stringify(bank[at])));
+  goTo(at + 1);
+});
+$('q-del').addEventListener('click', ()=>{
+  if(bank.length <= 1) return;
+  bank.splice(at, 1);
+  goTo(Math.min(at, bank.length - 1)); saveBank();
+});
 
 /* How many the teacher may hold at once — the round says, via what it asks the
    phones for. An ordering climb wants one at a time; a grouping card wants four. */
@@ -461,8 +675,24 @@ $('reveal-btn').addEventListener('click', ()=>{
 $('reset-btn').addEventListener('click', ()=>{ build(); if(host) host.disarm(); });
 $('ask-btn').addEventListener('click', ask);
 $('type-pick').addEventListener('change', e => {
-  type = e.target.value; fillModes(); fillTeamPick(); fillEditor(); build(); if(host) ask();
+  type = e.target.value;
+  /* A different type is a different question, and the item in hand is the wrong
+     shape for it — so it goes back to the sample rather than being read through an
+     editor that cannot understand it. Only this one; the rest of the set is left
+     alone, because switching type to look at something is not the same as
+     discarding what you have written. */
+  bank[at] = null;
+  fillModes(); fillTeamPick(); fillEditor(); commit(); build(); renderVerdict();
+  if(host) ask();
 });
+
+/* Every keystroke lands in the bank. There is no save button, because an editor
+   with a live preview and a save button is one where the two disagree — and the
+   thing you would lose is exactly the question you were in the middle of. The card
+   itself still redraws on Ask or on moving between questions: rebuilding it on each
+   character would throw away a round the room was part-way through answering. */
+['ed-q','ed-pick','ed-with'].forEach(id =>
+  $(id).addEventListener('input', ()=>{ commit(); renderVerdict(); }));
 
 /* ---------------- sizing ----------------
    Two rules, and the first is the point of the page: **the card never gives up
@@ -663,8 +893,15 @@ const room = BenchKit.room({
 
 /* Degradation is the rule, not a fallback: with no relay the card is still drawn
    and still playable by clicking the words and pressing Check. */
+if(!loadBank()) bank = [null];
+$('type-pick').value = type;
 fillModes();
 fillTeamPick();
+fillLoad();
+fillEditor();
+commit();
+renderNav();
+renderVerdict();
 build();
 fitAll();
 </script>
