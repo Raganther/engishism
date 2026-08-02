@@ -797,6 +797,12 @@ straight away. Four rules paid for in advance:
 The `bench` suite drives all of it, including the hub as a board (start Jeopardy
 inside the frame, buzz from a bench phone, assert it reaches `#phone-bar`).
 
+**The forms now live on the question bench too** — one workshop for both kinds of
+question, three groups in one menu (rounds · forms in the kit · forms lab only).
+See Current status for why, and for the styling that had to move out of `hub.css`
+to make it true. `prompt-lab.html` still exists and is now the duplicate; the
+paragraph below describes what it was built for, which the bench has inherited.
+
 **`prompt-lab.html` — the question forms, on their own, with a room.** A form could
 only ever be met by finding a bank item that happened to carry its type, which is
 why three of them sat at 4% of the content and a round could pass without meeting
@@ -859,6 +865,65 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **One workshop for both kinds of question — the forms moved onto the bench.**
+  The bench listed the three rounds and nothing else, so the six question forms
+  were only reachable from `prompt-lab.html`, a second page with its own menu, its
+  own samples and its own room. Reported as *"I don't see the anagram in the
+  question bench"* — which was correct, and the answer ("different workshop") is
+  not one a teacher should have to know before deciding which link to click.
+  - **The two tiers stay two tiers; it was the *workshops* that were wrong.** A
+    **round** is a question the class plays — card, phone dynamic, merging several
+    students' taps, judging. A **form** is a way of writing one — render and
+    reveal, no time, no turns, no phones. They keep their own registries, which is
+    right, and the menu asks both: three groups, *rounds* · *forms in the kit* ·
+    *forms lab only*. Nothing is listed by hand, so a round or a form written next
+    month appears without this page being edited.
+  - **The kit/lab split had to come with them**, and it is the reason the bench now
+    loads `lab-forms.js` behind the same two-script-tag capture the lab used. A kit
+    form is live in every game the day a bank item carries its type; a lab form can
+    reach no game at all. `bridge` shipped invisibly once because that difference
+    was nowhere on screen, so the menu says it in the group label.
+  - **A form's editor is derived, not listed.** Every form has the same item shape
+    — `{text, answer, type}` — and always will, because that shape is the whole
+    reason a form can be added without touching a game or a content field. Listing
+    the six by hand would be a second registry kept in step with the real one.
+    Two fields rather than three, said by the editor (`labelB:null`) rather than by
+    asking what kind of question this is.
+  - **The form styling had to leave `hub.css`, exactly as the round card's innards
+    did, and for the same reason.** A playground page cannot load that file — it
+    carries the whole hub theme — so every form drew on the bench with none of its
+    rules: the anagram's letters ran into the prompt as one line of text. ~100
+    lines moved to `hub-rounds.css`, which the hub and the bench both already load,
+    with `--yellow` and `--glow` (which no bench page defines) as fallbacks
+    **inside each `var()`, never a declaration block**. **The screenshot found this
+    and the assertions had not** — every check passed on the unstyled build,
+    because they asked whether elements were created and never whether they read.
+  - **The phones go quiet for a form, and that is the honest picture.** A form owns
+    no phone dynamic by definition, so the Check button and the third editor field
+    stand down rather than sitting there dead — a disabled control reads as broken.
+    What a form does get is the one dynamic that suits any question at all:
+    everyone types, judged by `Kit.answer.judge`, in a strip under the card.
+  - **The declining diagnostic came across, because it is the one failure a form
+    has that is invisible.** A form that looks at a prompt, finds it is not shaped
+    for it and prints plain text is *behaving correctly*, and is indistinguishable
+    on screen from the type having done nothing — which is how it gets reported as
+    a bug. `render()` cannot tell you which happened (it hands back the type
+    whenever the form *ran*), so the tell is the absence of element children,
+    measured on a detached node.
+  - **The load menu keeps two different rules on purpose.** Any round category,
+    whichever round is in hand, with the type following what you load — the
+    workflow the bench has always had, and what the suite pins. Only the form in
+    hand for a form, because 336 authored items are gap fills and a menu holding
+    every category in both units is not a menu.
+  - **`q` and `a` go back on at the export.** A bank calls the prompt `q` and the
+    answer `a`; neither a round nor a form has ever learned that. Exporting
+    `answer:` would produce a category that loads without complaint and shows an
+    empty answer line on every clue in it.
+  - **`prompt-lab.html` is still there and is now the duplicate.** Retiring it means
+    moving ~20 `promptlab` checks onto the bench; its hub-portability block (drop
+    `lab-forms.js` into a real hub page, assert every form draws *and* reveals on a
+    live clue card) is about forms in a *game* and survives wherever it lives.
+    Not done — the merge was kept additive so nothing that worked was disturbed.
 - **The bench authors content now, not just question types.** It held one throwaway
   sample and forgot it on reload, so it could be used to iterate a *type* and never
   to write questions — which is the job the moment a type is finished. It now keeps

@@ -5227,10 +5227,39 @@ async function testQuestionBench(browser){
   /* The menu is the registry asked, never a list kept in step by hand — the same
      discipline the prompt lab and the fit suite use, so a round written next month
      appears here without this page or this check being edited. */
-  const listed = await page.locator('#type-pick option').allInnerTexts();
+  /* Both registries, because the bench is one workshop for both kinds of question
+     now: a **round** is one the class plays (card + phones + judging) and a **form**
+     is a way of writing one (render and reveal, no phones at all). They keep their
+     own registries, which is right — what was wrong was a workshop each, since a
+     teacher with an idea should not have to know which category it falls into
+     before knowing which page to open. */
+  const groups = await page.evaluate(() =>
+    [...document.querySelectorAll('#type-pick optgroup')].map(g => ({
+      label: g.label, opts: [...g.querySelectorAll('option')].map(o => o.value) })));
+  const listed = groups.reduce((a, g) => a.concat(g.opts), []);
   const ids    = await page.evaluate(() => window.HubKit.round.ids());
-  check('every registered round is in the menu', listed.length === ids.length && ids.length > 0,
+  const forms  = await page.evaluate(() => window.HubKit.prompt.types());
+  check('every registered round is in the menu',
+        ids.length > 0 && ids.every(id => listed.indexOf(id) !== -1),
         listed.join('|') + ' vs ' + ids.join('|'));
+  check('and every registered question form is too',
+        forms.length > 0 && forms.every(t => listed.indexOf(t) !== -1),
+        listed.join('|') + ' vs ' + forms.join('|'));
+  /* A form in the kit is live in every game the day a bank item carries its type;
+     a lab form can reach no game at all. `bridge` shipped invisibly once because
+     that difference was not said out loud anywhere, so the menu says it. Derived
+     from what the two files register, never a literal list — naming a form here is
+     how the promptlab suite came to fail the day one graduated. */
+  const kit = await page.evaluate(() => window.IN_THE_KIT || []);
+  const labOnly = forms.filter(t => kit.indexOf(t) === -1);
+  const kitGroup = groups.find(g => /in the kit/i.test(g.label));
+  const labGroup = groups.find(g => /lab only/i.test(g.label));
+  check('the menu separates forms that are in the kit from experimental ones',
+        !!kitGroup && !!labGroup && kit.every(t => kitGroup.opts.indexOf(t) !== -1),
+        JSON.stringify(groups.map(g => g.label)));
+  check('and no experimental form is offered as if a game could draw it',
+        labOnly.length > 0 && labOnly.every(t => labGroup && labGroup.opts.indexOf(t) !== -1),
+        labOnly.join('|') + ' vs ' + JSON.stringify(labGroup));
   check('the card draws the whole set of words',
         await page.locator('#card-round .gword').count() === 8);
   /* The card is drawn from `hub-rounds.css`, which this page loads instead of
@@ -5796,6 +5825,91 @@ async function testQuestionBench(browser){
         String(await solo.locator('#card-round .gword.right').count()));
   check('no errors without a relay', solo.__errors.length === 0, solo.__errors[0]);
   await solo.close();
+
+  /* ---------- the other kind of question ----------
+     A form is render-and-reveal and owns no phone dynamic, so the round furniture
+     stands down rather than sitting there dead — a disabled Check button reads as
+     broken. Driven over whatever `Kit.prompt` holds, so a form registered next
+     month is covered without this check being edited. */
+  const fp = await browser.newPage({ viewport:{ width:1400, height:950 } });
+  fp.__errors = []; fp.on('pageerror', e => fp.__errors.push(String(e)));
+  await fp.goto(BASE + '/playground/question-bench.html'); await fp.waitForTimeout(1200);
+  const allForms = await fp.evaluate(() => window.HubKit.prompt.types());
+  const drewAll = [];
+  for(const t of allForms){
+    await fp.locator('#type-pick').selectOption(t); await fp.waitForTimeout(320);
+    drewAll.push(await fp.evaluate(t => ({
+      type: t,
+      /* The form draws into the prompt itself, which is what a game does — the form
+         *is* the question's wording, so there is no second element to fill. */
+      kids:   document.getElementById('card-prompt').children.length,
+      round:  document.getElementById('card-round').children.length,
+      check:  getComputedStyle(document.getElementById('check-btn')).display,
+      third:  getComputedStyle(document.getElementById('ed-with')).display,
+      strip:  getComputedStyle(document.getElementById('form-replies')).display
+    }), t));
+  }
+  check('every form in the kit draws its sample on the bench card',
+        drewAll.length > 0 && drewAll.every(r => r.kids > 0),
+        JSON.stringify(drewAll.filter(r => !r.kids)));
+  check('and leaves the round slot empty, which is the visible difference',
+        drewAll.every(r => r.round === 0), JSON.stringify(drewAll.filter(r => r.round)));
+  check('a form hides the round furniture rather than leaving it dead',
+        drewAll.every(r => r.check === 'none' && r.third === 'none'),
+        JSON.stringify(drewAll.filter(r => r.check !== 'none' || r.third !== 'none')));
+  check('and shows where typed answers will land',
+        drewAll.every(r => r.strip !== 'none'), JSON.stringify(drewAll.filter(r => r.strip === 'none')));
+
+  /* The styling is the point of the move out of `hub.css`: a playground page cannot
+     load that file, so before this the letters ran together as one line of text and
+     the bench misreported the one thing it exists to show. */
+  await fp.locator('#type-pick').selectOption('anagram'); await fp.waitForTimeout(350);
+  const tiles = await fp.evaluate(() => {
+    const t = document.querySelector('#card-prompt .prompt-tile');
+    if(!t) return null;
+    const cs = getComputedStyle(t);
+    return { display:getComputedStyle(t.parentElement).display, border:cs.borderTopWidth };
+  });
+  check('a form is styled on the bench, not just drawn',
+        !!tiles && tiles.display === 'flex' && parseFloat(tiles.border) >= 2,
+        JSON.stringify(tiles));
+
+  await fp.locator('#reveal-btn').click(); await fp.waitForTimeout(800);
+  /* Whitespace-stripped, because an anagram's letters are one element each and
+     `innerText` puts a newline between them — the answer is on the card as
+     V·E·R·D·I·C·T, which is the form working, not failing. */
+  const revealed = (await fp.locator('#card-prompt').innerText()).replace(/\s+/g, '');
+  check('reveal lands the answer and the answer line stands down',
+        await fp.evaluate(() => getComputedStyle(document.getElementById('card-answer')).display) === 'none' &&
+        /verdict/i.test(revealed),
+        revealed);
+
+  /* The one failure a form has, and it is invisible without being said: a form that
+     looks at a prompt, finds it is not shaped for it, and prints plain text. That is
+     the intended behaviour and it is indistinguishable on screen from the type having
+     done nothing — which is exactly how it gets reported as a bug. */
+  await fp.locator('#type-pick').selectOption('oddoneout'); await fp.waitForTimeout(300);
+  await fp.locator('#ed-q').fill('No slash separators anywhere in this one');
+  await fp.waitForTimeout(350);
+  check('a form that declines says so, rather than looking like it did nothing',
+        /declined/i.test(await fp.locator('#ed-verdict').innerText()),
+        await fp.locator('#ed-verdict').innerText());
+
+  /* A bank calls the prompt `q` and the answer `a`, and neither a round nor a form
+     has ever learned that. Exporting `answer:` would produce a category that loads
+     without complaint and shows an empty answer line on every clue in it. */
+  await fp.locator('#type-pick').selectOption('anagram'); await fp.waitForTimeout(350);
+  const out = await fp.evaluate(() => {
+    const old = window.prompt; window.prompt = () => 'Forms';
+    let t = ''; try{ t = exportText(); }catch(e){ t = 'THREW ' + e.message; }
+    window.prompt = old; return t;
+  });
+  check('a form exports in the bank’s own names, q and a',
+        /\bq:/.test(out) && /\n\s+a:/.test(out) && !/answer:/.test(out), out.slice(0, 240));
+  check('and carries the type, or the form would never draw in a game',
+        /type:"anagram"/.test(out), out.slice(0, 240));
+  check('no errors on the form path', fp.__errors.length === 0, fp.__errors[0]);
+  await fp.close();
 }
 
 /* ---- the prompt lab ----

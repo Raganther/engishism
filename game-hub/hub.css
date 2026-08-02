@@ -241,106 +241,12 @@ body.theme-gameshow #play-blockbusters.lit .hex.pick{
 #race-prompt .race-idle{ font-family:'IBM Plex Mono',monospace; font-size:0.9rem; letter-spacing:0.05em; color: rgba(251,243,213,0.65); text-transform:uppercase; }
 #race-prompt .race-sec{ font-family:'IBM Plex Mono',monospace; font-size:0.72rem; letter-spacing:0.12em; text-transform:uppercase; color: var(--blue); }
 #race-prompt .race-sentence{ font-family:'Space Grotesk',sans-serif; font-weight:500; font-size: clamp(1.15rem, 2.5vw, 1.95rem); line-height:1.3; color: var(--white); }
-/* --- the shared blank (Kit.prompt's 'gap' type) ---
-   Every game draws a blank the same way now. Race keeps the filled-chip look it
-   always had, because there the blank IS the question — the word is on the board
-   for a student to find, and it is never filled in. */
-.prompt-gap{
-  display:inline-block; min-width:2.6em; margin:0 0.14em; padding:0 0.28em;
-  border-bottom:3px solid currentColor; font-weight:700; text-align:center;
-  line-height:1.15; vertical-align:baseline;
-}
-#race-prompt .prompt-gap{
-  min-width:2.2em; padding:0 0.2em; border-bottom:none; border-radius:6px;
-  background: var(--yellow); color: var(--navy);
-}
-/* the answer arriving in the blank — the sentence finishes itself */
-.prompt-gap.filled{
-  border-bottom-color: transparent; background: var(--yellow); color: var(--navy);
-  border-radius:6px; animation: gapFill .5s cubic-bezier(.2,.9,.3,1.1) both;
-}
-@keyframes gapFill{ from{ opacity:0; transform: translateY(-0.45em) scale(.9); } }
-
-/* --- the other question forms ---
-   Each is a shape the class can read from the back of the room before anyone has
-   said a word: scattered letters mean unscramble, three chips mean pick the odd
-   one, a struck word means find the mistake. The form announces the task, which is
-   the whole reason it is drawn rather than described. */
-.prompt-lead{ display:block; margin-bottom:0.6em; }
-
-/* anagram: the answer's letters, out of order, landing one at a time on reveal */
-.prompt-anagram{ display:flex; flex-wrap:wrap; gap:0.3em; justify-content:center; }
-.prompt-tile{
-  display:inline-flex; align-items:center; justify-content:center;
-  min-width:1.5em; padding:0.16em 0.24em; border-radius:8px;
-  background: var(--cream); color: var(--navy); border:2px solid var(--blue);
-  font-weight:700; text-transform:uppercase; line-height:1.1;
-}
-.prompt-tile.landed{ background: var(--yellow); border-color: var(--yellow); }
-
-/* sentence scramble: the words out of order, landing into the right order on
-   reveal. Wider chips than the anagram's letters, and they wrap — a C1 relative
-   clause sentence is a dozen words, not seven letters. */
-.prompt-scramble{ display:flex; flex-wrap:wrap; gap:0.35em; justify-content:center; }
-.prompt-word{
-  display:inline-flex; align-items:center; padding:0.18em 0.5em; border-radius:8px;
-  background: var(--cream); color: var(--navy); border:2px solid var(--blue);
-  font-weight:600; line-height:1.25;
-}
-.prompt-word.landed{ background: var(--yellow); border-color: var(--yellow); }
-body.theme-gameshow .prompt-word{
-  background: rgba(255,255,255,0.07); color: var(--paper); border-color: rgba(255,255,255,0.28);
-}
-body.theme-gameshow .prompt-word.landed{ background: var(--gold); color:#0a0d26; border-color: var(--gold); }
-
-/* word bridge: the chain of links with one blank, and the compounds it makes
-   appearing underneath on reveal — the answer alone doesn't explain itself */
-.prompt-bridge{ display:flex; flex-wrap:wrap; gap:0.3em; justify-content:center; align-items:center; }
-.prompt-link{
-  display:inline-flex; align-items:center; justify-content:center;
-  min-width:2.2em; padding:0.18em 0.5em; border-radius:8px;
-  background: var(--cream); color: var(--navy); border:2px solid var(--blue);
-  font-weight:700; text-transform:uppercase; line-height:1.2;
-}
-.prompt-link.blank{ background: transparent; border-style:dashed; color: var(--blue); }
-.prompt-link.filled{ background: var(--yellow); border-color: var(--yellow); }
-.prompt-join{ color: var(--blue); font-weight:700; opacity:0.75; }
-.prompt-made{
-  display:block; margin-top:0.55em; font-size:0.72em; letter-spacing:0.04em;
-  text-transform:uppercase; color: var(--blue);
-}
-body.theme-gameshow .prompt-link{
-  background: rgba(255,255,255,0.07); color: var(--paper); border-color: rgba(255,255,255,0.28);
-}
-body.theme-gameshow .prompt-link.blank{ background:transparent; color: var(--glow); }
-body.theme-gameshow .prompt-link.filled{ background: var(--gold); color:#0a0d26; border-color: var(--gold); }
-body.theme-gameshow .prompt-join,
-body.theme-gameshow .prompt-made{ color: var(--glow); }
-
-/* odd one out: candidates as chips, the odd one lit and the rest standing down */
-.prompt-odd{ display:flex; flex-wrap:wrap; gap:0.45em; justify-content:center; }
-.prompt-chip{
-  padding:0.2em 0.7em; border-radius:999px; border:2px solid var(--blue);
-  color: var(--navy); background: var(--white); font-weight:600; line-height:1.3;
-  transition: opacity .3s, background .3s, border-color .3s;
-}
-.prompt-chip.belongs{ opacity:0.32; }
-.prompt-chip.odd{
-  background: var(--yellow); border-color: var(--yellow); color: var(--navy);
-  animation: oddPick .6s cubic-bezier(.2,.9,.3,1.1) both;
-}
-@keyframes oddPick{ 40%{ transform: scale(1.13); } to{ transform:none; } }
-
-/* error correction: the wrong words struck through, then replaced by the right one */
-.prompt-error{
-  padding:0 0.22em; border-radius:5px; font-weight:700;
-  background: rgba(255,90,77,0.16); color:#c0392b; text-decoration: line-through;
-}
-.prompt-error.fixed{
-  background: var(--yellow); color: var(--navy); text-decoration:none;
-  animation: errFix .56s cubic-bezier(.2,.9,.3,1.1) both;
-}
-@keyframes errFix{ from{ opacity:0; transform: translateY(-0.3em) scale(.92); } }
+/* The question forms (Kit.prompt) now live in `hub-rounds.css`, which the hub
+   and the question bench both load. A playground page cannot load this file — it
+   carries the whole hub theme — so a form drawn on the bench had none of its
+   rules and rendered as one run-on line. Same move, same reason, as the round
+   card's innards. Race's own gameshow override for `.prompt-gap` stays below,
+   because it is about a stage rather than about a form. */
 
 /* the shared team chooser: in the clue card for Blockbusters, on the race bar for
    head-to-head Race. Same component, same number-key shortcuts. */
