@@ -20,9 +20,13 @@
      across as `reveal:[…]` layers that cost a slice of the tile. Not a form: this
      is a *round* shape, and it only ported cheaply because the hub already had
      hints costing clue value.
-   - **Three round categories** — grouping (`group:{pick, with}`), ordering
-     (`order:{scale, low, high, gloss}`) and multiple choice
-     (`choice:{options, answer}`). These are *rounds* in the full sense: they arm
+   - **Five round categories** — grouping (`group:{pick, with}`), ordering
+     (`order:{scale, low, high, gloss}`), multiple choice
+     (`choice:{options, answer}`), anagram (`anagram:{word}`) and word order
+     (`scramble:{sentence}`). The last two are the *played* versions of the `anagram`
+     and `scramble` forms above, and both are on this board on purpose: same
+     vocabulary, and the only thing that differs is whether the class calls the
+     answer out or every handset drags it into place. These are *rounds* in the full sense: they arm
      every phone, collect what several students do at once, and judge it when it
      settles. Grouping needed real engine work; ordering and multiple choice needed
      none at all, which is what the round registry was extracted for.
@@ -58,7 +62,7 @@
   label: "Lab · question dynamics",
   card: { num: "Lab", title: "Question dynamics",
           blurb: "One question type per category, so forms can be mixed and compared in a real game show. Not lesson content.",
-          sections: "L1–L6" },
+          sections: "L1–L8" },
   intro: "A test board, not a lesson. Each category is a single question type — pick the ones you want to compare.",
 
   jeopardySectionLabels: {
@@ -69,6 +73,7 @@
     'L5': "L5 · Ordering — a scale the room fills in, weakest first",
     'L6': "L6 · Multiple choice — four options, the plain control case",
     'L7': "L7 · Anagram — the letters dragged into boxes on every handset",
+    'L8': "L8 · Word order — the sentence dragged into place on every handset",
   },
 
   jeopardyCategories: [
@@ -314,6 +319,29 @@
         anagram:{ word:'sentence' }},
       {v:500, q:"the facts and objects put before a court to prove something",
         anagram:{ word:'evidence' }},
+    ]},
+
+    /* ---------- L8 · the word order round ----------
+       The played version of the `scramble` *form* in L2, sitting on the same board
+       for the same reason the two anagrams do: identical sentences-worth of
+       grammar, and the only difference is whether the class calls the order out or
+       every handset builds it.
+
+       **Every one of these repeats a word** — three `the`s in the $300 — because a
+       repeated word is what breaks a picker keyed by text, and a bank of sentences
+       that all happened to have distinct words would never exercise it. The prompt
+       must never quote the sentence; the round's `check` says so. */
+    { id:'lab-scramble-round', section:'L8', name:'Drag the Words', clues:[
+      {v:100, q:"Put the words in order.",
+        scramble:{ sentence:'The jury reached the verdict after four hours' }},
+      {v:200, q:"Order the words to make a sentence.",
+        scramble:{ sentence:'He was released on bail before the trial' }},
+      {v:300, q:"Rebuild the sentence.",
+        scramble:{ sentence:'The judge told the jury to ignore the remark' }},
+      {v:400, q:"Put these in the right order.",
+        scramble:{ sentence:'The appeal against the sentence was dismissed' }},
+      {v:500, q:"Order the words.",
+        scramble:{ sentence:'The witness whose evidence convicted him has retracted it' }},
     ]},
   ],
 });

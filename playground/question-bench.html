@@ -270,6 +270,7 @@
 <script src="../game-hub/rounds/ordering.js?v=20260802a"></script>
 <script src="../game-hub/rounds/choice.js?v=20260802a"></script>
 <script src="../game-hub/rounds/anagram.js?v=20260802a"></script>
+<script src="../game-hub/rounds/scramble.js?v=20260802a"></script>
 <!-- Data only, and the reason the bench can be a round trip rather than a blank
      page: an existing category can be loaded, edited and exported back. Loading a
      unit here puts nothing in front of a class — these files are inert until a hub
@@ -511,6 +512,13 @@ const EDITORS = {
               labelB:null,
               build: (text, a) => ({ text, anagram:{ word:String(a || '').trim() } }),
               read: it => ({ q:it.text || '', a:(it.anagram || {}).word || '', b:'' }) },
+  scramble: { q:'Put the words in order.',
+              a:'The witness whose evidence convicted him has retracted it',
+              b:'',
+              labelA:'The sentence in its correct order — this is the answer',
+              labelB:null,
+              build: (text, a) => ({ text, scramble:{ sentence:String(a || '').trim() } }),
+              read: it => ({ q:it.text || '', a:(it.scramble || {}).sentence || '', b:'' }) },
   choice:   { q:"Which verb goes with 'a sentence'?",
               a:'pass, make, do, give',
               b:'pass',

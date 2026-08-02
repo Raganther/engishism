@@ -167,6 +167,22 @@
     display:grid; grid-template-columns:repeat(var(--ana-n, 7), minmax(0, 1fr));
     gap:6px; width:100%;
   }
+  /* **Words invert the rule.** Equal columns are right for letters, where every
+     tile is one character wide; a sentence's words are all different lengths, so
+     dividing the row equally makes `a` as wide as `retracted` and wraps nothing
+     where it should. Words wrap and are sized to their content instead — the same
+     split `#opts` already makes between a keypad and a list, decided the same way,
+     by looking at how long the options are. */
+  #arrange.words #ana-slots, #arrange.words #ana-tray{
+    display:flex; flex-wrap:wrap; gap:6px; justify-content:center;
+  }
+  #arrange.words .ana-slot, #arrange.words .ana-tile{
+    font-size:1rem; height:auto; min-height:42px; padding:8px 12px;
+    min-width:2.4em; text-transform:none;
+  }
+  /* A number rather than an empty box: on a ten-word sentence it is the only way to
+     see which slot is which without counting from the left every time. */
+  #arrange.words .ana-slot:not(.filled){ font-size:0.8rem; opacity:0.5; font-weight:500; }
   /* Sized off the column rather than fixed, so a ten-letter word shrinks instead of
      overflowing. Capped, or a three-letter word draws three enormous tiles. */
   .ana-slot, .ana-tile{
@@ -548,6 +564,12 @@
     const tray = $('ana-tray'), slots = $('ana-slots');
     // the column count, which CSS cannot work out for itself
     $('arrange').style.setProperty('--ana-n', String(list.length || 1));
+    /* Letters or words, decided by looking rather than by being told — the arm
+       carries a list of strings and nothing about what they are, which is what let
+       the word order round reuse this mode without the relay or the handset
+       learning a second thing. Same test `#opts` uses to pick a keypad over a
+       list. */
+    $('arrange').classList.toggle('words', list.some(o => String(o).length > 2));
     tray.innerHTML = ''; slots.innerHTML = '';
     anaTiles = []; anaSlots = list.map(()=> null); anaDrag = null;
     list.forEach((ch, i)=>{
@@ -561,6 +583,7 @@
     list.forEach((_, s)=>{
       const d = document.createElement('div');
       d.className = 'ana-slot'; d.dataset.slot = String(s);
+      d.dataset.n = String(s + 1);
       d.addEventListener('pointerdown', e => anaGrab(e, anaSlots[s], s));
       slots.appendChild(d);
     });
@@ -573,13 +596,22 @@
       const t = anaSlots[s];
       d.classList.toggle('filled', t != null);
       d.classList.remove('over');
-      d.textContent = t == null ? '' : anaTiles[t].ch;
+      /* The slot number when empty, in words mode: a blank box in a row of ten
+         tells a student nothing about which position they are filling. Letters keep
+         a blank box, because there the boxes spell the word and a row of digits
+         would be noise. */
+      d.textContent = t != null ? anaTiles[t].ch
+        : ($('arrange').classList.contains('words') ? d.dataset.n : '');
     });
     anaTiles.forEach((t, i) => t.el.classList.toggle('used', anaSlots.indexOf(i) !== -1));
     const placed = anaSlots.filter(x => x != null).length;
+    /* Letters or words, from the same look at the options that chose the layout —
+       "drag the letters" over a shuffled sentence is the round telling a student
+       the wrong thing about what they are holding. */
+    const what = $('arrange').classList.contains('words') ? 'word' : 'letter';
     $('ana-note').textContent = timeUp ? 'Time!'
-      : placed === anaSlots.length ? 'Sent — drag a letter out to change it'
-      : ('Drag the letters into the boxes · ' + placed + ' of ' + anaSlots.length);
+      : placed === anaSlots.length ? ('Sent — drag a ' + what + ' out to change it')
+      : ('Drag the ' + what + 's into the boxes · ' + placed + ' of ' + anaSlots.length);
   }
 
   /* The answer: the letters that are in boxes, in box order. A gap is simply
