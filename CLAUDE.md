@@ -646,23 +646,28 @@ what a teacher set deliberately**, so it must be translated rather than silently
   value, so a later choice can't be overwritten.
 
 ## Skills — the procedures, separated from the history
-`.claude/skills/` holds four invocable checklists. This file is the project's
+`.claude/skills/` holds five invocable checklists. This file is the project's
 *memory*; those are its *procedures*, pulled up at the moment they are needed rather
-than remembered from 1,400 lines.
+than remembered from 2,500 lines. **Which one you want follows the tiers**: a skin is
+`new-game`, a question that is played is `new-round`, a way of drawing a prompt is
+`new-question-form`, a bundle of switches is `new-mode`.
 - **`new-game`** — the two contracts, registration order, the layout rules, which
   suites cover a game for free, and the five-minute review for a game someone else
-  wired up.
+  wired up. Opens by saying a new game is a **skin**, not a question machine.
 - **`new-mode`** — a mode is a named bundle of settings, never a second code path.
-  The preset pattern, and why a preset writes the switches rather than shadowing.
+  The preset pattern, why a preset writes the switches rather than shadowing, and
+  the first question: is this the game's mode or the *round's*, since a round
+  declares its own and needs none of this.
 - **`new-question-form`** — the two stages (lab-only vs in the kit) and why the
   isolation is structural, the render/reveal contract, declining rather than
   rendering nonsense, and the step that decides whether a form exists at all:
   authoring items for it.
 - **`new-round`** — the tier above a form: a question the room *plays*. The
-  form-or-round test, what a round must never contain, why the card's palette is
-  fallbacks rather than declarations, and the two traps the grouping round paid for
-  (the normalisation whitelist, and "is a round clue" vs "is the round still live").
-- **`phone-debug`** — the five shapes every phone bug so far has taken, and the one
+  form-or-round test, the contention rule for which skins can host it, `check(item)`
+  and why the gate and the bench read one rulebook, and the two traps the grouping
+  round paid for ("is a round clue" vs "is the round still live", and declaring
+  `field` so the normaliser carries it).
+- **`phone-debug`** — the six shapes every phone bug so far has taken, and the one
   question that separates them ("does the phone still show its room number?").
 
 **The new-game review found a real defect the day it was written**: Bingo was

@@ -12,6 +12,25 @@ and a preset, not a parallel implementation of Jeopardy.
 If you find yourself writing `if (mode === 'team') { … } else { … }` around game
 logic, stop — that branch is a setting that has not been registered yet.
 
+## 0. First: is it the *game's* mode, or the *round's*?
+
+A **round** declares its own ways of being played, and the host turns them into a
+settings row by itself:
+
+```js
+K.round.register('ordering', {
+  modes: [ { value:'climb', label:'One ladder — the whole room fills it together' },
+           { value:'race',  label:'A ladder each — teams race to finish theirs first' } ]
+});
+```
+
+The hub registers `jRound_<id>` from that at init, so **a round's modes need nothing
+in this procedure** — no `S.register` call, no preset, no panel edit. The bench builds
+a dropdown from the same declaration. Neither host ever learns what a mode *means*.
+
+Use this skill for a mode that belongs to the **game show** — how it scores, whose
+turn it is, what its board does. Use `new-round` for one that belongs to the question.
+
 ## 1. Break the mode into switches
 
 Ask what actually differs, and register one setting per difference. Each should be

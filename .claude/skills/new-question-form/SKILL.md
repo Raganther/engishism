@@ -26,12 +26,17 @@ time, no turns, no phones, no scoring. If the idea needs any of those it is a
 | the class watches, the teacher clicks | teams do something *simultaneously* |
 | `render`/`reveal` and you are done | it has to decide when the answer has settled |
 
-Rounds go in the game, not the kit. `reveal:[…]` (Story Reveal) was cheap because
-Jeopardy already had hints costing clue value; `group:{pick, with}` (the grouping
-clue) was ~330 lines with its own state, arming, settle and judge. **Budget against
-the second, not the first** — and add the field to the clue normalisation in
-`jShowClue` as the very first step, because that whitelist silently drops anything
-it has not been told about and the symptom is your feature simply never appearing.
+**Rounds have their own tier and their own procedure** — one file under
+`game-hub/rounds/`, registered with `Kit.round`, built on
+`playground/question-bench.html`. Use the **`new-round`** skill; do not try to bend
+a round into this contract.
+
+Budget honestly. `reveal:[…]` (Story Reveal) was cheap because Jeopardy already had
+hints costing clue value. `group:{pick, with}` (the grouping clue) was ~330 lines
+with its own state, arming, settle and judge before it was extracted into a round
+file. **Budget against the second, not the first** — though the two rounds written
+since cost one file each, because the registry now carries the item field for you
+(declare `field` on the round; nobody edits a whitelist any more).
 
 ## The two stages — know which one you are in
 

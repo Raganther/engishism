@@ -5,7 +5,7 @@ description: Diagnose problems with the Engishism phone layer — buzzers, the j
 
 # Debugging the phone layer
 
-Every phone bug in this project so far has been one of five shapes. Identify the
+Every phone bug in this project so far has been one of six shapes. Identify the
 shape first — the wrong guess costs a whole round of testing, and the user is often
 mid-lesson.
 
@@ -22,7 +22,7 @@ Also worth asking: **which game, which phone mode, and does ⚙ show the current
 build?** A stale shell serves cached assets silently, and "it didn't deploy" is
 usually that.
 
-## The five shapes
+## The six shapes
 
 ### 1. It is configuration, not the game
 
@@ -82,7 +82,26 @@ Drive these over raw HTTP, not through a browser — the race is between two
 connections and `EventSource` will not let a test hold both. See the `reconnect`
 suite for the pattern.
 
-### 5. Something above the board changed height
+### 5. The roster changed and nobody re-read what was already in hand
+
+New, and it hides well. A round that waits for a *whole team* — the ordering climb,
+multiple choice in `agree` mode — is judged against the roster, so a team of three
+sitting at 2 becomes unanimous the moment the third handset drops off. **Nothing said
+so**: a leaver sends no reply, and both hosts only ever re-read the room when a reply
+arrives. The team was stuck with only the teacher's Check to get out of it.
+
+The relay already handled half of it — a *held* reply leaves with the phone holding
+it (`holds` on the arm), which fires a `response`. The gap was the leaver who never
+voted at all.
+
+**The rule: nothing new has arrived, but what the replies already in hand *mean* has
+changed.** Any host holding replies must re-read them when the roster moves, not only
+when a reply lands.
+
+The tell is a count on the card that will not move — `1/2` with one phone visibly
+gone. Reproduce by removing a handset mid-question rather than by tapping.
+
+### 6. Something above the board changed height
 
 The room chip and the replies strip sit above the stage and change height on their
 own schedule — the room opens asynchronously, phones join, buzzers go live.
@@ -130,6 +149,8 @@ join. If a change makes the join code conditional again, it is a regression — 
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=buzzers,phonemodes,teamvote,phoneteams,degradation,reconnect,strip,joinbar,phonebingo
 ```
 
-Bump the cache stamp in the four shells or the phone will not see the fix. Then write
+Bump the cache stamp in **every** file that carries one — the four hub shells,
+`join.html` and the playground pages (`grep -rl '?v=' --include=*.html .`) — or the
+phone will not see the fix. Then write
 what you learned into **Current status** in `CLAUDE.md` — phrased as the *rule*, not
 the incident, so the next reader can apply it to a case you did not hit.
