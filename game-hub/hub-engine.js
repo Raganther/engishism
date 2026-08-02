@@ -5279,7 +5279,16 @@
                                         new share of the group. Pushed, never
                                         re-armed: a latecomer must not wipe what the
                                         rest of their team had already agreed on. */
-                                     jGroupPushShares(); renderJGroup(); });
+                                     jGroupPushShares(); renderJGroup();
+                                     /* …and what the replies already in hand *mean*
+                                        has changed with it. A round that waits for a
+                                        whole team is judged against the roster, so a
+                                        team of three sitting at 2 becomes unanimous
+                                        the moment the third phone drops off — and
+                                        nothing else would ever tell it, because a
+                                        leaver sends no reply. A student whose phone
+                                        dies must not be able to freeze their team. */
+                                     reReadReplies(); });
       buzzHost.on('buzz',    onBuzz);
       buzzHost.on('response', onResponse);
       renderBuzzChip();
@@ -5364,6 +5373,14 @@
     hook('onVoteReply', classReplies.all);
     renderReplies();
     renderBuzzChip('asking');
+  }
+
+  /* The same replies, read again. Nothing new has arrived — what changed is the room
+     they are being read against, which is the roster. Separate from `onResponse`
+     because there is no `latest`, no new tally and no chip to repaint: the only thing
+     that can differ is what the game makes of what it already has. */
+  function reReadReplies(){
+    if(classReplies && (classReplies.all || []).length) hook('onVoteReply', classReplies.all);
   }
 
   /* One entry point for "a question just went up, ask the room". One mode is live

@@ -5626,6 +5626,28 @@ async function testQuestionBench(browser){
           await una.locator('.ord-lane').nth(1).locator('.ord-rung.filled').count() === 1,
           lane1 + ' -> ' +
           (await una.locator('.ord-lane').nth(1).locator('.ord-rung.filled').count()));
+
+    /* **A dead phone must not freeze its team.** The gate is against the roster, so
+       a team of two sitting at 1/2 is unanimous the moment the second handset drops
+       off — and nothing else would ever say so, because a leaver sends no reply.
+       Team 3 is empty, so a phone is moved there first to make a two-phone team. */
+    await una.locator('#add-team').click(); await una.waitForTimeout(700);
+    await una.locator('#mode-pick').selectOption('climb'); await una.waitForTimeout(1200);
+    const uf2 = una.frames().filter(f => /join\.html/.test(f.url()));
+    const w2 = (await una.locator('.ord-pool .gword').first().getAttribute('data-word'));
+    await tapW(uf2[1], w2); await una.waitForTimeout(1300);
+    const before = await una.locator('.group-tally').innerText().catch(()=>'');
+    // the other handset on that team goes away entirely
+    await una.evaluate(() => {
+      const f = [...document.querySelectorAll('.phone')][3];
+      if(f) f.remove();
+    });
+    await una.waitForTimeout(2200);
+    check('a phone dropping out shrinks its team rather than freezing it',
+          /1\/2/.test(before) &&
+          !/1\/2/.test(await una.locator('.group-tally').innerText().catch(()=>'')),
+          before.replace(/\n/g,' ') + '  ->  ' +
+          (await una.locator('.group-tally').innerText().catch(()=>'(gone)')).replace(/\n/g,' '));
   }
   checkClean(una, 'ordering unanimity');
   await una.close();
