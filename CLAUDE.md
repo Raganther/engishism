@@ -271,6 +271,32 @@ derive what the data knows.**
 opportunity cost — nothing here has met a class yet, and the classroom run is what would
 say which of these requirements were ever needed.
 
+### A picture of the whole — brainstormed, nothing agreed (§3.12)
+**Read the framing before the ideas.** §3.12 is explicitly *not* a specification and
+carries no requirement IDs. It exists because every other section here describes a
+*mechanism* and none of them says what the thing is for on a Thursday morning — so it is
+a yardstick to check small decisions against, not a plan to build. The end product may
+look nothing like it.
+
+The sketch: a **run sheet** (a session is a sequence — warm-up, main game, speaking
+beat, exit ticket — with teams and scores carried across, which the container already
+does and nothing uses); the teacher **never types a query** but picks "what's next",
+"what we just did", "what went wrong"; the teacher's **phone is the remote**, because
+the app assumes you are at the laptop and in Race you are explicitly not; and a
+**diagnostic** that remembers what the class got wrong and feeds it back into the query.
+
+**The diagnostic is a scope decision, not a feature.** §1.3 puts data persistence out of
+scope, and this would be the first thing holding data about *named students*. The narrow
+version dodges nearly all of it: **store what was missed, not who missed it** — word
+counts need no student identity and carry most of the teaching value.
+
+**What every one of those ideas could quietly break**, which is why they are restated in
+§3.12 rather than assumed: it still works with **no relay and no internet** (F3.8.6);
+setup stays **under 30 seconds** (§1.4.4 — and a run sheet, a query and a review queue
+are all *more* screens before a game starts, so each must remove setup rather than add
+configuration); and **the teacher decides** — suggest Monday's warm-up, never build it
+silently.
+
 ### Content: one filing system, not one pool
 §3.2's per-game argument still holds for *answer shape*. What it missed is that **not
 all content is convertible** — a grouping set or an ordering scale cannot be derived

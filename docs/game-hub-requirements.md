@@ -908,6 +908,109 @@ by nature.
 that consumes them.** If most C1 content turns out bespoke, this section buys far less
 than it appears to, and that is worth knowing before 565 items move.
 
+### 3.12 The teaching loop — a brainstormed user experience
+
+> ⚠️ **This section is a brainstorm, not a specification, and nothing in it is agreed.**
+> It contains no requirement IDs on purpose. Unlike §3.8–§3.11, which record decisions
+> that have been taken, this records a *holistic goal to work towards* — a picture of
+> what the product could feel like, so that smaller decisions can be checked against
+> something. Treat every idea below as illustrative. The end user experience may look
+> nothing like it, and no part of it should be built because it appears here.
+>
+> It is written down for one reason: this workspace is ephemeral and conversations are
+> not kept. An idea that exists only in a chat log is gone at the end of the session.
+
+#### Why bother writing down an unagreed vision
+
+Every requirement in §3.8–§3.11 is a *mechanism*. None of them says what the thing is
+for on a Thursday morning. Without some picture of the whole, individual decisions get
+made against local criteria — is this clean, is this cheap — and a product assembled
+that way tends to be a collection of features that never became an experience.
+
+So this is a yardstick, not a plan.
+
+#### An illustrative walkthrough
+
+*Wednesday evening.* The teacher opens the app on a phone. "5B, Thursday, 45 minutes."
+It offers a **run sheet** — a warm-up, a main game, a speaking beat, an exit ticket —
+assembled from what the lesson needs. They swap the second item because the class
+enjoyed Blockbusters last week. Two taps.
+
+*Thursday, 9:02.* The board is up before the bell, join code already on screen. Students
+join while the register is taken.
+
+*9:05.* Play starts. The teacher is standing at the board with their **phone as the
+remote** — next, reveal, score, skip — and never returns to the laptop.
+
+*9:31.* The last hexagon goes. Under the winners' banner, quietly: *"six words looked
+shaky today."*
+
+*9:32.* Tapping it does not open a report. It opens **Monday's warm-up**, already built
+from those six words.
+
+#### The ideas underneath, and where each came from
+
+Provenance matters here, because some of these are already agreed elsewhere in this
+document and some were invented in one conversation.
+
+| Idea | Status |
+|---|---|
+| **A session is a sequence, not a game** — warm-up, main game, speaking beat, exit ticket, with teams and scores carried across | **New.** No basis in this document. The container already carries teams and scores between games, so the spine exists and nothing uses it |
+| **The teacher never types a query** — they pick "what's next", "what we just did", "what went wrong"; free-form tag search exists but is not the front door | **New.** §3.11 specifies the query; that it should be driven by history rather than typed is not recorded anywhere |
+| **The teacher's phone is the remote** | **New.** The relay, the join page and per-device state already exist, so the machinery is a role rather than a build |
+| **The diagnostic** — the app remembers what the class got wrong and feeds it back into the query | **New, and it contradicts §1.3.** See below |
+| **The phone stops being a button** — handsets show different things, so the projector is not the only surface | **Already agreed**, §3.10 |
+| **Authoring as a review queue** — keep / bin / fix, with the coursebook page beside each proposal | **Partly agreed.** §3.11 requires a staging file and human promotion; the queue as an experience is new |
+
+#### The one that is a scope decision, not a feature
+
+**The diagnostic contradicts §1.3**, which puts *"any data persistence (scores, saved
+games, history)"* out of scope.
+
+There is precedent for departing from that line — teacher **preferences** are persisted,
+recorded as a stated departure under §4.4b — but this is a larger step, because it would
+be the first thing in the product holding data about **named students**: who missed
+which word, how they spelled it, who never buzzed.
+
+That raises questions this document has never had to answer:
+
+- What is stored, where, and for how long? Today the relay holds a room in memory and
+  forgets it; a diagnostic implies something that outlives the lesson.
+- Whose device holds it — the teacher's browser, or a server?
+- Are students identifiable, or is the useful unit the *class* and the *word* rather
+  than the student?
+- Does a school's data policy permit any of it?
+
+The narrow version avoids most of this: **store what was missed, not who missed it.**
+"Six words looked shaky" needs word-level counts and no student identity at all, and it
+delivers most of the teaching value. The per-student picture is a much larger claim for
+a much smaller marginal gain.
+
+**This is a decision to be taken deliberately, not a feature to be added.** Recorded
+here so it is not arrived at by accident.
+
+#### What any of this must not break
+
+Not new, and not negotiable — every idea above is capable of quietly eroding one of
+them, which is why they are restated rather than assumed:
+
+- **It still works with nothing.** No relay, no wifi, no internet: the lesson runs.
+  (F3.8.6, and the playground's degradation rule.) A run sheet that needs a server is a
+  run sheet that fails on the one morning the wifi is down.
+- **Setup stays under 30 seconds.** (§1.4.4.) This is the constraint most at risk: a tag
+  query, a run sheet and a review queue are all *more* screens before a game starts. Any
+  of them has to **remove** setup rather than add configuration, or it is a regression
+  against a measurable target.
+- **The teacher decides.** (§2.3.) Suggest Monday's warm-up; never build it silently.
+  Show the shaky words; never auto-assign anything.
+
+#### The honest caveat, restated
+
+This is a brainstorm. It has not been tested against a single lesson, it commits nobody
+to anything, and the largest risk in §3.11 applies here twice over: nothing in this
+project has yet been run in front of a class, and the classroom run is what would say
+which of these ideas were ever wanted.
+
 ---
 
 ## 4. Functional requirements
