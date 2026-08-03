@@ -1048,6 +1048,25 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **`dev.html` is the development hub — every link in the project on one page.**
+  Built because "what is the URL for the thing we were working on" was being asked
+  repeatedly, and the answer differs by origin. Linked from `index.html`.
+  - **The lists are derived, never typed out.** Rounds come from `Kit.round.ids()`
+    and forms from `Kit.prompt.types()`, so one written next month appears on its
+    own. A hand-kept list of links rots exactly like a hand-kept list of games —
+    the difference is that it rots *silently*, into a dead link nobody clicks until
+    they need it. It loads the registries only: `hub-kit.js`, `hub-rounds.js` and
+    `rounds/*.js` are data-only, so asking them what exists starts no game.
+    `hub-engine.js` is deliberately **not** loaded — it injects a whole app.
+  - **It says which copy you are looking at**, which is the confusion that cost two
+    rounds this session: GitHub Pages has no relay behind it and neither does
+    `file://`, so both are stated at the top rather than discovered when the phones
+    will not join. Every card also prints its absolute URL, for copying.
+  - **The bench takes `?type=` now** (`r:ordering`, `f:anagram`, or a bare name —
+    `resolveType` already handled one). That is what makes a round or a form a real
+    link rather than a name you then have to find in a menu. An explicit type
+    outranks the remembered set and resets the item in hand to its sample, exactly
+    as the menu's own change handler does.
 - **No round has ever been played from a class-facing unit, and that is now the
   largest gap in the project.** Units 4 and 5 carry **zero** round fields between
   them — no `group:`, no `order:`, no `choice:`, no `anagram:`, no `scramble:` — so

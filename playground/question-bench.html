@@ -1293,7 +1293,15 @@ const room = BenchKit.room({
 
 /* Degradation is the rule, not a fallback: with no relay the card is still drawn
    and still playable by clicking the words and pressing Check. */
+/* `?type=r:ordering` / `?type=f:anagram`, and a bare name works too because
+   `resolveType` already handles one. An explicit request outranks the remembered
+   set — the whole point of a link is to land on that question type — and the item
+   in hand goes back to its sample for exactly the reason the menu's own change
+   handler does: it is the wrong shape now. The rest of the set is left alone.
+   This is what the development hub deep-links. */
+const asked = resolveType(new URLSearchParams(location.search).get('type'));
 if(!loadBank()) bank = [null];
+if(asked && asked !== type){ type = asked; bank[at] = null; }
 $('type-pick').value = type;
 fillModes();
 fillTeamPick();

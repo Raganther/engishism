@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<!-- ================= DEVELOPMENT HUB =================
+     One page holding every link in the project, so the answer to "what is the URL
+     for the thing we were working on" is a bookmark rather than a question.
+
+     Two rules, both of which are why this is worth having as a page rather than a
+     note in a file:
+
+     1. **The lists are derived, never typed out.** The rounds come from
+        `Kit.round.ids()` and the forms from `Kit.prompt.types()`, so one written
+        next month appears here on its own. A hand-kept list of links is the same
+        defect class as a hand-kept list of games, and it rots the same way — the
+        difference is that here it rots silently into a dead link.
+
+     2. **It knows where it is being served from.** The commonest confusion in this
+        project is which copy you are looking at: the GitHub Pages copy has no relay
+        behind it, and a page opened as a file has none either. Both are stated at
+        the top rather than discovered when the phones will not join.
+
+     Only the registries are loaded — `hub-kit.js`, `hub-rounds.js` and the round
+     files are data-only registrations with no DOM of their own, so this page can
+     ask them what exists without starting a game. `hub-engine.js` is deliberately
+     NOT loaded: it injects a whole application skeleton. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engishism — development hub</title>
+<style>
+  :root{
+    --bg:#0d1220; --panel:#151d31; --edge:#243149; --ink:#e8edf7; --dim:#8fa0bd;
+    --accent:#7cc0ff; --gold:#ffd166; --good:#4ade80; --warn:#fbbf24; --bad:#f87171;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; padding:28px 20px 64px; background:var(--bg); color:var(--ink);
+    font:15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap{ max-width:1080px; margin:0 auto; }
+  h1{ font-size:26px; margin:0 0 4px; letter-spacing:.02em; }
+  .sub{ color:var(--dim); margin:0 0 22px; }
+  .where{
+    background:var(--panel); border:1px solid var(--edge); border-radius:10px;
+    padding:14px 16px; margin:0 0 26px; font-size:14px;
+  }
+  .where code{ color:var(--accent); word-break:break-all; }
+  .badge{
+    display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px;
+    font-weight:600; margin-right:8px; vertical-align:1px;
+  }
+  .badge.ok{ background:rgba(74,222,128,.15); color:var(--good); }
+  .badge.no{ background:rgba(248,113,113,.15); color:var(--bad); }
+  .badge.hm{ background:rgba(251,191,36,.15); color:var(--warn); }
+  h2{
+    font-size:13px; text-transform:uppercase; letter-spacing:.12em; color:var(--dim);
+    margin:30px 0 10px; padding-bottom:7px; border-bottom:1px solid var(--edge);
+  }
+  .grid{ display:grid; gap:10px; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); }
+  a.card{
+    display:block; text-decoration:none; color:inherit; background:var(--panel);
+    border:1px solid var(--edge); border-radius:10px; padding:12px 14px;
+    transition:border-color .12s, transform .12s;
+  }
+  a.card:hover{ border-color:var(--accent); transform:translateY(-1px); }
+  a.card .t{ font-weight:650; margin-bottom:3px; }
+  a.card .d{ color:var(--dim); font-size:13px; }
+  a.card .u{ color:var(--accent); font-size:12px; margin-top:6px; word-break:break-all; opacity:.75; }
+  .chips{ display:flex; flex-wrap:wrap; gap:7px; }
+  a.chip{
+    text-decoration:none; background:var(--panel); border:1px solid var(--edge);
+    border-radius:999px; padding:6px 13px; font-size:13px; color:var(--ink);
+  }
+  a.chip:hover{ border-color:var(--accent); }
+  a.chip .k{ color:var(--dim); font-size:11px; margin-left:6px; text-transform:uppercase; letter-spacing:.08em; }
+  .note{ color:var(--dim); font-size:13px; margin:8px 0 12px; }
+  .note strong{ color:var(--ink); }
+  pre{
+    background:var(--panel); border:1px solid var(--edge); border-radius:10px;
+    padding:12px 14px; overflow-x:auto; font-size:13px; color:var(--gold); margin:8px 0;
+  }
+  footer{ color:var(--dim); font-size:12px; margin-top:40px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Engishism — development hub</h1>
+  <p class="sub">Every link in the project, in one place. Lists build themselves from the registries.</p>
+
+  <div class="where" id="where">Working out where this page is served from…</div>
+
+  <h2>Class-facing</h2>
+  <div class="grid" id="class-links"></div>
+
+  <h2>Development boards</h2>
+  <p class="note">The <strong>Lab</strong> is the same engine, the same five games and the same clue
+     card as the hub — the only difference is that it loads the Lab content bank instead of Units 4
+     and 5. Deliberately not reachable from inside the hub: Lab content is half-tuned by definition.</p>
+  <div class="grid" id="lab-links"></div>
+
+  <h2>Workshops</h2>
+  <div class="grid" id="bench-links"></div>
+
+  <h2>Rounds — a question the room <em>plays</em></h2>
+  <p class="note">Card, phone dynamic, merging several students into one answer, and judging.
+     Opens on the question bench with a rack of real handsets beside the card.</p>
+  <div class="chips" id="round-links"></div>
+
+  <h2>Question forms — a way a question is <em>drawn</em></h2>
+  <p class="note">Render and reveal, no phones. <strong>In the kit</strong> means live in every game
+     the day a bank item carries that type; <strong>lab only</strong> means it can reach no game at all.</p>
+  <div class="chips" id="form-links"></div>
+
+  <h2>Playground prototypes</h2>
+  <p class="note">Standalone pages, no hub engine and no hub skin — they borrow only the phone room.
+     Each must stay fully playable with no relay.</p>
+  <div class="grid" id="play-links"></div>
+
+  <h2>Earlier generations</h2>
+  <div class="grid" id="old-links"></div>
+
+  <h2>Checks before pushing</h2>
+  <p class="note">Match the check to what the change can break — a gate that always costs 25 minutes
+     is a gate that gets skipped.</p>
+<pre>node tools/check-syntax.js                                        # seconds
+NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=content  # ~20s, any bank edit
+NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=qbench,grouping,card,gameshow
+NODE_PATH=$(npm root -g) node tools/smoke-test.js                 # everything, ~25 min</pre>
+
+  <footer id="foot"></footer>
+</div>
+
+<!-- Registries only. These are data-only registrations with no DOM of their own, so
+     asking them what exists costs nothing and starts no game. -->
+<script src="game-hub/hub-kit.js?v=20260802c"></script>
+<!-- Captured between the two script tags: which forms are in the shipped kit. The
+     one moment a kit form and a lab-only one are distinguishable. -->
+<script>window.IN_THE_KIT = (window.HubKit && window.HubKit.prompt.types()) || [];</script>
+<script src="playground/lab-forms.js?v=20260802c"></script>
+<script src="game-hub/hub-rounds.js?v=20260802c"></script>
+<script src="game-hub/rounds/grouping.js?v=20260802c"></script>
+<script src="game-hub/rounds/ordering.js?v=20260802c"></script>
+<script src="game-hub/rounds/choice.js?v=20260802c"></script>
+<script src="game-hub/rounds/anagram.js?v=20260802c"></script>
+<script src="game-hub/rounds/scramble.js?v=20260802c"></script>
+<script>
+(function(){
+  'use strict';
+  const Kit = window.HubKit;
+  const $ = id => document.getElementById(id);
+  const abs = href => new URL(href, location.href).href;
+
+  /* ---------- where am I, and can the phones work here? ----------
+     The commonest confusion in this project, and the one that cost two rounds of
+     "which link do I use". The hub has known these two cases since buzzers shipped;
+     saying it here means it is answered before anything is clicked. */
+  (function(){
+    const file  = location.protocol === 'file:';
+    const pages = /(^|\.)github\.io$/i.test(location.hostname);
+    let badge, msg;
+    if(file){
+      badge = '<span class="badge no">no relay</span>';
+      msg = 'Opened as a file, so no relay can exist and no phone can join. Run ' +
+            '<code>node tools/buzzer-relay.js</code> and use the address it prints.';
+    } else if(pages){
+      badge = '<span class="badge no">no relay</span>';
+      msg = 'This is the GitHub Pages copy. The games all work, but <strong>no phone can ' +
+            'join</strong> — there is no relay behind this origin. Use the hosted copy for anything ' +
+            'involving handsets.';
+    } else {
+      badge = '<span class="badge ok">relay expected</span>';
+      msg = 'Served over HTTP, so the relay is most likely this same origin. A free instance ' +
+            'sleeps when idle — open a board a couple of minutes before you need it.';
+    }
+    $('where').innerHTML = badge + 'You are on <code>' + location.origin + '</code><br>' + msg;
+  })();
+
+  function cards(mount, list){
+    $(mount).innerHTML = list.map(x =>
+      '<a class="card" href="' + x.href + '"><div class="t">' + x.t + '</div>' +
+      '<div class="d">' + x.d + '</div><div class="u">' + abs(x.href) + '</div></a>').join('');
+  }
+
+  cards('class-links', [
+    { t:'Game Hub', href:'game-hub.html',
+      d:'The class-facing app — Units 4 and 5, all five games.' },
+    { t:'Game Hub · Unit 4', href:'game-hub-unit4.html',
+      d:'Deep link. Loads one unit and skips the unit-select step.' },
+    { t:'Game Hub · Unit 5', href:'game-hub-unit5.html',
+      d:'Deep link. Loads one unit and skips the unit-select step.' },
+    { t:'Join (students)', href:'join.html',
+      d:'What the class opens, or scans. Same address, any game.' }
+  ]);
+
+  cards('lab-links', [
+    { t:'Game Hub · Lab', href:'game-hub-lab.html',
+      d:'Every round and form on a real board. Jeopardy L1–L8, Blockbusters LB1–LB2.' },
+    { t:'Lab · fresh shell', href:'game-hub-lab.html?fresh=1',
+      d:'Forces a fresh page shell. Use this if ⚙ reports an old build number.' }
+  ]);
+
+  cards('bench-links', [
+    { t:'Question bench', href:'playground/question-bench.html',
+      d:'A round or a form drawn at board size, with a rack of real handsets beside it. Also authors and exports content.' },
+    { t:'Room bench', href:'playground/phone-bench.html',
+      d:'A whole projected board plus its phones on one screen. Any board, hub or playground.' },
+    { t:'Room bench · the Lab board', href:'playground/phone-bench.html?board=../game-hub-lab.html',
+      d:'The Lab in the left pane with handsets racked beside it.' },
+    { t:'Room bench · the hub', href:'playground/phone-bench.html?board=../game-hub.html',
+      d:'The class-facing hub, driven with simulated phones.' }
+  ]);
+
+  /* ---------- the derived lists ----------
+     Asked of the registries rather than typed out. A round or a form written next
+     month appears here without this page being edited — the same move `hasBank()`,
+     `Kit.round.fields()` and the layout suites all make. */
+  (function(){
+    const rounds = (Kit && Kit.round ? Kit.round.ids() : []);
+    $('round-links').innerHTML = rounds.length ? rounds.map(id => {
+      const def = Kit.round.get(id) || {};
+      const modes = (def.modes || []).length;
+      return '<a class="chip" href="playground/question-bench.html?type=r:' + id + '">' +
+             (def.label || id) +
+             '<span class="k">' + (modes ? modes + ' modes' : 'round') + '</span></a>';
+    }).join('') : '<span class="note">No rounds registered.</span>';
+  })();
+
+  (function(){
+    const types = (Kit && Kit.prompt ? Kit.prompt.types() : []);
+    const kit = window.IN_THE_KIT || [];
+    $('form-links').innerHTML = types.length ? types.map(t =>
+      '<a class="chip" href="playground/question-bench.html?type=f:' + t + '">' + t +
+      '<span class="k">' + (kit.indexOf(t) === -1 ? 'lab only' : 'in the kit') + '</span></a>'
+    ).join('') : '<span class="note">No forms registered.</span>';
+  })();
+
+  cards('play-links', [
+    { t:'Connections', href:'playground/connections.html',
+      d:'Sixteen words, four groups. Turns or race. <code>?p=1</code> pins a puzzle.' },
+    { t:'Word thermometer', href:'playground/thermometer.html',
+      d:'Order words along a scale. Five scales, a gloss per word.' },
+    { t:'Story reveal', href:'playground/story-reveal.html',
+      d:'A word behind three clues, worth less each time. Teams type; the board judges.' }
+  ]);
+
+  cards('old-links', [
+    { t:'Landing page', href:'index.html', d:'The public front door.' },
+    { t:'Unit app', href:'app.html', d:'Generation 2 — unit-first rebuild, paused.' },
+    { t:'Classic games', href:'classic.html', d:'Generation 3 — 18 activity types, topic-first.' }
+  ]);
+
+  $('foot').textContent =
+    'Kit ' + ((Kit && Kit.round ? Kit.round.ids().length : 0) + ' rounds, ' +
+              (Kit && Kit.prompt ? Kit.prompt.types().length : 0) + ' forms') +
+    ' · this page reads the registries, so it never needs updating when one is added.';
+})();
+</script>
+</body>
+</html>
