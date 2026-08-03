@@ -1132,6 +1132,25 @@ playground's point, that one board can host several:
     Jeopardy board already had "Rebuild the sentence" and "Put these in order —
     least certain first". Same *answer* in two games is spaced retrieval; same
     *prompt* is the thing the rule exists to stop.
+  - **The replies have to come back in, not just go out — and that shipped broken.**
+    Reported as "the phones activate, I can see the question card, but the thermometer
+    ladder doesn't light up when I input the correct answer." `phoneRound()` was
+    declared on Blockbusters and `onVoteReply` was not, so it still fed only the
+    hexagon-picking vote: the room was armed correctly and every tap was dropped on
+    the floor. **The failure is silent by construction** — both ends behave, and
+    nothing anywhere says the two are not connected.
+    - **The generalisable bit: a phone dynamic is two wires, and declaring one looks
+      exactly like declaring both.** Anything that arms the handsets owes a path for
+      what they send back. Jeopardy's pair sit two lines apart in its registration;
+      Blockbusters' did not, and no check noticed because the new checks drove the
+      *teacher's* path — clicking the card and pressing Check — which works whether
+      or not a phone can reach it.
+    - **`wantsVote` had the same hole**, so the chip read `idle here` over a room
+      being asked a round. Both now ask `jGroupLive()` first, exactly as Jeopardy
+      does; a vote and a round can never be open together anyway, because opening a
+      hexagon ends the vote before the round starts.
+    - Proved by reverting: the ladder stays empty with all five words in the pool,
+      which is precisely the reported symptom.
   - **No suite of its own yet.** Verified by driving it in a browser: a choice
     round claiming its hexagon and scoring, a grouping round revealed and then
     claimed by hand, and an ordinary letter clue untouched — plus a screenshot at

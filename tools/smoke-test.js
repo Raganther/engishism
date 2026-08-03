@@ -5212,7 +5212,7 @@ async function testGroupingClue(browser){
   await page.goto(BASE + '/game-hub-lab.html'); await page.waitForTimeout(400);
   await page.evaluate(() => {
     window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
-    window.HubSettings.set('buzzers', false);
+    window.HubSettings.set('buzzers', true);
   });
   await page.getByText('Lab', { exact:false }).first().click(); await page.waitForTimeout(220);
   await page.locator('h3:visible', { hasText:'Blockbusters' }).first().click();
@@ -5275,6 +5275,37 @@ async function testGroupingClue(browser){
         await openHex('twelve jurors') &&
         await page.locator('#clue-group').count() === 0 &&
         await claimVisible());
+
+  /* ---------- and the replies come back in ----------
+     The half that shipped broken. Arming the handsets and never routing what they
+     send is **silent**: the phones look right, the card looks right, and every tap
+     lands on the floor. Blockbusters declared `phoneRound()` and left `onVoteReply`
+     feeding only its hexagon-picking vote, so a thermometer never lit up.
+
+     Driven from a real handset rather than by calling the hook, because what broke
+     was the wiring between the two ends and nothing else would have noticed. */
+  const bbCode = await codeOf(page);
+  check('a room is open on the hexagon board', !!bbCode, String(bbCode));
+  if (bbCode){
+    const cy = await join(bbCode, 'Cy', 0);
+    check('a hexagon round opens an ordering ladder', await openHex('lightest first'),
+          await page.locator('#clue-text').innerText());
+    await page.waitForTimeout(900);
+    check('the handset is asked the round, not a buzzer',
+          (await cy.locator('#opts button').count()) >= 4 &&
+          !(await cy.locator('#buzzer').isVisible()),
+          String(await cy.locator('#opts button').count()));
+    /* One tap, the cold end of the scale. One phone on the team is the whole team,
+       so it is unanimous by itself and the rung lands. */
+    await tap(cy, ['a caution']);
+    await page.waitForTimeout(1400);
+    // a word that has landed is an `.ord-word` inside a rung — an empty rung has none
+    check('a tap on the phone lands on the card',
+          await page.locator('#clue-group .ord-word').count() >= 1,
+          (await page.locator('#clue-group').innerText()).replace(/\s+/g,' ').slice(0, 90));
+    check('and the phone had no errors', cy.__errors.length === 0, cy.__errors.join('|'));
+    await cy.close();
+  }
   checkClean(page, 'blockbusters hosting a round');
   await page.close();
 

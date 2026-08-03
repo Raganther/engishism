@@ -243,8 +243,21 @@
     askingNow:   () => clueIsOpen(),
     onBuzzTaken(b){ if(teams[b.team]){ active = b.team; renderScorebar(); } },
     onTypedWin(b){ return currentClueItem ? (claimHex(b.team) || 1) : null; },
-    wantsVote:   () => !!S.get('bbTeamVote', 'blockbusters'),
-    onVoteReply(all){ if(bbVote){ bbVote.apply(all); renderBBVote(); } },
+    /* Two completely different questions can be open on these handsets, and only one
+       at a time: the round in the clue card, or the team choosing which hexagon to
+       attack. `openBlockbustersClue` ends the vote before it opens a round, so they
+       are mutually exclusive by construction — but the round is asked first anyway,
+       because it is the one that owns the card. */
+    wantsVote:   () => jGroupLive() || !!S.get('bbTeamVote', 'blockbusters'),
+    /* **The replies have to come back in, not just go out.** Arming the phones for a
+       round and never routing what they send is silent: the handsets look right, the
+       card looks right, and every tap is dropped on the floor. That is exactly what
+       shipped when this board became a round host — `phoneRound()` was declared and
+       this was not. */
+    onVoteReply(all){
+      if(jGroupLive()){ jGroupOnReplies(all); return; }
+      if(bbVote){ bbVote.apply(all); renderBBVote(); }
+    },
     /* A hexagon can open a round, and a round owns the handsets while it runs —
        the same reason Jeopardy's tile does. The mode is not consulted, because
        what the phones are put into *is* the question here. */
