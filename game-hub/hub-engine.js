@@ -496,6 +496,7 @@
       /* The team the question was dealt to — which is not `active` after a steal,
          and the steal is precisely when the difference matters. */
       turn: () => (mCurrent ? mCurrent.team : active),
+      scorer: () => (mCurrent ? mCurrent.team : active),
       win:  team => mPayRung(team),
       /* The class votes on every question now, so the counts exist from the first
          tap. Holding them back is what leaves Ask the class worth spending. */
@@ -1980,7 +1981,12 @@
        A class with one phone in a drawer has to stay playable, and the teacher is the
        authority when they click. */
     const ctx = jGroupCtx();
-    const team = roundHost.turn();
+    /* Who a teacher's own answer scores for. `active` by default, which is what the
+       two card boards have always done — a round arriving did not change whose
+       answer the teacher was entering. Millionaire needs its own, because after a
+       steal the question belongs to a team that is not `active`, and that is exactly
+       the moment the difference shows. */
+    const team = roundHost.scorer ? roundHost.scorer() : active;
     const r = def.judge(jGroup.chosen, jGroup, team, ctx);
     if(r.verdict === 'right'){
       def.accept(jGroup.chosen.slice(), jGroup, team, ctx);

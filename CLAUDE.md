@@ -107,7 +107,7 @@ A round wants the card and the phones. A skin conflicts only if it already owns 
 |---|---|---|---|
 | Jeopardy | no — a tile opens one | no | **yes, built** |
 | Blockbusters | no — a hexagon opens one | no | **yes, built** |
-| Millionaire | no — a rung opens one | no | yes, not built |
+| Millionaire | no — a rung opens one | no | **yes, built** (needed F3.8.9 — it has no card) |
 | Bingo | no | **yes** — every phone holds a card | card-only, teacher-judged |
 | Race | **yes** — the scattered words *are* the board | no | needs a stage mount |
 
@@ -133,9 +133,9 @@ skin owns the handsets.
 - **Round state that outlives one question**, for Bingo: a card persists across many
   calls, and rounds today are set up, played and discarded. The relay already holds
   per-player state across questions; it is simply not exposed to rounds.
-- **A round handed the stage as its mount**, for Race, where the answers *are* the
-  board. `render(mount, s, ctx)` already takes a mount — the skin just has to be
-  allowed to pass a different one.
+- ~~**A round handed the stage as its mount**~~ — **built**, for Millionaire, which
+  has no clue card. `mount` is a declared fact in `ROUND_HOSTS`. Race still needs more
+  than this: its answers *are* the board, not a panel on it.
 
 ### Build order, and why this order
 1. ~~**Blockbusters hosts a round.**~~ **Done** — a second host, a non-tile geometry,
@@ -148,9 +148,10 @@ skin owns the handsets.
    Moved ahead of the remaining hosts: most of "what the container makes possible" is
    blocked on it, and the relay already does the hard half — a bingo card and its marks
    persist per player across a reconnection. It is simply not exposed to rounds.
-4. **Millionaire hosts the multiple choice round.** No contract change, and it deletes
-   Millionaire's private option rendering — the same question drawn twice today. Still
-   cheap; just no longer the most *valuable* next thing.
+4. ~~**Millionaire hosts the multiple choice round.**~~ **Done** — and it was *not*
+   the "no contract change" job this list claimed. Millionaire has no clue card, so it
+   needed **F3.8.9**, a round mounted somewhere other than the card. See Current
+   status. It did delete the private option rendering, as predicted.
 5. **The action strip becomes declarative** (F3.9.1/F3.9.2), so a round may have more
    than one button.
 6. **The default round** (F3.8.16) — folds `phoneMode`, `phonePrompt`, `phoneOneEach`,
@@ -1074,6 +1075,58 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Millionaire draws every question through the multiple choice round, and it is
+  the first round content a class can actually play.** All 52 Unit 5 items became
+  rounds with **no content edit**: the bank stays `{prompt, answer, distractors,
+  level}` and Millionaire normalises it into `{text, choice:{options, answer}}` when
+  the question opens — the same move `jShowClue` makes turning `q` into `text`. The
+  ladder still needs `level`, and the round never learns this bank's field names.
+  - **It needed the contract addition the build order said it would not.**
+    Millionaire has no clue card, so this is **F3.8.9 — a round handed a mount that
+    is not the card**, which the spec listed as *not built*. Every `Kit.round` call
+    site assumed `#clue-group` inside `#clue-text`, and the commit button gated on
+    `modalMode`, which a game with no modal can never answer. Both are declared facts
+    now (`mount`, `live`, `commit`), and the two card boards share a `CARD_MOUNT` and
+    are behaviourally unchanged.
+  - **`render(mount, …)` sets the class on the mount itself**, so `#m-options` *is*
+    `.round-choice`. The first version of the stage CSS used a descendant selector
+    and therefore did nothing at all — the options drew as enormous white boxes with
+    the round's light-card palette on a dark stage. **The screenshot caught it and no
+    assertion would have**, which is the rule about looking rather than measuring,
+    met again.
+  - **The lifelines were remapped, not dropped.** 50:50 sets the round's `hidden`
+    list — narrowing a choice is a generic hint mechanic, not a Millionaire feature —
+    so the two stay on screen struck through and leave the handsets entirely.
+    **Ask the class no longer runs a second vote against the round's own**, which
+    would have re-created the two-dynamics-one-handset bug by design: the room votes
+    on every question now, and the lifeline reveals counts the board is already
+    holding. Confer is untouched.
+    - **With no relay it is disabled and says why.** There is nothing to reveal, and
+      the old hands-in-the-air tally is gone. A real loss, and the honest trade for
+      the round owning the room.
+    - **A count, not team dots.** `ctx.countVotes` — on a tile the interesting fact
+      is *which teams* went where; here it is *how many people* did.
+  - **A single pick moves now rather than needing to be cleared first.** At a cap of
+    one a full selection swallowed the click, so choosing B after A did nothing —
+    which is exactly the show's "say the letter, then lock it in" beat, where moving
+    the nomination is the point of the pause.
+  - **A question ending reveals the round.** On a tile the card flips away and nobody
+    needs telling; here the options stay on screen, so ending without revealing left
+    four live-looking options and no answer.
+  - **Who a teacher's answer scores for stayed `active`**, deliberately. Generalising
+    it to the team on turn changed Blockbusters — arguably for the better, since with
+    no phones `active` is whoever last touched a buzzer — but that is a behaviour
+    change to a working game nobody asked for. `scorer` defaults to `active` and only
+    Millionaire overrides it, because after a steal the question belongs to a team
+    that is not `active`.
+  - **This makes "no round has ever been played from a class-facing unit" false**,
+    for Millionaire only. Jeopardy, Blockbusters and Race still carry no round content
+    in Units 4 and 5, and Unit 4 has no Millionaire bank at all.
+  - **Not on the Lab board**: `unit-lab.js` has no `millionaireBank`, so the game does
+    not appear there. It is `game-hub.html` → Unit 5 → Millionaire.
+  - `millionaire` 20/20; `grouping,millionaire` 108/0; the broad run over `fit`,
+    `phone`, `gameshow`, `registry`, `lab`, `scoping`, `turns` and `competition` was
+    369/1 before the scoring decision above, and that one check was it.
 - **The content screen says whether a tick box holds questions or rounds**, on every
   board. Reported as: choosing categories in Jeopardy, there is no way to tell a
   simple question from a round — and those are two different lessons, so choosing

@@ -478,7 +478,7 @@ the conflict class rather than managing it.
 | F3.8.6 | A round must be fully playable with no relay — the teacher clicks and judges | Must |
 | F3.8.7 | Phone behaviour should live in the round, not the game show | Should |
 | F3.8.8 | A round may hold state that outlives one question (for a game like Bingo, where a card persists across many calls) | Should — **not built** |
-| F3.8.9 | A round may be given the stage as its mount, not only the clue card (for a game like Race, where the answers are the board) | Should — **not built** |
+| F3.8.9 | A round may be given the stage as its mount, not only the clue card | Should — **built in v0.4** for Millionaire, which has no clue card. `mount` is a declared fact in `ROUND_HOSTS`. Race needs more: its answers *are* the board |
 
 #### A note on the word "mode"
 
@@ -558,7 +558,7 @@ phones; a skin conflicts only if it already owns one of them.
 |---|---|---|---|
 | Jeopardy | no — a tile opens one | no | **yes** — built |
 | Blockbusters | no — a hexagon opens one | no | **yes** — built |
-| Millionaire | no — a rung opens one | no | **yes** — not built |
+| Millionaire | no — a rung opens one | no | **yes** — built, via F3.8.9 |
 | Bingo | no | **yes** — every phone holds a card | card-only rounds, teacher-judged |
 | Race | **yes** — the scattered words *are* the board | no | needs F3.8.9 |
 
