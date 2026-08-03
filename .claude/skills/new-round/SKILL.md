@@ -53,9 +53,21 @@ belong to the host. Jeopardy pays a tile and passes a turn when the round says a
 team has it; the bench pays nothing at all. A round holding one of them can only
 ever live in one game, which defeats the entire point.
 
-**`ctx` is what the host lends you** — `{teams, sizes, teamName, prompt, team,
-onPick}`. It is passed in rather than reached for, because the bench has no team bar
-and the hub does.
+**`ctx` is what the host lends you** — `{teams, sizes, teamName, prompt, team, mode,
+forTeam, onPick}`. It is passed in rather than reached for, because the bench has no
+team bar and the hub does.
+
+**Read it fresh; never stash it.** That is why `read`, `judge` and `accept` all take it
+too. Students join and drop all lesson, so `ctx.sizes` — how many handsets are on each
+team — is a live fact of the host's, and a size your round was told once at `arm()` is
+a lie by the third question. Stashing it would work and would be wrong in a way nothing
+would catch.
+
+**You get exactly one button.** `group-btn` is a single element in the hub's skeleton,
+so a round wanting two actions has nowhere to put the second. That is a known gap
+(F3.9.1/F3.9.2 — the action strip should be a surface each tier declares into), not a
+design decision. If your round needs a second action, say so rather than working around
+it: the fix is small and it is on the build order.
 
 ## 3. The card must not assume its host's background
 
@@ -77,8 +89,8 @@ owns one of those. This is the whole rule; there is no list of compatible games.
 | Skin | Owns the card? | Owns the phones? | Any round? |
 |---|---|---|---|
 | Jeopardy | no | no | **yes, built** |
+| Blockbusters | no | no | **yes, built** |
 | Millionaire | no | no | yes, not built |
-| Blockbusters | no | no | yes, not built |
 | Bingo | no | **yes** — every phone holds a card | card-only, teacher-judged |
 | Race | **yes** — the scattered words *are* the board | no | needs a stage mount |
 

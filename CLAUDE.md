@@ -47,7 +47,14 @@ on old assets.
 ## Where this is going — skins hosting rounds
 **Read this before designing anything.** It is the agreed direction, and several things
 below describe a state it is deliberately moving away from. Written up in full as
-`docs/game-hub-requirements.md` §3.8.
+`docs/game-hub-requirements.md` §3.8–§3.10.
+
+**The reframe, agreed after Blockbusters became the second host: this is a classroom
+session container, not a quiz engine.** What it provides is teams, scores, turns, a
+projected surface, a timer, and thirty handsets that can each be put into a *different*
+state. A game show is one thing you can do with that. Everything built so far has been
+question-shaped and nothing in the container requires it to be — see "What the container
+makes possible" below, and §3.10.
 
 ```
 GAME HUB      the container: units, teams, scores, timer, settings, phone room
@@ -114,19 +121,101 @@ skin owns the handsets.
 ### Build order, and why this order
 1. ~~**Blockbusters hosts a round.**~~ **Done** — a second host, a non-tile geometry,
    and it cost no change to any of the five rounds. See Current status.
-2. **Millionaire hosts the multiple choice round.** No contract change, and it deletes
-   Millionaire's private option rendering — the same question drawn twice today. Now
-   the next thing to build.
-3. **The two contract additions above.**
-4. **Bingo extracted** — forces the persistent-state case, smaller than Race.
-5. **Race extracted** — hardest; the round owns the board.
-6. **Content filing**, beside the existing banks, a unit at a time.
+2. **Round content in a class-facing unit.** Rounds have never been played outside the
+   Lab, because **Units 4 and 5 carry zero round fields between them.** The capability
+   is in the engine everywhere; the content is nowhere. Grouping and ordering for
+   5A/5B, and it is authoring rather than engineering.
+3. **Round state that outlives one question** (the first contract addition above).
+   Moved ahead of the remaining hosts: most of "what the container makes possible" is
+   blocked on it, and the relay already does the hard half — a bingo card and its marks
+   persist per player across a reconnection. It is simply not exposed to rounds.
+4. **Millionaire hosts the multiple choice round.** No contract change, and it deletes
+   Millionaire's private option rendering — the same question drawn twice today. Still
+   cheap; just no longer the most *valuable* next thing.
+5. **The action strip becomes declarative** (F3.9.1/F3.9.2), so a round may have more
+   than one button.
+6. **A round handed the stage as its mount**, then **Bingo extracted**, then **Race
+   extracted** — smaller first.
+7. **Content filing**, beside the existing banks, a unit at a time.
 
-The cheap hosts first *deliberately*: Bingo and Race are working games with a lot of
-tested behaviour, and the pattern should be proved on the cheap cases before anything
-that works is touched. Blockbusters went before Millionaire in the end because the
-question it answered was bigger — whether a board with one-word answers could host a
-round at all — and the answer decides whether the tier generalises.
+**What changed in the ordering, and why.** The old order put the two remaining hosts
+first, so the pattern would be proved on cheap cases before anything working was
+touched. **Blockbusters proved it** — at the cost of no change to any round — so that
+question is settled and the remaining hosts are now merely more of the same. What
+replaced them at the top is the two things that are *not*: content a class would
+actually meet, and the one contract addition that unlocks a category rather than a
+game. Bingo and Race still come last for the original reason — they are working games
+with a lot of tested behaviour, and there is nothing left to learn from extracting them
+that a third host would not teach more cheaply.
+
+### Where a thing belongs — the container, the skin, or the round
+A recurring question, and getting it wrong costs a refactor. **The rule: who would
+still be correct if you swapped the tier below it out?**
+
+| Tier | Owns | Test |
+|---|---|---|
+| **Hub container** | teams, scores, the timer widget, the phone room, settings, the clue card *as a surface*, the phone strip | true whatever game is on screen |
+| **Game show skin** | geometry, turns, what a question is worth, what winning is, the ending | true for this board, whatever question is in the slot |
+| **Round** | the card's contents, the phone dynamic, merging several students into one answer, judging | true wherever it is hosted — which is what makes it portable |
+
+**The clue card is not inside any stage.** `#clue-modal` is a sibling of every
+`#play-<game>`, which is exactly why `openClueCard` has to set `--tension` on it by
+hand. It is a hub surface that skins borrow, not part of a skin.
+
+**Team data reaches a round through `ctx`, handed in and never reached for** —
+`{teams, sizes, teamName, prompt, team, mode, forTeam, onPick}`. It is read **fresh at
+call time**, which is why `read`, `judge` and `accept` all take it: students join and
+drop all lesson, and a size the round was told once is a lie by the third question.
+That is also why the bench works — it has no team bar, passes its own `ctx`, and no
+round can tell the difference.
+
+**"The timer" is three clocks, and conflating them has bitten before:** the header
+countdown is the *hub's* (the teacher's instrument — nothing may overwrite what they
+set), Jeopardy's answer clock is the *skin's* (it starts on the buzz, not on the clue
+opening), and a round's own clock is the *round's* (sent once as a duration with the
+arm, so no handset ever agrees the time with anybody).
+
+**Where the code does not match this — the action strip.** `#clue-actions` is hub-owned
+and correctly so, but the buttons in it belong to three different tiers and are listed
+by hand in the skeleton: Reveal/Close/Skip are the hub's, Correct/Wrong are *Jeopardy's*
+(Blockbusters scores by claiming and has no Correct), `clue-claim` is Blockbusters',
+`hint-btn` and `wager-ok` are Jeopardy's, and `group-btn` is the *round's*. So the hub's
+skeleton knows what a Daily Double is. It works — `hideAllActionButtons()` clears the
+lot and each opener shows what it wants — but it is the same shape as every other defect
+this project has paid for: **a hard-coded list a new thing must be threaded into by
+hand.** The concrete cost today is that **a round can have exactly one button**, because
+`group-btn` is a single element. Fix is F3.9.1/F3.9.2: the strip becomes a surface each
+tier *declares* into.
+
+### What the container makes possible — beyond question games
+Two properties are doing more work than they look like, and they are what the
+brainstormed direction rests on:
+1. **Scoring need not be right or wrong.** The team bar takes arbitrary points from
+   anything — a peer vote, a change of opinion, rarity, time survived.
+2. **Every handset can be shown something different.** `optionsByTeam`, per-player
+   shares and per-player bingo cards already exist, which puts an **information gap**
+   one step away — among the highest-value techniques in ESL and the worst to run on
+   paper.
+
+Three axes, cheapest first. Full version in §3.10.
+- **New skins** — every existing round works in one the day it registers. An **Only
+  Connect wall** (the grouping round already *is* the wall), territory conquest, an
+  **escape room** (a narrative spine for a revision hour), a track race where luck
+  flattens the strong/weak gap, and **Pointless** — the class votes and the *rarest*
+  correct answer wins, which rewards depth over speed and is only possible with phones.
+- **New rounds** — auction, call my bluff (students write the content), error hunt,
+  a continuum, prediction, and **justify it**: the first round the *room* judges rather
+  than the board. Everything in the third axis depends on that one working.
+- **Not game shows at all** — **Just a Minute** (the class buzzes to *challenge*, so the
+  buzzer becomes critical listening), **information gap / negotiation**, **secret roles**
+  (accusation and hedging — C1 register work), **debate scored on how many minds
+  changed**, **card decks** as a live diagnostic of what is shaky, and **describe and
+  guess**.
+
+**Four of those six need state that outlives a question**, which is why F3.8.8 moved up
+the build order. And the test worth running is Just a Minute: if a format with *no
+questions in it* works in this container, "Game Hub" is the wrong name for what has
+been built.
 
 ### Content: one filing system, not one pool
 §3.2's per-game argument still holds for *answer shape*. What it missed is that **not
@@ -879,6 +968,24 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **No round has ever been played from a class-facing unit, and that is now the
+  largest gap in the project.** Units 4 and 5 carry **zero** round fields between
+  them — no `group:`, no `order:`, no `choice:`, no `anagram:`, no `scramble:` — so
+  every round lives on the Lab board and nowhere else. The capability is in the
+  engine everywhere: Jeopardy or Blockbusters would host a round on Unit 5 the moment
+  a Unit 5 clue carried one. Nothing is broken; the content simply does not exist.
+  - **Worth knowing before reading a bug report about it.** Unit 5 *does* have
+    `type:"anagram"` items — those are question **forms** (scattered letters on the
+    card, no phones), not the anagram **round** (letter tiles dragged on every
+    handset). The two sit side by side on the Lab board precisely so they can be
+    compared, and they are easy to confuse from the outside.
+  - **The Lab is not a different app**, which is the other thing that reads wrong from
+    outside. `game-hub-lab.html` loads the same engine, the same five games and the
+    same clue card as `game-hub.html`; the only difference is that it loads
+    `unit-lab.js` instead of Units 4 and 5. A separate engine for testing would have
+    proved nothing about the real one. It is reachable only from `index.html` and its
+    own URL — deliberately no route to it from inside the hub, because Lab content is
+    half-tuned by definition and a button is how one reaches a projector mid-lesson.
 - **A hexagon opens a round now — Blockbusters is the second host, and it needed
   no change to any of the five rounds.** That is the whole measurement. A shelf
   with one caller is a guess about an API; the five rounds were *shaped* by
@@ -2728,18 +2835,29 @@ playground's point, that one board can host several:
 
 ## Next
 **The agreed direction and its build order are at the top of this file** — see "Where
-this is going: skins hosting rounds", and `docs/game-hub-requirements.md` §3.8 for the
-full version with requirement IDs. The short form, in order:
+this is going: skins hosting rounds", and `docs/game-hub-requirements.md` §3.8–§3.10
+for the full version with requirement IDs. The short form, in order:
 
-1. **Millionaire hosts the multiple choice round.** No contract change, and it deletes
-   Millionaire's private option rendering — the same question drawn twice today. This
-   is the next thing to build, and it is deliberately the dullest case: a shelf with
-   one caller is a guess, and Jeopardy is currently the only caller.
-2. **Blockbusters hosts a round** — a third host, and a non-tile geometry.
-3. **The two contract additions**: round state that outlives a question, and a round
-   handed the stage rather than the clue card as its mount.
-4. **Bingo extracted**, then **Race** — in that order, smaller first.
-5. **Content filing by topic**, beside the existing banks, a unit at a time.
+1. **Round content in a class-facing unit.** Rounds work in Jeopardy and Blockbusters
+   and have never been played outside the Lab, because Units 4 and 5 carry **zero**
+   round fields. Authoring, not engineering, and it closes the largest gap here.
+2. **Round state that outlives one question.** Unblocks roles, information gaps, hands
+   of cards and personal scorecards — about half of "what the container makes
+   possible". The relay already persists a bingo card per player across a reconnection;
+   it is simply not exposed to rounds.
+3. **Millionaire hosts the multiple choice round**, then **the declarative action
+   strip**, then the stage-as-mount, Bingo and Race.
+4. **Content filing by topic**, beside the existing banks, a unit at a time.
+
+**The three that are worth building for what they'd prove**, rather than for what they
+are — see "What the container makes possible":
+- **An information gap round** — the highest teaching value on the list, and it drags
+  persistent per-player state into existence as a side effect.
+- **An Only Connect wall** — nearly free, because the grouping round already *is* the
+  wall. The cheapest possible test of whether a new skin costs what Blockbusters did.
+- **Just a Minute** — a format with no questions in it at all. If that works in this
+  container, "Game Hub" is the wrong name for what has been built, and §1.2 of the
+  spec needs rewriting rather than extending.
 
 Everything below is either a known gap or a question a classroom run has to answer.
 - **Nothing on the bench or in the Lab has met a class, and the guessed numbers are

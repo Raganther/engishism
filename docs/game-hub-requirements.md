@@ -1,9 +1,46 @@
 # Classroom Game Hub — MVP System Requirements
 
-**Version:** 0.3
+**Version:** 0.4
 **Author:** Alistair
 **Date:** August 2026
 **Purpose:** Proof-of-concept demonstration to academic management
+
+## Status at v0.4
+
+v0.3 described skins hosting rounds as a direction with one caller. It has a second
+caller now, and the thing that changed in the thinking is bigger than the feature.
+
+**The reframe: this is a classroom session container, not a quiz engine.** What the hub
+actually provides is teams, scores, turns, a projected surface, a timer, and thirty
+connected handsets that can each be put into a different state. A *game show* is one
+thing you can do with that. Everything built so far has been question-shaped, and
+nothing in the container requires it to be — see §3.10.
+
+**Built since v0.3:**
+
+| | |
+|---|---|
+| Round hosts | **2** — Jeopardy and Blockbusters. A host is four declared facts in `ROUND_HOSTS`, not a per-game adapter |
+| Evidence | Blockbusters cost **no change to any of the five rounds**, which is what F3.8.13 was after. One caller was only ever a guess about an API |
+| Settings | `jGroupWho` → `roundWho`, `jRound_<id>` → `round_<id>`, moved to the shared `Questions` group and offered to every host, with a migration for stored overrides |
+| Content gate | Blockbusters' bank splits the way Jeopardy's already did — the round is asked its own rules, the bank's tidiness stays with the host |
+| Lab board | gained a hexagon board: `LB1` (18 items, six of them rounds) and `LB2` (rounds only) |
+
+**What is NOT yet true, and matters most:**
+
+- **No round has ever been played from a class-facing unit.** Units 4 and 5 carry
+  **zero** round fields between them, so rounds exist only on the Lab board. The
+  capability is in the engine everywhere; the content is nowhere. This is now the
+  single largest gap between what is built and what a class would meet.
+- **The clue card's action strip is hub-owned but holds buttons from three tiers**
+  (hub, skin and round), listed by hand in the skeleton — and **a round can therefore
+  have exactly one button**. See §3.9.
+- **Persistent per-player round state (F3.8.8) is worth more than the two remaining
+  hosts.** It is what roles, information gaps, hands of cards and personal scorecards
+  all need, and the relay is most of the way there already. Re-prioritised in the
+  build order.
+- **Still nothing has been run in front of a class.** Unchanged since v0.2, and the
+  count of guessed numbers keeps rising.
 
 ## Status at v0.3
 
@@ -508,20 +545,154 @@ first caller is what proves the extraction was behaviour-neutral.
    topline, and the picking vote's options — and never a constraint: `bbOutcome()`
    searches *claimed* hexagons and has never read it. "The answer starts with the
    letter shown" was a rule about the bank, so it is asked of ordinary clues only.
-2. **Millionaire hosts the multiple choice round.** Cheapest — no contract change — and
-   it deletes Millionaire's private option rendering, which is the same question drawn
-   twice in the codebase today.
-3. **F3.8.8 and F3.8.9** — persistent round state, and the stage as a mount.
-4. **Bingo extracted.** Forces the persistent-state case, and is smaller than Race.
-5. **Race extracted.** The hardest: the round owns the board.
-6. **Content filing.** Beside the existing banks, migrating a unit at a time.
+2. **Round content in a class-facing unit.** Rounds have never been played outside the
+   Lab, because Units 4 and 5 carry no round fields between them. Grouping and ordering
+   for 5A/5B is the cheapest way to close the largest gap in this document, and it is
+   authoring rather than engineering.
+3. **F3.8.8 — persistent per-player round state.** Moved ahead of the remaining hosts:
+   most of §3.10 is blocked on it, and the relay already does the hard half.
+4. **Millionaire hosts the multiple choice round.** No contract change, and it deletes
+   Millionaire's private option rendering — the same question drawn twice in the
+   codebase today. Still cheap; simply no longer the most *valuable* next thing.
+5. **F3.9.1/F3.9.2** — the action strip becomes declarative, so a round may contribute
+   more than one button.
+6. **F3.8.9** (the stage as a mount), then **Bingo extracted**, then **Race
+   extracted** — smaller first.
+7. **Content filing.** Beside the existing banks, migrating a unit at a time.
 
-The cheap hosts come first deliberately: Bingo and Race are working games with a great
-deal of tested behaviour, and the pattern should be proved on the cheap cases before
-anything that works is touched. Blockbusters went ahead of Millionaire because the
-question it settled was the larger one — whether a board whose answers are single words
-keyed by an initial could host a round at all, and therefore whether the tier
-generalises.
+**What changed in the ordering, and why.** v0.3 put the two remaining hosts first, on
+the reasoning that the pattern should be proved on cheap cases before anything working
+is touched. Blockbusters proved it — at the cost of no change to any round — so the
+question is settled and the remaining hosts are now merely more of the same. What
+replaced them at the top is the two things that are *not* more of the same: content a
+class would actually meet, and the one contract addition that unlocks a category rather
+than a game.
+
+Bingo and Race still come last, and for the original reason: they are working games
+with a great deal of tested behaviour, and there is nothing left to learn from
+extracting them that a third host would not teach more cheaply.
+
+**F3.8.8 has moved up.** It was a *Should* behind two hosts; it is now the thing most
+of §3.10 is blocked on, and the relay is already most of the way there — it persists a
+bingo card and its marks per player, across a reconnection, keyed to a remembered seat.
+What is missing is exposing that to rounds. On the evidence it buys more than
+Millionaire and Race hosting rounds combined.
+
+### 3.9 The container — what owns what
+
+A recurring question, and getting it wrong costs a refactor: when something is added to
+the experience, which tier does it belong to?
+
+**The rule: who would still be correct if you swapped the tier below it out?**
+
+| Tier | Owns | Test |
+|---|---|---|
+| **Hub container** | teams, scores, the timer widget, the phone room, settings, the clue card *as a surface*, the phone strip | true whatever game is on screen |
+| **Game show skin** | geometry, turns, what a question is worth, what winning is, the ending | true for this board, whatever question is in the slot |
+| **Round** | the card's contents, the phone dynamic, merging several students into one answer, judging | true wherever it is hosted — which is what makes it portable |
+
+**The clue card is not inside any stage.** `#clue-modal` is a sibling of every
+`#play-<game>`, which is why `openClueCard` has to set `--tension` on it by hand rather
+than inheriting it. It is a hub surface that skins borrow, not part of a skin.
+
+**How team data reaches a round: `ctx`, handed in, never reached for.**
+`{teams, sizes, teamName, prompt, team, mode, forTeam, onPick}`. `sizes` — how many
+handsets are on each team — is what lets a round hold a rung until everyone on a team
+agrees, and what sets each player's share of a multi-part answer. It is read **fresh at
+call time**, which is why `read`, `judge` and `accept` all take it: students join and
+drop all lesson, and a size the round was told once is a lie by the third question.
+This is also exactly why the question bench works — it has no team bar, so it passes
+its own `ctx` and no round can tell the difference.
+
+**"The timer" is three clocks, and conflating them has bitten before.**
+
+| Clock | Tier | Why it is separate |
+|---|---|---|
+| Header countdown | hub — the teacher's instrument | they set it; nothing else may overwrite it |
+| Jeopardy's answer clock | skin — starts on the buzz, not on the clue opening | a clock that reset the header timer on every buzz would destroy what the teacher set |
+| A round's own clock | round — sent once as a *duration* with the arm | so no handset ever has to agree the time with anybody |
+
+#### Where the code does not match the model
+
+The clue card's action strip is hub-owned, and correctly so — but it holds buttons
+belonging to three different tiers, listed by hand in the skeleton:
+
+| Button | Really belongs to |
+|---|---|
+| Reveal, Close, Skip | **hub** — any question can be revealed and closed |
+| Correct / Wrong | **Jeopardy** — Blockbusters scores by claiming and has no Correct |
+| `clue-claim` | **Blockbusters** (and Jeopardy's steal) |
+| `hint-btn`, `wager-ok` | **Jeopardy** — hints cost tile value, wagers are Daily Doubles |
+| `group-btn` | **the round** — its label comes from the round's own cap |
+
+So the hub's skeleton currently knows what a Daily Double is. It works, because
+`hideAllActionButtons()` clears the lot and each opener shows what it wants — but it is
+the same shape as every other defect this project has paid for: a hard-coded list that
+a new thing has to be threaded into by hand.
+
+**The concrete cost today: a round can have exactly one button.** `group-btn` is a
+single element in the skeleton, so a round wanting two actions has nowhere to put the
+second.
+
+| ID | Requirement | Priority |
+|---|---|---|
+| F3.9.1 | The clue card's action strip is a hub-owned *surface*; the hub, the skin and the round each declare what they contribute to it, rather than the skeleton listing every button | Should — **not built** |
+| F3.9.2 | A round may contribute more than one action | Should — **not built** |
+| F3.9.3 | A round is handed its host's team state as a snapshot read at call time, and never reads team state directly | Must — built |
+
+### 3.10 Beyond question games — what the container makes possible
+
+Everything built so far is question-shaped. Nothing in the container requires that, and
+two properties are doing more work than they appear to:
+
+1. **Scoring need not be right or wrong.** The team bar takes arbitrary points from
+   anything — a peer vote, a change of opinion, rarity, time survived.
+2. **Every handset can be shown something different.** The relay already does
+   `optionsByTeam`, per-player shares, and per-player bingo cards. That is one step
+   from an **information gap**, which is among the highest-value techniques in ESL
+   methodology and the most awkward to run on paper.
+
+Three axes, in rough order of cost:
+
+**Axis 1 — new skins.** A skin is geometry plus what a question is worth, so every
+existing round works in one the day it is registered. Candidates: an **Only Connect
+wall** (the grouping round already *is* the wall), **territory conquest** on a 2D grid,
+an **escape room** (a chain of locks — a narrative spine for a revision hour rather
+than twenty disconnected questions), a **track/board race** where luck flattens the gap
+between strong and weak teams, and **Pointless**, where the class votes and the
+*rarest* correct answer wins. Pointless is worth singling out: it rewards depth and
+obscurity rather than speed and confidence, which is a different student from the one
+every current format rewards, and it is only possible because of the phones.
+
+**Axis 2 — new rounds**, which work in every skin present and future: an **auction**
+(bid before seeing the question), **call my bluff** (teams write fake definitions, the
+class votes — student-generated content), **error hunt** (tap the wrong words in a
+paragraph), a **continuum** (place an opinion on a scale — a discussion starter rather
+than a question), **prediction** (guess before a reading, scored after), and
+**justify it**, an open answer peer-rated by the room.
+
+**Justify it is structurally important**: it would be the first round the board cannot
+judge, where the *room* judges instead. Everything in Axis 3 depends on the round
+contract surviving that.
+
+**Axis 3 — formats that are not games shows at all.**
+
+| Format | What the handsets do | Why it is worth building |
+|---|---|---|
+| **Just a Minute** | the class **buzzes to challenge** hesitation, repetition, deviation | the buzzer inverted: not "I know it" but "I am listening critically". Real fluency practice, and it uses what is already built |
+| **Information gap / negotiation** | each team's phones carry *different* facts | the classic ESL technique, miserable on paper, trivial here. The largest single win available |
+| **Secret roles** | a private instruction per handset | produces accusation, defence and hedging — precisely C1 register work |
+| **Debate with a measured swing** | vote a position, argue, **re-vote** | the score is how many minds changed, making persuasion competitive without being right/wrong |
+| **Card decks and drilling** | a private "did you know it?" self-report | not a game — a live diagnostic of what is actually shaky. Possibly the highest teaching value here |
+| **Describe and guess** | the word goes to **one** phone; everyone else types | already flagged in §4.4 as the highest language value and least code of the Race variations; it generalises |
+
+**Four of those six need one thing: state that outlives a question.** That is F3.8.8,
+which is why it moved up the build order. It converts roughly half of this section from
+"not possible" to "an afternoon's work".
+
+**The test worth running:** if **Just a Minute** works in this container — a format
+with no questions in it at all — then "Game Hub" is the wrong name for what has been
+built, and §1.2's description of the product needs rewriting rather than extending.
 
 ---
 

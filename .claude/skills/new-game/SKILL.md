@@ -31,8 +31,32 @@ Write into the game only what is genuinely the *skin's*: the board, how a slot i
 chosen, what winning a slot is worth, and whose turn it is.
 
 The existing five predate this and each carries its own phone handling; that is the
-state being moved away from, not a pattern to copy. Jeopardy's round adapter is the
-model — ~160 lines, every one of them about Jeopardy.
+state being moved away from, not a pattern to copy.
+
+**Hosting rounds is a declaration, not an adapter.** Add an entry to `ROUND_HOSTS` in
+`hub-engine.js` naming the four things only your board knows:
+
+```js
+myboard: {
+  game:'myboard', modal:'myboard', stage:'play-myboard',
+  turn: () => whoIsUp(),               // whose round it is when it is scoped to a team
+  win:  team => claimIt(team) || 1     // what taking it is worth here; return what it paid
+}
+```
+
+Then two calls where your clue opens: `jGroupOf(item, 'myboard')` **before**
+`askPhones` (the host must be named before `setup` reads the ctx, or the round is set
+up against the previous board), and `jGroupOpen(found)` if it found one. Carry the
+round's fields across with `Kit.round.fields()` rather than naming them.
+
+`ROUND_HOSTS` lives above the settings block so the round settings' `games` list is
+derived from it — do not type the game names out again anywhere.
+
+**Your board's own way of awarding a question must stand down while a round is live.**
+A round judges itself and pays through `win()`, so anything else that awards the same
+slot is a second, conflicting route to it. Jeopardy hides Correct/Wrong until Reveal;
+Blockbusters hides its team chooser. Whatever yours is, hide it and put it back on
+Reveal — a class that never got there still needs awarding by hand.
 
 ## 1. Register it in the cluster, before the settings block
 
