@@ -81,6 +81,25 @@ their own today and they fight over the handsets — `phoneRound()` exists preci
 because Bingo's cards and Jeopardy's grouping clue both wanted them. Moving it into
 rounds removes that conflict class rather than managing it.
 
+**How, and the precondition nobody had named** (§3.8, F3.8.16). A round owns the
+handsets through `arm()`; an ordinary clue is a `Kit.prompt` *form*, which has no
+`arm()`, so `phoneMode` decides for it. Units 4 and 5 hold 565 items and **not one is
+a round**, so `phoneMode` governs 100% of class-facing content — deleting it for the
+architecture's sake would leave every teachable lesson with idle handsets. The way
+through is a **default round wrapping an ordinary question**, whose `modes` are exactly
+`off`/`buzz`/`write`/`type`: then `phoneMode` becomes `round_default`, the
+"null means the mode decides" branch disappears because there is always a round, and
+`typeCooldown`/`typeStrict`/`phoneOneEach` become that round's tuning instead of
+globals. Same move as `ROUND_HOSTS` — **replace a branch with a declaration** — and the
+only one of the three that *deletes* settings.
+
+**What is not transitional, because "remove the phone settings" reads wider than it
+is:** `buzzers` and `buzzerRelay` are hub infrastructure (whether a room exists, and
+where — no round can own that), `bbTeamVote` is Blockbusters' skin asking which
+*hexagon* to attack rather than a question dynamic at all, and `mLifelines` and
+`bingoCards` belong to their skins. `round_<id>` is already built from the round's own
+`modes` declaration, which is the pattern working.
+
 ### Which skins can host which rounds — contention, not answer shape
 A round wants the card and the phones. A skin conflicts only if it already owns one.
 
@@ -134,9 +153,13 @@ skin owns the handsets.
    cheap; just no longer the most *valuable* next thing.
 5. **The action strip becomes declarative** (F3.9.1/F3.9.2), so a round may have more
    than one button.
-6. **A round handed the stage as its mount**, then **Bingo extracted**, then **Race
+6. **The default round** (F3.8.16) — folds `phoneMode`, `phonePrompt`, `phoneOneEach`,
+   `typeCooldown` and `typeStrict` into one declared row and deletes the
+   mode-or-round branch. **Blocked on item 2**, and the only item here that removes
+   settings rather than adding them.
+7. **A round handed the stage as its mount**, then **Bingo extracted**, then **Race
    extracted** — smaller first.
-7. **Content filing**, beside the existing banks, a unit at a time.
+8. **Content filing**, beside the existing banks, a unit at a time.
 
 **What changed in the ordering, and why.** The old order put the two remaining hosts
 first, so the pattern would be proved on cheap cases before anything working was

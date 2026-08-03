@@ -480,6 +480,60 @@ the conflict class rather than managing it.
 | F3.8.8 | A round may hold state that outlives one question (for a game like Bingo, where a card persists across many calls) | Should — **not built** |
 | F3.8.9 | A round may be given the stage as its mount, not only the clue card (for a game like Race, where the answers are the board) | Should — **not built** |
 
+#### How the phone settings fold in — the default round
+
+F3.8.7 says phone behaviour belongs in the round. It does not say *how*, and the how is
+not obvious, because there is a precondition nobody has named: **you cannot fold the
+phone settings into rounds while most questions are not rounds.**
+
+Today the split is:
+
+- a **round** owns the handsets through `arm(s, ctx)`, and `phoneRound()` returning
+  non-null means `phoneMode` gets no say;
+- an **ordinary clue** is a `Kit.prompt` *form* — render and reveal, no `arm()`, no
+  phones of its own — so `phoneMode` decides what the handsets do.
+
+Units 4 and 5 hold 565 items and **not one of them is a round**, so `phoneMode` today
+governs one hundred per cent of class-facing content. Deleting it in the name of the
+architecture would leave every teachable lesson with idle handsets and no switch to
+turn them on.
+
+**The proposal: a default round that wraps an ordinary question**, whose declared
+`modes` are exactly the values `phoneMode` holds now — `off` / `buzz` / `write` /
+`type`. Then:
+
+- `phoneMode` stops being a special case and becomes `round_default`, one row built
+  from a `modes` declaration like every other round's;
+- `phoneRoundNow()`'s "null means the mode decides" branch **disappears**, because
+  there is always a round;
+- `typeCooldown`, `typeStrict` and `phoneOneEach` become that round's own tuning,
+  scoped to it rather than global.
+
+This is the same move `ROUND_HOSTS` made for hosts and `Kit.round.fields()` made for
+normalisation: **replace a branch with a declaration.** It is also the only one of the
+three that deletes settings rather than adding them.
+
+**What must not move**, and the distinction is worth stating because "remove the phone
+settings" reads as though it covers everything in the `Phones` group:
+
+| Setting | Tier | Fate |
+|---|---|---|
+| `round_<id>` | the round's own `modes` declaration | already there — this is the pattern working |
+| `buzzers`, `buzzerRelay` | **hub infrastructure** | stay. Whether a room exists, and at what address, is not a question dynamic and no round can own it |
+| `bbTeamVote` | **Blockbusters' skin** | stays. It asks the room which *hexagon* to attack — a slot-picking vote, not a question |
+| `mLifelines`, `bingoCards` | their skins | stay |
+| `phoneMode`, `phonePrompt`, `phoneOneEach`, `typeCooldown`, `typeStrict` | **transitional** | fold into the default round |
+
+| ID | Requirement | Priority |
+|---|---|---|
+| F3.8.16 | An ordinary question is handled by a **default round** whose modes are the current `phoneMode` values, so every question in the app is a round and the mode/round branch is removed | Should — **not built** |
+| F3.8.17 | `typeCooldown`, `typeStrict` and `phoneOneEach` are scoped to the round that uses them rather than registered globally | Should — **not built** |
+| F3.8.18 | Whether a phone room exists (`buzzers`, `buzzerRelay`) remains hub infrastructure and is never owned by a round | Must — built |
+
+**Sequencing.** F3.8.16 is blocked on round content existing in a class-facing unit
+(build order item 2). Doing it first would take the phones away from every lesson that
+can currently be taught, in exchange for an internal tidiness no student would notice.
+
 #### Which skins can host which rounds
 
 The constraint is **contention, not answer shape**. A round wants the card and the
@@ -556,9 +610,12 @@ first caller is what proves the extraction was behaviour-neutral.
    codebase today. Still cheap; simply no longer the most *valuable* next thing.
 5. **F3.9.1/F3.9.2** — the action strip becomes declarative, so a round may contribute
    more than one button.
-6. **F3.8.9** (the stage as a mount), then **Bingo extracted**, then **Race
+6. **F3.8.16 — the default round**, which folds `phoneMode` and its four companions
+   into a declaration and deletes the mode-or-round branch. Blocked on item 2: until a
+   class-facing unit carries rounds, those settings are carrying the whole product.
+7. **F3.8.9** (the stage as a mount), then **Bingo extracted**, then **Race
    extracted** — smaller first.
-7. **Content filing.** Beside the existing banks, migrating a unit at a time.
+8. **Content filing.** Beside the existing banks, migrating a unit at a time.
 
 **What changed in the ordering, and why.** v0.3 put the two remaining hosts first, on
 the reasoning that the pattern should be proved on cheap cases before anything working
