@@ -119,6 +119,45 @@ If the mode needs a room even with the mode off, say so via `wantsVote()` and gi
 the chip honest words with `roomNote()` — `votes only` over a game where every phone
 holds a card is worse than saying nothing.
 
+## 4b. Ask whether your switch contradicts a round
+
+**The step most likely to be skipped, and the one that has already shipped a real bug
+three times.** Nothing forces you to do it — there is no mechanism, only this list.
+
+A ruleset never overrides a round directly: it writes settings, and `phoneRound()`
+returning non-null means the round owns the handsets whatever `phoneMode` says. The
+contradictions come from somewhere else — **a skin rule that assumes something a round
+breaks.** Most game-show rules quietly assume *one team held the floor, and the teacher
+judges the answer*. A round has neither: the whole room plays at once and the round
+judges itself.
+
+**The test, for every switch you register:**
+
+> Does this assume one team held the floor, or that the teacher decides the verdict?
+
+- **Yes** → it must stand down on a round clue: `if(jGroupClue()) return;`
+- **No** → it is safe. Daily Doubles, a final round and hints all pass this.
+
+What it looked like when it was missed:
+
+| Switch | The bug |
+|---|---|
+| `jDeduct` | The whole room was assembling a grouping answer, so "the team that missed" was only whoever happened to be on turn — a Classic board **docked a team $200 for a clue everybody was playing** |
+| `stealOnWrong` | A steal excludes the team that missed. Nobody had missed, because nobody had held the floor |
+| `jDailyDoubles` | *Not* a contradiction, and worth knowing why: a Daily Double excludes the **phones**, not the words. The team names their four aloud and the teacher clicks them |
+
+Both live guards are in `hub-engine.js` (the steal, and the deduction). `jAnswerSeconds`
+needs none: it starts on a buzz, and `buzzEntitled` already refuses a buzz while a round
+is live, so it can never start.
+
+**Use `jGroupClue()`, not `jGroupLive()`.** The first is "this clue is a round", true
+until the card closes. The second stops the moment the round is taken or revealed — and
+a steal and a deduction both run *after* Reveal, so guarding on the second looks right,
+reads right, and silently lets the rule back in.
+
+The general form, which is the same rule the skins already follow:
+**a live round owns the verdict, so whatever competes with it gives way.**
+
 ## 5. Mid-round changes should take effect now
 
 The Lab exists so a teacher can try a rule between rounds without leaving the board.
