@@ -95,6 +95,13 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 .cat-check input{ width:18px; height:18px; accent-color: var(--blue); flex-shrink:0; }
 .cat-check .tag{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; background: var(--cream); color: var(--navy); padding: 3px 8px; border-radius: 5px; letter-spacing:0.05em; }
 .cat-check .name{ font-weight:600; flex:1; color: var(--ink); }
+/* Says whether a tick box holds questions the teacher reveals or rounds the room
+   plays. Derived from the items, never authored — see `contentKind` in the engine. */
+.cat-check .kind{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; letter-spacing:0.06em;
+  text-transform:uppercase; padding:4px 10px; border-radius:999px; white-space:nowrap; flex-shrink:0; }
+.cat-check .kind-q{ background: rgba(18,38,63,0.07); color: var(--muted); }
+.cat-check .kind-r{ background: rgba(0,160,223,0.16); color:#046C96; }
+.cat-check .kind-m{ background: rgba(255,194,14,0.28); color:#7A5B00; }
 .section-label{ font-family:'Space Grotesk', sans-serif; font-size:1.02rem; margin: 22px 0 12px; color: var(--navy); text-transform:uppercase; }
 .rules-note{ background: rgba(0,160,223,0.08); border:1px dashed var(--blue); border-radius:10px; padding:16px 18px; margin: 20px 0; font-size:0.88rem; line-height:1.6; color: var(--ink); }
 .rules-note .team-tag{ font-weight:700; padding:1px 7px; border-radius:5px; }
@@ -770,6 +777,9 @@ body.theme-gameshow .mode-opt input{ accent-color: var(--gold); }
 body.theme-gameshow .cat-check .name,
 body.theme-gameshow .mode-opt strong{ color: var(--paper); }
 body.theme-gameshow .cat-check .tag{ background: rgba(62,99,255,0.3); color: var(--paper); }
+body.theme-gameshow .cat-check .kind-q{ background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.62); }
+body.theme-gameshow .cat-check .kind-r{ background: rgba(0,160,223,0.30); color:#BDE8FF; }
+body.theme-gameshow .cat-check .kind-m{ background: rgba(255,194,14,0.26); color: var(--yellow); }
 body.theme-gameshow #race-mode .mode-title{ color: var(--gold); }
 body.theme-gameshow .rules-note{
   background: rgba(62,99,255,0.10); border-color: rgba(62,99,255,0.55); color: rgba(234,240,255,0.82);

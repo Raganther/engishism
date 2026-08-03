@@ -2152,13 +2152,50 @@
      catch that. */
   const groupOf = item => (item && item.topic) || (item && item.section) || '';
 
+  /* ---------- what kind of questions are behind a tick box ----------
+     Reported as: on the content screen you cannot tell a clue the room **plays** on
+     their phones from one the teacher simply reveals — and those are two completely
+     different lessons, so choosing between them blind is choosing blind.
+
+     **Asked of the round registry, never labelled on the category.** A category that
+     declared "I hold rounds" would be a second copy of a fact its items already
+     carry, and it would be wrong the first time somebody edited one — the same
+     list-kept-in-step-by-hand defect this project keeps paying for. `Kit.round.of()`
+     reads the item's own fields, so a round written next month labels its content
+     here with nothing added.
+
+     One helper for every board, because all three content builders end up as
+     `.cat-check` rows: Jeopardy picks named categories, the rest pick sections, and
+     a teacher should not have to learn two vocabularies for one distinction. It is
+     the same split the question bench draws in its menu. */
+  function contentKind(items){
+    const seen = {};
+    let plain = 0;
+    (items || []).forEach(it => {
+      const hit = Kit.round.of(it);
+      if(hit) seen[hit.id] = (seen[hit.id] || 0) + 1; else plain++;
+    });
+    const ids = Object.keys(seen);
+    const label = id => (Kit.round.get(id) || {}).label || id;
+    if(!ids.length)                    return { cls:'q', text:'Question' };
+    if(!plain && ids.length === 1)     return { cls:'r', text:'Round \u00b7 ' + label(ids[0]) };
+    if(!plain)                         return { cls:'r', text:'Rounds \u00b7 ' + ids.length + ' types' };
+    const n = ids.reduce((a, id) => a + seen[id], 0);
+    return { cls:'m', text:'Mixed \u00b7 ' + n + ' round' + (n === 1 ? '' : 's') };
+  }
+  const kindChip = items => {
+    const k = contentKind(items);
+    return `<span class="kind kind-${k.cls}">${k.text}</span>`;
+  };
+
   function groupCheckboxes(list, bank, topicNames, sectionNames){
     const seen = [];
     bank.forEach(i=>{ const g = groupOf(i); if(g && seen.indexOf(g) === -1) seen.push(g); });
     // keep the reading order of the bank, which is section order
     seen.sort();
     seen.forEach(g=>{
-      const n = bank.filter(i => groupOf(i) === g).length;
+      const items = bank.filter(i => groupOf(i) === g);
+      const n = items.length;
       const label = (topicNames && topicNames[g]) ||
                     (sectionNames && sectionNames[g] && sectionNames[g].split('·').slice(1).join('·').replace(/\s*\(\d+[^)]*\)\s*$/, '')) ||
                     g;
@@ -2166,7 +2203,7 @@
       const div = document.createElement('label');
       div.className = 'cat-check';
       div.innerHTML = `<input type="checkbox" value="${g}"><span class="tag">${sec}</span>` +
-                      `<span class="name">${label} <em>(${n})</em></span>`;
+                      `<span class="name">${label} <em>(${n})</em></span>` + kindChip(items);
       div.querySelector('input').addEventListener('change', onContentToggle);
       list.appendChild(div);
     });
@@ -2195,7 +2232,8 @@
       }
       const div=document.createElement('label');
       div.className='cat-check';
-      div.innerHTML = `<input type="checkbox" value="${cat.id}"><span class="tag">${cat.section}</span><span class="name">${cat.name}</span>`;
+      div.innerHTML = `<input type="checkbox" value="${cat.id}"><span class="tag">${cat.section}</span>` +
+                      `<span class="name">${cat.name}</span>` + kindChip(cat.clues);
       div.querySelector('input').addEventListener('change', onContentToggle);
       list.appendChild(div);
     });

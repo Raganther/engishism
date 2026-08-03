@@ -1191,6 +1191,44 @@ async function testTopicPicking(browser){
           Object.values(bySection).some(n => n > 1), rows.join(' / '));
     check(game + ': each topic shows how much is in it',
           rows.every(r => /\(\d+\)/.test(r)), rows.find(r => !/\(\d+\)/.test(r)) || '');
+    /* A teacher cannot otherwise tell a clue the room *plays* on their phones from
+       one the teacher reveals, and those are two different lessons. Every row says
+       which, on every board — the chip is derived from the items, so a category can
+       never claim to hold rounds it does not. */
+    check(game + ': every row says whether it holds questions or rounds',
+          rows.every(r => /QUESTION|ROUND|MIXED/i.test(r)), rows.find(r => !/QUESTION|ROUND|MIXED/i.test(r)) || '');
+  }
+
+  /* Units 4 and 5 carry no round fields at all, so every row there is an ordinary
+     question — and the Lab board is where the other two answers live. Asserting both
+     is what stops the chip being a constant that happens to read right. */
+  {
+    const p2 = await browser.newPage({ viewport:{ width:1280, height:900 } });
+    await p2.goto(BASE + '/game-hub-lab.html'); await p2.waitForTimeout(400);
+    await p2.evaluate(() => window.HubSettings.set('intro','off'));
+    await p2.getByText('Lab', { exact:false }).first().click(); await p2.waitForTimeout(220);
+    await p2.locator('h3:visible', { hasText:'Jeopardy' }).first().click(); await p2.waitForTimeout(300);
+    const kindOf = async name => p2.evaluate(n => {
+      const row = [...document.querySelectorAll('#content-list .cat-check')]
+        .find(r => new RegExp(n, 'i').test((r.querySelector('.name')||{}).textContent || ''));
+      return row ? ((row.querySelector('.kind')||{}).textContent || '(none)') : '(no row)';
+    }, name);
+    check('a round category is labelled as a round, with the round named',
+          /^Round · Connections$/.test(await kindOf('Connections')), await kindOf('Connections'));
+    check('and an ordinary category is labelled a question',
+          /^Question$/.test(await kindOf('Gap Fill')), await kindOf('Gap Fill'));
+    /* Blockbusters' LB1 deliberately mixes twelve ordinary clues with six rounds, so
+       it is the only place the third state appears. */
+    // `#back-to-games` — `#new-game-btn` lives on the play screen and is not up yet
+    await p2.locator('#back-to-games').click(); await p2.waitForTimeout(220);
+    await p2.locator('h3:visible', { hasText:'Blockbusters' }).first().click(); await p2.waitForTimeout(300);
+    const bb = await p2.evaluate(() => [...document.querySelectorAll('#content-list .cat-check')]
+      .map(r => (r.querySelector('.kind')||{}).textContent || '(none)'));
+    check('a mixed section says how many of it are rounds',
+          bb.some(t => /^Mixed · \d+ rounds$/.test(t)), bb.join(' / '));
+    check('and a rounds-only section says so without naming one',
+          bb.some(t => /^Rounds · \d+ types$/.test(t)), bb.join(' / '));
+    await p2.close();
   }
 
   /* Pick one narrow topic and confirm the game either builds from exactly that

@@ -1074,6 +1074,25 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The content screen says whether a tick box holds questions or rounds**, on every
+  board. Reported as: choosing categories in Jeopardy, there is no way to tell a
+  simple question from a round — and those are two different lessons, so choosing
+  between them blind is choosing blind. Four states, in the question bench's own
+  vocabulary: `Question` · `Round · Connections` · `Rounds · 5 types` ·
+  `Mixed · 6 rounds`.
+  - **Derived from the items, never labelled on the category.** `contentKind()` asks
+    `Kit.round.of()` what each item wants, exactly as the clue path and the content
+    gate do. A category that *declared* it held rounds would be a second copy of a
+    fact its items already carry, and it would be wrong the first time somebody
+    edited one. A round written next month labels its content here for free.
+  - **One helper, every game show**, because all three content builders end up as
+    `.cat-check` rows — Jeopardy picks named categories, the rest pick sections — and
+    a teacher should not learn two vocabularies for one distinction.
+  - **It makes the content gap visible.** Every row in Units 4 and 5 reads
+    `Question`, because those units carry no round fields at all. That is the honest
+    picture and it is now on screen rather than only in this file.
+  - `sectionCheckboxes()` is dead code (defined, never called) and was left alone; it
+    would need the same chip if anything ever calls it.
 - **`dev.html` is the development hub — every link in the project on one page.**
   Built because "what is the URL for the thing we were working on" was being asked
   repeatedly, and the answer differs by origin. Linked from `index.html`.
