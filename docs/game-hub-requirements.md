@@ -615,7 +615,10 @@ first caller is what proves the extraction was behaviour-neutral.
    class-facing unit carries rounds, those settings are carrying the whole product.
 7. **F3.8.9** (the stage as a mount), then **Bingo extracted**, then **Race
    extracted** — smaller first.
-8. **Content filing.** Beside the existing banks, migrating a unit at a time.
+8. **Content filing (§3.11).** Beside the existing banks, migrating a unit at a time.
+   This is where the tagged pool, the query and agent-assisted authoring live. It is
+   last because it is the largest, it touches all 565 items, and §3.11 records why
+   several of its requirements are cheaper to design for now than to discover later.
 
 **What changed in the ordering, and why.** v0.3 put the two remaining hosts first, on
 the reasoning that the pattern should be proved on cheap cases before anything working
@@ -750,6 +753,160 @@ which is why it moved up the build order. It converts roughly half of this secti
 **The test worth running:** if **Just a Minute** works in this container — a format
 with no questions in it at all — then "Game Hub" is the wrong name for what has been
 built, and §1.2's description of the product needs rewriting rather than extending.
+
+### 3.11 The content pool, tags and the query — the target product
+
+**Status: agreed direction, nothing built.** This section describes where the product is
+going rather than what it does. It is written down now because several decisions taken
+between here and there are cheap in advance and expensive afterwards.
+
+#### The shape
+
+Today: a teacher picks a **unit**, then a **game**, then which **sections** feed it, and
+the game reads its own hand-authored bank.
+
+Target: a teacher picks a **skin** (a game show, a board game, whatever exists), and
+picks **what the class should practise** — *present perfect*, *crime vocabulary*,
+*Empower C1 chapter 6* — and the skin populates itself from a tagged pool with whatever
+matches and fits. Content is authored per question type into that pool, increasingly
+with agent assistance, rather than per game into four separate banks.
+
+This is §3.8's filing system plus two things it does not yet have: **tags** and **a
+query**.
+
+#### Two tag axes, and only one of them is authored
+
+The single most consequential decision in this section.
+
+| Axis | Example | Set by |
+|---|---|---|
+| **What it is about** | present perfect · crime vocabulary · Empower C1 §5B · CEFR C1 | **authored** — a human decides |
+| **What shape it is** | one word? four options? a scale of five? a set of eight? | **derived** — read from the item's own fields |
+
+**The teacher picks on the first axis. The skin filters on the second.**
+
+The trap is hand-labelling the second — writing `games:['blockbusters','race']` onto
+each item. That is a list kept in step by hand, and it is the defect class this project
+has paid for most often: `games: gameIds()`, the `.lit` stage list, the normalisation
+whitelist, the forms suite naming its experimental form. A one-word answer with a
+definition **is** a Blockbusters clue; nothing should have to say so, and if a human
+says so they will eventually say it wrongly and nothing will catch it.
+
+The mechanism already exists in two places and should be extended rather than replaced:
+`Kit.round.of(item)` asks every round whether it `claims` an item, and `hasBank(u)` asks
+every game whether a unit can feed it. Both ask rather than being told.
+
+**Rule: tag what a human knows; derive what the data knows.**
+
+#### What the query has to do that selection does not
+
+Section checkboxes are a *filter over a known bank*. A tag query is a *request that may
+not be satisfiable*, which is a different problem with new failure modes.
+
+| ID | Requirement | Priority |
+|---|---|---|
+| F3.11.1 | Content is filed in one pool, tagged by topic/language point/source, not split into per-game banks | Should — **not built** |
+| F3.11.2 | Which skins and rounds an item can serve is **derived from the item's fields**, never hand-labelled on the item | Must — **not built** |
+| F3.11.3 | A skin declares what it needs from a query (how many items, of what shapes, at what spread of difficulty) rather than the query knowing about skins | Should — **not built** |
+| F3.11.4 | When a query cannot fill a skin, the teacher is told what is short and offered a way forward — never given a half-built board | Must — **not built** |
+| F3.11.5 | An authored item declares its own difficulty; skins that grade questions read it rather than inferring it from position | Should — **not built** |
+| F3.11.6 | The content gate is rewritten alongside the migration, in the same change, and never switched off between the two models | Must — **not built** |
+
+#### Issues to expect in development
+
+Recorded now because most of them are cheaper to design around than to discover.
+
+**Data model**
+
+- **Tag vocabulary drift.** Free text becomes `present perfect`, `present-perfect`,
+  `pres. perfect` inside a month, and the pool stops being queryable. Needs a controlled
+  vocabulary — a declared list, checked by the gate — from the first item, not the
+  hundredth.
+- **Granularity has no obviously right answer.** `grammar` is too coarse to filter on;
+  `present-perfect-continuous-for-unfinished-actions` is so fine that every item is
+  unique and nothing groups. Expect to get this wrong once and have to re-tag.
+- **Retrofitting 565 existing items.** Automated tagging is plausible and unverifiable —
+  the gate can check that a tag is *in the vocabulary*, never that it is *true of the
+  item*. This is the largest single hand-review job in the project.
+- **The same word in two books at different levels** breaks duplicate detection, which
+  currently keys on the prompt. A pool spanning sources needs identity to include the
+  source.
+
+**Query**
+
+- **Under-fill.** "Present perfect, Blockbusters" may return 6 items for an 18-hexagon
+  board. Today `hasBank()` is binary; a query needs to say what is short. (F3.11.4.)
+- **Graded difficulty is the hard one.** Jeopardy runs $100→$500 and Millionaire's
+  ladder needs **two questions at every rung in every section**. A tag query returns a
+  flat set with no notion of a rung, so either items carry an authored difficulty
+  (subjective, and wrong often enough to matter) or the skins stop grading. Neither is
+  free, and this is the requirement most likely to be discovered late. (F3.11.5.)
+- **Over-narrow selection producing a monotonous board** — eighteen items all drawn from
+  one exercise on one page, which reads as a bug even though the query did as asked.
+- **Repeatability.** Playing the same query twice in a week should probably *not* give
+  the same board, and probably *should* avoid items the class has just met. Neither
+  behaviour exists and they pull in opposite directions.
+
+**Migration**
+
+- **The gate must be rewritten in the same change.** Its current rule — no prompt in two
+  banks — is exactly inverted by a pool, where one item is queried many times. Losing
+  the gate during the migration means losing it precisely when 565 items are moving.
+  (F3.11.6.)
+- **Unit-at-a-time means two content models coexisting**, and the engine reading both.
+  Safer than a big bang and genuinely more work; the alternative is one change that
+  touches every item in the project with no incremental verification.
+- **§3.2's argument does not evaporate.** Per-game authoring exists because formats
+  impose incompatible shapes, and the risk of pooling is bland
+  lowest-common-denominator content that technically serves five skins and delights in
+  none. The mitigation is that bespoke content stays bespoke — a grouping set and an
+  ordering scale are authored for one round by nature.
+
+**Agent-assisted authoring**
+
+- **The gate checks form, not quality.** It catches a duplicated prompt, a letter that
+  does not match, an answer that is not among its options. It cannot check that a
+  grouping clue's decoys are themselves a coherent group, or that a scale's steps are
+  genuinely ordered. Generated content can pass every check and teach nothing.
+- **Paraphrase collision becomes the dominant duplicate mode at scale**, and nothing
+  catches it. The gate compares normalised prompts, so "the decision a jury delivers"
+  and "what a jury decides at the end of a trial" are two items about one word, in one
+  pool, and a board can draw both.
+- **A wrong answer key looks completely normal.** Already recorded for multiple choice:
+  a mistyped answer produces a question that is simply impossible to get right and reads
+  fine to a proofreader. At volume this is the dangerous failure, not the visible one.
+- **Volume worsens distribution by default.** The Unit 5 audit found 71% gap fills
+  because gap fills are the easiest thing to write — and to generate. Quotas must be set
+  on the *language point*, not the question type, or the pool fills with the cheapest
+  shape.
+- **Source fidelity is the demo.** §1.4.2 is "the games test the unit's *actual target
+  language*, not generic English". Content generated from general knowledge rather than
+  from the coursebook scans in `material/` breaks the one claim the demonstration rests
+  on, while looking entirely plausible.
+- **Nothing unreviewed reaches a class-facing unit.** Generated content lands in a
+  staging file the Lab loads; promotion into a taught unit is a human act.
+
+**Product**
+
+- **This is a different product from the one in §1.2/§1.3.** "Revision games for a
+  coursebook unit" and "a tagged content platform any skin can query" are not the same
+  claim, and the second is a much longer build. If this direction is taken, §1 needs
+  rewriting rather than extending.
+- **The largest risk is opportunity cost.** Nothing in this project has been run in
+  front of a class. Building a content platform before running one lesson would mean
+  every guessed number in it stays guessed for months longer — and the classroom run is
+  what would tell you which of these requirements were ever needed.
+
+#### The measurement that decides how much of this is worth it
+
+The authoring-cost claim is what the demo rests on, and a pool only halves it for
+**shareable** content — a word, its definition, its tags. Bespoke content (a grouping
+set, an ordering scale) cannot be derived from anything and is authored once per round
+by nature.
+
+**So: author roughly 20 items by hand into the proposed shape before writing any code
+that consumes them.** If most C1 content turns out bespoke, this section buys far less
+than it appears to, and that is worth knowing before 565 items move.
 
 ---
 

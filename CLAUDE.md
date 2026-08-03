@@ -159,7 +159,8 @@ skin owns the handsets.
    settings rather than adding them.
 7. **A round handed the stage as its mount**, then **Bingo extracted**, then **Race
    extracted** — smaller first.
-8. **Content filing**, beside the existing banks, a unit at a time.
+8. **Content filing**, beside the existing banks, a unit at a time — the tagged pool
+   and the query (§3.11).
 
 **What changed in the ordering, and why.** The old order put the two remaining hosts
 first, so the pattern would be proved on cheap cases before anything working was
@@ -239,6 +240,36 @@ Three axes, cheapest first. Full version in §3.10.
 the build order. And the test worth running is Just a Minute: if a format with *no
 questions in it* works in this container, "Game Hub" is the wrong name for what has
 been built.
+
+### Where this ends up — a tagged pool and a query (§3.11)
+**Agreed direction, nothing built.** Today a teacher picks a unit, then a game, then
+sections. The target is: pick a **skin**, pick **what to practise** — present perfect,
+crime vocabulary, chapter 6 — and the skin fills itself from a tagged pool. Content is
+authored per question type into that pool, increasingly with agent help, rather than per
+game into four banks.
+
+**The one decision that changes the data model: two tag axes, and only one is
+authored.** What an item is *about* (present perfect, §5B, C1) is authored — a human
+knows it. What *shape* it is (one word? four options? a scale of five?) is **derived
+from the item's own fields**, never labelled on it. `Kit.round.of()` and `hasBank()`
+already work this way. Hand-labelling `games:[…]` onto an item is the same list-kept-in-
+step-by-hand defect this project has paid for four times. **Tag what a human knows,
+derive what the data knows.**
+
+**The three issues most likely to be discovered late**, out of the full list in §3.11:
+- **Graded difficulty.** Jeopardy runs $100→$500 and Millionaire needs two questions at
+  every rung in every section. A tag query returns a *flat* set with no notion of a
+  rung, so either items carry an authored difficulty or the skins stop grading.
+- **The gate inverts.** "No prompt in two banks" is exactly wrong for a pool, where one
+  item is queried many times — so it must be rewritten *in the same change* as the
+  migration, never switched off between the two models.
+- **Paraphrase collision at scale.** The gate compares normalised prompts, so two
+  generated items about one word, worded differently, both land and a board can draw
+  both. Nothing catches it today.
+
+**And the honest one:** this is a different product from §1.2, and the largest risk is
+opportunity cost — nothing here has met a class yet, and the classroom run is what would
+say which of these requirements were ever needed.
 
 ### Content: one filing system, not one pool
 §3.2's per-game argument still holds for *answer shape*. What it missed is that **not
