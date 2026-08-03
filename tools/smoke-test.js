@@ -345,15 +345,15 @@ async function testMillionaire(browser){
   await startGame(page, 'Millionaire', { sections: 1 });
 
   check('ladder has 8 rungs', await page.locator('.m-rung').count() === 8);
-  check('four options offered', await page.locator('.m-option').count() === 4);
-  const fit = await boardFits(page, '.m-option');
+  check('four options offered', await page.locator('.mc-opt').count() === 4);
+  const fit = await boardFits(page, '.mc-opt');
   check('stage is on screen', fit.ok, fit.why);
 
   // 50:50 must remove two wrong options and never the right one
   const right = await currentMillionaireAnswer(page);
   await page.locator('.lifeline[data-life="fifty"]').click(); await page.waitForTimeout(250);
-  check('50:50 removes two options', await page.locator('.m-option.removed').count() === 2);
-  const removedRight = await page.locator('.m-option.removed', { hasText: right }).count();
+  check('50:50 removes two options', await page.locator('.mc-opt.removed').count() === 2);
+  const removedRight = await page.locator(`.mc-opt.removed[data-word="${right}"]`).count();
   check('50:50 keeps the correct option', removedRight === 0);
   check('50:50 is spent', await page.locator('.lifeline[data-life="fifty"]').isDisabled());
 
@@ -361,9 +361,9 @@ async function testMillionaire(browser){
      until the host asks. What makes it worth a test rather than a flourish is that
      it must be *reversible* — the room shouting "no, C!" has to be able to land. */
   const wrongFirst = await page.evaluate(r =>
-    ([...document.querySelectorAll('#m-options .m-option:not(.removed)')]
-      .find(x => x.dataset.opt !== r) || {}).dataset.opt || null, right);
-  await page.locator('.m-option', { hasText: wrongFirst }).first().click(); await page.waitForTimeout(200);
+    ([...document.querySelectorAll('#m-options .mc-opt:not(.removed)')]
+      .find(x => x.dataset.word !== r) || {}).dataset.word || null, right);
+  await page.locator(`.mc-opt[data-word="${wrongFirst}"]`).click(); await page.waitForTimeout(200);
   /* Still the locked colour with the pointer resting on it. `:hover:not(:disabled)`
      out-specifies `.picked`, so the option the teacher just clicked went back to
      looking merely hovered — while they were looking straight at it. */
@@ -374,54 +374,58 @@ async function testMillionaire(browser){
     const e = document.querySelector(s);
     return getComputedStyle(e).backgroundImage + '|' + getComputedStyle(e).backgroundColor;
   }, sel);
-  await page.locator('.m-option:not(.picked):not(.removed)').first().hover();
+  await page.locator('.mc-opt:not(.chosen):not(.removed)').first().hover();
   await page.waitForTimeout(120);
-  const hoveredPlain = await paintOf('.m-option:not(.picked):not(.removed)');
-  await page.locator('.m-option.picked').hover(); await page.waitForTimeout(120);
-  const hoveredPicked = await paintOf('.m-option.picked');
+  const hoveredPlain = await paintOf('.mc-opt:not(.chosen):not(.removed)');
+  await page.locator('.mc-opt.chosen').hover(); await page.waitForTimeout(120);
+  const hoveredPicked = await paintOf('.mc-opt.chosen');
   check('the locked option keeps its colour under the pointer',
         hoveredPicked !== hoveredPlain, hoveredPicked + '  vs  ' + hoveredPlain);
   check('picking an option locks it in without revealing',
-        await page.locator('.m-option.picked').count() === 1 &&
-        await page.locator('.m-option.right').count() === 0 &&
+        await page.locator('.mc-opt.chosen').count() === 1 &&
+        await page.locator('.mc-opt.right').count() === 0 &&
         await page.locator('#m-final').isVisible(),
         await page.locator('#m-hint').innerText());
   check('nothing is scored until the answer is final', (await scores(page))[0] === '0',
         (await scores(page)).join('/'));
 
-  await page.locator('.m-option', { hasText: right }).first().click(); await page.waitForTimeout(200);
+  await page.locator(`.mc-opt[data-word="${right}"]`).click(); await page.waitForTimeout(200);
   check('picking another option moves the lock rather than answering',
-        await page.locator('.m-option.picked').count() === 1 &&
-        (await page.locator('.m-option.picked').getAttribute('data-opt')) === right,
-        await page.locator('.m-option.picked').getAttribute('data-opt'));
+        await page.locator('.mc-opt.chosen').count() === 1 &&
+        (await page.locator('.mc-opt.chosen').getAttribute('data-word')) === right,
+        await page.locator('.mc-opt.chosen').getAttribute('data-word'));
 
-  await page.locator('#m-final').click(); await page.waitForTimeout(350);
+  /* The round holds a beat between the answer landing and the tile paying, so the
+     room sees which one it was — `J_GROUP_TAKE_MS`. Millionaire inherits it, which
+     is the same pause the show's own "lock it in, then pay it off" already had. */
+  await page.locator('#m-final').click(); await page.waitForTimeout(1400);
   check('correct answer scores 100', (await scores(page))[0] === '100', (await scores(page)).join('/'));
-  check('correct option is marked', await page.locator('.m-option.right').count() === 1);
-  check('the lock clears on the reveal', await page.locator('.m-option.picked').count() === 0);
+  check('correct option is marked', await page.locator('.mc-opt.right').count() === 1);
+  check('the lock clears on the reveal', await page.locator('.mc-opt.chosen').count() === 0);
   check('and "Final answer?" goes away with it', !(await page.locator('#m-final').isVisible()));
 
   await page.locator('#m-next').click(); await page.waitForTimeout(350);
   check('turn passes to team 2', /team 2/i.test(await page.locator('#m-turn').innerText()));
 
-  /* Ask the class, with no phones: the teacher taps hands, and then has to be able
-     to play the question. Counting used to be the only state — a click always added
-     a hand — and the one way out also wiped the numbers the team was deciding on. */
-  await page.locator('.lifeline[data-life="class"]').click(); await page.waitForTimeout(300);
-  check('asking the class starts a hand count', await page.locator('#m-done-count').isVisible());
-  await page.locator('#m-options .m-option').nth(1).click();
-  await page.locator('#m-options .m-option').nth(1).click(); await page.waitForTimeout(200);
-  check('tapping an option counts a hand rather than answering',
-        (await page.locator('.m-votes').allInnerTexts())[1] === '2' &&
-        !(await page.locator('#m-next').isVisible()),
-        (await page.locator('.m-votes').allInnerTexts()).join('/'));
+  /* **Ask the class with no phones is not offered, and says why.** It used to turn
+     the options into a tally pad for hands in the air. Now that every question is a
+     multiple choice *round*, the room votes on its handsets all the way through and
+     the lifeline reveals counts the board is already holding — so with no relay
+     there is genuinely nothing to reveal.
 
-  await page.locator('#m-done-count').click(); await page.waitForTimeout(250);
-  check('done counting keeps the numbers on screen',
-        (await page.locator('.m-votes').allInnerTexts())[1] === '2',
-        (await page.locator('.m-votes').allInnerTexts()).join('/'));
+     That is a real loss against the hands-in-the-air version, and the honest trade
+     for the round owning the room. A disabled control reads as broken, so it carries
+     the reason: the phones half is covered in the `phonemodes` suite. */
+  const ask = page.locator('.lifeline[data-life="class"]');
+  check('with no relay, Ask the class is not offered', await ask.isDisabled());
+  check('and it says why rather than looking broken',
+        /no phones/i.test(await ask.getAttribute('title') || ''),
+        await ask.getAttribute('title'));
+  /* Tapping an option is answering again, with no tally mode to fall into — which
+     was the dead end this block was originally written for: counting used to be the
+     only state a click could mean. */
   const right2 = await currentMillionaireAnswer(page);
-  await playMillionaireOption(page, page.locator('.m-option', { hasText: right2 }));
+  await playMillionaireOption(page, page.locator(`.mc-opt[data-word="${right2}"]`));
   await page.waitForTimeout(400);
   check('and the question can then actually be answered',
         await page.locator('#m-next').isVisible(),
@@ -439,7 +443,11 @@ async function playMillionaireOption(page, locator){
   await locator.first().click();
   await page.waitForTimeout(150);
   const final = page.locator('#m-final');
-  if(await final.isVisible()) await final.click();
+  if(await final.isVisible() && !(await final.isDisabled())) await final.click();
+  /* The round holds a beat between the answer landing and the board paying, so the
+     room sees which option it was. Returning before it lands made every caller of
+     this helper read the score one question behind. */
+  await page.waitForTimeout(1200);
 }
 
 /* The question on screen is *rendered*, not printed: Kit.prompt draws a `___` as a
@@ -750,7 +758,7 @@ async function testGameShow(browser){
   // the whole skin runs on the Web Audio bed; muting must not break the game
   await page.evaluate(() => window.HubSettings.set('sound', false));
   await startGame(page, 'Millionaire', { sections:'all' });
-  await playMillionaireOption(page, page.locator('#m-options .m-option'));
+  await playMillionaireOption(page, page.locator('#m-options .mc-opt'));
   await page.waitForTimeout(1200);
   check('muted, the game still scores', (await page.locator('#m-hint').innerText()).length > 0);
 
@@ -1267,8 +1275,8 @@ async function testTopicPicking(browser){
   await page.waitForTimeout(250);
   await page.locator('#start-btn').click(); await page.waitForTimeout(900);
   check('Millionaire still fills a ladder when picked by topic',
-        await page.locator('.m-option').count() === 4,
-        String(await page.locator('.m-option').count()));
+        await page.locator('.mc-opt').count() === 4,
+        String(await page.locator('.mc-opt').count()));
 
   checkClean(page);
   await page.close();
@@ -1776,7 +1784,7 @@ async function testPhoneLayout(browser){
       const overlap = (a, b) => a && b &&
         Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1 &&
         Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1;
-      const opts = [...document.querySelectorAll('.m-option')].map(e => e.getBoundingClientRect());
+      const opts = [...document.querySelectorAll('.mc-opt')].map(e => e.getBoundingClientRect());
       let optOverlap = 0;
       for (let i = 0; i < opts.length; i++)
         for (let j = i + 1; j < opts.length; j++) if (overlap(opts[i], opts[j])) optOverlap++;
@@ -2527,17 +2535,17 @@ async function testCompetition(browser){
   await startGame(page, 'Millionaire', { sections:'all' });
   const right = await currentMillionaireAnswer(page);
   const wrong = await page.evaluate(r => {
-    const b = [...document.querySelectorAll('#m-options .m-option')].find(x => x.dataset.opt !== r);
-    return b ? b.dataset.opt : null;
+    const b = [...document.querySelectorAll('#m-options .mc-opt')].find(x => x.dataset.word !== r);
+    return b ? b.dataset.word : null;
   }, right);
-  await playMillionaireOption(page, page.locator('.m-option', { hasText: wrong }));
+  await playMillionaireOption(page, page.locator(`.mc-opt[data-word="${wrong}"]`));
   await page.waitForTimeout(900);
   check('a missed rung is offered to the other team',
         /steal it for 50/i.test(await page.locator('#m-hint').innerText()),
         await page.locator('#m-hint').innerText());
   /* The stealing team gets the same two beats, not a shortcut — the steal reopens
      the question rather than resuming a half-answered one. */
-  await playMillionaireOption(page, page.locator('.m-option', { hasText: right }));
+  await playMillionaireOption(page, page.locator('.mc-opt', { hasText: right }));
   await page.waitForTimeout(900);
   check('and the stealing team banks half the rung',
         (await scores(page))[1] === '50', (await scores(page)).join('/'));
@@ -2558,7 +2566,7 @@ async function answerCorrectly(page){
   // as a blank, which read as "tension never climbs" rather than "lookup broke"
   const answer = await currentMillionaireAnswer(page);
   if (!answer) return false;
-  const opt = page.locator('#m-options .m-option[data-opt="' + answer.replace(/"/g,'\\"') + '"]');
+  const opt = page.locator('#m-options .mc-opt[data-word="' + answer.replace(/"/g,'\\"') + '"]');
   if (!(await opt.count())) return false;
   await playMillionaireOption(page, opt);
   await page.waitForTimeout(900);
@@ -3111,8 +3119,8 @@ async function testPhoneModes(browser){
     await ana.locator('#opts button').first().click(); await v.host.waitForTimeout(300);
     await ben.locator('#opts button').first().click(); await v.host.waitForTimeout(600);
     check('the votes land on the board',
-          (await v.host.locator('.m-votes').allInnerTexts())[0] === '2',
-          (await v.host.locator('.m-votes').allInnerTexts()).join('/'));
+          (await v.host.locator('.mc-votes').allInnerTexts())[0] === '2',
+          (await v.host.locator('.mc-votes').allInnerTexts()).join('/'));
     /* And the board stays answerable. With phones voting there are no hands to tap,
        so turning the options into a tally pad only dead-ends the round: the counts
        arrive over the wire and the teacher's next click is the team's answer. The
@@ -3127,7 +3135,7 @@ async function testPhoneModes(browser){
        outcome is a bug, and neither is what this check is about. */
     const vAnswer = await currentMillionaireAnswer(v.host);
     await playMillionaireOption(v.host,
-      v.host.locator('#m-options .m-option[data-opt="' + vAnswer.replace(/"/g,'\\"') + '"]'));
+      v.host.locator('#m-options .mc-opt[data-word="' + vAnswer.replace(/"/g,'\\"') + '"]'));
     await v.host.waitForTimeout(500);
     check('clicking an option answers instead of adding a phantom hand',
           await v.host.locator('#m-next').isVisible(),
@@ -3159,7 +3167,7 @@ async function testPhoneModes(browser){
           !(await ana.locator('#buzzer').isDisabled()),
           await ana.locator('#state').innerText().catch(()=>''));
     check('the counts stay on the board after the vote closes',
-          (await vb.host.locator('.m-votes').count()) === 4);
+          (await vb.host.locator('.mc-votes').count()) === 4);
     check('phone had no errors', ana.__errors.length === 0, ana.__errors[0]);
     await ana.close();
   }

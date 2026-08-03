@@ -76,6 +76,13 @@
         need:    1,
         mode:    (ctx && ctx.mode === 'agree') ? 'agree' : 'first',
         chosen:  [],                // the teacher's own pick, with no phones
+        /* Options a **host** has taken out of play — Millionaire's 50:50 is the
+           first caller. Generic on purpose: "narrow the choice" is a hint mechanic
+           any board might want, and the round only has to honour it. They stay on
+           screen struck through rather than vanishing, because watching two go is
+           the drama; they leave the handsets entirely, because a phone offering a
+           tap that cannot count is just broken. */
+        hidden:  [],
         /* The same three-way split the ordering round keeps, and for the same
            reason: `picks` is what gets judged, `leading` is what the card draws
            while a team argues, `votes` is the count behind it. */
@@ -115,6 +122,8 @@
         b.appendChild(t);
 
         if(s.chosen.indexOf(w) !== -1) b.classList.add('chosen');
+        const gone = (s.hidden || []).indexOf(w) !== -1;
+        if(gone){ b.classList.add('removed'); b.disabled = true; }
         /* Once the answer is out the options stop being a question: the right one
            lights and the rest stand down, rather than four tiles still inviting a
            click that can no longer mean anything. */
@@ -125,25 +134,43 @@
            3/4 with nothing showing where the fourth student went tells the room it
            is stuck without telling it what to argue about — and it is worth having
            in `first` too, where it is simply who went for what. */
-        const votes  = s.votes || {};
+        /* A host may hold the counts back — Millionaire collects a vote on every
+           question but only shows it when the team spends Ask the class, which is
+           what turns "the class already answered" into something still worth
+           spending. Nothing else sets it, so every other board is unaffected. */
+        const votes  = c.hideVotes ? {} : (s.votes || {});
         const wants  = Object.keys(votes).filter(t2 => ((votes[t2].for || {})[w] || 0) > 0);
-        const leads  = Object.keys(s.leading).filter(t2 => (s.leading[t2]||[]).indexOf(w) !== -1);
+        const leads  = c.hideVotes ? []
+                     : Object.keys(s.leading).filter(t2 => (s.leading[t2]||[]).indexOf(w) !== -1);
         if(leads.length) b.classList.add('leading');
         if(wants.length && !s.shown){
           b.classList.add('held');
-          const dots = document.createElement('span');
-          dots.className = 'gdots';
-          wants.forEach(t2=>{
-            const d = document.createElement('span');
-            d.className = 'gdot';
-            d.style.background = colourOf(Number(t2));
-            d.title = c.teamName ? c.teamName(Number(t2)) : ('Team ' + (Number(t2)+1));
-            dots.appendChild(d);
-          });
-          b.appendChild(dots);
+          /* **A count, not dots, when the host asks for one.** Which is right depends
+             on the question the room is being asked: on a tile the interesting fact
+             is *which teams* went where, and on Millionaire's Ask the class it is
+             *how many people* did — "12 said B" is the lifeline, and four coloured
+             dots are not. Same data, and the host says which reading it wants. */
+          if(c.countVotes){
+            const n = Object.keys(votes)
+              .reduce((a, t2) => a + ((votes[t2].for || {})[w] || 0), 0);
+            const tag = document.createElement('span');
+            tag.className = 'mc-votes'; tag.textContent = n;
+            b.appendChild(tag);
+          } else {
+            const dots = document.createElement('span');
+            dots.className = 'gdots';
+            wants.forEach(t2=>{
+              const d = document.createElement('span');
+              d.className = 'gdot';
+              d.style.background = colourOf(Number(t2));
+              d.title = c.teamName ? c.teamName(Number(t2)) : ('Team ' + (Number(t2)+1));
+              dots.appendChild(d);
+            });
+            b.appendChild(dots);
+          }
         }
 
-        if(c.onPick && !s.shown) b.addEventListener('click', ()=> c.onPick(w));
+        if(c.onPick && !s.shown && !gone) b.addEventListener('click', ()=> c.onPick(w));
         grid.appendChild(b);
       });
       mount.appendChild(grid);
@@ -151,7 +178,7 @@
       /* How close each team is to agreeing. Only in `agree` mode: in a race the
          count is not what anybody is waiting for, and a strip that says nothing is
          still a strip taking height off a clue card. */
-      if(s.mode === 'agree' && !s.done){
+      if(s.mode === 'agree' && !s.done && !c.hideVotes){
         const chips = ((c.sizes || []).map((_, i) => i))
           .map(t => ({ t, ag: K.round.agreement(s, c, t) }))
           .filter(x => x.ag);
@@ -195,7 +222,7 @@
       return {
         mode:    'vote',
         prompt:  c.prompt === false ? 'Pick an answer' : (s.text || 'Pick an answer'),
-        options: s.options.slice(),
+        options: s.options.filter(w => (s.hidden || []).indexOf(w) === -1),
         multi:   1,
         /* No share. One option is the whole answer, so there is nothing to split
            across a team's handsets — what a team divides here is the argument, not
@@ -216,7 +243,7 @@
         sizes: (ctx && ctx.sizes) || [],
         unanimous: s.mode === 'agree',
         // anything that is not one of the options is a stale tap from a previous clue
-        valid: w => s.options.indexOf(w) !== -1
+        valid: w => s.options.indexOf(w) !== -1 && (s.hidden || []).indexOf(w) === -1
       });
       s.leading = p.leading; s.votes = p.votes; s.by = p.by;
       return p.answers;

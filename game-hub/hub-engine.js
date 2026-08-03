@@ -347,14 +347,19 @@
       if(!mCurrent || mAnswered) return;
       mCurrent.team = b.team;
       active = b.team;               // the turn strip, lifelines and ladder follow
-      mPicked = null;                // a new team decides for itself
+      if(jGroup) jGroup.chosen = []; // a new team decides for itself
       renderScorebar();
       renderMillionaire();
     },
     // no onTypedWin: typing is not offered here, for the same reason it never gets
     // an anagram — the four options hand you the word
-    wantsVote:   () => !!S.get('mLifelines', 'millionaire'),
-    onVoteReply(all){ if(mVote){ mVote.apply(all); renderMillionaire(); } },
+    /* Every question is a round now, so the handsets are the round's for the whole
+       of it. Declaring `phoneRound` without `onVoteReply` is the failure that shipped
+       on Blockbusters: the room arms correctly and every tap lands on the floor. */
+    phoneRound(){ return jGroupRound(); },
+    wantsVote:   () => jGroupLive() || !!S.get('mLifelines', 'millionaire'),
+    roomNote:    () => jGroupLive() ? 'pick an answer' : null,
+    onVoteReply(all){ if(jGroupLive()) jGroupOnReplies(all); },
     fit:      fitMillionaire,
     tension(){ mTension(); },
     onResize: fitMillionaire
@@ -437,14 +442,40 @@
      the amount, and a tile and a hexagon are worth completely different things.
      Everything it references is either a hoisted function or read at call time, so
      the table can be declared before any of it exists. */
+  /* **Where the round is drawn is the host's, not the adapter's.** Two of these open
+     the shared clue card; Millionaire has no card at all and draws its question
+     inline on its own stage, so the mount is a declared fact like everything else.
+     `render(mount, s, ctx)` always took a mount — it was the adapter that assumed
+     which one, which is what made "a round on a stage" look like a contract change
+     when it is really one more row in this table.
+
+     `live()` replaced `modalMode === modal` for the same reason: a game with no
+     modal could never answer that question. `commit` names the button that judges
+     what the teacher has picked, because Millionaire's is its own "Final answer?"
+     rather than the clue card's Check. */
+  const CARD_MOUNT = () => {
+    const text = document.getElementById('clue-text');
+    let host = document.getElementById('clue-group');
+    if(!host || host.parentNode !== text){
+      if(host) host.remove();
+      host = document.createElement('div');
+      host.id = 'clue-group'; host.className = 'clue-group';
+      text.appendChild(host);
+    }
+    return host;
+  };
   const ROUND_HOSTS = {
     jeopardy: {
-      game:'jeopardy', modal:'jeopardy', stage:'play-jeopardy',
+      game:'jeopardy', stage:'play-jeopardy',
+      mount: CARD_MOUNT, commit:'group-btn',
+      live: () => modalMode === 'jeopardy',
       turn: () => active,
       win:  team => jCorrect(team)
     },
     blockbusters: {
-      game:'blockbusters', modal:'blockbusters', stage:'play-blockbusters',
+      game:'blockbusters', stage:'play-blockbusters',
+      mount: CARD_MOUNT, commit:'group-btn',
+      live: () => modalMode === 'blockbusters',
       /* Whose turn it is here is the team whose *side* is up. A four-team class
          plays as two alliances, so the round belongs to whoever is actually at the
          board rather than to `active`, which follows the last buzz. */
@@ -452,6 +483,32 @@
       /* A hexagon is worth what the board says a hexagon is worth — the floor is
          there because a round that paid nothing would read as not having counted. */
       win:  team => claimHex(team) || 1
+    },
+    millionaire: {
+      game:'millionaire', stage:'play-millionaire',
+      /* No clue card: the options are the stage. This is F3.8.9 — a round handed a
+         mount that is not the card — and it cost this line plus honouring it below. */
+      mount: () => document.getElementById('m-options'),
+      commit:'m-final',
+      /* A question is on screen and has not been answered. There is no modal to ask
+         about, which is exactly why `modalMode` could not stay the test. */
+      live: () => !!mCurrent && !mAnswered,
+      /* The team the question was dealt to — which is not `active` after a steal,
+         and the steal is precisely when the difference matters. */
+      turn: () => (mCurrent ? mCurrent.team : active),
+      win:  team => mPayRung(team),
+      /* The class votes on every question now, so the counts exist from the first
+         tap. Holding them back is what leaves Ask the class worth spending. */
+      hideVotes: () => !mTally,
+      /* Ask the class is about the whole room, not about which team said what —
+         there is only one team answering at a time on this board anyway. */
+      countVotes: () => true,
+      commitText: () => 'Final answer?',
+      repaint: () => mSayHint(),
+      autoCommit: () => !S.get('mFinalAnswer', 'millionaire'),
+      /* On this board a wrong answer ends the go — the steal, then the rung stands.
+         Every other host lets one cost nothing but the time. */
+      miss: team => mMissed(team)
     }
   };
   const ROUND_GAMES = Object.keys(ROUND_HOSTS);
@@ -1909,7 +1966,10 @@
   /* The teacher's own set, judged by the same function a team's is. Right lights the
      four and takes the tile for whoever is on turn; wrong shakes them and costs
      nothing, exactly as it costs a team nothing. */
-  document.getElementById('group-btn').addEventListener('click', () => {
+  /* The teacher's own answer, judged. A function rather than a button handler,
+     because two buttons reach it now: the clue card's Check, and Millionaire's
+     "Final answer?" — the same beat wearing the show's clothes. */
+  function roundCommit(){
     /* `jRoundCap()`, not the whole answer: an ordering climb asks for one word at a
        time, so guarding on the full scale meant the button could be pressed and
        silently did nothing. */
@@ -1920,31 +1980,37 @@
        A class with one phone in a drawer has to stay playable, and the teacher is the
        authority when they click. */
     const ctx = jGroupCtx();
-    const r = def.judge(jGroup.chosen, jGroup, active, ctx);
+    const team = roundHost.turn();
+    const r = def.judge(jGroup.chosen, jGroup, team, ctx);
     if(r.verdict === 'right'){
-      def.accept(jGroup.chosen.slice(), jGroup, active, ctx);
+      def.accept(jGroup.chosen.slice(), jGroup, team, ctx);
       jGroup.chosen = [];
-      if(r.done !== false || jGroup.done){ jGroupTake(active); return; }
+      if(r.done !== false || jGroup.done){ jGroupTake(team); return; }
       jGroup.say = 'Yes — keep going.';
       Sound.play('correct');
       renderJGroup();
-      if(buzzHost) askPhones(currentClueItem.text, 'jeopardy');
+      if(buzzHost) askPhones(currentClueItem.text, roundHost.game);
       return;
     }
+    /* A wrong answer costs nothing on a tile or a hexagon — the other team is the
+       pressure. On a ladder it ends the go, which is the show's whole tension, so
+       the host is asked first and only boards with no opinion fall through. */
+    if(roundHost.miss && roundHost.miss(team, r)) return;
     jGroup.say = def.saidOf('Not that', r, jGroup).replace(/^Not that: /, '');
     Sound.play('wrong');
     /* Shake what they picked, *then* let it go. Leaving the selection standing meant
        the next click deselected instead of choosing, so the teacher's second attempt
        silently did nothing — worst on an ordering climb, where one word is the whole
        answer and the button just sat there disabled. */
-    const shaking = [...document.querySelectorAll('#clue-group .gword.chosen')];
+    const shaking = [...roundHost.mount().querySelectorAll('.gword.chosen')];
     shaking.forEach(el=>{
       el.classList.add('shake');
       setTimeout(()=> el.classList.remove('shake'), 380);
     });
     setTimeout(()=>{ if(jGroupLive()){ jGroup.chosen = []; renderJGroup(); } }, 380);
     renderJGroup();
-  });
+  }
+  document.getElementById('group-btn').addEventListener('click', roundCommit);
 
   document.getElementById('hint-btn').addEventListener('click', () => {
     if(!currentClueItem) return;
@@ -3445,6 +3511,13 @@
       mode:   jRoundMode(id || jRoundId),
       // which lane the teacher's own clicks act on, when a round gives each team one
       forTeam: roundHost.turn(),
+      /* A host may collect votes and not show them yet — Millionaire's Ask the class
+         is the only caller, and it is what leaves that lifeline something to buy now
+         that the round asks the room on every question anyway. */
+      hideVotes: !!(roundHost.hideVotes && roundHost.hideVotes()),
+      /* How the room's votes read: a count of people, or a dot per team. See the
+         note in `choice.js` — it is the same data answering two questions. */
+      countVotes: !!(roundHost.countVotes && roundHost.countVotes()),
       onPick: jGroupTeacherPick
     };
   }
@@ -3502,15 +3575,13 @@
      still reading the instruction while they work. `drawPrompt` owns that element
      and clears it, so this always runs after it. */
   function renderJGroup(){
-    const text = document.getElementById('clue-text');
-    let host = document.getElementById('clue-group');
-    if(!jGroup){ if(host) host.remove(); return; }
-    if(!host || host.parentNode !== text){
-      if(host) host.remove();
-      host = document.createElement('div');
-      host.id = 'clue-group'; host.className = 'clue-group';
-      text.appendChild(host);
+    if(!jGroup){
+      const stale = document.getElementById('clue-group');
+      if(stale) stale.remove();
+      return;
     }
+    const host = roundHost.mount();
+    if(!host) return;
     jRoundDef().render(host, jGroup, jGroupCtx());
     renderJGroupButton();
   }
@@ -3527,7 +3598,22 @@
     const at = jGroup.chosen.indexOf(w);
     if(at !== -1) jGroup.chosen.splice(at, 1);
     else if(jGroup.chosen.length < cap) jGroup.chosen.push(w);
+    /* **A single pick moves; it does not have to be cleared first.** With a cap of
+       one, a full selection used to swallow the click, so choosing B after A did
+       nothing at all — you had to click A again to release it. On Millionaire that
+       is the "say the letter, then lock it in" beat, where moving the nomination is
+       the whole point of the pause. Only at a cap of one: where several are being
+       assembled, deselecting to make room is the right gesture. */
+    else if(cap === 1) jGroup.chosen = [w];
     renderJGroup();
+    /* The host may have chrome of its own that follows the nomination — Millionaire's
+       hint line reads "Locked on X". Without this it only refreshed on the next full
+       board render, so the line lagged a beat behind the option that was lit. */
+    if(roundHost.repaint) roundHost.repaint();
+    /* Millionaire with "Final answer?" switched off answers on the click, as it
+       always did. Declared by the host rather than branched on here, so the two-beat
+       pause stays the default everywhere else. */
+    if(roundHost.autoCommit && roundHost.autoCommit() && jGroup.chosen.length === cap) roundCommit();
   }
   /* How many the teacher may hold at once. An ordering climb wants one at a time —
      the ladder takes the next rung, not the whole scale. */
@@ -3537,15 +3623,18 @@
   }
 
   function renderJGroupButton(){
-    const btn = document.getElementById('group-btn');
+    const btn = document.getElementById(roundHost.commit);
     if(!btn) return;
-    const on = jGroupLive() && modalMode === roundHost.modal;
+    const on = jGroupLive() && roundHost.live();
     btn.style.display = on ? 'inline-block' : 'none';
     if(!on) return;
     const cap = jRoundCap();
     btn.disabled = jGroup.chosen.length !== cap;
-    btn.textContent = cap === 1 ? 'Check it'
-      : ('Check these ' + cap + ' (' + jGroup.chosen.length + '/' + cap + ')');
+    /* The wording is the host's when it has one: Millionaire's button is the show's
+       "Final answer?", which is the same beat and must not read as "Check it". */
+    btn.textContent = roundHost.commitText ? roundHost.commitText(cap, jGroup.chosen.length)
+      : (cap === 1 ? 'Check it'
+        : ('Check these ' + cap + ' (' + jGroup.chosen.length + '/' + cap + ')'));
   }
 
   /* Replies off the wire. The round works out what each team is holding; this only
@@ -4783,7 +4872,17 @@
       return;
     }
     st.used.add(q.prompt);
-    mCurrent = { q, team:active, options: shuffle([q.answer, ...q.distractors].slice()) };
+    mCurrent = { q, team:active };
+    /* **Normalised into a round, not migrated in the bank.** The item stays
+       `{prompt, answer, distractors, level}` — the ladder still needs `level`, and
+       the round has never learned that this bank calls a prompt `prompt`. Exactly
+       the move `jShowClue` makes turning `q` into `text`, so all 52 authored items
+       became rounds with no content edit at all. The round shuffles the options. */
+    currentClueItem = { text:q.prompt, answer:q.answer, type:q.type,
+                        choice:{ options:[q.answer, ...q.distractors], answer:q.answer } };
+    const found = jGroupOf(currentClueItem, 'millionaire');
+    jGroupEnd();
+    if(found) jGroupOpen(found);
     renderMillionaire();
     /* A new question ends any borrowing: the phones go back to whatever the mode
        says, the same as in the tile games. Voting is not a mode any more, so there
@@ -4792,6 +4891,7 @@
   }
 
   function showMillionaireMessage(text){
+    jGroupEnd();
     document.getElementById('m-question').textContent = text;
     document.getElementById('m-options').innerHTML = '';
     document.getElementById('m-hint').textContent = '';
@@ -4811,7 +4911,9 @@
     document.querySelectorAll('#m-lifelines .lifeline').forEach(btn=>{
       const on = S.get('mLifelines', 'millionaire');
       btn.style.display = on ? 'inline-block' : 'none';
-      btn.disabled = !on || !st.lifelines[btn.dataset.life] || !mCurrent || mAnswered;
+      const needsRoom = btn.dataset.life === 'class' && !buzzHost;
+      btn.disabled = !on || !st.lifelines[btn.dataset.life] || !mCurrent || mAnswered || needsRoom;
+      btn.title = needsRoom ? 'No phones in the room — nothing to reveal' : '';
       btn.classList.toggle('spent', !st.lifelines[btn.dataset.life]);
     });
 
@@ -4822,45 +4924,20 @@
     drawPrompt(document.getElementById('m-question'),
                       { text:mCurrent.q.prompt, answer:mCurrent.q.answer, type:mCurrent.q.type },
                       'millionaire');
-    const wrap = document.getElementById('m-options');
-    wrap.innerHTML = '';
-    mCurrent.options.forEach((opt, i)=>{
-      const b = document.createElement('button');
-      b.className = 'm-option';
-      b.dataset.opt = opt;
-      const letter = document.createElement('span');
-      letter.className = 'm-letter'; letter.textContent = 'ABCD'[i];
-      const text = document.createElement('span');
-      text.className = 'm-text'; text.textContent = opt;
-      b.appendChild(letter); b.appendChild(text);
-      if(mCurrent.removed && mCurrent.removed.indexOf(opt) !== -1){
-        b.classList.add('removed'); b.disabled = true;
-      }
-      if(opt === mPicked) b.classList.add('picked');
-      if(mTally){
-        const n = document.createElement('span');
-        n.className = 'm-votes'; n.textContent = mTally[opt] || 0;
-        b.appendChild(n);
-      }
-      b.addEventListener('click', ()=>onOptionClick(opt, b));
-      wrap.appendChild(b);
-    });
+    /* **The options are the multiple choice round now**, drawn into this game's own
+       stage rather than a clue card — which is the whole of F3.8.9, and cost one
+       `mount` fact in `ROUND_HOSTS`. What was here before was the same question drawn
+       a second way: its own A/B/C/D, its own picked state, its own vote counts, none
+       of it reachable from any other board. */
+    renderJGroup();
 
-    document.getElementById('m-hint').textContent =
-      mPicked   ? 'Locked on ' + mPicked + ' — or pick another option to change it.'
-      : mCounting ? 'Counting hands — tap an option for each hand, then Done counting.'
-      : mVoting ? 'The class is voting on their phones. Pick the answer when the team decides.'
-      : mTally  ? 'The class has voted. Pick the answer when the team decides.'
-      : '';
+    mSayHint();
     document.getElementById('m-next').style.display = 'none';
-    /* One button closes whichever kind of vote is running, and says which — the
-       teacher is either counting hands or waiting on phones, never both. Closing a
-       phone vote is what hands the room back, so it is a real control here rather
-       than the tidy-up it is when the hands are in the air. */
-    const done = document.getElementById('m-done-count');
-    done.textContent = mCounting ? 'Done counting' : 'Done voting';
-    done.style.display = (mCounting || mVoting) ? 'inline-block' : 'none';
-    document.getElementById('m-final').style.display = mPicked ? 'inline-block' : 'none';
+    /* No "Done voting" any more, and its absence is the point: the round holds the
+       room for the whole question, so there is no borrowing to hand back. */
+    document.getElementById('m-done-count').style.display = 'none';
+    /* `m-final` is the round's commit button now, shown and worded by
+       `renderJGroupButton` — setting it here as well is how the two would disagree. */
   }
 
   /* ---- how tense it should feel right now ----
@@ -4921,92 +4998,33 @@
     }
   }
 
-  function onOptionClick(opt, btn){
-    if(!mCurrent) return;
-    if(mCurrent.removed && mCurrent.removed.indexOf(opt) !== -1) return;
-    if(mCounting){                       // tapping hands, not answering
-      btn.querySelector('.m-votes').textContent = mVote ? mVote.hand(opt) : 0;
-      return;
-    }
-    if(mAnswered) return;
-
-    /* Say the letter, then lock it in. A click only nominates; the reveal waits for
-       "Final answer?", and until then another click moves the nomination. */
-    if(S.get('mFinalAnswer', 'millionaire')){
-      if(mPicked !== opt){
-        mPicked = opt;
-        Sound.play('flip');
-        renderMillionaire();
-      }
-      return;
-    }
-    revealMillionaire(opt);
+  /* The line under the options. Its own function because a nomination refreshes it
+     without redrawing the whole board. */
+  function mSayHint(){
+    if(!mCurrent || mAnswered) return;
+    const nom = mNominated();
+    document.getElementById('m-hint').textContent =
+      nom      ? 'Locked on ' + nom + ' — or pick another option to change it.'
+      : mTally ? 'The class has voted — their picks are on the options.'
+      : '';
   }
 
-  function revealMillionaire(opt){
-    if(!mCurrent || mAnswered) return;
+  /* What the team has nominated, read off the round rather than kept beside it.
+     `mPicked` used to be a second copy of this and the two could disagree. */
+  function mNominated(){ return (jGroup && jGroup.chosen && jGroup.chosen[0]) || null; }
+
+  /* Everything a question ending does to the board, whichever way it ended. */
+  function mEndQuestion(){
+    /* **Show which one was right.** On a tile the card flips away and nobody needs
+       telling; here the options stay on screen for the rest of the beat, so ending
+       without revealing leaves four live-looking options and no answer. `reveal`
+       also clears the lock, which is what stops the nomination outliving the
+       question it belonged to. */
+    if(jGroup && !jGroup.shown) jRoundDef().reveal(roundHost.mount(), jGroup, jGroupCtx());
     mAnswered = true;
-    mPicked   = null;
-    /* Answering closes the vote whether or not anyone pressed Done: there is
-       nothing left to vote on. The phones are re-armed by the next question, so
-       this only has to stop the board offering a control that would do nothing. */
-    mVoting   = false;
-    mCounting = false;
+    mVoting = false; mCounting = false;
     document.getElementById('m-done-count').style.display = 'none';
-
-    const correct = (opt === mCurrent.q.answer);
-    const st = mTeamState(mCurrent.team);
-    document.querySelectorAll('#m-options .m-option').forEach(b=>{
-      b.classList.remove('picked');
-      if(b.dataset.opt === mCurrent.q.answer) b.classList.add('right');
-      else if(b.dataset.opt === opt) b.classList.add('picked-wrong');
-      b.disabled = true;
-    });
     document.getElementById('m-final').style.display = 'none';
-
-    const showy = document.getElementById('play-millionaire').classList.contains('lit');
-    Sound.bedStop();                     // the bed never runs over the result
-
-    if(correct){
-      const value = M_LADDER[Math.min(st.rung, M_LADDER.length-1)];
-      if(showy){
-        // lock the answer in first, then pay it off — the pause is the drama
-        Sound.play('lock');
-        setTimeout(()=>{ Sound.play('sting'); mFlash('right'); }, 700);
-        // the top two rungs are worth a round of applause
-        if(st.rung >= M_LADDER.length-2) setTimeout(()=>Sound.applause(1600), 1000);
-      } else {
-        Sound.play('correct');
-      }
-      const paid = award(mCurrent.team, value, { steal: !!mCurrent.stolen });
-      markRun(mCurrent.team, true);
-      st.rung += 1;
-      document.getElementById('m-hint').textContent = '+' + paid;
-    } else {
-      if(showy){ Sound.play('klaxon'); mFlash('wrong'); }
-      else Sound.play('wrong');
-      markRun(mCurrent.team, false);
-      /* Offer the same question to the next team for half the rung — once. Without
-         this a wrong answer is dead air for everyone else in the room. `stolen`
-         also stops it being offered round and round the table. */
-      const others = teams.map((_, i) => i).filter(i => i !== mCurrent.team);
-      if(S.get('stealOnWrong', 'millionaire') && !mCurrent.stolen && others.length){
-        mCurrent.stolen = true;
-        mCurrent.team = others[0];
-        mAnswered = false;
-        document.getElementById('m-hint').textContent =
-          (teams[mCurrent.team] ? teams[mCurrent.team].name : 'The other team') +
-          ' can steal it for ' + Math.round(M_LADDER[Math.min(st.rung, M_LADDER.length-1)] /
-                                            (S.get('stealFullValue','millionaire') ? 1 : 2));
-        document.querySelectorAll('#m-options .m-option').forEach(b=>{
-          b.classList.remove('right','picked-wrong');
-          b.disabled = (mCurrent.removed || []).indexOf(b.dataset.opt) !== -1;
-        });
-        renderScorebar();
-        return;
-      }
-      document.getElementById('m-hint').textContent = 'No points — same rung next time round.';
-    }
     renderScorebar();
     renderLadder();
     // the ladder now shows the new rung lit, so the stage has to agree — without
@@ -5014,6 +5032,60 @@
     mTension();
     document.querySelectorAll('#m-lifelines .lifeline').forEach(b=>b.disabled = true);
     document.getElementById('m-next').style.display = 'inline-block';
+  }
+
+  /* The round says a team has it; this says what that is worth here. Called through
+     `ROUND_HOSTS.millionaire.win`, and it returns what it paid because the phone
+     strip names the student and the amount. */
+  function mPayRung(team){
+    const st = mTeamState(team);
+    const value = M_LADDER[Math.min(st.rung, M_LADDER.length - 1)];
+    const paid = award(team, value, { steal: !!(mCurrent && mCurrent.stolen) });
+    markRun(team, true);
+    st.rung += 1;
+    document.getElementById('m-hint').textContent = '+' + paid;
+    if(document.getElementById('play-millionaire').classList.contains('lit') &&
+       st.rung >= M_LADDER.length - 1) setTimeout(()=>Sound.applause(1600), 300);
+    mEndQuestion();
+    return paid;
+  }
+
+  /* A wrong answer on this board is not free, which is the one place Millionaire
+     genuinely differs from every other host: it ends the go. Offer the rung to the
+     next team once — without that a wrong answer is dead air for everyone else in
+     the room — and otherwise reveal and move on.
+
+     Returns true either way, because the generic "costs nothing, try again" path
+     below it would be wrong here in both cases. */
+  function mMissed(team){
+    markRun(team, false);
+    const st = mTeamState(team);
+    const others = teams.map((_, i) => i).filter(i => i !== team);
+    if(S.get('stealOnWrong', 'millionaire') && mCurrent && !mCurrent.stolen && others.length){
+      mCurrent.stolen = true;
+      mCurrent.team   = others[0];
+      if(jGroup) jGroup.chosen = [];
+      document.getElementById('m-hint').textContent =
+        (teams[mCurrent.team] ? teams[mCurrent.team].name : 'The other team') +
+        ' can steal it for ' + Math.round(M_LADDER[Math.min(st.rung, M_LADDER.length-1)] /
+                                          (S.get('stealFullValue','millionaire') ? 1 : 2));
+      if(document.getElementById('play-millionaire').classList.contains('lit')){
+        Sound.play('klaxon'); mFlash('wrong');
+      } else Sound.play('wrong');
+      renderJGroup();
+      renderScorebar();
+      /* The question now belongs to the other team, so the room is asked again —
+         a scoped round would otherwise still be entitled to the team that missed. */
+      askPhones(mCurrent.q.prompt, 'millionaire');
+      return true;
+    }
+    if(document.getElementById('play-millionaire').classList.contains('lit')){
+      Sound.play('klaxon'); mFlash('wrong');
+    } else Sound.play('wrong');
+    Sound.bedStop();
+    document.getElementById('m-hint').textContent = 'No points — same rung next time round.';
+    mEndQuestion();
+    return true;
   }
 
   /* ---- lifelines ---- */
@@ -5026,23 +5098,28 @@
     mPicked = null;
 
     if(kind === 'fifty'){
-      const wrong = mCurrent.options.filter(o=>o !== mCurrent.q.answer);
-      mCurrent.removed = shuffle(wrong.slice()).slice(0, 2);
+      /* Two wrong options out of play. `hidden` is the round's — "narrow the
+         choice" is a generic hint mechanic rather than a Millionaire feature — so
+         they stay on screen struck through and leave the handsets entirely. */
+      if(jGroup){
+        const wrong = jGroup.options.filter(o => o !== jGroup.answer);
+        jGroup.hidden = shuffle(wrong.slice()).slice(0, 2);
+        renderJGroup();
+        if(buzzHost) askPhones(mCurrent.q.prompt, 'millionaire');
+      }
       Sound.play('reveal');
     } else if(kind === 'class'){
-      mVote  = Kit.vote.open({ options: mCurrent.options.slice() });
-      mTally = mVote.counts;
-      /* If there is a room, the class votes for real — whatever the phones were
-         doing a second ago. That is the whole shape of this: the mode says what a
-         phone is for during a question, and Ask the class borrows every phone in
-         the room for as long as the vote is open. No room, no phones: it falls back
-         to hands in the air, which is what the lifeline always was.
-         The counts arrive over the wire, so the board stays answerable — only the
-         hands-in-the-air version turns the options into a tally pad. */
-      const byPhone = !!buzzHost;
-      mCounting = !byPhone;
-      mVoting   = byPhone;
-      if(byPhone) askClass(mCurrent.q.prompt, 'vote', mCurrent.options.slice());
+      /* **The class has already voted.** The round asks the room on every question,
+         so this no longer borrows the phones and runs a second vote against them —
+         which was two dynamics arming one handset, the bug this project has already
+         paid for. It reveals the counts the round is holding, which is what makes
+         it still worth spending rather than free.
+
+         With no relay there is nothing to reveal, so the button is not offered —
+         see `renderMillionaire`. That is a real loss against the old hands-in-the-air
+         tally, and the honest trade for the round owning the room. */
+      mTally = true;
+      Sound.play('reveal');
       renderMillionaire();
     } else if(kind === 'confer'){
       timerSetDuration(Number(S.get('mConferSeconds', 'millionaire')) || 30);
@@ -5058,9 +5135,7 @@
   document.querySelectorAll('#m-lifelines .lifeline').forEach(btn=>{
     btn.addEventListener('click', ()=>useLifeline(btn.dataset.life));
   });
-  document.getElementById('m-final').addEventListener('click', ()=>{
-    if(mPicked) revealMillionaire(mPicked);
-  });
+  document.getElementById('m-final').addEventListener('click', roundCommit);
   document.getElementById('m-next').addEventListener('click', ()=>{
     timerStop();
     active = Kit.passTurn(teams.length, active);

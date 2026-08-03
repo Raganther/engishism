@@ -466,3 +466,79 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
 }
 .round-scramble .scr-who small{ margin-left:6px; opacity:0.75; }
 .round-scramble .scr-who.all{ background:var(--gw-goodwash, rgba(46,158,79,0.18)); }
+
+/* Ask the class: how many of the room went for this option. A count rather than a
+   dot per team, because on that board the question is about people not teams. */
+.round-choice .mc-votes{
+  margin-left:auto; min-width:1.9em; padding:2px 8px; border-radius:999px;
+  font-variant-numeric:tabular-nums; font-weight:700; font-size:0.82em;
+  background:var(--mc-votes-bg, rgba(255,255,255,0.16));
+  color:var(--mc-votes-ink, inherit);
+}
+
+/* ================= the choice round on Millionaire's stage =================
+   The first round drawn somewhere other than the clue card (F3.8.9), and it has to
+   say two things the card used to say for it.
+
+   **The palette.** `hub-rounds.css` defaults to a light card, and the game-show
+   theme repaints it on `#clue-card` — a rule hung off a *stage* reaches nothing,
+   which is the same trap `openClueCard` works around for `--tension`. So the stage
+   sets the same six properties, in Millionaire's own gold rather than the card's
+   neutral white: the ladder beside it is gold, and an option grid that ignored that
+   would read as a different game.
+
+   **The height.** `#m-options` used to lay out its own option children and now has
+   exactly one child — the round. Without this the grid collapses and the options
+   grow into whatever space is left, which is how four options came to be enormous
+   white boxes with tiny text in them. */
+/* `render(mount, …)` sets the class on the **mount itself**, so `#m-options` *is*
+   the `.round-choice` element — a descendant selector here matches nothing at all,
+   which is how the first version of this silently did none of it. */
+#m-options.round-choice{ display:flex; flex-direction:column; gap:10px; }
+#m-options .mc-options{ flex:1; min-height:0; gap:12px;
+  grid-auto-rows:minmax(min-content, 1fr); }
+#m-options .mc-opt{
+  align-items:center; gap:14px; padding:14px 18px; border-width:3px; border-radius:12px;
+  font-family:'Space Grotesk', sans-serif; font-weight:600;
+  font-size:clamp(0.95rem, 1.7vw, 1.3rem);
+}
+#m-options .mc-letter{ font-size:0.86em; opacity:0.75; }
+/* 50:50 takes two out of play. They stay on screen — watching them go is the beat —
+   but they must read as gone rather than merely unselected, which a dashed border
+   alone does not. */
+#m-options .mc-opt.removed{ opacity:0.18; }
+
+body.theme-gameshow #m-options{
+  --gw-bg: linear-gradient(180deg, #10163F 0%, #070B22 100%);
+  --gw-fg: var(--paper);
+  --gw-line: rgba(255,255,255,0.22);
+  --gw-hot: var(--gold, #FFC20E);
+  --gw-ink: var(--gold, #FFC20E);
+  --gw-wash: rgba(255,194,14,0.18);
+  --gw-good:#39E27A;
+  --gw-goodwash: rgba(22,131,62,0.55);
+  --gw-goodink:#DFFFE9;
+  --mc-votes-bg: rgba(255,194,14,0.22);
+  --mc-votes-ink: var(--gold, #FFC20E);
+}
+/* The lock pulses, as it did before the round drew it: "say the letter, then lock it
+   in" is the show's beat and the pulse is what makes the pause read as deliberate. */
+body.theme-gameshow #m-options .mc-opt.chosen{
+  background: linear-gradient(180deg, #C79400 0%, #8A6600 100%);
+  color:#0A0A14; border-style:solid; border-color:var(--gold);
+  animation:m-lock-show 1.6s ease-in-out infinite;
+}
+body.theme-gameshow #m-options .mc-opt.chosen .mc-letter{ color:#0A0A14; opacity:1; }
+body.theme-gameshow #m-options .mc-opt.right{ box-shadow:0 0 30px rgba(57,226,122,0.5); }
+@media (prefers-reduced-motion:reduce){
+  body.theme-gameshow #m-options .mc-opt.chosen{ animation:none; }
+}
+/* The lock in the DCU theme. The round's neutral dashed ring is deliberately quiet —
+   on a board where every team is picking at once nothing the teacher clicks is
+   theirs to claim — but here the nomination *is* the beat, and it has to read from
+   the back of a room. The game-show rule above out-specifies this one. */
+#m-options.round-choice .mc-opt.chosen{
+  background:var(--yellow, #FFC20E); border-color:var(--yellow, #FFC20E);
+  color:var(--navy, #12263F); border-style:solid;
+}
+#m-options.round-choice .mc-opt.chosen .mc-letter{ color:var(--navy, #12263F); opacity:1; }
