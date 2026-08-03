@@ -211,6 +211,32 @@ hand.** The concrete cost today is that **a round can have exactly one button**,
 `group-btn` is a single element. Fix is F3.9.1/F3.9.2: the strip becomes a surface each
 tier *declares* into.
 
+### "Mode" means three different things — say which one
+The word is overloaded across the settings panel, the round registry and this file,
+and it has already cost one conversation. **The interface is the one that gets it
+right**: `jRules` is registered with `label:'Rules'`. It is the docs that drift.
+
+| Say this | Values | Scope | What it actually is |
+|---|---|---|---|
+| **Ruleset** | Classic · Hub · Together | a whole game show | a named bundle of switches. Picking one **writes** the smaller settings, so every row still says what will happen |
+| **Round mode** | first · agree · climb · race | one question | how that question is played. Declared by the round; the hub builds `round_<id>` from it |
+| **Phone mode** | off · buzz · write · type | one question | what the handsets do on an **ordinary** (non-round) question — the thing F3.8.16 would fold into a default round |
+
+**They nest rather than compete.** A ruleset sets the other two: `classic` writes
+`phoneMode: buzz`. So "which mode is in charge" is never a real question — the
+ruleset is a shortcut that flips the smaller switches, and the switches are the truth.
+
+**A related thing worth not re-deriving:** `first`/`agree` appear in three rounds, but
+**the behaviour is already shared** — `Kit.round.poll({unanimous})` and
+`Kit.round.agreement()` are on the shelf and choice and ordering both call them
+(anagram carries a note on why its answer shape cannot use `poll`, and still uses
+`agreement`). What is duplicated is only the **wording**: six hand-written labels for
+two ideas, which drifted the moment they were written on different days — "First team
+to spell it" / "First team with the right answer" / "First team to order it". A shared
+list of mode definitions that rounds pick from would delete the six strings and change
+no behaviour. Small, worth doing when next in those files, not a headline job — and
+**do not go looking for duplicated logic, because there is none.**
+
 ### What the container makes possible — beyond question games
 Two properties are doing more work than they look like, and they are what the
 brainstormed direction rests on:

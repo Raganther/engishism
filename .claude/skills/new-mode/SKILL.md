@@ -5,8 +5,21 @@ description: Add a game mode or ruleset to the Engishism Game Hub — a named bu
 
 # Adding a mode
 
-**A mode is a named bundle of settings, not a second code path.** That is the whole
-idea, and it is what keeps modes cheap: Jeopardy's Classic rules are three switches
+## The word means three things — check you are in the right skill
+
+| Term | Values | Scope | Skill |
+|---|---|---|---|
+| **Ruleset** | Classic · Hub · Together | a whole game show | **this one** |
+| **Round mode** | first · agree · climb · race | one question | `new-round` |
+| **Phone mode** | off · buzz · write · type | one ordinary question | neither — it is a registered variant |
+
+They nest rather than compete: a ruleset **writes** the other two, so `classic` setting
+`phoneMode: buzz` is the mechanism working, not a conflict. The settings panel already
+labels this one **Rules** (`jRules`), and that is the word to prefer in anything a
+teacher reads.
+
+**A ruleset is a named bundle of settings, not a second code path.** That is the whole
+idea, and it is what keeps them cheap: Jeopardy's Classic rules are three switches
 and a preset, not a parallel implementation of Jeopardy.
 
 If you find yourself writing `if (mode === 'team') { … } else { … }` around game

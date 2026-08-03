@@ -480,6 +480,21 @@ the conflict class rather than managing it.
 | F3.8.8 | A round may hold state that outlives one question (for a game like Bingo, where a card persists across many calls) | Should — **not built** |
 | F3.8.9 | A round may be given the stage as its mount, not only the clue card (for a game like Race, where the answers are the board) | Should — **not built** |
 
+#### A note on the word "mode"
+
+It is used for three different things across the settings panel, the round registry and
+this document, and the ambiguity has already cost a conversation. The interface is the
+one that gets it right — `jRules` is registered with `label:'Rules'`.
+
+| Term | Values | Scope |
+|---|---|---|
+| **Ruleset** | Classic · Hub · Together | a whole game show — a named bundle of switches that **writes** the smaller settings |
+| **Round mode** | first · agree · climb · race | one question — declared by the round, built into `round_<id>` by the host |
+| **Phone mode** | off · buzz · write · type | one *ordinary* question — the thing F3.8.16 folds into a default round |
+
+They nest rather than compete: `classic` writes `phoneMode: buzz`, which is the preset
+mechanism working. Prefer **ruleset** in anything a teacher reads.
+
 #### How the phone settings fold in — the default round
 
 F3.8.7 says phone behaviour belongs in the round. It does not say *how*, and the how is
