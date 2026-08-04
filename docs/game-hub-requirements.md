@@ -1,9 +1,47 @@
 # Classroom Game Hub — MVP System Requirements
 
-**Version:** 0.4
+**Version:** 0.5
 **Author:** Alistair
 **Date:** August 2026
 **Purpose:** Proof-of-concept demonstration to academic management
+
+## Status at v0.5
+
+v0.4 named one thing as the largest gap in the project: **no round had ever been played
+from a class-facing unit.** That is closed, and closing it unblocked the architectural
+step that was waiting behind it.
+
+**Built since v0.4:**
+
+| | |
+|---|---|
+| Round hosts | **3** — Millionaire joined, via F3.8.9 (a round mounted somewhere other than the clue card). Its whole bank becomes Multiple Choice at question time, from `{answer, distractors}`, with no content edited |
+| Round content a class can meet | Unit 5's **5A** gained Connections and Word Thermometer columns plus five round hexagons. **New English File 5th ed Unit 1** is a whole unit authored *with* rounds from the start — a quarter of its Jeopardy content is played rather than read out |
+| A second coursebook | Different publisher, different level, different lesson structure, **no engine change**. A harder proof of §1.4.3 than a second unit of the same book |
+| F3.8.16 | **Built.** Every question in the app is a round; the mode-or-round branch is gone. `phoneMode` is `round_default`, built from the default round's own `modes` |
+| Authoring | `author-content` skill + `tools/question-types.js`, which asks the registries what shapes exist rather than holding a list |
+| Content total | **760 items** across three units and two coursebooks |
+
+**Decided against since v0.4:**
+
+- **The tagged content pool (§3.11).** Asked for explicitly and withdrawn in the same
+  conversation once the shape was clear — a different product from §1.2, a 565-item
+  migration, and nothing here has met a class. Content stays in per-game banks. What was
+  wanted from it was consistency of question shape, which the authoring skill delivers
+  for a fraction of the cost.
+
+**What is NOT yet true, and matters most:**
+
+- **Still nothing has been run in front of a class.** Unchanged since v0.2, and it is
+  now the only thing that matters: round content a class can play finally exists, and
+  every number attached to it — how many words read from the back of a room, whether a
+  gloss lands, whether thirty handsets sharpen or scatter — is still a guess.
+- **Millionaire's `mBuzzRole` cannot fire** since its ladder became a round host. Open
+  question 18; three checks are deliberately left failing to describe it.
+- **The clue card's action strip is hub-owned but holds buttons from three tiers**,
+  listed by hand, so a round can still have exactly one button. See §3.9. Unchanged.
+- **Persistent per-player round state (F3.8.8)** is still the highest-value contract
+  addition, and is now the top of the build order.
 
 ## Status at v0.4
 
@@ -144,9 +182,12 @@ hypothetical one.
 **Out of scope for MVP:**
 - Content authoring UI (content is authored directly in the file)
 - Additional units beyond Unit 5
-  → **Departed from deliberately.** Unit 4 was added because a second unit is what
-  turns "it works for this unit" into "it transfers", which is success criterion
-  §1.4.3. Unit 4 began with Jeopardy and Blockbusters only — which was itself the
+  → **Departed from twice.** Unit 4 was added because a second unit is what turns "it
+  works for this unit" into "it transfers", which is success criterion §1.4.3. **A
+  second coursebook** followed — New English File 5th ed Unit 1 — which is a harder
+  proof of the same criterion: a different publisher, a different level, a different
+  lesson structure, and no engine change to accommodate any of it. The unit label names
+  the book, because "Unit 1" beside "Unit 4" otherwise reads as one series. Unit 4 began with Jeopardy and Blockbusters only — which was itself the
   point, since a unit adopts games one at a time (F3.7.4) — and now carries all four.
 - Any data persistence (scores, saved games, history)
 - Student devices / individual logins
@@ -541,13 +582,17 @@ settings" reads as though it covers everything in the `Phones` group:
 
 | ID | Requirement | Priority |
 |---|---|---|
-| F3.8.16 | An ordinary question is handled by a **default round** whose modes are the current `phoneMode` values, so every question in the app is a round and the mode/round branch is removed | Should — **not built** |
-| F3.8.17 | `typeCooldown`, `typeStrict` and `phoneOneEach` are scoped to the round that uses them rather than registered globally | Should — **not built** |
+| F3.8.16 | An ordinary question is handled by a **default round** whose modes are the current `phoneMode` values, so every question in the app is a round and the mode/round branch is removed | Should — **built**. `game-hub/rounds/default.js`; `phoneMode` is now `round_default`, registered by the same loop that builds `round_<id>` from a round's own `modes`. The round declares a `modeSetting` for how its row is registered, so the loop grew no special case |
+| F3.8.17 | `typeCooldown`, `typeStrict` and `phoneOneEach` are scoped to the round that uses them rather than registered globally | Should — **not built**, and deliberately left. F3.8.16 removed the branch, which was the point; these three are a tidy-up |
 | F3.8.18 | Whether a phone room exists (`buzzers`, `buzzerRelay`) remains hub infrastructure and is never owned by a round | Must — built |
 
-**Sequencing.** F3.8.16 is blocked on round content existing in a class-facing unit
-(build order item 2). Doing it first would take the phones away from every lesson that
-can currently be taught, in exchange for an internal tidiness no student would notice.
+**Sequencing — resolved as written.** F3.8.16 was blocked on round content existing in a
+class-facing unit, because doing it first would have taken the phones away from every
+teachable lesson in exchange for an internal tidiness no student would notice. That
+blocker cleared when Unit 5's 5A and the whole of New English File Unit 1 gained round
+content, and F3.8.16 was taken immediately afterwards. The default round is what let it
+happen without loss: an ordinary question keeps exactly the phone behaviour it had,
+because the default round's four modes *are* the old `phoneMode` values.
 
 #### Which skins can host which rounds
 
@@ -557,8 +602,8 @@ phones; a skin conflicts only if it already owns one of them.
 | Skin | Owns the card? | Owns the phones? | Can host any round? |
 |---|---|---|---|
 | Jeopardy | no — a tile opens one | no | **yes** — built |
-| Blockbusters | no — a hexagon opens one | no | **yes** — built |
-| Millionaire | no — a rung opens one | no | **yes** — built, via F3.8.9 |
+| Blockbusters | no — a hexagon opens one | no | **yes** — built, and it cost no change to any of the five rounds, which is the measurement that says the tier is real |
+| Millionaire | no — a rung opens one | no | **yes** — built, via F3.8.9. Its whole bank becomes Multiple Choice at question time, which also made its `mBuzzRole` setting unreachable — see §9 Q18 |
 | Bingo | no | **yes** — every phone holds a card | card-only rounds, teacher-judged |
 | Race | **yes** — the scattered words *are* the board | no | needs F3.8.9 |
 
@@ -771,9 +816,23 @@ built, and §1.2's description of the product needs rewriting rather than extend
 
 ### 3.11 The content pool, tags and the query — the target product
 
-**Status: agreed direction, nothing built.** This section describes where the product is
-going rather than what it does. It is written down now because several decisions taken
-between here and there are cheap in advance and expensive afterwards.
+**Status: considered and declined, August 2026. Nothing built, and the reasoning is kept
+because it will come back.** This section describes where the product could go rather
+than what it does.
+
+It was asked for explicitly and withdrawn in the same conversation once the shape was
+clear: it is a different product from §1.2, it migrates 565 items, and nothing in this
+project has met a class. **Content stays in per-game banks inside a unit file.**
+
+**What was actually wanted from it turned out to be much smaller** — that newly authored
+content reuses the established question shapes, so formatting is consistent and the
+phones behave identically every time. That is the `author-content` skill plus
+`tools/question-types.js`, which asks the registries what shapes exist rather than
+holding a list. A fraction of the work, and it delivers the requirement the pool was
+wanted for.
+
+The rest of this section stands as written, because several decisions in it are cheap in
+advance and expensive afterwards.
 
 #### The shape
 
@@ -1510,13 +1569,38 @@ here with their answers rather than deleted, because the reasoning is the useful
     Race and Millionaire banks would give a clean measurement of steady-state cost,
     which is the number that actually projects across a coursebook.
 
+### New since v0.3
+
+18. **What are Millionaire's buzz settings for, now that its ladder is a round host?**
+    `phoneRound()` there always returns the Multiple Choice round, so `mBuzzRole`
+    (speaker / floor / off) can never fire and a teacher choosing "buzz for the floor"
+    gets four options on the phone instead. Either retire the setting so it stops
+    describing behaviour that cannot happen, or let a buzz pick who answers *for the
+    team* before the round takes the handsets — which is what `speaker` was always for.
+    Three checks are deliberately left failing to describe it. A design question, not a
+    defect to patch.
+19. **Does authoring with rounds from the start differ from adding them afterwards?**
+    Unit 5's 5A is rounds bolted onto a finished unit; New English File Unit 1 was
+    written with them from the first line and a quarter of its Jeopardy content is
+    played rather than read out. Whether that ratio is right, and whether a unit
+    authored this way teaches better, needs a class.
+20. **Is a skill a durable way to hold a procedure?** Three of the five went stale
+    within hours of the change that dated them, and one of those handed the reader a
+    command that silently returns nothing. A skill is a markdown file: nothing runs it,
+    nothing tests it, and only a model reads it. The mitigation used here is to make the
+    skill *ask the code* — `author-content` holds no list of question types and runs
+    `tools/question-types.js` instead — but that only works for facts the code knows.
+
 ### New since v0.2
 
-13. **Does a round survive a skin it was not designed for?** Three rounds exist and all
-    three play in Jeopardy, which is the host whose contract they were shaped against.
-    Nothing is known about how they read on a hexagon or a ladder until Millionaire and
-    Blockbusters host one (§3.8 build order, steps 1–2). Multiple choice is the least
-    interesting case and therefore the right first one.
+13. **Does a round survive a skin it was not designed for?** — **Answered: yes, and it
+    cost nothing.** Blockbusters became the second host and **no round changed at all**;
+    Millionaire became the third and needed one contract addition (F3.8.9, a round
+    mounted somewhere other than the clue card) but again no change to any round. That
+    is the measurement, because the five rounds were *shaped* by Jeopardy and of course
+    fitted it — only a second and third board could tell a tier from one game's helper.
+    The remaining two skins cannot host one for a stated reason rather than an unknown:
+    Race owns the card, Bingo owns the phones.
 14. **Is a card-only round in Bingo worth having, or merely possible?** A grouping clue
     inside Bingo would be played by the teacher clicking, because the handsets already
     hold cards. That is coherent, but a round whose whole point is thirty students
@@ -1532,7 +1616,10 @@ here with their answers rather than deleted, because the reasoning is the useful
     and pushed to real handsets before it is saved. Whether that actually shortens
     authoring, or simply makes it more pleasant, is unmeasured — and authoring time per
     unit is the number §1.4.3 rests on.
-17. **What does a round cost to build, now that three exist?** Grouping cost ~330 lines
-    and real engine work. Ordering cost one file and no engine change. Multiple choice
-    cost one file and a `<script>` line. The trend is the argument for the registry,
-    but three points is not a trend — the fourth round is the one that tests it.
+17. **What does a round cost to build, now that five exist?** — **Answered, and the
+    trend held.** Grouping cost ~330 lines and real engine work. Ordering cost one file
+    and no engine change. Multiple choice cost one file and a `<script>` line. Drag the
+    Letters cost a new phone mode on the relay — one string on a whitelist — because no
+    round had ever asked handsets to arrange things. Drag the Words then cost **almost
+    nothing**, because `arrange` takes a list of strings and a word is only a longer
+    string than a letter. Budget the next round against the fifth, not the first.

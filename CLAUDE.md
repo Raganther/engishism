@@ -92,22 +92,45 @@ become one team answer, and whether that answer is right.
 phone — what it produces lands on the card. Game shows call the **registry**, never
 the bench.
 
-**The big move still ahead: all phone logic belongs in rounds.** All five games carry
-their own today and they fight over the handsets — `phoneRound()` exists precisely
-because Bingo's cards and Jeopardy's grouping clue both wanted them. Moving it into
-rounds removes that conflict class rather than managing it.
+**Every question in the app is a round — F3.8.16, built.** This was "the big move still
+ahead" for three sessions and it is done. `phoneRound()` returning `null` used to mean
+"there is no round here, so the phone *mode* decides", and that `or else` was the last
+place in the app that believed a question might not be a round. An ordinary question — a
+gap fill, a definition, a word transformation — is handled by `game-hub/rounds/default.js`,
+whose four modes are the old `phoneMode` values, so what `phoneRoundNow()` returns is the
+same shape either way and every caller downstream stopped needing to know which it got.
 
-**How, and the precondition nobody had named** (§3.8, F3.8.16). A round owns the
-handsets through `arm()`; an ordinary clue is a `Kit.prompt` *form*, which has no
-`arm()`, so `phoneMode` decides for it. Units 4 and 5 hold 565 items and **not one is
-a round**, so `phoneMode` governs 100% of class-facing content — deleting it for the
-architecture's sake would leave every teachable lesson with idle handsets. The way
-through is a **default round wrapping an ordinary question**, whose `modes` are exactly
-`off`/`buzz`/`write`/`type`: then `phoneMode` becomes `round_default`, the
-"null means the mode decides" branch disappears because there is always a round, and
-`typeCooldown`/`typeStrict`/`phoneOneEach` become that round's tuning instead of
-globals. Same move as `ROUND_HOSTS` — **replace a branch with a declaration** — and the
-only one of the three that *deletes* settings.
+**`phoneMode` is `round_default`**, registered by the same loop that builds
+`round_grouping` from a round's own `modes`. That loop grew no special case: a round may
+declare a `modeSetting` saying how its row should be registered, and the default one says
+it applies to all five games and belongs in the `Phones` group where a teacher has always
+found it. Saying nothing still gets the shaped-round wording. **Nothing on screen moved**,
+which was the point — the row reads "What the phones do" exactly as before.
+
+**Three generations of stored value survive it**, oldest first, per-game overrides
+included: the original three booleans, the retired `vote` value, then `phoneMode` itself.
+Same two traps as every migration here — the old key being present *is* the signal that
+nothing has chosen yet (asking whether the new id is unset never fires, because
+`register()` seeds every master with its default), and `drop()` is what makes it run once.
+
+**What the default round does not own.** It is a phone contract, not a card: it declares
+no `field` and no `claims`, so `Kit.round.of(item)` still returns null for an ordinary
+question. That is deliberate and load-bearing — the content-screen chip, the clue path and
+the content gate all read `of()`, and a default round that claimed every item would report
+every category in both units as holding rounds and push every gap fill through a
+`render()` that does not exist. **The card for an ordinary question belongs to
+`Kit.prompt`.** What this round owns is the room.
+
+**`Kit.round.authored()` is the rounds you can write a question for** — everything except
+the ones declaring `internal: true`. `ids()` is still every round, which is what the
+settings loop wants. The workshops want the narrower list: the default round has no card
+and no fields, so listing it in the question bench would open a blank page on an author,
+and it registers first so it would have become the bench's opening type. Two callers, the
+bench and `dev.html`, which is what makes it a shelf rather than a guess.
+
+**Still open, and deliberately not done with it:** F3.8.17 — `typeCooldown`, `typeStrict`
+and `phoneOneEach` are still registered globally rather than as the default round's own
+tuning. The branch is gone, which was the point; these three are a tidy-up.
 
 **What is not transitional, because "remove the phone settings" reads wider than it
 is:** `buzzers` and `buzzerRelay` are hub infrastructure (whether a room exists, and
@@ -156,28 +179,33 @@ skin owns the handsets.
 ### Build order, and why this order
 1. ~~**Blockbusters hosts a round.**~~ **Done** — a second host, a non-tile geometry,
    and it cost no change to any of the five rounds. See Current status.
-2. **Round content in a class-facing unit.** Rounds have never been played outside the
-   Lab, because **Units 4 and 5 carry zero round fields between them.** The capability
-   is in the engine everywhere; the content is nowhere. Grouping and ordering for
-   5A/5B, and it is authoring rather than engineering.
-3. **Round state that outlives one question** (the first contract addition above).
-   Moved ahead of the remaining hosts: most of "what the container makes possible" is
-   blocked on it, and the relay already does the hard half — a bingo card and its marks
-   persist per player across a reconnection. It is simply not exposed to rounds.
+2. ~~**Round content in a class-facing unit.**~~ **Done** — 5A of Unit 5 carries
+   Connections and Word Thermometer in Jeopardy and Blockbusters, and the whole of
+   New English File Unit 1 was authored with rounds from the start. See Current status.
+   The gap it closed was the largest in the project: before this, no round had ever
+   been playable outside the Lab board.
+3. ~~**The default round.**~~ **Done** (F3.8.16) — unblocked by item 2 and taken
+   immediately. See the top of this section.
 4. ~~**Millionaire hosts the multiple choice round.**~~ **Done** — and it was *not*
    the "no contract change" job this list claimed. Millionaire has no clue card, so it
    needed **F3.8.9**, a round mounted somewhere other than the card. See Current
    status. It did delete the private option rendering, as predicted.
-5. **The action strip becomes declarative** (F3.9.1/F3.9.2), so a round may have more
+5. **Round state that outlives one question** (the first contract addition above).
+   Most of "what the container makes possible" is blocked on it, and the relay already
+   does the hard half — a bingo card and its marks persist per player across a
+   reconnection. It is simply not exposed to rounds.
+6. **The action strip becomes declarative** (F3.9.1/F3.9.2), so a round may have more
    than one button.
-6. **The default round** (F3.8.16) — folds `phoneMode`, `phonePrompt`, `phoneOneEach`,
-   `typeCooldown` and `typeStrict` into one declared row and deletes the
-   mode-or-round branch. **Blocked on item 2**, and the only item here that removes
-   settings rather than adding them.
 7. **A round handed the stage as its mount**, then **Bingo extracted**, then **Race
    extracted** — smaller first.
-8. **Content filing**, beside the existing banks, a unit at a time — the tagged pool
-   and the query (§3.11).
+8. ~~**Content filing** — the tagged pool and the query (§3.11).~~ **Decided against,
+   for now.** Asked for and then withdrawn in the same conversation once the shape was
+   clear: it is a different product from §1.2, it migrates 565 items, and nothing here
+   has met a class. **Content stays in per-game banks inside a unit file.** What was
+   wanted from it — that new content reuses the established question shapes so the
+   phones behave identically every time — is the `author-content` skill instead, which
+   is a fraction of the work and delivers the actual requirement. The pool reasoning is
+   kept in §3.11 because it will come back.
 
 **What changed in the ordering, and why.** The old order put the two remaining hosts
 first, so the pattern would be proved on cheap cases before anything working was
@@ -270,10 +298,10 @@ right**: `jRules` is registered with `label:'Rules'`. It is the docs that drift.
 |---|---|---|---|
 | **Ruleset** | Classic · Hub · Together | a whole game show | a named bundle of switches. Picking one **writes** the smaller settings, so every row still says what will happen |
 | **Round mode** | first · agree · climb · race | one question | how that question is played. Declared by the round; the hub builds `round_<id>` from it |
-| **Phone mode** | off · buzz · write · type | one question | what the handsets do on an **ordinary** (non-round) question — the thing F3.8.16 would fold into a default round |
+| **Default-round mode** | off · buzz · write · type | one *ordinary* question | what the handsets do when no shaped round owns them. It is the **default round's** own mode, so it is `round_default` and is built by the row above rather than sitting beside it. Called `phoneMode` until F3.8.16 folded it in |
 
 **They nest rather than compete.** A ruleset sets the other two: `classic` writes
-`phoneMode: buzz`. So "which mode is in charge" is never a real question — the
+`round_default: buzz`. So "which mode is in charge" is never a real question — the
 ruleset is a shortcut that flips the smaller switches, and the switches are the truth.
 
 **A related thing worth not re-deriving:** `first`/`agree` appear in three rounds, but
@@ -417,7 +445,11 @@ out bespoke, the change buys much less than it looks like it should.
    - `tools/buzzer-relay.js` — zero-dependency Node relay **and** static server for
      buzzer lessons. `join.html` is the students' page. See `docs/buzzers.md`.
    - `game-hub/hub.css` — shared styling (DCU theme); the one place to restyle.
-   - `game-hub/content/unit-4.js`, `unit-5.js` — data-only content banks; each does
+   - `game-hub/content/unit-4.js`, `unit-5.js`, `nef-1.js` — data-only content banks;
+     **two coursebooks now**: Units 4 and 5 are Cambridge Empower C1, `nef-1` is New
+     English File 5th ed Unit 1, and the unit label says which. A different book is a
+     harder proof of §1.4.3 ("the same approach extends") than a second unit of the
+     same one. Each does
      `window.UNITS.push({ id, label, card, jeopardy…, blockbusters… })`.
    - Games: **Jeopardy**, **Blockbusters**, **Race to the Board** and **Millionaire**.
      Per-game content
@@ -444,7 +476,7 @@ Knowing which you are touching tells you the blast radius before you start.
 |---|---|---|
 | **1 · Template** | What every game gets by existing: the skin (chrome *and* setup screens), team bar, scoring, timer, clue card + flip variants, `showResult()`, all `Sound.*`, all `Kit.*`, the content gate | Highest engineering risk, touches everything — this is what the smoke suite is for |
 | **2 · Game** | Board logic, stage CSS, its `tension()` source. Free-form within the registry contract | Low risk, isolated to one game |
-| **3 · Content** | The banks — shaped per game (§3.2), organised per unit | Near-zero engineering risk, **highest cost in your hours** — 589 items across two units |
+| **3 · Content** | The banks — shaped per game (§3.2), organised per unit | Near-zero engineering risk, **highest cost in your hours** — 760 items across three units, two coursebooks |
 
 **Layer 1 is really two things pointing opposite ways**, and the distinction matters
 when adding a feature:
@@ -1133,6 +1165,83 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Every question in the app is a round now — F3.8.16, and the last "is this a round
+  or not" branch is gone.** Written up in full at the top of this file; the short form
+  is that `game-hub/rounds/default.js` wraps an ordinary question, `phoneMode` became
+  `round_default`, and the settings loop grew no special case because a round may now
+  declare a `modeSetting` for how its own row is registered.
+  - **Nothing on screen moved**, which was the whole target. The ⚙ row still reads
+    "What the phones do", still sits with the phone switches, still offers the same
+    four values. A teacher cannot tell.
+  - **The migration is the part that was tested hardest**, because a broken one
+    silently resets everybody's saved settings and looks exactly like a default. Three
+    generations survive, per-game overrides included. Four new checks, and they are
+    real passes rather than coincidences: each asserts a value that differs from what
+    the setting would default to.
+  - Migration 20/20, registry+scoping 58/58, settings+lab 56/56, qbench 91/0,
+    content 18/18. The phone suites went 10 passed / 3 failed to 18 / 3.
+  - **Found a real bug on the way, and it had shipped**: *Ask the class* disabled
+    itself for the whole first question of every Millionaire game, saying there were no
+    phones in a room the class had just joined. Millionaire deals its first question
+    inside `start()`, before the room's code comes back, and nothing repainted the
+    button. Blockbusters' vote button had been fixed for exactly this a session
+    earlier, one line above in the same handler.
+  - **Millionaire's buzz settings are dead, and that is an open decision rather than a
+    defect to patch.** Its ladder became a round host last session, so `phoneRound()`
+    always returns the round and `mBuzzRole` (speaker / floor / off) can never fire.
+    A teacher picking "buzz for the floor" there gets four options on the phone.
+    Confirmed as pre-existing by running the suite against the previous build. Three
+    checks are **deliberately left red** describing it — rewriting them to pass would
+    encode "the buzz is gone" as intended when nobody has decided that.
+- **The first round content a class can play, and a second coursebook.**
+  - **Unit 5 section 5A** gained a Connections and a Word Thermometer column in
+    Jeopardy plus five round hexagons in Blockbusters. Before this, no round had ever
+    been playable outside the Lab board — the largest gap in the project, closed.
+  - **`game-hub/content/nef-1.js` — New English File 5th ed Unit 1**, 151 items,
+    authored **with rounds from the start** rather than given them afterwards. A
+    quarter of its Jeopardy content is played rather than read out. That is the
+    difference worth measuring: 5A is rounds bolted onto a finished unit, this is not.
+  - **Blockbusters' round hexagons are filed with the ordinary ones on purpose.** A
+    Jeopardy column announces its type in the heading; a hexagon does not, so you take
+    `R` without knowing whether it is a definition or five words to order.
+  - **The gate caught the one defect eyes cannot**, twice: a section label whose count
+    had drifted, and the same prompt written into two banks.
+- **One name per round, and it had drifted three ways at once.** A round has an **id**,
+  which is code, and a **label**, which is the only name a human should see — and the
+  label had no single home, so a category name (a hand-typed string in a content file)
+  could invent a second name for a round that already had one. `group` was
+  *Connections* in the Lab and *Find the Four* in 5A; `anagram` and `scramble` each had
+  a third variant in their registry labels. The table is under "One name per round".
+- **`author-content` is the sixth skill, and `tools/question-types.js` is what keeps it
+  from rotting.** The five existing skills all build *machinery*; none covered writing
+  questions, which is the job that actually comes up now the machinery is finished.
+  - **The skill holds no list of question types.** It runs the tool, which asks the
+    registries — every round's label, blurb, item field, ways to play and sample shape,
+    plus every form and the boards it suits. A round written next month appears in it
+    with nobody editing anything.
+  - That needed each round to **declare** its authoring shape rather than only describe
+    it in a comment: a `sample` field on all five. The round now documents itself to
+    code and not just to a reader.
+  - The tool loads the registries under a minimal DOM stub. `hub-engine.js` is
+    deliberately not loaded — it injects a whole application.
+- **The skills rot silently, and three of them had within hours.** `phoneMode` became
+  `round_default` in the morning and was still named in `new-game`, `new-mode` and
+  `phone-debug` in the afternoon. `phone-debug` was the damaging one: it hands you
+  `HubSettings.get('phoneMode', …)` as the *first* thing to run when phones misbehave,
+  which now returns undefined — so the next person would have concluded the setting did
+  not exist, while chasing a phone bug, which is when a wrong lead costs most.
+  **Nothing mechanical can catch this**: a skill is a markdown file and nothing reads it
+  but a model. Check the skills whenever the thing they describe changes.
+- **The cache stamp instruction was a hand-kept list and it had drifted two days.** It
+  named four shells; the four `playground/` pages were never in it, so the question
+  bench was serving round files from before the rounds were renamed — which reads as
+  the bench being broken rather than as a stale asset. It finds the pages by search
+  now, and **the date shape in the pattern is load-bearing**: `classic.html` carries
+  `?v=picture` and `?v=unit1`, which are content selectors, and the old looser pattern
+  would have rewritten them into a broken page.
+- **The content pool was asked for and then decided against in the same conversation**,
+  once the shape was clear — see build order item 8. What was actually wanted from it
+  is the `author-content` skill.
 - **Millionaire draws every question through the multiple choice round, and it is
   the first round content a class can actually play.** All 52 Unit 5 items became
   rounds with **no content edit**: the bank stays `{prompt, answer, distractors,
@@ -1232,12 +1341,13 @@ playground's point, that one board can host several:
     link rather than a name you then have to find in a menu. An explicit type
     outranks the remembered set and resets the item in hand to its sample, exactly
     as the menu's own change handler does.
-- **No round has ever been played from a class-facing unit, and that is now the
-  largest gap in the project.** Units 4 and 5 carry **zero** round fields between
-  them — no `group:`, no `order:`, no `choice:`, no `anagram:`, no `scramble:` — so
-  every round lives on the Lab board and nowhere else. The capability is in the
-  engine everywhere: Jeopardy or Blockbusters would host a round on Unit 5 the moment
-  a Unit 5 clue carried one. Nothing is broken; the content simply does not exist.
+- ~~**No round has ever been played from a class-facing unit**~~ — **closed, and it was
+  the largest gap in the project while it stood.** Kept because the shape of it is worth
+  not re-learning: the capability was in the engine *everywhere* and the content was
+  nowhere, so nothing was broken and nothing worked. Jeopardy or Blockbusters would have
+  hosted a round on Unit 5 the moment a Unit 5 clue carried one, and for two sessions
+  none did. Unit 5's 5A and the whole of New English File Unit 1 carry them now; **Unit 4
+  still carries none**, which is the remaining half of it.
   - **Worth knowing before reading a bug report about it.** Unit 5 *does* have
     `type:"anagram"` items — those are question **forms** (scattered letters on the
     card, no phones), not the anagram **round** (letter tiles dragged on every
@@ -2485,7 +2595,7 @@ playground's point, that one board can host several:
   | `onTypedWin(b)` | typed and correct: score it, return the points (`null` = didn't) |
   | `wantsVote()` / `onVoteReply(all)` | the vote half — whether the game ever asks the room, and where the counts are painted |
 | `roomNote()` | what the chip says when a game wants a room without a phone mode |
-| `phoneRound()` | the game drives the phones itself (Bingo's cards, Jeopardy's grouping clue); `null` = `phoneMode` decides. Whatever it returns beyond `{mode, prompt, options}` — `multi`, `multiByTeam`, `holds`, `rethink`, `team` — is **carried to the relay, not interpreted**, so a game can use a round shape the engine has never heard of |
+| `phoneRound()` | the game drives the phones itself (Bingo's cards, Jeopardy's grouping clue); `null` = **the default round** handles it, which is what an ordinary question gets. `null` no longer means "no round here" — there is always one. Whatever it returns beyond `{mode, prompt, options}` — `multi`, `multiByTeam`, `holds`, `rethink`, `team` — is **carried to the relay, not interpreted**, so a game can use a round shape the engine has never heard of |
 
   - **Every hook defaults to a no-op**, so a game that declares none has idle
     phones — a visible, correct state rather than a half-wired one.
@@ -2800,7 +2910,8 @@ playground's point, that one board can host several:
   device emulation** — real handset browser chrome (URL bar, gesture area) shrinks the
   visible height further and changes it as you scroll, which nothing here models.
 - Game Hub MVP live as **one consolidated app** (`game-hub.html`): choose unit →
-  game → sections → play. **2 units** (Unit 4 Consciousness, Unit 5 Fairness),
+  game → sections → play. **3 units across two coursebooks** (Empower C1 Unit 4
+  Consciousness and Unit 5 Fairness; New English File 5th ed Unit 1 Food & Family),
   **4 games** (Jeopardy, Blockbusters, Race to the Board, Millionaire), shared engine,
   DCU-branded. 3 of the 4 are spec Tier 1 — content-agnostic, so they transfer to any
   unit, which is what makes the "this scales to the coursebook" claim defensible.
@@ -3121,16 +3232,26 @@ playground's point, that one board can host several:
 this is going: skins hosting rounds", and `docs/game-hub-requirements.md` §3.8–§3.10
 for the full version with requirement IDs. The short form, in order:
 
-1. **Round content in a class-facing unit.** Rounds work in Jeopardy and Blockbusters
-   and have never been played outside the Lab, because Units 4 and 5 carry **zero**
-   round fields. Authoring, not engineering, and it closes the largest gap here.
-2. **Round state that outlives one question.** Unblocks roles, information gaps, hands
+0. **Teach a lesson with it.** Not a build item, and it is first for that reason. Round
+   content a class can play exists for the first time, and **every number in this
+   project is still a guess** — whether eight words read from the back of a room,
+   whether the ordering ladder's gloss lands or goes by, whether thirty phones sharpen
+   a class or scatter it, whether the music fights your voice. One lesson answers more
+   of those than a week of building, and §3.11 names opportunity cost as the largest
+   risk here. Nothing below is worth more than this.
+1. **Round state that outlives one question.** Unblocks roles, information gaps, hands
    of cards and personal scorecards — about half of "what the container makes
    possible". The relay already persists a bingo card per player across a reconnection;
    it is simply not exposed to rounds.
-3. **Millionaire hosts the multiple choice round**, then **the declarative action
-   strip**, then the stage-as-mount, Bingo and Race.
-4. **Content filing by topic**, beside the existing banks, a unit at a time.
+2. **The declarative action strip** (F3.9.1/F3.9.2), so a round may have more than one
+   button — then the stage-as-mount, Bingo and Race.
+3. **Decide what Millionaire's buzz settings are for.** `mBuzzRole` cannot fire since
+   its ladder became a round host. Either retire the setting so it stops lying, or let
+   a buzz pick who answers for the team *before* the round takes the handsets — which
+   is what `speaker` was always for. Three checks sit red describing it.
+4. ~~**Content filing by topic**~~ — **decided against for now**, see build order item 8.
+   Content stays in per-game banks; the `author-content` skill delivers what was wanted
+   from it.
 
 **The three that are worth building for what they'd prove**, rather than for what they
 are — see "What the container makes possible":
