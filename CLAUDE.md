@@ -30,12 +30,20 @@ git push                            # deploy to GitHub Pages
 ```
 
 **Bump the cache stamp whenever you change a file under `game-hub/`.** Every asset is
-linked as `…?v=YYYYMMDDx` in the three page shells; without a bump, Chrome keeps serving
-the cached JS/CSS and a fix looks like it never shipped (this has already cost one
-debugging round). Change it in all three shells together:
+linked as `…?v=YYYYMMDDx`; without a bump, Chrome keeps serving the cached JS/CSS and a
+fix looks like it never shipped (this has already cost one debugging round).
+
+**Find the pages, never list them.** The instruction here used to name four shells by
+hand and it drifted exactly as every hand-kept list in this project has: the four
+`playground/` pages were never in it, so they sat two days stale while the hub moved on
+— the question bench was serving round files from before the rounds were renamed, which
+reads as the bench being broken rather than as a stale asset.
 ```bash
-sed -i '' 's/?v=[0-9a-z]*/?v=20260729k/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html   # macOS
+sed -i "s/?v=20[0-9]\{6\}[a-z]*/?v=20260804e/g" $(grep -rl '?v=20[0-9]\{6\}' --include=*.html . | grep -v node_modules)
 ```
+**The date shape in that pattern is load-bearing**: `classic.html` carries `?v=picture`
+and `?v=unit1`, which are content selectors and not build stamps, and a looser `?v=[0-9a-z]*`
+rewrites them into a broken page. Match `20YYMMDD`, not "anything after `?v=`".
 The engine reads its own `?v=` and exposes it as `window.HUB_BUILD`; the settings panel
 footer shows it, so **"Build …" in ⚙ tells you which version is actually running.**
 

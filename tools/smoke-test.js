@@ -5520,7 +5520,12 @@ async function testQuestionBench(browser){
     [...document.querySelectorAll('#type-pick optgroup')].map(g => ({
       label: g.label, opts: [...g.querySelectorAll('option')].map(o => o.value) })));
   const listed = groups.reduce((a, g) => a.concat(g.opts), []);
-  const ids    = await page.evaluate(() => window.HubKit.round.ids());
+  /* `authored()`, not `ids()` — the rounds you can write a question for. The default
+     round wraps an ordinary question, so it has no card to draw and no fields to edit,
+     and offering it here would open a blank page on the author. It registers first, so
+     it would also have become the bench's opening type. The menu asks the narrower
+     list; this asks the same one, or it would be testing a rule nobody wants. */
+  const ids    = await page.evaluate(() => window.HubKit.round.authored());
   const forms  = await page.evaluate(() => window.HubKit.prompt.types());
   /* **Namespaced, because the two registries can hold the same name.** `anagram` is
      both — a form that draws scattered letters and re-sorts them on reveal, and a
