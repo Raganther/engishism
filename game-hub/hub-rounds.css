@@ -455,17 +455,49 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
   border-color:var(--gw-good, #2e9e4f); cursor:default;
 }
 
-/* A count, not the words: a sentence per team will not fit on a clue card, and
-   what the room needs from the projector is who is close. The teacher can read an
-   actual attempt off that team's handsets. */
-.round-scramble .scr-teams{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
-.round-scramble .scr-who{
-  font-size:0.72em; letter-spacing:0.06em; text-transform:uppercase;
-  border:2px solid; border-radius:999px; padding:2px 10px; white-space:nowrap;
-  color:var(--gw-fg, #12263F);
+/* **A lane per team: the sentence completing, not a count.** The previous version
+   was one chip per team reading "1/9", on the reasoning that four sentences will
+   not fit on a clue card. A number turned out to say nothing the room can act on —
+   the same lesson the ordering round learned, where the ladder is the picture.
+
+   A cell holds a word only when that team has put it in the right slot, so a lane
+   fills left-to-right-ish as they get it. Cells are content-sized rather than an
+   equal grid: a sentence's words are wildly different lengths, and equal columns
+   would make "a" as wide as "retracted" — the same choice the handset makes for
+   words and the opposite of the one it makes for letters.
+
+   Sized to fit four lanes of twelve on a projector: the type shrinks with the
+   viewport and an empty cell is a thin dash rather than a box, so a lane reads as a
+   sentence with holes in it rather than a row of containers. */
+.round-scramble .scr-lanes{ display:flex; flex-direction:column; gap:5px; width:100%; }
+.round-scramble .scr-lane{
+  display:grid; grid-template-columns: minmax(0,auto) 1fr minmax(0,auto);
+  align-items:center; gap:10px;
+  border-left:4px solid var(--lane, currentColor);
+  border-radius:6px; padding:3px 8px;
 }
-.round-scramble .scr-who small{ margin-left:6px; opacity:0.75; }
-.round-scramble .scr-who.all{ background:var(--gw-goodwash, rgba(46,158,79,0.18)); }
+.round-scramble .scr-lane.full{ background:var(--gw-goodwash, rgba(46,158,79,0.14)); }
+.round-scramble .scr-lane-who{
+  font-size:0.6em; letter-spacing:0.06em; text-transform:uppercase;
+  white-space:nowrap; opacity:0.8; color:var(--gw-fg, #12263F);
+}
+.round-scramble .scr-lane-n{
+  font-family:'IBM Plex Mono',monospace; font-size:0.58em; opacity:0.7;
+  white-space:nowrap; color:var(--gw-fg, #12263F);
+}
+.round-scramble .scr-lane-row{
+  display:flex; flex-wrap:nowrap; align-items:center; gap:4px; min-width:0; overflow:hidden;
+}
+.round-scramble .scr-cell{
+  font-size: clamp(0.52rem, 1.05vw, 0.95rem); line-height:1.5;
+  white-space:nowrap; color:var(--gw-fg, #12263F);
+}
+.round-scramble .scr-cell.got{ font-weight:600; }
+/* An empty slot is a dash, not a box. Twelve boxes per lane times four lanes reads
+   as a grid of containers; twelve dashes reads as a sentence with holes in it. */
+.round-scramble .scr-cell.gap{
+  width:0.9em; border-bottom:2px solid currentColor; opacity:0.25; height:0.9em;
+}
 
 /* Ask the class: how many of the room went for this option. A count rather than a
    dot per team, because on that board the question is about people not teams. */

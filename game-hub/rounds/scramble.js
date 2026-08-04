@@ -133,27 +133,65 @@
       mount.appendChild(tray);
       mount.appendChild(line);
 
-      /* What each team has built. A sentence is too long to redraw per team on a
-         clue card, so this is a count rather than the words — the teacher can read
-         one team's actual attempt off their handsets, and what the room needs from
-         the projector is who is close. */
+      /* **A lane per team, and the sentence itself rather than a count.**
+         This used to be one chip per team reading "1/9", on the reasoning that a
+         sentence is too long to redraw four times on a clue card. Playing it showed
+         that reasoning was wrong in the way that matters: a number tells the room
+         *that* somebody is ahead and nothing about what they have got, so there is
+         nothing to watch and nothing to learn from. The ordering round reached the
+         same conclusion for the same reason — the ladder is the picture.
+
+         **Only correct placements show.** A word appears in a team's lane when it is
+         in the slot it belongs in; everything else stays blank. That is deliberate
+         and it is the whole dynamic: it turns the board into several sentences
+         completing at once, and a team that is behind can read a word off a team
+         that is ahead. Being copied is the cost of being in front, which is what
+         makes it a race rather than four separate exercises.
+
+         Showing wrong placements would do the opposite — it would broadcast one
+         team's mistakes to the room, and a lane full of words in the wrong order is
+         unreadable at projector distance anyway. */
       const lanes = Object.keys(s.leading).map(Number)
         .filter(t => (s.leading[t] || []).length);
       if(lanes.length && !s.shown){
         const wrap = document.createElement('div');
-        wrap.className = 'scr-teams';
+        wrap.className = 'scr-lanes';
         lanes.sort((a,b)=>a-b).forEach(t=>{
-          const chip = document.createElement('span');
-          chip.className = 'scr-who';
-          chip.style.borderColor = colourOf(t);
-          chip.textContent = (c.teamName ? c.teamName(t) : ('Team ' + (t + 1))) + ' ';
-          const n = document.createElement('small');
+          const got  = s.leading[t] || [];
+          const lane = document.createElement('div');
+          lane.className = 'scr-lane';
+          lane.style.setProperty('--lane', colourOf(t));
+
+          const who = document.createElement('span');
+          who.className = 'scr-lane-who';
+          who.textContent = c.teamName ? c.teamName(t) : ('Team ' + (t + 1));
+          lane.appendChild(who);
+
+          const row = document.createElement('div');
+          row.className = 'scr-lane-row';
+          let right = 0;
+          for(let i = 0; i < s.need; i++){
+            const cell = document.createElement('span');
+            const placed = got[i];
+            /* Compared the same way `judge` compares, or a lane would disagree with
+               the verdict — a capitalised first word put third is still third. */
+            const ok = placed != null && norm(placed) === norm(s.words[i]);
+            if(ok){ cell.className = 'scr-cell got'; cell.textContent = s.words[i]; right++; }
+            else  { cell.className = 'scr-cell gap'; cell.textContent = ''; }
+            row.appendChild(cell);
+          }
+          lane.appendChild(row);
+
+          const n = document.createElement('span');
+          n.className = 'scr-lane-n';
           const ag = s.mode === 'agree' ? K.round.agreement(s, c, t) : null;
-          n.textContent = (s.leading[t] || []).length + '/' + s.need +
+          n.textContent = right + '/' + s.need +
                           (ag ? ' · ' + ag.agreed + '/' + ag.size + ' agree' : '');
-          if(ag && ag.all) chip.classList.add('all');
-          chip.appendChild(n);
-          wrap.appendChild(chip);
+          if(ag && ag.all) lane.classList.add('all');
+          if(right === s.need) lane.classList.add('full');
+          lane.appendChild(n);
+
+          wrap.appendChild(lane);
         });
         mount.appendChild(wrap);
       }
