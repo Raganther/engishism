@@ -182,7 +182,6 @@
       <select id="type-pick"></select>
       <select id="mode-pick" style="display:none"></select>
       <button id="ask-btn">Ask the room</button>
-      <button id="reveal-btn" class="ghost">Reveal</button>
       <button id="reset-btn" class="ghost">Reset</button>
       <button id="add-team" class="ghost">+ team</button>
       <!-- Disabled until a room exists, which is the same fact the chip beside it
@@ -221,8 +220,13 @@
       <div id="card-prompt"></div>
       <div id="card-round"></div>
       <div id="card-answer"></div>
+      <!-- The card carries its own actions, as the hub's clue card does — the two
+           workshops should read as one environment, and Reveal is a decision about
+           *this card*, not about the page. Close stays hub-only: there the card is
+           a modal over a board, here it is the page. -->
       <div id="card-actions">
         <button id="check-btn" class="ghost" disabled>Check</button>
+        <button id="reveal-btn" class="ghost">Reveal answer</button>
       </div>
     </div>
     </div>

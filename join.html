@@ -183,6 +183,13 @@
   /* A number rather than an empty box: on a ten-word sentence it is the only way to
      see which slot is which without counting from the left every time. */
   #arrange.words .ana-slot:not(.filled){ font-size:0.8rem; opacity:0.5; font-weight:500; }
+  /* Every slot one width — the widest word's, measured off the tray when the round
+     is built. Content-sized slots reflowed the whole row every time a word landed,
+     so two phones in different states showed two different grids of boxes, which
+     reads as the phones being formatted differently — and on a projector bench,
+     eight at once, it reads as chaos. One width gives nothing away: the tray under
+     the boxes already shows every word in the sentence. */
+  #arrange.words .ana-slot{ width:var(--ana-slot-w, auto); max-width:100%; }
   /* Sized off the column rather than fixed, so a ten-letter word shrinks instead of
      overflowing. Capped, or a three-letter word draws three enormous tiles. */
   .ana-slot, .ana-tile{
@@ -587,6 +594,16 @@
       d.addEventListener('pointerdown', e => anaGrab(e, anaSlots[s], s));
       slots.appendChild(d);
     });
+    /* One slot width for the whole row, taken from the widest tray tile — same
+       word, same font, same padding, so the measure is exact. Fixed here, once,
+       is what keeps the grid of boxes identical on every phone whatever each has
+       placed; letting a slot grow to its word reflowed the row on every drop. */
+    if($('arrange').classList.contains('words')){
+      let w = 0;
+      anaTiles.forEach(t => { w = Math.max(w, t.el.offsetWidth); });
+      if(w) slots.style.setProperty('--ana-slot-w', Math.ceil(w) + 'px');
+      else slots.style.removeProperty('--ana-slot-w');
+    }
     paintArrange();
   }
 

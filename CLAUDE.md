@@ -1568,12 +1568,17 @@ playground's point, that one board can host several:
   - **An empty slot shows its number.** A row of ten blank boxes tells a student
     nothing about which position they are filling. Letters keep blank boxes, because
     there the boxes spell the word and digits would be noise.
-  - **The slots grow as words land, deliberately unlike the ordering ladder**, whose
-    rungs must never resize. The reason is what each thing *is*: a ladder is a column
-    several teams are compared down, so a rung that resizes makes the lanes stop
-    lining up; a sentence is one line being built. And sizing an empty slot to the
-    word it will hold would give away the answer's shape before anybody placed
-    anything.
+  - **Every slot is one fixed width — the widest word's, measured off the tray when
+    the round is built.** This *reversed* an earlier decision ("slots grow as words
+    land"), and the reversal was reported from the room bench: content-sized slots
+    reflowed the row on every drop, so eight phones in different states showed
+    eight different grids of boxes, which reads as the phones being formatted
+    differently when they are the same page in the same state machine. The rule
+    that survived from the first decision is the one that matters: **sizing each
+    slot to its own word would give away the answer's shape** — one uniform width
+    gives nothing away, because the tray under the boxes already shows every word.
+    The ladder's rungs still never resize, for the ladder's own reason (lanes that
+    must line up).
   - **A count per team, not the words.** A sentence per team will not fit on a clue
     card; what the room needs from the projector is who is close, and the teacher can
     read an actual attempt off that team's handsets.
