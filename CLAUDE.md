@@ -15,6 +15,14 @@ ephemeral), so **anything worth keeping must be committed and pushed.** Continui
 end of a work session, update the **Current status** / **Next** sections below and
 commit. No hooks, no roadmap file, no domain-file discipline required.
 
+## How to talk to me
+**Short. Plain words. Say the thing, then why, then stop.**
+- Explain from the ground up — what the problem actually is — rather than naming it.
+- No jargon. If a term is unavoidable, say what it means in the same sentence.
+- Simple language, the way you'd explain it to a bright teenager.
+- No walls of text. A long answer is usually a sign the thinking isn't finished.
+- Don't list options I won't pursue. Give one recommendation.
+
 ## Run
 ```bash
 git add -A && git commit -m "..."   # save
@@ -3180,10 +3188,38 @@ Everything below is either a known gap or a question a classroom run has to answ
   which isn't a touchscreen, so the teacher still does every click.)
 - Repo is **public** — don't commit anything that shouldn't be internet-visible.
 
-## Before you push — gate by blast radius, not by habit
-**Match the check to what the change can break.** A 25-minute gate on every change is
-a gate that gets skipped or truncated, which is worse than a smaller one that actually
-runs. Pick the row, run it, push.
+## Before you push — ship it, the user looks at it
+**The default is: no test suite.** The tests open a real browser and play the games,
+which is worth it when nobody is watching the screen. But the user *is* watching — on
+the real site, on a real phone. For most changes their eyes are faster and better than
+four minutes of robot. **Small changes taking a long time is the thing this is fixing.**
+
+**The loop, every time:**
+1. Make the change.
+2. `node tools/check-syntax.js` — 2 seconds, always run it (see below for why).
+3. Bump the cache stamp, or the browser serves the old file and the fix looks unshipped.
+4. Commit and push. The site is live in ~40s.
+5. The user looks, screenshots, says what's wrong.
+
+**Three cases where I stop and ask first.** Say the risk in one line and let the user
+choose — never test by habit, and never silently:
+- **Something all five games share** — `hub-kit.js`, `hub-engine.js`'s shared half, the
+  header, the team bar, the clue card, settings, the fit, `hub.css` outside one stage.
+  One mistake breaks five boards at once and only the opened one gets noticed.
+- **Phones or the relay** — `hub-buzzer.js`, `buzzer-relay.js`, `join.html`. The user
+  cannot check this alone; it needs a second device, and the suite fakes thirty in
+  seconds.
+- **Content in bulk** — 20 seconds, and it catches what eyes cannot: the same prompt
+  copied into two banks, an answer whose initial doesn't match its hexagon.
+
+Everything else — one game's board, one stage's CSS, a new setting, docs, this file —
+just push.
+
+**What this costs, honestly:** some breaks don't show on the screen being looked at.
+That is the accepted trade. Say so when it's likely, rather than reaching for the suite.
+
+**If a test is run, match it to what changed** — a 25-minute gate is one that gets
+skipped or truncated, which is worse than a small one that runs.
 
 | What you changed | Run this | Costs |
 |---|---|---|
@@ -3201,21 +3237,23 @@ NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=millionaire,fit,phone  
 NODE_PATH=$(npm root -g) node tools/smoke-test.js                                # 51 suites
 ```
 
-**Two cheap pre-flights that cost seconds and have each already paid for themselves:**
+The suite drives the games in a real browser and checks what has actually broken
+before: boards running off screen, text cut off, the flip landing on the wrong tile,
+settings not persisting, buzzers not degrading when the relay is gone. It starts its
+own relay and exits non-zero on any failure. `--url=` tests a deployed copy instead.
+
+**The one check that always runs, because it costs 2 seconds:**
 ```bash
 node tools/check-syntax.js          # JS parses, CSS comments/braces balance
 ```
 A malformed CSS comment **silently deletes every rule after it** — the parser skips to
 the next `*/` and there is no error anywhere. That cost a debugging round on the team
 bar: the header behaved as though the rule had never been written. CSS has no compiler
-to catch this, so this stands in for one.
+to catch this, so this stands in for one. It is the one break the user's eyes would
+not catch either, because the page looks merely plain rather than broken.
 
 **Push straight to `main`.** Render redeploys in ~40s and GitHub Pages follows, so the
 phone can check it immediately. Bump the cache stamp or the phone will not see it.
-Drives all four games in a real browser and checks the things that have actually
-broken before: boards running off screen, text cut off, the flip landing on the wrong
-tile, settings not persisting, buzzers not degrading when the relay is gone. Starts its
-own relay, exits non-zero on any failure. `--url=` tests a deployed copy instead.
 
 **Do not pipe it through `tail` in a way that swallows the exit code** — `node … | tail`
 reports the *pipe's* status, so a red run looks green. Redirect to a file instead; you
@@ -3231,9 +3269,11 @@ duplicated: that is what `Kit.floorTop()` is, after the same thing happened agai
 the bottom of the board written down in four places.
 
 ## Verifying UI changes
+**Normally the user does this** — see the section above. What follows applies when a
+check has been agreed, or when something is being debugged.
+
 Playwright + Chromium are available (global `playwright`, browser at
-`/opt/pw-browsers`). Open a hub via `file://…` and exercise it to confirm changes
-render and play before committing.
+`/opt/pw-browsers`). Open a hub via `file://…` and exercise it.
 
 **Screenshot it, don't only measure it.** Numbers said Millionaire's ladder cleared the
 options by 22px; the screenshot showed `100` stranded alone on a second row reading
