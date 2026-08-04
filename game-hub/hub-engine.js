@@ -6138,8 +6138,22 @@
        as it is the relay's business to carry it and not to read it. `undefined`
        drops out of the JSON, so a game that says nothing about them — which is four
        of the five, and Bingo's cards — arms exactly as it did before. */
+    /* **`keepSpent` defaults to what the setting promises, not to true.** It used to
+       default to true for any round, which was invisible while all five shaped
+       rounds set `rethink:true` — the relay never marks a player spent when they are
+       allowed to change their mind, so the list was always empty and never needed
+       clearing. Quickfire is the first round to ask for a locked-in answer, and the
+       two together meant a student answered question one and was refused for the
+       rest of the run with "you have already answered this one".
+
+       The honest default is the one `phoneOneEach` describes on its own row: *one
+       answer each per question*, so a new question clears the list. Bingo still asks
+       to keep it explicitly, because a card and its marks are the thing that has to
+       outlive the call. */
     if(own) return { mode: own.mode, prompt: own.prompt || '', options: own.options || [],
-                     keepSpent: own.keepSpent !== false,
+                     keepSpent: own.keepSpent != null
+                                  ? own.keepSpent
+                                  : !S.get('phoneOneEach', game),
                      multi: own.multi, multiByTeam: own.multiByTeam,
                      holds: own.holds, rethink: own.rethink, team: own.team };
     /* `isDefault` is what `askPhones` reads instead of asking whether a game declared
