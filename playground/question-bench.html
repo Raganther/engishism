@@ -72,14 +72,28 @@
      A scaled element still occupies its full layout box, so the stage owns the
      height and clips. */
   #card-stage{ width:var(--card-w, 720px); overflow:hidden; }
+  /* The frame's *layout* numbers are the hub clue card's own, mirrored — 2px of
+     border and 40px of side padding on a 720px card leave the same 636px the
+     round gets inside `#clue-back` (hub.css). This is what makes the wrap points
+     match: 22px of extra width was enough for a word tray to be one row here and
+     two on the projector, reported as the two cards being formatted differently.
+     If the clue card's geometry changes, these change with it — the qbench suite
+     pins the pair. */
   #card-frame{ width:var(--card-natural, 720px); background:#101B33;
-               border:1px solid rgba(255,255,255,0.14);
+               border:2px solid rgba(255,255,255,0.14);
                transform:scale(var(--card-scale, 1)); transform-origin:top left;
-               border-radius:16px; padding:26px 30px 22px; text-align:center;
+               border-radius:16px; padding:26px 40px 22px; text-align:center;
                box-shadow:0 18px 50px rgba(0,0,0,0.45); }
   #card-top{ font-family:'IBM Plex Mono',monospace; font-size:0.72rem; letter-spacing:0.18em;
              text-transform:uppercase; color:var(--gold); margin-bottom:4px; }
-  #card-prompt{ font-size:clamp(1.05rem, 1.9vw, 1.5rem); line-height:1.35; margin-bottom:4px; }
+  /* The hub's `#clue-text` type, at the size it resolves to on a 1280 board —
+     its clamp lands on 1.7rem there, and everything a round draws is sized in em
+     off this base, so getting it wrong scales every tile and slot. Fixed rather
+     than a vw clamp of this page's own, because this card renders at its natural
+     720px and is *scaled*; a vw here would read the bench window, which is not
+     the projector. */
+  #card-prompt, #card-round{ font-size:1.7rem; font-weight:500; line-height:1.4; }
+  #card-prompt{ margin-bottom:4px; }
   #card-answer{ margin-top:14px; font-weight:700; color:var(--gold); display:none; }
   #card-actions{ display:flex; gap:10px; justify-content:center; margin-top:18px; flex-wrap:wrap; }
 

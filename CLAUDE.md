@@ -1175,6 +1175,21 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The bench card carries the clue card's own metrics now — the two were only
+  ever the same code, not the same size.** Reported from the room bench: Drag the
+  Words drew one row of words on the question bench and two on the projector.
+  Both draw through the registry, but everything a round renders is sized in em
+  off its host's base font, and the hosts differed: the hub's `#clue-text`
+  resolves to 1.7rem on a 1280 board with 636px of content inside `#clue-back`,
+  while the bench card gave the round the page's default 16px and 658px. So every
+  tile was 40% smaller and the wrap points lied. The bench now pins the hub's
+  numbers (`#card-prompt`/`#card-round` at 1.7rem, 40px side padding, 2px
+  border), stated in a comment as mirrors of hub.css — it cannot load that file,
+  which carries the whole hub theme — and the qbench suite asserts the pair, so
+  if the clue card's geometry ever changes, the check says the bench stopped
+  matching rather than nobody noticing. **The general rule: the bench is the
+  source of truth for how a question reads, so anything the hub card sets that
+  affects layout — base font, content width — the bench must set identically.**
 - **A skin can have its own default for how a round is played.** Asked for from the
   bench: Jeopardy is team-based, so its Multiple Choice should start on "a team
   answers only when all of them agree" rather than first-tap-wins. Two declarations,

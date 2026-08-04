@@ -5528,6 +5528,25 @@ async function testQuestionBench(browser){
   });
   await page.goto(BASE + '/playground/question-bench.html'); await page.waitForTimeout(1200);
 
+  /* The bench card mirrors the hub clue card's own metrics — `#clue-text` resolves
+     to 1.7rem on a 1280 board and `#clue-back` leaves 636px of content inside a
+     720px card (hub.css). Everything a round draws is sized in em off that base,
+     so a bench card at the page's default 16px drew every tile 40% smaller and a
+     word tray that was one row here was two on the projector — reported as the
+     two cards being formatted differently, which is precisely what this page must
+     never be. Pinned as numbers because the bench cannot load hub.css to share
+     the rule; if the clue card's geometry changes, this check is what says the
+     bench no longer matches. */
+  const mirror = await page.evaluate(() => {
+    const round = document.getElementById('card-round');
+    const frame = document.getElementById('card-frame');
+    const inner = frame.clientWidth - parseFloat(getComputedStyle(frame).paddingLeft)
+                                    - parseFloat(getComputedStyle(frame).paddingRight);
+    return { font: getComputedStyle(round).fontSize, inner: Math.round(inner) };
+  });
+  check('the card carries the clue card’s type size', mirror.font === '27.2px', mirror.font);
+  check('and the clue card’s content width', mirror.inner === 636, String(mirror.inner));
+
   /* The menu is the registry asked, never a list kept in step by hand — the same
      discipline the fit and phone suites use, so a round written next month
      appears here without this page or this check being edited. */
