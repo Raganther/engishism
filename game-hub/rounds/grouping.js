@@ -38,6 +38,11 @@
        never has to learn the field name. */
     /* The item field this round owns. The normaliser copies it across on its own,
        so nobody has to remember to widen a whitelist — see `Kit.round.fields()`. */
+    /* The authoring shape, declared rather than only described in the comment above,
+       so a tool can print it and an author never has to read the source. */
+    sample: { text:"Four of these are ways of cooking food. Find the four.",
+              group:{ pick:["grilled","steamed","roasted","fried"],
+                      with:["chopped","sliced","peeled","grated"] } },
     field: 'group',
 
     claims(item){ return !!(item && item.group && Array.isArray(item.group.pick)); },

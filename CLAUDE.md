@@ -904,11 +904,20 @@ what a teacher set deliberately**, so it must be translated rather than silently
   value, so a later choice can't be overwritten.
 
 ## Skills — the procedures, separated from the history
-`.claude/skills/` holds five invocable checklists. This file is the project's
+`.claude/skills/` holds six invocable checklists. This file is the project's
 *memory*; those are its *procedures*, pulled up at the moment they are needed rather
 than remembered from 2,500 lines. **Which one you want follows the tiers**: a skin is
 `new-game`, a question that is played is `new-round`, a way of drawing a prompt is
-`new-question-form`, a bundle of switches is `new-mode`.
+`new-question-form`, a bundle of switches is `new-mode` — and **writing questions in
+the shapes that already exist is `author-content`**, which is the one that gets used
+most, because the machinery is finished and the content is the bottleneck.
+- **`author-content`** — writing questions, not code. Opens by running
+  `tools/question-types.js`, because **the skill deliberately holds no list of
+  question types**: a list typed into a markdown file goes stale the day a round is
+  added, which is the defect class this project has paid for most. Carries what each
+  game will not forgive, and the rules no check can make for you — a Connections
+  decoy set has to be a coherent group of its own, an ordering scale has to have one
+  defensible order, and a mistyped multiple-choice key reads perfectly normally.
 - **`new-game`** — the two contracts, registration order, the layout rules, which
   suites cover a game for free, and the five-minute review for a game someone else
   wired up. Opens by saying a new game is a **skin**, not a question machine.

@@ -72,6 +72,8 @@
       { value:'agree', label:'A team answers only when all of them spell the same word' }
     ],
 
+    /* Declared, not only described above, so `tools/question-types.js` can print it. */
+    sample: { text:"the decision a jury delivers", anagram:{ word:"verdict" } },
     field: 'anagram',
 
     claims(item){ return !!(item && item.anagram && item.anagram.word); },

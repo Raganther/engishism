@@ -54,6 +54,9 @@
       { value:'agree', label:'A team answers only when all of them agree' }
     ],
 
+    /* Declared, not only described above, so `tools/question-types.js` can print it. */
+    sample: { text:"Which verb goes with 'a sentence', when a judge delivers one?",
+              choice:{ options:["pass","make","do","give"], answer:"pass" } },
     field: 'choice',
 
     claims(item){ return !!(item && item.choice && Array.isArray(item.choice.options)); },

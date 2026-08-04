@@ -57,6 +57,11 @@
 
     /* The item field this round owns. The normaliser copies it across on its own,
        so nobody has to remember to widen a whitelist — see `Kit.round.fields()`. */
+    /* Declared, not only described above, so `tools/question-types.js` can print it. */
+    sample: { text:"Put these in order — mildest first.",
+              order:{ scale:["annoyed","irritated","angry","livid","furious"],
+                      low:"mildly bothered", high:"absolutely raging",
+                      gloss:{ livid:"so angry you have gone quiet." } } },
     field: 'order',
 
     claims(item){ return !!(item && item.order && Array.isArray(item.order.scale)); },

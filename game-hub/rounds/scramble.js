@@ -47,6 +47,9 @@
       { value:'agree', label:'A team answers only when all of them order it the same' }
     ],
 
+    /* Declared, not only described above, so `tools/question-types.js` can print it. */
+    sample: { text:"Put the words in order.",
+              scramble:{ sentence:"The jury reached the verdict after four hours" } },
     field: 'scramble',
 
     claims(item){ return !!(item && item.scramble && item.scramble.sentence); },
