@@ -78,7 +78,14 @@ function getRoom(code, create){
        which is the whole reason it lives here rather than only on the host. The
        host still deals them and still judges the taps — the relay never learns
        which word is the right one, exactly as it never learns a typed answer. */
-    r = { host:null, players:new Map(), teams:[], armed:false, locked:null,
+    /* `epoch` is the room's identity across the relay's own life. Rooms live in
+       memory, and the deployed relay restarts on every push — so mid-lesson a
+       reconnecting host silently recreates its room *empty*, wearing the same
+       code. The host cannot tell that from an ordinary reconnect unless the room
+       says who it is: same epoch on `ready` means "I still hold what you told
+       me", a new one means "I know nothing — tell me everything again". */
+    r = { epoch: Math.random().toString(36).slice(2, 10),
+          host:null, players:new Map(), teams:[], armed:false, locked:null,
           mode:'buzz', prompt:'', options:[], team:null, responses:new Map(),
           spent:new Set(), cooling:new Map(), cards:new Map(), emptiedAt:0,
           answerSecs:0, rethink:false, secs:0, armedAt:0, multi:1,
@@ -188,7 +195,7 @@ function openStream(req, res, q){
     }
     room.host = res;
     room.emptiedAt = 0;
-    pushEvent(res, 'ready', { room:code, players:roster(room) });
+    pushEvent(res, 'ready', { room:code, players:roster(room), epoch:room.epoch });
     req.on('close', ()=>{ clearInterval(beat); if(room.host===res) room.host=null; });
     return;
   }

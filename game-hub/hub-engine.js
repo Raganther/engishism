@@ -5615,6 +5615,34 @@
   let buzzWinner = null;    // {id,name,team} — who has the floor right now
   let buzzPlayers = 0;
   let buzzLanHost = '';     // address the relay says phones can reach it on
+  let buzzEpoch = null;     // which *instance* of the room the relay reports
+
+  /* The room that came back is not the room this page was talking to. Rooms live
+     in the relay's memory and the deployed relay restarts on every push — so a
+     reconnecting host recreates its room *empty*, under the same code, and every
+     `ready` after that looks exactly like an ordinary reconnect. The hub keeps
+     several memories of what it has already told the room precisely so a
+     reconnect stays quiet; against a new room, every one of them is a lie, and
+     the question was never re-armed — so a phone that rejoined landed on
+     "Waiting for the teacher" over a board showing a live round. Void the lot,
+     and the ready handler's own re-ask and team push then say everything again. */
+  function roomForgot(){
+    lastAsk = null;          // the room has been told no question
+    lastPushedTeams = null;  // ...and no team names
+    buzzWinner = null;       // the relay's lock died with the room
+    classReplies = null;     // so did every collected reply
+    /* The relay's copy of every bingo card went too. The hands here are the
+       originals — the host deals and judges — so give the room the same cards
+       back, marks and all, rather than dealing fresh ones mid-game. */
+    if(buzzHost && bingoHands.size){
+      const out = {};
+      bingoHands.forEach((h, id) => { out[id] = h.words.map(w => w.answer); });
+      buzzHost.deal(out);
+      bingoHands.forEach((h, id) => h.marked.forEach((m, i) => {
+        if(m) buzzHost.mark(id, h.words[i].answer);
+      }));
+    }
+  }
 
   function buzzersOn(){ return S.get('buzzers') && window.HubBuzzer; }
 
@@ -5976,7 +6004,9 @@
          you running? Without it the only handle was the chip's text, which is
          prose and changes with the mode. */
       window.HubHost = buzzHost;
-      buzzHost.on('ready',   d=>{ buzzPlayers=(d.players||[]).length; pushTeamNames();
+      buzzHost.on('ready',   d=>{ if(d.epoch && buzzEpoch && d.epoch !== buzzEpoch) roomForgot();
+                                  if(d.epoch) buzzEpoch = d.epoch;
+                                  buzzPlayers=(d.players||[]).length; pushTeamNames();
                                   renderBuzzChip(); renderJoinCount(); reaskPhones();
                                   bingoDealHands();
                                   // the room arrives after the board is built, so the
@@ -6023,6 +6053,7 @@
     hideJoinPanel();
     forgetRoom();
     if(buzzHost){ buzzHost.close(); buzzHost=null; window.HubHost = null; }
+    buzzEpoch=null;
     buzzWinner=null; buzzPlayers=0; lastTyped=null; lastScored=null;
     bbVote=null; bbVoting=false; renderBBVote();
     const chip=document.getElementById('buzzer-chip');

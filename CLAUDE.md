@@ -1165,6 +1165,40 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The resume bug was never the phone's — the relay forgets every room on every
+  push.** Last session's write-up said a resuming handset lands on "Waiting for the
+  teacher" over a live round, and that `room.armed` "is only cleared by a buzz lock
+  or a disarm, neither of which happened". Both observations were right: the room it
+  happened in **no longer existed**. Rooms live in the relay's memory, the deployed
+  relay restarts on every push, and a reconnecting hub silently recreates its room
+  *empty* under the same code — then stays quiet, because `lastAsk`,
+  `lastPushedTeams` and the rest all say the room already knows. Every phone that
+  rejoined after that landed on "Waiting" until the next question opened — which is
+  also why it always "worked again" by the time anyone looked closely, and why it
+  haunted testing sessions specifically: that is when pushes happen every few
+  minutes. A plain reload with the relay alive was never broken — checked on two
+  rounds, quick and long disconnects, before finding this.
+  - **The room announces which instance of itself is speaking** — an `epoch` minted
+    when the room is created, carried on every `ready`. Same epoch is an ordinary
+    reconnect: stay quiet, exactly as before, so the flicker fix is untouched (the
+    `reconnect` suite pins both halves — `ready` carries an epoch, and a reconnect
+    to a living room keeps it). A new epoch means the room knows nothing:
+    `roomForgot()` voids every told-the-room memory, the ready handler's own
+    `pushTeamNames` and `reaskPhones` then say everything again, and every bingo
+    card is re-dealt from the host's own hands, marks included — same cards, not
+    fresh ones, because the hands were always the originals.
+  - **A phone now survives losing the race back.** EventSource retries *network*
+    failures only; an HTTP error is final. After a restart the phones and the host
+    race to reconnect, the host's first success recreates the room, and every phone
+    that got there first was answered 404 and died — still saying "reconnecting…",
+    which was a lie. `hub-buzzer.js` reopens a CLOSED stream itself, backed off; the
+    relay re-sends full state on every connection, so nothing else was needed. The
+    `replaced` path still closes for good, or two hub tabs would fight again.
+    `joinRoom` now closes the previous client first, because a client that retries
+    forever must not be abandoned still polling a dead room.
+  - **Proved by restarting the relay mid-round**: on the old build the resumed phone
+    *and* a fresh join both land on "Waiting for the teacher" with no puzzle; on
+    this one both land back in the live arrangement.
 - **Quickfire is the sixth game, and the first with no board at all.** A straight run
   of ~15 multiple choice questions against a clock. No geometry, no turns, no tiles —
   the only decisions in the room are made on the handsets.
@@ -1219,11 +1253,10 @@ playground's point, that one board can host several:
   does. The relay had held each player's reply all along and the restore was written
   for `vote` only; it covers `arrange` now, and the wire format is positional so a gap
   comes back as a gap.
-  - **Still broken, and not guessed at:** a handset that *resumes its seat* lands on
-    "Waiting for the teacher" with no puzzle, rather than back in the live round — so
-    the restore has nothing to restore into on that path. A fresh join lands
-    mid-question correctly. `room.armed` is only cleared by a buzz lock or a disarm,
-    neither of which happened. **This affects every round, not just this one.**
+  - ~~**Still broken:** a handset that *resumes its seat* lands on "Waiting for the
+    teacher"~~ — **resolved, and the resume path was innocent**: the trigger was the
+    deployed relay restarting on every push and wiping the room. See the bullet at
+    the top of Current status.
 - **All five rounds are in both sections of New English File Unit 1** — six new
   Jeopardy categories, thirty clues, written through the `author-content` skill. The
   gate caught a fourteen-word sentence against a cap of twelve, which is what a handset
@@ -3295,9 +3328,10 @@ playground's point, that one board can host several:
 this is going: skins hosting rounds", and `docs/game-hub-requirements.md` §3.8–§3.10
 for the full version with requirement IDs. The short form, in order:
 
-0. **Fix resume — a reconnecting handset lands on "Waiting for the teacher".** Top of
-   the list because it is a live defect in every round, on real phones, and the
-   workaround is asking a student to rejoin mid-question. See Current status.
+0. ~~**Fix resume — a reconnecting handset lands on "Waiting for the teacher".**~~
+   **Done** — and the phone was innocent: the deployed relay restarts on every push
+   and forgets every room, and the hub never re-told the new room the question. See
+   the top of Current status.
 1. **Teach a lesson with it.** Not a build item, and it is first for that reason. Round
    content a class can play exists for the first time, and **every number in this
    project is still a guess** — whether eight words read from the back of a room,

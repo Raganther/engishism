@@ -3983,6 +3983,16 @@ async function testRelayReconnect(){
   check('the reconnected phone is still in the room', /Ana/.test(roster), roster || 'empty');
   check('and the host is not told it left', !/event: leave/.test(seen));
 
+  /* The room says which instance of itself is speaking. Rooms live in the relay's
+     memory and the deployed relay restarts on every push, so a reconnecting host
+     can be handed a brand-new empty room wearing the old code — and the hub's
+     "stay quiet, the room already knows" memories are all lies against it. The
+     epoch on `ready` is how the hub tells the two apart: same room, same epoch. */
+  const epochOf = s => (s.match(/"epoch":"([a-z0-9]+)"/) || [])[1];
+  const epoch1 = epochOf(seen);
+  check('ready names the room instance it comes from', !!epoch1,
+        seen.replace(/\n/g,' ').slice(0,160));
+
   await post({ type:"arm", room:code, mode:'buzz', prompt:'test' });
   await wait(200);
   const buzz = await post({ type:"buzz", room:code, id:'abc' });
@@ -4003,9 +4013,16 @@ async function testRelayReconnect(){
      while every connection is technically fine. That is what the second flicker
      report turned out to be, after the reconnect fix had ruled out the first. */
   const h2 = await stream('role=host&room=' + code);
+  let seen2 = '';
+  if (h2.res) h2.res.on('data', c => seen2 += c);
   await wait(400);
   check('the replaced host is told, not just cut off', /event: replaced/.test(seen),
         seen.replace(/\n/g,' ').slice(-120));
+  /* An ordinary reconnect must keep the epoch, or every reconnect would look like
+     a dead room and re-arm the phones — which is the flicker this suite exists
+     to keep dead. */
+  check('the same living room reports the same epoch on a reconnect',
+        !!epoch1 && epochOf(seen2) === epoch1, epochOf(seen2) + ' vs ' + epoch1);
   if (h2.req) h2.req.destroy();
 
   if (host.req) host.req.destroy();

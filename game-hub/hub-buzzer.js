@@ -54,21 +54,44 @@ window.HubBuzzer = (function(){
 
   function stream(relay, params, ev){
     const qs  = new URLSearchParams(params).toString();
-    const src = new EventSource(base(relay) + '/buzzer/stream?' + qs);
-    let opened = false;
-    src.onopen  = ()=>{ opened = true; ev.emit('status', { state:'connected' }); };
-    src.onerror = ()=>{
-      // EventSource retries on its own; report the state and let the UI decide
-      ev.emit('status', { state: opened ? 'reconnecting' : 'unreachable' });
+    const url = base(relay) + '/buzzer/stream?' + qs;
+    /* EventSource only retries *network* failures. An HTTP error — the relay up
+       but the room not there — is final: the source goes CLOSED and never tries
+       again. That is exactly what a relay restart produces (rooms live in its
+       memory, and the deployed one restarts on every push): the phones and the
+       host race to reconnect, the host's first success recreates the room, and
+       every phone that got there first was answered 404 and died — still saying
+       "reconnecting…", which was a lie. So a CLOSED source is reopened here,
+       backed off, invisibly to the caller: the relay re-sends the full joined
+       state on every connection, so coming back through a fresh EventSource is
+       the same as coming back through the browser's own retry. */
+    let src, closed = false, opened = false, wait = 1000;
+    const handlers = [];       // re-attached to every reopened source
+    function connect(){
+      src = new EventSource(url);
+      src.onopen  = ()=>{ opened = true; wait = 1000; ev.emit('status', { state:'connected' }); };
+      src.onerror = ()=>{
+        ev.emit('status', { state: opened ? 'reconnecting' : 'unreachable' });
+        if(src.readyState === 2 && !closed){      // CLOSED: the browser has given up
+          setTimeout(()=>{ if(!closed) connect(); }, wait);
+          wait = Math.min(15000, wait * 2);
+        }
+      };
+      /* Another tab or device took this room over. Retrying would take it back and
+         start a fight neither can win — each reconnection re-asks the phones, so the
+         whole room's buzzers flicker. Close for good and say so. */
+      src.addEventListener('replaced', ()=>{
+        closed = true;
+        try{ src.close(); }catch(e){}
+        ev.emit('status', { state:'replaced' });
+      });
+      handlers.forEach(h => src.addEventListener(h[0], h[1]));
+    }
+    connect();
+    return {
+      addEventListener(name, fn){ handlers.push([name, fn]); src.addEventListener(name, fn); },
+      close(){ closed = true; try{ src.close(); }catch(e){} }
     };
-    /* Another tab or device took this room over. Retrying would take it back and
-       start a fight neither can win — each reconnection re-asks the phones, so the
-       whole room's buzzers flicker. Close for good and say so. */
-    src.addEventListener('replaced', ()=>{
-      try{ src.close(); }catch(e){}
-      ev.emit('status', { state:'replaced' });
-    });
-    return src;
   }
 
   function host(opts){

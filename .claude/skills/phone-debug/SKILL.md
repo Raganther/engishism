@@ -5,7 +5,7 @@ description: Diagnose problems with the Engishism phone layer — buzzers, the j
 
 # Debugging the phone layer
 
-Every phone bug in this project so far has been one of six shapes. Identify the
+Every phone bug in this project so far has been one of seven shapes. Identify the
 shape first — the wrong guess costs a whole round of testing, and the user is often
 mid-lesson.
 
@@ -22,7 +22,7 @@ Also worth asking: **which game, which phone mode, and does ⚙ show the current
 build?** A stale shell serves cached assets silently, and "it didn't deploy" is
 usually that.
 
-## The six shapes
+## The seven shapes
 
 ### 1. It is configuration, not the game
 
@@ -101,7 +101,31 @@ when a reply lands.
 The tell is a count on the card that will not move — `1/2` with one phone visibly
 gone. Reproduce by removing a handset mid-question rather than by tapping.
 
-### 6. Something above the board changed height
+### 6. The room the hub is talking to is not the room it was told about
+
+Rooms live in the relay's **memory**, and the deployed relay restarts on **every
+push**. A reconnecting hub silently recreates its room *empty* under the same code
+— and every "stay quiet, the room already knows" memory (`lastAsk`,
+`lastPushedTeams`, the dealt bingo cards) becomes a lie against it. The symptom is
+phones landing on "Waiting for the teacher" over a board showing a live round,
+which then "fixes itself" when the next question opens. It haunts testing sessions
+specifically, because that is when pushes happen every few minutes.
+
+The relay stamps each room with an `epoch`, carried on every `ready`; a changed
+epoch runs `roomForgot()` in the hub, which voids those memories so the ready
+handler re-tells the room everything. If a new told-the-room memory is added, it
+must be voided there too — that list is exactly the kind that rots.
+
+The tell: the bug appears within a minute of a deploy or relay restart, and a
+fresh join is broken in the same way as a resume. Reproduce by killing and
+restarting the relay mid-question — a reload alone will *not* reproduce it.
+
+Related: `EventSource` only retries network failures — an HTTP error (the relay
+back up, the room not yet recreated by the host) is final, and the phone dies
+saying "reconnecting…". `hub-buzzer.js`'s stream reopens a CLOSED source itself;
+keep that in mind before adding any path that creates an `EventSource` directly.
+
+### 7. Something above the board changed height
 
 The room chip and the replies strip sit above the stage and change height on their
 own schedule — the room opens asynchronously, phones join, buzzers go live.

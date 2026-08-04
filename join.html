@@ -290,7 +290,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260804m"></script>
+<script src="game-hub/hub-buzzer.js?v=20260804n"></script>
 <script>
 (function(){
   'use strict';
@@ -871,6 +871,11 @@
 
   function joinRoom(code, name, id){
     $('join-err').textContent = '';
+    /* The stream now reopens itself after the browser gives up on it, which is
+       what a phone needs — and what an *abandoned* client must not do. Joining a
+       second room (a mistyped code corrected, a stale seat retried) would leave
+       the first client polling a dead room in the background forever. */
+    if(client){ try{ client.close(); }catch(e){} }
     client = HubBuzzer.player({ relay:RELAY, code, name, team, id });
     /* The joined handset, exposed the same way the hub exposes HubSettings and
        HubGames: it is the only handle on this phone from outside, and the checks
