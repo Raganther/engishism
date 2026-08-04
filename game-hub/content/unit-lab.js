@@ -367,6 +367,56 @@
 
      Two sections so they can be compared: LB1 mixes, LB2 is rounds only, which is
      the version to play when tuning a round rather than a lesson. */
+  /* ================= THE LADDER =================
+     Millionaire draws every question through the **multiple choice round** now, so
+     this bank exists to put the third round host on the same board as the other two
+     — one place to try a round and compare how the three skins hold it.
+
+     Sixteen items: **two at every rung**, because the ladder is per team and with one
+     question a rung both teams meet the identical question on the way up. Graded 1→8
+     on purpose: the round is the same at every rung, so the only thing that varies is
+     how hard the discrimination is. Authored as `{prompt, answer, distractors, level}`
+     like every other Millionaire bank — the round is derived at runtime and the bank
+     never learns it. */
+  millionaireSectionNames: {
+    'LM1': "LM1 · Multiple choice round — a full ladder, two questions a rung",
+  },
+
+  millionaireBank: [
+    {section:'LM1', level:1, prompt:"Someone who sees a crime happen is a ___.", answer:"witness",
+      distractors:["juror","suspect","warden"]},
+    {section:'LM1', level:1, prompt:"The group of twelve who decide a verdict are the ___.", answer:"jury",
+      distractors:["bench","panel","bailiffs"]},
+    {section:'LM1', level:2, prompt:"Which word means 'found not guilty'?", answer:"acquitted",
+      distractors:["convicted","charged","detained"]},
+    {section:'LM1', level:2, prompt:"Which word means 'let go because the job no longer exists'?", answer:"redundant",
+      distractors:["dismissed","suspended","demoted"]},
+    {section:'LM1', level:3, prompt:"Which verb goes with 'a crime'?", answer:"commit",
+      distractors:["perform","conduct","execute"]},
+    {section:'LM1', level:3, prompt:"Which verb goes with 'an appeal'?", answer:"lodge",
+      distractors:["place","post","submit"]},
+    {section:'LM1', level:4, prompt:"Which is the formal way to refuse a claim outright?", answer:"repudiate",
+      distractors:["turn down","knock back","wave off"]},
+    {section:'LM1', level:4, prompt:"Which is the formal word for a planned break from work?", answer:"sabbatical",
+      distractors:["breather","time out","gap"]},
+    {section:'LM1', level:5, prompt:"Which one means 'so angry you have gone quiet'?", answer:"livid",
+      distractors:["annoyed","irritated","peeved"]},
+    {section:'LM1', level:5, prompt:"Which one is the *weakest* claim?", answer:"conceivably",
+      distractors:["probably","almost certainly","undoubtedly"]},
+    {section:'LM1', level:6, prompt:"'The evidence was ___' — which means it settled the matter?", answer:"conclusive",
+      distractors:["circumstantial","anecdotal","contested"]},
+    {section:'LM1', level:6, prompt:"Which describes a sentence held over you unless you offend again?", answer:"suspended",
+      distractors:["custodial","concurrent","consecutive"]},
+    {section:'LM1', level:7, prompt:"To ___ a statement is to take it back publicly.", answer:"retract",
+      distractors:["retort","retain","refute"]},
+    {section:'LM1', level:7, prompt:"Which means 'apparently, but perhaps not really'?", answer:"ostensibly",
+      distractors:["demonstrably","incontestably","manifestly"]},
+    {section:'LM1', level:8, prompt:"A decision made with nobody against it is ___.", answer:"unanimous",
+      distractors:["undisputed","unequivocal","unilateral"]},
+    {section:'LM1', level:8, prompt:"Held up as the standard for everybody else, work is ___.", answer:"exemplary",
+      distractors:["commendable","creditable","serviceable"]},
+  ],
+
   blockbustersSectionNames: {
     'LB1': "LB1 · Mixed board — most hexagons are ordinary, six open a round",
     'LB2': "LB2 · Rounds only — every hexagon opens one",

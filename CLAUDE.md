@@ -1122,8 +1122,10 @@ playground's point, that one board can host several:
   - **This makes "no round has ever been played from a class-facing unit" false**,
     for Millionaire only. Jeopardy, Blockbusters and Race still carry no round content
     in Units 4 and 5, and Unit 4 has no Millionaire bank at all.
-  - **Not on the Lab board**: `unit-lab.js` has no `millionaireBank`, so the game does
-    not appear there. It is `game-hub.html` → Unit 5 → Millionaire.
+  - **On the Lab board too**, section `LM1` — sixteen items, two at every rung,
+    added so all three round hosts sit on one board and a round can be tried in each
+    of the three skins without changing page. It is also live in the class-facing hub
+    (Units 4 and 5, 156 questions between them).
   - `millionaire` 20/20; `grouping,millionaire` 108/0; the broad run over `fit`,
     `phone`, `gameshow`, `registry`, `lab`, `scoping`, `turns` and `competition` was
     369/1 before the scoring decision above, and that one check was it.
