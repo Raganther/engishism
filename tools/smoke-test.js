@@ -1421,7 +1421,7 @@ async function testGameRegistry(browser){
      different". `games:'*'` asks the registry instead, so this is now true for a
      game registered at any point — which is what `testgame` proves here, having
      registered long after the settings did. */
-  const SHARED = ['phoneMode','phonePrompt','sound','soundVolume','theme','intro'];
+  const SHARED = ['round_default','phonePrompt','sound','soundVolume','theme','intro'];
   const offered = await page.evaluate(list => {
     const out = {};
     window.HubGames.ids().forEach(g => {
@@ -1929,7 +1929,7 @@ async function testTurnsAndPoints(browser){
     const page = await openHub(browser);
     await page.evaluate(m => {
       window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
-      window.HubSettings.set('buzzers', true); window.HubSettings.set('phoneMode', m, 'jeopardy');
+      window.HubSettings.set('buzzers', true); window.HubSettings.set('round_default', m, 'jeopardy');
     }, mode);
     await startGame(page, 'Jeopardy', { sections:'all' });
     await page.waitForTimeout(700);
@@ -2012,7 +2012,7 @@ async function testPhoneTeams(browser){
   const host = await openHub(browser);
   await host.evaluate(() => {
     window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
-    window.HubSettings.set('buzzers', true); window.HubSettings.set('phoneMode','buzz','jeopardy');
+    window.HubSettings.set('buzzers', true); window.HubSettings.set('round_default','buzz','jeopardy');
     document.getElementById('add-team-btn').click();
     document.getElementById('add-team-btn').click();
   });
@@ -2110,7 +2110,7 @@ async function testPhoneStrip(browser){
     await page.evaluate(m => {
       window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
       window.HubSettings.set('buzzers', true);
-      window.HubGames.ids().forEach(g => window.HubSettings.set('phoneMode', m, g));
+      window.HubGames.ids().forEach(g => window.HubSettings.set('round_default', m, g));
     }, mode);
     await startGame(page, game, Object.assign({ sections:'all' }, opts || {}));
     await page.waitForTimeout(900);
@@ -2421,7 +2421,7 @@ async function testCompetition(browser){
       S.set('jRules','classic','jeopardy');       // writes stealFullValue on
       S.set('jDailyDoubles', 0, 'jeopardy');      // an ordinary first tile
       S.set('jDeduct', false, 'jeopardy');        // isolate what the steal pays
-      S.set('phoneMode','off','jeopardy');
+      S.set('round_default','off','jeopardy');
     });
     await startGame(pg, 'Jeopardy', { sections:3 });
     await openFirstClue(pg);
@@ -2608,12 +2608,12 @@ async function testSettingsMigration(browser){
                      'phoneVote@millionaire':true })));
   await page.reload(); await page.waitForTimeout(400);
   const ph = await page.evaluate(() => ({
-    master: window.HubSettings.get('phoneMode'),
-    race:   window.HubSettings.get('phoneMode','race'),
-    mill:   window.HubSettings.get('phoneMode','millionaire'),
-    jeo:    window.HubSettings.get('phoneMode','jeopardy'),
+    master: window.HubSettings.get('round_default'),
+    race:   window.HubSettings.get('round_default','race'),
+    mill:   window.HubSettings.get('round_default','millionaire'),
+    jeo:    window.HubSettings.get('round_default','jeopardy'),
     left:   Object.keys(JSON.parse(localStorage.getItem('engishism.gamehub.settings')))
-              .filter(k => /^phone(Write|Vote|BuzzGames)/.test(k))
+              .filter(k => /^phone(Write|Vote|BuzzGames|Mode)/.test(k))
   }));
   check('an old master phone switch becomes the mode', ph.master === 'write', JSON.stringify(ph));
   check('and an old per-game one becomes that game\'s mode',
@@ -2628,10 +2628,10 @@ async function testSettingsMigration(browser){
 
   /* Once translated, a later choice must stand: reloading again cannot resurrect
      the old value, because there is nothing left to translate from. */
-  await page.evaluate(() => window.HubSettings.set('phoneMode','off','race'));
+  await page.evaluate(() => window.HubSettings.set('round_default','off','race'));
   await page.reload(); await page.waitForTimeout(400);
   check('a mode chosen after the migration survives a reload',
-        await page.evaluate(() => window.HubSettings.get('phoneMode','race')) === 'off');
+        await page.evaluate(() => window.HubSettings.get('round_default','race')) === 'off');
 
   /* `vote` shipped as a phoneMode value, so it is in real localStorage — and a value
      naming a variant that no longer exists is the worst kind: nothing matches it, so
@@ -2641,16 +2641,62 @@ async function testSettingsMigration(browser){
                      'phoneMode@race':'buzz' })));
   await page.reload(); await page.waitForTimeout(400);
   const vm = await page.evaluate(() => ({
-    master: window.HubSettings.get('phoneMode'),
-    mill:   window.HubSettings.get('phoneMode','millionaire'),
-    race:   window.HubSettings.get('phoneMode','race')
+    master: window.HubSettings.get('round_default'),
+    mill:   window.HubSettings.get('round_default','millionaire'),
+    race:   window.HubSettings.get('round_default','race')
   }));
   check('a mode that no longer exists becomes off, not a dead value',
         vm.master === 'off' && vm.mill === 'off', JSON.stringify(vm));
   check('and a mode that still exists is left alone', vm.race === 'buzz', vm.race);
   check('vote is no longer offered as something the phones do',
-        await page.evaluate(() => window.HubSettings.variantsFor('phoneMode','millionaire')
+        await page.evaluate(() => window.HubSettings.variantsFor('round_default','millionaire')
           .every(v => v.value !== 'vote')));
+
+  /* F3.8.16: `phoneMode` itself became `round_default`, so a third generation of
+     stored value has to survive. The same two traps as every migration before it —
+     the old key being present is the signal, and dropping it is what makes this run
+     once — but with one addition worth pinning: a *per-game override* is what a
+     teacher set deliberately, and it is the thing a careless migration loses while
+     the master value looks fine. */
+  await page.evaluate(() => localStorage.setItem('engishism.gamehub.settings',
+    JSON.stringify({ phoneMode:'write', 'phoneMode@jeopardy':'buzz',
+                     'phoneMode@bingo':'type' })));
+  await page.reload(); await page.waitForTimeout(400);
+  const dr = await page.evaluate(() => ({
+    master: window.HubSettings.get('round_default'),
+    jeo:    window.HubSettings.get('round_default','jeopardy'),
+    bingo:  window.HubSettings.get('round_default','bingo'),
+    race:   window.HubSettings.get('round_default','race'),
+    left:   Object.keys(JSON.parse(localStorage.getItem('engishism.gamehub.settings')))
+              .filter(k => /^phoneMode/.test(k))
+  }));
+  check('the old phone mode becomes the default round\'s mode',
+        dr.master === 'write', JSON.stringify(dr));
+  check('and every per-game override comes with it',
+        dr.jeo === 'buzz' && dr.bingo === 'type', JSON.stringify(dr));
+  check('a game that never had an override still follows the master',
+        dr.race === 'write', dr.race);
+  check('the old key is dropped, so a later choice cannot be overwritten',
+        dr.left.length === 0, dr.left.join(','));
+  await page.evaluate(() => window.HubSettings.set('round_default','off','jeopardy'));
+  await page.reload(); await page.waitForTimeout(400);
+  check('and a mode chosen after that migration survives a reload',
+        await page.evaluate(() => window.HubSettings.get('round_default','jeopardy')) === 'off');
+
+  /* The row a teacher sees must be the same row it always was — this is meant to be
+     invisible to them. It is built from the round's own `modes` now, so what is
+     asserted is that the round declares all four and that the row still sits with
+     the other phone switches rather than under Questions with the shaped rounds. */
+  const row = await page.evaluate(() => {
+    const S = window.HubSettings;
+    return { values: S.variantsFor('round_default','jeopardy').map(v => v.value),
+             mill:   S.variantsFor('round_default','millionaire').map(v => v.value) };
+  });
+  check('the default round offers the four phone dynamics',
+        ['off','buzz','write','type'].every(v => row.values.indexOf(v) !== -1),
+        JSON.stringify(row.values));
+  check('and Millionaire is still refused the typing race, as before',
+        row.mill.indexOf('type') === -1, JSON.stringify(row.mill));
 
   await page.evaluate(() => localStorage.removeItem('engishism.gamehub.settings'));
   checkClean(page);
@@ -2700,17 +2746,17 @@ async function testLabDrawer(browser){
 
   /* Changing it here is an override for this game, not a change to every game —
      otherwise trying an idea mid-round quietly rewrites the other three. */
-  const before = await page.evaluate(() => window.HubSettings.get('phoneMode'));
-  const modeSel = page.locator('#lab-body [data-setting="phoneMode"]');
+  const before = await page.evaluate(() => window.HubSettings.get('round_default'));
+  const modeSel = page.locator('#lab-body [data-setting="round_default"]');
   check('the phone dynamic is one picker, not a row of switches',
         await modeSel.count() === 1 && await modeSel.evaluate(e => e.tagName) === 'SELECT',
         String(await modeSel.count()));
   await modeSel.selectOption('write'); await page.waitForTimeout(200);
   check('a change in the lab is scoped to this game',
-        await page.evaluate(() => window.HubSettings.get('phoneMode','race')) === 'write');
+        await page.evaluate(() => window.HubSettings.get('round_default','race')) === 'write');
   check('and leaves every other game alone',
-        await page.evaluate(() => window.HubSettings.get('phoneMode')) === before,
-        String(await page.evaluate(() => window.HubSettings.get('phoneMode'))));
+        await page.evaluate(() => window.HubSettings.get('round_default')) === before,
+        String(await page.evaluate(() => window.HubSettings.get('round_default'))));
 
   /* A drawer you cannot see past is a drawer you cannot use mid-round: the header
      holds New game, the timer and ⚙, the team bar holds the ± score buttons, and
@@ -2800,7 +2846,7 @@ async function testLabDrawer(browser){
         await page.locator(bodySel + ':not(.closed)').count() === openBodies);
   await page.keyboard.press('Escape');
 
-  await page.evaluate(() => window.HubSettings.clearOverride('phoneMode','race'));
+  await page.evaluate(() => window.HubSettings.clearOverride('round_default','race'));
   checkClean(page);
   await page.close();
 }
@@ -2968,7 +3014,7 @@ async function testBuzzers(browser){
   // 'buzzers' is the infrastructure switch; phoneMode is what the phones are asked
   // to *do*, and it decides in every game now — Race no longer buzzes by default
   await host.evaluate(() => { window.HubSettings.set('buzzers', true);
-                              window.HubSettings.set('phoneMode', 'buzz', 'race'); });
+                              window.HubSettings.set('round_default', 'buzz', 'race'); });
   await startGame(host, 'Race to the Board', { sections: 1 });
   await host.waitForTimeout(700);
 
@@ -3042,7 +3088,7 @@ async function testBuzzers(browser){
      case, it is what a dropped connection does. Driven here through a settings
      change, which reaches the same path deliberately: changing a dynamic in the Lab
      mid-question must not take the floor off whoever is standing on it either. */
-  await host.evaluate(() => window.HubSettings.set('phoneMode', 'buzz', 'race'));
+  await host.evaluate(() => window.HubSettings.set('round_default', 'buzz', 'race'));
   await host.waitForTimeout(700);
   check('re-asking the room does not throw away a live buzz',
         (await host.locator('#phone-bar').innerText()).includes('Alina'),
@@ -3086,7 +3132,7 @@ async function testPhoneModes(browser){
   };
 
   // ---- typing: the whole class answers, not one student
-  const w = await openRoom('Jeopardy', { __g:'jeopardy', phoneMode:'write', phoneOneEach:true });
+  const w = await openRoom('Jeopardy', { __g:'jeopardy', round_default:'write', phoneOneEach:true });
   check('a room opens for a game that wants phones', !!w.code, w.code || 'none');
   if (w.code){
     const ana = await join(w.code, 'Ana', 0), ben = await join(w.code, 'Ben', 1);
@@ -3115,16 +3161,33 @@ async function testPhoneModes(browser){
      with the phones set to do *nothing* during a question, which is both the
      hardest case (the room has to exist before anyone asks for it) and the one a
      teacher who has not touched the settings actually gets. */
-  const v = await openRoom('Millionaire', { __g:'millionaire', phoneMode:'off' });
+  const v = await openRoom('Millionaire', { __g:'millionaire', round_default:'off' });
   check('a room opens for Ask the class even with the phones idle', !!v.code, v.code || 'none');
   if (v.code){
-    check('and the chip says the phones are for voting, not that they are useless',
-          /votes only/i.test(await v.host.locator('#buzzer-chip').innerText()),
-          (await v.host.locator('#buzzer-chip').innerText()).replace(/\n/g,' '));
+    /* **The default round says `off` and the phones are busy anyway, which is
+       correct.** Millionaire draws every question through the multiple choice round
+       now, so the round owns the handsets and the default round never gets a look
+       in — `off` describes what an *ordinary* question does, and there are none
+       here. That is the whole point of a round, and it is why the two checks that
+       used to live here (a chip reading "votes only", a phone idle until the
+       lifeline) were asserting a Millionaire that no longer exists. They failed for
+       two builds without being noticed, because `phonemodes` was not in the set run
+       when the ladder became a round. */
     const ana = await join(v.code, 'Ana', 0), ben = await join(v.code, 'Ben', 1);
     await v.host.waitForTimeout(400);
-    check('the phone is idle until the lifeline is used',
-          !(await ana.locator('#opts').isVisible()) && await ana.locator('#buzzer').isDisabled());
+    check('the round arms the phones itself, whatever the default round is set to',
+          await ana.locator('#opts button').count() === 4,
+          String(await ana.locator('#opts button').count()));
+    /* And the lifeline has to be reachable, which is the bug this rewrite found.
+       It disables itself when there is no room to reveal counts from, and
+       Millionaire deals its first question inside `start()` — before the room's code
+       has come back. Nothing repainted it when the room arrived, so Ask the class
+       sat greyed out saying there were no phones, over a room the class had joined.
+       Blockbusters' vote button had been fixed for exactly this a session earlier,
+       one line above in the same handler. */
+    check('and Ask the class is reachable once the room is up',
+          !(await v.host.locator('.lifeline[data-life="class"]').isDisabled()),
+          await v.host.locator('.lifeline[data-life="class"]').getAttribute('title'));
     await v.host.locator('.lifeline[data-life="class"]').click(); await v.host.waitForTimeout(700);
     check('the phone offers the four options', await ana.locator('#opts button').count() === 4);
     await ana.locator('#opts button').first().click(); await v.host.waitForTimeout(300);
@@ -3159,7 +3222,7 @@ async function testPhoneModes(browser){
   /* The borrowing has to end as explicitly as it starts. A class set to buzz for
      the floor must get its buzzer back when the vote closes — otherwise using a
      lifeline silently costs the room its dynamic for the rest of the question. */
-  const vb = await openRoom('Millionaire', { __g:'millionaire', phoneMode:'buzz' });
+  const vb = await openRoom('Millionaire', { __g:'millionaire', round_default:'buzz' });
   if (vb.code){
     const ana = await join(vb.code, 'Ana', 0);
     await vb.host.waitForTimeout(500);
@@ -3186,7 +3249,7 @@ async function testPhoneModes(browser){
   await vb.host.close();
 
   // ---- buzzing for the floor in a tile game
-  const bz = await openRoom('Jeopardy', { __g:'jeopardy', phoneMode:'buzz' });
+  const bz = await openRoom('Jeopardy', { __g:'jeopardy', round_default:'buzz' });
   if (bz.code){
     const ben = await join(bz.code, 'Ben', 1);
     await bz.host.waitForTimeout(400);
@@ -3210,7 +3273,7 @@ async function testPhoneModes(browser){
 
   // speaker: the buzz names who answers for the team already on turn, and a phone
   // from the other team cannot take the turn off them
-  const sp = await openRoom('Millionaire', { __g:'millionaire', phoneMode:'buzz', mBuzzRole:'speaker' });
+  const sp = await openRoom('Millionaire', { __g:'millionaire', round_default:'buzz', mBuzzRole:'speaker' });
   if (sp.code){
     const before = await mTurn(sp.host);
     const other  = await join(sp.code, 'Bea', before === 0 ? 1 : 0);
@@ -3235,7 +3298,7 @@ async function testPhoneModes(browser){
   await sp.host.close();
 
   // floor: whoever buzzes first takes the question, on their own ladder
-  const fl = await openRoom('Millionaire', { __g:'millionaire', phoneMode:'buzz', mBuzzRole:'floor' });
+  const fl = await openRoom('Millionaire', { __g:'millionaire', round_default:'buzz', mBuzzRole:'floor' });
   if (fl.code){
     const before = await mTurn(fl.host);
     const want   = before === 0 ? 1 : 0;
@@ -3251,7 +3314,7 @@ async function testPhoneModes(browser){
   await fl.host.close();
 
   // off: the buzz is shown and changes nothing — what it did before the setting
-  const bo = await openRoom('Millionaire', { __g:'millionaire', phoneMode:'buzz', mBuzzRole:'off' });
+  const bo = await openRoom('Millionaire', { __g:'millionaire', round_default:'buzz', mBuzzRole:'off' });
   if (bo.code){
     const before = await mTurn(bo.host);
     const bea    = await join(bo.code, 'Bea', before === 0 ? 1 : 0);
@@ -3269,7 +3332,7 @@ async function testPhoneModes(browser){
   /* ---- Race timed rounds ask the phones too ----
      This was `if(raceMode==='h2h')`, so half of Race ignored phoneMode entirely and
      the phones sat idle whatever the teacher had picked. */
-  const rt = await openRoom('Race to the Board', { __g:'race', phoneMode:'buzz' },
+  const rt = await openRoom('Race to the Board', { __g:'race', round_default:'buzz' },
                             { raceMode:'timed' });
   if (rt.code){
     /* Prove the mode took before asserting anything about it. Head-to-head's status
@@ -3292,7 +3355,7 @@ async function testPhoneModes(browser){
   /* The join lobby: a QR that carries the code, so a class scans in rather than
      typing a 5-digit code and a URL. The encoder is vendored, so this also proves
      hub-qr.js is actually being loaded by the shells. */
-  const q = await openRoom('Jeopardy', { __g:'jeopardy', phoneMode:'write' });
+  const q = await openRoom('Jeopardy', { __g:'jeopardy', round_default:'write' });
   if (q.code){
     check('the QR encoder is loaded, not fetched',
           await q.host.evaluate(() => typeof window.qrcode) === 'function');
@@ -3324,7 +3387,7 @@ async function testPhoneModes(browser){
   /* Race armed a buzzer directly instead of going through askPhones, so picking
      "everyone types" for Race silently kept handing the room a buzzer — the mode
      had no effect on the one game phones were actually used in. */
-  const rw = await openRoom('Race to the Board', { __g:'race', phoneMode:'write' });
+  const rw = await openRoom('Race to the Board', { __g:'race', round_default:'write' });
   if (rw.code){
     const ana = await join(rw.code, 'Ana', 0), ben = await join(rw.code, 'Ben', 1);
     await rw.host.locator('#race-start').click(); await rw.host.waitForTimeout(900);
@@ -3351,7 +3414,7 @@ async function testPhoneModes(browser){
   /* Millionaire deals its first question inside start(), and opening the room is a
      fetch — so that question was asked before there were any phones to ask, and
      never reached them. It also never called askPhones at all. */
-  const mw = await openRoom('Millionaire', { __g:'millionaire', phoneMode:'write' });
+  const mw = await openRoom('Millionaire', { __g:'millionaire', round_default:'write' });
   if (mw.code){
     const ana = await join(mw.code, 'Ana', 0);
     await mw.host.waitForTimeout(700);
@@ -3371,7 +3434,7 @@ async function testPhoneModes(browser){
 
   /* Students trickle in. One who joins mid-question has to arrive into that
      question rather than watch a blank screen until the next one. */
-  const late = await openRoom('Jeopardy', { __g:'jeopardy', phoneMode:'write' });
+  const late = await openRoom('Jeopardy', { __g:'jeopardy', round_default:'write' });
   if (late.code){
     await late.host.locator('#board .tile').first().click(); await late.host.waitForTimeout(800);
     const cara = await join(late.code, 'Cara', 0);
@@ -3394,7 +3457,7 @@ async function testPhoneModes(browser){
      created — so changing games minted a new code and thirty students had to
      rejoin, rescan and retype their names mid-lesson. A lesson is two or three
      games; the room has to outlive all of them. */
-  const lesson = await openRoom('Jeopardy', { __g:'jeopardy', phoneMode:'buzz' });
+  const lesson = await openRoom('Jeopardy', { __g:'jeopardy', round_default:'buzz' });
   if (lesson.code){
     const dee = await join(lesson.code, 'Dee', 0);
     await lesson.host.waitForTimeout(400);
@@ -3403,7 +3466,7 @@ async function testPhoneModes(browser){
     check('leaving a game does not throw the class out',
           await dee.locator('#screen-play').isVisible());
 
-    await lesson.host.evaluate(() => window.HubSettings.set('phoneMode','buzz','race'));
+    await lesson.host.evaluate(() => window.HubSettings.set('round_default','buzz','race'));
     await startGame(lesson.host, 'Race to the Board', { sections:'all' });
     await lesson.host.waitForTimeout(900);
     const after = (await lesson.host.locator('#buzzer-chip').innerText().catch(()=>''));
@@ -3452,7 +3515,7 @@ async function testPhoneModes(browser){
        something looks wrong — minting a new code there would throw the class out
        for the one reason they would never guess. */
     await lesson.host.reload(); await lesson.host.waitForTimeout(500);
-    await lesson.host.evaluate(() => window.HubSettings.set('phoneMode','buzz','race'));
+    await lesson.host.evaluate(() => window.HubSettings.set('round_default','buzz','race'));
     await startGame(lesson.host, 'Race to the Board', { sections:'all' });
     await lesson.host.waitForTimeout(900);
     const reloaded = await lesson.host.locator('#buzzer-chip').innerText().catch(()=>'');
@@ -3510,7 +3573,7 @@ async function testTypeToBuzz(browser){
   await host.evaluate(() => {
     window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
     window.HubSettings.set('buzzers', true);
-    window.HubSettings.set('phoneMode','type','race');
+    window.HubSettings.set('round_default','type','race');
     window.HubSettings.set('typeCooldown', 2, 'race');
   });
   await startGame(host, 'Race to the Board', { sections:'all' });
@@ -3669,8 +3732,8 @@ async function testAnswerJudging(browser){
   /* Where the dynamic is offered is a judgement, and it is declared rather than
      discovered — the same call as never giving Millionaire an anagram. */
   const where = await page.evaluate(() => ({
-    race: window.HubSettings.variantsFor('phoneMode','race').map(v=>v.value),
-    mill: window.HubSettings.variantsFor('phoneMode','millionaire').map(v=>v.value)
+    race: window.HubSettings.variantsFor('round_default','race').map(v=>v.value),
+    mill: window.HubSettings.variantsFor('round_default','millionaire').map(v=>v.value)
   }));
   check('typing to buzz is offered where the board hides the word',
         where.race.indexOf('type') !== -1, where.race.join(','));
@@ -3715,7 +3778,7 @@ async function testTeamVote(browser){
   await host.evaluate(() => {
     window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
     window.HubSettings.set('buzzers', true);
-    window.HubSettings.set('phoneMode','off','blockbusters');
+    window.HubSettings.set('round_default','off','blockbusters');
   });
   await startGame(host, 'Blockbusters', { sections:'all' });
   await host.waitForTimeout(900);
@@ -3807,7 +3870,7 @@ async function testTeamVote(browser){
     window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
     window.HubSettings.set('buzzers', true);
     window.HubSettings.set('bbTeamVote', false, 'blockbusters');
-    window.HubSettings.set('phoneMode','off','blockbusters');
+    window.HubSettings.set('round_default','off','blockbusters');
   });
   await startGame(off, 'Blockbusters', { sections:'all' });
   await off.waitForTimeout(900);
@@ -3846,7 +3909,7 @@ async function testDegradation(browser){
   // relay pointed somewhere dead — the game must still be playable
   const dead = await openHub(browser);
   await dead.evaluate(() => { window.HubSettings.set('buzzers', true);
-                              window.HubSettings.set('phoneMode', 'buzz', 'race');
+                              window.HubSettings.set('round_default', 'buzz', 'race');
                               window.HubSettings.set('buzzerRelay', 'http://127.0.0.1:9'); });
   await startGame(dead, 'Race to the Board', { sections: 1 });
   await dead.waitForTimeout(700);
@@ -4049,7 +4112,7 @@ async function testPhoneBingo(browser){
      card. A mode is a choice between iterations; a game that *is* the phone
      dynamic is not one of the choices, so Bingo owns the round while the cards are
      in their hands. */
-  await page.evaluate(() => window.HubSettings.set('phoneMode', 'buzz', 'bingo'));
+  await page.evaluate(() => window.HubSettings.set('round_default', 'buzz', 'bingo'));
   await page.waitForTimeout(600);
   if (await page.locator('#bingo-start').isVisible()){
     await page.locator('#bingo-start').click(); await page.waitForTimeout(700);
@@ -4073,7 +4136,7 @@ async function testPhoneBingo(browser){
   /* With the cards on the board the mode matters again, and buzz means buzz. */
   await page.evaluate(() => {
     window.HubSettings.set('bingoCards', 'board', 'bingo');
-    window.HubSettings.set('phoneMode', 'buzz', 'bingo');
+    window.HubSettings.set('round_default', 'buzz', 'bingo');
   });
   await page.waitForTimeout(400);
   await startGame(page, 'Bingo', { sections:'all', fresh:false }).catch(()=>{});
@@ -6333,7 +6396,7 @@ async function testAnagramRound(browser){
   check('the board opens a room for it', !!code,
         await live.locator('#buzzer-chip').innerText().catch(()=>'—'));
   if(code){
-    await live.evaluate(() => window.HubSettings.set('phoneMode','buzz'));
+    await live.evaluate(() => window.HubSettings.set('round_default','buzz'));
     const ph = await browser.newPage({ viewport:{ width:390, height:844 }, hasTouch:true });
     ph.__errors = []; ph.on('pageerror', e => ph.__errors.push(String(e)));
     await ph.goto(BASE + '/join.html?code=' + code + '&name=Ana&team=0&auto=1');
@@ -6794,7 +6857,7 @@ async function testPhoneBench(browser){
     const w = document.getElementById('stage-frame').contentWindow;
     w.HubSettings.set('intro','off');
     w.HubSettings.set('buzzers', true);
-    w.HubSettings.set('phoneMode','buzz','jeopardy');
+    w.HubSettings.set('round_default','buzz','jeopardy');
   });
   const boxes = hubFrame.locator('#content-list input');
   const n = await boxes.count();
@@ -6844,7 +6907,7 @@ async function testAnswerClock(browser){
         preset.classicSteal === true && preset.hubSteal === false, JSON.stringify(preset));
 
   await host.evaluate(() => {
-    window.HubSettings.set('phoneMode','buzz','jeopardy');
+    window.HubSettings.set('round_default','buzz','jeopardy');
     window.HubSettings.set('jAnswerSeconds', 5, 'jeopardy');
   });
   await startGame(host, 'Jeopardy', { sections: 3 });
@@ -6921,7 +6984,7 @@ async function testJeopardyClassic(browser){
     const S = window.HubSettings, out = {};
     ['hub','classic','together'].forEach(m => {
       S.set('jRules', m, 'jeopardy');
-      out[m] = S.get('phoneMode', 'jeopardy');
+      out[m] = S.get('round_default', 'jeopardy');
     });
     return out;
   });
@@ -6933,7 +6996,7 @@ async function testJeopardyClassic(browser){
   const shown = await page.evaluate(() => {
     const host = document.createElement('div');
     window.HubSettings.renderFor(host, 'jeopardy');
-    const el = host.querySelector('[data-setting="phoneMode"]');
+    const el = host.querySelector('[data-setting="round_default"]');
     return el ? (el.value || '') : 'no row';
   });
   check('and the row in the panel shows what the mode chose', shown === 'write', shown);
@@ -7119,7 +7182,7 @@ async function testJeopardyClassic(browser){
   check('every team writes the final, whatever the mode says',
         !!finalRound && finalRound.mode === 'write', JSON.stringify(finalRound));
   check('and the mode itself is still buzz, so it is the beat that differs',
-        (await fin.evaluate(() => window.HubSettings.get('phoneMode','jeopardy'))) === 'buzz');
+        (await fin.evaluate(() => window.HubSettings.get('round_default','jeopardy'))) === 'buzz');
 
   await fin.locator('#reveal-btn').click(); await fin.waitForTimeout(400);
   /* Settled lowest score first, as the show does it — so the team that was behind
@@ -7167,7 +7230,7 @@ async function testJoinAlwaysThere(browser){
     await page.evaluate(() => {
       const S = window.HubSettings;
       S.set('intro','off'); S.set('sound',false); S.set('buzzers',true);
-      S.set('phoneMode','off');            // the default: nothing during a question
+      S.set('round_default','off');            // the default: nothing during a question
     });
     await page.reload(); await page.waitForTimeout(400);
     await startGame(page, game, { sections });

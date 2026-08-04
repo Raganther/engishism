@@ -217,6 +217,17 @@
     },
     get(id){ return ROUNDS[String(id)] || null; },
     ids(){ return Object.keys(ROUNDS); },
+    /* The rounds you can write a question for. `ids()` is every round the engine
+       knows, which is what the settings panel wants — it needs a row for the default
+       round too. A workshop wants something narrower: the default round wraps an
+       ordinary question, so it has no card to draw and no fields to edit, and
+       listing it would offer an author a blank page.
+
+       Declared by the round (`internal`) rather than filtered by name here, so the
+       next round of its kind needs no change to this file — and two callers, the
+       question bench and `dev.html`, which is what makes it a shelf rather than a
+       guess at an API. */
+    authored(){ return Object.keys(ROUNDS).filter(id => !ROUNDS[id].internal); },
     /* Whatever round an item wants, asked what is wrong with it. `[]` for an item no
        round claims, because that is an ordinary question rather than a broken one. */
     checkItem(item){

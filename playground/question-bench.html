@@ -266,6 +266,7 @@
 <script>window.IN_THE_KIT = window.HubKit.prompt.types();</script>
 <script src="lab-forms.js?v=20260802a"></script>
 <script src="../game-hub/hub-rounds.js?v=20260802a"></script>
+<script src="../game-hub/rounds/default.js?v=20260802a"></script>
 <script src="../game-hub/rounds/grouping.js?v=20260802a"></script>
 <script src="../game-hub/rounds/ordering.js?v=20260802a"></script>
 <script src="../game-hub/rounds/choice.js?v=20260802a"></script>
@@ -328,7 +329,7 @@ const keyForm  = t  => FKEY + t;
 /* The round in hand, asked of the registry by its real name. Everything that used
    to say `roundDef()` says this, so the namespacing lives in one place. */
 function roundDef(){ return isRound(type) ? Kit.round.get(nameOf(type)) : null; }
-type = keyRound(Kit.round.ids()[0] || '');
+type = keyRound(Kit.round.authored()[0] || '');
 /* A value stored before the menu was namespaced, or one that no longer exists. A
    value naming something nothing can look up is worse than a wrong one — nothing
    matches it, so the card goes blank while the menu still claims a type is
@@ -387,7 +388,7 @@ function renderTypePick(){
     sel.appendChild(g);
   };
   group('Rounds — the class plays these',
-        Kit.round.ids().map(id => ({ value:keyRound(id), label:(Kit.round.get(id).label || id) })));
+        Kit.round.authored().map(id => ({ value:keyRound(id), label:(Kit.round.get(id).label || id) })));
   const forms = Kit.prompt.types();
   group('Question forms — in the kit, live in every game',
         forms.filter(inKit).map(t => ({ value:keyForm(t), label:t })));

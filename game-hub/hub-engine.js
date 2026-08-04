@@ -556,24 +556,10 @@
      choosing between a class that can buzz and a class that can vote, when the
      Millionaire round wants both at different moments. So the mode is what the
      phones do *for a question*, and the lifeline borrows the room. */
-  S.register({ id:'phoneMode', group:'Phones', type:'variant', default:'off',
-    games:'*',
-    label:'What the phones do',
-    help:'Pick one dynamic to try. Switch between them between rounds and see which your class learns more from.',
-    variants:[
-      {value:'off',   label:'Nothing — phones idle'},
-      {value:'buzz',  label:'Buzz for the floor — fastest thumb wins'},
-      {value:'write', label:'Everyone types — no race, you see every answer'},
-      /* Not offered in Millionaire for the same reason it never gets an anagram:
-         the four options hand you the word, so typing it is a typing race rather
-         than a language one. Bingo is offered it — a typed word marks that team's
-         square through `onTypedWin`, exactly as it claims a tile elsewhere — and was
-         missing only because this list was written before Bingo existed. Found by
-         running the new-game skill's own review against it, which is the point of
-         having the review. */
-      {value:'type',  label:'Type it, then buzz — a race to produce the word',
-       games:['jeopardy','blockbusters','race','bingo']}
-    ] });
+  /* `phoneMode` used to be registered here, by hand, with its four values written
+     out. It is `round_default` now and the row is built from what the default round
+     declares — same loop, same shape as `round_grouping`. See `rounds/default.js`
+     and the registration block below. */
 
   /* Two weights for the typing race, both here rather than in the source because
      the right numbers are a classroom question. A wrong answer costs *time*, never
@@ -598,43 +584,10 @@
     label:'Show the question on the phones',
     help:'The back of the room reads its own screen. Off keeps their eyes on the board.' });
 
-  /* The three booleans that became `phoneMode` are still sitting in anyone's
-     localStorage, including per-game overrides they set deliberately — so
-     translate rather than let them be silently ignored. Precedence is the one
-     the old code actually used at question time (write beat buzz). `phoneVote`
-     translates to nothing at all now: voting is no longer something to switch on,
-     so a teacher who had only that switched on wants the default, and gets class
-     voting anyway. Dropping the old keys is what makes this run once. */
-  (function migratePhoneModes(){
-    const suffixes = [''].concat(gameIds().map(g => '@' + g));
-    const dead = [];
-    suffixes.forEach(sfx => {
-      const pick = S.raw('phoneWrite'+sfx) ? 'write'
-                 : S.raw('phoneBuzzGames'+sfx) ? 'buzz' : null;
-      /* An old key still being here *is* the signal that nothing has chosen a
-         mode yet — the drop below removes them the first time this build loads,
-         which is before anyone can have picked one. Asking whether `phoneMode`
-         is unset instead would never fire on the master value, because
-         register() seeds every master with its default. */
-      if(pick) S.set('phoneMode', pick, sfx ? sfx.slice(1) : null);
-      ['phoneWrite','phoneBuzzGames','phoneVote'].forEach(id => dead.push(id + sfx));
-    });
-    S.drop(dead);
-  })();
-
-  /* `vote` was a phoneMode for one build, so it is sitting in real localStorage —
-     as a master value and as a Millionaire override. A value naming a variant that
-     no longer exists is worse than a wrong one: nothing matches it, so the phones
-     go quiet with the panel still claiming a dynamic is running. It becomes `off`,
-     which is what that teacher had in effect for everything except the lifeline —
-     and the lifeline now votes regardless. Unlike the block above there is no dead
-     key to drop, so the translation is its own guard: after it runs, nothing reads
-     `vote` and nothing can write it. */
-  (function migrateVoteMode(){
-    [''].concat(gameIds().map(g => '@' + g)).forEach(sfx => {
-      if(S.raw('phoneMode'+sfx) === 'vote') S.set('phoneMode', 'off', sfx ? sfx.slice(1) : null);
-    });
-  })();
+  /* The migrations that used to sit here — three booleans into `phoneMode`, and
+     the retired `vote` value — moved below the round-setting registration, because
+     both now write `round_default` and `S.set` cannot write an id that has not been
+     registered yet. Same trap `migrateRoundSettings` already carried a note about. */
 
   /* ---- competitive dynamics ----
      All per-game, so a teacher can run steal in Jeopardy and not in Blockbusters and
@@ -721,14 +674,24 @@
      drawn in the shared clue card and every board that opens one hosts the same
      code. A group is a game's own when everything in it names exactly one game, so
      naming two is what puts these where they belong without a list anywhere. */
+  /* A round may say how its own row should read. Every shaped round wants the same
+     thing — offered to the boards that can host one, filed under Questions — so
+     saying nothing gets that. The **default round** wants neither: it applies to all
+     five games, because every game has phones, and it belongs beside the other phone
+     switches where a teacher has always found it. Declared by the round rather than
+     branched on here, or this loop would grow an `if (id === 'default')` and the next
+     round like it would need a second one. */
   (Kit.round ? Kit.round.ids() : []).forEach(id => {
     const def = Kit.round.get(id);
     if(!def || !def.modes || !def.modes.length) return;
-    S.register({ id:'round_' + id, group:'Questions', type:'variant',
-      default: def.modes[0].value, games:ROUND_GAMES,
-      label:'How ' + (def.label || id) + ' is played',
+    const own = def.modeSetting || {};
+    S.register({ id:'round_' + id, type:'variant',
+      group: own.group || 'Questions',
+      default: def.modes[0].value,
+      games: own.games || ROUND_GAMES,
+      label: own.label || ('How ' + (def.label || id) + ' is played'),
       variants: def.modes.slice(),
-      help:'The same question played more than one way. These are different lessons rather than two speeds of the same one, so it is a teaching choice.' });
+      help: own.help || 'The same question played more than one way. These are different lessons rather than two speeds of the same one, so it is a teaching choice.' });
   });
 
   S.register({ id:'roundWho', group:'Questions', type:'variant', default:'room',
@@ -760,6 +723,51 @@
         if(had != null) S.set(now, had, sfx ? sfx.slice(1) : null);
         dead.push(old + sfx);
       });
+    });
+    S.drop(dead);
+  })();
+
+  /* `phoneMode` became `round_default` — the same value, read off a round instead of
+     a hand-written setting. Three generations of stored value have to survive it, and
+     they run in age order because a newer choice must win:
+
+       phoneWrite / phoneBuzzGames   three booleans, before modes existed
+       phoneMode: 'vote'             a value whose variant was deleted
+       phoneMode: off|buzz|write|type
+
+     **A per-game override is exactly what a teacher set deliberately**, so every one
+     is carried across rather than quietly ignored — which is why this walks the game
+     suffixes rather than translating the master alone.
+
+     Two traps, both already paid for once and restated because this is the third
+     migration to meet them. **The old key still being present is itself the signal
+     that nothing has chosen yet**: asking whether `round_default` is unset never
+     fires, because `register()` seeds every master with its default. And **`drop()`
+     is what makes this run once** — it happens on the first load of this build,
+     before anybody can have picked a new value, so a later choice cannot be
+     overwritten. */
+  (function migrateDefaultRound(){
+    const dead = [];
+    [''].concat(gameIds().map(g => '@' + g)).forEach(sfx => {
+      const at = sfx ? sfx.slice(1) : null;
+      /* Oldest first. Precedence between the two booleans is the one the old code
+         actually used at question time: write beat buzz. `phoneVote` translates to
+         nothing — voting stopped being a mode and happens whenever a room exists, so
+         a teacher who had only that switched on wants the default and gets the class
+         vote anyway. */
+      const pick = S.raw('phoneWrite'+sfx) ? 'write'
+                 : S.raw('phoneBuzzGames'+sfx) ? 'buzz' : null;
+      if(pick) S.set('round_default', pick, at);
+      ['phoneWrite','phoneBuzzGames','phoneVote'].forEach(id => dead.push(id + sfx));
+
+      /* Then the mode itself, so a stored one overwrites anything derived above.
+         `vote` names a variant that no longer exists, and a value nothing matches is
+         worse than a wrong one — the phones go quiet while the panel still claims a
+         dynamic is running. It becomes `off`, which is what that teacher had in
+         effect for everything except the lifeline. */
+      const had = S.raw('phoneMode'+sfx);
+      if(had != null) S.set('round_default', had === 'vote' ? 'off' : had, at);
+      dead.push('phoneMode' + sfx);
     });
     S.drop(dead);
   })();
@@ -2066,7 +2074,7 @@
   const J_PRESETS = {
     // the plain game: the teacher marks, the phones sit out
     hub:     { jDailyDoubles:0, jFinalRound:false, jDeduct:false,
-               jTogether:false, jHints:false, phoneMode:'off',
+               jTogether:false, jHints:false, round_default:'off',
                stealOnWrong:true, stealFullValue:false, keepControl:true, jAnswerSeconds:0 },
     // the show is a race for the floor, so that is what the handsets are for
     /* The show opens a missed clue to the other contestants and lets a correct
@@ -2079,7 +2087,7 @@
     /* The rebound pays in full, as the show plays it: whoever rings in after a miss
        earns what the clue was worth, not a consolation half. */
     classic: { jDailyDoubles:1, jFinalRound:true,  jDeduct:true,
-               jTogether:false, jHints:false, phoneMode:'buzz',
+               jTogether:false, jHints:false, round_default:'buzz',
                stealOnWrong:true, stealFullValue:true, keepControl:true, jAnswerSeconds:10 },
     /* Everything that sets one team against another is off here, and that is the
        whole mode: no hidden wager to find first, no steal, nothing deducted, no
@@ -2087,7 +2095,7 @@
        and everyone types, because a clue paying what the class produced is the
        cooperative mechanic rather than a race anybody can lose. */
     together:{ jDailyDoubles:0, jFinalRound:false, jDeduct:false,
-               jTogether:true,  jHints:true, phoneMode:'write',
+               jTogether:true,  jHints:true, round_default:'write',
                stealOnWrong:false, stealFullValue:false, keepControl:false, jAnswerSeconds:0 }
   };
   /* Hand the bundles to the panel: the picker gets its own "Ruleset" section at
@@ -5293,7 +5301,7 @@
        *how* idle: in Millionaire the phones still vote when Ask the class is used,
        so "idle here" would read as "don't bother joining" to a room that is about
        to be asked something. */
-    if(activeGame && S.get('phoneMode', activeGame) === 'off')
+    if(activeGame && defaultMode(activeGame) === 'off')
       add('buzz-idle', hook('roomNote') || (classVotes() ? 'votes only' : 'idle here'));
     add('buzz-scan', 'show QR');
     add('buzz-count', buzzPlayers + (buzzPlayers===1 ? ' phone' : ' phones'));
@@ -5399,7 +5407,7 @@
        room that had just been handed eight words, with the chip beside it saying the
        opposite. */
     const own  = hook('phoneRound');
-    const mode = own ? own.mode : S.get('phoneMode', activeGame);
+    const mode = own ? own.mode : defaultMode(activeGame);
     return mode === 'buzz'  ? 'Waiting for a buzz'
          : mode === 'type'  ? 'Waiting for someone to type it'
          : mode === 'write' ? 'Waiting for the class to answer'
@@ -5561,7 +5569,18 @@
                                   bingoDealHands();
                                   // the room arrives after the board is built, so the
                                   // button that needs one has to be painted here
-                                  renderBBVote(); });
+                                  renderBBVote();
+                                  /* Same trap, one game over, and it had been live
+                                     since Ask the class started reading the round's
+                                     counts: the lifeline disables itself when there
+                                     is no room to reveal anything from, and
+                                     Millionaire deals its first question inside
+                                     `start()` — before the code has come back. So a
+                                     lesson that opened on Millionaire found Ask the
+                                     class greyed out for the whole first question,
+                                     saying there were no phones in a room the class
+                                     had just joined. Nothing re-painted it. */
+                                  if(activeGame === 'millionaire') renderMillionaire(); });
       buzzHost.on('players', list=>{ buzzPlayers=list.length; renderBuzzChip(); renderJoinCount();
                                      // a student who joins mid-round gets a card
                                      bingoDealHands();
@@ -5612,7 +5631,7 @@
      rejoin. `syncBuzzRoom` opens, re-asks or parks as the new value requires —
      including opening one for Ask the class when the mode itself is off. */
   S.onChange(id=>{
-    if(id !== 'phoneMode' && id !== 'mLifelines' && id !== 'bbTeamVote') return;
+    if(id !== 'round_default' && id !== 'mLifelines' && id !== 'bbTeamVote') return;
     syncBuzzRoom();
     renderBBVote();
   });
@@ -5685,9 +5704,21 @@
      flicker even when nothing is wrong. */
   let lastAsk = null;
 
+  /* Which of the default round's four modes is chosen for this game. One name for
+     it, because it is read in eight places and every one of them used to spell out
+     a setting id that has now changed once. */
+  function defaultMode(game){ return S.get('round_default', game || activeGame); }
+
   /* What the room should be in right now: the game's own round if it has one, the
-     phone mode otherwise. One definition, so arming and re-asking cannot disagree —
-     they did, and a reconnect then replaced a bingo card with a buzzer. */
+     **default round** otherwise. One definition, so arming and re-asking cannot
+     disagree — they did, and a reconnect then replaced a bingo card with a buzzer.
+
+     **There is always a round now** (F3.8.16). This used to return the game's round
+     *or else* a bare mode read off `phoneMode`, and that `or else` was the last place
+     in the app where a question might not be a round. An ordinary question is handled
+     by `rounds/default.js`, whose four modes are the old `phoneMode` values, so what
+     comes back here is the same shape either way and every caller downstream stopped
+     needing to know which it got. */
   function phoneRoundNow(game, prompt){
     const own = hook('phoneRound');
     /* Everything after `options` is carried through rather than interpreted: what a
@@ -5699,16 +5730,24 @@
                      keepSpent: own.keepSpent !== false,
                      multi: own.multi, multiByTeam: own.multiByTeam,
                      holds: own.holds, rethink: own.rethink, team: own.team };
-    return { mode: S.get('phoneMode', game), prompt: prompt || '', options: [] };
+    /* `isDefault` is what `askPhones` reads instead of asking whether a game declared
+       a round. The four shared dynamics below it — buzz, type, write, idle — are hub
+       services rather than this round's private code: they carry the answer clock,
+       the cooldown, the one-answer-each rule and the reply strip, and a shaped round
+       arms the relay directly because by definition it wants none of them. */
+    return { mode: defaultMode(game), prompt: prompt || '', options: [], isDefault: true };
   }
 
   function askPhones(prompt, game){
     if(!buzzHost) return;
     const round = phoneRoundNow(game, prompt);
     lastAsk = { mode: round.mode, prompt: round.prompt };
-    /* A game driving its own round arms directly: the mode branches below are the
-       four shared dynamics, and a game's own is by definition not one of them. */
-    if(hook('phoneRound')){
+    /* A shaped round arms directly: the four dynamics below are hub services the
+       default round asks for by name, and a shaped round wants none of them. Asked
+       as "is this the default round" rather than "did the game declare one",
+       because those stopped being the same question — there is a round either
+       way now. */
+    if(!round.isDefault){
       /* `lastTyped` as well as `lastScored`: a new question retires *both* halves of
          the last one. The shared modes get this from `armBuzzers`, which clears it
          unless the arm is a reopen — a game driving its own round never goes through
@@ -5732,7 +5771,7 @@
     // the question only travels if the teacher wants it to — sometimes the point
     // is that they read the board, not their hand
     if(!S.get('phonePrompt', game)) prompt = '';
-    const mode = S.get('phoneMode', game);
+    const mode = round.mode;
     if(mode === 'write')     askClass(prompt, 'answer');
     else if(mode === 'buzz') armBuzzers(prompt);
     else if(mode === 'type') armBuzzers(prompt, { mode:'type' });
@@ -5817,14 +5856,14 @@
       { mode: typingRace() ? 'type' : 'buzz', answerSecs: answerSecs || undefined }, opts||{}));
     renderBuzzChip('armed');
   }
-  function typingRace(){ return !!activeGame && S.get('phoneMode', activeGame) === 'type'; }
+  function typingRace(){ return !!activeGame && defaultMode(activeGame) === 'type'; }
   /* The mode where the whole room answers rather than one phone taking the floor.
      Nobody wins the question, so nothing about the round should behave as if
      somebody had — the turn rotates instead of being kept. */
-  function everyoneAnswers(){ return !!activeGame && S.get('phoneMode', activeGame) === 'write'; }
+  function everyoneAnswers(){ return !!activeGame && defaultMode(activeGame) === 'write'; }
   // the modes where one phone takes the floor, as opposed to the whole room answering
   function phoneRaces(){
-    const m = activeGame ? S.get('phoneMode', activeGame) : 'off';
+    const m = activeGame ? defaultMode(activeGame) : 'off';
     return m === 'buzz' || m === 'type';
   }
   function resetBuzzers(){

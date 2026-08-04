@@ -131,17 +131,18 @@ NODE_PATH=$(npm root -g) node tools/smoke-test.js                 # everything, 
 
 <!-- Registries only. These are data-only registrations with no DOM of their own, so
      asking them what exists costs nothing and starts no game. -->
-<script src="game-hub/hub-kit.js?v=20260804b"></script>
+<script src="game-hub/hub-kit.js?v=20260804c"></script>
 <!-- Captured between the two script tags: which forms are in the shipped kit. The
      one moment a kit form and a lab-only one are distinguishable. -->
 <script>window.IN_THE_KIT = (window.HubKit && window.HubKit.prompt.types()) || [];</script>
-<script src="playground/lab-forms.js?v=20260804b"></script>
-<script src="game-hub/hub-rounds.js?v=20260804b"></script>
-<script src="game-hub/rounds/grouping.js?v=20260804b"></script>
-<script src="game-hub/rounds/ordering.js?v=20260804b"></script>
-<script src="game-hub/rounds/choice.js?v=20260804b"></script>
-<script src="game-hub/rounds/anagram.js?v=20260804b"></script>
-<script src="game-hub/rounds/scramble.js?v=20260804b"></script>
+<script src="playground/lab-forms.js?v=20260804c"></script>
+<script src="game-hub/hub-rounds.js?v=20260804c"></script>
+<script src="game-hub/rounds/default.js?v=20260804c"></script>
+<script src="game-hub/rounds/grouping.js?v=20260804c"></script>
+<script src="game-hub/rounds/ordering.js?v=20260804c"></script>
+<script src="game-hub/rounds/choice.js?v=20260804c"></script>
+<script src="game-hub/rounds/anagram.js?v=20260804c"></script>
+<script src="game-hub/rounds/scramble.js?v=20260804c"></script>
 <script>
 (function(){
   'use strict';
@@ -214,7 +215,7 @@ NODE_PATH=$(npm root -g) node tools/smoke-test.js                 # everything, 
      month appears here without this page being edited — the same move `hasBank()`,
      `Kit.round.fields()` and the layout suites all make. */
   (function(){
-    const rounds = (Kit && Kit.round ? Kit.round.ids() : []);
+    const rounds = (Kit && Kit.round ? Kit.round.authored() : []);
     $('round-links').innerHTML = rounds.length ? rounds.map(id => {
       const def = Kit.round.get(id) || {};
       const modes = (def.modes || []).length;
@@ -249,7 +250,7 @@ NODE_PATH=$(npm root -g) node tools/smoke-test.js                 # everything, 
   ]);
 
   $('foot').textContent =
-    'Kit ' + ((Kit && Kit.round ? Kit.round.ids().length : 0) + ' rounds, ' +
+    'Kit ' + ((Kit && Kit.round ? Kit.round.authored().length : 0) + ' rounds, ' +
               (Kit && Kit.prompt ? Kit.prompt.types().length : 0) + ' forms') +
     ' · this page reads the registries, so it never needs updating when one is added.';
 })();
