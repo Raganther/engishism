@@ -27,14 +27,14 @@ usually that.
 ### 1. It is configuration, not the game
 
 **By far the most common.** Three reports in a row turned out to be this. A game
-looked broken when it was only set up differently — a per-game `phoneMode` override,
+looked broken when it was only set up differently — a per-game `round_default` override,
 or a setting registered with a hard-coded list of games so the newest game silently
 missed out.
 
 Check first:
 
 ```js
-window.HubSettings.get('phoneMode', '<gameid>')   // per-game overrides beat the master
+window.HubSettings.get('round_default', '<gameid>')  // per-game overrides beat the master
 window.HubGames.ids()                              // is the game even registered?
 ```
 
@@ -43,7 +43,7 @@ That is the single most repeated bug here.
 
 ### 2. Two things arming the same handset
 
-A `phoneMode` and a game's own dynamic both trying to own the phone. The tell is that
+The default round and a game's own round both trying to own the phone. The tell is that
 it looks correct *at first* and changes a moment later — the game arms, then a
 reconnect re-asks using the mode and replaces it.
 
@@ -123,7 +123,7 @@ a plain-http relay, which is why the relay serves the site at all.
 Useful probes from the host page:
 
 ```js
-window.HubSettings.get('phoneMode', '<gameid>')
+window.HubSettings.get('round_default', '<gameid>')
 document.getElementById('buzzer-chip').textContent
 document.getElementById('phone-bar').textContent
 ```

@@ -14,7 +14,7 @@ description: Add a game mode or ruleset to the Engishism Game Hub — a named bu
 | **Phone mode** | off · buzz · write · type | one ordinary question | neither — it is a registered variant |
 
 They nest rather than compete: a ruleset **writes** the other two, so `classic` setting
-`phoneMode: buzz` is the mechanism working, not a conflict. The settings panel already
+`round_default: buzz` is the mechanism working, not a conflict. The settings panel already
 labels this one **Rules** (`jRules`), and that is the word to prefer in anything a
 teacher reads.
 
@@ -107,10 +107,12 @@ The guard flag stops the writes re-entering the handler.
 
 ## 4. If the mode changes what the phones do
 
-`phoneMode` says what a phone does during a question. If your mode *is* the phone
-dynamic — every student holding a card, a wager only they can see — declare
-`phoneRound()` on the game instead of adding a `phoneMode` value. Returning a round
-means the mode gets no say; returning `null` means it decides.
+`round_default` says what a phone does on an **ordinary** question — it is the default
+round's own mode picker, registered from what that round declares (F3.8.16). If your
+mode *is* the phone dynamic — every student holding a card, a wager only they can see —
+declare `phoneRound()` on the game instead of adding a value to it. Returning a round
+means the default round gets no say; returning `null` means the default round handles
+it. There is always a round now, so `null` no longer means "no round here".
 
 Two dynamics arming the same handset is invisible until a reconnect re-asks and
 replaces one with the other, which is how it was found.
@@ -125,7 +127,7 @@ holds a card is worse than saying nothing.
 three times.** Nothing forces you to do it — there is no mechanism, only this list.
 
 A ruleset never overrides a round directly: it writes settings, and `phoneRound()`
-returning non-null means the round owns the handsets whatever `phoneMode` says. The
+returning non-null means the round owns the handsets whatever `round_default` says. The
 contradictions come from somewhere else — **a skin rule that assumes something a round
 breaks.** Most game-show rules quietly assume *one team held the floor, and the teacher
 judges the answer*. A round has neither: the whole room plays at once and the round

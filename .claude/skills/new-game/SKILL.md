@@ -114,7 +114,7 @@ onTypedWin(b)    // typed and correct: score it, return the points (null = it di
 wantsVote()      // does this game ever ask the room something
 onVoteReply(all) // where the counts get painted
 roomNote()       // what the chip says when the game wants a room without a mode
-phoneRound()     // the game drives the phones itself; null = phoneMode decides
+phoneRound()     // the game drives the phones itself; null = the default round
 ```
 
 **Refusing a buzz is not ignoring one.** The relay locks the room on the *first*
@@ -127,7 +127,7 @@ strip without knowing what scoring means on your board — a tile, a hexagon, a 
 a bingo square.
 
 **`phoneRound()` is for a game that *is* the phone dynamic** (Bingo's cards,
-Jeopardy's grouping clue). If you return a round, `phoneMode` gets no say — otherwise
+Jeopardy's grouping clue). If you return a round, the default round gets no say — otherwise
 the mode and your dynamic arm the same handset and fight, which is invisible until a
 reconnect re-asks and replaces one with the other.
 
@@ -204,7 +204,10 @@ changes.
 ## 8. Ship it
 
 ```bash
-sed -i 's/?v=[0-9a-z]*/?v=YYYYMMDDx/g' game-hub.html game-hub-unit4.html game-hub-unit5.html join.html
+# Find the pages, never list them — a hand-kept list here missed the four playground
+# pages for two days. The 20YYMMDD shape is load-bearing: classic.html carries
+# ?v=picture and ?v=unit1, which are content selectors, and a looser pattern breaks it.
+sed -i "s/?v=20[0-9]\{6\}[a-z]*/?v=$(date +%Y%m%d)a/g" $(grep -rl '?v=20[0-9]\{6\}' --include=*.html . | grep -v node_modules)
 ```
 
 **Bump the stamp or the fix looks like it never shipped** — browsers keep serving
