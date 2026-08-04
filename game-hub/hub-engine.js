@@ -120,7 +120,17 @@
          two dynamics fighting. A game returning `{mode, prompt, options}` here owns
          the round; `null` means the mode decides, which is what four of the five
          games always want. */
-      phoneRound:   function(){ return null; }
+      phoneRound:   function(){ return null; },
+      /* **How this game's bank item becomes a round**, when the round is derived
+         rather than authored. Millionaire's items carry `{answer, distractors}` and
+         no `choice:` field, so `Kit.round.of()` cannot see a round in the data — the
+         game builds one when the question opens. Declared here, that same knowledge
+         is available to anything else that needs to ask, and the content screen was
+         the first: without it a ladder of rounds read as "Question".
+
+         Identity by default, so a game whose bank carries its round fields outright
+         (Jeopardy, Blockbusters) declares nothing. */
+      asRound:      function(item){ return item; }
     }, def);
     GAMES.push(g);
     GAME_BY_ID[g.id] = g;
@@ -357,6 +367,7 @@
        of it. Declaring `phoneRound` without `onVoteReply` is the failure that shipped
        on Blockbusters: the room arms correctly and every tap lands on the floor. */
     phoneRound(){ return jGroupRound(); },
+    asRound:     q => mAsRound(q),
     wantsVote:   () => jGroupLive() || !!S.get('mLifelines', 'millionaire'),
     roomNote:    () => jGroupLive() ? 'pick an answer' : null,
     onVoteReply(all){ if(jGroupLive()) jGroupOnReplies(all); },
@@ -2244,7 +2255,10 @@
     const seen = {};
     let plain = 0;
     (items || []).forEach(it => {
-      const hit = Kit.round.of(it);
+      /* Through the game's own normaliser first. A round can be *derived* rather
+         than authored — Millionaire's is — and asking the raw item then reports a
+         whole ladder of rounds as ordinary questions. */
+      const hit = Kit.round.of(hook('asRound', it) || it);
       if(hit) seen[hit.id] = (seen[hit.id] || 0) + 1; else plain++;
     });
     const ids = Object.keys(seen);
@@ -4833,6 +4847,15 @@
      other option, or be thrown away entirely by a lifeline. */
   let mPicked  = null;
 
+  /* One definition of "this bank item, as a round". The deal uses it and so does the
+     content screen, through the `asRound` hook — two copies would be two things that
+     could disagree about what a question is. */
+  function mAsRound(q){
+    if(!q || !q.distractors) return q;
+    return { text:q.prompt, answer:q.answer, type:q.type,
+             choice:{ options:[q.answer, ...q.distractors], answer:q.answer } };
+  }
+
   function mTeamState(i){
     if(!mState[i]) mState[i] = { rung:0, used:new Set(), lifelines:{ fifty:true, class:true, confer:true } };
     return mState[i];
@@ -4884,8 +4907,7 @@
        the round has never learned that this bank calls a prompt `prompt`. Exactly
        the move `jShowClue` makes turning `q` into `text`, so all 52 authored items
        became rounds with no content edit at all. The round shuffles the options. */
-    currentClueItem = { text:q.prompt, answer:q.answer, type:q.type,
-                        choice:{ options:[q.answer, ...q.distractors], answer:q.answer } };
+    currentClueItem = mAsRound(q);
     const found = jGroupOf(currentClueItem, 'millionaire');
     jGroupEnd();
     if(found) jGroupOpen(found);

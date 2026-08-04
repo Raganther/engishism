@@ -1225,9 +1225,20 @@ async function testTopicPicking(browser){
           /^Round · Connections$/.test(await kindOf('Connections')), await kindOf('Connections'));
     check('and an ordinary category is labelled a question',
           /^Question$/.test(await kindOf('Gap Fill')), await kindOf('Gap Fill'));
+    /* A round can be **derived** rather than authored: Millionaire's items carry
+       `{answer, distractors}` and no round field at all, so the chip has to ask the
+       game how it reads its own bank (`asRound`). Without that a whole ladder of
+       rounds reported as ordinary questions, which is how it was found. */
+    // `#back-to-games` — `#new-game-btn` lives on the play screen and is not up yet
+    await p2.locator('#back-to-games').click(); await p2.waitForTimeout(220);
+    await p2.locator('h3:visible', { hasText:'Millionaire' }).first().click(); await p2.waitForTimeout(300);
+    const lm = await p2.evaluate(() => [...document.querySelectorAll('#content-list .cat-check')]
+      .map(r => (r.querySelector('.kind')||{}).textContent || '(none)'));
+    check('a derived round is labelled a round, not a question',
+          lm.length > 0 && lm.every(t => /^Round · /.test(t)), lm.join(' / '));
+
     /* Blockbusters' LB1 deliberately mixes twelve ordinary clues with six rounds, so
        it is the only place the third state appears. */
-    // `#back-to-games` — `#new-game-btn` lives on the play screen and is not up yet
     await p2.locator('#back-to-games').click(); await p2.waitForTimeout(220);
     await p2.locator('h3:visible', { hasText:'Blockbusters' }).first().click(); await p2.waitForTimeout(300);
     const bb = await p2.evaluate(() => [...document.querySelectorAll('#content-list .cat-check')]

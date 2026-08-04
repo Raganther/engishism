@@ -1135,6 +1135,13 @@ playground's point, that one board can host several:
   between them blind is choosing blind. Four states, in the question bench's own
   vocabulary: `Question` · `Round · Connections` · `Rounds · 5 types` ·
   `Mixed · 6 rounds`.
+  - **A round can be *derived* rather than authored, and that was missed first
+    time.** Millionaire's items carry `{answer, distractors}` and no round field at
+    all — the round is built when the question opens — so asking the raw item
+    reported a whole ladder of rounds as `Question`. The game declares how its bank
+    becomes a round (`asRound`, identity by default) and the chip asks through it.
+    One definition: Millionaire's own deal uses the same function, because two
+    copies would be two things that could disagree about what a question is.
   - **Derived from the items, never labelled on the category.** `contentKind()` asks
     `Kit.round.of()` what each item wants, exactly as the clue path and the content
     gate do. A category that *declared* it held rounds would be a second copy of a
