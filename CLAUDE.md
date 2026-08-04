@@ -1165,6 +1165,69 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Quickfire is the sixth game, and the first with no board at all.** A straight run
+  of ~15 multiple choice questions against a clock. No geometry, no turns, no tiles —
+  the only decisions in the room are made on the handsets.
+  - **It wrote no question handling.** The Multiple Choice round draws the card, arms
+    the phones, merges each team's taps and judges them. What is in the game is a
+    sequence, a clock and a scoreboard. Second caller for F3.8.9 (a round mounted
+    somewhere other than the clue card), which is what turns that from Millionaire's
+    private exception into a declared fact.
+  - **It authored no content.** It reads `millionaireBank`, already
+    `{prompt, answer, distractors}`, so three units gained a sixth game with nothing
+    written. Bingo did this first against `blockbustersBank`; two callers is a pattern.
+  - **The one genuinely new thing is scoring by speed**, and it needed the shared
+    settle path to grow a declaration. Every board until now had a slot one team
+    takes, so the first right answer ended the question. A straight run has no slot:
+    `scoreEach` on the host says every right team is paid for its own answer at its
+    own speed. False everywhere else. The clock is read at `win()` time, so no round
+    learned about time.
+  - **Two things the screenshot caught and every assertion passed**: the scoreboard
+    was off the bottom of the screen (the fit sized the stage, and the board sits
+    below it), and it drew white-on-white under the game show skin. Same trap the
+    round card paid for — a component cannot assume its host's background.
+- **Three phone bugs, all found by playing it rather than by any check.**
+  - **Opening a round now arms the room.** Four call sites opened a round and then
+    separately had to remember to tell the handsets; nothing complained if one forgot.
+    Quickfire forgot, and it reads as "the board shows four options and my phone says
+    waiting for the teacher". Blockbusters had already shipped the mirror image.
+    A host arms only when *no* round opened, as one expression, so it cannot be
+    half-done. **Deliberately not solved by making `askPhones` idempotent** — the
+    ordering climb and the Millionaire steal both re-arm the same question on purpose,
+    and a guard there would silently turn them into no-ops.
+  - **A phone was spent for the whole run after one answer.** `keepSpent` defaulted to
+    true for any round that did not mention it, so the relay never cleared its list.
+    Dormant for as long as it existed, because all five shaped rounds set
+    `rethink:true` and the relay never marks a player spent when they may change their
+    mind. Quickfire is the first round to ask for a locked-in answer, and the two
+    together made a game that stops working after question one. **A default that has
+    never been exercised is not a default that works.**
+  - **Whether a tap is final is the skin's, not the round's.** `lockIn` on the host;
+    the round honours it **except in `agree` mode**, where a final first tap would make
+    it unplayable. The round protects its own contract rather than trusting the host.
+- **Drag the Words draws a lane per team now, not a count.** The old code carried its
+  reasoning inline — a sentence is too long to redraw per team — and playing it showed
+  that was wrong in the way that matters: a number says *that* somebody is ahead and
+  nothing about what they have. Two teams, two sentences completing side by side.
+  **Only correct placements show, and that is the dynamic**: a team behind can read a
+  word off a team ahead, so being in front costs something.
+- **An arrangement did not survive a reconnect, and half of that is fixed.** Reported
+  as "the sentence resets on the phone in Jeopardy but not on the bench" — the premise
+  was right and the trigger was not a mistake. Placing every word wrong resets nothing;
+  so does the teacher checking a wrong selection. What resets it is the handset
+  reconnecting, which a real phone does constantly and an iframe on localhost never
+  does. The relay had held each player's reply all along and the restore was written
+  for `vote` only; it covers `arrange` now, and the wire format is positional so a gap
+  comes back as a gap.
+  - **Still broken, and not guessed at:** a handset that *resumes its seat* lands on
+    "Waiting for the teacher" with no puzzle, rather than back in the live round — so
+    the restore has nothing to restore into on that path. A fresh join lands
+    mid-question correctly. `room.armed` is only cleared by a buzz lock or a disarm,
+    neither of which happened. **This affects every round, not just this one.**
+- **All five rounds are in both sections of New English File Unit 1** — six new
+  Jeopardy categories, thirty clues, written through the `author-content` skill. The
+  gate caught a fourteen-word sentence against a cap of twelve, which is what a handset
+  can lay out in one row: a real constraint on how these are written.
 - **Every question in the app is a round now — F3.8.16, and the last "is this a round
   or not" branch is gone.** Written up in full at the top of this file; the short form
   is that `game-hub/rounds/default.js` wraps an ordinary question, `phoneMode` became
@@ -3232,24 +3295,27 @@ playground's point, that one board can host several:
 this is going: skins hosting rounds", and `docs/game-hub-requirements.md` §3.8–§3.10
 for the full version with requirement IDs. The short form, in order:
 
-0. **Teach a lesson with it.** Not a build item, and it is first for that reason. Round
+0. **Fix resume — a reconnecting handset lands on "Waiting for the teacher".** Top of
+   the list because it is a live defect in every round, on real phones, and the
+   workaround is asking a student to rejoin mid-question. See Current status.
+1. **Teach a lesson with it.** Not a build item, and it is first for that reason. Round
    content a class can play exists for the first time, and **every number in this
    project is still a guess** — whether eight words read from the back of a room,
    whether the ordering ladder's gloss lands or goes by, whether thirty phones sharpen
    a class or scatter it, whether the music fights your voice. One lesson answers more
    of those than a week of building, and §3.11 names opportunity cost as the largest
    risk here. Nothing below is worth more than this.
-1. **Round state that outlives one question.** Unblocks roles, information gaps, hands
+2. **Round state that outlives one question.** Unblocks roles, information gaps, hands
    of cards and personal scorecards — about half of "what the container makes
    possible". The relay already persists a bingo card per player across a reconnection;
    it is simply not exposed to rounds.
-2. **The declarative action strip** (F3.9.1/F3.9.2), so a round may have more than one
+3. **The declarative action strip** (F3.9.1/F3.9.2), so a round may have more than one
    button — then the stage-as-mount, Bingo and Race.
-3. **Decide what Millionaire's buzz settings are for.** `mBuzzRole` cannot fire since
+4. **Decide what Millionaire's buzz settings are for.** `mBuzzRole` cannot fire since
    its ladder became a round host. Either retire the setting so it stops lying, or let
    a buzz pick who answers for the team *before* the round takes the handsets — which
    is what `speaker` was always for. Three checks sit red describing it.
-4. ~~**Content filing by topic**~~ — **decided against for now**, see build order item 8.
+5. ~~**Content filing by topic**~~ — **decided against for now**, see build order item 8.
    Content stays in per-game banks; the `author-content` skill delivers what was wanted
    from it.
 
