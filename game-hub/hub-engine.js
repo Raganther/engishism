@@ -3724,12 +3724,30 @@
     return st ? { id:hit.id, state:st } : null;
   }
 
+  /* **Opening a round arms the room.** It used to only draw the card, and telling
+     thirty handsets what was being asked was left to the host — four call sites,
+     each responsible for remembering the same thing, with nothing complaining if one
+     forgot. Quickfire forgot, and the report was "the board shows four options and
+     my phone says waiting for the teacher": the card right, the round live, and the
+     two ends never connected. Blockbusters had already shipped the mirror image of
+     it, declaring the arming and forgetting the replies.
+
+     That is the defect class this project keeps paying for — a hand-kept obligation
+     where a declaration belongs — so the obligation is gone. A host now arms only
+     when *no* round opened, written as one expression (`if(!jGroupOpen(x)) …`) so it
+     cannot be half-done the way two separate statements could.
+
+     Deliberately not solved by making `askPhones` idempotent: several callers re-arm
+     the same question on purpose — a new rung in an ordering climb, a Millionaire
+     steal handing the question to another team — and a guard there would silently
+     turn those into no-ops. */
   function jGroupOpen(found){
     if(!found) return null;
     jRoundId = found.id;
     jGroup   = found.state;
     jGroupSettler = Kit.round.settle(jRoundDef().settleMs, jGroupSettle);
     renderJGroup();
+    askPhones(currentPhonePrompt(), roundHost.game);
     return jGroup;
   }
 
@@ -4016,9 +4034,10 @@
        and the wager would be unanswerable. The team names their four out loud and
        the teacher clicks them, which is the no-relay path doing a second job;
        `jCorrect` already routes the payout to `jDoubleTeam` whoever is passed in. */
-    if(!review && grp) jGroupOpen(grp);
-    // a replayed tile asks nobody, and a Daily Double belongs to one team alone
-    if(!review && !dd) askPhones(clue.q, 'jeopardy');
+    // A round arms the room as it opens, so this covers the ordinary clues only.
+    // A replayed tile asks nobody, and a Daily Double belongs to one team alone.
+    const opened = (!review && grp) ? jGroupOpen(grp) : null;
+    if(!review && !dd && !opened) askPhones(clue.q, 'jeopardy');
     const ansEl=document.getElementById('clue-answer');
     ansEl.textContent = currentClueItem.answer || clue.a || '';
     hideAllActionButtons();
@@ -4073,8 +4092,7 @@
        `askPhones`, which consults `phoneRound()` — and `phoneRound()` cannot say
        what the handsets want until the round exists. */
     jGroupEnd();
-    if(rnd) jGroupOpen(rnd);
-    askPhones(clueObj.clue, 'blockbusters');
+    if(!(rnd && jGroupOpen(rnd))) askPhones(clueObj.clue, 'blockbusters');
     const ansEl=document.getElementById('clue-answer'); ansEl.style.display='none';
     ansEl.textContent = currentClueItem.answer || clueObj.answer || '';
     hideAllActionButtons();
@@ -5097,12 +5115,13 @@
     currentClueItem = mAsRound(q);
     const found = jGroupOf(currentClueItem, 'millionaire');
     jGroupEnd();
-    if(found) jGroupOpen(found);
+    const opened = found ? jGroupOpen(found) : null;
     renderMillionaire();
     /* A new question ends any borrowing: the phones go back to whatever the mode
        says, the same as in the tile games. Voting is not a mode any more, so there
-       is nothing to exempt here — it comes and goes inside a question. */
-    askPhones(q.prompt, 'millionaire');
+       is nothing to exempt here — it comes and goes inside a question. Only when no
+       round opened, because opening one has already armed the room. */
+    if(!opened) askPhones(q.prompt, 'millionaire');
   }
 
   function showMillionaireMessage(text){
@@ -5209,14 +5228,9 @@
     const found = jGroupOf(kAsRound(kCurrent), 'kahoot');
     document.getElementById('k-question').textContent = '';
     drawPrompt(document.getElementById('k-question'), kAsRound(kCurrent), 'kahoot');
-    if(found) jGroupOpen(found);
-    /* **Opening a round draws the card; it does not arm the room.** `jGroupOpen`
-       renders and nothing else — every host calls `askPhones` itself, because only
-       the host knows when its question is actually on screen. Leaving it out is
-       silent in exactly the way this contract keeps being silent: the card was
-       right, the round was live, and thirty handsets sat on "waiting for the
-       teacher" with nothing anywhere saying the two were not connected. */
-    askPhones(kCurrent.prompt, 'kahoot');
+    /* Opening the round arms the room — see `jGroupOpen`. Every question here is a
+       round, so there is no ordinary-question path to fall back to. */
+    if(!(found && jGroupOpen(found))) askPhones(kCurrent.prompt, 'kahoot');
 
     kStartedAt = Date.now();
     kStartClock();
