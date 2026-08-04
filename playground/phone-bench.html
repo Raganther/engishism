@@ -15,13 +15,14 @@
     --bg:#fafaf8; --text:#121212; --muted:#6b6b6b; --border:#d4d4cc;
     --btn-bg:#fff; --btn-border:#121212; --accent:#00A0DF;
     /* A racked phone renders at a real handset's logical size and is scaled down
-       to the column — exactly what the board already does with a projector's
-       1280, and for the same reason. It used to be 264px *directly*, which left
-       join.html 220px for its options, under the 288px two columns need: a
-       sixteen-word vote showed here as one long scrolling list and on every real
-       handset as two columns. The bench was misreporting the one thing it exists
-       to show. 0.677 is 264/390. */
-    --phone-w:390px; --phone-h:844px; --phone-scale:0.677;
+       — exactly what the board already does with a projector's 1280, and for the
+       same reason. It used to be 264px *directly*, which left join.html 220px
+       for its options, under the 288px two columns need: a sixteen-word vote
+       showed here as one long scrolling list and on every real handset as two
+       columns. The bench was misreporting the one thing it exists to show.
+       The scale is computed by fitRack() from the pane, four to a row as the
+       question bench does; 0.62 here is the cap and the fallback. */
+    --phone-w:390px; --phone-h:844px; --phone-scale:0.62;
   }
   *{ box-sizing:border-box; }
   body{
@@ -51,7 +52,13 @@
      element still occupies its full layout width, so the pane would refuse to
      shrink and push the phones off the screen. */
   #stage-pane{ flex:1 1 auto; min-width:0; }
+  /* The rack only claims width once it holds a phone — an empty pane reserving
+     42% would shrink the board for nothing on the bare bench. When it does, the
+     board gives up the width and refits (its box is under a ResizeObserver);
+     the cap is what four phones at full scale actually need, so a wide monitor
+     gives the spare width back to the board rather than to empty rack. */
   #rack-pane{ flex:0 0 auto; max-height:calc(100vh - 150px); overflow-y:auto; padding-right:4px; }
+  #rack-pane.has-phones{ flex:0 0 min(42%, 1010px); }
   .pane-label{
     font-size:0.72rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted);
     margin:0 0 6px;
@@ -70,13 +77,18 @@
     color:#8fa6c8; font-size:0.95rem; text-align:center; padding:20px;
   }
 
-  #rack{ display:flex; gap:16px; align-items:flex-start; }
-  .team-col{ min-width:280px; }
+  /* A row per team, four phones to a row — the question bench's rule, for the
+     same reason: the rack reads the way the room does, and four is a *divisor*,
+     not a maximum, so a team of two draws the same size as a team of four and
+     simply leaves the space. A fifth phone wraps to a second line. */
+  #rack{ display:flex; flex-direction:column; gap:14px; }
+  .team-col{ width:100%; }
   .team-col h2{
     font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase;
     color:var(--muted); margin:0 0 8px; border-bottom:2px solid var(--border); padding-bottom:4px;
   }
-  .team-col .phones{ display:flex; flex-direction:column; gap:12px; }
+  .team-col .phones{ display:grid; gap:12px; align-items:start;
+                     grid-template-columns:repeat(4, calc(var(--phone-w) * var(--phone-scale))); }
 
   .phone{
     width:calc(var(--phone-w) * var(--phone-scale));
@@ -275,6 +287,22 @@ function renderTeamPick(){
   if(was !== '' && Number(was) < teamNames.length) sel.value = was;
 }
 
+/* Phone size, the question bench's way: four to a row, sized from the pane the
+   rack actually has, never past 0.62 — a handset drawn bigger than that stops
+   being something you glance at beside the board and starts competing with it.
+   Width divides, height scrolls: the pane already scrolls vertically. */
+const PER_ROW = 4, PHONE_MIN = 0.26, PHONE_MAX = 0.62, RACK_GAP = 12;
+function fitRack(){
+  $('rack-pane').classList.toggle('has-phones', phones.length > 0);
+  const w = $('rack').clientWidth;
+  if(!w) return;
+  const each = (w - (PER_ROW - 1) * RACK_GAP) / PER_ROW;
+  document.documentElement.style.setProperty('--phone-scale',
+    Math.max(PHONE_MIN, Math.min(PHONE_MAX, each / 390)).toFixed(4));
+}
+window.addEventListener('resize', fitRack);
+if(window.ResizeObserver) new ResizeObserver(fitRack).observe($('rack-pane'));
+
 function joinSrc(name, team){
   const code = $('code').value.trim();
   const qs = new URLSearchParams({ code, name, team, auto:'1' });
@@ -319,6 +347,7 @@ function addPhone(team){
     const col = el.closest('.team-col');
     el.remove();
     if(col && !col.querySelector('.phone')) col.remove();
+    fitRack();
   });
   /* The iframe goes inside a clip box rather than straight into the card: it is
      laid out at a real handset's width and scaled down, so something has to bound
@@ -331,6 +360,7 @@ function addPhone(team){
   el.appendChild(glass);
   phones.push({ name, team, el });
   colFor(team).querySelector('.phones').appendChild(el);
+  fitRack();
 }
 
 $('add').addEventListener('click', ()=> addPhone(Number($('team-pick').value) || 0));
@@ -341,6 +371,7 @@ $('clear').addEventListener('click', ()=>{
   phones.forEach(p=>p.el.remove());
   phones = [];
   document.querySelectorAll('.team-col').forEach(c=>c.remove());
+  fitRack();
 });
 
 renderTeamPick();     // the default pair until a room says otherwise — never empty
