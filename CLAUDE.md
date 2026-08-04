@@ -2365,10 +2365,16 @@ playground's point, that one board can host several:
   still occupies its full layout size**, so the iframe needed a clip box with an
   explicit height. The two checks were proved against the reverted build —
   `inner:264, cols:1, scrolls:true, offscreen:10`.
-  - **The bare bench opens empty and that reads as broken.** `index.html` links it
-    with no `?board=`, so the projector pane is blank while the picker already says
-    "Playground · Connections" — selected but not opened. Opening the picker's
-    default on load would fix it; not done yet.
+  - ~~**The bare bench opens empty and that reads as broken.**~~ **Fixed, and the
+    default board changed with it: a bare bench now opens the real hub** —
+    `game-hub.html`, unit choice and all — because the bench's job is testing
+    rounds *inside the game hub environment*, so the board it opens should be the
+    page a class meets. The hub leads the picker; anything that skips a step
+    (the Lab, a unit deep-link) says so in its label. **Not when `?code=` was
+    given**: that is the bench being used as a rack of phones against a board
+    running somewhere else, and a board opened here would mint its own room and
+    drag the phones off the one named — the code-only path stays board-less,
+    which the `bench` suite already drives.
 - **Question forms have a rig now, and a sixth form to prove it.** *(The rig was
   `playground/prompt-lab.html`, since retired — the question bench does all of this
   now. Kept because the reasoning is what the bench inherited.)* It

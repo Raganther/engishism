@@ -113,13 +113,17 @@
      from the board automatically. Simulated phones never touch this browser's remembered seat.</p>
 
   <div class="bar">
+    <!-- The hub leads and is the default: this bench exists to test rounds inside
+         the real game hub environment, so the board it opens is the same page a
+         class meets — unit choice and all. Anything that skips a step says so. -->
     <select id="board-pick" aria-label="Which board">
+      <option value="../game-hub.html">Game Hub — the real app (unit → game → sections)</option>
+      <option value="../game-hub-lab.html">Game Hub · Lab board (test content, skips unit choice)</option>
+      <option value="../game-hub-unit5.html">Game Hub · Unit 5 (skips unit choice)</option>
+      <option value="question-bench.html">Playground · Question bench</option>
       <option value="connections.html">Playground · Connections</option>
       <option value="thermometer.html">Playground · Word thermometer</option>
       <option value="story-reveal.html">Playground · Story reveal</option>
-      <option value="question-bench.html">Playground · Question bench</option>
-      <option value="../game-hub.html">Game Hub (choose a game inside)</option>
-      <option value="../game-hub-unit5.html">Game Hub · Unit 5</option>
       <option value="custom">Other URL…</option>
     </select>
     <input id="board-url" placeholder="../game-hub.html" style="display:none;">
@@ -348,6 +352,12 @@ if(params.get('board')){                       // ?board=… opens one straight 
   else { $('board-pick').value = 'custom'; $('board-url').style.display = ''; $('board-url').value = v; }
   openBoard();
 }
+/* A bare bench used to open on an empty projector pane, which reads as broken —
+   the picker said a board was selected and nothing was open. Open the default
+   (the hub) by itself. Not when a `?code=` was given: that is the bench being
+   used as a rack of phones against a board running somewhere else, and a board
+   opened here would mint its own room and drag the phones off the one named. */
+else if(!params.get('code')) openBoard();
 </script>
 </body>
 </html>
