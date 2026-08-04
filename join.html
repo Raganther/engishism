@@ -290,7 +290,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260804l"></script>
+<script src="game-hub/hub-buzzer.js?v=20260804m"></script>
 <script>
 (function(){
   'use strict';
@@ -614,14 +614,42 @@
       : ('Drag the ' + what + 's into the boxes · ' + placed + ' of ' + anaSlots.length);
   }
 
-  /* The answer: the letters that are in boxes, in box order. A gap is simply
-     skipped — a part-built word is progress rather than a wrong answer, and the
-     host only judges an arrangement once every box is full. */
+  /* The answer: what is in each box, **in box order and including the empty ones**,
+     which is why a gap goes on the wire as an empty segment rather than being
+     skipped. Every reader on the other side already drops empties before judging —
+     the round filters them out — so this is the same dense list it always was to a
+     game, and the host still only judges an arrangement once every box is full.
+
+     What the positions buy is the restore below: a phone that reconnects mid-puzzle
+     gets its words back **in the boxes it put them in**. Sending only the filled
+     ones lost that — three words with a gap between them came back packed against
+     the left, which is a different answer from the one the student built. */
   function sendArrange(){
     if(!client) return;
-    const seq = anaSlots.filter(x => x != null).map(i => anaTiles[i].ch);
+    const seq = anaSlots.map(i => i == null ? '' : anaTiles[i].ch);
     answered = true;
     client.respond(seq.join('|'));
+  }
+
+  /* Put a phone back where it was. A handset holds its arrangement in memory only,
+     so *anything* that rebuilds the page threw it away — a reconnect, the screen
+     locking, the browser backgrounding the tab, a wobble on the school wifi. To the
+     student that reads as "my sentence just vanished", with nothing to blame it on,
+     which is exactly how it was reported.
+
+     The relay has held each player's own reply all along and hands it back as
+     `yours` on the way in; the restore was simply written for `vote` and never
+     extended when `arrange` was added. Tiles are consumed as they are matched, so
+     a sentence with "The" and "the" in it puts each one back in its own box. */
+  function restoreArrange(seq){
+    const used = anaTiles.map(()=> false);
+    seq.forEach((w, slot)=>{
+      if(!w || slot >= anaSlots.length) return;
+      const i = anaTiles.findIndex((t, k) => !used[k] && t.ch === w);
+      if(i === -1) return;
+      used[i] = true; anaSlots[slot] = i;
+    });
+    paintArrange();
   }
 
   function anaPut(tile, slot){
@@ -961,6 +989,12 @@
         paintPicks();
         if(!canRethink) [...$('opts').children].forEach(x=>{ x.disabled = true; });
         if(maxPicks > 1) say(myPicks.length + ' of ' + maxPicks + ' chosen');
+      }
+      /* The same thing for a dragged arrangement, which never had it. `buildArrange`
+         has just run and cleared the boxes, so this has to come after it. */
+      if(d && d.yours && mode === 'arrange'){
+        answered = true;
+        restoreArrange(String(d.yours).split('|'));
       }
       if(mode==='buzz') setBuzzer('armed','Buzz');
       if(mode==='type')  syncTypeButton();
