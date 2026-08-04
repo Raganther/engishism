@@ -1596,3 +1596,84 @@ body.theme-gameshow #clue-actions #hint-btn{ border-color:rgba(255,200,61,0.5); 
    theme, and it cannot load this file to get it. The game-show overrides for it are
    in that file too, scoped to `body.theme-gameshow`, which simply never matches on
    a bench page. */
+
+/* ---------- Quickfire ----------
+   The first board with no geometry: a question, a clock and a live scoreboard.
+   The round draws itself into #k-options through `Kit.round`, so nothing here
+   styles an option — `.round-choice` in hub-rounds.css already does, on whatever
+   mount the host declares. What is styled here is the frame around it. */
+#play-kahoot{ display:none; padding: 10px 24px 8px; }
+/* The engine sets `display:block` inline on the active stage, which beats anything
+   here — so the column that has to fill the height is this wrapper rather than the
+   stage itself. */
+#k-wrap{ display:flex; flex-direction:column; gap:10px; min-height:0; }
+#k-bar{ display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:48px; }
+#k-count{ font-family:'IBM Plex Mono',monospace; font-size:0.82rem; letter-spacing:0.05em;
+          text-transform:uppercase; color:var(--muted); }
+/* Fixed width and tabular figures, or the whole bar shuffles sideways every second
+   as the count goes 10 → 9 and the digits change width. */
+#k-clock{
+  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1.6rem;
+  min-width:3.2ch; text-align:center; font-variant-numeric:tabular-nums;
+  background:var(--navy); color:var(--white); border-radius:12px; padding:4px 14px;
+}
+#k-clock.low{ background:#C0392B; }
+
+#k-stage{ display:flex; flex-direction:column; gap:14px; min-width:0; min-height:0; margin-top:10px; }
+#k-question{
+  background:var(--navy); color:var(--white); border-radius:14px; padding:22px 26px; text-align:center;
+  font-family:'Space Grotesk',sans-serif; font-weight:500; line-height:1.35;
+  font-size: clamp(1.1rem, 2.3vw, 1.8rem); display:flex; align-items:center; justify-content:center; min-height:96px;
+}
+/* Deliberately **not** `flex:1`. Stretching the options left the four answers at
+   the top of a tall grid with a lane of dead space under them — which measured
+   fine and looked broken. They take the height they need; the slack goes below,
+   where `margin-top:auto` puts the scoreboard on the floor of the board. */
+#k-options{ min-height:0; }
+#k-foot{ display:flex; align-items:center; gap:14px; min-height:40px; }
+#k-hint{ font-family:'IBM Plex Mono',monospace; font-size:0.85rem; color:var(--muted); }
+#k-commit, #k-next{
+  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.9rem;
+  background:var(--navy); color:var(--white); border:none; border-radius:999px;
+  padding:10px 22px; cursor:pointer; margin-left:auto;
+}
+#k-commit:hover, #k-next:hover{ background:var(--sky); }
+
+/* The scoreboard is the point of the skin — the room watches the order change
+   rather than being told the result at the end. */
+#k-board{ display:flex; flex-direction:column; gap:6px; margin-top:auto; padding-top:14px; }
+.k-row{
+  display:grid; grid-template-columns: 2.2rem 1fr auto auto; gap:12px; align-items:center;
+  background:var(--white); border:2px solid var(--line); border-radius:10px; padding:7px 14px;
+  font-family:'Space Grotesk',sans-serif; transition: border-color .25s, background .25s;
+}
+.k-row.scored{ border-color:var(--navy); background:var(--cream); }
+.k-place{ font-family:'IBM Plex Mono',monospace; color:var(--muted); font-size:0.9rem; }
+.k-name{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.k-pts{ font-weight:700; font-variant-numeric:tabular-nums; }
+.k-gain{ font-family:'IBM Plex Mono',monospace; font-size:0.82rem; color:#1E8449; }
+
+@media(max-width:760px){
+  #play-kahoot{ padding: 8px 12px 6px; }
+  #k-board{ margin-top:10px; }
+}
+
+/* The scoreboard drew white-on-white under the game show skin, which is the trap
+   this project has already paid for on the round card: **a component cannot assume
+   its host's background.** The base rules above are the DCU light theme; these are
+   the same rows on a lit stage. Only the screenshot showed it — every assertion
+   passed, because they asked whether the rows existed and not whether they read. */
+body.theme-gameshow #play-kahoot.lit .k-row{
+  background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.16); color:#fff;
+}
+body.theme-gameshow #play-kahoot.lit .k-row.scored{
+  background:rgba(43,217,196,0.18); border-color:#2BD9C4;
+}
+body.theme-gameshow #play-kahoot.lit .k-place{ color:rgba(255,255,255,0.5); }
+body.theme-gameshow #play-kahoot.lit .k-gain{ color:#2BD9C4; }
+body.theme-gameshow #play-kahoot.lit #k-count{ color:rgba(255,255,255,0.6); }
+body.theme-gameshow #play-kahoot.lit #k-hint{ color:rgba(255,255,255,0.7); }
+body.theme-gameshow #play-kahoot.lit #k-clock{
+  background:rgba(255,255,255,0.1); color:#fff; border:2px solid rgba(255,255,255,0.25);
+}
+body.theme-gameshow #play-kahoot.lit #k-clock.low{ background:#C0392B; border-color:#E74C3C; }

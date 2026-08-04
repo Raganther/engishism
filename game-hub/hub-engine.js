@@ -433,6 +433,85 @@
     onResize: fitBingoCards
   });
 
+  /* Quickfire — the sixth game, and the first with no board at all.
+     ==============================================================
+
+     Every other skin is a geometry with a question hidden behind each cell: a tile,
+     a hexagon, a rung, a word on a track, a square on a card. There is nothing to
+     choose here. Fifteen questions go up in a row against a clock, and the only
+     decisions in the room are made on the handsets.
+
+     **It was built as the cheapest possible test of two claims**, and it is worth
+     recording which:
+
+     1. *A skin costs almost nothing now.* It writes no question handling at all —
+        the Multiple Choice round draws the card, arms the phones, merges each
+        team's taps and judges them. What is written here is a sequence, a clock and
+        a scoreboard.
+     2. *A game can consume a bank rather than author one.* It reads
+        `millionaireBank`, which is already `{prompt, answer, distractors}` — exactly
+        a multiple choice question — so **three units gained a sixth game with no
+        content written at all.** Bingo did this first against `blockbustersBank`;
+        this is the second caller, which is what makes it a pattern.
+
+     **What is genuinely this skin's**, and therefore what is actually new code:
+     every team scores, and what they score depends on how fast they were. Nothing
+     else in the app scores by time. `level` is ignored — a ladder needs difficulty,
+     a straight run does not. */
+  let kQueue = [], kAt = -1, kCurrent = null, kAsked = 0;
+  let kStartedAt = 0, kTick = null, kPaid = null, kOver = false;
+
+  const kSecs      = () => Number(S.get('kSeconds', 'kahoot')) || 20;
+  const kBase      = () => Number(S.get('kPoints',  'kahoot')) || 100;
+  const kWanted    = () => Number(S.get('kQuestions', 'kahoot')) || 15;
+  const kLeft      = () => Math.max(0, kSecs() - (Date.now() - kStartedAt) / 1000);
+  const kLive      = () => !!kCurrent && !kOver;
+
+  /* The whole point of the skin, in one function. Full marks for an instant answer,
+     half for one that arrives as the clock dies — which is Kahoot's own curve, and
+     it is chosen rather than invented: it rewards knowing over guessing without
+     making a slow right answer worthless. Rounded to 5 so the scoreboard stays
+     readable from the back of a room. */
+  function kValue(){
+    const frac = kSecs() > 0 ? Math.max(0, Math.min(1, kLeft() / kSecs())) : 1;
+    return Math.max(5, Math.round((kBase() * (0.5 + 0.5 * frac)) / 5) * 5);
+  }
+
+  registerGame({
+    id:'kahoot', title:'Quickfire',
+    card:{
+      icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="20" cy="21" r="13"/><path d="M20 13 L20 21 L26 25"/><path d="M14 6 L26 6"/><path d="M20 6 L20 8"/></svg>',
+      blurb:'Fifteen questions against the clock. Every team answers every one, and the faster you are the more it pays.',
+      badge:'Best for: fast revision, everyone in at once' },
+    intro:{ eyebrow:'Cambridge Empower C1', title:'QUICKFIRE',
+            sub:'Fifteen questions. No turns. The clock is the opponent.', accent:'#2BD9C4' },
+    /* Consumed, not authored — see the note above. */
+    hasBank: u => (u.millionaireBank || []).length >= 5,
+    load(u){ KAHOOT_BANK          = u.millionaireBank || [];
+             KAHOOT_SECTION_NAMES = u.millionaireSectionNames || {};
+             KAHOOT_TOPIC_NAMES   = u.topicNames || {}; },
+    renderContent: renderKahootContent,
+    startButton:   kahootStartButton,
+    start(){ startKahoot(); },
+    fit:       fitKahoot,
+    onResize:  fitKahoot,
+    /* Rising as the run goes on, so the skin tightens towards the last question
+       rather than sitting at one pitch for fifteen of them. */
+    tension(){ kTension(); },
+    /* The clock is the game, so the header timer running out is not this board's
+       business — its own countdown ends each question. */
+    expects:     () => (kCurrent && kCurrent.answer) || '',
+    phonePrompt: () => (kCurrent && kCurrent.prompt) || '',
+    askingNow:   () => kLive(),
+    /* Every question is a round, and it is always the same one. The engine builds it
+       from the bank the way Millionaire does, so the bank never learns the word
+       "choice" and no content was edited to make this game exist. */
+    asRound:     q => kAsRound(q),
+    phoneRound(){ return jGroupRound(); },
+    wantsVote:   () => jGroupLive(),
+    onVoteReply(all){ if(jGroupLive()) jGroupOnReplies(all); }
+  });
+
   /* ---------- which boards can host a round ----------
      A round is drawn in the shared clue card, so it is literally the same code
      whichever board opened it. What differs is only what the *host* contributes,
@@ -521,6 +600,27 @@
       /* On this board a wrong answer ends the go — the steal, then the rung stands.
          Every other host lets one cost nothing but the time. */
       miss: team => mMissed(team)
+    },
+    kahoot: {
+      game:'kahoot', stage:'play-kahoot',
+      /* No clue card here either — the options are the stage, exactly as on the
+         Millionaire board. This is the second caller for F3.8.9, which is what makes
+         the mount a declared fact rather than Millionaire's private exception. */
+      mount: () => document.getElementById('k-options'),
+      commit:'k-commit',
+      live: () => kLive(),
+      turn: () => active,
+      /* **The one thing about this skin that is genuinely new.** Every other board
+         has a slot that one team takes: a tile, a hexagon, a rung. Here the question
+         belongs to nobody, every team answers it, and each is paid for its own
+         answer at its own speed. So the settle path pays each right team as it
+         settles instead of ending on the first — see `scoreEach` below. */
+      scoreEach: true,
+      win: team => kPay(team),
+      /* Counts, not team dots: on a tile the interesting fact is which team went
+         where, and here it is how much of the room got it. */
+      countVotes: () => true,
+      commitText: () => 'Lock it in'
     }
   };
   const ROUND_GAMES = Object.keys(ROUND_HOSTS);
@@ -888,6 +988,26 @@
              {value:'every', label:'Every round'},
              {value:'off',   label:'Never'}] });
 
+  /* Quickfire's three weights. All of them are classroom questions rather than
+     design ones — how long a C1 class needs to read four options, how many
+     questions is a lesson slot rather than an endurance test, and how hard speed
+     should be rewarded — so they are ranges in ⚙ rather than numbers in the source.
+     Every one is a guess until a class has met them. */
+  S.register({ id:'kQuestions', group:'Quickfire', type:'range', default:15,
+    min:5, max:30, step:1, unit:'', games:['kahoot'],
+    label:'Questions in a run',
+    help:'The run ends after this many. Fewer if the sections you picked hold fewer.' });
+
+  S.register({ id:'kSeconds', group:'Quickfire', type:'range', default:20,
+    min:5, max:60, step:5, unit:'s', games:['kahoot'],
+    label:'Seconds per question',
+    help:'How long the room has to read the question and answer it. The clock is the whole game here.' });
+
+  S.register({ id:'kPoints', group:'Quickfire', type:'range', default:100,
+    min:20, max:500, step:20, unit:'', games:['kahoot'],
+    label:'Points for a right answer',
+    help:'What an instant answer pays. One that arrives as the clock dies pays half, and everything in between scales.' });
+
   S.register({ id:'mLifelines', group:'Millionaire', type:'toggle', default:true, games:['millionaire'],
     label:'Lifelines', help:'50:50, Ask the class, and Confer — one use each per team.' });
   /* The show's beat, not a confirmation dialog: picking an option is the team saying
@@ -1252,6 +1372,28 @@
           <div id="m-ladder"></div>
         </div>
       </div>
+
+      <!-- Quickfire. The first board with no geometry at all: a straight run of
+           questions against a clock, so there is nothing to choose and nothing to
+           claim. The round mounts into #k-options exactly as it does on the
+           Millionaire stage — F3.8.9 again, and this is the second caller that
+           proves the mount is a declared fact rather than Millionaire's exception. -->
+      <div id="play-kahoot"><div id="k-wrap">
+        <div id="k-bar">
+          <div id="k-count"></div>
+          <div id="k-clock"><span id="k-secs"></span></div>
+        </div>
+        <div id="k-stage">
+          <div id="k-question"></div>
+          <div id="k-options"></div>
+          <div id="k-foot">
+            <span id="k-hint"></span>
+            <button id="k-commit" style="display:none;">Lock it in</button>
+            <button id="k-next" style="display:none;">Next question</button>
+          </div>
+        </div>
+        <div id="k-board"></div>
+      </div></div>
     </div>
 
     <!-- title sequence. Empty and inert unless a game show themed game opens it. -->
@@ -1360,6 +1502,12 @@
   let MILLIONAIRE_BANK          = [];
   let MILLIONAIRE_SECTION_NAMES = {};
   let MILLIONAIRE_TOPIC_NAMES   = {};
+  /* Quickfire reads Millionaire's bank rather than owning one — see its registration.
+     Held separately anyway, because `load()` runs per game and a shared variable
+     would tie the two games' content screens together for no gain. */
+  let KAHOOT_BANK               = [];
+  let KAHOOT_SECTION_NAMES      = {};
+  let KAHOOT_TOPIC_NAMES        = {};
 
   // Which games a unit can actually offer — a unit without a bank for a game
   // simply doesn't show that card, so units can adopt new games one at a time.
@@ -3685,6 +3833,26 @@
        same tick, and taking them in arrival order puts "not a group" on screen
        *after* the other team has already taken the tile — the board announcing the
        wrong headline for a question that has moved on. */
+    /* **A slot one team takes, or a question everybody answers.** Every board until
+       Quickfire had a slot — a tile, a hexagon, a rung — so the first right answer
+       ended the question and took it. A straight run of questions has no slot: the
+       question belongs to nobody, each team answers it, and each is paid for its own
+       answer. Declared by the host rather than branched on the game's name, and
+       false everywhere else, so the three boards above are untouched.
+
+       The settler's per-team memory is what stops a team being paid twice: a right
+       answer settles once, and `win()` itself is idempotent per team. */
+    if(roundHost.scoreEach){
+      verdicts.filter(v => v.r.verdict === 'right').forEach(v => {
+        if(!jGroupSettler.fresh(v.team, 'ok:' + v.set.slice().sort().join('|'))) return;
+        def.accept(v.set, jGroup, v.team, ctx);
+        const paid = roundHost.win(v.team);
+        notePhoneScore(teamName(v.team), v.team, null, paid || 0);
+      });
+      renderJGroup();
+      return;                       // the clock ends the question, not the first right answer
+    }
+
     const won = verdicts.filter(v => v.r.verdict === 'right')[0];
     if(won){
       /* Right does not always mean the round is over. A grouping clue ends the
@@ -4982,6 +5150,212 @@
      atmosphere — the CSS reads `--tension` to close the spotlight in and pull the
      colour towards red, and the think-music bed uses it for tempo and brightness.
      Nothing here runs unless the game show skin is on. */
+  /* ================= Quickfire =================
+     A sequence, a clock and a scoreboard. Everything about the *question* — the
+     card, the handsets, merging several students into one team answer, judging it —
+     belongs to the Multiple Choice round and none of it is written here. */
+
+  function kAsRound(q){ return mAsRound(q); }   // same bank shape, one definition
+
+  function renderKahootContent(list, help){
+    help.textContent = 'Pick which sections to draw from. Questions are shuffled, and the run stops after the number set in ⚙.';
+    groupCheckboxes(list, KAHOOT_BANK, KAHOOT_TOPIC_NAMES, KAHOOT_SECTION_NAMES);
+  }
+  function kahootStartButton(btn){
+    const n = Math.min(kWanted(), selectedKahoot().length);
+    btn.textContent = n ? 'Start — ' + n + ' questions' : 'Pick at least one section';
+    btn.disabled = !n;
+  }
+  function selectedKahoot(){
+    return KAHOOT_BANK.filter(i => selectedContent.includes(groupOf(i)));
+  }
+
+  function startKahoot(){
+    kQueue = shuffle(selectedKahoot().slice()).slice(0, kWanted());
+    kAt = -1; kCurrent = null; kAsked = 0; kOver = false;
+    kStopClock();
+    document.getElementById('k-next').style.display = 'none';
+    renderKahootBoard();
+    nextKahoot();
+  }
+
+  /* The run ends when the queue does. There is no board to clear and no line to
+     complete, so this is the only ending. */
+  function nextKahoot(){
+    kAt++;
+    if(kAt >= kQueue.length){ finishKahoot(); return; }
+    kCurrent = kQueue[kAt];
+    kAsked++;
+    kPaid = Object.create(null);
+    kOver = false;
+    document.getElementById('k-next').style.display = 'none';
+    document.getElementById('k-hint').textContent = '';
+    document.getElementById('k-count').textContent = 'Question ' + kAsked + ' of ' + kQueue.length;
+
+    /* Name the host before the round is set up, or `setup` reads a ctx scoped to
+       whichever board asked last — the trap `jGroupOf` carries a note about. */
+    const found = jGroupOf(kAsRound(kCurrent), 'kahoot');
+    document.getElementById('k-question').textContent = '';
+    drawPrompt(document.getElementById('k-question'), kAsRound(kCurrent), 'kahoot');
+    if(found) jGroupOpen(found);
+
+    kStartedAt = Date.now();
+    kStartClock();
+    hook('tension');
+    fitKahoot();
+  }
+
+  function kStartClock(){
+    kStopClock();
+    kPaintClock();
+    kTick = setInterval(()=>{
+      kPaintClock();
+      if(kLeft() <= 0) kTimeUp();
+    }, 100);
+  }
+  function kStopClock(){ if(kTick) clearInterval(kTick); kTick = null; }
+  function kPaintClock(){
+    const el = document.getElementById('k-secs');
+    if(!el) return;
+    const left = kLeft();
+    el.textContent = Math.ceil(left);
+    document.getElementById('k-clock').classList.toggle('low', left <= 5);
+  }
+
+  /* Time up is a fact, not a verdict — the same rule Jeopardy's answer clock
+     follows. The round is ended so thirty handsets stop taking taps, the answer is
+     revealed because nothing else on this board ever would, and the teacher moves
+     on when the room has had a moment to look at it. */
+  function kTimeUp(){
+    if(kOver) return;
+    Sound.play('timeup');
+    kEndQuestion();
+  }
+
+  /* One definition of "this question is over", whoever decided it — the clock, or
+     the teacher committing an answer with no phones in the room. Two paths that end
+     a question differently is the bug that shape invites, and this project has
+     already paid for it once in `lockIn`. */
+  function kEndQuestion(){
+    if(kOver) return;
+    kOver = true;
+    kStopClock();
+    kPaintClock();
+    /* Reveal before ending. On a tile the card flips away and nobody needs telling;
+       here the options stay on screen, so ending without revealing leaves four
+       live-looking options and no answer — the same fix Millionaire needed. */
+    if(jGroup && !jGroup.shown) jRoundDef().reveal(roundHost.mount(), jGroup, jGroupCtx());
+    jGroupEnd();
+    const got = Object.keys(kPaid || {}).length;
+    document.getElementById('k-hint').textContent =
+      got ? (got === 1 ? 'One team got it.' : got + ' teams got it.') : 'Nobody got that one.';
+    document.getElementById('k-next').style.display = 'inline-block';
+    document.getElementById('k-next').textContent =
+      kAt + 1 >= kQueue.length ? 'See the results' : 'Next question';
+    renderKahootBoard();
+    hook('tension');
+  }
+
+  /* What this skin pays, and the only thing about it that is genuinely new.
+     Called once per team, by the shared settle path, the moment that team's answer
+     settles — so the clock is read at the moment they answered rather than at the
+     end of the question. Returns what it paid, like every other host's `win`. */
+  function kPay(team){
+    if(!kPaid || kPaid[team] != null) return kPaid ? kPaid[team] : 0;
+    /* Through `award`, like every other board, so a streak bonus and the scoreboard
+       repaint come for free rather than being re-implemented here. `streak:false`:
+       every team answers every question, so a "run" would only measure who has been
+       right most recently, which is what the points already say. */
+    const paid = award(team, kValue(), { streak:false });
+    kPaid[team] = paid;
+    renderKahootBoard();
+    /* **The no-relay path ends the question here.** With phones in the room several
+       teams settle independently and the clock decides when the question is over.
+       With none, the teacher picks the answer and commits, which runs the shared
+       take-and-end path — so the round is already finished by the time this is
+       called, and without noticing that the board would sit on a dead question with
+       no way forward. Degradation is the rule, not a fallback. */
+    if(jGroup && jGroup.done) setTimeout(kEndQuestion, 0);
+    return paid;
+  }
+
+  /* A live scoreboard beside the question, ordered, so the room can see the race
+     rather than being told the result at the end. The team bar carries the same
+     numbers; this one carries the *order*, which is what a run of fifteen is about. */
+  function renderKahootBoard(){
+    const host = document.getElementById('k-board');
+    if(!host) return;
+    const rows = teams.map((t, i) => ({ i, name:t.name, pts:t.score }))
+                      .sort((a, b) => b.pts - a.pts);
+    /* Built rather than templated, because a team name is typed by a teacher and
+       `innerHTML` would take whatever they typed literally. `renderScorebar` builds
+       its rows the same way for the same reason. */
+    host.innerHTML = '';
+    rows.forEach((r, place) => {
+      const gain = kPaid ? kPaid[r.i] : null;
+      const row  = document.createElement('div');
+      row.className = 'k-row' + (gain != null ? ' scored' : '');
+      const add = (cls, text) => {
+        const el = document.createElement('span');
+        el.className = cls; el.textContent = text; row.appendChild(el);
+      };
+      add('k-place', String(place + 1));
+      add('k-name',  r.name);
+      add('k-pts',   String(r.pts));
+      if(gain != null) add('k-gain', '+' + gain);
+      host.appendChild(row);
+    });
+  }
+
+  function finishKahoot(){
+    kCurrent = null; kOver = true;
+    kStopClock();
+    document.getElementById('k-next').style.display = 'none';
+    document.getElementById('k-count').textContent = 'Finished';
+    renderKahootBoard();
+    const rank = teams.map((t, i) => ({ i, name:t.name, pts:t.score }))
+                      .sort((a, b) => b.pts - a.pts);
+    const top  = rank[0];
+    const tie  = rank.filter(r => r.pts === top.pts);
+    showResult({
+      eyebrow: kQueue.length + ' questions',
+      title:   tie.length > 1 ? 'A tie' : top.name + ' wins',
+      sub:     tie.length > 1
+                 ? tie.map(r => r.name).join(' and ') + ' — ' + top.pts + ' each'
+                 : top.pts + ' points',
+      tone:    'gold',
+      actions: [{ label:'New run', onClick: startKahoot }]
+    });
+  }
+
+  /* Fit the **wrapper**, not the stage. The scoreboard sits below the stage, so
+     sizing the stage to the floor pushed the board off the bottom of the screen —
+     the numbers all passed and the screenshot showed it immediately. `floor:true`
+     because a handset genuinely cannot fit fifteen-point type, four options and a
+     four-team board, and forcing it collapses the options the way it did on the
+     Millionaire ladder. */
+  function fitKahoot(){
+    const wrap = document.getElementById('k-wrap');
+    if(!wrap || activeGame !== 'kahoot') return;
+    Kit.fitToScreen(wrap, { min:260, gap:18, floor:true });
+  }
+
+  function kTension(){
+    const stage = document.getElementById('play-kahoot');
+    if(!stage) return;
+    const on = themeOf('kahoot') === 'gameshow' && activeGame === 'kahoot';
+    stage.classList.toggle('lit', on);
+    if(!on){ stage.style.removeProperty('--tension'); Sound.bedStop(); return; }
+    /* Two ingredients, like Race: how far through the run we are, and whether a
+       question is actually live this second. A board sitting on a revealed answer
+       should not be as tense as one with four seconds left. */
+    const through = kQueue.length ? kAsked / kQueue.length : 0;
+    const urgent  = kLive() && kSecs() ? 1 - (kLeft() / kSecs()) : 0;
+    const t = Math.min(1, through * 0.6 + urgent * 0.4);
+    stage.style.setProperty('--tension', t.toFixed(3));
+    if(kLive() && motionOK()) Sound.bedStart(t); else Sound.bedStop();
+  }
+
   function mTension(){
     const stage = document.getElementById('play-millionaire');
     const on    = themeOf('millionaire') === 'gameshow' && activeGame === 'millionaire';
@@ -5172,6 +5546,11 @@
     btn.addEventListener('click', ()=>useLifeline(btn.dataset.life));
   });
   document.getElementById('m-final').addEventListener('click', roundCommit);
+  /* Quickfire's two. `k-commit` is the shared round commit — the same button every
+     host declares, for the teacher playing with no relay in the room. `k-next` is
+     the only thing on this board that advances, because there is no tile to click. */
+  document.getElementById('k-commit').addEventListener('click', roundCommit);
+  document.getElementById('k-next').addEventListener('click', ()=>{ nextKahoot(); });
   document.getElementById('m-next').addEventListener('click', ()=>{
     timerStop();
     active = Kit.passTurn(teams.length, active);
