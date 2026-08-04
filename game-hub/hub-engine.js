@@ -560,7 +560,14 @@
       mount: CARD_MOUNT, commit:'group-btn',
       live: () => modalMode === 'jeopardy',
       turn: () => active,
-      win:  team => jCorrect(team)
+      win:  team => jCorrect(team),
+      /* Which of a round's modes suits *this board*, when that differs from the
+         round's own first choice. Jeopardy is team-based — a tile is a team's
+         answer, not a thumb's — so a multiple choice here waits for the whole
+         team to agree rather than paying the fastest tap. A declared fact, not a
+         stored value: the teacher's ⚙ row still overrides it, and the panel says
+         it is this board's own default. */
+      modeDefaults: { choice:'agree' }
     },
     blockbusters: {
       game:'blockbusters', stage:'play-blockbusters',
@@ -789,9 +796,20 @@
     const def = Kit.round.get(id);
     if(!def || !def.modes || !def.modes.length) return;
     const own = def.modeSetting || {};
+    /* A host may declare which mode suits its board (`modeDefaults` in
+       ROUND_HOSTS) — the round says what modes exist, the skin says which one its
+       geometry wants, and neither learns the other's business. Checked against
+       the round's own list, because a default naming a mode that does not exist
+       would select nothing and look exactly like the setting being ignored. */
+    const perGame = {};
+    ROUND_GAMES.forEach(g => {
+      const want = (ROUND_HOSTS[g].modeDefaults || {})[id];
+      if(want && def.modes.some(m => m.value === want)) perGame[g] = want;
+    });
     S.register({ id:'round_' + id, type:'variant',
       group: own.group || 'Questions',
       default: def.modes[0].value,
+      defaults: Object.keys(perGame).length ? perGame : undefined,
       games: own.games || ROUND_GAMES,
       label: own.label || ('How ' + (def.label || id) + ' is played'),
       variants: def.modes.slice(),

@@ -609,8 +609,12 @@ async function testPerGameSettings(browser){
   const jeoRows = await page.locator('.settings-row').count();
   check('a game tab shows only what applies to it', jeoRows > 0 && jeoRows < masterRows,
         jeoRows + ' of ' + masterRows);
+  /* A game may be *registered* with its own default (Jeopardy's multiple choice
+     starts on all-agree) — that is not an override, and the row says so in its
+     own words. What this check pins is that a fresh device carries nothing a
+     teacher has set. */
   check('nothing is overridden to begin with',
-        (await page.locator('.settings-state').allInnerTexts()).every(t => /matching/i.test(t)));
+        (await page.locator('.settings-state').allInnerTexts()).every(t => /matching|own default/i.test(t)));
   await page.locator('#settings-close').click();
 
   // the whole point: off in one game, untouched in another

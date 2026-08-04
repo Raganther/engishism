@@ -872,6 +872,16 @@ explicitly overridden, and each row says which it is doing. ⚙ opens on the tab
 whatever is being played (`S.setContext`). Omit `games` for infrastructure that isn't
 per-game — the buzzer relay address, for instance.
 
+**A game can be registered with its own default** — `defaults:{jeopardy:'agree'}` on
+the definition. It ranks below a teacher's override and *above* the master,
+deliberately: such a game does not follow the master, and pretending it did would
+make the All-games row a control that silently does nothing there. The rows say so
+("This game's own default"; the master row lists it under "has its own value").
+For round modes it is declared by the **host** — `modeDefaults:{choice:'agree'}` in
+`ROUND_HOSTS` — because the round says what modes exist and the skin says which one
+its geometry wants: Jeopardy is team-based, so its multiple choice waits for the
+whole team to agree while Quickfire keeps the race.
+
 Storage: `id` is the master, `id@game` is an override. Settings written before scoping
 existed are master values under the same keys, so nothing needed migrating — there is a
 smoke test pinning that.
@@ -1165,6 +1175,18 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A skin can have its own default for how a round is played.** Asked for from the
+  bench: Jeopardy is team-based, so its Multiple Choice should start on "a team
+  answers only when all of them agree" rather than first-tap-wins. Two declarations,
+  no special case: `defaults:{game:value}` on a setting ranks below a teacher's
+  override and above the master (see "Adding a feature"), and a host names which
+  mode suits its board via `modeDefaults` in `ROUND_HOSTS`, validated against the
+  round's declared modes. Only Jeopardy·choice is set; Quickfire and Millionaire
+  keep the race, and any host can differ with one line. The panel tells the truth
+  about it in both directions — "This game's own default" on the game tab, "has its
+  own value in Jeopardy" on the master row — because a game with its own default is
+  a game the master row does not reach, which is the same silent-mismatch trap
+  per-game overrides already paid for once.
 - **The resume bug was never the phone's — the relay forgets every room on every
   push.** Last session's write-up said a resuming handset lands on "Waiting for the
   teacher" over a live round, and that `room.armed` "is only cleared by a buzz lock

@@ -79,14 +79,24 @@ window.HubSettings = (function(){
     return def.id;
   }
 
-  /* Override for this game if one is set, otherwise the master value, otherwise
-     whatever the feature registered as its default. */
+  /* Override for this game if one is set, otherwise the game's own registered
+     default if it has one, otherwise the master value, otherwise whatever the
+     feature registered as its default.
+
+     `defaults: {game: value}` on a definition is how a skin gets its own starting
+     point — Jeopardy is team-based, so its multiple choice round starts on "all
+     agree" while the master stays "first team". It ranks below a teacher's
+     override and *above* the master, deliberately: a game registered with its own
+     default does not follow the master, and pretending it did would make the
+     master row a control that silently does nothing for that game. The panel says
+     which games have their own value, so nothing is silent. */
   function get(id, game){
     const d = byId[id];
     if(!d) return undefined;
     if(game && scoped(d)){
       const o = values[key(id, game)];
       if(o !== undefined && o !== null) return o;
+      if(d.defaults && d.defaults[game] != null) return d.defaults[game];
     }
     const v = values[id];
     return (v===undefined || v===null) ? d.default : v;
@@ -332,6 +342,7 @@ window.HubSettings = (function(){
     }
     // on a game's view, say plainly whether this game is following the default
     if(game){
+      const ownDefault = !!(d.defaults && d.defaults[game] != null);
       const state=document.createElement('div');
       state.className='settings-state';
       if(hasOverride(d.id, game)){
@@ -339,11 +350,16 @@ window.HubSettings = (function(){
         state.textContent='Set for this game · ';
         const undo=document.createElement('button');
         undo.type='button'; undo.className='settings-undo';
-        undo.textContent='match All games';
+        /* Undoing an override returns to whatever ranks next — for a game with a
+           registered default of its own, that is its default, not the master, and
+           the button must not claim otherwise. */
+        undo.textContent = ownDefault ? 'back to this game’s default' : 'match All games';
         undo.addEventListener('click', ()=>{ clearOverride(d.id, game); render(); });
         state.appendChild(undo);
       } else {
-        state.textContent='Matching All games';
+        /* "Matching All games" would be a lie for a game registered with its own
+           default — it is not following the master and never was. */
+        state.textContent = ownDefault ? 'This game’s own default' : 'Matching All games';
       }
       text.appendChild(state);
     } else if(scoped(d)){
@@ -355,12 +371,19 @@ window.HubSettings = (function(){
          quietly picked up its own value the first time a control was touched
          there. Naming the game and linking straight to its tab turns that from
          a silent mismatch into one click to fix. */
-      const overriding = gamesOf(d).filter(g => hasOverride(d.id, g));
+      /* A game with a registered default of its own is not following the master
+         either — leaving it off this list would recreate the same silent-mismatch
+         trap for exactly the games most likely to differ. */
+      const overriding = gamesOf(d).filter(g => hasOverride(d.id, g) ||
+                                               (d.defaults && d.defaults[g] != null));
       if(overriding.length){
         const state=document.createElement('div');
         state.className='settings-state overridden';
+        /* "Has its own value", not "overridden" — a game can differ because a
+           teacher set it *or* because it registered its own default, and this
+           line's job is only to say the master row does not reach it. */
         state.appendChild(document.createTextNode(
-          (overriding.length === 1 ? 'Overridden in ' : overriding.length + ' games have their own value: ')));
+          (overriding.length === 1 ? 'Has its own value in ' : overriding.length + ' games have their own value: ')));
         overriding.forEach((g, i)=>{
           if(i) state.appendChild(document.createTextNode(', '));
           const jump=document.createElement('button');
