@@ -220,6 +220,39 @@ hand.** The concrete cost today is that **a round can have exactly one button**,
 `group-btn` is a single element. Fix is F3.9.1/F3.9.2: the strip becomes a surface each
 tier *declares* into.
 
+### One name per round — the id is internal, the label is what people read
+A round has an **id**, which is code (`group`, `order`, `choice`, `anagram`,
+`scramble`), and a **label**, which is the only name a human should ever see. The
+label lives in one place — the round's own `register()` — and everything else copies
+it exactly: the category a board draws it in, the Lab section heading, the bench menu,
+this file.
+
+| id | label — use this everywhere |
+|---|---|
+| `group` | **Connections** |
+| `order` | **Word Thermometer** |
+| `choice` | **Multiple Choice** |
+| `anagram` | **Drag the Letters** |
+| `scramble` | **Drag the Words** |
+
+**Why it drifted, and it drifted three ways at once.** A category name is a
+hand-typed string in a content file, so nothing stops a second name for a round that
+already has one. 5A's grouping category was authored as *Find the Four* — a perfectly
+good name, and the second one, which is what makes it wrong. `anagram` and `scramble`
+had a third variant each in their registry labels (*Anagram — drag the letters*). The
+same class of defect as every hand-kept list this project has paid for, one tier down.
+
+**Two names that are deliberately not the id.** `anagram` is a round **and** a
+question form, and the bench already had to namespace them (`r:anagram` / `f:anagram`)
+after the round silently shadowed the form. Calling the round *Drag the Letters* in
+every interface keeps the two apart where a teacher can see them, while the id stays
+`anagram` for the code. `scramble` is the same story against the `word order` form.
+
+**Name by what the student does**, when a new round needs one — *Drag the Letters*
+says more to a teacher scanning a selection screen than *Anagram* does. Connections
+and Word Thermometer are the exceptions, kept because they were the names the bench
+games were built and discussed under.
+
 ### "Mode" means three different things — say which one
 The word is overloaded across the settings panel, the round registry and this file,
 and it has already cost one conversation. **The interface is the one that gets it
@@ -1805,7 +1838,7 @@ playground's point, that one board can host several:
   together; every phone in the room is armed with a multi-pick selection, a team's
   answer is the **union of its players' picks**, and a set of four is judged the
   moment it settles. First team to a real group takes the tile and it scores
-  normally. Ninth category on the Lab board (`L4 · Find the Four`).
+  normally. Ninth category on the Lab board (`L4 · Connections`).
   - **Story Reveal ported cheaply and this did not, and the difference is the whole
     lesson.** Reveal landed on `jHints`/`jHintCost`, which was already the same
     mechanic. Grouping had nothing to land on: it is ~330 lines in `hub-engine.js`

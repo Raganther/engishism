@@ -71,7 +71,7 @@
        on the card and every handset in the room is armed. Crime & justice is the
        right place to try it: the vocabulary is dense enough that the four that
        belong together are a real discrimination rather than a guess. */
-    { id:'find-the-four', section:'5A', name:'Find the Four', clues:[
+    { id:'connections', section:'5A', name:'Connections', clues:[
       {v:100, q:"Four of these are people you find in a courtroom. Find the four.",
         group:{ pick:["jury","witness","defendant","judge"],
                 with:["tenant","surgeon","applicant","referee"] }},

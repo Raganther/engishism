@@ -64,7 +64,7 @@
   const MAX = 12;
 
   K.round.register('anagram', {
-    label: 'Anagram — drag the letters',
+    label: 'Drag the Letters',
     blurb: 'Scrambled letters, and boxes to drag them into.',
 
     modes: [

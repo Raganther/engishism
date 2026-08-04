@@ -69,11 +69,11 @@
     'L1': "L1 · Word-level forms (anagram, bridge, odd one out)",
     'L2': "L2 · Sentence-level forms (gap, error fix, word order)",
     'L3': "L3 · Reveal — a clue that costs to open further",
-    'L4': "L4 · Grouping — a clue the whole room plays at once",
-    'L5': "L5 · Ordering — a scale the room fills in, weakest first",
-    'L6': "L6 · Multiple choice — four options, the plain control case",
-    'L7': "L7 · Anagram — the letters dragged into boxes on every handset",
-    'L8': "L8 · Word order — the sentence dragged into place on every handset",
+    'L4': "L4 · Connections — a clue the whole room plays at once",
+    'L5': "L5 · Word Thermometer — a scale the room fills in, weakest first",
+    'L6': "L6 · Multiple Choice — four options, the plain control case",
+    'L7': "L7 · Drag the Letters — the letters dragged into boxes on every handset",
+    'L8': "L8 · Drag the Words — the sentence dragged into place on every handset",
   },
 
   jeopardyCategories: [

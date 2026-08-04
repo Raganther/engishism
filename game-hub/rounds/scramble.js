@@ -39,7 +39,7 @@
   const wordsOf = str => String(str || '').trim().split(/\s+/).filter(Boolean);
 
   K.round.register('scramble', {
-    label: 'Word order — drag the words',
+    label: 'Drag the Words',
     blurb: 'A shuffled sentence, and a slot for each word.',
 
     modes: [

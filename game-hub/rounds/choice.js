@@ -46,7 +46,7 @@
   const LETTERS = 'ABCDEFGH';
 
   K.round.register('choice', {
-    label: 'Multiple choice',
+    label: 'Multiple Choice',
     blurb: 'One question, four answers. The room picks one.',
 
     modes: [
