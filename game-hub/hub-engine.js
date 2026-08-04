@@ -616,6 +616,10 @@
          answer at its own speed. So the settle path pays each right team as it
          settles instead of ending on the first — see `scoreEach` below. */
       scoreEach: true,
+      /* The clock is the opponent, so a tap is a commitment. Changing your mind
+         after seeing where the room went is the opposite of what this board is
+         measuring — and the speed score has already been decided by then. */
+      lockIn: true,
       win: team => kPay(team),
       /* Counts, not team dots: on a tile the interesting fact is which team went
          where, and here it is how much of the room got it. */
@@ -3691,6 +3695,13 @@
          is the only caller, and it is what leaves that lifeline something to buy now
          that the round asks the room on every question anyway. */
       hideVotes: !!(roundHost.hideVotes && roundHost.hideVotes()),
+      /* **Whether a tap is final belongs to the skin, not the round.** On a tile the
+         room is negotiating and a player must be able to move their vote — that is
+         the whole mechanic in `agree` mode. On a board where the clock is the
+         opponent, being able to change your answer after watching the count is the
+         opposite of the game. So the host says which it is and the round honours it,
+         except where honouring it would break the round's own contract. */
+      lockIn: !!roundHost.lockIn,
       /* How the room's votes read: a count of people, or a dot per team. See the
          note in `choice.js` — it is the same data answering two questions. */
       countVotes: !!(roundHost.countVotes && roundHost.countVotes()),
@@ -5194,10 +5205,18 @@
 
     /* Name the host before the round is set up, or `setup` reads a ctx scoped to
        whichever board asked last — the trap `jGroupOf` carries a note about. */
+    jGroupEnd();                       // the previous question's handsets stand down
     const found = jGroupOf(kAsRound(kCurrent), 'kahoot');
     document.getElementById('k-question').textContent = '';
     drawPrompt(document.getElementById('k-question'), kAsRound(kCurrent), 'kahoot');
     if(found) jGroupOpen(found);
+    /* **Opening a round draws the card; it does not arm the room.** `jGroupOpen`
+       renders and nothing else — every host calls `askPhones` itself, because only
+       the host knows when its question is actually on screen. Leaving it out is
+       silent in exactly the way this contract keeps being silent: the card was
+       right, the round was live, and thirty handsets sat on "waiting for the
+       teacher" with nothing anywhere saying the two were not connected. */
+    askPhones(kCurrent.prompt, 'kahoot');
 
     kStartedAt = Date.now();
     kStartClock();

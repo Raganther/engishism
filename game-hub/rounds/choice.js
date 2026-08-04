@@ -234,9 +234,15 @@
         holds:   true,
         /* A vote is a negotiation, so a player can move it. Without this the first
            tap is final, which is a submission rather than a team agreeing on
-           something — and in `agree` mode it would make the round unplayable, since
-           talking somebody round is the entire mechanic. */
-        rethink: true,
+           something.
+
+           **A host may ask for the opposite** (`lockIn`), and Quickfire does: when
+           the clock is the opponent, changing your answer after watching the count
+           is the opposite of what the board measures. **But never in `agree` mode**,
+           where talking somebody round is the entire mechanic and a final first tap
+           would make the round unplayable. The round protects its own contract
+           rather than trusting the host to know that. */
+        rethink: !(c.lockIn && s.mode !== 'agree'),
         team:    (c.team === 0 || Number(c.team) > 0) ? Number(c.team) : null
       };
     },
