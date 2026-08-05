@@ -1176,6 +1176,38 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Word Drop is the seventh round, and the first with graphics — a falling word
+  the room steers by voting.** `game-hub/rounds/drop.js`: a word falls toward 2–4
+  group bins (Tetris-shaped), everyone votes on their phones, the tile slides
+  toward whatever the room is currently saying, and where it is when it lands is
+  the room's answer. Each word falls a little faster. Co-op, class against the
+  board — one tile cannot slide two ways, so a per-team race is a second
+  iteration if the first earns it. Streak on the card, never points: rounds do
+  not score.
+  - **The vote steers, the landing judges — the first round where *time* closes
+    the question.** Every other round settles when the replies settle. The round
+    runs its own fall clock and asks the host for its next beat through
+    **`ctx.again()`** ("re-arm the phones, redraw me"), the same voice `accept`
+    uses to climb a ladder, with a timer as the trigger. Lent by the bench only;
+    a host without it gets a teacher-clicked game — the bins are buttons and a
+    click lands the tile now, which is also the no-relay path.
+  - **A re-render must not restart the fall.** The bench redraws the card on
+    every vote (that is how the steering shows), so the tile's position is
+    computed from the fall's own start time on each render and the CSS
+    transition covers only the remaining time.
+  - **The bench's shared plumbing reads `chosen`/`need`/`picks` off every
+    round's state** — a round that uses none of them still has to carry them or
+    the draw crashes. Found by the round's own Playwright drive, not by any
+    suite.
+  - Arm is a plain vote with rethink, fresh per word (the last word's votes must
+    not steer this one); `arm()` returning null now means "nothing left to ask"
+    and the bench disarms on it. `prefers-reduced-motion` gets a static tile
+    with a countdown instead of a fall.
+  - Proven with Playwright: vote lights the bin and moves the tile, the landing
+    verdicts by the leading vote, the next word arms itself, teacher click lands
+    immediately, the game ends in a right/wrong summary and the phones stand
+    down. **No classroom run; the fall times (9s→4s, −700ms per word) are
+    guesses.** Bench-first: no game show hosts it yet, deliberately.
 - **The information gap is the sixth round — the first to put a different prompt on
   every handset, which is the technique the whole direction section said was one
   step away.** `game-hub/rounds/infogap.js`: the author stars the key words of one

@@ -54,12 +54,24 @@ team has it; the bench pays nothing at all. A round holding one of them can only
 ever live in one game, which defeats the entire point.
 
 **`ctx` is what the host lends you** — `{teams, sizes, teamName, prompt, team, mode,
-forTeam, onPick, roster, verdict}`. It is passed in rather than reached for, because
-the bench has no team bar and the hub does. `roster` is who is in the room
+forTeam, onPick, roster, verdict, again}`. It is passed in rather than reached for,
+because the bench has no team bar and the hub does. `roster` is who is in the room
 (`[{id, name, team}]`, read fresh like `sizes`) — the information gap deals a view
 per player from it. `verdict(id, verdict, note, coolMs)` tells one phone how its
 typed word was received; only `'wrong'` reopens the handset's box, so a retryable
-near-miss is sent as `wrong` with a note and a short cooldown.
+near-miss is sent as `wrong` with a note and a short cooldown. `again()` is "re-arm
+the phones and redraw me" — for a round that advances on its own clock (Word Drop's
+landing) rather than on a reply; bench-only so far, so guard it and fall back to
+teacher clicks. `arm()` may return null: nothing left to ask, the host disarms.
+
+**A round's state must carry `chosen: [], picks: {}, need: 1` even if it uses none
+of them** — the bench's shared plumbing (Check button, teacher pick cap) reads them
+off every state and crashes on a state without them. Word Drop found this.
+
+**The bench's `EDITORS` table is the one registration the registry does not do for
+you.** A round missing its row opens on the previous type's sample and says "not
+complete yet" with nothing naming the gap. One row: sample values, field labels,
+`build`/`read` between the three editor fields and your item shape.
 
 **Read it fresh; never stash it.** That is why `read`, `judge` and `accept` all take it
 too. Students join and drop all lesson, so `ctx.sizes` — how many handsets are on each
