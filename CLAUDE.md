@@ -3384,13 +3384,32 @@ for the full version with requirement IDs. The short form, in order:
    **Done** — and the phone was innocent: the deployed relay restarts on every push
    and forgets every room, and the hub never re-told the new room the question. See
    the top of Current status.
-1. **Teach a lesson with it.** Not a build item, and it is first for that reason. Round
-   content a class can play exists for the first time, and **every number in this
-   project is still a guess** — whether eight words read from the back of a room,
-   whether the ordering ladder's gloss lands or goes by, whether thirty phones sharpen
-   a class or scatter it, whether the music fights your voice. One lesson answers more
-   of those than a week of building, and §3.11 names opportunity cost as the largest
-   risk here. Nothing below is worth more than this.
+1. ~~**Teach a lesson with it.**~~ **Done — the first live class ran (2026-08-05),
+   with rounds on real phones.** Five reports came back, recorded verbatim below,
+   **untriaged and deliberately not yet acted on** — the user asked for no changes
+   until discussed. The likely-shared root is the roster, not the rounds:
+   - **Winning answers disappear too quickly** — wants a winner screen naming the
+     team after each round, lingering a moment. (The strip's `lastScored` holds
+     1.5s, a pre-classroom guess. A per-round `showResult` beat is the natural
+     shape — every host would inherit it.)
+   - **Anagram: every team's attempt on screen at once** reads as a list of
+     jumbled words that informs nobody. (The lanes copy Drag the Words, but the
+     logic does not transfer: a rival's correct *words* are readable and worth
+     stealing; a half-wrong *letter sequence* is noise. Direction: lanes show
+     progress counts, not letters.)
+   - **Teams of 3 had trouble in Connections; what about 5?** (Likely the phantom
+     below: a ghost on a team of 3 makes the share 1 each, and three real phones
+     can never assemble four words. In agree modes a ghost makes unanimity
+     unreachable. A real team of 5 should work — 1 word each, one stands down.)
+   - **A phantom phone appeared in a team; need a way to remove specific phones
+     mid-game.** (The relay only drops a player on stream close, and a dead
+     handset's connection can linger. Fix shape: a kick on the host's roster +
+     the relay dropping streams it cannot write to. Phones/relay work — suite it.)
+   - **Drag the Letters paid the wrong team.** (Payout goes to the winning
+     phone's *registered* team. Either a student joined under the wrong team, or
+     team indices shifted when teams changed mid-lesson while joined phones kept
+     their old numbers. Awaiting the user's answer on whether teams were
+     added/removed after joining.)
 2. **Round state that outlives one question.** Unblocks roles, information gaps, hands
    of cards and personal scorecards — about half of "what the container makes
    possible". The relay already persists a bingo card per player across a reconnection;
