@@ -105,7 +105,7 @@
         /* The same three-way split grouping, ordering and choice all keep, and for
            the same reason: `picks` is what gets judged, `leading` is what the card
            draws while a team is still working, `votes` is the count behind it. */
-        picks: {}, leading: {}, votes: {}, by: {},
+        picks: {}, leading: {}, votes: {}, by: {}, got: {},
         say: '', shown: false, done: false
       };
     },
@@ -158,16 +158,27 @@
       mount.appendChild(tray);
       mount.appendChild(boxes);
 
-      /* How far each team has got, in their own colour — progress, deliberately
-         *not* the letters. The first draft copied Drag the Words' lanes and put
-         each team's furthest arrangement on the card, and the first live class
-         said what that actually looks like: several teams' half-wrong sequences
-         at once is a wall of jumbled words that informs nobody. The logic that
-         made word lanes right does not transfer — a rival's correct words are
-         readable and worth stealing, a half-built letter sequence is noise. So a
-         lane is filled squares now: you can see one team three letters in and
-         another nearly finished from the back of the room, and nobody has to
-         read gibberish to know it. */
+      /* Each team's lane is the answer slowly populating — **only the correctly
+         placed letters appear**, in their own positions. The first draft drew
+         each team's furthest arrangement and the first live class read several
+         half-wrong sequences at once as a wall of jumbled words; the second drew
+         anonymous progress squares, which avoided the mess and informed nobody.
+         This is Drag the Words' actual dynamic carried over: a rival's *correct*
+         progress is readable and worth stealing, so being in front costs
+         something, and a wrong spelling never reaches the projector.
+
+         Which members have to hold a letter for it to light follows the mode —
+         any member in a race, the whole team when they must agree — the same
+         line the winning gate draws, with the same rule that a missing roster
+         count falls back to "any" rather than freezing the lane. */
+      const litFor = t => {
+        const row = s.got[t] || [];
+        const size = Number((s.sizes || [])[t]) || 0;
+        const need = (s.mode === 'agree' && size) ? size : 1;
+        const lit = [];
+        for(let i = 0; i < s.need; i++) lit[i] = (row[i] || 0) >= need;
+        return lit;
+      };
       const lanes = Object.keys(s.leading)
         .map(Number)
         .filter(t => (s.leading[t] || []).length);
@@ -193,19 +204,20 @@
             who.appendChild(n);
           }
           row.appendChild(who);
-          const placed = (s.leading[t] || []).length;
+          const lit = litFor(t);
+          const right = lit.filter(Boolean).length;
           const seq = document.createElement('span');
           seq.className = 'ana-seq';
           for(let i = 0; i < s.need; i++){
             const el = document.createElement('span');
-            el.className = 'ana-mini' + (i < placed ? ' got' : '');
+            el.className = 'ana-mini' + (lit[i] ? ' got' : '');
             el.style.borderColor = colourOf(t);
-            if(i < placed) el.style.background = colourOf(t);
+            if(lit[i]) el.textContent = s.word[i];
             seq.appendChild(el);
           }
           const n = document.createElement('small');
           n.className = 'ana-left';
-          n.textContent = placed + ' of ' + s.need;
+          n.textContent = right + ' of ' + s.need;
           seq.appendChild(n);
           row.appendChild(seq);
           wrap.appendChild(row);
@@ -223,7 +235,7 @@
 
     reveal(mount, s, ctx){
       s.done = true; s.shown = true; s.chosen = [];
-      s.picks = {}; s.leading = {}; s.votes = {};
+      s.picks = {}; s.leading = {}; s.votes = {}; s.got = {};
       this.render(mount, s, ctx);
       return 0;
     },
@@ -261,21 +273,31 @@
        `Kit.round.agreement` read it exactly as they read the other three rounds. */
     read(replies, s, ctx){
       const sizes = (ctx && ctx.sizes) || [];
-      const tally = {}, said = {}, by = {}, best = {};
+      const tally = {}, said = {}, by = {}, best = {}, got = {};
       (replies || []).forEach(r=>{
         const t = Number(r && r.team) || 0;
-        const seq = String((r && r.value) == null ? '' : r.value)
-                      .split('|').map(x => bare(x).toUpperCase()).filter(Boolean);
+        /* Positional first, compacted second. The wire format keeps a gap as an
+           empty segment — that is what lets a reconnecting phone get its letters
+           back in the boxes it put them in — and the card's progress is *which
+           positions are right*, so it needs the slots as sent. The compacted list
+           is what completeness and staleness are judged on, as ever. */
+        const slots = String((r && r.value) == null ? '' : r.value)
+                        .split('|').map(x => bare(x).toUpperCase());
+        const seq = slots.filter(Boolean);
         // a reply carrying letters this word does not have is a stale tap from a
         // previous clue, not a wrong answer to this one
         if(!fits(seq, s.word)) return;
         said[t] = (said[t] || 0) + 1;
         by[t] = r.name;
-        /* The furthest anybody on the team has got is what the card draws. It is
-           deliberately not the same thing as the team's answer: in `agree` mode a
-           team can be watching one student build the word and still have nothing
-           that counts, and showing the progress is what stops that reading as a
-           board that has frozen. */
+        /* How many of this team hold the *right* letter in each position — what
+           the card lights per lane. Counted per member so the lane can follow the
+           mode: any member in a race, the whole team when they must agree. */
+        const row = got[t] || (got[t] = []);
+        for(let i = 0; i < s.need; i++)
+          if(slots[i] && slots[i] === s.word[i]) row[i] = (row[i] || 0) + 1;
+        /* The furthest anybody on the team has got. In `agree` mode a team can be
+           watching one student build the word and still have nothing that counts;
+           progress showing is what stops that reading as a frozen board. */
         if(!best[t] || seq.length > best[t].length) best[t] = seq;
         if(seq.length !== s.need) return;
         const box = tally[t] || (tally[t] = {});
@@ -297,6 +319,7 @@
         if(s.mode !== 'agree' || !size || agreed >= size) picks[t] = lead.split('');
       });
       s.leading = leading; s.votes = votes; s.by = by;
+      s.got = got; s.sizes = sizes;
       return picks;
     },
 

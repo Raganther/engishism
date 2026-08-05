@@ -1200,12 +1200,21 @@ playground's point, that one board can host several:
     banner (the game's final results, say). Offered only where a round has a slot
     one team takes — derived from the hosts' own `scoreEach` fact, so Quickfire
     is excluded structurally rather than by name.
-  - **The anagram lanes show progress, not letters.** The card drew each team's
-    furthest half-built sequence, copied from Drag the Words — and the first class
-    read several at once as a wall of jumbled words. The logic does not transfer:
-    a rival's correct *words* are readable and worth stealing; a wrong *letter
-    sequence* is noise. A lane is filled squares and an `n of m` count now. The
-    handset is untouched.
+  - **The anagram lanes are the answer populating — only correctly placed letters
+    appear.** Three designs in two days, each fixing the last: the card first drew
+    every team's furthest *attempt* (the class read several half-wrong sequences
+    at once as a wall of jumbled words), then anonymous progress squares (no mess,
+    but no information either — asked for by the user both times). The one that
+    holds is Drag the Words' actual dynamic carried over: a lane shows the word's
+    letters in their own positions as a team gets them right, so a rival's real
+    progress is readable and worth stealing, and a wrong spelling never reaches
+    the projector. **Which members must hold a letter for it to light follows the
+    round's mode** — any member in a race, the whole team in agree — the same line
+    the winning gate draws, with the same missing-roster fallback. This needed
+    `read()` to keep replies *positional* (the wire format already was; the read
+    compacted it), so gaps stay gaps and correctness is judged per slot. The
+    handset is untouched. Pinned both ways in the `anagram` suite: the correct
+    three show in place, a wrong placement lights nothing.
   - **Removing a team renumbers the phones — the wrong-team payout.** A team's
     index is its identity on both ends, and only the board's end shifted:
     reproduced by removing the middle of three teams, after which a win paid a

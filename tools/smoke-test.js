@@ -6548,6 +6548,20 @@ async function testAnagramRound(browser){
       await ph.mouse.up();
       await ph.waitForTimeout(180);
     };
+    /* A wrongly placed letter must never reach the projector — the lane is the
+       answer populating, not the team's spelling attempts. Probed before the
+       correct letters go in, then taken back out (a tap on a full box empties). */
+    const wrongIdx = pool.findIndex(c => c !== word[0]);
+    await drag(wrongIdx, 0);
+    await live.waitForTimeout(800);
+    check('a wrong placement lights nothing on the card',
+          await live.evaluate(() => {
+            const minis = [...document.querySelectorAll('#clue-card .ana-mini')];
+            return minis.length > 0 && minis.every(m => !m.textContent.trim());
+          }));
+    await ph.locator('#ana-slots .ana-slot').first().click();
+    await ph.waitForTimeout(300);
+
     const used = [];
     for(let i = 0; i < 3; i++){
       const idx = pool.findIndex((c, j) => c === word[i] && used.indexOf(j) === -1);
@@ -6557,18 +6571,22 @@ async function testAnagramRound(browser){
     check('dragging on the handset moves the letter into the box',
           (await ph.locator('#ana-slots').innerText()).replace(/\s/g,'') === word.slice(0,3),
           (await ph.locator('#ana-slots').innerText()).replace(/\s/g,''));
-    /* The board showing progress is the round's whole picture on a projector: you
-       can see one team three letters in without reading a scoreboard. Progress and
-       *only* progress — the lanes drew each team's half-built sequence once, and
-       the first live class read several at once as a wall of jumbled words. */
+    /* The lane is the answer populating: the three correctly placed letters show
+       in their own positions, the rest stay blank. The first live class saw each
+       team's furthest *attempt* instead — several half-wrong sequences at once, a
+       wall of jumbled words — and the rule that replaced it is that only a
+       correctly positioned letter ever reaches the projector. */
     check('and the board shows how far that team has got',
           /3 of \d/i.test(await live.locator('#clue-card .ana-teams').innerText().catch(()=>'')),
           (await live.locator('#clue-card .ana-teams').innerText().catch(()=>'—')).replace(/\n/g,' '));
-    check('as progress, never as the letters themselves',
-          await live.evaluate(() => {
-            const minis = [...document.querySelectorAll('#clue-card .ana-mini')];
-            return minis.length > 0 && minis.every(m => !m.textContent.trim());
-          }));
+    check('as the correctly placed letters, in place, and nothing else',
+          await live.evaluate(w => {
+            const txt = [...document.querySelectorAll('#clue-card .ana-mini')]
+              .map(m => m.textContent.trim());
+            return txt.length > 0 &&
+                   txt.slice(0, 3).join('') === w.slice(0, 3) &&
+                   txt.slice(3).every(x => !x);
+          }, word));
 
     /* A tap fills the next empty box. Not a nicety: dragging on a phone misses, and
        a letter that will not move because the thumb travelled four pixels reads as
