@@ -102,6 +102,14 @@ function getRoom(code, create){
              in which each team climbs its own ladder gives each side a different
              set of words still to place. */
           optionsByTeam:null,
+          /* The prompt one phone is shown, per player id. Null means everybody
+             reads the room-wide prompt, which is every round that existed before
+             this. It is the first thing a round carries that differs by *player*
+             rather than by team — an information gap puts a different view of one
+             sentence on every handset, and the gap between those views is the
+             lesson. The relay carries the strings without reading them, exactly
+             as it never learns an answer. */
+          promptByPlayer:null,
           /* Whether a reply in this round is a state the player is *holding*
              rather than an answer they have *given*. A held reply leaves with the
              phone that holds it: a student who walks out mid-round must not go on
@@ -135,6 +143,16 @@ function optionsFor(room, team){
     if(Array.isArray(mine)) return mine;
   }
   return room.options;
+}
+
+/* What this phone is asked. Falls through to the room-wide prompt for any player
+   the host did not name, so a host that knows nothing about per-player prompts
+   behaves exactly as it did before they existed — and so does a latecomer the
+   host has not yet dealt a view. */
+function promptFor(room, id){
+  const per = room.promptByPlayer;
+  if(per && typeof per[id] === 'string') return per[id];
+  return room.prompt;
 }
 
 /* One phone's cap. Falls through to the room-wide `multi` for any team the host
@@ -225,7 +243,7 @@ function openStream(req, res, q){
      room's current state travels with the join. */
   pushEvent(res, 'joined', {
     id, name, team, teams:room.teams, armed:room.armed, locked:lockedNow(room),
-    mode:room.mode, prompt:room.prompt, options:optionsFor(room, team), turnTeam:room.team,
+    mode:room.mode, prompt:promptFor(room, id), options:optionsFor(room, team), turnTeam:room.team,
     spent:[...room.spent],
     rethink: room.rethink, secs: secsLeft(room), multi: capFor(room, team),
     /* what this phone already chose, so a reload comes back with its own vote
@@ -363,6 +381,16 @@ function handleSend(req, res){
           ? msg.optionsByTeam.slice(0,8).map(list => Array.isArray(list)
               ? list.slice(0,20).map(o=>String(o).slice(0,80)) : null)
           : null;
+        /* Same discipline as the per-team lists: bounded, stringified, carried
+           unread. Keyed by player id because that is what survives a reconnect —
+           a phone that drops and returns arrives under the same id and is shown
+           the same view, which is what makes a gap hold still mid-round. */
+        room.promptByPlayer = (msg.promptByPlayer && typeof msg.promptByPlayer === 'object')
+          ? Object.keys(msg.promptByPlayer).slice(0,60).reduce((out, id) => {
+              out[String(id).slice(0,40)] = String(msg.promptByPlayer[id] == null ? '' : msg.promptByPlayer[id]).slice(0,200);
+              return out;
+            }, {})
+          : null;
         room.team  = (msg.team === 0 || Number(msg.team) > 0) ? Number(msg.team) : null;
         room.responses = new Map();
         // a new round clears who has already had a go, unless the host is
@@ -380,7 +408,7 @@ function handleSend(req, res){
         /* Built per recipient rather than broadcast, because `multi` is now that
            player's share of the answer and their team decides it. Everything else
            in here is the same for the whole room. */
-        toEachPlayer(room, 'armed', p => ({ prompt: room.prompt,
+        toEachPlayer(room, 'armed', p => ({ prompt: promptFor(room, p.id),
                                    mode: room.mode, options: optionsFor(room, p.team),
                                    /* `turnTeam`, not `team`: the join payload already
                                       carries the player's own team under that name, and
@@ -406,11 +434,12 @@ function handleSend(req, res){
         return sendJSON(res, 200, { ok:true });
       }
       case 'disarm':
-        room.armed = false; room.prompt = ''; room.team = null;
+        room.armed = false; room.prompt = ''; room.team = null; room.promptByPlayer = null;
         toPlayers(room, 'disarmed', {});
         return sendJSON(res, 200, { ok:true });
       case 'reset':
         room.armed = false; room.locked = null; room.prompt = ''; room.team = null;
+        room.promptByPlayer = null;
         room.responses = new Map(); room.spent = new Set(); room.cooling = new Map();
         room.cards = new Map();
         toPlayers(room, 'reset', {});

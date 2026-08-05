@@ -506,6 +506,69 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
   width:0.9em; border-bottom:2px solid currentColor; opacity:0.25; height:0.9em;
 }
 
+/* ================= The information gap round ================= */
+/* The sentence reads as a sentence with numbered holes in it — the words flow
+   inline and only the gaps are boxed, unlike the scramble line where every word
+   is a chip. The projector never shows a key word until it lands, because the one
+   screen the whole room reads is the one place a word must not leak. */
+.round-infogap{ display:flex; flex-direction:column; align-items:center; gap:14px; }
+.round-infogap .ig-line{
+  display:flex; flex-wrap:wrap; gap:0.28em; justify-content:center; align-items:baseline;
+  line-height:1.6; color:var(--gw-ink, #12263F);
+}
+.round-infogap .ig-word{ color:var(--gw-fg, #12263F); }
+.round-infogap .ig-tail{ margin-left:-0.28em; }
+.round-infogap .ig-slot{
+  min-width:2.4em; padding:0.12em 0.55em; border-radius:10px; line-height:1.25;
+  display:inline-flex; align-items:center; justify-content:center; font-weight:600;
+  border:2px dashed var(--gw-line, #00A0DF); color:var(--gw-ink, #12263F);
+  background:var(--gw-bg, #fff);
+}
+.round-infogap .ig-slot.empty{ opacity:0.55; font-size:0.8em; font-weight:500; cursor:pointer; }
+.round-infogap .ig-slot.filled{ border-style:solid; cursor:pointer; }
+.round-infogap .ig-slot.picked{
+  background:var(--gw-hot, #FFC20E); color:var(--gw-ink, #12263F);
+}
+.round-infogap .ig-slot.right{
+  background:var(--gw-good, #2e9e4f); color:var(--gw-goodink, #fff);
+  border-color:var(--gw-good, #2e9e4f); cursor:default;
+}
+
+/* A lane per team, same shape as Drag the Words and for the same reason: the
+   filling sentence is the picture, and a team behind can read a word off a team
+   ahead — being copied is the cost of being in front. */
+.round-infogap .ig-lanes{ display:flex; flex-direction:column; gap:5px; width:100%; }
+.round-infogap .ig-lane{
+  display:grid; grid-template-columns: minmax(0,auto) 1fr minmax(0,auto);
+  align-items:center; gap:10px;
+  border-left:4px solid var(--lane, currentColor);
+  border-radius:6px; padding:3px 8px;
+}
+.round-infogap .ig-lane.full{ background:var(--gw-goodwash, rgba(46,158,79,0.14)); }
+.round-infogap .ig-lane-who{
+  font-size:0.6em; letter-spacing:0.06em; text-transform:uppercase;
+  white-space:nowrap; opacity:0.8; color:var(--gw-fg, #12263F);
+}
+.round-infogap .ig-lane-n{
+  font-family:'IBM Plex Mono',monospace; font-size:0.58em; opacity:0.7;
+  white-space:nowrap; color:var(--gw-fg, #12263F);
+}
+.round-infogap .ig-lane-row{
+  display:flex; flex-wrap:nowrap; align-items:center; gap:8px; min-width:0; overflow:hidden;
+}
+.round-infogap .ig-cell{
+  font-size: clamp(0.52rem, 1.05vw, 0.95rem); line-height:1.5;
+  white-space:nowrap; color:var(--gw-fg, #12263F);
+}
+.round-infogap .ig-cell.got{ font-weight:600; }
+/* An unfilled gap keeps its number in the lane, so the room can hear "we need
+   number three" and see where that is — a dash says a hole exists, a number says
+   which conversation fills it. */
+.round-infogap .ig-cell.gap{
+  opacity:0.35; font-size:0.75em;
+  border:1.5px dashed currentColor; border-radius:6px; padding:0 0.45em;
+}
+
 /* Ask the class: how many of the room went for this option. A count rather than a
    dot per team, because on that board the question is about people not teams. */
 .round-choice .mc-votes{

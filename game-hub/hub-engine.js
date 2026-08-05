@@ -3734,6 +3734,13 @@
     return {
       teams:  teams.map((t, i) => teamName(i)),
       sizes,
+      /* Who is in the room, read fresh like `sizes` — the information gap deals a
+         view per player, and a deal cut from a stale roster misses whoever just
+         walked in. */
+      roster: buzzHost ? buzzHost.players() : [],
+      /* A verdict for one phone, lent rather than reached for — the round says how
+         a typed word was received and the host owns the wire. */
+      verdict: (id, verdict, note, coolMs) => { if(buzzHost) buzzHost.judge(id, verdict, { note, coolMs }); },
       teamName,
       prompt: !!S.get('phonePrompt', roundHost.game),
       // `null` is the whole room; a scoped round belongs to the team on turn
@@ -6274,12 +6281,18 @@
        answer each per question*, so a new question clears the list. Bingo still asks
        to keep it explicitly, because a card and its marks are the thing that has to
        outlive the call. */
-    if(own) return { mode: own.mode, prompt: own.prompt || '', options: own.options || [],
+    /* Spread, not a key list. This used to copy `multi`, `multiByTeam`, `holds`,
+       `rethink` and `team` by name — a photograph of what rounds carried the day it
+       was written, and it had already gone stale: `optionsByTeam` was never in it,
+       so a re-ask silently dropped the ordering race's per-team pools, and
+       `promptByPlayer` would have been dropped the day the information gap shipped.
+       Carrying the object itself is what "carried through rather than interpreted"
+       actually means. */
+    if(own) return Object.assign({}, own, {
+                     prompt: own.prompt || '', options: own.options || [],
                      keepSpent: own.keepSpent != null
                                   ? own.keepSpent
-                                  : !S.get('phoneOneEach', game),
-                     multi: own.multi, multiByTeam: own.multiByTeam,
-                     holds: own.holds, rethink: own.rethink, team: own.team };
+                                  : !S.get('phoneOneEach', game) });
     /* `isDefault` is what `askPhones` reads instead of asking whether a game declared
        a round. The four shared dynamics below it — buzz, type, write, idle — are hub
        services rather than this round's private code: they carry the answer clock,
@@ -6304,11 +6317,10 @@
          there, so a grouping clue's "not a group" would have sat on the strip over
          the next clue, naming a team for a question that had gone. */
       clearReplies(); lastScored = null; lastTyped = null; buzzWinner = null;
-      buzzHost.arm(round.prompt, { mode:round.mode, options:round.options,
-                                   keepSpent:round.keepSpent,
-                                   multi:round.multi, multiByTeam:round.multiByTeam,
-                                   holds:round.holds, rethink:round.rethink,
-                                   team:round.team });
+      /* The whole payload, not a key list — same reasoning as `phoneRoundNow`'s
+         spread, and it is the same bug paid for at the same moment. The relay
+         ignores what it does not know. */
+      buzzHost.arm(round.prompt, round);
       renderBuzzChip('asking');
       renderPhoneBar();
       return;

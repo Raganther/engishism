@@ -321,9 +321,10 @@ brainstormed direction rests on:
 1. **Scoring need not be right or wrong.** The team bar takes arbitrary points from
    anything — a peer vote, a change of opinion, rarity, time survived.
 2. **Every handset can be shown something different.** `optionsByTeam`, per-player
-   shares and per-player bingo cards already exist, which puts an **information gap**
-   one step away — among the highest-value techniques in ESL and the worst to run on
-   paper.
+   shares, per-player bingo cards and now `promptByPlayer` — which is what made the
+   **information gap round** buildable, among the highest-value techniques in ESL
+   and the worst to run on paper. **Built** (see Current status); the step turned
+   out to be fifteen relay lines.
 
 Three axes, cheapest first. Full version in §3.10.
 - **New skins** — every existing round works in one the day it registers. An **Only
@@ -1175,6 +1176,57 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The information gap is the sixth round — the first to put a different prompt on
+  every handset, which is the technique the whole direction section said was one
+  step away.** `game-hub/rounds/infogap.js`: the author stars the key words of one
+  sentence (`The jury *deliberated* … a *unanimous* verdict`, the errorfix
+  convention); each phone on a team is dealt the sentence with a *different* starred
+  word blanked and its teammates' words visible in caps, so the only way to fill
+  your blank is to ask the people beside you. Typed answers, `Kit.answer.judge`,
+  a wrong word told to ask the team, a near-miss told to fix the spelling — both
+  sent as the `wrong` verdict, because that is the only one the handset reopens the
+  box for, with the note carrying the difference. The card blanks every key word
+  (the projector is the one screen nobody may read an answer off) and fills a lane
+  per team, Drag the Words' rule: being copied is the cost of being ahead.
+  - **`promptByPlayer` is the relay's part** — `{playerId: string}` on the arm,
+    merged into the per-recipient `armed` payload and the join payload, falling
+    through to the room-wide prompt for anyone not named. Keyed by player id
+    because that is what survives a reconnect: the same phone gets the same view
+    back. Carried unread, exactly as the relay never learns an answer. ~15 lines.
+  - **What the build-order item 2 actually turned out to need was smaller than the
+    item.** "Round state that outlives one question" is still unbuilt and still
+    blocks Bingo-shaped ideas — but the info gap only needed a per-player *prompt
+    within* one question, and the per-recipient arm path already existed. Check
+    what a round needs per player before concluding it is blocked.
+  - **`ctx` lends two new things, both hosts:** `roster` (`[{id,name,team}]`, read
+    fresh exactly as `sizes` is) and `verdict(id, verdict, note, coolMs)` — the
+    round says how a typed word was received, the host owns the wire. Deal is
+    derived from the roster deterministically (sorted ids, round-robin over the
+    gaps), so `arm()` re-deals identically after any reconnect.
+  - **The verbatim-carry promise was a hand-copied key list, and it had already
+    gone stale.** `phoneRoundNow` and `askPhones` copied `multi, multiByTeam,
+    holds, rethink, team` by name — `optionsByTeam` was never in the list, so a
+    mid-round re-ask silently dropped the ordering race's per-team pools, and
+    `promptByPlayer` would have died the same way. Both spread the round's own
+    object now. The relay ignores what it does not know.
+  - **The bench's `EDITORS` table is a hand-kept list a new round must join** —
+    the one registration the registry does not do for you. Missed it first: the
+    bench listed the round and opened it on the previous type's sample, saying
+    "not complete yet" with nothing anywhere naming the actual gap.
+  - Teams smaller than the gap count play the first gaps; larger teams double up,
+    and then *each* of the doubled students has to produce the word. A team with
+    no phones gets every gap on the card — the teacher clicks a blank as the class
+    says its word, then Check, which is the no-relay path degradation demands.
+  - Proven end to end with Playwright on the bench: four phones in two teams,
+    views differing inside a team, a wrong word coached, two right words filling
+    the lane and taking the question — plus a raw-HTTP relay test of the
+    promptByPlayer fall-throughs. `qbench`, `grouping`, `anagram`, `buzzers`,
+    `reconnect`: 248/0. **No classroom run yet**, and the numbers in it are
+    guesses (cooldowns 1.5s/2.5s, caps 2–5 gaps, 180-char sentence).
+  - **Not yet in any Lab or unit content** — the bench serves its sample, and a
+    Jeopardy/Blockbusters tile hosts it the day a clue carries an `infogap` field.
+    That is the same "capability everywhere, content nowhere" gap the grouping
+    round sat in for two sessions; close it while it is one category's work.
 - **Four of the five classroom reports are fixed; the fifth was two bugs and one of
   them is fixed too.** Worked through with reproductions first, each proved against
   the broken build:
@@ -2801,7 +2853,7 @@ playground's point, that one board can host several:
   | `onTypedWin(b)` | typed and correct: score it, return the points (`null` = didn't) |
   | `wantsVote()` / `onVoteReply(all)` | the vote half — whether the game ever asks the room, and where the counts are painted |
 | `roomNote()` | what the chip says when a game wants a room without a phone mode |
-| `phoneRound()` | the game drives the phones itself (Bingo's cards, Jeopardy's grouping clue); `null` = **the default round** handles it, which is what an ordinary question gets. `null` no longer means "no round here" — there is always one. Whatever it returns beyond `{mode, prompt, options}` — `multi`, `multiByTeam`, `holds`, `rethink`, `team` — is **carried to the relay, not interpreted**, so a game can use a round shape the engine has never heard of |
+| `phoneRound()` | the game drives the phones itself (Bingo's cards, Jeopardy's grouping clue); `null` = **the default round** handles it, which is what an ordinary question gets. `null` no longer means "no round here" — there is always one. **Everything** it returns beyond `{mode, prompt, options}` is **carried to the relay verbatim, not interpreted** — the whole object is spread, never a key list, because the key list it used to be had already silently dropped `optionsByTeam` on re-asks and would have dropped `promptByPlayer` — so a game can use a round shape the engine has never heard of |
 
   - **Every hook defaults to a no-op**, so a game that declares none has idle
     phones — a visible, correct state rather than a half-wired one.
@@ -3450,10 +3502,12 @@ for the full version with requirement IDs. The short form, in order:
    ask whether teams were removed mid-lesson, and watch the phones' team pills in
    the next class). Every fix is a first classroom iteration — the winner banner's
    4s, the progress lanes, the kick flow all await a second lesson's verdict.
-2. **Round state that outlives one question.** Unblocks roles, information gaps, hands
-   of cards and personal scorecards — about half of "what the container makes
-   possible". The relay already persists a bingo card per player across a reconnection;
-   it is simply not exposed to rounds.
+2. **Round state that outlives one question.** Unblocks roles, hands of cards and
+   personal scorecards — the information gap turned out *not* to need it (a
+   per-player prompt within one question was enough; see Current status), which is
+   worth re-checking against the others before building it. The relay already
+   persists a bingo card per player across a reconnection; it is simply not
+   exposed to rounds.
 3. **The declarative action strip** (F3.9.1/F3.9.2), so a round may have more than one
    button — then the stage-as-mount, Bingo and Race.
 4. **Decide what Millionaire's buzz settings are for.** `mBuzzRole` cannot fire since
@@ -3466,8 +3520,10 @@ for the full version with requirement IDs. The short form, in order:
 
 **The three that are worth building for what they'd prove**, rather than for what they
 are — see "What the container makes possible":
-- **An information gap round** — the highest teaching value on the list, and it drags
-  persistent per-player state into existence as a side effect.
+- ~~**An information gap round**~~ — **built** (see Current status), and it did not
+  drag persistent per-player state into existence after all: `promptByPlayer` within
+  one question was the whole need. Still to do: content in a Lab category and a real
+  unit, and a classroom run.
 - **An Only Connect wall** — nearly free, because the grouping round already *is* the
   wall. The cheapest possible test of whether a new skin costs what Blockbusters did.
 - **Just a Minute** — a format with no questions in it at all. If that works in this

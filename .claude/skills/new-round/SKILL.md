@@ -54,8 +54,12 @@ team has it; the bench pays nothing at all. A round holding one of them can only
 ever live in one game, which defeats the entire point.
 
 **`ctx` is what the host lends you** — `{teams, sizes, teamName, prompt, team, mode,
-forTeam, onPick}`. It is passed in rather than reached for, because the bench has no
-team bar and the hub does.
+forTeam, onPick, roster, verdict}`. It is passed in rather than reached for, because
+the bench has no team bar and the hub does. `roster` is who is in the room
+(`[{id, name, team}]`, read fresh like `sizes`) — the information gap deals a view
+per player from it. `verdict(id, verdict, note, coolMs)` tells one phone how its
+typed word was received; only `'wrong'` reopens the handset's box, so a retryable
+near-miss is sent as `wrong` with a note and a short cooldown.
 
 **Read it fresh; never stash it.** That is why `read`, `judge` and `accept` all take it
 too. Students join and drop all lesson, so `ctx.sizes` — how many handsets are on each
@@ -90,7 +94,7 @@ owns one of those. This is the whole rule; there is no list of compatible games.
 |---|---|---|---|
 | Jeopardy | no | no | **yes, built** |
 | Blockbusters | no | no | **yes, built** |
-| Millionaire | no | no | yes, not built |
+| Millionaire | no | no | **yes, built** (F3.8.9 — mounted on its stage, it has no card) |
 | Bingo | no | **yes** — every phone holds a card | card-only, teacher-judged |
 | Race | **yes** — the scattered words *are* the board | no | needs a stage mount |
 
@@ -101,9 +105,13 @@ searches *claimed* hexagons and has never read it. Dropping the rule that the an
 begins with the letter cost nothing on the board and unlocked every round; the letter
 is still on every hexagon, because a team has to be able to say which one they want.
 
-**Two additions are not built yet**, and a round needing either is blocked:
-- state that outlives one question (Bingo's card persists across many calls),
-- being handed the stage rather than the clue card as a mount (Race).
+**One addition is not built yet**, and a round needing it is blocked: state that
+outlives one question (Bingo's card persists across many calls). Before concluding
+your round needs it, check what it actually needs *per player* — the information
+gap looked blocked on it and only needed a per-player **prompt**, which the arm
+already carries: `promptByPlayer: {id: string}` rides the relay's per-recipient
+payload, keyed by player id so a reconnect keeps its view, built from `ctx.roster`
+in `arm()`. About fifteen relay lines, not a contract change.
 
 ## 3c. `check(item)` — say why, not just no
 
