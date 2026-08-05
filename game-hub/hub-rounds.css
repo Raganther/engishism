@@ -569,6 +569,55 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
   border:1.5px dashed currentColor; border-radius:6px; padding:0 0.45em;
 }
 
+/* ================= The word drop round ================= */
+/* A playfield, not a list: the tile falls through open space toward the bins.
+   The field's height is the game — too short and there is no time to argue,
+   and the fall duration is tuned against this height. */
+.round-drop{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+.round-drop .drop-head{
+  font-family:'IBM Plex Mono',monospace; font-size:0.6em; letter-spacing:0.1em;
+  text-transform:uppercase; opacity:0.7; color:var(--gw-fg, #12263F);
+}
+.round-drop .drop-field{
+  position:relative; width:100%; height:min(300px, 38vh);
+  border:2px solid var(--gw-line, #00A0DF); border-radius:14px;
+  background:var(--gw-bg, rgba(255,255,255,0.05)); overflow:hidden;
+}
+.round-drop .drop-tile{
+  position:absolute; top:0; left:var(--x, 50%); transform:translateX(-50%);
+  padding:0.25em 0.7em; border-radius:12px; font-weight:700;
+  background:var(--gw-hot, #FFC20E); color:#12263F;
+  border:2px solid var(--gw-hot, #FFC20E);
+  white-space:nowrap; z-index:1;
+}
+.round-drop .drop-bins{
+  position:absolute; left:0; right:0; bottom:0; display:flex; gap:8px; padding:8px;
+}
+.round-drop .drop-bin{
+  flex:1; min-width:0; padding:0.5em 0.4em; border-radius:10px; cursor:pointer;
+  font:inherit; font-weight:700; text-align:center;
+  border:2px dashed var(--gw-line, #00A0DF);
+  background:transparent; color:var(--gw-ink, #12263F);
+  display:flex; align-items:center; justify-content:center; gap:0.5em;
+}
+/* The bin the room is leading toward — where the tile will land if nobody moves. */
+.round-drop .drop-bin.lead{
+  border-style:solid; background:var(--gw-hot, #FFC20E); color:#12263F;
+}
+.round-drop .drop-count{
+  font-family:'IBM Plex Mono',monospace; font-size:0.7em; font-weight:600;
+  padding:1px 8px; border-radius:999px; background:rgba(0,0,0,0.22);
+}
+.round-drop .drop-summary{ display:flex; flex-direction:column; gap:4px; width:100%; }
+.round-drop .drop-result{
+  font-size:0.72em; line-height:1.45; color:var(--gw-fg, #12263F);
+  border-left:4px solid var(--gw-good, #2e9e4f); padding-left:10px;
+}
+.round-drop .drop-result.miss{ border-left-color:#C0392B; opacity:0.85; }
+.round-drop .drop-score{
+  margin-top:6px; font-weight:700; color:var(--gw-ink, #12263F);
+}
+
 /* Ask the class: how many of the room went for this option. A count rather than a
    dot per team, because on that board the question is about people not teams. */
 .round-choice .mc-votes{
