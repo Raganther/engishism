@@ -297,7 +297,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260805a"></script>
+<script src="game-hub/hub-buzzer.js?v=20260805b"></script>
 <script>
 (function(){
   'use strict';
@@ -1060,6 +1060,13 @@
       maxPicks = next;
       paintPicks();
       say(myPicks.length ? shareLine() : 'Choose ' + maxPicks + ' — tap to add or drop');
+    });
+    /* This phone's own view of the question moved — the information gap recuts
+       its deal when somebody joins or leaves. Same rule as `shares`: only the
+       question line repaints, and whatever is half-typed in the box stays. */
+    client.on('prompt', d=>{
+      const view = d && d.prompt;
+      if(typeof view === 'string' && view) $('qtext').textContent = view;
     });
     /* Both go through say(), because a claimed word resets the room immediately —
        and "waiting for the teacher" landing on top of "you got it" takes the win

@@ -29,11 +29,15 @@
    yours to say out loud, not to type — crediting them would let one student do the
    whole round silently, which is the opposite of what it is for.
 
-   **Assignment is by sorted player id, round-robin over the gaps**, so it is
-   deterministic: a phone that drops and rejoins arrives under the same id and is
-   dealt the same view, and the gap holds still mid-round. A team smaller than the
-   number of gaps plays the first ones and the rest stay blank scenery; a team
-   larger doubles students up on a gap, and then *each* of them has to produce it. */
+   **The deal is sticky by player id**: a phone that drops and rejoins arrives
+   under the same id and is dealt the same view, a newcomer takes the
+   least-covered gap, and nobody's blank hops to a different word because
+   somebody else walked in. The deal follows the roster — the hosts push a recut
+   through the relay's `prompts` message on every join and leave, so a phone that
+   joined after the arm is not left on the all-blanks fallback. A team smaller
+   than the number of gaps plays the first ones and the rest stay blank scenery;
+   a team larger doubles students up on a gap, and then *each* of them has to
+   produce it. */
 (function(){
   'use strict';
   const K = window.HubKit;
@@ -91,20 +95,37 @@
     return (live && live.length) ? live : all;
   }
 
-  /* Deal the views: per team, players sorted by id, round-robin over the gaps.
-     Rebuilt from the fresh roster on every arm — `s.got` is what survives, keyed
-     by gap, so a re-deal never takes back a word a team has already earned. */
+  /* Deal the views. Recut from the fresh roster on every arm *and* on every
+     roster change (the hosts push the recut through `prompts`), so the deal is
+     **sticky**: a phone that already holds a gap keeps it — mid-round a student's
+     blank must not hop to a different word because somebody else walked in — and
+     a newcomer takes the least-covered live gap. `s.got` is keyed by gap, so a
+     recut never takes back a word a team has already earned. */
   function assignAll(s, ctx){
     const roster = (ctx && ctx.roster) || [];
     const byTeam = {};
     roster.forEach(p => { (byTeam[Number(p.team) || 0] = byTeam[Number(p.team) || 0] || []).push(p); });
+    const prev = s.assign || {};
     s.assign = {};   // player id -> { t, ti }
     s.liveOf = {};   // team -> [ti]
     Object.keys(byTeam).forEach(t=>{
       const players = byTeam[t].slice().sort((a, b) => String(a.id) < String(b.id) ? -1 : 1);
       const live = s.targets.map((_, ti) => ti).slice(0, Math.max(1, Math.min(s.targets.length, players.length)));
       s.liveOf[t] = live;
-      players.forEach((p, k) => { s.assign[p.id] = { t: Number(t), ti: live[k % live.length] }; });
+      const count = {};
+      live.forEach(ti => { count[ti] = 0; });
+      players.forEach(p=>{
+        const was = prev[p.id];
+        if(was && was.t === Number(t) && live.indexOf(was.ti) !== -1){
+          s.assign[p.id] = was; count[was.ti]++;
+        }
+      });
+      players.forEach(p=>{
+        if(s.assign[p.id]) return;
+        const ti = live.slice().sort((a, b) => count[a] - count[b] || a - b)[0];
+        s.assign[p.id] = { t: Number(t), ti };
+        count[ti]++;
+      });
     });
   }
 

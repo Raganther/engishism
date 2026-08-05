@@ -433,6 +433,26 @@ function handleSend(req, res){
         toEachPlayer(room, 'shares', p => ({ multi: capFor(room, p.team) }));
         return sendJSON(res, 200, { ok:true });
       }
+      /* The per-player prompts moved — somebody joined or left, so the deal was
+         recut — without the question itself changing. Deliberately not an `arm`,
+         for the same reason `shares` is not: a fresh arm clears every handset,
+         and a latecomer walking in must not wipe what everyone else was typing.
+         Only the phones whose view changed hear anything, and only while a round
+         is open — a room with nothing asked has nothing to re-view. */
+      case 'prompts': {
+        if(!room.armed) return sendJSON(res, 200, { ok:true, ignored:'not armed' });
+        const per = (msg.promptByPlayer && typeof msg.promptByPlayer === 'object') ? msg.promptByPlayer : {};
+        const cur = room.promptByPlayer || (room.promptByPlayer = {});
+        Object.keys(per).slice(0,60).forEach(id=>{
+          const key = String(id).slice(0,40);
+          const view = String(per[id] == null ? '' : per[id]).slice(0,200);
+          if(cur[key] === view) return;          // a view that did not move says nothing
+          cur[key] = view;
+          const p = room.players.get(key);
+          if(p) pushEvent(p.res, 'prompt', { prompt: view });
+        });
+        return sendJSON(res, 200, { ok:true });
+      }
       case 'disarm':
         room.armed = false; room.prompt = ''; room.team = null; room.promptByPlayer = null;
         toPlayers(room, 'disarmed', {});

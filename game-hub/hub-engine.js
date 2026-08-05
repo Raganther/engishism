@@ -3831,6 +3831,11 @@
     if(!buzzHost || !jGroupLive()) return;
     const arm = jRoundDef().arm(jGroup, jGroupCtx());
     if(arm && arm.multiByTeam) buzzHost.shares(arm.multiByTeam);
+    /* Per-player views move with the roster exactly as shares do — the
+       information gap recuts its deal, and only the phones whose view changed
+       hear about it. */
+    if(arm && arm.promptByPlayer && Object.keys(arm.promptByPlayer).length)
+      buzzHost.prompts(arm.promptByPlayer);
   }
 
   /* The card's own box, inside `#clue-text` the way the hint is — so the class is

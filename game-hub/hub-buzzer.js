@@ -151,6 +151,9 @@ window.HubBuzzer = (function(){
          progress because a latecomer walked in. This changes the cap and leaves
          what they are holding alone. */
       shares:   per    => post(relay, { room:code, type:'shares', multiByTeam:per }),
+      /* The deal of per-player views moved under a live round — same shape as
+         `shares`: pushed, never re-armed, so nobody's half-typed word is wiped. */
+      prompts:  per    => post(relay, { room:code, type:'prompts', promptByPlayer:per }),
       disarm:   ()     => post(relay, { room:code, type:'disarm' }),
       reset:    ()     => post(relay, { room:code, type:'reset' }),
       setTeams: names  => post(relay, { room:code, type:'teams', teams:names }),
@@ -166,7 +169,7 @@ window.HubBuzzer = (function(){
     const src   = stream(relay, { room:code, role:'player', id, name:opts.name||'Player', team:opts.team||0 }, ev);
 
     ['joined','armed','disarmed','locked','reset','teams','judged','card','marked','nope',
-     'shares','kicked','team'].forEach(name=>{
+     'shares','kicked','team','prompt'].forEach(name=>{
       src.addEventListener(name, e=>{
         let d = {}; try{ d = JSON.parse(e.data); }catch(_){}
         ev.emit(name, d);
