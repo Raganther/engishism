@@ -3559,7 +3559,13 @@ Everything below is either a known gap or a question a classroom run has to answ
   lights lift the energy or tip a class over. Adding a fifth game's ident is its
   name in `theme`'s and `intro`'s `games` arrays, an `INTROS` entry, its stage rules
   in the skin block of `hub.css`, and a source for `--tension`.
-- Product-line decision: is the Game Hub now the product, with #2/#3 as legacy?
+- ~~Product-line decision: is the Game Hub now the product, with #2/#3 as legacy?~~
+  **Decided (2026-08-05): yes.** The three workflows are the product — the hub to
+  play a class, the question bench to make rounds, the room bench to test them in
+  the hub with simulated phones — and `index.html` leads with them. Generations 2
+  and 3 are labelled "Older" on the landing page and kept, not deleted: `classic`
+  still holds the four team-building games, which exist nowhere else, and keeping
+  them costs nothing.
 
 ## Constraints
 - No build step; must run by opening a file. Fully offline (use `<script src>`,
