@@ -85,6 +85,14 @@ window.HubBuzzer = (function(){
         try{ src.close(); }catch(e){}
         ev.emit('status', { state:'replaced' });
       });
+      /* Kicked is final for the same reason: the stream retries everything else,
+         and a kicked phone that quietly reconnected would undo the teacher's one
+         tool against a phantom. The page hears the event itself and decides what
+         to show. */
+      src.addEventListener('kicked', ()=>{
+        closed = true;
+        try{ src.close(); }catch(e){}
+      });
       handlers.forEach(h => src.addEventListener(h[0], h[1]));
     }
     connect();
@@ -130,6 +138,13 @@ window.HubBuzzer = (function(){
          the relay never learns the answer, so it cannot be asked for it. */
       judge:    (id, verdict, opts) => post(relay, Object.assign(
                   { room:code, type:'judge', id, verdict }, opts || {})),
+      /* Remove one phone from the room — the teacher's way out of a phantom. The
+         relay tells the phone first, so a live handset kicked by mistake knows. */
+      kick:     id => post(relay, { room:code, type:'kick', id }),
+      /* A team was removed on the host: shift every joined phone's team index to
+         match, because an index is a team's identity on both ends and the first
+         live class paid a win to a team that no longer existed. */
+      remap:    removed => post(relay, { room:code, type:'remap', removed }),
       /* How many options one phone may hold, per team. Separate from `arm` on
          purpose: a team's share changes when somebody joins or drops, and a fresh
          arm would clear every handset's picks — throwing away a negotiation in
@@ -151,7 +166,7 @@ window.HubBuzzer = (function(){
     const src   = stream(relay, { room:code, role:'player', id, name:opts.name||'Player', team:opts.team||0 }, ev);
 
     ['joined','armed','disarmed','locked','reset','teams','judged','card','marked','nope',
-     'shares'].forEach(name=>{
+     'shares','kicked','team'].forEach(name=>{
       src.addEventListener(name, e=>{
         let d = {}; try{ d = JSON.parse(e.data); }catch(_){}
         ev.emit(name, d);

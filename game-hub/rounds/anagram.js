@@ -158,10 +158,16 @@
       mount.appendChild(tray);
       mount.appendChild(boxes);
 
-      /* What each team has built so far, in their own colour. This is the round's
-         whole picture on a projector: you can see one team three letters in and
-         another nearly finished without reading a scoreboard, which is the same
-         reason the ordering race gives every team its own ladder. */
+      /* How far each team has got, in their own colour — progress, deliberately
+         *not* the letters. The first draft copied Drag the Words' lanes and put
+         each team's furthest arrangement on the card, and the first live class
+         said what that actually looks like: several teams' half-wrong sequences
+         at once is a wall of jumbled words that informs nobody. The logic that
+         made word lanes right does not transfer — a rival's correct words are
+         readable and worth stealing, a half-built letter sequence is noise. So a
+         lane is filled squares now: you can see one team three letters in and
+         another nearly finished from the back of the room, and nobody has to
+         read gibberish to know it. */
       const lanes = Object.keys(s.leading)
         .map(Number)
         .filter(t => (s.leading[t] || []).length);
@@ -176,7 +182,7 @@
           who.style.borderColor = colourOf(t);
           who.textContent = c.teamName ? c.teamName(t) : ('Team ' + (t + 1));
           /* How close they are to agreeing, on the team's own label rather than in
-             the letters. A count inside the boxes makes one box two lines tall and
+             the squares. A count inside the boxes makes one box two lines tall and
              the rows stop lining up — the same bug the ordering ladder paid for,
              one grid over. */
           const ag = s.mode === 'agree' ? K.round.agreement(s, c, t) : null;
@@ -187,22 +193,20 @@
             who.appendChild(n);
           }
           row.appendChild(who);
+          const placed = (s.leading[t] || []).length;
           const seq = document.createElement('span');
           seq.className = 'ana-seq';
-          (s.leading[t] || []).forEach(ch=>{
+          for(let i = 0; i < s.need; i++){
             const el = document.createElement('span');
-            el.className = 'ana-mini';
+            el.className = 'ana-mini' + (i < placed ? ' got' : '');
             el.style.borderColor = colourOf(t);
-            el.textContent = bare(ch);
+            if(i < placed) el.style.background = colourOf(t);
             seq.appendChild(el);
-          });
-          const left = s.need - (s.leading[t] || []).length;
-          if(left > 0){
-            const rest = document.createElement('small');
-            rest.className = 'ana-left';
-            rest.textContent = left + ' to go';
-            seq.appendChild(rest);
           }
+          const n = document.createElement('small');
+          n.className = 'ana-left';
+          n.textContent = placed + ' of ' + s.need;
+          seq.appendChild(n);
           row.appendChild(seq);
           wrap.appendChild(row);
         });

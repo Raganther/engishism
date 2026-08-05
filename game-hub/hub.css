@@ -363,6 +363,11 @@ body.clue-open #screen-play{ pointer-events:none; }
    its own (`#clue-card`), which is all that should be clickable. The team bar stays
    live because correcting a score mid-clue is a real thing a teacher does. */
 body.clue-open #scorebar{ pointer-events:auto; }
+/* And so does the room chip, for the same reason the team bar does: the moment a
+   teacher discovers a phantom phone is mid-clue — a team stuck at 3/4 with a ghost
+   inflating its share — and the way to the roster and its kick is through here.
+   The join lobby itself sits above the card, so the path works end to end. */
+body.clue-open #buzzer-chip{ pointer-events:auto; position:relative; z-index:51; }
 /* Drag it out of the way: the card is centred, and sometimes the thing you need to
    see is behind the middle of the screen. `translate` is deliberately not
    `transform` — the flip animates transform, and a drag written into the same
@@ -524,6 +529,23 @@ body.theme-gameshow .settings-range input[type=range]{ accent-color:var(--gold);
 }
 #join-url{ font-family:'IBM Plex Mono',monospace; color:#cfe0ff; font-size:clamp(0.85rem,2vw,1.15rem); }
 #join-count{ font-family:'IBM Plex Sans',sans-serif; color:#8fa6c8; margin-top:12px; font-size:0.95rem; }
+/* The roster: a chip per phone in its team's colour, each with its remove control.
+   Wraps — thirty phones is the intended load, and the QR above stays the biggest
+   thing on screen. */
+#join-roster{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center;
+              margin-top:10px; max-height:20vh; overflow-y:auto; }
+#join-roster .join-player{
+  display:inline-flex; align-items:center; gap:6px; padding:4px 6px 4px 12px;
+  border-radius:999px; font-family:'IBM Plex Sans',sans-serif; font-size:0.85rem;
+  color:#eaf0fc; background:rgba(255,255,255,0.08);
+  border-left:5px solid var(--team, #00A0DF);
+}
+#join-roster .join-player b{ font-weight:600; }
+#join-roster .join-player button{
+  background:none; border:none; color:#8fa6c8; cursor:pointer; font-size:1.05rem;
+  line-height:1; padding:2px 6px; border-radius:999px;
+}
+#join-roster .join-player button:hover{ color:#fff; background:rgba(226,104,91,0.5); }
 #join-close{
   margin-top:20px; background:transparent; color:#cfe0ff; cursor:pointer;
   border:2px solid rgba(255,255,255,0.35); border-radius:10px; padding:10px 22px;

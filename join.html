@@ -297,7 +297,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260804p"></script>
+<script src="game-hub/hub-buzzer.js?v=20260804q"></script>
 <script>
 (function(){
   'use strict';
@@ -967,6 +967,17 @@
       }
     });
 
+    /* This phone's own team moved — a team was removed on the board and the
+       indices shifted under everyone. The pill repaints so the student can see
+       where they now are, and the seat is re-remembered so a reload comes back
+       to the right team rather than the lesson-old one. */
+    client.on('team', d=>{
+      team = Math.max(0, Number(d && d.team) || 0);
+      renderTeams();
+      paintWho(name);
+      rememberSeat({ code, name, team, id:client.id });
+    });
+
     function applyArmed(d){
       floorClockStop();          // a fresh floor retires whoever was on the clock
       canRethink = !!(d && d.rethink);
@@ -1068,6 +1079,21 @@
     client.on('disarmed', ()=> standDown('Waiting for the teacher…'));
     client.on('reset',    ()=>{ card = null; $('card').style.display='none';
                                 standDown('Waiting for the teacher…'); });
+
+    /* The teacher removed this phone. Back to the join form with the reason on it —
+       and the seat is forgotten first, or a reload would resume straight back into
+       the room and undo the teacher's only tool against a phantom. The code and
+       name stay filled, so a phone kicked by mistake rejoins in two taps. */
+    client.on('kicked', ()=>{
+      forgetSeat();
+      try{ client.close(); }catch(e){}
+      client = null; window.HubPlayer = null;
+      card = null; $('card').style.display='none';
+      show('screen-join');
+      loadTeams(true);
+      validate();
+      $('join-err').textContent = 'The teacher removed this phone from the game.';
+    });
 
     /* The host's verdict on what this phone wrote. 'close' is its own answer, not a
        softer 'wrong': it means the word was produced and mis-spelled, which the

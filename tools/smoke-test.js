@@ -4009,6 +4009,52 @@ async function testRelayReconnect(){
   const after = (seen.match(/"players":\[[^\]]*\]/g) || []).pop() || '';
   check('a phone that actually leaves is dropped', !/Ana/.test(after), after || 'empty');
 
+  /* ---- the teacher kicks a phantom ----
+     A handset that dies without closing its connection stays on the roster,
+     inflating its team's size — which breaks every share and every all-agree
+     gate, and nothing else can remove it. The kick is the way out. The phone is
+     told before it is cut, so a live one kicked by mistake knows what happened
+     rather than showing "reconnecting…" over a room it is no longer in. */
+  let ghostSeen = '';
+  const ghost = await stream('room=' + code + '&id=ghost1&name=Ghost&team=0');
+  if (ghost.res) ghost.res.on('data', c => ghostSeen += c);
+  await wait(400);
+  check('the phantom is on the roster',
+        /Ghost/.test((seen.match(/"players":\[[^\]]*\]/g) || []).pop() || ''));
+  await post({ type:'kick', room:code, id:'ghost1' });
+  await wait(500);
+  check('a kicked phone is told, then cut', /event: kicked/.test(ghostSeen),
+        ghostSeen.replace(/\n/g,' ').slice(-120));
+  check('and the host sees it leave',
+        /event: leave/.test(seen) &&
+        !/Ghost/.test((seen.match(/"players":\[[^\]]*\]/g) || []).pop() || ''),
+        (seen.match(/"players":\[[^\]]*\]/g) || []).pop());
+  check('kicking a phone that is not there is not an error',
+        (await post({ type:'kick', room:code, id:'nobody' })).status === 200);
+
+  /* ---- a team removed on the host renumbers the phones ----
+     A team's index is its identity on both ends, and it used to shift only on
+     the board: every joined phone kept the number it joined under, and the first
+     live class paid a win to a team that no longer existed. */
+  let p1seen = '', p2seen = '';
+  const p1 = await stream('room=' + code + '&id=pp1&name=Pia&team=1');
+  const p2 = await stream('room=' + code + '&id=pp2&name=Quinn&team=2');
+  if (p1.res) p1.res.on('data', c => p1seen += c);
+  if (p2.res) p2.res.on('data', c => p2seen += c);
+  await wait(400);
+  await post({ type:'remap', room:code, removed:1 });
+  await wait(500);
+  check('a phone on the removed team lands on team 0',
+        /event: team\ndata: \{"team":0\}/.test(p1seen), p1seen.replace(/\n/g,' ').slice(-90));
+  check('a phone above it shifts down one',
+        /event: team\ndata: \{"team":1\}/.test(p2seen), p2seen.replace(/\n/g,' ').slice(-90));
+  check('and the host gets the renumbered roster',
+        /"pp2","name":"Quinn","team":1/.test(seen.replace(/\s/g,'').match(/"players":\[[^\]]*\]/g)?.pop() || '') ||
+        /Quinn/.test((seen.match(/"players":\[[^\]]*"team":1[^\]]*\]/g) || []).pop() || ''),
+        (seen.match(/"players":\[[^\]]*\]/g) || []).pop());
+  if (p1.req) p1.req.destroy();
+  if (p2.req) p2.req.destroy();
+
   /* ---- two hub tabs on one room ----
      Only one host stream may be live, and the newest wins. Ending the loser
      silently makes it look like a network drop, so its EventSource reconnects —
@@ -6512,10 +6558,17 @@ async function testAnagramRound(browser){
           (await ph.locator('#ana-slots').innerText()).replace(/\s/g,'') === word.slice(0,3),
           (await ph.locator('#ana-slots').innerText()).replace(/\s/g,''));
     /* The board showing progress is the round's whole picture on a projector: you
-       can see one team three letters in without reading a scoreboard. */
+       can see one team three letters in without reading a scoreboard. Progress and
+       *only* progress — the lanes drew each team's half-built sequence once, and
+       the first live class read several at once as a wall of jumbled words. */
     check('and the board shows how far that team has got',
-          /to go/i.test(await live.locator('#clue-card .ana-teams').innerText().catch(()=>'')),
+          /3 of \d/i.test(await live.locator('#clue-card .ana-teams').innerText().catch(()=>'')),
           (await live.locator('#clue-card .ana-teams').innerText().catch(()=>'—')).replace(/\n/g,' '));
+    check('as progress, never as the letters themselves',
+          await live.evaluate(() => {
+            const minis = [...document.querySelectorAll('#clue-card .ana-mini')];
+            return minis.length > 0 && minis.every(m => !m.textContent.trim());
+          }));
 
     /* A tap fills the next empty box. Not a nicety: dragging on a phone misses, and
        a letter that will not move because the thumb travelled four pixels reads as
@@ -7443,11 +7496,18 @@ async function main(){
     console.error('  unknown --only= value. Available: ' + Object.keys(suites).join(', '));
     process.exit(2);
   }
-  try {
-    for (const key of toRun) await suites[key](browser);
-  } catch (e) {
-    failed++; failures.push('threw: ' + (e && e.message));
-    console.log('\n  THREW  ' + (e && e.message));
+  /* Per suite, not around the loop. One suite throwing used to abort every suite
+     after it in the list — and the totals printed anyway, so a run that covered
+     three suites read exactly like a run that covered ten. Silent truncation is
+     worse than a failure: it was believed twice before being noticed, both times
+     because `phonemodes` carries a deliberately-red check that *throws*. A suite
+     that throws now fails by name and the rest still run. */
+  for (const key of toRun){
+    try { await suites[key](browser); }
+    catch (e) {
+      failed++; failures.push(key + ' threw: ' + (e && e.message));
+      console.log('\n  THREW in ' + key + '  ' + (e && e.message));
+    }
   }
   if (!keepOpen || !failed) await browser.close();
   if (relay) relay.kill();

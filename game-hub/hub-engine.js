@@ -818,6 +818,15 @@
       help: own.help || 'The same question played more than one way. These are different lessons rather than two speeds of the same one, so it is a teaching choice.' });
   });
 
+  /* Only the boards where a round has a slot one team takes — Quickfire's
+     `scoreEach` pays every team as it answers and its clock ends the question, so
+     there is no single winning moment to announce. Derived from the host's own
+     declaration rather than naming the game, so a seventh board sorts itself. */
+  S.register({ id:'roundWinBanner', group:'Questions', type:'toggle', default:true,
+    games: ROUND_GAMES.filter(g => !ROUND_HOSTS[g].scoreEach),
+    label:'Winner banner when a round is taken',
+    help:'After a team takes a round, a banner names them and what it paid, and lingers a moment — the strip alone was gone before the back of the room could read it.' });
+
   S.register({ id:'roundWho', group:'Questions', type:'variant', default:'room',
     games:ROUND_GAMES, label:'Who plays a round',
     variants:[{ value:'room', label:'The whole class races — first team to get it takes the square' },
@@ -1473,6 +1482,11 @@
         <div id="join-code"></div>
         <div id="join-url"></div>
         <div id="join-count"></div>
+        <!-- Who is in, each removable. The way out of a phantom: a handset that
+             died without closing its connection stays on the roster, inflates its
+             team's size, and quietly breaks every share and every all-agree gate.
+             Nothing else can remove it, so the teacher can. -->
+        <div id="join-roster"></div>
         <button id="join-close" type="button">Close</button>
       </div>
     </div>
@@ -1591,6 +1605,12 @@
     if(active > i) active--;
     if(active >= teams.length) active = teams.length - 1;
     bbSideAt = [0, 0];
+    /* The phones' indices shift with the board's, or the two disagree for the
+       rest of the lesson — the first live class paid a Drag the Letters win to a
+       team that no longer existed, because every joined phone kept the number it
+       joined under. The relay renumbers its players, tells each moved phone, and
+       answers with a roster refresh that re-deals, re-shares and re-reads. */
+    if(buzzHost) buzzHost.remap(i);
     renderScorebar();
     if(activeGame === 'blockbusters'){ renderBBTurn(); renderBBVote(); }
     hook('onResize');
@@ -1726,8 +1746,13 @@
        showResult({ eyebrow, title, sub, tone:'gold'|'silver'|null,
                     actions:[{label, primary, onPick}] }) */
   let resultOnHide = null;
+  /* Which showing of the banner is which. A banner that hides itself on a timer
+     must only hide *its own* showing — a stale timer from a round's winner moment
+     firing into the game's final results would take them down mid-read. */
+  let resultSeq = 0;
   function showResult(cfg){
     const modal = document.getElementById('result-modal');
+    resultSeq++;
     resultOnHide = cfg.onHide || null;
     document.getElementById('result-eyebrow').textContent = cfg.eyebrow || '';
     document.getElementById('result-title').textContent   = cfg.title || '';
@@ -3672,6 +3697,11 @@
      it the room never sees which four it was: the answer and the card leaving would
      land in the same frame. */
   const J_GROUP_TAKE_MS   = 700;
+  /* How long the winner banner lingers before leaving on its own. Long enough to
+     read a team name from the back of a room; short enough that a teacher who
+     never clicks is not held up. A guess until a classroom says otherwise —
+     like the 1.5s it exists to fix. */
+  const ROUND_WIN_LINGER_MS = 4000;
 
   /* Two different questions, and using the wrong one is a live trap. `jGroupClue()`
      is "this clue is a grouping clue", true until the card closes. `jGroupLive()` is
@@ -3956,10 +3986,25 @@
        A beat first, or the four lighting up and the card leaving land in one frame
        and the room never sees which four it was. */
     const value = currentClueValue;
+    const label = (jRoundDef() || {}).label || 'Round';
     setTimeout(()=>{
       if(!jGroup) return;                 // the teacher closed the card in the meantime
       const paid = roundHost.win(team);
       notePhoneScore(teamName(team), team, null, paid || value);
+      /* The winner's moment. The strip's note holds a second and a half and the
+         card is already leaving, so from the back of a room a win was over before
+         anybody could read whose it was — the first live class asked for this by
+         name. The shared banner lingers over the board, then leaves by itself;
+         the teacher's click still outranks the timer. */
+      if(S.get('roundWinBanner', roundHost.game)){
+        showResult({ eyebrow: label,
+                     title: teamName(team),
+                     sub: 'takes it — +' + (paid || value),
+                     tone: 'gold',
+                     actions: [{ label:'Continue', primary:true }] });
+        const mine = resultSeq;
+        setTimeout(()=>{ if(resultSeq === mine) hideResult(); }, ROUND_WIN_LINGER_MS);
+      }
     }, J_GROUP_TAKE_MS);
   }
 
@@ -5720,6 +5765,34 @@
   function renderJoinCount(){
     const el = document.getElementById('join-count');
     if(el) el.textContent = buzzPlayers + (buzzPlayers === 1 ? ' phone joined' : ' phones joined');
+    renderJoinRoster();
+  }
+
+  /* Every joined phone, in its team's colour, each with a remove control. Kicking
+     asks the relay; the relay tells the phone (so a live one kicked by mistake
+     says what happened and can rejoin in two taps), drops it, and the 'leave'
+     that comes back is what heals the room — shares recompute and the replies in
+     hand are re-read, both already wired to the roster changing. No confirm
+     dialog: the teacher is mid-lesson, and the cost of a mis-tap is a student
+     rejoining, not losing work. */
+  function renderJoinRoster(){
+    const box = document.getElementById('join-roster');
+    if(!box) return;
+    box.innerHTML = '';
+    if(!buzzHost) return;
+    buzzHost.players().forEach(p=>{
+      const row = document.createElement('span');
+      row.className = 'join-player';
+      row.style.setProperty('--team', HubBuzzer.teamColour(p.team));
+      const nm = document.createElement('b');
+      nm.textContent = p.name;
+      const off = document.createElement('button');
+      off.type = 'button'; off.textContent = '×';
+      off.title = 'Remove this phone from the game';
+      off.addEventListener('click', ()=> buzzHost && buzzHost.kick(p.id));
+      row.appendChild(nm); row.appendChild(off);
+      box.appendChild(row);
+    });
   }
 
   /* The chip is *in* the layout above the board, exactly like the replies panel —

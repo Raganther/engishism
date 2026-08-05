@@ -82,6 +82,17 @@ Drive these over raw HTTP, not through a browser — the race is between two
 connections and `EventSource` will not let a test hold both. See the `reconnect`
 suite for the pattern.
 
+### 4b. The phone's team number and the board's disagree
+
+A team's **index** is its identity on both ends, and only removal shifts it —
+`removeTeam` sends `remap` to the relay, which renumbers its players and tells
+each moved phone. Before that existed, the first live class had a Drag the
+Letters win paid to a team that no longer existed. If points land on the wrong
+team, ask two things: were teams *removed* after phones joined (should be safe
+now — the remap suite checks pin it), and does the student's own team pill match
+where they are sitting? A phone registered to the wrong team pays the wrong team
+by design — the pill is the tell, and "Not you? Change name or team" is the fix.
+
 ### 5. The roster changed and nobody re-read what was already in hand
 
 New, and it hides well. A round that waits for a *whole team* — the ordering climb,
@@ -100,6 +111,15 @@ when a reply lands.
 
 The tell is a count on the card that will not move — `1/2` with one phone visibly
 gone. Reproduce by removing a handset mid-question rather than by tapping.
+
+**The phantom variant**: a handset that died *without closing its connection*
+stays on the roster and inflates its team's size — a ghost on a team of 3 makes
+the Connections share 1 each (three phones can never assemble four), and makes
+every all-agree gate unreachable. The relay's TCP keepalive surfaces genuinely
+dead sockets in tens of seconds; for the one it hasn't caught yet, the teacher
+kicks it from the roster in the join lobby (SHOW QR), which runs the same leave
+path and heals the room. Reproduce with a raw `http.get` on the stream endpoint
+that never closes — a bench iframe always closes cleanly and will never phantom.
 
 ### 6. The room the hub is talking to is not the room it was told about
 

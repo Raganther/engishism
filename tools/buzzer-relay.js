@@ -181,6 +181,13 @@ function openStream(req, res, q){
   res.write(': open\n\n');
   const beat = setInterval(()=>{ try{ res.write(': ping\n\n'); }catch(e){} }, 20000);
   beat.unref();
+  /* TCP keepalive, so a handset that vanished without closing — screen locked
+     hard, walked off the wifi — errors its socket in tens of seconds instead of
+     lingering as a phantom player that inflates its team's size. The pings above
+     only *send*; a dead peer swallows them silently for as long as the OS keeps
+     buffering. This is for the phantoms nobody notices; the teacher's kick is for
+     the one they do. */
+  try{ res.socket.setKeepAlive(true, 10000); }catch(e){}
 
   if(role==='host'){
     /* One host stream per room, and the one that arrives last wins. But simply
@@ -240,19 +247,29 @@ function openStream(req, res, q){
        was missing it. */
     const cur = room.players.get(id);
     if(!cur || cur.res !== res) return;
-    room.players.delete(id);
-    /* A held reply leaves with the phone holding it. Without this a student who
-       walks out mid-round goes on occupying two of their team's four words for the
-       rest of the game, with nobody able to drop them and the host still counting
-       them — the team is simply stuck. A *given* answer stays put: the teacher
-       wants to see what the class typed even from a handset that died afterwards.
-       Which of the two this is, is the host's declaration on the arm. */
-    const dropped = room.holds && room.responses.delete(id);
-    toHost(room, 'leave', { id, name, players:roster(room) });
-    // the host's picture of the round has to change with it, or nothing tells it
-    if(dropped) toHost(room, 'response', Object.assign(
-      { latest:null, left:id, of:room.players.size }, tallyOf(room)));
+    dropPlayer(room, id);
   });
+}
+
+/* One definition of a player leaving, because it now happens two ways — the
+   stream closing, and the teacher kicking a phantom — and two copies would be two
+   things that could disagree about what leaving means.
+
+   A held reply leaves with the phone holding it. Without this a student who
+   walks out mid-round goes on occupying two of their team's four words for the
+   rest of the game, with nobody able to drop them and the host still counting
+   them — the team is simply stuck. A *given* answer stays put: the teacher
+   wants to see what the class typed even from a handset that died afterwards.
+   Which of the two this is, is the host's declaration on the arm. */
+function dropPlayer(room, id){
+  const p = room.players.get(id);
+  if(!p) return;
+  room.players.delete(id);
+  const dropped = room.holds && room.responses.delete(id);
+  toHost(room, 'leave', { id, name:p.name, players:roster(room) });
+  // the host's picture of the round has to change with it, or nothing tells it
+  if(dropped) toHost(room, 'response', Object.assign(
+    { latest:null, left:id, of:room.players.size }, tallyOf(room)));
 }
 
 /* ---------- upstream ---------- */
@@ -462,6 +479,41 @@ function handleSend(req, res){
         room.teams = Array.isArray(msg.teams) ? msg.teams.slice(0,8).map(t=>String(t).slice(0,24)) : [];
         toPlayers(room, 'teams', { teams:room.teams });
         return sendJSON(res, 200, { ok:true });
+
+      /* A team was removed on the host. A team's index is its identity — on the
+         board, in every reply's attribution, and here — so every player above the
+         removed slot shifts down one, and a player *on* it lands on team 0 with
+         their handset told, so the pill in their hand says where they now are.
+         Without this the first live class paid a win to a team that no longer
+         existed: the phones kept their old numbers, the board renumbered, and the
+         two disagreed for the rest of the lesson. */
+      case 'remap': {
+        const gone = Math.max(0, Math.floor(Number(msg.removed)));
+        room.players.forEach(p=>{
+          const was = p.team;
+          if(p.team === gone) p.team = 0;
+          else if(p.team > gone) p.team = p.team - 1;
+          if(p.team !== was) pushEvent(p.res, 'team', { team:p.team });
+        });
+        /* The host's picture refreshes through the same event a join uses, which
+           is what re-deals, re-shares and re-reads everything downstream. */
+        toHost(room, 'join', { players:roster(room) });
+        return sendJSON(res, 200, { ok:true });
+      }
+
+      /* The teacher removes one phone — the way out of a phantom that joined a
+         team and died without closing, which the room otherwise counts forever.
+         The phone is told before it is cut, so a live handset kicked by mistake
+         says what happened instead of showing "reconnecting…" over a room it is
+         no longer in. The bookkeeping is the same leaving a stream-close does. */
+      case 'kick': {
+        const p = room.players.get(String(msg.id || ''));
+        if(!p) return sendJSON(res, 200, { ok:true, ignored:'not in room' });
+        pushEvent(p.res, 'kicked', {});
+        try{ p.res.end(); }catch(e){}
+        dropPlayer(room, p.id);
+        return sendJSON(res, 200, { ok:true });
+      }
       default:
         return sendJSON(res, 400, { error:'unknown type' });
     }

@@ -1175,6 +1175,55 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Four of the five classroom reports are fixed; the fifth was two bugs and one of
+  them is fixed too.** Worked through with reproductions first, each proved against
+  the broken build:
+  - **A phantom phone can be kicked, and the room heals.** The relay only dropped a
+    player on stream close, and a handset that dies without closing lingers —
+    inflating its team's size, which locks Connections (a ghost on a team of 3
+    makes the share 1 each; three phones can never assemble four) and makes every
+    all-agree gate unreachable. The join lobby (SHOW QR) now lists every phone in
+    its team colour with a remove control; the relay tells the phone first (a live
+    one kicked by mistake sees why and can rejoin in two taps — and its seat is
+    forgotten first, or a reload would resume straight back in), then runs the
+    same leave path a stream close does, so shares recompute and replies re-read
+    through the wiring that already existed. TCP keepalive on the streams
+    (`setKeepAlive(true, 10s)`) makes the OS surface genuinely dead sockets in
+    tens of seconds, for the phantoms nobody notices. **The room chip stays
+    clickable while a clue is open** (same exception as the team bar, z-index 51
+    over the card's 50) because mid-clue is exactly when a phantom is discovered.
+  - **A round win has a winner's moment.** `roundWinBanner` (Questions group, on
+    by default): after the take-beat pays, the shared `showResult` banner names
+    the team and what it paid, lingers ~4s (`ROUND_WIN_LINGER_MS`, a guess like
+    the 1.5s it fixes) and leaves by itself; the teacher's click outranks the
+    timer, and a `resultSeq` guard stops a stale timer taking down a *later*
+    banner (the game's final results, say). Offered only where a round has a slot
+    one team takes — derived from the hosts' own `scoreEach` fact, so Quickfire
+    is excluded structurally rather than by name.
+  - **The anagram lanes show progress, not letters.** The card drew each team's
+    furthest half-built sequence, copied from Drag the Words — and the first class
+    read several at once as a wall of jumbled words. The logic does not transfer:
+    a rival's correct *words* are readable and worth stealing; a wrong *letter
+    sequence* is noise. A lane is filled squares and an `n of m` count now. The
+    handset is untouched.
+  - **Removing a team renumbers the phones — the wrong-team payout.** A team's
+    index is its identity on both ends, and only the board's end shifted:
+    reproduced by removing the middle of three teams, after which a win paid a
+    team that no longer existed (and with other patterns, the wrong live team).
+    `removeTeam` now sends `remap` to the relay, which renumbers its players
+    (above the slot shifts down; on it lands on team 0), tells each moved phone —
+    the pill repaints and the seat re-remembers — and refreshes the host through
+    the same roster event a join uses, so cards, shares and replies all follow.
+    **Adding or renaming teams was always safe**; only removal shifted indices.
+    Whether the class also had students joined under the wrong team is still
+    open — the phone's own pill is the tell.
+  - **The smoke runner no longer truncates silently.** One suite throwing aborted
+    every suite after it in the list — and the totals printed anyway, so a run
+    covering three suites read exactly like a run covering ten. It was believed
+    twice (the resume-fix run and the kick run) because `phonemodes` carries a
+    deliberately-red check that *throws*. Suites now fail by name and the rest
+    run. **A red total is trustworthy; a green-looking partial is not — check
+    which sections actually ran.**
 - **The bench card carries the clue card's own metrics now — the two were only
   ever the same code, not the same size.** Reported from the room bench: Drag the
   Words drew one row of words on the question bench and two on the projector.
@@ -3385,31 +3434,13 @@ for the full version with requirement IDs. The short form, in order:
    and forgets every room, and the hub never re-told the new room the question. See
    the top of Current status.
 1. ~~**Teach a lesson with it.**~~ **Done — the first live class ran (2026-08-05),
-   with rounds on real phones.** Five reports came back, recorded verbatim below,
-   **untriaged and deliberately not yet acted on** — the user asked for no changes
-   until discussed. The likely-shared root is the roster, not the rounds:
-   - **Winning answers disappear too quickly** — wants a winner screen naming the
-     team after each round, lingering a moment. (The strip's `lastScored` holds
-     1.5s, a pre-classroom guess. A per-round `showResult` beat is the natural
-     shape — every host would inherit it.)
-   - **Anagram: every team's attempt on screen at once** reads as a list of
-     jumbled words that informs nobody. (The lanes copy Drag the Words, but the
-     logic does not transfer: a rival's correct *words* are readable and worth
-     stealing; a half-wrong *letter sequence* is noise. Direction: lanes show
-     progress counts, not letters.)
-   - **Teams of 3 had trouble in Connections; what about 5?** (Likely the phantom
-     below: a ghost on a team of 3 makes the share 1 each, and three real phones
-     can never assemble four words. In agree modes a ghost makes unanimity
-     unreachable. A real team of 5 should work — 1 word each, one stands down.)
-   - **A phantom phone appeared in a team; need a way to remove specific phones
-     mid-game.** (The relay only drops a player on stream close, and a dead
-     handset's connection can linger. Fix shape: a kick on the host's roster +
-     the relay dropping streams it cannot write to. Phones/relay work — suite it.)
-   - **Drag the Letters paid the wrong team.** (Payout goes to the winning
-     phone's *registered* team. Either a student joined under the wrong team, or
-     team indices shifted when teams changed mid-lesson while joined phones kept
-     their old numbers. Awaiting the user's answer on whether teams were
-     added/removed after joining.)
+   with rounds on real phones.** Five reports came back; **all five are addressed**
+   — see "Four of the five classroom reports are fixed" at the top of Current
+   status. The one open thread: whether Drag the Letters' wrong-team payout also
+   involved students joined under the wrong team (the index-shift half is fixed;
+   ask whether teams were removed mid-lesson, and watch the phones' team pills in
+   the next class). Every fix is a first classroom iteration — the winner banner's
+   4s, the progress lanes, the kick flow all await a second lesson's verdict.
 2. **Round state that outlives one question.** Unblocks roles, information gaps, hands
    of cards and personal scorecards — about half of "what the container makes
    possible". The relay already persists a bingo card per player across a reconnection;
