@@ -5267,6 +5267,10 @@ async function testGroupingClue(browser){
      **a right answer is progress, not an ending** — which if defaulted wrongly pays
      the tile four rungs early. */
   page = await openLab(['Word Thermometer','Anagram','Gap Fill'], { phones:false });
+  /* This block drives the *climb* lesson — one shared ladder, a rung at a time.
+     Jeopardy's own default is a ladder each now (`modeDefaults` in ROUND_HOSTS),
+     so the mode under test is stated rather than inherited. */
+  await page.evaluate(() => window.HubSettings.set('round_ordering', 'climb', 'jeopardy'));
   await openTile(page, 'Word Thermometer', 0);
   check('an ordering clue draws its ladder on a Jeopardy card',
         await page.locator('#clue-group .ord-rung').count() === 5 &&
@@ -5456,6 +5460,8 @@ async function testGroupingClue(browser){
   for (const vp of [{ width:1280, height:720, tag:'a projector' },
                     { width:390,  height:844, tag:'a handset' }]){
     const p2 = await openLab(['Word Thermometer','Anagram','Gap Fill'], { phones:false });
+    // the shared ladder is the tall case being measured — state it, as above
+    await p2.evaluate(() => window.HubSettings.set('round_ordering', 'climb', 'jeopardy'));
     await p2.setViewportSize({ width:vp.width, height:vp.height });
     await p2.waitForTimeout(250);
     await openTile(p2, 'Word Thermometer', 4);

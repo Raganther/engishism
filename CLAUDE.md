@@ -1196,8 +1196,12 @@ playground's point, that one board can host several:
   no special case: `defaults:{game:value}` on a setting ranks below a teacher's
   override and above the master (see "Adding a feature"), and a host names which
   mode suits its board via `modeDefaults` in `ROUND_HOSTS`, validated against the
-  round's declared modes. Only Jeopardy·choice is set; Quickfire and Millionaire
-  keep the race, and any host can differ with one line. The panel tells the truth
+  round's declared modes. Jeopardy sets two: choice→`agree`, and ordering→`race` —
+  reported as "only one ladder appears even when there are more teams", because on
+  a team-vs-team board the shared climb reads as a single ladder. Quickfire and
+  Millionaire keep their races, and any host can differ with one line. The suite
+  blocks that drive the *climb* lesson now state that mode explicitly rather than
+  inheriting Jeopardy's default. The panel tells the truth
   about it in both directions — "This game's own default" on the game tab, "has its
   own value in Jeopardy" on the master row — because a game with its own default is
   a game the master row does not reach, which is the same silent-mismatch trap

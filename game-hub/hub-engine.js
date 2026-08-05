@@ -564,10 +564,12 @@
       /* Which of a round's modes suits *this board*, when that differs from the
          round's own first choice. Jeopardy is team-based — a tile is a team's
          answer, not a thumb's — so a multiple choice here waits for the whole
-         team to agree rather than paying the fastest tap. A declared fact, not a
-         stored value: the teacher's ⚙ row still overrides it, and the panel says
-         it is this board's own default. */
-      modeDefaults: { choice:'agree' }
+         team to agree rather than paying the fastest tap, and the ordering
+         ladder is a ladder *each*: on a board where teams compete for a tile,
+         one shared ladder reads as a single ladder however many teams there are.
+         Declared facts, not stored values: the teacher's ⚙ row still overrides
+         them, and the panel says they are this board's own defaults. */
+      modeDefaults: { choice:'agree', ordering:'race' }
     },
     blockbusters: {
       game:'blockbusters', stage:'play-blockbusters',
