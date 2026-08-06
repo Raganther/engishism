@@ -64,6 +64,27 @@
                       gloss:{ livid:"so angry you have gone quiet." } } },
     field: 'order',
 
+    editor: {
+      labelA:'The scale, weakest first — this is the answer',
+      labelB:'The two ends of the scale, separated by |',
+      /* `prev` is what the item already was. The editor has three fields and an
+         ordering item has four things in it — the glosses have no field, so
+         without carrying them forward, loading a category and saving it back
+         would silently strip the teaching off every step. A round trip that
+         loses data is worse than no round trip. */
+      build: (text, a, b, prev) => {
+        const ends = String(b || '').split('|').map(x => x.trim());
+        const scale = K.round.list(a);
+        const was = (prev && prev.order && prev.order.gloss) || {};
+        const gloss = {};
+        scale.forEach(w => { if(was[w]) gloss[w] = was[w]; });
+        return { text, order:{ scale, low:ends[0] || 'weakest',
+                               high:ends[1] || 'strongest', gloss } };
+      },
+      read: it => ({ q:it.text || '', a:((it.order||{}).scale||[]).join(', '),
+                     b:((it.order||{}).low || '') + ' | ' + ((it.order||{}).high || '') })
+    },
+
     claims(item){ return !!(item && item.order && Array.isArray(item.order.scale)); },
 
     setup(item, ctx){

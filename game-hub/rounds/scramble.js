@@ -52,6 +52,13 @@
               scramble:{ sentence:"The jury reached the verdict after four hours" } },
     field: 'scramble',
 
+    editor: {
+      labelA:'The sentence in its correct order — this is the answer',
+      labelB:null,
+      build: (text, a) => ({ text, scramble:{ sentence:String(a || '').trim() } }),
+      read: it => ({ q:it.text || '', a:(it.scramble || {}).sentence || '', b:'' })
+    },
+
     claims(item){ return !!(item && item.scramble && item.scramble.sentence); },
 
     setup(item, ctx){

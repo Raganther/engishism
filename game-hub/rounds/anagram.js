@@ -76,6 +76,16 @@
     sample: { text:"the decision a jury delivers", anagram:{ word:"verdict" } },
     field: 'anagram',
 
+    /* Two fields, not three — `labelB:null`, the same thing a question form
+       says. The editor declares its own shape rather than the bench asking
+       what kind of thing is being edited. */
+    editor: {
+      labelA:'The word to scramble — this is the answer',
+      labelB:null,
+      build: (text, a) => ({ text, anagram:{ word:String(a || '').trim() } }),
+      read: it => ({ q:it.text || '', a:(it.anagram || {}).word || '', b:'' })
+    },
+
     claims(item){ return !!(item && item.anagram && item.anagram.word); },
 
     setup(item, ctx){

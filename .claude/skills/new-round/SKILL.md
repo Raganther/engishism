@@ -90,10 +90,18 @@ Two companions:
   per-position counts for the lanes and full-sequence tallies for agree mode.
   For single-pick replies use `Kit.round.poll` as ever.
 
-**The bench's `EDITORS` table is the one registration the registry does not do for
-you.** A round missing its row opens on the previous type's sample and says "not
-complete yet" with nothing naming the gap. One row: sample values, field labels,
-`build`/`read` between the three editor fields and your item shape.
+**Declare an `editor` and the workshop builds itself.** `{labelA, labelB,
+build(text, a, b, prev), read(item)}` on your round, beside `sample` — the bench
+asks the registry, and the starting values are `read(sample)`, so the sample
+lives once. `labelB:null` gives two fields instead of three. If your item holds
+something the three fields cannot express (ordering's per-word glosses), carry it
+forward from `prev` in `build` — a round trip that silently strips data is worse
+than no round trip. Declare nothing and you still get a generic editor rather
+than a blank page, wrong only in its wording.
+
+*(This was a hand-kept table in the bench until it had caught two rounds in a
+row — the symptom being a round that opens on the previous type's sample saying
+"not complete yet", with nothing naming the gap.)*
 
 **Read it fresh; never stash it.** That is why `read`, `judge` and `accept` all take it
 too. Students join and drop all lesson, so `ctx.sizes` — how many handsets are on each

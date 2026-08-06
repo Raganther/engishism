@@ -92,6 +92,34 @@
                                {w:'jury', b:'Noun'}, {w:'sentence', b:'Verb'} ] } },
     field: 'drop',
 
+    /* One field for the whole game: `Group: word, word | Group: word, word`.
+       Two fields would separate the bins from the words that belong in them,
+       and the pairing is the entire question. */
+    editor: {
+      labelA:'The groups — Group: word, word | Group: word, word',
+      labelB:null,
+      build: (text, a) => {
+        const buckets = [], words = [];
+        String(a || '').split(/[|;\n]+/).forEach(seg=>{
+          const i = seg.indexOf(':');
+          if(i === -1) return;
+          const b = seg.slice(0, i).trim();
+          if(!b) return;
+          buckets.push(b);
+          K.round.list(seg.slice(i + 1)).forEach(w => words.push({ w, b }));
+        });
+        return { text, drop:{ buckets, words } };
+      },
+      read: it => {
+        const d = it.drop || {};
+        const by = {};
+        (d.words || []).forEach(x => { (by[x.b] = by[x.b] || []).push(x.w); });
+        return { q: it.text || '',
+                 a: (d.buckets || []).map(b => b + ': ' + (by[b] || []).join(', ')).join(' | '),
+                 b: '' };
+      }
+    },
+
     claims(item){ return !!(item && item.drop && item.drop.words); },
 
     setup(item, ctx){

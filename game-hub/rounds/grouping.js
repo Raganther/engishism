@@ -45,6 +45,17 @@
                       with:["chopped","sliced","peeled","grated"] } },
     field: 'group',
 
+    /* How the workshop writes one. The decoys are their own field because they
+       are their own decision: four cooking verbs against four random words is a
+       spotting exercise, against four *preparation* verbs it is the lesson. */
+    editor: {
+      labelA:'The words that belong together',
+      labelB:'The decoys — they must be a coherent group of their own',
+      build: (text, a, b) => ({ text, group:{ pick:K.round.list(a), with:K.round.list(b) } }),
+      read: it => ({ q:it.text || '', a:((it.group||{}).pick||[]).join(', '),
+                     b:((it.group||{}).with||[]).join(', ') })
+    },
+
     claims(item){ return !!(item && item.group && Array.isArray(item.group.pick)); },
 
     /* The authored item becomes the round's own state. Anything malformed returns

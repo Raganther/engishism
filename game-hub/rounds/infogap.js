@@ -158,6 +158,13 @@
               infogap: { sentence: 'The jury *deliberated* for four hours before reaching a *unanimous* verdict' } },
     field: 'infogap',
 
+    editor: {
+      labelA:'The sentence, key words starred *like this* — each phone hides a different one',
+      labelB:null,
+      build: (text, a) => ({ text, infogap:{ sentence:String(a || '').trim() } }),
+      read: it => ({ q:it.text || '', a:(it.infogap || {}).sentence || '', b:'' })
+    },
+
     claims(item){ return !!(item && item.infogap && item.infogap.sentence); },
 
     setup(item, ctx){

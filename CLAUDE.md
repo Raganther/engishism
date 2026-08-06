@@ -1176,6 +1176,25 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A round declares its own editor — the last hand-kept list a new round had to
+  join is gone.** The question bench held a table with one hand-written row per
+  round (labels, sample values, `build`/`read`), and a round missing its row
+  opened on the *previous* type's sample saying "not complete yet" with nothing
+  anywhere naming the gap. It caught two rounds in a row — the information gap
+  and Word Drop, both in one session. `editor:{labelA, labelB, build, read}`
+  lives on the round now, beside the `sample` it already carried, and the bench
+  asks the registry the way the menu, the content gate and `question-types.js`
+  already do.
+  - **It was also a second copy of the sample values, and they had drifted** —
+    the table said grouping was about a courtroom, the registry said it was
+    about ways of cooking food. The starting fields are `read(sample)` now, so
+    the sample lives once.
+  - **A round that declares no editor still opens**, with generic labels rather
+    than a blank page: wrong in its wording, never wrong in its behaviour.
+  - `Kit.round.list` went on the shelf with it — three editors parse a
+    comma-separated field. Verified across all seven rounds: right labels, two
+    fields vs three, and a build/read round trip that keeps what the editor has
+    no field for (ordering's per-word glosses).
 - **One rack on both benches: layout presets, linked teams, sticky panes.**
   `BenchKit.layout` puts the standard classroom divisions (2×2 · 2×4 · 3×3 ·
   4×4 · no phones) on the question bench and the room bench as one-click

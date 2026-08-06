@@ -520,102 +520,31 @@ function fillModes(){
 $('mode-pick').addEventListener('change', ()=>{ fillTeamPick(); build(); if(host) ask(); });
 $('for-team').addEventListener('change', draw);
 
-const list = str => str.split(',').map(w => w.trim()).filter(Boolean);
+/* A round's editor is the round's own declaration now — `labelA`, `labelB`,
+   `build` and `read`, beside the `sample` it already carried. This used to be a
+   table here, one hand-written row per round, and it was the last hand-kept list
+   a new round had to join: a round missing its row opened on the *previous*
+   type's sample saying "not complete yet", with nothing anywhere naming the gap.
+   It caught two rounds in a row. It was also a second copy of the sample values,
+   and grouping's two had already drifted apart — the table said "courtroom", the
+   registry said "ways of cooking food".
 
-/* One editor, one row per round — a table rather than a chain of `if (type === …)`.
-   Two shapes were two branches and that was fine; the third is what makes it a list
-   that has to be kept in step with the registry by hand, which is the shape this
-   project keeps paying for. The fields never change, only what they mean: the second
-   is the answer in every round, which is why the labels move and the form does not. */
-const EDITORS = {
-  grouping: { q:'Four of these belong in a courtroom. Find the four.',
-              a:'verdict, jury, testimony, acquittal',
-              b:'sabbatical, promotion, redundancy, overtime',
-              labelA:'The words that belong together',
-              labelB:'The decoys — they must be a coherent group of their own',
-              build: (text, a, b) => ({ text, group:{ pick:list(a), with:list(b) } }),
-              read: it => ({ q:it.text || '', a:(it.group.pick||[]).join(', '),
-                             b:(it.group.with||[]).join(', ') }) },
-  ordering: { q:'Put these in order — mildest first.',
-              a:'annoyed, irritated, angry, livid, furious',
-              b:'mildly bothered | absolutely raging',
-              labelA:'The scale, weakest first — this is the answer',
-              labelB:'The two ends of the scale, separated by |',
-              /* `prev` is what the item already was. The editor has three fields and
-                 an ordering item has four things in it — the glosses have no field,
-                 so without carrying them forward, loading a category and saving it
-                 back would silently strip the teaching off every step. A round trip
-                 that loses data is worse than no round trip. */
-              build: (text, a, b, prev) => {
-                const ends = b.split('|').map(x => x.trim());
-                const scale = list(a);
-                const was = (prev && prev.order && prev.order.gloss) || {};
-                const gloss = {};
-                scale.forEach(w => { if(was[w]) gloss[w] = was[w]; });
-                return { text, order:{ scale, low:ends[0] || 'weakest',
-                                       high:ends[1] || 'strongest', gloss } };
-              },
-              read: it => ({ q:it.text || '', a:(it.order.scale||[]).join(', '),
-                             b:(it.order.low || '') + ' | ' + (it.order.high || '') }) },
-  /* Two fields, not three — the same `labelB:null` a question form uses, which is
-     why that was written as the editor saying so rather than as "is this a form".
-     A round with two fields needed no change here at all. */
-  anagram:  { q:'the decision a jury delivers',
-              a:'Verdict',
-              b:'',
-              labelA:'The word to scramble — this is the answer',
-              labelB:null,
-              build: (text, a) => ({ text, anagram:{ word:String(a || '').trim() } }),
-              read: it => ({ q:it.text || '', a:(it.anagram || {}).word || '', b:'' }) },
-  scramble: { q:'Put the words in order.',
-              a:'The witness whose evidence convicted him has retracted it',
-              b:'',
-              labelA:'The sentence in its correct order — this is the answer',
-              labelB:null,
-              build: (text, a) => ({ text, scramble:{ sentence:String(a || '').trim() } }),
-              read: it => ({ q:it.text || '', a:(it.scramble || {}).sentence || '', b:'' }) },
-  infogap:  { q:'Ask your team for your missing words.',
-              a:'The jury *deliberated* for four hours before reaching a *unanimous* verdict',
-              b:'',
-              labelA:'The sentence, key words starred *like this* — each phone hides a different one',
-              labelB:null,
-              build: (text, a) => ({ text, infogap:{ sentence:String(a || '').trim() } }),
-              read: it => ({ q:it.text || '', a:(it.infogap || {}).sentence || '', b:'' }) },
-  drop:     { q:'Which group does each word belong to?',
-              a:'Noun: verdict, testimony, jury | Verb: acquit, convict, sentence',
-              b:'',
-              labelA:'The groups — Group: word, word | Group: word, word',
-              labelB:null,
-              build: (text, a) => {
-                const buckets = [], words = [];
-                String(a || '').split(/[|;\n]+/).forEach(seg=>{
-                  const i = seg.indexOf(':');
-                  if(i === -1) return;
-                  const b = seg.slice(0, i).trim();
-                  if(!b) return;
-                  buckets.push(b);
-                  seg.slice(i + 1).split(',').map(x => x.trim()).filter(Boolean)
-                     .forEach(w => words.push({ w, b }));
-                });
-                return { text, drop:{ buckets, words } };
-              },
-              read: it => {
-                const d = (it.drop || {});
-                const by = {};
-                (d.words || []).forEach(x => { (by[x.b] = by[x.b] || []).push(x.w); });
-                return { q: it.text || '',
-                         a: (d.buckets || []).map(b => b + ': ' + (by[b] || []).join(', ')).join(' | '),
-                         b: '' };
-              } },
-  choice:   { q:"Which verb goes with 'a sentence'?",
-              a:'pass, make, do, give',
-              b:'pass',
-              labelA:'The options — they are shuffled, so order does not matter',
-              labelB:'The right one, written out as it appears above',
-              build: (text, a, b) => ({ text, choice:{ options:list(a), answer:b.trim() } }),
-              read: it => ({ q:it.text || '', a:(it.choice.options||[]).join(', '),
-                             b:it.choice.answer || '' }) }
-};
+   The starting values are `read(sample)`, so the sample lives once. */
+function roundEditor(id){
+  const def = Kit.round.get(id);
+  const ed = def && def.editor;
+  if(!ed){
+    /* A round that declares no editor still opens, with generic labels rather
+       than a blank page. Wrong in its wording, never wrong in its behaviour. */
+    return { q:'', a:'', b:'', labelA:'The answer', labelB:null,
+             build:(text)=>({ text }), read: it => ({ q:it.text || '', a:'', b:'' }) };
+  }
+  const start = (()=>{
+    try{ return ed.read(def.sample || {}); }catch(e){ return { q:'', a:'', b:'' }; }
+  })();
+  return Object.assign({ q:start.q || '', a:start.a || '', b:start.b || '' }, ed);
+}
+
 /* A form's editor is derived rather than listed, because every form has the same
    item shape — `{text, answer, type}` — and always will: that shape is the whole
    reason a form can be added without touching a game or a content field. Listing
@@ -638,7 +567,7 @@ function formEditor(t){
     read: it => ({ q:it.text || '', a:it.answer || '', b:'' })
   };
 }
-function editorFor(t){ return isRound(t) ? EDITORS[nameOf(t)] : formEditor(nameOf(t)); }
+function editorFor(t){ return isRound(t) ? roundEditor(nameOf(t)) : formEditor(nameOf(t)); }
 
 function itemFromEditor(){
   const ed = editorFor(type);

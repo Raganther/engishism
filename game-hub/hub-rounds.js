@@ -335,7 +335,21 @@
         /* Ways the same question can be played, if it has more than one. A host
            builds its picker from this rather than knowing the round's business —
            the bench puts it in a dropdown, the hub registers it as a setting. */
-        modes: null
+        modes: null,
+        /* **How this round's question is written**, for the workshop's three
+           fields: `{labelA, labelB, build(text, a, b, prev), read(item)}`.
+           `labelB:null` means two fields rather than three.
+
+           It lives on the round for the same reason `check()` does: the bench
+           had a hand-kept table of these, and a round missing its row opened on
+           the *previous* type's sample saying "not complete yet" with nothing
+           naming the gap — which caught two rounds in a row. It was also a
+           second copy of the sample values, and the two had already drifted.
+           The starting values are `read(sample)` now, so there is one source.
+
+           A round that declares none gets a generic two-field editor, which is
+           enough to see its card and wrong only in its labels. */
+        editor: null
       }, def || {});
       return ROUNDS[String(id)];
     },
@@ -377,6 +391,9 @@
       }
       return null;
     },
-    shares, settle, poll, agreement, lanes, mustHold, arrangement
+    shares, settle, poll, agreement, lanes, mustHold, arrangement,
+    /* A comma-separated field as a list. Three rounds' editors parse one, which
+       is what puts it here rather than in each of them. */
+    list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); }
   };
 })();

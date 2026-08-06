@@ -59,6 +59,14 @@
               choice:{ options:["pass","make","do","give"], answer:"pass" } },
     field: 'choice',
 
+    editor: {
+      labelA:'The options — they are shuffled, so order does not matter',
+      labelB:'The right one, written out as it appears above',
+      build: (text, a, b) => ({ text, choice:{ options:K.round.list(a), answer:String(b || '').trim() } }),
+      read: it => ({ q:it.text || '', a:((it.choice||{}).options||[]).join(', '),
+                     b:(it.choice||{}).answer || '' })
+    },
+
     claims(item){ return !!(item && item.choice && Array.isArray(item.choice.options)); },
 
     setup(item, ctx){
