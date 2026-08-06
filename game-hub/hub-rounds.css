@@ -399,32 +399,7 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
   border-color:var(--gw-good, #2e9e4f);
 }
 
-/* What each team has built, in their own colour — the round's whole picture on a
-   projector. You can see one team three letters in and another nearly done without
-   reading a scoreboard. */
-.round-anagram .ana-teams{ display:flex; flex-direction:column; gap:6px; width:100%; }
-.round-anagram .ana-team{ display:flex; align-items:center; gap:10px; justify-content:center; }
-.round-anagram .ana-who{
-  font-size:0.72em; letter-spacing:0.06em; text-transform:uppercase;
-  border:2px solid; border-radius:999px; padding:2px 10px; white-space:nowrap;
-  color:var(--gw-fg, #12263F);
-}
-.round-anagram .ana-who small{ margin-left:6px; opacity:0.75; }
-.round-anagram .ana-who.all{ background:var(--gw-goodwash, rgba(46,158,79,0.18)); }
-.round-anagram .ana-seq{ display:flex; flex-wrap:wrap; gap:0.2em; align-items:center; }
-/* A slot in the lane: blank until that position is correctly held, then the
-   letter itself — the answer populating as a team closes in, and never a wrong
-   spelling. See the lane note in rounds/anagram.js. Fixed height either way, so
-   a lane is the same size at zero letters and at all of them. */
-.round-anagram .ana-mini{
-  min-width:1.25em; height:1.3em; padding:0.05em 0.2em; border-radius:6px;
-  border:2px solid; opacity:0.4;
-  display:inline-flex; align-items:center; justify-content:center;
-  font-size:0.8em; font-weight:700; text-transform:uppercase;
-  color:var(--gw-fg, #12263F);
-}
-.round-anagram .ana-mini.got{ opacity:1; background:var(--gw-goodwash, rgba(46,158,79,0.14)); }
-.round-anagram .ana-left{ font-size:0.72em; opacity:0.5; margin-left:6px; }
+/* The team lanes are `Kit.round.lanes` now — see the lane standard block. */
 
 /* ================= the word order round =================
    Words rather than letters, so the layout inverts: the anagram's row divides into
@@ -462,49 +437,7 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
   border-color:var(--gw-good, #2e9e4f); cursor:default;
 }
 
-/* **A lane per team: the sentence completing, not a count.** The previous version
-   was one chip per team reading "1/9", on the reasoning that four sentences will
-   not fit on a clue card. A number turned out to say nothing the room can act on —
-   the same lesson the ordering round learned, where the ladder is the picture.
-
-   A cell holds a word only when that team has put it in the right slot, so a lane
-   fills left-to-right-ish as they get it. Cells are content-sized rather than an
-   equal grid: a sentence's words are wildly different lengths, and equal columns
-   would make "a" as wide as "retracted" — the same choice the handset makes for
-   words and the opposite of the one it makes for letters.
-
-   Sized to fit four lanes of twelve on a projector: the type shrinks with the
-   viewport and an empty cell is a thin dash rather than a box, so a lane reads as a
-   sentence with holes in it rather than a row of containers. */
-.round-scramble .scr-lanes{ display:flex; flex-direction:column; gap:5px; width:100%; }
-.round-scramble .scr-lane{
-  display:grid; grid-template-columns: minmax(0,auto) 1fr minmax(0,auto);
-  align-items:center; gap:10px;
-  border-left:4px solid var(--lane, currentColor);
-  border-radius:6px; padding:3px 8px;
-}
-.round-scramble .scr-lane.full{ background:var(--gw-goodwash, rgba(46,158,79,0.14)); }
-.round-scramble .scr-lane-who{
-  font-size:0.6em; letter-spacing:0.06em; text-transform:uppercase;
-  white-space:nowrap; opacity:0.8; color:var(--gw-fg, #12263F);
-}
-.round-scramble .scr-lane-n{
-  font-family:'IBM Plex Mono',monospace; font-size:0.58em; opacity:0.7;
-  white-space:nowrap; color:var(--gw-fg, #12263F);
-}
-.round-scramble .scr-lane-row{
-  display:flex; flex-wrap:nowrap; align-items:center; gap:4px; min-width:0; overflow:hidden;
-}
-.round-scramble .scr-cell{
-  font-size: clamp(0.52rem, 1.05vw, 0.95rem); line-height:1.5;
-  white-space:nowrap; color:var(--gw-fg, #12263F);
-}
-.round-scramble .scr-cell.got{ font-weight:600; }
-/* An empty slot is a dash, not a box. Twelve boxes per lane times four lanes reads
-   as a grid of containers; twelve dashes reads as a sentence with holes in it. */
-.round-scramble .scr-cell.gap{
-  width:0.9em; border-bottom:2px solid currentColor; opacity:0.25; height:0.9em;
-}
+/* The team lanes are `Kit.round.lanes` now — see the lane standard block. */
 
 /* ================= The information gap round ================= */
 /* The sentence reads as a sentence with numbered holes in it — the words flow
@@ -534,73 +467,64 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
   border-color:var(--gw-good, #2e9e4f); cursor:default;
 }
 
-/* A lane per team, same shape as Drag the Words and for the same reason: the
-   filling sentence is the picture, and a team behind can read a word off a team
-   ahead — being copied is the cost of being in front. */
-.round-infogap .ig-lanes{ display:flex; flex-direction:column; gap:5px; width:100%; }
-.round-infogap .ig-lane{
+/* The team lanes are `Kit.round.lanes` now — see the lane standard block. */
+
+/* ================= The lane standard — every answer-building round =================
+   One lane per playing team, on the card from the moment the round opens, blank
+   cells filling as the team gets there. Drawn by `Kit.round.lanes`, so a round
+   never writes this markup and a rule change lands everywhere at once. The
+   per-kind modifiers below carry only what genuinely differs: what an empty
+   cell looks like for that round's kind of answer. */
+.rlanes{ display:flex; flex-direction:column; gap:5px; width:100%; margin-top:10px; }
+.rlane{
   display:grid; grid-template-columns: minmax(0,auto) 1fr minmax(0,auto);
   align-items:center; gap:10px;
   border-left:4px solid var(--lane, currentColor);
   border-radius:6px; padding:3px 8px;
 }
-.round-infogap .ig-lane.full{ background:var(--gw-goodwash, rgba(46,158,79,0.14)); }
-.round-infogap .ig-lane-who{
+.rlane.full{ background:var(--gw-goodwash, rgba(46,158,79,0.14)); }
+.rl-who{
   font-size:0.6em; letter-spacing:0.06em; text-transform:uppercase;
   white-space:nowrap; opacity:0.8; color:var(--gw-fg, #12263F);
 }
-.round-infogap .ig-lane-n{
+.rl-who small{ margin-left:6px; opacity:0.75; font-family:'IBM Plex Mono',monospace; }
+.rl-who.all{ background:var(--gw-goodwash, rgba(46,158,79,0.18)); border-radius:6px; padding:1px 6px; }
+.rl-n{
   font-family:'IBM Plex Mono',monospace; font-size:0.58em; opacity:0.7;
   white-space:nowrap; color:var(--gw-fg, #12263F);
 }
-.round-infogap .ig-lane-row{
-  display:flex; flex-wrap:nowrap; align-items:center; gap:8px; min-width:0; overflow:hidden;
+.rl-row{
+  display:flex; flex-wrap:wrap; align-items:center; gap:5px; min-width:0; overflow:hidden;
 }
-.round-infogap .ig-cell{
+.rl-cell{
   font-size: clamp(0.52rem, 1.05vw, 0.95rem); line-height:1.5;
   white-space:nowrap; color:var(--gw-fg, #12263F);
 }
-.round-infogap .ig-cell.got{ font-weight:600; }
-/* An unfilled gap keeps its number in the lane, so the room can hear "we need
-   number three" and see where that is — a dash says a hole exists, a number says
-   which conversation fills it. */
-.round-infogap .ig-cell.gap{
-  opacity:0.35; font-size:0.75em;
-  border:1.5px dashed currentColor; border-radius:6px; padding:0 0.45em;
+.rl-cell.got{ font-weight:600; }
+/* The default empty cell is a dash — a sentence with holes in it, not a row of
+   containers. Kinds that need more override below. */
+.rl-cell.gap{ width:0.9em; border-bottom:2px solid currentColor; opacity:0.25; height:0.9em; }
+
+/* Letters: equal mini boxes, because the boxes spell the word's shape. */
+.rlanes-ana .rl-cell{
+  min-width:1.5em; height:1.5em; border-radius:6px; opacity:1;
+  border:1.5px solid var(--gw-line, #00A0DF);
+  display:inline-flex; align-items:center; justify-content:center;
+  font-weight:700; font-size:0.72em;
+}
+.rlanes-ana .rl-cell.gap{ width:auto; border-bottom-width:1.5px; opacity:0.35; height:1.5em; }
+.rlanes-ana .rl-cell.got{ background:var(--gw-goodwash, rgba(46,158,79,0.14)); }
+
+/* The information gap keeps its numbers in the lane, so the room can hear
+   "we need number three" and see where that is. */
+.rlanes-ig .rl-cell.gap{
+  width:auto; height:auto; opacity:0.35; font-size:0.75em;
+  border:1.5px dashed currentColor; border-bottom-style:dashed; border-radius:6px; padding:0 0.45em;
 }
 
-/* A lane per team — the shared standard: every playing team on the card from the
-   moment the round opens, blank cells filling in. Connections' version: the cells
-   hold the team's current picks, because a grouping answer is only judged as a
-   whole set and the picks are the only live fact there is. */
-.round-grouping .grp-lanes{ display:flex; flex-direction:column; gap:5px; width:100%; margin-top:10px; }
-.round-grouping .grp-lane{
-  display:grid; grid-template-columns: minmax(0,auto) 1fr minmax(0,auto);
-  align-items:center; gap:10px;
-  border-left:4px solid var(--lane, currentColor);
-  border-radius:6px; padding:3px 8px;
-}
-.round-grouping .grp-who{
-  font-size:0.6em; letter-spacing:0.06em; text-transform:uppercase;
-  white-space:nowrap; opacity:0.8; color:var(--gw-fg, #12263F);
-}
-.round-grouping .grp-n{
-  font-family:'IBM Plex Mono',monospace; font-size:0.58em; opacity:0.7;
-  white-space:nowrap; color:var(--gw-fg, #12263F);
-}
-.round-grouping .grp-row{
-  display:flex; flex-wrap:nowrap; align-items:center; gap:6px; min-width:0; overflow:hidden;
-}
-.round-grouping .grp-cell{
-  font-size: clamp(0.5rem, 1vw, 0.9rem); line-height:1.5;
-  white-space:nowrap; color:var(--gw-fg, #12263F);
-}
-.round-grouping .grp-cell.got{ font-weight:600; }
-/* One pick past the share is a conversation, not an error — it reads dimmer. */
-.round-grouping .grp-cell.over{ opacity:0.55; text-decoration:underline dotted; }
-.round-grouping .grp-cell.gap{
-  width:2.2em; border-bottom:2px solid currentColor; opacity:0.25; height:0.9em;
-}
+/* Connections: a pick past the share is a conversation, not an error. */
+.rlanes-grp .rl-cell.over{ opacity:0.55; text-decoration:underline dotted; width:auto; height:auto; border:none; }
+.rlanes-grp .rl-cell.gap{ width:2.2em; }
 
 /* ================= The word drop round ================= */
 /* A playfield, not a list: the tile falls through open space toward the bins.

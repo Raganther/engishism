@@ -222,44 +222,26 @@
       });
       mount.appendChild(line);
 
-      /* Every playing team gets a lane from the moment the round opens — see the
-         same note in anagram.js. */
-      const scoped = (c.team === 0 || Number(c.team) > 0) ? [Number(c.team)] : null;
-      const lanes = scoped || (c.teams || []).map((_, i) => i);
-      Object.keys(s.got).map(Number).forEach(t => { if(lanes.indexOf(t) === -1) lanes.push(t); });
-      if(lanes.length && !s.shown){
-        const wrap = document.createElement('div');
-        wrap.className = 'ig-lanes';
-        lanes.sort((a,b)=>a-b).forEach(t=>{
-          const live = liveFor(s, t);
-          const lane = document.createElement('div');
-          lane.className = 'ig-lane';
-          lane.style.setProperty('--lane', colourOf(t));
-
-          const who = document.createElement('span');
-          who.className = 'ig-lane-who';
-          who.textContent = c.teamName ? c.teamName(t) : ('Team ' + (t + 1));
-          lane.appendChild(who);
-
-          const row = document.createElement('div');
-          row.className = 'ig-lane-row';
-          let done = 0;
-          live.forEach(ti=>{
-            const cell = document.createElement('span');
-            if(gapDone(s, t, ti, c)){ cell.className = 'ig-cell got'; cell.textContent = s.targets[ti].word; done++; }
-            else { cell.className = 'ig-cell gap'; cell.textContent = String(ti + 1); }
-            row.appendChild(cell);
-          });
-          lane.appendChild(row);
-
-          const n = document.createElement('span');
-          n.className = 'ig-lane-n';
-          n.textContent = done + '/' + live.length;
-          if(done === live.length) lane.classList.add('full');
-          lane.appendChild(n);
-          wrap.appendChild(lane);
+      /* Drawn by `Kit.round.lanes` — the shared standard owns which teams show
+         (all of them, from the moment the round opens), the colour, the count;
+         this round supplies only its cells: a filled gap shows its word, an
+         unfilled one keeps its number so the room can hear "we need number
+         three" and see where that is. */
+      if(!s.shown){
+        K.round.lanes(mount, c, {
+          kind: 'ig',
+          progressed: Object.keys(s.got || {}),
+          lane(t){
+            const live = liveFor(s, t);
+            let done = 0;
+            const cells = live.map(ti=>{
+              const ok = gapDone(s, t, ti, c);
+              if(ok) done++;
+              return { got: ok, text: ok ? s.targets[ti].word : String(ti + 1) };
+            });
+            return { cells, count: done + '/' + live.length, full: done === live.length };
+          }
         });
-        mount.appendChild(wrap);
       }
 
       if(s.say){

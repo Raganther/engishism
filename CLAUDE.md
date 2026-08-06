@@ -1176,6 +1176,20 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The lane standard is a shelf now — `Kit.round.lanes`, `mustHold`,
+  `arrangement`.** Four rounds (anagram, scramble, infogap, grouping) each
+  hand-wrote the team-lanes picture and it cost exactly what hand-copies cost:
+  "all teams from the start" was a four-file edit, and the agree-gating fix
+  lived in one drag round for days while the other lacked it. The lanes renderer
+  owns which teams show, the colour, the name, the agree chip and the count; a
+  round supplies only `lane(t) -> {cells, count, agree, full}` and an optional
+  `.rlanes-<kind>` CSS modifier for its empty-cell look. `arrangement()` is the
+  drag rounds' shared positional reader (gaps stay gaps, per-position counts,
+  full-sequence tallies for agree). All four rounds rewired in the same change —
+  the rewiring is what proves a shelf — and the ordering ladder and choice's
+  option-anchored dots deliberately stay their own pattern. A rule change to the
+  lanes is a one-file edit now, and a new round gets the standard by calling one
+  function; the `new-round` skill says so instead of carrying the rules as prose.
 - **Word Drop is the seventh round, and the first with graphics — a falling word
   the room steers by voting.** `game-hub/rounds/drop.js`: a word falls toward 2–4
   group bins (Tetris-shaped), everyone votes on their phones, the tile slides

@@ -163,71 +163,32 @@
          each team's furthest arrangement and the first live class read several
          half-wrong sequences at once as a wall of jumbled words; the second drew
          anonymous progress squares, which avoided the mess and informed nobody.
-         This is Drag the Words' actual dynamic carried over: a rival's *correct*
-         progress is readable and worth stealing, so being in front costs
-         something, and a wrong spelling never reaches the projector.
-
-         Which members have to hold a letter for it to light follows the mode —
-         any member in a race, the whole team when they must agree — the same
-         line the winning gate draws, with the same rule that a missing roster
-         count falls back to "any" rather than freezing the lane. */
-      const litFor = t => {
-        const row = s.got[t] || [];
-        const size = Number((s.sizes || [])[t]) || 0;
-        const need = (s.mode === 'agree' && size) ? size : 1;
-        const lit = [];
-        for(let i = 0; i < s.need; i++) lit[i] = (row[i] || 0) >= need;
-        return lit;
-      };
-      /* Every playing team gets a lane from the moment the round opens — blank
-         boxes, then filling. Teams used to appear with their first correct
-         letter, which read as the card changing shape mid-round; the ordering
-         ladder always showed every lane and it was the version that read right.
-         A scoped round shows only the team it belongs to. */
-      const scoped = (c.team === 0 || Number(c.team) > 0) ? [Number(c.team)] : null;
-      const lanes = scoped || (c.teams || []).map((_, i) => i);
-      Object.keys(s.leading).map(Number).forEach(t => { if(lanes.indexOf(t) === -1) lanes.push(t); });
-      if(lanes.length && !s.shown){
-        const wrap = document.createElement('div');
-        wrap.className = 'ana-teams';
-        lanes.sort((a,b)=>a-b).forEach(t=>{
-          const row = document.createElement('div');
-          row.className = 'ana-team';
-          const who = document.createElement('span');
-          who.className = 'ana-who';
-          who.style.borderColor = colourOf(t);
-          who.textContent = c.teamName ? c.teamName(t) : ('Team ' + (t + 1));
-          /* How close they are to agreeing, on the team's own label rather than in
-             the squares. A count inside the boxes makes one box two lines tall and
-             the rows stop lining up — the same bug the ordering ladder paid for,
-             one grid over. */
-          const ag = s.mode === 'agree' ? K.round.agreement(s, c, t) : null;
-          if(ag){
-            const n = document.createElement('small');
-            n.textContent = ag.agreed + '/' + ag.size;
-            if(ag.all) who.classList.add('all');
-            who.appendChild(n);
+         Drawn by `Kit.round.lanes` — the shared standard owns which teams show
+         (all of them, from the moment the round opens), the colour, the agree
+         chip; this round supplies only what a cell holds and when it lights:
+         `mustHold` — any member in a race, the whole team when they must agree. */
+      if(!s.shown){
+        K.round.lanes(mount, c, {
+          kind: 'ana',
+          progressed: Object.keys(s.got || {}),
+          lane(t){
+            const row = (s.got || {})[t] || [];
+            const need = K.round.mustHold(s.mode, c, t);
+            const cells = [];
+            let right = 0;
+            for(let i = 0; i < s.need; i++){
+              const ok = (row[i] || 0) >= need;
+              if(ok) right++;
+              cells.push({ got: ok, text: ok ? s.word[i] : '', colour: true });
+            }
+            return {
+              cells,
+              count: right + ' of ' + s.need,
+              agree: s.mode === 'agree' ? K.round.agreement(s, c, t) : null,
+              full: right === s.need
+            };
           }
-          row.appendChild(who);
-          const lit = litFor(t);
-          const right = lit.filter(Boolean).length;
-          const seq = document.createElement('span');
-          seq.className = 'ana-seq';
-          for(let i = 0; i < s.need; i++){
-            const el = document.createElement('span');
-            el.className = 'ana-mini' + (lit[i] ? ' got' : '');
-            el.style.borderColor = colourOf(t);
-            if(lit[i]) el.textContent = s.word[i];
-            seq.appendChild(el);
-          }
-          const n = document.createElement('small');
-          n.className = 'ana-left';
-          n.textContent = right + ' of ' + s.need;
-          seq.appendChild(n);
-          row.appendChild(seq);
-          wrap.appendChild(row);
         });
-        mount.appendChild(wrap);
       }
 
       if(s.say){
@@ -277,55 +238,21 @@
        the shape it hands back — `answers` / `leading` / `votes` — so the card and
        `Kit.round.agreement` read it exactly as they read the other three rounds. */
     read(replies, s, ctx){
-      const sizes = (ctx && ctx.sizes) || [];
-      const tally = {}, said = {}, by = {}, best = {}, got = {};
-      (replies || []).forEach(r=>{
-        const t = Number(r && r.team) || 0;
-        /* Positional first, compacted second. The wire format keeps a gap as an
-           empty segment — that is what lets a reconnecting phone get its letters
-           back in the boxes it put them in — and the card's progress is *which
-           positions are right*, so it needs the slots as sent. The compacted list
-           is what completeness and staleness are judged on, as ever. */
-        const slots = String((r && r.value) == null ? '' : r.value)
-                        .split('|').map(x => bare(x).toUpperCase());
-        const seq = slots.filter(Boolean);
-        // a reply carrying letters this word does not have is a stale tap from a
-        // previous clue, not a wrong answer to this one
-        if(!fits(seq, s.word)) return;
-        said[t] = (said[t] || 0) + 1;
-        by[t] = r.name;
-        /* How many of this team hold the *right* letter in each position — what
-           the card lights per lane. Counted per member so the lane can follow the
-           mode: any member in a race, the whole team when they must agree. */
-        const row = got[t] || (got[t] = []);
-        for(let i = 0; i < s.need; i++)
-          if(slots[i] && slots[i] === s.word[i]) row[i] = (row[i] || 0) + 1;
-        /* The furthest anybody on the team has got. In `agree` mode a team can be
-           watching one student build the word and still have nothing that counts;
-           progress showing is what stops that reading as a frozen board. */
-        if(!best[t] || seq.length > best[t].length) best[t] = seq;
-        if(seq.length !== s.need) return;
-        const box = tally[t] || (tally[t] = {});
-        const key = seq.join('');
-        box[key] = (box[key] || 0) + 1;
+      /* `Kit.round.arrangement` — the drag rounds' shared reader: positional
+         (gaps stay gaps), per-position counts for the lanes, full sequences
+         tallied for agree mode, a missing roster count never freezing anything.
+         This was hand-written here and in scramble.js, and the two drifted —
+         which is what moved it to the shelf. */
+      const p = K.round.arrangement(replies, {
+        need:   s.need,
+        clean:  x => bare(x).toUpperCase(),
+        wordAt: i => s.word[i],
+        legal:  placed => fits(placed, s.word),
+        sizes:  (ctx && ctx.sizes) || [],
+        mode:   s.mode
       });
-      const picks = {}, leading = {}, votes = {};
-      Object.keys(best).forEach(t => { leading[t] = best[t]; });
-      Object.keys(tally).forEach(t=>{
-        const box  = tally[t];
-        const lead = Object.keys(box).sort((a,b)=> box[b] - box[a])[0];
-        if(lead == null) return;
-        const agreed = box[lead];
-        votes[t] = { for:box, said:said[t] || 0, agreed };
-        const size = Number(sizes[t]) || 0;
-        /* A missing count never freezes a round — with no relay, or before anybody
-           has been counted, the leading arrangement lands exactly as it would
-           without the gate. Same rule as `Kit.round.poll`. */
-        if(s.mode !== 'agree' || !size || agreed >= size) picks[t] = lead.split('');
-      });
-      s.leading = leading; s.votes = votes; s.by = by;
-      s.got = got; s.sizes = sizes;
-      return picks;
+      s.leading = p.leading; s.votes = p.votes; s.by = p.by; s.got = p.got;
+      return p.picks;
     },
 
     judge(answer, s){

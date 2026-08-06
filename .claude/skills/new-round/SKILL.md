@@ -68,6 +68,28 @@ teacher clicks. `arm()` may return null: nothing left to ask, the host disarms.
 of them** — the bench's shared plumbing (Check button, teacher pick cap) reads them
 off every state and crashes on a state without them. Word Drop found this.
 
+## 2b. The lane standard — do not draw your own team progress
+
+Any round where an answer builds up draws the same picture on the card: **a lane
+per team, present from the moment the round opens, blank cells filling in**. That
+is `Kit.round.lanes(mount, ctx, {kind, progressed, lane(t)})` — it owns which
+teams show (all of them, or only the scoped one), the order, the colour, the team
+name, the agree chip and the count; your `lane(t)` returns only
+`{cells:[{text, got, cls, colour}], count, agree, full}`. Styling: the shared
+`.rlanes` block in `hub-rounds.css`, plus a small `.rlanes-<kind>` modifier if
+your empty cell needs a different look. Four rounds hand-wrote this before it was
+a shelf and every rule change was a four-file edit — do not start a fifth copy.
+
+Two companions:
+- `Kit.round.mustHold(mode, ctx, t)` — how many members must hold a thing for it
+  to light: any member in a race, the whole team in agree, and a missing roster
+  count falls back to "any" rather than freezing the lane.
+- `Kit.round.arrangement(replies, {need, clean, wordAt, legal, sizes, mode})` —
+  the reader for any round whose reply is a *sequence* (drag rounds). Positional
+  — gaps stay gaps, compacting slid words into boxes nobody filled — with
+  per-position counts for the lanes and full-sequence tallies for agree mode.
+  For single-pick replies use `Kit.round.poll` as ever.
+
 **The bench's `EDITORS` table is the one registration the registry does not do for
 you.** A round missing its row opens on the previous type's sample and says "not
 complete yet" with nothing naming the gap. One row: sample values, field labels,

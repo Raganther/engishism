@@ -5080,8 +5080,8 @@ async function testGroupingClue(browser){
           /2/.test(await ana.evaluate(() => document.body.innerText.match(/Choose \d/)?.[0] || '')),
           await ana.evaluate(() => document.body.innerText.match(/Choose \d[^\n]*/)?.[0] || '(none)'));
     check('and the board says the same share out loud',
-          /2 phones, 2 each/.test(await page.locator('.group-tally').innerText()),
-          await page.locator('.group-tally').innerText());
+          /2 phones, 2 each/.test(await page.locator('.rlanes').innerText()),
+          await page.locator('.rlanes').innerText());
 
     /* ---------- a wrong four costs nothing but the time ---------- */
     await tap(ana, ['verdict','jury']);
@@ -5743,8 +5743,8 @@ async function testQuestionBench(browser){
           /not a group/i.test(await page.locator('#card-round .group-say').innerText()),
           await page.locator('#card-round .group-say').innerText());
     check('and the board says the share out loud',
-          /2 phones, 2 each/.test(await page.locator('#card-round .group-tally').innerText()),
-          await page.locator('#card-round .group-tally').innerText());
+          /2 phones, 2 each/.test(await page.locator('#card-round .rlanes').innerText()),
+          await page.locator('#card-round .rlanes').innerText());
 
     await tap(frames[2], ['sabbatical','overtime']);      // drop them
     await page.waitForTimeout(300);
@@ -6556,7 +6556,7 @@ async function testAnagramRound(browser){
     await live.waitForTimeout(800);
     check('a wrong placement lights nothing on the card',
           await live.evaluate(() => {
-            const minis = [...document.querySelectorAll('#clue-card .ana-mini')];
+            const minis = [...document.querySelectorAll('#clue-card .rlane .rl-cell')];
             return minis.length > 0 && minis.every(m => !m.textContent.trim());
           }));
     await ph.locator('#ana-slots .ana-slot').first().click();
@@ -6577,12 +6577,12 @@ async function testAnagramRound(browser){
        wall of jumbled words — and the rule that replaced it is that only a
        correctly positioned letter ever reaches the projector. */
     check('and the board shows how far that team has got',
-          /3 of \d/i.test(await live.locator('#clue-card .ana-teams').innerText().catch(()=>'')),
-          (await live.locator('#clue-card .ana-teams').innerText().catch(()=>'—')).replace(/\n/g,' '));
+          /3 of \d/i.test(await live.locator('#clue-card .rlanes').innerText().catch(()=>'')),
+          (await live.locator('#clue-card .rlanes').innerText().catch(()=>'—')).replace(/\n/g,' '));
     check('as the correctly placed letters, in place, and nothing else',
           await live.evaluate(w => {
-            const txt = [...document.querySelectorAll('#clue-card .ana-mini')]
-              .map(m => m.textContent.trim());
+            const lane = document.querySelector('#clue-card .rlane');
+            const txt = lane ? [...lane.querySelectorAll('.rl-cell')].map(m => m.textContent.trim()) : [];
             return txt.length > 0 &&
                    txt.slice(0, 3).join('') === w.slice(0, 3) &&
                    txt.slice(3).every(x => !x);

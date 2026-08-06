@@ -171,6 +171,130 @@
     };
   }
 
+  /* ---------- the lane standard ----------
+     Every round that builds an answer up draws the same picture: a lane per team,
+     on the card from the moment the round opens, blank cells filling as that
+     team gets there. This was four hand-written copies (anagram, scramble,
+     infogap, grouping) before it was a shelf, and the cost was exactly what
+     hand-copies cost: "all teams from the start" was a four-file edit, and the
+     agree-gating fix existed in one round for days while another lacked it.
+
+     The round supplies only what a lane contains — `lane(t)` returns
+     `{cells:[{text, got, cls, colour}], count, agree:{agreed,size,all}, full}` —
+     and this owns everything the standard promises: which teams draw (all of
+     them, or only the scoped one), the order, the colour, the name, the agree
+     chip, the count. A rule change here reaches every round at once, including
+     ones not written yet. */
+  function laneTeams(ctx, progressed){
+    const c = ctx || {};
+    if(c.team === 0 || Number(c.team) > 0) return [Number(c.team)];
+    const all = (c.teams || []).map((_, i) => i);
+    (progressed || []).map(Number).forEach(t => { if(all.indexOf(t) === -1) all.push(t); });
+    return all;
+  }
+
+  /* How many of a team must hold a thing for it to light: any member in a race,
+     the whole team when they must agree — and a missing roster count falls back
+     to "any" rather than freezing the lane, because a number the host does not
+     have must never lock a card. */
+  function mustHold(mode, ctx, t){
+    const size = Number(((ctx && ctx.sizes) || [])[t]) || 0;
+    return (mode === 'agree' && size) ? size : 1;
+  }
+
+  function lanes(mount, ctx, opts){
+    const o = opts || {};
+    const teams = laneTeams(ctx, o.progressed);
+    if(!teams.length) return null;
+    const colour = i => (window.HubBuzzer && window.HubBuzzer.teamColour)
+                        ? window.HubBuzzer.teamColour(i) : '';
+    const wrap = document.createElement('div');
+    wrap.className = 'rlanes' + (o.kind ? ' rlanes-' + o.kind : '');
+    teams.sort((a, b) => a - b).forEach(t=>{
+      const spec = o.lane ? (o.lane(t) || {}) : {};
+      const lane = document.createElement('div');
+      lane.className = 'rlane' + (spec.full ? ' full' : '');
+      lane.style.setProperty('--lane', colour(t));
+
+      const who = document.createElement('span');
+      who.className = 'rl-who' + (spec.agree && spec.agree.all ? ' all' : '');
+      who.textContent = (ctx && ctx.teamName) ? ctx.teamName(t) : ('Team ' + (t + 1));
+      if(spec.agree){
+        const a = document.createElement('small');
+        a.textContent = spec.agree.agreed + '/' + spec.agree.size;
+        who.appendChild(a);
+      }
+      lane.appendChild(who);
+
+      const row = document.createElement('span');
+      row.className = 'rl-row';
+      (spec.cells || []).forEach(cs=>{
+        const cell = document.createElement('span');
+        cell.className = 'rl-cell ' + (cs.got ? 'got' : 'gap') + (cs.cls ? ' ' + cs.cls : '');
+        if(cs.text != null && cs.text !== '') cell.textContent = cs.text;
+        if(cs.colour) cell.style.borderColor = colour(t);
+        row.appendChild(cell);
+      });
+      lane.appendChild(row);
+
+      if(spec.count != null){
+        const n = document.createElement('span');
+        n.className = 'rl-n';
+        n.textContent = spec.count;
+        lane.appendChild(n);
+      }
+      wrap.appendChild(lane);
+    });
+    mount.appendChild(wrap);
+    return wrap;
+  }
+
+  /* ---------- reading a round whose reply is a sequence ----------
+     The drag rounds' shared reader. The wire carries every box in box order,
+     empties included — **positional, and kept that way**: compacting slid a word
+     placed in box 2 down to box 1 and lit a slot nobody filled, a bug paid for
+     once per round until this became one function. Returns, per team: the
+     committed answer when the mode's bar is met (`picks`), the furthest attempt
+     (`leading`), the vote tally (`votes`), who spoke last (`by`), and how many
+     members hold the right thing at each position (`got`) — which is what the
+     lanes light from, gated by `mustHold`. */
+  function arrangement(replies, o){
+    const clean = o.clean || (x => x);
+    const norm = x => String(clean(x)).trim().toLowerCase();
+    const tally = {}, said = {}, by = {}, best = {}, got = {};
+    (replies || []).forEach(r=>{
+      const t = Number(r && r.team) || 0;
+      const seq = String((r && r.value) == null ? '' : r.value).split('|').map(x => clean(x));
+      const placed = seq.filter(Boolean);
+      if(!placed.length) return;
+      // entries the answer does not contain: a stale reply from a previous question
+      if(o.legal && !o.legal(placed)) return;
+      said[t] = (said[t] || 0) + 1;
+      by[t] = r.name;
+      const row = got[t] || (got[t] = []);
+      seq.forEach((w, i)=>{
+        if(w && norm(w) === norm(o.wordAt(i))) row[i] = (row[i] || 0) + 1;
+      });
+      if(!best[t] || placed.length > best[t].filter(Boolean).length) best[t] = seq;
+      if(placed.length !== o.need) return;
+      const box = tally[t] || (tally[t] = {});
+      const key = seq.join('|');
+      box[key] = (box[key] || 0) + 1;
+    });
+    const picks = {}, leading = {}, votes = {};
+    Object.keys(best).forEach(t => { leading[t] = best[t]; });
+    Object.keys(tally).forEach(t=>{
+      const box  = tally[t];
+      const lead = Object.keys(box).sort((a, b) => box[b] - box[a])[0];
+      if(lead == null) return;
+      const agreed = box[lead];
+      votes[t] = { for:box, said:said[t] || 0, agreed };
+      const size = Number((o.sizes || [])[t]) || 0;
+      if(o.mode !== 'agree' || !size || agreed >= size) picks[t] = lead.split('|');
+    });
+    return { picks, leading, votes, by, got };
+  }
+
   window.HubKit.round = {
     register(id, def){
       ROUNDS[String(id)] = Object.assign({
@@ -253,6 +377,6 @@
       }
       return null;
     },
-    shares, settle, poll, agreement
+    shares, settle, poll, agreement, lanes, mustHold, arrangement
   };
 })();

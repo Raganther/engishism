@@ -151,57 +151,32 @@
          Showing wrong placements would do the opposite — it would broadcast one
          team's mistakes to the room, and a lane full of words in the wrong order is
          unreadable at projector distance anyway. */
-      /* Every playing team gets a lane from the moment the round opens — see the
-         same note in anagram.js: teams appearing with their first correct word
-         read as the card changing shape mid-round. */
-      const scoped = (c.team === 0 || Number(c.team) > 0) ? [Number(c.team)] : null;
-      const lanes = scoped || (c.teams || []).map((_, i) => i);
-      Object.keys(s.leading).map(Number).forEach(t => { if(lanes.indexOf(t) === -1) lanes.push(t); });
-      if(lanes.length && !s.shown){
-        const wrap = document.createElement('div');
-        wrap.className = 'scr-lanes';
-        lanes.sort((a,b)=>a-b).forEach(t=>{
-          /* Which members must hold a word in its box for it to light follows
-             the mode — any member in a race, the whole team when they must
-             agree — the same line the anagram's lanes and the winning gate
-             draw, with the same rule that a missing roster count falls back to
-             "any" rather than freezing the lane. */
-          const gotRow = (s.got || {})[t] || [];
-          const size = Number((c.sizes || [])[t]) || 0;
-          const need = (s.mode === 'agree' && size) ? size : 1;
-          const lane = document.createElement('div');
-          lane.className = 'scr-lane';
-          lane.style.setProperty('--lane', colourOf(t));
-
-          const who = document.createElement('span');
-          who.className = 'scr-lane-who';
-          who.textContent = c.teamName ? c.teamName(t) : ('Team ' + (t + 1));
-          lane.appendChild(who);
-
-          const cellRow = document.createElement('div');
-          cellRow.className = 'scr-lane-row';
-          let right = 0;
-          for(let i = 0; i < s.need; i++){
-            const cell = document.createElement('span');
-            const ok = (gotRow[i] || 0) >= need;
-            if(ok){ cell.className = 'scr-cell got'; cell.textContent = s.words[i]; right++; }
-            else  { cell.className = 'scr-cell gap'; cell.textContent = ''; }
-            cellRow.appendChild(cell);
+      /* Drawn by `Kit.round.lanes` — the shared standard owns which teams show
+         (all of them, from the moment the round opens), the colour, the agree
+         chip; this round supplies only what a cell holds and when it lights:
+         `mustHold` — any member in a race, the whole team when they must agree. */
+      if(!s.shown){
+        K.round.lanes(mount, c, {
+          kind: 'scr',
+          progressed: Object.keys(s.got || {}),
+          lane(t){
+            const gotRow = (s.got || {})[t] || [];
+            const need = K.round.mustHold(s.mode, c, t);
+            const cells = [];
+            let right = 0;
+            for(let i = 0; i < s.need; i++){
+              const ok = (gotRow[i] || 0) >= need;
+              if(ok) right++;
+              cells.push({ got: ok, text: ok ? s.words[i] : '' });
+            }
+            return {
+              cells,
+              count: right + '/' + s.need,
+              agree: s.mode === 'agree' ? K.round.agreement(s, c, t) : null,
+              full: right === s.need
+            };
           }
-          lane.appendChild(cellRow);
-
-          const n = document.createElement('span');
-          n.className = 'scr-lane-n';
-          const ag = s.mode === 'agree' ? K.round.agreement(s, c, t) : null;
-          n.textContent = right + '/' + s.need +
-                          (ag ? ' · ' + ag.agreed + '/' + ag.size + ' agree' : '');
-          if(ag && ag.all) lane.classList.add('all');
-          if(right === s.need) lane.classList.add('full');
-          lane.appendChild(n);
-
-          wrap.appendChild(lane);
         });
-        mount.appendChild(wrap);
       }
 
       if(s.say){
@@ -238,54 +213,19 @@
     },
 
     read(replies, s, ctx){
-      const sizes = (ctx && ctx.sizes) || [];
-      const tally = {}, said = {}, by = {}, best = {}, got = {};
-      (replies || []).forEach(r=>{
-        const t = Number(r && r.team) || 0;
-        /* **Positional, and kept that way.** The wire carries every box in box
-           order, empty ones included, and this used to `filter(Boolean)` them
-           away — so a word placed in box 2 slid down to box 1 and the card lit
-           the first slot for a placement that never happened. The anagram round
-           paid for exactly this ("gaps stay gaps") and the fix was not carried
-           here. Empties are stripped only where a count or a legality check
-           genuinely wants the words alone. */
-        const seq = String((r && r.value) == null ? '' : r.value)
-                      .split('|').map(x => bare(x));
-        const placed = seq.filter(Boolean);
-        if(!placed.length) return;
-        // words this sentence does not have: a stale reply from a previous clue
-        if(!fits(placed, s.words)) return;
-        said[t] = (said[t] || 0) + 1;
-        by[t] = r.name;
-        /* How many of the team hold the right word in each box — what the lane
-           lights from, counted per position so agree mode can ask for the whole
-           team. The anagram round has kept this count since its lanes were
-           built; Drag the Words drew from one teammate's furthest attempt
-           instead, so in agree mode a single player lit the card for a team
-           that had not agreed on anything. */
-        const row = got[t] || (got[t] = []);
-        seq.forEach((w, i)=>{
-          if(w && norm(w) === norm(s.words[i])) row[i] = (row[i] || 0) + 1;
-        });
-        if(!best[t] || placed.length > best[t].filter(Boolean).length) best[t] = seq;
-        if(placed.length !== s.need) return;
-        const box = tally[t] || (tally[t] = {});
-        const key = seq.join('|');
-        box[key] = (box[key] || 0) + 1;
+      /* `Kit.round.arrangement` — the drag rounds' shared reader: positional
+         (gaps stay gaps), per-position counts for the lanes, full sequences
+         tallied for agree mode. See the shelf note in hub-rounds.js. */
+      const p = K.round.arrangement(replies, {
+        need:   s.need,
+        clean:  bare,
+        wordAt: i => s.words[i],
+        legal:  placed => fits(placed, s.words),
+        sizes:  (ctx && ctx.sizes) || [],
+        mode:   s.mode
       });
-      const picks = {}, leading = {}, votes = {};
-      Object.keys(best).forEach(t => { leading[t] = best[t]; });
-      Object.keys(tally).forEach(t=>{
-        const box  = tally[t];
-        const lead = Object.keys(box).sort((a,b)=> box[b] - box[a])[0];
-        if(lead == null) return;
-        const agreed = box[lead];
-        votes[t] = { for:box, said:said[t] || 0, agreed };
-        const size = Number(sizes[t]) || 0;
-        if(s.mode !== 'agree' || !size || agreed >= size) picks[t] = lead.split('|');
-      });
-      s.leading = leading; s.votes = votes; s.by = by; s.got = got;
-      return picks;
+      s.leading = p.leading; s.votes = p.votes; s.by = p.by; s.got = p.got;
+      return p.picks;
     },
 
     judge(answer, s){
