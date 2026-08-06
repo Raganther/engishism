@@ -179,9 +179,14 @@
         for(let i = 0; i < s.need; i++) lit[i] = (row[i] || 0) >= need;
         return lit;
       };
-      const lanes = Object.keys(s.leading)
-        .map(Number)
-        .filter(t => (s.leading[t] || []).length);
+      /* Every playing team gets a lane from the moment the round opens — blank
+         boxes, then filling. Teams used to appear with their first correct
+         letter, which read as the card changing shape mid-round; the ordering
+         ladder always showed every lane and it was the version that read right.
+         A scoped round shows only the team it belongs to. */
+      const scoped = (c.team === 0 || Number(c.team) > 0) ? [Number(c.team)] : null;
+      const lanes = scoped || (c.teams || []).map((_, i) => i);
+      Object.keys(s.leading).map(Number).forEach(t => { if(lanes.indexOf(t) === -1) lanes.push(t); });
       if(lanes.length && !s.shown){
         const wrap = document.createElement('div');
         wrap.className = 'ana-teams';

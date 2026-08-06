@@ -222,8 +222,11 @@
       });
       mount.appendChild(line);
 
-      const lanes = Object.keys(s.got).map(Number)
-        .filter(t => Object.keys(s.got[t] || {}).length);
+      /* Every playing team gets a lane from the moment the round opens — see the
+         same note in anagram.js. */
+      const scoped = (c.team === 0 || Number(c.team) > 0) ? [Number(c.team)] : null;
+      const lanes = scoped || (c.teams || []).map((_, i) => i);
+      Object.keys(s.got).map(Number).forEach(t => { if(lanes.indexOf(t) === -1) lanes.push(t); });
       if(lanes.length && !s.shown){
         const wrap = document.createElement('div');
         wrap.className = 'ig-lanes';

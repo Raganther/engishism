@@ -151,8 +151,12 @@
          Showing wrong placements would do the opposite — it would broadcast one
          team's mistakes to the room, and a lane full of words in the wrong order is
          unreadable at projector distance anyway. */
-      const lanes = Object.keys(s.leading).map(Number)
-        .filter(t => (s.leading[t] || []).length);
+      /* Every playing team gets a lane from the moment the round opens — see the
+         same note in anagram.js: teams appearing with their first correct word
+         read as the card changing shape mid-round. */
+      const scoped = (c.team === 0 || Number(c.team) > 0) ? [Number(c.team)] : null;
+      const lanes = scoped || (c.teams || []).map((_, i) => i);
+      Object.keys(s.leading).map(Number).forEach(t => { if(lanes.indexOf(t) === -1) lanes.push(t); });
       if(lanes.length && !s.shown){
         const wrap = document.createElement('div');
         wrap.className = 'scr-lanes';

@@ -569,6 +569,39 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
   border:1.5px dashed currentColor; border-radius:6px; padding:0 0.45em;
 }
 
+/* A lane per team — the shared standard: every playing team on the card from the
+   moment the round opens, blank cells filling in. Connections' version: the cells
+   hold the team's current picks, because a grouping answer is only judged as a
+   whole set and the picks are the only live fact there is. */
+.round-grouping .grp-lanes{ display:flex; flex-direction:column; gap:5px; width:100%; margin-top:10px; }
+.round-grouping .grp-lane{
+  display:grid; grid-template-columns: minmax(0,auto) 1fr minmax(0,auto);
+  align-items:center; gap:10px;
+  border-left:4px solid var(--lane, currentColor);
+  border-radius:6px; padding:3px 8px;
+}
+.round-grouping .grp-who{
+  font-size:0.6em; letter-spacing:0.06em; text-transform:uppercase;
+  white-space:nowrap; opacity:0.8; color:var(--gw-fg, #12263F);
+}
+.round-grouping .grp-n{
+  font-family:'IBM Plex Mono',monospace; font-size:0.58em; opacity:0.7;
+  white-space:nowrap; color:var(--gw-fg, #12263F);
+}
+.round-grouping .grp-row{
+  display:flex; flex-wrap:nowrap; align-items:center; gap:6px; min-width:0; overflow:hidden;
+}
+.round-grouping .grp-cell{
+  font-size: clamp(0.5rem, 1vw, 0.9rem); line-height:1.5;
+  white-space:nowrap; color:var(--gw-fg, #12263F);
+}
+.round-grouping .grp-cell.got{ font-weight:600; }
+/* One pick past the share is a conversation, not an error — it reads dimmer. */
+.round-grouping .grp-cell.over{ opacity:0.55; text-decoration:underline dotted; }
+.round-grouping .grp-cell.gap{
+  width:2.2em; border-bottom:2px solid currentColor; opacity:0.25; height:0.9em;
+}
+
 /* ================= The word drop round ================= */
 /* A playfield, not a list: the tile falls through open space toward the bins.
    The field's height is the game — too short and there is no time to argue,

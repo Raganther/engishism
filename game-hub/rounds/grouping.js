@@ -103,50 +103,66 @@
            clicks belongs to anybody. */
         if(s.chosen.indexOf(w) !== -1) b.classList.add('chosen');
         const holders = Object.keys(s.picks).filter(t => (s.picks[t]||[]).indexOf(w) !== -1);
-        if(holders.length){
-          b.classList.add('held');
-          const dots = document.createElement('span');
-          dots.className = 'gdots';
-          holders.forEach(t=>{
-            const d = document.createElement('span');
-            d.className = 'gdot';
-            d.style.background = colourOf(Number(t));
-            d.title = c.teamName ? c.teamName(Number(t)) : ('Team ' + (Number(t)+1));
-            dots.appendChild(d);
-          });
-          b.appendChild(dots);
-        }
+        if(holders.length) b.classList.add('held');
         if(c.onPick) b.addEventListener('click', ()=> c.onPick(w));
         grid.appendChild(b);
       });
       mount.appendChild(grid);
 
-      /* How close each team is, named and counted. Complete means it is about to be
-         judged; over means they have to agree to drop some, and saying so is what
-         turns being over into a conversation rather than an error. */
+      /* A lane per team, the standard every round shares now: every playing team
+         is on the card from the moment the round opens, blank boxes filling as
+         that team assembles its four. This replaced two things at once — team
+         dots on the words, and count chips that only appeared once a team had
+         picked — because teams appearing with their first answer read as the
+         card changing shape mid-round, and the dots were a second vocabulary for
+         the same fact. What a lane holds is the team's *current picks*, not
+         verified answers: a grouping answer is only ever judged as a whole set,
+         so the picks are the only live fact there is to show. */
       const names = c.teams || [];
       const sizes = c.sizes || [];
-      const line  = document.createElement('div');
-      line.className = 'group-tally';
-      names.forEach((name, i)=>{
-        const n = (s.picks[i] || []).length;
-        // a team with neither a phone nor a pick says nothing rather than sitting at 0/4
-        if(!n && !sizes[i]) return;
-        const chip = document.createElement('span');
-        chip.className = 'group-count';
-        chip.style.borderColor = colourOf(i);
-        chip.textContent = name + ' ' + n + '/' + s.need + (n > s.need ? ' — too many' : '');
-        if(sizes[i]){
-          /* "two each" is the rule the teacher has to be able to say out loud, and
-             it moves on its own whenever somebody joins or drops. */
-          const tail = document.createElement('small');
-          tail.textContent = ' · ' + sizes[i] + (sizes[i] === 1 ? ' phone, ' : ' phones, ') +
-                             K.round.shares(s.need, [sizes[i]])[0] + ' each';
-          chip.appendChild(tail);
-        }
-        line.appendChild(chip);
-      });
-      if(line.children.length) mount.appendChild(line);
+      const scoped = (c.team === 0 || Number(c.team) > 0) ? [Number(c.team)] : null;
+      const lanes = scoped || names.map((_, i) => i);
+      Object.keys(s.picks).map(Number).forEach(t => { if(lanes.indexOf(t) === -1) lanes.push(t); });
+      if(lanes.length && !s.done){
+        const wrap = document.createElement('div');
+        wrap.className = 'grp-lanes';
+        lanes.sort((a,b)=>a-b).forEach(t=>{
+          const picks = s.picks[t] || [];
+          const lane = document.createElement('div');
+          lane.className = 'grp-lane';
+          lane.style.setProperty('--lane', colourOf(t));
+
+          const who = document.createElement('span');
+          who.className = 'grp-who';
+          who.textContent = names[t] || ('Team ' + (t + 1));
+          lane.appendChild(who);
+
+          const row = document.createElement('span');
+          row.className = 'grp-row';
+          const slots = Math.max(s.need, picks.length);
+          for(let i = 0; i < slots; i++){
+            const cell = document.createElement('span');
+            if(picks[i]){ cell.className = 'grp-cell got' + (i >= s.need ? ' over' : ''); cell.textContent = picks[i]; }
+            else { cell.className = 'grp-cell gap'; }
+            row.appendChild(cell);
+          }
+          lane.appendChild(row);
+
+          const n = document.createElement('span');
+          n.className = 'grp-n';
+          let label = picks.length + '/' + s.need + (picks.length > s.need ? ' — too many' : '');
+          if(sizes[t]){
+            /* "two each" is the rule the teacher has to be able to say out loud,
+               and it moves on its own whenever somebody joins or drops. */
+            label += ' · ' + sizes[t] + (sizes[t] === 1 ? ' phone, ' : ' phones, ') +
+                     K.round.shares(s.need, [sizes[t]])[0] + ' each';
+          }
+          n.textContent = label;
+          lane.appendChild(n);
+          wrap.appendChild(lane);
+        });
+        mount.appendChild(wrap);
+      }
 
       if(s.say){
         const say = document.createElement('div');
