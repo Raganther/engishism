@@ -409,6 +409,25 @@
            builds its picker from this rather than knowing the round's business —
            the bench puts it in a dropdown, the hub registers it as a setting. */
         modes: null,
+        /* **Which of those modes means "the whole team commits"** — `agree` in
+           every round that has one. A team-based board wants it: on Jeopardy a
+           tile is a team's answer rather than a thumb's, and first-tap-wins there
+           is won by the fastest student while the other three never commit to
+           anything.
+
+           Declared by the round because only the round knows which of its modes
+           that is, and asked for by the host (`teamMode` in `ROUND_HOSTS`) because
+           only the board knows whether its geometry wants one. The alternative was
+           a per-round list on each host — `{choice:'agree', anagram:'agree', …}` —
+           which a round written next month would have to be added to by hand, with
+           nothing complaining if you missed it. That is the defect class this
+           project has paid for more than any other.
+
+           Null for a round whose modes are not that shape: ordering's are `climb`
+           and `race`, which is a question about how many ladders there are rather
+           than about who has to agree. A host that wants one of those says so
+           explicitly through `modeDefaults`, which outranks this. */
+        teamMode: null,
         /* **How this round's question is written**, for the workshop's three
            fields: `{labelA, labelB, build(text, a, b, prev), read(item)}`.
            `labelB:null` means two fields rather than three.

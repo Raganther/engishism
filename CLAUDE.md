@@ -903,10 +903,22 @@ the definition. It ranks below a teacher's override and *above* the master,
 deliberately: such a game does not follow the master, and pretending it did would
 make the All-games row a control that silently does nothing there. The rows say so
 ("This game's own default"; the master row lists it under "has its own value").
-For round modes it is declared by the **host** — `modeDefaults:{choice:'agree'}` in
-`ROUND_HOSTS` — because the round says what modes exist and the skin says which one
-its geometry wants: Jeopardy is team-based, so its multiple choice waits for the
-whole team to agree while Quickfire keeps the race.
+For round modes it is declared by the **host**, in `ROUND_HOSTS`, because the round
+says what modes exist and the skin says which one its geometry wants. **Two ways to
+say it, and the general one is the one to reach for:**
+- **`teamMode:true`** — "this board is team-based, so give me whichever mode each
+  round calls its whole-team one". The round declares which that is (`teamMode` on
+  the round, `agree` wherever there is one). Jeopardy sets this, so a tile is always
+  a team's answer rather than the fastest thumb's — **and a round registered next
+  month lands on the right mode with no host edited.**
+- **`modeDefaults:{ordering:'race'}`** — one named round, for a reason peculiar to
+  that round. It outranks the ask above. Jeopardy has exactly one: ordering's modes
+  are about *how many ladders*, not *who has to agree*.
+
+That split exists because the first version was a per-round list on each host, which
+a new round had to be added to by hand with nothing complaining if you missed it —
+the defect class this project has paid for most. Quickfire and Millionaire declare
+neither, so they keep first-tap-wins.
 
 Storage: `id` is the master, `id@game` is an override. Settings written before scoping
 existed are master values under the same keys, so nothing needed migrating — there is a
@@ -1492,11 +1504,25 @@ playground's point, that one board can host several:
   answers only when all of them agree" rather than first-tap-wins. Two declarations,
   no special case: `defaults:{game:value}` on a setting ranks below a teacher's
   override and above the master (see "Adding a feature"), and a host names which
-  mode suits its board via `modeDefaults` in `ROUND_HOSTS`, validated against the
-  round's declared modes. Jeopardy sets two: choice→`agree`, and ordering→`race` —
-  reported as "only one ladder appears even when there are more teams", because on
-  a team-vs-team board the shared climb reads as a single ladder. Quickfire and
-  Millionaire keep their races, and any host can differ with one line. The suite
+  mode suits its board in `ROUND_HOSTS`, validated against the round's declared
+  modes.
+  - **It is one fact now, not a list per round.** Asked again for *every* round on
+    Jeopardy — drag the letters should wait for the whole team too — and the
+    obvious change was another entry in `modeDefaults` per round, which is the
+    hand-kept list this project keeps paying for: a round written next month would
+    play the wrong way on the board until somebody remembered. So the **round**
+    declares which of its modes means the whole team commits (`teamMode:'agree'` on
+    choice, anagram and scramble) and the **board** asks for whichever that is
+    (`teamMode:true` on Jeopardy). Neither learns the other's business, and the
+    next round arrives already correct.
+  - **Ordering is the one named exception**, `modeDefaults:{ordering:'race'}`, which
+    outranks the ask. Its modes are about *how many ladders* rather than *who has to
+    agree* — reported as "only one ladder appears even when there are more teams",
+    because on a team-vs-team board the shared climb reads as a single ladder.
+  - The default round is untouched, and that is the property worth checking: it has
+    four modes and no `teamMode`, so `round_default` — the old `phoneMode` — is not
+    swept up by a board asking for team modes.
+  Quickfire and Millionaire keep their races, and any host can differ with one line. The suite
   blocks that drive the *climb* lesson now state that mode explicitly rather than
   inheriting Jeopardy's default. The panel tells the truth
   about it in both directions — "This game's own default" on the game tab, "has its

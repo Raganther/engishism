@@ -41,12 +41,22 @@ HubKit.round.register('ordering', {
   accept(answer, s, team, ctx),   // commit, when being right is not yet the end
   saidOf(who, r, s),              // how a wrong answer is described
   modes: [...],                   // the ways it can be played, if more than one
+  teamMode: 'agree',              // which of those means "the whole team commits"
   settleMs: 700
 });
 ```
 
 **Everything except `setup` and `render` is optional.** A simple round draws a card
 and stops.
+
+**If you declare `modes`, declare `teamMode` too.** It names whichever of them means
+*the whole team has to commit* — `agree` in every round that has one. A team-based
+board asks for it as one fact (`teamMode:true` in `ROUND_HOSTS`, which Jeopardy sets)
+rather than naming your round, so declaring it is what makes your round arrive on
+that board already playing the way the board wants. Leave it null only when your
+modes are not that shape: ordering's are `climb` and `race`, which ask how many
+ladders there are rather than who has to agree, and a host wanting one of those names
+it explicitly in `modeDefaults`.
 
 **A round must never contain scoring, turns, timers, the board, or a tile.** Those
 belong to the host. Jeopardy pays a tile and passes a turn when the round says a

@@ -569,7 +569,21 @@
          one shared ladder reads as a single ladder however many teams there are.
          Declared facts, not stored values: the teacher's ⚙ row still overrides
          them, and the panel says they are this board's own defaults. */
-      modeDefaults: { choice:'agree', ordering:'race' }
+      /* **This board is team-based, so every round it hosts waits for the whole
+         team.** A tile is a team's answer rather than a thumb's: with first-tap-wins
+         the fastest student takes it and the other three never have to commit to
+         anything, which is the opposite of the lesson. Asked for as one fact rather
+         than named per round — each round declares which of its modes is the
+         whole-team one (`teamMode`), so a round written next month arrives on this
+         board already playing the way the board wants. The list this replaced had
+         to be added to by hand, with nothing complaining if you missed a round. */
+      teamMode: true,
+      /* The one round that is not that shape, so it is still named. Ordering's modes
+         ask *how many ladders*, not *who has to agree* — and on a team-vs-team board
+         a shared climb reads as a single ladder however many teams are playing,
+         which is exactly how it was reported. An explicit default outranks the
+         team-mode ask. */
+      modeDefaults: { ordering:'race' }
     },
     blockbusters: {
       game:'blockbusters', stage:'play-blockbusters',
@@ -798,14 +812,26 @@
     const def = Kit.round.get(id);
     if(!def || !def.modes || !def.modes.length) return;
     const own = def.modeSetting || {};
-    /* A host may declare which mode suits its board (`modeDefaults` in
-       ROUND_HOSTS) — the round says what modes exist, the skin says which one its
-       geometry wants, and neither learns the other's business. Checked against
-       the round's own list, because a default naming a mode that does not exist
-       would select nothing and look exactly like the setting being ignored. */
+    /* A host may declare which mode suits its board — the round says what modes
+       exist, the skin says which one its geometry wants, and neither learns the
+       other's business. Two ways to say it, and the general one comes second so a
+       named exception always wins:
+
+       `modeDefaults[id]` names a mode for one round, for a board with a reason
+       peculiar to that round — Jeopardy's ordering ladder is the only one.
+
+       `teamMode:true` says "this board is team-based, so give me whichever mode
+       each round calls its whole-team one" (`teamMode` on the round). That is the
+       one that scales: a round registered next month lands on the right mode with
+       no host edited, where the per-round list had to be joined by hand.
+
+       Both are checked against the round's own list, because a default naming a
+       mode that does not exist would select nothing and look exactly like the
+       setting being ignored. */
     const perGame = {};
     ROUND_GAMES.forEach(g => {
-      const want = (ROUND_HOSTS[g].modeDefaults || {})[id];
+      const host = ROUND_HOSTS[g];
+      const want = (host.modeDefaults || {})[id] || (host.teamMode ? def.teamMode : null);
       if(want && def.modes.some(m => m.value === want)) perGame[g] = want;
     });
     S.register({ id:'round_' + id, type:'variant',

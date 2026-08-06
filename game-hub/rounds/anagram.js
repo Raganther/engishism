@@ -71,6 +71,9 @@
       { value:'first', label:'First team to spell it takes it' },
       { value:'agree', label:'A team answers only when all of them spell the same word' }
     ],
+    /* The whole-team mode, for a board that asks for one — see `teamMode` in
+       hub-rounds.js. A tile is a team's answer, not the fastest thumb's. */
+    teamMode: 'agree',
 
     /* Declared, not only described above, so `tools/question-types.js` can print it. */
     sample: { text:"the decision a jury delivers", anagram:{ word:"verdict" } },

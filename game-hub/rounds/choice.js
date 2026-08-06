@@ -54,6 +54,7 @@
       { value:'first', label:'First team with the right answer takes it' },
       { value:'agree', label:'A team answers only when all of them agree' }
     ],
+    teamMode: 'agree',
 
     /* Declared, not only described above, so `tools/question-types.js` can print it. */
     sample: { text:"Which verb goes with 'a sentence', when a judge delivers one?",
