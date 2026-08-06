@@ -71,6 +71,16 @@
     border-radius:999px; padding:6px 13px; font-size:13px; color:var(--ink);
   }
   a.chip:hover{ border-color:var(--accent); }
+  /* The skills read as a list rather than pills: six of them, each with a sentence,
+     and a sentence inside a pill is a pill that has stopped being one. */
+  .skills{ display:grid; gap:8px; }
+  .skill{
+    display:grid; grid-template-columns:minmax(0,auto) 1fr; gap:14px; align-items:baseline;
+    background:var(--panel); border:1px solid var(--edge); border-radius:10px; padding:9px 14px;
+  }
+  .skill code{ color:var(--gold); font-size:13px; white-space:nowrap; }
+  .skill .w{ color:var(--dim); font-size:13px; }
+  @media (max-width:620px){ .skill{ grid-template-columns:1fr; gap:2px; } }
   a.chip .k{ color:var(--dim); font-size:11px; margin-left:6px; text-transform:uppercase; letter-spacing:.08em; }
   .note{ color:var(--dim); font-size:13px; margin:8px 0 12px; }
   .note strong{ color:var(--ink); }
@@ -79,6 +89,13 @@
     padding:12px 14px; overflow-x:auto; font-size:13px; color:var(--gold); margin:8px 0;
   }
   footer{ color:var(--dim); font-size:12px; margin-top:40px; }
+  details{ margin-top:34px; border-top:1px solid var(--edge); padding-top:10px; }
+  details summary{
+    cursor:pointer; color:var(--dim); font-size:13px; text-transform:uppercase;
+    letter-spacing:.12em; padding:6px 0;
+  }
+  details summary:hover{ color:var(--ink); }
+  details h2:first-of-type{ margin-top:18px; }
 </style>
 </head>
 <body>
@@ -88,69 +105,88 @@
 
   <div class="where" id="where">Working out where this page is served from…</div>
 
-  <h2>Class-facing</h2>
-  <div class="grid" id="class-links"></div>
+  <h2>Start here</h2>
+  <p class="note">One app and two workshops. The hub is what a class meets; the benches are
+     where rounds get built and tried. Everything else on this page is a detour.</p>
+  <div class="grid" id="main-links"></div>
 
-  <h2>Development boards</h2>
-  <p class="note">The <strong>Lab</strong> is the same engine, the same five games and the same clue
-     card as the hub — the only difference is that it loads the Lab content bank instead of Units 4
-     and 5. Deliberately not reachable from inside the hub: Lab content is half-tuned by definition.</p>
-  <div class="grid" id="lab-links"></div>
+  <h2>Skills — name it and the checklist loads</h2>
+  <p class="note">Type <strong>/name</strong> in Claude Code, or just describe the job — these open
+     themselves when the work matches. Each one holds the traps that tier has already paid for.
+     Descriptions are read from the skill files, so they cannot drift from what the skill says.</p>
+  <div class="skills" id="skill-links"></div>
 
-  <h2>Workshops</h2>
-  <div class="grid" id="bench-links"></div>
+  <h2>Commands worth keeping</h2>
+  <p class="note">Ask the code, never a list somebody typed — both of these read the registries,
+     so a round or a helper added next month appears in them with nobody editing anything.</p>
+<pre>node tools/shelf.js            # every shared helper a round or a game can call
+node tools/question-types.js   # every question shape content may be authored in</pre>
 
-  <h2>Rounds — a question the room <em>plays</em></h2>
-  <p class="note">Card, phone dynamic, merging several students into one answer, and judging.
-     Opens on the question bench with a rack of real handsets beside the card.</p>
-  <div class="chips" id="round-links"></div>
-
-  <h2>Question forms — a way a question is <em>drawn</em></h2>
-  <p class="note">Render and reveal, no phones. <strong>In the kit</strong> means live in every game
-     the day a bank item carries that type; <strong>lab only</strong> means it can reach no game at all.</p>
-  <div class="chips" id="form-links"></div>
-
-  <h2>Playground prototypes</h2>
-  <p class="note">Standalone pages, no hub engine and no hub skin — they borrow only the phone room.
-     Each must stay fully playable with no relay.</p>
-  <div class="grid" id="play-links"></div>
-
-  <h2>Earlier generations</h2>
-  <div class="grid" id="old-links"></div>
-
-  <h2>Checks before pushing</h2>
-  <p class="note">Match the check to what the change can break — a gate that always costs 25 minutes
-     is a gate that gets skipped.</p>
-<pre>node tools/check-syntax.js                                        # seconds
+  <p class="note">Before pushing. Match the check to what the change can break — a gate that always
+     costs 25 minutes is a gate that gets skipped.</p>
+<pre>node tools/check-syntax.js                                        # seconds, always
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=content  # ~20s, any bank edit
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=qbench,grouping,card,gameshow
 NODE_PATH=$(npm root -g) node tools/smoke-test.js                 # everything, ~25 min</pre>
 
-  <h2>Ask the code, rather than a list somebody typed</h2>
-  <p class="note">Both read the registries, so a round or a helper added next month appears in them
-     with nobody editing anything — which is the whole reason they are tools and not paragraphs.</p>
-<pre>node tools/question-types.js   # every question shape content may be authored in
-node tools/shelf.js            # every shared helper a round or a game can call</pre>
+  <p class="note">Shipping. The stamp is found by search, never a list — and the <code>20YYMMDD</code>
+     shape is load-bearing, because <code>classic.html</code> carries <code>?v=picture</code> and a
+     looser pattern rewrites it into a broken page.</p>
+<pre>sed -i "s/?v=20[0-9]\{6\}[a-z]*/?v=$(date +%Y%m%d)a/g" $(grep -rl '?v=20[0-9]\{6\}' --include=*.html . | grep -v node_modules)
+git add -A && git commit -m "..." && git push      # live in about 40 seconds</pre>
+
+  <details id="rest">
+    <summary>Everything else</summary>
+
+    <h2>Rounds — a question the room <em>plays</em></h2>
+    <p class="note">Each opens on the question bench with a rack of real handsets beside the card.</p>
+    <div class="chips" id="round-links"></div>
+
+    <h2>Question forms — a way a question is <em>drawn</em></h2>
+    <p class="note">Render and reveal, no phones. <strong>In the kit</strong> means live in every game
+       the day a bank item carries that type; <strong>lab only</strong> means it can reach no game at all.</p>
+    <div class="chips" id="form-links"></div>
+
+    <h2>Deep links and the students' page</h2>
+    <div class="grid" id="class-links"></div>
+
+    <h2>Development boards</h2>
+    <p class="note">The <strong>Lab</strong> is the same engine, the same games and the same clue card
+       as the hub — it just loads the Lab content bank. Deliberately not reachable from inside the hub:
+       Lab content is half-tuned by definition.</p>
+    <div class="grid" id="lab-links"></div>
+
+    <h2>Room bench, pointed at a board</h2>
+    <div class="grid" id="bench-links"></div>
+
+    <h2>Playground prototypes</h2>
+    <p class="note">Standalone pages, no hub engine and no hub skin — they borrow only the phone room.
+       Each must stay fully playable with no relay.</p>
+    <div class="grid" id="play-links"></div>
+
+    <h2>Earlier generations</h2>
+    <div class="grid" id="old-links"></div>
+  </details>
 
   <footer id="foot"></footer>
 </div>
 
 <!-- Registries only. These are data-only registrations with no DOM of their own, so
      asking them what exists costs nothing and starts no game. -->
-<script src="game-hub/hub-kit.js?v=20260806b"></script>
+<script src="game-hub/hub-kit.js?v=20260806c"></script>
 <!-- Captured between the two script tags: which forms are in the shipped kit. The
      one moment a kit form and a lab-only one are distinguishable. -->
 <script>window.IN_THE_KIT = (window.HubKit && window.HubKit.prompt.types()) || [];</script>
-<script src="playground/lab-forms.js?v=20260806b"></script>
-<script src="game-hub/hub-rounds.js?v=20260806b"></script>
-<script src="game-hub/rounds/default.js?v=20260806b"></script>
-<script src="game-hub/rounds/grouping.js?v=20260806b"></script>
-<script src="game-hub/rounds/ordering.js?v=20260806b"></script>
-<script src="game-hub/rounds/choice.js?v=20260806b"></script>
-<script src="game-hub/rounds/anagram.js?v=20260806b"></script>
-<script src="game-hub/rounds/scramble.js?v=20260806b"></script>
-<script src="game-hub/rounds/infogap.js?v=20260806b"></script>
-<script src="game-hub/rounds/drop.js?v=20260806b"></script>
+<script src="playground/lab-forms.js?v=20260806c"></script>
+<script src="game-hub/hub-rounds.js?v=20260806c"></script>
+<script src="game-hub/rounds/default.js?v=20260806c"></script>
+<script src="game-hub/rounds/grouping.js?v=20260806c"></script>
+<script src="game-hub/rounds/ordering.js?v=20260806c"></script>
+<script src="game-hub/rounds/choice.js?v=20260806c"></script>
+<script src="game-hub/rounds/anagram.js?v=20260806c"></script>
+<script src="game-hub/rounds/scramble.js?v=20260806c"></script>
+<script src="game-hub/rounds/infogap.js?v=20260806c"></script>
+<script src="game-hub/rounds/drop.js?v=20260806c"></script>
 <script>
 (function(){
   'use strict';
@@ -189,9 +225,16 @@ node tools/shelf.js            # every shared helper a round or a game can call<
       '<div class="d">' + x.d + '</div><div class="u">' + abs(x.href) + '</div></a>').join('');
   }
 
-  cards('class-links', [
+  cards('main-links', [
     { t:'Game Hub', href:'game-hub.html',
-      d:'The class-facing app — Units 4 and 5, all five games.' },
+      d:'The class-facing app. Choose a unit, a game, the sections, and play.' },
+    { t:'Question bench', href:'playground/question-bench.html',
+      d:'Build and try one round: its card at board size, real handsets beside it. Also writes and exports content.' },
+    { t:'Room bench', href:'playground/phone-bench.html',
+      d:'A whole projected board plus its phones on one screen. Opens the real hub by default.' }
+  ]);
+
+  cards('class-links', [
     { t:'Game Hub · Unit 4', href:'game-hub-unit4.html',
       d:'Deep link. Loads one unit and skips the unit-select step.' },
     { t:'Game Hub · Unit 5', href:'game-hub-unit5.html',
@@ -208,16 +251,45 @@ node tools/shelf.js            # every shared helper a round or a game can call<
   ]);
 
   cards('bench-links', [
-    { t:'Question bench', href:'playground/question-bench.html',
-      d:'A round or a form drawn at board size, with a rack of real handsets beside it. Also authors and exports content.' },
-    { t:'Room bench', href:'playground/phone-bench.html',
-      d:'A whole projected board plus its phones on one screen. Any board, hub or playground.' },
-    { t:'Room bench · the Lab board', href:'playground/phone-bench.html?board=../game-hub-lab.html',
-      d:'The Lab in the left pane with handsets racked beside it.' },
     { t:'Room bench · the hub', href:'playground/phone-bench.html?board=../game-hub.html',
-      d:'The class-facing hub, driven with simulated phones.' }
+      d:'The class-facing hub, driven with simulated phones.' },
+    { t:'Room bench · the Lab board', href:'playground/phone-bench.html?board=../game-hub-lab.html',
+      d:'The Lab in the left pane with handsets racked beside it.' }
   ]);
 
+  /* ---------- the skills ----------
+     The names are the one hand-kept list left on this page, so `check-syntax.js`
+     asserts they match `.claude/skills/` in both directions — a skill added without
+     a link, or a link to a deleted skill, fails in two seconds rather than sitting
+     here wrong. The descriptions are fetched from the skill files themselves, so
+     what this page says a skill is for cannot drift from what the skill says. */
+  const SKILLS = ['author-content', 'new-round', 'new-question-form', 'new-game', 'new-mode', 'phone-debug'];
+  (function(){
+    const mount = $('skill-links');
+    mount.innerHTML = SKILLS.map(n =>
+      '<div class="skill"><code>/' + n + '</code><span class="w" data-for="' + n + '">…</span></div>').join('');
+    SKILLS.forEach(n => {
+      fetch('.claude/skills/' + n + '/SKILL.md').then(r => r.ok ? r.text() : '').then(t => {
+        const d = (t.match(/^description:\s*(.+)$/m) || [,''])[1];
+        /* One sentence is what a human wants; the frontmatter description is a
+           paragraph written to *trigger* the skill, which is a different job. The
+           "for the Engishism Game Hub" clause is in every one of them, so it says
+           nothing here. */
+        let one = d.split(/\.\s/)[0]
+                   .replace(/\s*(for|to) the Engishism( Classroom)? Game Hub/i, '')
+                   .replace(/\s*—\s*/, ' — ')
+                   .trim();
+        if(one.length > 118) one = one.slice(0, 118).replace(/[\s,]+$/, '') + '…';
+        const el = mount.querySelector('[data-for="' + n + '"]');
+        if(el) el.textContent = one || '(open the skill file to read what it covers)';
+      }).catch(()=>{
+        const el = mount.querySelector('[data-for="' + n + '"]');
+        if(el) el.textContent = '(description reads from the skill file — served over http only)';
+      });
+    });
+  })();
+
+  /* ---------- the derived lists ----------
   /* ---------- the derived lists ----------
      Asked of the registries rather than typed out. A round or a form written next
      month appears here without this page being edited — the same move `hasBank()`,

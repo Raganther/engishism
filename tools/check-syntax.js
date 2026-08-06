@@ -53,10 +53,43 @@ function checkCSS(rel){
   if (depth !== 0) problems.push(`${rel}: ${depth > 0 ? depth + ' unclosed {' : -depth + ' extra }'}`);
 }
 
-['game-hub/hub-engine.js', 'game-hub/hub-kit.js', 'game-hub/hub-settings.js',
- 'game-hub/hub-buzzer.js', 'game-hub/content/unit-4.js', 'game-hub/content/unit-5.js',
- 'tools/smoke-test.js', 'tools/buzzer-relay.js'].forEach(checkJS);
-['game-hub/hub.css'].forEach(checkCSS);
+/* **Found, not listed.** This was eight hand-typed paths, and it had been wrong for
+   as long as the rounds have existed: `hub-rounds.js`, every file in `rounds/`,
+   `nef-1.js`, `unit-lab.js`, `bench-kit.js` and `hub-rounds.css` were all absent, so
+   the one check that always runs was silently skipping the files most edited. Walk
+   the directories instead — a file added next month is checked without anybody
+   remembering. Same defect, same fix, as everywhere else in this project. */
+function walk(dir, ext){
+  const abs = path.join(ROOT, dir);
+  if (!fs.existsSync(abs)) return [];
+  return fs.readdirSync(abs, { withFileTypes: true }).flatMap(e =>
+    e.isDirectory() ? walk(path.join(dir, e.name), ext)
+                    : (e.name.endsWith(ext) ? [path.join(dir, e.name)] : []));
+}
+[...walk('game-hub', '.js'), ...walk('playground', '.js'), ...walk('tools', '.js')]
+  .filter(f => f !== 'tools/check-syntax.js')      // it is running; it parsed
+  .forEach(checkJS);
+walk('game-hub', '.css').forEach(checkCSS);
+
+/* ---- the dev hub names every skill, and only skills that exist ----
+   The one hand-kept list left on that page, so it is checked rather than trusted:
+   a skill added without a link is a skill nobody finds, and a link to a deleted
+   skill is a dead end. Two seconds, and it fails by name. */
+(function checkSkills(){
+  const dir = path.join(ROOT, '.claude/skills');
+  if (!fs.existsSync(dir)) return;
+  const onDisk = fs.readdirSync(dir, { withFileTypes: true })
+                   .filter(e => e.isDirectory()).map(e => e.name).sort();
+  let page = '';
+  try { page = fs.readFileSync(path.join(ROOT, 'dev.html'), 'utf8'); } catch (e) { return; }
+  const listed = (page.match(/SKILLS\s*=\s*\[([^\]]*)\]/) || [,''])[1]
+                   .split(',').map(s => s.replace(/['"\s]/g, '')).filter(Boolean).sort();
+  if (!listed.length) return;                      // the page does not claim to list them
+  onDisk.filter(s => listed.indexOf(s) === -1)
+        .forEach(s => problems.push(`dev.html does not link the skill "${s}"`));
+  listed.filter(s => onDisk.indexOf(s) === -1)
+        .forEach(s => problems.push(`dev.html links "${s}", which is not a skill any more`));
+})();
 
 /* ---- the cache stamp: one value, or the phone gets a mix of two builds ---- */
 const shells = ['game-hub.html', 'game-hub-unit4.html', 'game-hub-unit5.html', 'join.html'];
