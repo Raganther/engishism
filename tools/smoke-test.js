@@ -5734,10 +5734,18 @@ async function testQuestionBench(browser){
         await f.waitForTimeout(120);
       }
     };
+    /* The words come from the round's own sample rather than a copy here. The
+       bench opens on `read(sample)` now, so a suite carrying its own list is a
+       second source that goes stale the day the sample is edited — which is
+       exactly what happened when the editor stopped being a hand-kept table. */
+    const set = await page.evaluate(() => {
+      const g = Kit.round.get('grouping').sample.group;
+      return { pick: g.pick.slice(), decoy: g.with.slice() };
+    });
     // seats alternate teams, so frames 0 and 2 are both Team 1 — the union of
     // their picks is that team's answer
-    await tap(frames[0], ['verdict','jury']);
-    await tap(frames[2], ['sabbatical','overtime']);
+    await tap(frames[0], set.pick.slice(0, 2));
+    await tap(frames[2], set.decoy.slice(0, 2));
     await page.waitForTimeout(1400);
     check('a wrong set is named on the card',
           /not a group/i.test(await page.locator('#card-round .group-say').innerText()),
@@ -5746,9 +5754,9 @@ async function testQuestionBench(browser){
           /2 phones, 2 each/.test(await page.locator('#card-round .rlanes').innerText()),
           await page.locator('#card-round .rlanes').innerText());
 
-    await tap(frames[2], ['sabbatical','overtime']);      // drop them
+    await tap(frames[2], set.decoy.slice(0, 2));          // drop them
     await page.waitForTimeout(300);
-    await tap(frames[2], ['testimony','acquittal']);
+    await tap(frames[2], set.pick.slice(2, 4));
     await page.waitForTimeout(1500);
     check('the right set is taken and the four light up',
           await page.locator('#card-round .gword.right').count() === 4 &&
@@ -6221,7 +6229,9 @@ async function testQuestionBench(browser){
         await solo.locator('#add-phone').innerText());
   check('but the card is still drawn',
         await solo.locator('#card-round .gword').count() === 8);
-  for(const w of ['verdict','jury','testimony','acquittal']){
+  // the answer, asked of the round rather than copied here — see the note above
+  const soloPick = await solo.evaluate(() => Kit.round.get('grouping').sample.group.pick.slice());
+  for(const w of soloPick){
     await solo.locator(`#card-round .gword[data-word="${w}"]`).click();
     await solo.waitForTimeout(70);
   }

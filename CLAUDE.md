@@ -1195,6 +1195,16 @@ playground's point, that one board can host several:
     comma-separated field. Verified across all seven rounds: right labels, two
     fields vs three, and a build/read round trip that keeps what the editor has
     no field for (ordering's per-word glosses).
+  - **Making the sample authoritative moved the bench's opening question, and
+    the suite was carrying its own copy of the old one.** qbench tapped
+    `verdict` on a handset for a bench that now opens on the cooking-methods
+    sample. The fix is the one this project keeps re-learning one tier over:
+    the checks ask `Kit.round.get('grouping').sample` instead of holding a
+    list, so the next sample edit costs nothing. qbench 93/0.
+  - **A `; echo "exit: $?"` after the runner reports the *echo's* status**, not
+    node's — the sibling of the `| tail` trap already recorded under "Before you
+    push". The runner itself is honest: it counted the throw as a failure,
+    named it, and exited 1. Read the printed total, never the wrapper's code.
 - **One rack on both benches: layout presets, linked teams, sticky panes.**
   `BenchKit.layout` puts the standard classroom divisions (2×2 · 2×4 · 3×3 ·
   4×4 · no phones) on the question bench and the room bench as one-click
