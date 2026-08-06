@@ -126,25 +126,31 @@ NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=content  # ~20s, any ba
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=qbench,grouping,card,gameshow
 NODE_PATH=$(npm root -g) node tools/smoke-test.js                 # everything, ~25 min</pre>
 
+  <h2>Ask the code, rather than a list somebody typed</h2>
+  <p class="note">Both read the registries, so a round or a helper added next month appears in them
+     with nobody editing anything — which is the whole reason they are tools and not paragraphs.</p>
+<pre>node tools/question-types.js   # every question shape content may be authored in
+node tools/shelf.js            # every shared helper a round or a game can call</pre>
+
   <footer id="foot"></footer>
 </div>
 
 <!-- Registries only. These are data-only registrations with no DOM of their own, so
      asking them what exists costs nothing and starts no game. -->
-<script src="game-hub/hub-kit.js?v=20260806a"></script>
+<script src="game-hub/hub-kit.js?v=20260806b"></script>
 <!-- Captured between the two script tags: which forms are in the shipped kit. The
      one moment a kit form and a lab-only one are distinguishable. -->
 <script>window.IN_THE_KIT = (window.HubKit && window.HubKit.prompt.types()) || [];</script>
-<script src="playground/lab-forms.js?v=20260806a"></script>
-<script src="game-hub/hub-rounds.js?v=20260806a"></script>
-<script src="game-hub/rounds/default.js?v=20260806a"></script>
-<script src="game-hub/rounds/grouping.js?v=20260806a"></script>
-<script src="game-hub/rounds/ordering.js?v=20260806a"></script>
-<script src="game-hub/rounds/choice.js?v=20260806a"></script>
-<script src="game-hub/rounds/anagram.js?v=20260806a"></script>
-<script src="game-hub/rounds/scramble.js?v=20260806a"></script>
-<script src="game-hub/rounds/infogap.js?v=20260806a"></script>
-<script src="game-hub/rounds/drop.js?v=20260806a"></script>
+<script src="playground/lab-forms.js?v=20260806b"></script>
+<script src="game-hub/hub-rounds.js?v=20260806b"></script>
+<script src="game-hub/rounds/default.js?v=20260806b"></script>
+<script src="game-hub/rounds/grouping.js?v=20260806b"></script>
+<script src="game-hub/rounds/ordering.js?v=20260806b"></script>
+<script src="game-hub/rounds/choice.js?v=20260806b"></script>
+<script src="game-hub/rounds/anagram.js?v=20260806b"></script>
+<script src="game-hub/rounds/scramble.js?v=20260806b"></script>
+<script src="game-hub/rounds/infogap.js?v=20260806b"></script>
+<script src="game-hub/rounds/drop.js?v=20260806b"></script>
 <script>
 (function(){
   'use strict';
