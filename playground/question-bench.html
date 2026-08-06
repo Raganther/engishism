@@ -8,7 +8,7 @@
 <!-- The shared card, exactly as a game show draws it. This is the whole point of
      the page: what you tune here IS what a class meets, not a second implementation
      that resembles it. -->
-<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260805e">
+<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260805f">
 <style>
   /* ================= The question bench =================
      One question type at a time, with the card on the left and a rack of real
@@ -158,7 +158,12 @@
          background:rgba(255,194,14,0.1); border:1px solid rgba(255,194,14,0.35); }
   .phone{ flex:0 0 auto; }
   .phone .who{ font-size:0.7rem; text-align:center; opacity:0.7; margin-bottom:5px;
-               font-family:'IBM Plex Mono',monospace; }
+               font-family:'IBM Plex Mono',monospace;
+               display:flex; align-items:center; justify-content:center; gap:6px; }
+  /* The room bench's × on every phone — one standard rack on both benches. */
+  .phone .phone-off{ background:none; border:none; color:inherit; cursor:pointer;
+                     font-size:0.85rem; padding:0 3px; opacity:0.6; }
+  .phone .phone-off:hover{ opacity:1; }
   /* A scaled element still occupies its full layout size, so the frame needs a clip
      box with an explicit height or the card is 844px tall around 523px of picture. */
   .phone .clip{ overflow:hidden; border-radius:14px; border:1px solid rgba(255,255,255,0.18);
@@ -208,6 +213,9 @@
       <button id="add-phone" class="ghost" disabled
               title="No relay is reachable, so there is no room for a phone to join.">
         + phone — no relay</button>
+      <!-- One click to a standard classroom division — teams × phones each. The
+           same strip the room bench carries, from bench-kit. -->
+      <span id="bar-layouts"></span>
       <select id="for-team" style="display:none" title="Which team the teacher is playing for"></select>
     </div>
 
@@ -273,34 +281,34 @@
   <div id="rack-pane"><div id="rack-warn" class="warn"></div><div id="rack"></div></div>
 </div>
 
-<script src="../game-hub/hub-buzzer.js?v=20260805e"></script>
-<script src="../game-hub/hub-qr.js?v=20260805e"></script>
-<script src="../game-hub/hub-kit.js?v=20260805e"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260805f"></script>
+<script src="../game-hub/hub-qr.js?v=20260805f"></script>
+<script src="../game-hub/hub-kit.js?v=20260805f"></script>
 <!-- Captured between the two files, which is the only moment the two sets are
      distinguishable: every form registered above is in the kit and live in every
      game the day a bank item carries its type, and everything registered below is
      experimental and can reach no board at all, because a game loads hub-kit.js and
      never loads this file. The menu says which is which so nobody has to remember. -->
 <script>window.IN_THE_KIT = window.HubKit.prompt.types();</script>
-<script src="lab-forms.js?v=20260805e"></script>
-<script src="../game-hub/hub-rounds.js?v=20260805e"></script>
-<script src="../game-hub/rounds/default.js?v=20260805e"></script>
-<script src="../game-hub/rounds/grouping.js?v=20260805e"></script>
-<script src="../game-hub/rounds/ordering.js?v=20260805e"></script>
-<script src="../game-hub/rounds/choice.js?v=20260805e"></script>
-<script src="../game-hub/rounds/anagram.js?v=20260805e"></script>
-<script src="../game-hub/rounds/scramble.js?v=20260805e"></script>
-<script src="../game-hub/rounds/infogap.js?v=20260805e"></script>
-<script src="../game-hub/rounds/drop.js?v=20260805e"></script>
+<script src="lab-forms.js?v=20260805f"></script>
+<script src="../game-hub/hub-rounds.js?v=20260805f"></script>
+<script src="../game-hub/rounds/default.js?v=20260805f"></script>
+<script src="../game-hub/rounds/grouping.js?v=20260805f"></script>
+<script src="../game-hub/rounds/ordering.js?v=20260805f"></script>
+<script src="../game-hub/rounds/choice.js?v=20260805f"></script>
+<script src="../game-hub/rounds/anagram.js?v=20260805f"></script>
+<script src="../game-hub/rounds/scramble.js?v=20260805f"></script>
+<script src="../game-hub/rounds/infogap.js?v=20260805f"></script>
+<script src="../game-hub/rounds/drop.js?v=20260805f"></script>
 <!-- Data only, and the reason the bench can be a round trip rather than a blank
      page: an existing category can be loaded, edited and exported back. Loading a
      unit here puts nothing in front of a class — these files are inert until a hub
      shell reads them. -->
-<script src="../game-hub/content/unit-lab.js?v=20260805e"></script>
-<script src="../game-hub/content/unit-4.js?v=20260805e"></script>
-<script src="../game-hub/content/unit-5.js?v=20260805e"></script>
-<script src="../game-hub/content/nef-1.js?v=20260805e"></script>
-<script src="bench-kit.js?v=20260805e"></script>
+<script src="../game-hub/content/unit-lab.js?v=20260805f"></script>
+<script src="../game-hub/content/unit-4.js?v=20260805f"></script>
+<script src="../game-hub/content/unit-5.js?v=20260805f"></script>
+<script src="../game-hub/content/nef-1.js?v=20260805f"></script>
+<script src="bench-kit.js?v=20260805f"></script>
 <script>
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -1240,7 +1248,12 @@ const HTTP1_SAFE = 4;               // measured against the local plain-http rel
 let seat = 0;
 const NAMES = ['Ana','Bo','Cal','Di','Eli','Fen','Gus','Hana','Ivo','Jo',
                'Kit','Lex','Mo','Nia','Ola','Pia','Quin','Ravi','Sam','Tam'];
-const teamOf = [];                     // seat -> team, so the rack can group them
+/* The racked handsets, tracked as records rather than a seat counter — removal
+   needs a handle on the box, and which team a phone is on has to survive any
+   number of adds and removes. The room bench has always worked this way; this is
+   the two benches converging on one shape. */
+const PHONES = [];                     // {name, team, el}
+const phonesOn = t => PHONES.filter(p => p.team === t).length;
 
 /* A row per team, created once and never rebuilt. **Rows are added, never
    re-parented**: moving an iframe reloads it, which drops its stream — the room
@@ -1281,41 +1294,18 @@ function addTeam(){
 /* Whichever team has the fewest, so the rack fills evenly rather than stacking one
    side — a race with all the phones on one team tests nothing. */
 function nextTeam(){
-  const n = TEAMS.map((_, i) => teamOf.filter(t => t === i).length);
+  const n = TEAMS.map((_, i) => phonesOn(i));
   return n.indexOf(Math.min(...n));
 }
 
-function addPhone(){
-  if(!host || seat >= RACK_MAX) return;
-  const name = NAMES[seat];
-  const team = nextTeam();
-  teamOf[seat] = team;
-  seat++;
-  const row = rackRow(team);
-  const label = row.parentNode.querySelector('.rack-label .none');
-  if(label) label.remove();
-  const box = document.createElement('div');
-  box.className = 'phone';
-  const who = document.createElement('div');
-  who.className = 'who';
-  who.textContent = name;
-  const clip = document.createElement('div');
-  clip.className = 'clip';
-  const f = document.createElement('iframe');
-  f.src = '../join.html?code=' + encodeURIComponent(host.code) +
-          '&name=' + encodeURIComponent(name) + '&team=' + team + '&auto=1' +
-          (RELAY ? '&relay=' + encodeURIComponent(RELAY) : '');
-  clip.appendChild(f);
-  box.appendChild(who); box.appendChild(clip);
-  row.appendChild(box);
-  fitAll();                           // the phones shrink, the card does not
-  setTimeout(()=>{ draw(); fitAll(); }, 900);   // the share moves when a team grows
+function refreshRackChrome(){
   const btn = $('add-phone');
-  if(seat >= RACK_MAX){
+  if(PHONES.length >= RACK_MAX){
     btn.disabled = true;
     btn.textContent = RACK_MAX + ' phones max';
-  } else {
-    btn.textContent = '+ phone (' + seat + ')';
+  } else if(host){
+    btn.disabled = false;
+    btn.textContent = PHONES.length ? '+ phone (' + PHONES.length + ')' : '+ phone';
   }
   /* Say which situation you are in rather than which number is true. Over plain
      http a browser runs out of connections at six per origin — the board's stream
@@ -1323,7 +1313,7 @@ function addPhone(){
      round. The deployed site is https/2, where streams share one connection and
      none of this applies. */
   const warn = $('rack-warn');
-  const risky = location.protocol === 'http:' && seat > HTTP1_SAFE;
+  const risky = location.protocol === 'http:' && PHONES.length > HTTP1_SAFE;
   // `block`, not '' — the class sets display:none, so clearing the inline style
   // falls straight back to hidden
   warn.style.display = risky ? 'block' : 'none';
@@ -1332,9 +1322,99 @@ function addPhone(){
     HTTP1_SAFE + ' racked phones a tap may never reach the board. Not a limit on ' +
     'the deployed https site, and never one in a real class.';
 }
+
+/* Removing the box closes the iframe, the stream drops, and the relay runs the
+   same leave path a phone dying does — shares recompute, replies re-read, and
+   the information gap recuts its deal. Nothing here needs to tell anybody. */
+function removePhone(p){
+  const at = PHONES.indexOf(p);
+  if(at !== -1) PHONES.splice(at, 1);
+  const box = p.el.closest('[id^="rack-team-"]');
+  p.el.remove();
+  if(box && !box.querySelector('.phone')){
+    const label = box.querySelector('.rack-label');
+    if(label && !label.querySelector('.none')){
+      const none = document.createElement('span');
+      none.className = 'none'; none.textContent = ' — no phones yet';
+      label.appendChild(none);
+    }
+  }
+  refreshRackChrome();
+  fitAll();
+  setTimeout(()=>{ draw(); fitAll(); }, 900);   // the share moves when a team shrinks
+}
+
+function addPhone(team){
+  if(!host || PHONES.length >= RACK_MAX) return;
+  const t = (team == null) ? nextTeam() : Number(team);
+  const name = NAMES[seat++ % NAMES.length];
+  const row = rackRow(t);
+  const label = row.parentNode.querySelector('.rack-label .none');
+  if(label) label.remove();
+  const box = document.createElement('div');
+  box.className = 'phone';
+  const who = document.createElement('div');
+  who.className = 'who';
+  who.textContent = name;
+  /* The room bench's × on every phone, here too — one standard rack. */
+  const off = document.createElement('button');
+  off.type = 'button';
+  off.className = 'phone-off';
+  off.title = 'Remove this phone';
+  off.textContent = '×';
+  who.appendChild(off);
+  const clip = document.createElement('div');
+  clip.className = 'clip';
+  const f = document.createElement('iframe');
+  f.src = '../join.html?code=' + encodeURIComponent(host.code) +
+          '&name=' + encodeURIComponent(name) + '&team=' + t + '&auto=1' +
+          (RELAY ? '&relay=' + encodeURIComponent(RELAY) : '');
+  clip.appendChild(f);
+  box.appendChild(who); box.appendChild(clip);
+  row.appendChild(box);
+  const rec = { name, team: t, el: box };
+  off.addEventListener('click', ()=> removePhone(rec));
+  PHONES.push(rec);
+  refreshRackChrome();
+  fitAll();                           // the phones shrink, the card does not
+  setTimeout(()=>{ draw(); fitAll(); }, 900);   // the share moves when a team grows
+}
+
+/* One click to a standard classroom division — n teams of m phones. The rack is
+   reconciled rather than rebuilt: phones already in the right place stay, so
+   their streams are never dropped for the sake of a layout. */
+function applyLayout(n, m){
+  if(!host) return;
+  n = Math.max(1, Math.min(MAX_TEAMS, Number(n) || 1));
+  m = Math.max(0, Number(m) || 0);
+  PHONES.slice().filter(p => p.team >= n).forEach(removePhone);
+  for(let t = 0; t < n; t++)
+    while(phonesOn(t) > m) removePhone(PHONES.filter(p => p.team === t).pop());
+  const was = TEAMS.length;
+  if(n > was) for(let t = was; t < n; t++){ TEAMS.push('Team ' + (t + 1)); rackRow(t); }
+  if(n < was){
+    TEAMS.length = n;
+    for(let t = n; t < was; t++){
+      const box = document.getElementById('rack-team-' + t);
+      if(box) box.remove();
+    }
+  }
+  $('add-team').disabled = TEAMS.length >= MAX_TEAMS;
+  fillTeamPick();
+  for(let t = 0; t < n; t++)
+    while(phonesOn(t) < m && PHONES.length < RACK_MAX) addPhone(t);
+  /* A round builds its lanes from the team list at setup, exactly as addTeam
+     already knew. */
+  build();
+  pushTeams(); ask();
+  fitAll();
+}
+
 function pushTeams(){ if(host) host.setTeams(TEAMS.slice()); }
 $('add-team').addEventListener('click', addTeam);
-$('add-phone').addEventListener('click', addPhone);
+$('add-phone').addEventListener('click', ()=> addPhone());
+const layoutCtl = BenchKit.layout($('bar-layouts'), applyLayout);
+let laidOut = false;
 
 TEAMS.forEach((_, i) => rackRow(i));
 
@@ -1347,6 +1427,10 @@ const room = BenchKit.room({
       const btn = $('add-phone');
       btn.disabled = false; btn.textContent = '+ phone'; btn.removeAttribute('title');
       pushTeams(); ask();
+      /* The remembered classroom division racks itself the moment the room
+         exists — 4×4 until a different preset is picked. Once: `ready` also
+         fires on every reconnect, and a reconnect must not re-rack anything. */
+      if(!laidOut){ laidOut = true; layoutCtl.apply(); }
     },
     /* The button says whatever the chip says, from one source — see `say()` in
        bench-kit.js. It read "no relay" while the chip read "connecting…", which is

@@ -476,6 +476,73 @@ window.BenchKit = (function(){
       .map(([w]) => w);
   }
 
+  /* ---------- the rack layout presets ----------
+     One control, both benches: the standard classroom divisions as one-click
+     buttons — teams × phones per team — because racking sixteen phones one
+     incremental click at a time was the complaint, and the two benches having
+     different racking controls was the other half of it. The strip only says
+     what was picked; each bench reconciles its own rack through `apply(n, m)`,
+     because the two racks are built differently and re-parenting an iframe
+     reloads it. The last pick is remembered across both benches (one storage
+     key), and 4×4 is the starting default. */
+  const LAYOUTS = [
+    { n:2, m:2 }, { n:2, m:4 }, { n:3, m:3 }, { n:4, m:4 }
+  ];
+  const LAYOUT_KEY = 'engishism.benchLayout';
+  function layoutStored(){
+    try{
+      const v = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null');
+      if(v && v.n >= 1 && v.m >= 0) return v;
+    }catch(e){}
+    return { n:4, m:4 };
+  }
+  function layout(mount, apply){
+    /* The strip carries its own look, because it lives on two pages with two
+       stylesheets — self-contained the way the room chip is. */
+    if(!document.getElementById('bench-layouts-css')){
+      const css = document.createElement('style');
+      css.id = 'bench-layouts-css';
+      css.textContent =
+        '.bench-layouts{ display:inline-flex; gap:5px; align-items:center; }' +
+        '.bench-layouts button{ font-family:"IBM Plex Mono",monospace; font-size:0.72rem; }' +
+        '.bench-layouts button.on{ outline:2px solid currentColor; opacity:1; }';
+      document.head.appendChild(css);
+    }
+    const wrap = document.createElement('span');
+    wrap.className = 'bench-layouts';
+    const paint = ()=>{
+      const cur = layoutStored();
+      wrap.querySelectorAll('button[data-nm]').forEach(b=>{
+        b.classList.toggle('on', b.dataset.nm === cur.n + 'x' + cur.m);
+      });
+    };
+    const pick = (n, m)=>{
+      try{ localStorage.setItem(LAYOUT_KEY, JSON.stringify({ n, m })); }catch(e){}
+      paint();
+      apply(n, m);
+    };
+    LAYOUTS.forEach(L=>{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ghost';
+      b.dataset.nm = L.n + 'x' + L.m;
+      b.textContent = L.n + '×' + L.m;
+      b.title = L.n + ' teams, ' + L.m + ' phones each';
+      b.addEventListener('click', ()=> pick(L.n, L.m));
+      wrap.appendChild(b);
+    });
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'ghost';
+    clear.textContent = 'no phones';
+    clear.title = 'Remove every racked phone';
+    clear.addEventListener('click', ()=> pick(layoutStored().n, 0));
+    wrap.appendChild(clear);
+    mount.appendChild(wrap);
+    paint();
+    return { current: layoutStored, apply: ()=>{ const c = layoutStored(); apply(c.n, c.m); } };
+  }
+
   return { room, settings, teams, clock, mistakes, leading, settle,
-           modeSetting, racing, judge, teamColour, relay: RELAY };
+           modeSetting, racing, judge, teamColour, layout, layoutStored, relay: RELAY };
 })();

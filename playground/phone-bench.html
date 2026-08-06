@@ -145,8 +145,9 @@
            title="Picked up from the board; type one to use a room elsewhere">
     <select id="team-pick" aria-label="Which team"></select>
     <button id="add">+ Phone</button>
-    <button id="add-each">+1 to every team</button>
-    <button id="clear">Remove all</button>
+    <!-- One click to a standard classroom division — teams × phones each. The
+         same strip the question bench carries, from bench-kit. -->
+    <span id="bar-layouts"></span>
     <span id="status"></span>
   </div>
 
@@ -161,6 +162,7 @@
     </div>
   </div>
 
+<script src="bench-kit.js?v=20260805f"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -184,6 +186,7 @@ function openBoard(){
   const pick = $('board-pick').value;
   const url  = pick === 'custom' ? $('board-url').value.trim() : pick;
   if(!url) return;
+  openedBoard = true;
   const box = $('stage-box');
   box.innerHTML = '';
   const f = document.createElement('iframe');
@@ -227,6 +230,11 @@ function pollBoard(){
        which is a different thing from the incidental reload that re-parenting
        causes and that the rack is built to avoid. */
     repointPhones();
+    /* The remembered classroom division racks itself when a board this bench
+       opened first hands over its code — once, and never in the type-a-code
+       mode, where the room belongs to a board running somewhere else and
+       sixteen phones arriving unasked would land in it. */
+    if(openedBoard && !laidOut){ laidOut = true; layoutCtl.apply(); }
   }
 }
 setInterval(pollBoard, 1000);
@@ -343,11 +351,7 @@ function addPhone(team){
   el.innerHTML = '<div class="head"><b></b><button title="Remove this phone">×</button></div>';
   el.querySelector('b').textContent = name;
   el.querySelector('button').addEventListener('click', ()=>{
-    phones = phones.filter(p => p.el !== el);
-    const col = el.closest('.team-col');
-    el.remove();
-    if(col && !col.querySelector('.phone')) col.remove();
-    fitRack();
+    removePhone(phones.find(p => p.el === el));
   });
   /* The iframe goes inside a clip box rather than straight into the card: it is
      laid out at a real handset's width and scaled down, so something has to bound
@@ -363,16 +367,34 @@ function addPhone(team){
   fitRack();
 }
 
-$('add').addEventListener('click', ()=> addPhone(Number($('team-pick').value) || 0));
-$('add-each').addEventListener('click', ()=>{
-  teamNames.forEach((_,i)=> addPhone(i));
-});
-$('clear').addEventListener('click', ()=>{
-  phones.forEach(p=>p.el.remove());
-  phones = [];
-  document.querySelectorAll('.team-col').forEach(c=>c.remove());
+function removePhone(p){
+  if(!p) return;
+  phones = phones.filter(x => x !== p);
+  const col = p.el.closest('.team-col');
+  p.el.remove();
+  if(col && !col.querySelector('.phone')) col.remove();
   fitRack();
-});
+}
+
+const phonesOn = t => phones.filter(p => p.team === t).length;
+
+/* One click to a standard classroom division — n teams of m phones. Reconciled
+   rather than rebuilt: a phone already in the right place keeps its stream. The
+   teams here belong to the board, so the preset only racks phones; a preset
+   wider than the board's team list simply racks columns the board has not named
+   yet, which is the honest picture of a testing rig. */
+function applyLayout(n, m){
+  if(!/^\d{4,6}$/.test($('code').value.trim())){ setStatus('open a board first, or type a room code'); return; }
+  phones.slice().filter(p => p.team >= n).forEach(removePhone);
+  for(let t = 0; t < n; t++)
+    while(phonesOn(t) > m) removePhone(phones.filter(p => p.team === t).pop());
+  for(let t = 0; t < n; t++)
+    while(phonesOn(t) < m) addPhone(t);
+}
+
+$('add').addEventListener('click', ()=> addPhone(Number($('team-pick').value) || 0));
+const layoutCtl = BenchKit.layout($('bar-layouts'), applyLayout);
+let laidOut = false, openedBoard = false;
 
 renderTeamPick();     // the default pair until a room says otherwise — never empty
 loadTeams();
