@@ -1255,10 +1255,10 @@ playground's point, that one board can host several:
     promptByPlayer fall-throughs. `qbench`, `grouping`, `anagram`, `buzzers`,
     `reconnect`: 248/0. **No classroom run yet**, and the numbers in it are
     guesses (cooldowns 1.5s/2.5s, caps 2–5 gaps, 180-char sentence).
-  - **Not yet in any Lab or unit content** — the bench serves its sample, and a
-    Jeopardy/Blockbusters tile hosts it the day a clue carries an `infogap` field.
-    That is the same "capability everywhere, content nowhere" gap the grouping
-    round sat in for two sessions; close it while it is one category's work.
+  - ~~Not yet in any Lab or unit content~~ — **closed the day after**: NEF Unit 1
+    carries an Information Gap category in both sections plus a hidden hexagon in
+    each Blockbusters section (see below). The Lab board still has none, and
+    Units 4/5 still carry no round content at all.
 - **Four of the five classroom reports are fixed; the fifth was two bugs and one of
   them is fixed too.** Worked through with reproductions first, each proved against
   the broken build:
