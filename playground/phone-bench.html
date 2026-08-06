@@ -57,7 +57,10 @@
      board gives up the width and refits (its box is under a ResizeObserver);
      the cap is what four phones at full scale actually need, so a wide monitor
      gives the spare width back to the board rather than to empty rack. */
-  #rack-pane{ flex:0 0 auto; max-height:calc(100vh - 150px); overflow-y:auto; padding-right:4px; }
+  /* Sticky for the same reason as the question bench's rack: the phones ride
+     down the page with you rather than staying behind the scroll. */
+  #rack-pane{ flex:0 0 auto; position:sticky; top:10px;
+              max-height:calc(100vh - 20px); overflow-y:auto; padding-right:4px; }
   #rack-pane.has-phones{ flex:0 0 min(42%, 1010px); }
   .pane-label{
     font-size:0.72rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted);
@@ -162,7 +165,7 @@
     </div>
   </div>
 
-<script src="bench-kit.js?v=20260805f"></script>
+<script src="bench-kit.js?v=20260805g"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -385,6 +388,17 @@ const phonesOn = t => phones.filter(p => p.team === t).length;
    yet, which is the honest picture of a testing rig. */
 function applyLayout(n, m){
   if(!/^\d{4,6}$/.test($('code').value.trim())){ setStatus('open a board first, or type a room code'); return; }
+  /* The board owns the teams, so a preset wider than its team bar asks the
+     board to grow — through the board's own + Team path, same origin only, and
+     grow-only: removing a team stays a human decision because a team can be
+     holding points. In typed-code mode there is no frame to ask and the extra
+     columns simply rack as Team n, which is the honest picture of a rig
+     pointed at somebody else's room. */
+  try{
+    const f = $('stage-frame');
+    const bt = f && f.contentWindow && f.contentWindow.HubTeams;
+    if(bt && bt.ensure){ bt.ensure(n); setTimeout(()=> loadTeams(true), 800); }
+  }catch(e){}
   phones.slice().filter(p => p.team >= n).forEach(removePhone);
   for(let t = 0; t < n; t++)
     while(phonesOn(t) > m) removePhone(phones.filter(p => p.team === t).pop());

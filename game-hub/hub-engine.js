@@ -1618,6 +1618,21 @@
 
   // shared team roster — persists across games AND unit switches until Reset
   let teams = [newTeam('Team 1'), newTeam('Team 2')];
+
+  /* The room bench's handle on the team bar, same-origin only. `ensure` grows and
+     never shrinks: the teacher's team bar stays the sole owner of teams, and the
+     bench applying a 4×4 preset is automating the teacher's own + Team clicks —
+     removal stays a decision a human makes, because a team can be holding points. */
+  window.HubTeams = {
+    count(){ return teams.length; },
+    ensure(n){
+      n = Math.max(0, Math.min(8, Number(n) || 0));
+      let grew = false;
+      while(teams.length < n){ teams.push(newTeam('Team ' + (teams.length + 1))); grew = true; }
+      if(grew) renderScorebar();
+      return teams.length;
+    }
+  };
   let active = 0;   // jeopardy: selected/active team index
   let bbTurn = 0;   // blockbusters: whose turn (0 = Yellow/teams[0], 1 = Blue/teams[1])
 
