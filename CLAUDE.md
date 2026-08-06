@@ -1213,6 +1213,48 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Multiple choice joined the lane standard, and a finished lane says which of three
+  things happened.** Reported from a real board, in two rounds.
+  - **It was the last round drawing its own team progress**, and what it drew was a
+    dot in each team's colour on the option that team had picked — the class reading
+    each other's answers off the projector, which is the opposite of what a multiple
+    choice asks. It calls `Kit.round.lanes` now, so all five named rounds draw the
+    same picture. **A cell is a person, not an answer**: one box per handset, filled
+    as that student commits, so the room sees a team is waiting on one more without
+    seeing what anybody chose. No count beside the boxes — the boxes *are* the count,
+    and in agree mode the header already carries a fraction.
+  - **Green stopped being the default, which was the second report.** `full` washed a
+    lane green the moment everybody had answered, so a team split three ways and a
+    team agreed on the wrong option both read as the good outcome. `tone` on the lane
+    spec now: **amber** everyone answered and not the same thing, **red** agreed and
+    wrong, **green** agreed and right, nothing until they have all answered. A team
+    that has stopped typing has not finished, and **amber is the interesting state**
+    — it is the one there is something to say about. The drag rounds still set `full`
+    and nothing else, which is what they always did.
+  - Millionaire's Ask the class still puts counts on the options: the team has spent
+    a lifeline to see exactly that, so it is not the same leak.
+- **The room chip went under the clue card.** It was `z-index:51` against the card's
+  50 — raised so a phantom phone could be kicked mid-clue — and drew a join address
+  and a SHOW QR button straight across the clue's own topline. The raise was never
+  what made it clickable: `#clue-modal` is `pointer-events:none` and only the card
+  opts back in, so the chip takes clicks wherever the card is not covering it, and
+  the card is centred at 720px so its ends always are. If the card is in the way, it
+  drags.
+- **Every arm tells the handsets how the question is being played** — "A team answers
+  only when all of them agree", in the round's own words. A teacher sets one rule on
+  one board and another on the next and cannot then remember which is running, and
+  the phone is the one screen actually in the room's hands.
+  - **Stamped at `register()`**, not in each round's `arm()`: eight call sites build
+    an arm across the hub and the bench, and a round added next month would have to
+    remember. The label is the round's own `modes` declaration, so it is the same
+    string ⚙ and the bench dropdown show. A round with one way to play says nothing.
+  - **The relay dropped it, and that is the reusable lesson.** The round stamped it
+    and the handset was ready to draw it; `toEachPlayer(room, 'armed', …)` builds its
+    payload from a **hand-typed list of keys**, so anything not named there never
+    reaches a phone. This file already records the *hub* side of that bug being fixed
+    twice — `optionsByTeam` silently dropped on a re-ask, `promptByPlayer` nearly —
+    and the relay's outbound payload was never looked at. Sent on `armed` and on
+    `joined`, cleared on disarm and reset.
 - **A round can have more than one button — F3.9.1/F3.9.2, and the last tier with no
   way to declare into the action strip has one.** This was the single thing on the
   Next list blocking round designs outright: `group-btn` is one element, so a round

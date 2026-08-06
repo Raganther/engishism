@@ -188,7 +188,8 @@
           kind: 'mc',
           progressed: Object.keys(s.votes || {}),
           lane(t){
-            const said = ((s.votes || {})[t] || {}).said || 0;
+            const v = (s.votes || {})[t] || {};
+            const said = v.said || 0;
             /* With no roster count — no relay, or nobody counted yet — the lane
                shows what has arrived rather than nothing, the same rule
                `mustHold` follows: a number the host does not have must never
@@ -196,6 +197,27 @@
             const size  = Number((c.sizes || [])[t]) || said;
             const cells = [];
             for(let i = 0; i < Math.max(size, said, 1); i++) cells.push({ got: i < said });
+
+            /* **What the filled lane turned out to mean**, which is three
+               different things and used to be one. `full` alone washed the lane
+               green the moment everybody had answered — so a team split three
+               ways and a team that had agreed on the wrong option both read as
+               the good outcome, which is the opposite of the information the
+               room needs.
+
+               `said` is how many have answered; `agreed` is how many of those
+               hold the *leading* option. Everyone answered and all said the same
+               thing is a committed answer, and then it is simply right or wrong.
+               Everyone answered and they did not is the **argument**, which is
+               the interesting state and the one worth marking amber rather than
+               green — a team is not finished because it has stopped typing. */
+            const all      = !!size && said >= size;
+            const oneMind  = all && said > 0 && (v.agreed || 0) >= said;
+            const lead     = ((s.leading || {})[t] || [])[0];
+            const tone = !all      ? null
+                       : !oneMind  ? 'warn'
+                       : same(lead, s.answer) ? 'good' : 'bad';
+
             /* **No count beside the boxes.** The boxes *are* the count — two boxes
                filled of three is "2/3" said twice — and in `agree` mode the lane
                header already carries a fraction of its own, how many hold the
@@ -204,7 +226,11 @@
             return {
               cells,
               agree: s.mode === 'agree' ? K.round.agreement(s, c, t) : null,
-              full: !!size && said >= size
+              tone,
+              /* `full` is the drag rounds' "assembled the whole thing" and would
+                 wash this lane green underneath the tone. The tone is the whole
+                 answer here. */
+              full: false
             };
           }
         });

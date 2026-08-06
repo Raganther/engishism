@@ -103,6 +103,12 @@ body.theme-gameshow #clue-card{
   --gw-good:#5BE08A;
   --gw-goodwash:rgba(91,224,138,0.24);
   --gw-goodink:#DFFFE9;
+  /* The other two outcomes a judged lane can be in. Lifted for the dark card the
+     same way the green was: the base amber and red are chosen against a white
+     card and go muddy on this one, which is the failure that made the green a
+     declared property in the first place. */
+  --gw-warnwash:rgba(255,183,51,0.26);
+  --gw-badwash:rgba(255,110,95,0.26);
 }
 body.theme-gameshow #clue-card .group-count,
 body.theme-gameshow #clue-card .group-say{ color:var(--paper); }
@@ -485,6 +491,22 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
   border-radius:6px; padding:3px 8px;
 }
 .rlane.full{ background:var(--gw-goodwash, rgba(46,158,79,0.14)); }
+/* What a finished lane turned out to mean, for a round whose answer is judged
+   rather than merely assembled. Green is not the default any more: a team that
+   has all answered has *stopped*, which is not the same as having got it — and
+   amber for a split team is the state the room should actually be looking at,
+   because that is the one there is something to say about.
+
+   Washes rather than fills, and the border keeps the team's own colour: the lane
+   still has to say *whose* it is first. The fallbacks live inside each `var()` so
+   a host that sets none is still legible on its own background. */
+.rlane.tone-good{ background:var(--gw-goodwash, rgba(46,158,79,0.14)); }
+.rlane.tone-warn{ background:var(--gw-warnwash, rgba(214,138,16,0.20)); }
+.rlane.tone-bad { background:var(--gw-badwash,  rgba(192,57,43,0.20)); }
+/* The agree chip goes with it. It is green on `all`, which on a lane that has
+   agreed on the wrong option is the card contradicting itself in two colours. */
+.rlane.tone-bad  .rl-who.all{ background:var(--gw-badwash, rgba(192,57,43,0.28)); }
+.rlane.tone-warn .rl-who.all{ background:var(--gw-warnwash, rgba(214,138,16,0.28)); }
 .rl-who{
   font-size:0.6em; letter-spacing:0.06em; text-transform:uppercase;
   white-space:nowrap; opacity:0.8; color:var(--gw-fg, #12263F);

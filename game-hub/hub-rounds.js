@@ -213,7 +213,14 @@
     teams.sort((a, b) => a - b).forEach(t=>{
       const spec = o.lane ? (o.lane(t) || {}) : {};
       const lane = document.createElement('div');
-      lane.className = 'rlane' + (spec.full ? ' full' : '');
+      /* `full` is "this team has assembled the whole thing" and washes the lane
+         green. **`tone` is what that green turned out to mean**, for a round whose
+         answer is judged rather than merely completed: `good` right, `warn` they
+         have all answered but not the same thing, `bad` agreed on the wrong one.
+         A round that only builds something up (the drag rounds) sets `full` and
+         nothing else, which is what it always did. */
+      lane.className = 'rlane' + (spec.full ? ' full' : '') +
+                       (spec.tone ? ' tone-' + spec.tone : '');
       lane.style.setProperty('--lane', colour(t));
 
       const who = document.createElement('span');
