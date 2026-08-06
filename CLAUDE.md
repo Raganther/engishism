@@ -1188,6 +1188,28 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The shelves announce themselves, and the always-check stopped carrying a list.**
+  Two tooling changes that exist because the expensive mistake here is never a hard
+  bug — it is writing a second copy of something that already exists.
+  - **`tools/shelf.js`** loads the registries and prints every `Kit.round` / `Kit` /
+    `BenchKit` helper with its call shape, derived exactly as `question-types.js` is.
+    **A `PreToolUse` hook in `.claude/settings.json`** runs it before any edit to
+    `rounds/*.js`, `hub-rounds.js`, `hub-kit.js` or `bench-kit.js` and hands the
+    inventory back as context; silent for every other file. Proven firing, then the
+    sentinel removed. It catches "you are about to rewrite something that exists";
+    it cannot catch "this round is *missing* what its twin has", which is the
+    Drag the Words agree bug and still needs the question asked at fix time.
+  - **`check-syntax.js` had its own hand-typed file list and it had been wrong for
+    as long as the rounds have existed** — `hub-rounds.js`, every `rounds/*.js`,
+    `nef-1.js`, `unit-lab.js`, `bench-kit.js` and `hub-rounds.css` were all absent,
+    so the one check that always runs was skipping the files most edited. It walks
+    the directories now. It also asserts `dev.html`'s skills list matches
+    `.claude/skills/` in both directions.
+  - **`dev.html` leads with the three entry points** — hub, question bench, room
+    bench — then the six skills (descriptions *fetched from the skill files*, so
+    the page cannot describe a skill wrongly) and the commands worth keeping.
+    Everything else is behind one fold. Its round and form lists were already
+    derived and picked up both new rounds on their own.
 - **A round declares its own editor — the last hand-kept list a new round had to
   join is gone.** The question bench held a table with one hand-written row per
   round (labels, sample values, `build`/`read`), and a round missing its row
@@ -3604,19 +3626,26 @@ for the full version with requirement IDs. The short form, in order:
    ask whether teams were removed mid-lesson, and watch the phones' team pills in
    the next class). Every fix is a first classroom iteration — the winner banner's
    4s, the progress lanes, the kick flow all await a second lesson's verdict.
-2. **Round state that outlives one question.** Unblocks roles, hands of cards and
+2. **Judge Word Drop, then decide whether it gets a host.** It is bench-only on
+   purpose: no game show can run its fall clock, because `ctx.again()` is lent by
+   the question bench and nothing else. Play it, judge the fall times (9s→4s,
+   −700ms a word, all guesses), and if it earns its place the host work is
+   `again()` in `jGroupCtx` plus content. If it does not, delete it — a round
+   nobody authors for never meets a class, so the cost of being wrong is zero.
+3. **Round state that outlives one question.** Unblocks roles, hands of cards and
    personal scorecards — the information gap turned out *not* to need it (a
    per-player prompt within one question was enough; see Current status), which is
    worth re-checking against the others before building it. The relay already
    persists a bingo card per player across a reconnection; it is simply not
    exposed to rounds.
-3. **The declarative action strip** (F3.9.1/F3.9.2), so a round may have more than one
-   button — then the stage-as-mount, Bingo and Race.
-4. **Decide what Millionaire's buzz settings are for.** `mBuzzRole` cannot fire since
+4. **The declarative action strip** (F3.9.1/F3.9.2), so a round may have more than one
+   button — then the stage-as-mount, Bingo and Race. **This is the one thing that
+   blocks round designs outright**: a round gets exactly one button today.
+5. **Decide what Millionaire's buzz settings are for.** `mBuzzRole` cannot fire since
    its ladder became a round host. Either retire the setting so it stops lying, or let
    a buzz pick who answers for the team *before* the round takes the handsets — which
    is what `speaker` was always for. Three checks sit red describing it.
-5. ~~**Content filing by topic**~~ — **decided against for now**, see build order item 8.
+6. ~~**Content filing by topic**~~ — **decided against for now**, see build order item 8.
    Content stays in per-game banks; the `author-content` skill delivers what was wanted
    from it.
 
@@ -3626,6 +3655,12 @@ are — see "What the container makes possible":
   drag persistent per-player state into existence after all: `promptByPlayer` within
   one question was the whole need. Still to do: content in a Lab category and a real
   unit, and a classroom run.
+- **Word Spy** — offered, not built, and the user liked the shape: every phone shows
+  the same secret word except one, which shows a near neighbour (everyone "beach",
+  the spy "swimming pool"); each student says one sentence about their word, then the
+  room votes on who the spy is. It is a deal plus a vote, both on the shelf, and it
+  only became buildable when `promptByPlayer` shipped. Highest speaking-per-minute of
+  anything on the list, and about a third of what Word Drop cost.
 - **An Only Connect wall** — nearly free, because the grouping round already *is* the
   wall. The cheapest possible test of whether a new skin costs what Blockbusters did.
 - **Just a Minute** — a format with no questions in it at all. If that works in this
