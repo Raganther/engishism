@@ -1240,11 +1240,14 @@ playground's point, that one board can host several:
       is a question about *scoring* and therefore not the round's to answer. Disabled
       there rather than guarded downstream: what the button can do should be what the
       button offers.
-  - Driven in a browser on the bench and on the Lab board, and pinned by nine checks
+  - Driven in a browser on the bench and on the Lab board, and pinned by six checks
     in the `grouping` suite: two buttons with the round's mounted beside the host's,
     a press filling a rung and scoring nobody, standing down on the last rung, the
     strip clearing on Reveal, a race offering none, and a round that declares nothing
-    reading exactly as before.
+    reading exactly as before. `grouping,qbench` 189/0; the shared sweep over
+    `qbench, grouping, anagram, card, gameshow, millionaire, fit, phone, turns, lab,
+    registry, competition` 517/0 — including the Daily Double wager, which is what
+    `hideAllActionButtons` no longer skipping `wager-ok` put at risk.
   - **No classroom run**, like everything else on that board. The thing to watch is
     whether a second button beside Check is read as an equal option under time — it
     is deliberately quieter, and that is a guess.
