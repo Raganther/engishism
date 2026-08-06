@@ -107,6 +107,17 @@
   /* the question the teacher is asking, pushed from the host — the back of the
      room can read its own phone even when it cannot read the board */
   .qtext{ font-size:1.15rem; line-height:1.4; margin:0 0 18px; color:#e8eefc; min-height:1.4em; }
+  /* The rule this question is played under. Quiet on purpose — it is not the
+     question, and it must not compete with it for a thumb's attention. No
+     `min-height`: most arms carry none, and a permanently reserved line is height a
+     handset spends on nothing. `:empty` collapses the margin with it. */
+  .qnote{
+    font-size:0.78rem; line-height:1.35; margin:0 0 8px; color:#9db0d8;
+    letter-spacing:0.01em; text-transform:none;
+  }
+  .qnote:empty{ display:none; }
+  /* A sixteen-option vote is already tight; the rule is the first thing to give. */
+  #screen-play.many-opts #qnote{ display:none; }
   /* The list scrolls within the screen as a last resort: the body deliberately
      never scrolls (a buzzer page in a thumb should not move), which cut a
      sixteen-option vote off at the fold with no way to reach the rest. */
@@ -264,6 +275,12 @@
        every screen after joining looked identical whichever room it was. -->
   <p class="room" id="room"></p>
   <p class="who" id="who"></p>
+  <!-- How this question is being played, in the round's own words — "A team answers
+       only when all of them agree". A teacher sets that per game and cannot then
+       remember which board is running which, and the phone is the one screen
+       actually in the room's hands. It sits above the question because it is a rule
+       you read once and then stop looking at, not part of what is being asked. -->
+  <p class="qnote" id="qnote"></p>
   <p class="qtext" id="qtext"></p>
   <!-- how long is left on this round, when the host set a clock -->
   <p class="clock" id="round-clock"></p>
@@ -297,7 +314,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260806d"></script>
+<script src="game-hub/hub-buzzer.js?v=20260806e"></script>
 <script>
 (function(){
   'use strict';
@@ -986,6 +1003,10 @@
       myPicks = [];
       // the question has always been sent with the arm; it used to be thrown away
       $('qtext').textContent = (d && d.prompt) || '';
+      /* Empty for the four shared dynamics and for a round with one way to play —
+         there is no choice to report there, and a line saying nothing is a line of
+         screen a handset cannot spare. */
+      $('qnote').textContent = (d && d.note) || '';
       const spent = (d && d.spent) || [];
       /* A reopen is the same question coming back because somebody guessed wrong.
          Re-running setMode would wipe the box — and throwing away half a word
@@ -1079,6 +1100,8 @@
       floorClockStop(); roundClockStop();
       setBuzzer('off','Wait');
       $('qtext').textContent = '';
+      // the rule went with the question — it described that one, not the next
+      $('qnote').textContent = '';
       setMode(card ? 'card-idle' : 'buzz');
       if(card) renderCard();
       say(msg);

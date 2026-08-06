@@ -366,8 +366,16 @@ body.clue-open #scorebar{ pointer-events:auto; }
 /* And so does the room chip, for the same reason the team bar does: the moment a
    teacher discovers a phantom phone is mid-clue — a team stuck at 3/4 with a ghost
    inflating its share — and the way to the roster and its kick is through here.
-   The join lobby itself sits above the card, so the path works end to end. */
-body.clue-open #buzzer-chip{ pointer-events:auto; position:relative; z-index:51; }
+   The join lobby itself sits above the card, so the path works end to end.
+
+   **But it goes *under* the card, not over it.** It was `z-index:51` against the
+   card's 50, which drew a room code and a SHOW QR button straight across the clue's
+   own topline — the class reading a join address over the question. Clickability
+   never needed the raise: `#clue-modal` is `pointer-events:none` and only the card
+   opts back in, so the chip takes clicks wherever the card is not covering it, and
+   the card is centred and 720px wide so its ends always are. If the card *is* in the
+   way, it drags — which is what the drag is for. */
+body.clue-open #buzzer-chip{ pointer-events:auto; position:relative; z-index:49; }
 /* Drag it out of the way: the card is centred, and sometimes the thing you need to
    see is behind the middle of the screen. `translate` is deliberately not
    `transform` — the flip animates transform, and a drag written into the same

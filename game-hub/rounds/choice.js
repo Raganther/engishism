@@ -39,8 +39,9 @@
   const K = window.HubKit;
   if(!K || !K.round){ console.error('choice.js needs hub-rounds.js loaded first'); return; }
 
-  const colourOf = i => (window.HubBuzzer && window.HubBuzzer.teamColour)
-                        ? window.HubBuzzer.teamColour(i) : '';
+  /* No team palette here any more: the lanes own the colour, as they do for every
+     other round that draws one. This round used to paint it onto the option a team
+     had picked, which is the leak the lanes were brought in to close. */
   const same = (a, b) => String(a || '').trim().toLowerCase() ===
                          String(b || '').trim().toLowerCase();
   const LETTERS = 'ABCDEFGH';
@@ -140,44 +141,26 @@
            click that can no longer mean anything. */
         if(s.shown) b.classList.add(same(w, s.answer) ? 'right' : 'spent');
 
-        /* A dot for **every** team with a vote on this option, not just the ones
-           leading with it. That is the whole picture in `agree` mode — a team on
-           3/4 with nothing showing where the fourth student went tells the room it
-           is stuck without telling it what to argue about — and it is worth having
-           in `first` too, where it is simply who went for what. */
-        /* A host may hold the counts back — Millionaire collects a vote on every
-           question but only shows it when the team spends Ask the class, which is
-           what turns "the class already answered" into something still worth
-           spending. Nothing else sets it, so every other board is unaffected. */
-        const votes  = c.hideVotes ? {} : (s.votes || {});
-        const wants  = Object.keys(votes).filter(t2 => ((votes[t2].for || {})[w] || 0) > 0);
-        const leads  = c.hideVotes ? []
-                     : Object.keys(s.leading).filter(t2 => (s.leading[t2]||[]).indexOf(w) !== -1);
-        if(leads.length) b.classList.add('leading');
-        if(wants.length && !s.shown){
-          b.classList.add('held');
-          /* **A count, not dots, when the host asks for one.** Which is right depends
-             on the question the room is being asked: on a tile the interesting fact
-             is *which teams* went where, and on Millionaire's Ask the class it is
-             *how many people* did — "12 said B" is the lifeline, and four coloured
-             dots are not. Same data, and the host says which reading it wants. */
-          if(c.countVotes){
-            const n = Object.keys(votes)
-              .reduce((a, t2) => a + ((votes[t2].for || {})[w] || 0), 0);
+        /* **Nothing on an option says who went for it.** The dots that used to sit
+           here painted a team's colour on the option it had picked, which on a
+           projector is the class reading each other's answers off the board — the
+           opposite of what a multiple choice is asking. Where a team is up to is
+           the lanes' job below, and the lanes deliberately say *how many have
+           answered* without saying what they answered.
+
+           The one exception is the host asking for a **count**: Millionaire's Ask
+           the class is a lifeline the team has spent to see exactly this, so "12
+           said B" is the whole point of it and is not a leak. Nothing else sets
+           `countVotes`, so every other board shows nothing on the options. */
+        const votes = c.hideVotes ? {} : (s.votes || {});
+        if(c.countVotes && !s.shown){
+          const n = Object.keys(votes)
+            .reduce((a, t2) => a + ((votes[t2].for || {})[w] || 0), 0);
+          if(n){
+            b.classList.add('held');
             const tag = document.createElement('span');
             tag.className = 'mc-votes'; tag.textContent = n;
             b.appendChild(tag);
-          } else {
-            const dots = document.createElement('span');
-            dots.className = 'gdots';
-            wants.forEach(t2=>{
-              const d = document.createElement('span');
-              d.className = 'gdot';
-              d.style.background = colourOf(Number(t2));
-              d.title = c.teamName ? c.teamName(Number(t2)) : ('Team ' + (Number(t2)+1));
-              dots.appendChild(d);
-            });
-            b.appendChild(dots);
           }
         }
 
@@ -186,28 +169,44 @@
       });
       mount.appendChild(grid);
 
-      /* How close each team is to agreeing. Only in `agree` mode: in a race the
-         count is not what anybody is waiting for, and a strip that says nothing is
-         still a strip taking height off a clue card. */
-      if(s.mode === 'agree' && !s.done && !c.hideVotes){
-        const chips = ((c.sizes || []).map((_, i) => i))
-          .map(t => ({ t, ag: K.round.agreement(s, c, t) }))
-          .filter(x => x.ag);
-        if(chips.length){
-          const tally = document.createElement('div');
-          tally.className = 'group-tally';
-          chips.forEach(({ t, ag })=>{
-            const chip = document.createElement('span');
-            chip.className = 'group-count' + (ag.all ? ' all' : '');
-            chip.style.borderColor = colourOf(t);
-            chip.textContent = (c.teamName ? c.teamName(t) : ('Team ' + (t + 1))) + ' ';
-            const n = document.createElement('small');
-            n.textContent = ag.agreed + '/' + ag.size;
-            chip.appendChild(n);
-            tally.appendChild(chip);
-          });
-          mount.appendChild(tally);
-        }
+      /* A lane per team, the shared standard — the same picture Connections, Drag
+         the Letters and Drag the Words draw, so a class meets one way of reading
+         "where is each team up to" whatever the question is. This used to be a row
+         of chips in `agree` mode and nothing at all in a race, which made the same
+         fact look like two different features.
+
+         **A cell is a person, not an answer.** One box per handset on the team,
+         filled as that student commits — so the room can see a team is waiting on
+         one more without seeing what anybody chose. That is the whole difference
+         from the dots this replaced: the count is public, the answer is not.
+
+         `hideVotes` still silences it, because Millionaire holds the room's vote
+         back until the team spends Ask the class. */
+      if(!s.done && !c.hideVotes){
+        K.round.lanes(mount, c, {
+          kind: 'mc',
+          progressed: Object.keys(s.votes || {}),
+          lane(t){
+            const said = ((s.votes || {})[t] || {}).said || 0;
+            /* With no roster count — no relay, or nobody counted yet — the lane
+               shows what has arrived rather than nothing, the same rule
+               `mustHold` follows: a number the host does not have must never
+               make a card say less than it knows. */
+            const size  = Number((c.sizes || [])[t]) || said;
+            const cells = [];
+            for(let i = 0; i < Math.max(size, said, 1); i++) cells.push({ got: i < said });
+            /* **No count beside the boxes.** The boxes *are* the count — two boxes
+               filled of three is "2/3" said twice — and in `agree` mode the lane
+               header already carries a fraction of its own, how many hold the
+               leading answer. Two similar fractions on one lane read as a bug
+               rather than as two facts. */
+            return {
+              cells,
+              agree: s.mode === 'agree' ? K.round.agreement(s, c, t) : null,
+              full: !!size && said >= size
+            };
+          }
+        });
       }
 
       if(s.say){

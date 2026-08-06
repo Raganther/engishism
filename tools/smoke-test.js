@@ -6172,12 +6172,21 @@ async function testQuestionBench(browser){
           /not that one/i.test(await mc.locator('#card-round .group-say').innerText()) &&
           await mc.locator('#card-round .gword.right').count() === 0,
           await mc.locator('#card-round .group-say').innerText());
-    /* Every team with a vote on an option carries a dot there — in a race that is
-       simply who went for what, and it is the same visual language the other two
-       rounds use rather than a third one. */
-    check('and who went for what is on the option itself',
-          await mc.locator('#card-round .mc-opt.held .gdot').count() >= 1,
-          String(await mc.locator('#card-round .mc-opt.held .gdot').count()));
+    /* **Nothing on an option says who went for it.** A dot in a team's colour on
+       the option that team picked is the class reading each other's answers off the
+       projector, which is the opposite of what a multiple choice asks. Where each
+       team is up to goes in the lanes below — the same picture Connections and the
+       two drag rounds draw — and a lane cell is a *person*, filled when they have
+       answered, never what they answered. */
+    check('no option says who picked it',
+          await mc.locator('#card-round .gdot').count() === 0 &&
+          await mc.locator('#card-round .mc-opt.held').count() === 0,
+          String(await mc.locator('#card-round .gdot').count()));
+    check('and a lane per team shows how many have answered, not what',
+          await mc.locator('#card-round .rlanes-mc .rlane').count() >= 1 &&
+          await mc.locator('#card-round .rlanes-mc .rl-cell.got').count() >= 1 &&
+          (await mc.locator('#card-round .rlanes-mc .rl-cell').allInnerTexts()).join('') === '',
+          String(await mc.locator('#card-round .rlanes-mc .rlane').count()));
 
     await mf[1].locator('#opts button', { hasText:/^pass$/ }).first().click();
     await mc.waitForTimeout(1500);

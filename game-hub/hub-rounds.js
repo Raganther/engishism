@@ -437,7 +437,35 @@
         actions: null,
         press(){ return false; }
       }, def || {});
-      return ROUNDS[String(id)];
+
+      /* **Every arm says how this question is being played**, in the round's own
+         words. A teacher sets *first team wins* on one board and *everyone must
+         agree* on another and cannot then remember which is running, and the
+         handset — the one screen that is actually in the room's hands — said
+         nothing about it at all.
+
+         Stamped here rather than in each round's `arm()` because there are eight
+         call sites that build one across the hub and the bench, and a round added
+         next month would have to remember. The label is the round's **own** `modes`
+         declaration, so there is no second wording to drift: it is the same string
+         the ⚙ row and the bench's dropdown show. A round with one way to play says
+         nothing, which is correct — there is no choice to report. A round that sets
+         its own `note` keeps it.
+
+         `arm()` returning null still means "nothing left to ask" and is passed
+         straight back; the relay carries `note` without reading it, as it carries
+         everything else it was not told about. */
+      const r = ROUNDS[String(id)];
+      const armed = r.arm;
+      r.arm = function(state, ctx){
+        const a = armed.call(this, state, ctx);
+        if(!a || a.note != null || !Array.isArray(this.modes) || this.modes.length < 2) return a;
+        const want = (ctx && ctx.mode) || this.modes[0].value;
+        const hit  = this.modes.filter(m => m.value === want)[0] || this.modes[0];
+        if(hit && hit.label) a.note = hit.label;
+        return a;
+      };
+      return r;
     },
     get(id){ return ROUNDS[String(id)] || null; },
     ids(){ return Object.keys(ROUNDS); },
