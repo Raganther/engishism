@@ -1445,11 +1445,16 @@ const room = BenchKit.room({
       /* The remembered classroom division racks itself the moment the room
          exists — 4×4 until a different preset is picked. Once: `ready` also
          fires on every reconnect, and a reconnect must not re-rack anything.
-         And never when this page is itself a board inside the room bench —
-         the bench around it owns the racking, and a board quietly racking
-         sixteen phones of its own inside the stage frame would double the
-         room. */
-      if(!laidOut && window.self === window.top){ laidOut = true; layoutCtl.apply(); }
+         Never when this page is itself a board inside the room bench — the
+         bench around it owns the racking. And never under automation
+         (`navigator.webdriver`) unless a test asks with `?rack=auto`: the
+         suites assume a bench that opens empty, and sixteen unasked-for phones
+         also saturate a plain-http relay's six connections, so every reply
+         silently stops arriving — which failed four checks the day the default
+         shipped. */
+      const auto = !navigator.webdriver ||
+                   new URLSearchParams(location.search).get('rack') === 'auto';
+      if(!laidOut && window.self === window.top && auto){ laidOut = true; layoutCtl.apply(); }
     },
     /* The button says whatever the chip says, from one source — see `say()` in
        bench-kit.js. It read "no relay" while the chip read "connecting…", which is

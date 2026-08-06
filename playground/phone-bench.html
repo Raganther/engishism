@@ -236,8 +236,11 @@ function pollBoard(){
     /* The remembered classroom division racks itself when a board this bench
        opened first hands over its code — once, and never in the type-a-code
        mode, where the room belongs to a board running somewhere else and
-       sixteen phones arriving unasked would land in it. */
-    if(openedBoard && !laidOut){ laidOut = true; layoutCtl.apply(); }
+       sixteen phones arriving unasked would land in it. Never under automation
+       either, unless a test asks with `?rack=auto` — see the question bench's
+       note on the four checks that failure cost. */
+    const auto = !navigator.webdriver || params.get('rack') === 'auto';
+    if(openedBoard && !laidOut && auto){ laidOut = true; layoutCtl.apply(); }
   }
 }
 setInterval(pollBoard, 1000);

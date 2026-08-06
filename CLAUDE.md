@@ -1176,6 +1176,21 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **One rack on both benches: layout presets, linked teams, sticky panes.**
+  `BenchKit.layout` puts the standard classroom divisions (2×2 · 2×4 · 3×3 ·
+  4×4 · no phones) on the question bench and the room bench as one-click
+  presets, remembered across both, 4×4 the starting default; racks reconcile
+  rather than rebuild so a phone in the right place keeps its stream, and the
+  question bench gained the room bench's per-phone ×. A preset wider than the
+  board's team bar grows it through the board's own + Team path
+  (`window.HubTeams.ensure`, same-origin, **grow-only** — removing a team stays
+  a human decision because a team can be holding points). Three traps paid for:
+  a board embedded in the room bench must not auto-rack its own phones (the
+  room doubles); **auto-rack is off under `navigator.webdriver`** (`?rack=auto`
+  opts a test in) because sixteen unasked phones broke four suite checks *and*
+  saturate a plain-http relay's six connections so replies silently stop; and
+  the rack panes are sticky, because anchored panes stayed behind the scroll as
+  a small window over a dead gap.
 - **The lane standard is a shelf now — `Kit.round.lanes`, `mustHold`,
   `arrangement`.** Four rounds (anagram, scramble, infogap, grouping) each
   hand-wrote the team-lanes picture and it cost exactly what hand-copies cost:
