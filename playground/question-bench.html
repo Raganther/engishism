@@ -8,7 +8,7 @@
 <!-- The shared card, exactly as a game show draws it. This is the whole point of
      the page: what you tune here IS what a class meets, not a second implementation
      that resembles it. -->
-<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260806e">
+<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260806f">
 <style>
   /* ================= The question bench =================
      One question type at a time, with the card on the left and a rack of real
@@ -289,34 +289,34 @@
   <div id="rack-pane"><div id="rack-warn" class="warn"></div><div id="rack"></div></div>
 </div>
 
-<script src="../game-hub/hub-buzzer.js?v=20260806e"></script>
-<script src="../game-hub/hub-qr.js?v=20260806e"></script>
-<script src="../game-hub/hub-kit.js?v=20260806e"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260806f"></script>
+<script src="../game-hub/hub-qr.js?v=20260806f"></script>
+<script src="../game-hub/hub-kit.js?v=20260806f"></script>
 <!-- Captured between the two files, which is the only moment the two sets are
      distinguishable: every form registered above is in the kit and live in every
      game the day a bank item carries its type, and everything registered below is
      experimental and can reach no board at all, because a game loads hub-kit.js and
      never loads this file. The menu says which is which so nobody has to remember. -->
 <script>window.IN_THE_KIT = window.HubKit.prompt.types();</script>
-<script src="lab-forms.js?v=20260806e"></script>
-<script src="../game-hub/hub-rounds.js?v=20260806e"></script>
-<script src="../game-hub/rounds/default.js?v=20260806e"></script>
-<script src="../game-hub/rounds/grouping.js?v=20260806e"></script>
-<script src="../game-hub/rounds/ordering.js?v=20260806e"></script>
-<script src="../game-hub/rounds/choice.js?v=20260806e"></script>
-<script src="../game-hub/rounds/anagram.js?v=20260806e"></script>
-<script src="../game-hub/rounds/scramble.js?v=20260806e"></script>
-<script src="../game-hub/rounds/infogap.js?v=20260806e"></script>
-<script src="../game-hub/rounds/drop.js?v=20260806e"></script>
+<script src="lab-forms.js?v=20260806f"></script>
+<script src="../game-hub/hub-rounds.js?v=20260806f"></script>
+<script src="../game-hub/rounds/default.js?v=20260806f"></script>
+<script src="../game-hub/rounds/grouping.js?v=20260806f"></script>
+<script src="../game-hub/rounds/ordering.js?v=20260806f"></script>
+<script src="../game-hub/rounds/choice.js?v=20260806f"></script>
+<script src="../game-hub/rounds/anagram.js?v=20260806f"></script>
+<script src="../game-hub/rounds/scramble.js?v=20260806f"></script>
+<script src="../game-hub/rounds/infogap.js?v=20260806f"></script>
+<script src="../game-hub/rounds/drop.js?v=20260806f"></script>
 <!-- Data only, and the reason the bench can be a round trip rather than a blank
      page: an existing category can be loaded, edited and exported back. Loading a
      unit here puts nothing in front of a class — these files are inert until a hub
      shell reads them. -->
-<script src="../game-hub/content/unit-lab.js?v=20260806e"></script>
-<script src="../game-hub/content/unit-4.js?v=20260806e"></script>
-<script src="../game-hub/content/unit-5.js?v=20260806e"></script>
-<script src="../game-hub/content/nef-1.js?v=20260806e"></script>
-<script src="bench-kit.js?v=20260806e"></script>
+<script src="../game-hub/content/unit-lab.js?v=20260806f"></script>
+<script src="../game-hub/content/unit-4.js?v=20260806f"></script>
+<script src="../game-hub/content/unit-5.js?v=20260806f"></script>
+<script src="../game-hub/content/nef-1.js?v=20260806f"></script>
+<script src="bench-kit.js?v=20260806f"></script>
 <script>
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);

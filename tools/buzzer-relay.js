@@ -117,6 +117,13 @@ function getRoom(code, create){
              them. A given answer stays — the teacher wants to see what the class
              typed even if a handset died afterwards. Off unless the host says so,
              so nothing that existed before this changes. */
+          /* One line saying how this question is being played — "A team answers
+             only when all of them agree". The round's own words, carried and never
+             read, exactly like the prompt. It is not the question, so it lives
+             beside it rather than in it: a teacher who set one rule on one board
+             and another on the next cannot remember which is running, and the
+             handset is the one screen actually in the room's hands. */
+          note:'',
           holds:false };
     rooms.set(code, r);
   }
@@ -243,7 +250,8 @@ function openStream(req, res, q){
      room's current state travels with the join. */
   pushEvent(res, 'joined', {
     id, name, team, teams:room.teams, armed:room.armed, locked:lockedNow(room),
-    mode:room.mode, prompt:promptFor(room, id), options:optionsFor(room, team), turnTeam:room.team,
+    mode:room.mode, prompt:promptFor(room, id), note:room.note,
+    options:optionsFor(room, team), turnTeam:room.team,
     spent:[...room.spent],
     rethink: room.rethink, secs: secsLeft(room), multi: capFor(room, team),
     /* what this phone already chose, so a reload comes back with its own vote
@@ -405,10 +413,12 @@ function handleSend(req, res){
         if(msg.reopen){ room.cooling.forEach((t,id)=>{ if(t <= now) room.cooling.delete(id); }); }
         else room.cooling = new Map();
         room.prompt = String(msg.prompt||'').slice(0,200);
+        room.note   = String(msg.note||'').slice(0,120);
         /* Built per recipient rather than broadcast, because `multi` is now that
            player's share of the answer and their team decides it. Everything else
            in here is the same for the whole room. */
         toEachPlayer(room, 'armed', p => ({ prompt: promptFor(room, p.id),
+                                   note: room.note,
                                    mode: room.mode, options: optionsFor(room, p.team),
                                    /* `turnTeam`, not `team`: the join payload already
                                       carries the player's own team under that name, and
@@ -455,11 +465,13 @@ function handleSend(req, res){
       }
       case 'disarm':
         room.armed = false; room.prompt = ''; room.team = null; room.promptByPlayer = null;
+        // the rule described that question; it must not survive into the next one
+        room.note = '';
         toPlayers(room, 'disarmed', {});
         return sendJSON(res, 200, { ok:true });
       case 'reset':
         room.armed = false; room.locked = null; room.prompt = ''; room.team = null;
-        room.promptByPlayer = null;
+        room.promptByPlayer = null; room.note = '';
         room.responses = new Map(); room.spent = new Set(); room.cooling = new Map();
         room.cards = new Map();
         toPlayers(room, 'reset', {});
