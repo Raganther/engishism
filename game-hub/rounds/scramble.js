@@ -76,7 +76,7 @@
         need:  words.length,
         mode:  (ctx && ctx.mode === 'agree') ? 'agree' : 'first',
         chosen: [],
-        picks: {}, leading: {}, votes: {}, by: {},
+        picks: {}, leading: {}, votes: {}, by: {}, got: {},
         say: '', shown: false, done: false
       };
     },
@@ -161,7 +161,14 @@
         const wrap = document.createElement('div');
         wrap.className = 'scr-lanes';
         lanes.sort((a,b)=>a-b).forEach(t=>{
-          const got  = s.leading[t] || [];
+          /* Which members must hold a word in its box for it to light follows
+             the mode — any member in a race, the whole team when they must
+             agree — the same line the anagram's lanes and the winning gate
+             draw, with the same rule that a missing roster count falls back to
+             "any" rather than freezing the lane. */
+          const gotRow = (s.got || {})[t] || [];
+          const size = Number((c.sizes || [])[t]) || 0;
+          const need = (s.mode === 'agree' && size) ? size : 1;
           const lane = document.createElement('div');
           lane.className = 'scr-lane';
           lane.style.setProperty('--lane', colourOf(t));
@@ -171,20 +178,17 @@
           who.textContent = c.teamName ? c.teamName(t) : ('Team ' + (t + 1));
           lane.appendChild(who);
 
-          const row = document.createElement('div');
-          row.className = 'scr-lane-row';
+          const cellRow = document.createElement('div');
+          cellRow.className = 'scr-lane-row';
           let right = 0;
           for(let i = 0; i < s.need; i++){
             const cell = document.createElement('span');
-            const placed = got[i];
-            /* Compared the same way `judge` compares, or a lane would disagree with
-               the verdict — a capitalised first word put third is still third. */
-            const ok = placed != null && norm(placed) === norm(s.words[i]);
+            const ok = (gotRow[i] || 0) >= need;
             if(ok){ cell.className = 'scr-cell got'; cell.textContent = s.words[i]; right++; }
             else  { cell.className = 'scr-cell gap'; cell.textContent = ''; }
-            row.appendChild(cell);
+            cellRow.appendChild(cell);
           }
-          lane.appendChild(row);
+          lane.appendChild(cellRow);
 
           const n = document.createElement('span');
           n.className = 'scr-lane-n';
@@ -210,7 +214,7 @@
 
     reveal(mount, s, ctx){
       s.done = true; s.shown = true; s.chosen = [];
-      s.picks = {}; s.leading = {}; s.votes = {};
+      s.picks = {}; s.leading = {}; s.votes = {}; s.got = {};
       this.render(mount, s, ctx);
       return 0;
     },
@@ -235,7 +239,7 @@
 
     read(replies, s, ctx){
       const sizes = (ctx && ctx.sizes) || [];
-      const tally = {}, said = {}, by = {}, best = {};
+      const tally = {}, said = {}, by = {}, best = {}, got = {};
       (replies || []).forEach(r=>{
         const t = Number(r && r.team) || 0;
         /* **Positional, and kept that way.** The wire carries every box in box
@@ -253,6 +257,16 @@
         if(!fits(placed, s.words)) return;
         said[t] = (said[t] || 0) + 1;
         by[t] = r.name;
+        /* How many of the team hold the right word in each box — what the lane
+           lights from, counted per position so agree mode can ask for the whole
+           team. The anagram round has kept this count since its lanes were
+           built; Drag the Words drew from one teammate's furthest attempt
+           instead, so in agree mode a single player lit the card for a team
+           that had not agreed on anything. */
+        const row = got[t] || (got[t] = []);
+        seq.forEach((w, i)=>{
+          if(w && norm(w) === norm(s.words[i])) row[i] = (row[i] || 0) + 1;
+        });
         if(!best[t] || placed.length > best[t].filter(Boolean).length) best[t] = seq;
         if(placed.length !== s.need) return;
         const box = tally[t] || (tally[t] = {});
@@ -270,7 +284,7 @@
         const size = Number(sizes[t]) || 0;
         if(s.mode !== 'agree' || !size || agreed >= size) picks[t] = lead.split('|');
       });
-      s.leading = leading; s.votes = votes; s.by = by;
+      s.leading = leading; s.votes = votes; s.by = by; s.got = got;
       return picks;
     },
 
