@@ -238,16 +238,25 @@
       const tally = {}, said = {}, by = {}, best = {};
       (replies || []).forEach(r=>{
         const t = Number(r && r.team) || 0;
+        /* **Positional, and kept that way.** The wire carries every box in box
+           order, empty ones included, and this used to `filter(Boolean)` them
+           away — so a word placed in box 2 slid down to box 1 and the card lit
+           the first slot for a placement that never happened. The anagram round
+           paid for exactly this ("gaps stay gaps") and the fix was not carried
+           here. Empties are stripped only where a count or a legality check
+           genuinely wants the words alone. */
         const seq = String((r && r.value) == null ? '' : r.value)
-                      .split('|').map(x => bare(x)).filter(Boolean);
+                      .split('|').map(x => bare(x));
+        const placed = seq.filter(Boolean);
+        if(!placed.length) return;
         // words this sentence does not have: a stale reply from a previous clue
-        if(!fits(seq, s.words)) return;
+        if(!fits(placed, s.words)) return;
         said[t] = (said[t] || 0) + 1;
         by[t] = r.name;
-        if(!best[t] || seq.length > best[t].length) best[t] = seq;
-        if(seq.length !== s.need) return;
+        if(!best[t] || placed.length > best[t].filter(Boolean).length) best[t] = seq;
+        if(placed.length !== s.need) return;
         const box = tally[t] || (tally[t] = {});
-        const key = seq.join(' ');
+        const key = seq.join('|');
         box[key] = (box[key] || 0) + 1;
       });
       const picks = {}, leading = {}, votes = {};
@@ -259,7 +268,7 @@
         const agreed = box[lead];
         votes[t] = { for:box, said:said[t] || 0, agreed };
         const size = Number(sizes[t]) || 0;
-        if(s.mode !== 'agree' || !size || agreed >= size) picks[t] = lead.split(' ');
+        if(s.mode !== 'agree' || !size || agreed >= size) picks[t] = lead.split('|');
       });
       s.leading = leading; s.votes = votes; s.by = by;
       return picks;
