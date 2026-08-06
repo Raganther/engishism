@@ -650,3 +650,38 @@ body.theme-gameshow #m-options .mc-opt.right{ box-shadow:0 0 30px rgba(57,226,12
   color:var(--navy, #12263F); border-style:solid;
 }
 #m-options.round-choice .mc-opt.chosen .mc-letter{ color:var(--navy, #12263F); opacity:1; }
+
+/* ---------- a round's own buttons in the action strip ----------
+   The commit button belongs to whatever is hosting — it scores, so it wears the
+   host's own clothes — and these sit beside it. Written here rather than in
+   `hub.css` for the reason the card's innards were: a playground page cannot load
+   that file, and a round has to read the same in the workshop as on the projector.
+
+   Deliberately quieter than the commit button. These change the *question*; the
+   one beside them ends it, and a strip of equals gives a teacher nothing to aim
+   at under time. The custom properties are the host's when it sets them, with the
+   defaults inside each `var()` rather than in a declaration block — a declaration
+   on the button itself out-specifies anything the host sets on an ancestor, which
+   is exactly how the first round card failed and read as the host being ignored. */
+.round-actions{ display:inline-flex; gap:8px; align-items:center; }
+/* An empty flex *item* still eats a `gap` from the strip around it, so a round with
+   no buttons would push the hub's along by a few pixels for no reason anyone could
+   see. Six of the seven rounds declare none, so this is the common case. */
+.round-actions:empty{ display:none; }
+#clue-actions .round-actions button.round-action,
+.round-actions button.round-action{
+  font:inherit; font-size:0.82em; font-weight:700; letter-spacing:0.04em;
+  padding:8px 14px; border-radius:8px; cursor:pointer;
+  background:transparent;
+  color:var(--ra-ink, currentColor);
+  border:1px solid var(--ra-line, rgba(128,128,128,0.55));
+}
+.round-actions button.round-action:hover:not(:disabled){
+  background:var(--ra-hover, rgba(128,128,128,0.15));
+}
+.round-actions button.round-action:disabled{ opacity:0.4; cursor:default; }
+body.theme-gameshow .round-actions button.round-action{
+  --ra-line: var(--gold, #FFC20E);
+  --ra-ink:  var(--gold, #FFC20E);
+  --ra-hover: rgba(255,194,14,0.16);
+}

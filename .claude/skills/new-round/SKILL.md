@@ -109,11 +109,36 @@ team — is a live fact of the host's, and a size your round was told once at `a
 a lie by the third question. Stashing it would work and would be wrong in a way nothing
 would catch.
 
-**You get exactly one button.** `group-btn` is a single element in the hub's skeleton,
-so a round wanting two actions has nowhere to put the second. That is a known gap
-(F3.9.1/F3.9.2 — the action strip should be a surface each tier declares into), not a
-design decision. If your round needs a second action, say so rather than working around
-it: the fix is small and it is on the build order.
+## 2c. Your own buttons — declare them, don't reach for the strip
+
+**The commit button is the host's and everything beside it is yours.** Committing
+*scores* — it pays a tile, a hexagon, a rung — so a round could never own that one;
+what a round owns is anything that changes its own question. Declare them:
+
+```js
+actions(state, ctx){ return [{ id:'show', label:'Show this one', disabled:state.done }]; }
+press(id, state, ctx){ if(id === 'show'){ …; return true; } return false; }
+```
+
+`Kit.round.actions` puts the host's commit button at the head of the list and yours
+after it; `Kit.round.strip` draws them. Returning truthy from `press` tells the host
+to redraw the card and re-ask the handsets, which is what it owes you after your
+question has moved under them. Style with the shared `.round-action` block in
+`hub-rounds.css` — deliberately quieter than the commit button, because these change
+the question and that one ends it.
+
+Three rules:
+- **Never score in `press`.** If what you want is "this answer counts", that is the
+  commit button and it is the host's.
+- **Declare per mode.** Ordering offers *Show this one* on a shared ladder and not in
+  a race, where showing a word would give it either to one team or to all of them.
+- **A button that could end the round is a scoring question**, so it is not yours.
+  Ordering's disables on the last rung rather than being guarded downstream — what
+  the button can do should be what the button offers.
+
+*(Until F3.9.1/F3.9.2 a round had exactly one button, because `group-btn` is one
+element and the strip was a hand-listed skeleton. That was the single thing blocking
+round designs outright.)*
 
 ## 3. The card must not assume its host's background
 

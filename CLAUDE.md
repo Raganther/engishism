@@ -194,8 +194,10 @@ skin owns the handsets.
    Most of "what the container makes possible" is blocked on it, and the relay already
    does the hard half — a bingo card and its marks persist per player across a
    reconnection. It is simply not exposed to rounds.
-6. **The action strip becomes declarative** (F3.9.1/F3.9.2), so a round may have more
-   than one button.
+6. ~~**The action strip becomes declarative** (F3.9.1/F3.9.2), so a round may have more
+   than one button.~~ **Done** — a round declares `actions`/`press`, the commit button
+   stays the host's because committing scores, and `hideAllActionButtons` stopped
+   carrying a list. See Current status.
 7. **A round handed the stage as its mount**, then **Bingo extracted**, then **Race
    extracted** — smaller first.
 8. ~~**Content filing** — the tagged pool and the query (§3.11).~~ **Decided against,
@@ -244,17 +246,28 @@ set), Jeopardy's answer clock is the *skin's* (it starts on the buzz, not on the
 opening), and a round's own clock is the *round's* (sent once as a duration with the
 arm, so no handset ever agrees the time with anybody).
 
-**Where the code does not match this — the action strip.** `#clue-actions` is hub-owned
-and correctly so, but the buttons in it belong to three different tiers and are listed
-by hand in the skeleton: Reveal/Close/Skip are the hub's, Correct/Wrong are *Jeopardy's*
+**The action strip — the round tier declares into it now (F3.9.1/F3.9.2, built).**
+`#clue-actions` is hub-owned and correctly so, but the buttons in it belong to three
+different tiers: Reveal/Close/Skip are the hub's, Correct/Wrong are *Jeopardy's*
 (Blockbusters scores by claiming and has no Correct), `clue-claim` is Blockbusters',
-`hint-btn` and `wager-ok` are Jeopardy's, and `group-btn` is the *round's*. So the hub's
-skeleton knows what a Daily Double is. It works — `hideAllActionButtons()` clears the
-lot and each opener shows what it wants — but it is the same shape as every other defect
-this project has paid for: **a hard-coded list a new thing must be threaded into by
-hand.** The concrete cost today is that **a round can have exactly one button**, because
-`group-btn` is a single element. Fix is F3.9.1/F3.9.2: the strip becomes a surface each
-tier *declares* into.
+`hint-btn` and `wager-ok` are Jeopardy's, and the commit button is the *host's*. The
+concrete cost used to be that **a round could have exactly one button**, because
+`group-btn` is a single element — the one thing that blocked round designs outright.
+
+**The split that resolved it: committing *scores*, so the commit button can only ever
+be the host's.** It pays a tile, a hexagon, a rung. What a round owns is anything that
+changes its own question, and it declares those — `actions(state, ctx)` returning what
+it wants *beside* the commit button, `press(id, state, ctx)` doing it. A round never
+restates the commit button, which is why the six rounds that declare nothing needed no
+change. `Kit.round.actions` builds the list (host's first) and `Kit.round.strip` draws
+it; the hub and the question bench both call them, which is what makes it a shelf.
+
+**`hideAllActionButtons()` stopped carrying a list of ids.** It asks the strip. The
+list was hand-typed and a new button had to be threaded into it by hand with nothing
+complaining if you missed one — and `wager-ok` never was, so a bet left standing
+outlived every call to it. **The hub's and the skins' own buttons are still listed in
+the skeleton**, which is correct: they are that tier's and each opener shows what it
+wants. What is gone is the tier that had no way to declare at all.
 
 ### One name per round — the id is internal, the label is what people read
 A round has an **id**, which is code (`group`, `order`, `choice`, `anagram`,
@@ -1188,6 +1201,53 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A round can have more than one button — F3.9.1/F3.9.2, and the last tier with no
+  way to declare into the action strip has one.** This was the single thing on the
+  Next list blocking round designs outright: `group-btn` is one element, so a round
+  wanting a second action had nowhere to put it. Written up under "Where a thing
+  belongs"; the short form is `actions(state, ctx)` and `press(id, state, ctx)` on
+  the round, `Kit.round.actions` / `Kit.round.strip` on the shelf.
+  - **The split that resolved it is that committing *scores*.** It pays a tile, a
+    hexagon, a rung — so the commit button can only ever be the host's, and a round
+    never restates it. What a round declares is what changes its own *question*.
+    That is why the six rounds declaring nothing needed no change at all, and why
+    `press` may not score: if what you want is "this answer counts", that is the
+    commit button and it is somebody else's.
+  - **Three things went on the shelf and both hosts were rewired in the same
+    change**, which is what makes it a shelf rather than a second copy under a new
+    name. `Kit.round.cap` — the engine's `jRoundCap` and the bench's `capOf` were the
+    same sum written twice. `Kit.round.actions` — so was the commit button's wording,
+    **and the two had already drifted**: the bench had grown an `Answered` state the
+    engine never got. `Kit.round.strip` draws them.
+  - **`hideAllActionButtons()` stopped carrying a list of ids.** It asks the strip.
+    The list was hand-typed, a new button had to be threaded into it by hand, and
+    nothing complained if you missed one — `wager-ok` never was, so a bet left
+    standing outlived every one of those calls. Exactly the defect class this project
+    has paid for most, one tier over.
+  - **The mount is created beside the commit button, not written into the skeleton** —
+    the clue card's Check, Millionaire's "Final answer?", Quickfire's "Lock it in".
+    The same move `CARD_MOUNT` makes for the card, so a fourth host gets it with no
+    markup of its own.
+  - **The round that proves it: ordering's climb gets *Show this one*.** A class that
+    cannot separate *livid* from *furious* learns more from being shown than from four
+    wrong guesses — the bench thermometer has had this since it was written and the
+    round never could. It prints the word's gloss, which is the whole point; a word
+    shown without one is a spoiler rather than a lesson.
+    - **Climb only**, declared per mode: in a race every team has its own ladder, so
+      showing a word gives it either to one team or to all of them.
+    - **Never the last rung.** With one step left there is one word left, so it
+      teaches nothing — and it would end the round with nobody having answered, which
+      is a question about *scoring* and therefore not the round's to answer. Disabled
+      there rather than guarded downstream: what the button can do should be what the
+      button offers.
+  - Driven in a browser on the bench and on the Lab board, and pinned by nine checks
+    in the `grouping` suite: two buttons with the round's mounted beside the host's,
+    a press filling a rung and scoring nobody, standing down on the last rung, the
+    strip clearing on Reveal, a race offering none, and a round that declares nothing
+    reading exactly as before.
+  - **No classroom run**, like everything else on that board. The thing to watch is
+    whether a second button beside Check is read as an equal option under time — it
+    is deliberately quieter, and that is a guess.
 - **The shelves announce themselves, and the always-check stopped carrying a list.**
   Two tooling changes that exist because the expensive mistake here is never a hard
   bug — it is writing a second copy of something that already exists.
@@ -3638,9 +3698,11 @@ for the full version with requirement IDs. The short form, in order:
    worth re-checking against the others before building it. The relay already
    persists a bingo card per player across a reconnection; it is simply not
    exposed to rounds.
-4. **The declarative action strip** (F3.9.1/F3.9.2), so a round may have more than one
-   button — then the stage-as-mount, Bingo and Race. **This is the one thing that
-   blocks round designs outright**: a round gets exactly one button today.
+4. ~~**The declarative action strip** (F3.9.1/F3.9.2), so a round may have more than
+   one button.~~ **Done** — see Current status. What is left of that item is the
+   **stage-as-mount for Race**, then **Bingo extracted**, then **Race extracted**.
+   A round is no longer limited to one button, so nothing on the list of round
+   designs is blocked outright any more.
 5. **Decide what Millionaire's buzz settings are for.** `mBuzzRole` cannot fire since
    its ladder became a round host. Either retire the setting so it stops lying, or let
    a buzz pick who answers for the team *before* the round takes the handsets — which

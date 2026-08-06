@@ -295,6 +295,79 @@
     return { picks, leading, votes, by, got };
   }
 
+  /* ---------- how many the teacher may hold at once ----------
+     An ordering climb asks for one word at a time — the ladder takes the next rung,
+     not the whole scale — so this is the round's own answer and not its `need`. It
+     was written identically in the engine (`jRoundCap`) and on the question bench
+     (`capOf`), which is what puts it here: the two agreed today and nothing made
+     them keep agreeing. */
+  function cap(def, state, ctx){
+    if(!def || !state) return 1;
+    const a = def.arm(state, ctx);
+    return Math.max(1, Math.min(state.need || 1, (a && a.multi) || 1));
+  }
+
+  /* ---------- the buttons a round wants in the action strip ----------
+     **The commit button is the host's and the rest are the round's**, which is the
+     whole tier split written as a list. Committing *scores* — it pays a tile, a
+     hexagon or a rung — so a round could never own it; what a round owns is
+     anything that changes its own question, and until now it could not have any of
+     those at all, because `group-btn` is one element and one element is one button.
+
+     So a round declares `actions(state, ctx)` returning what it wants **beside**
+     the commit button, and handles a press through `press(id, state, ctx)`. It
+     never restates the commit button, which is why a round that declares nothing
+     needs no change.
+
+       { actions(s, c){ return [{ id:'show', label:'Show this one' }]; },
+         press(id, s, c){ if(id === 'show'){ …; return true; } } }
+
+     (Written as one object literal rather than two bare lines because `shelf.js`
+     reads a signature by finding the name at the start of a line, and an example
+     laid out like a definition is one it will believe over the real one.)
+
+     The default commit wording lived in two places — the engine and the bench —
+     and the bench had grown an `Answered` state the engine had not. One home now;
+     a host with its own word for the beat passes `commitText`, which is how
+     Millionaire's button reads "Final answer?" without this file learning what
+     Millionaire is. */
+  function actions(def, state, ctx, opts){
+    const o = opts || {};
+    if(!def || !state) return [];
+    const n = cap(def, state, ctx);
+    const held = (state.chosen || []).length;
+    const commit = {
+      id:'commit', primary:true,
+      disabled: !!state.done || held !== n,
+      label: o.commitText ? o.commitText(n, held)
+           : state.done ? 'Answered'
+           : n === 1 ? 'Check it'
+           : ('Check these ' + n + ' (' + held + '/' + n + ')')
+    };
+    const own = (def.actions ? def.actions(state, ctx) : null) || [];
+    return [commit].concat(own.filter(a => a && a.id && a.id !== 'commit'));
+  }
+
+  /* Draw a round's own buttons into a mount — the commit button is not among them,
+     because it is the host's and already lives in the host's own strip. Rebuilt
+     rather than reconciled: the list is two or three buttons that change with the
+     question, and a stale one is worse than a repaint nobody can see. */
+  function strip(mount, list, onPress){
+    if(!mount) return null;
+    mount.innerHTML = '';
+    (list || []).filter(a => a && !a.primary).forEach(a=>{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'round-action';
+      b.dataset.action = a.id;
+      b.textContent = a.label == null ? a.id : a.label;
+      b.disabled = !!a.disabled;
+      if(onPress) b.addEventListener('click', () => onPress(a.id));
+      mount.appendChild(b);
+    });
+    return mount;
+  }
+
   window.HubKit.round = {
     register(id, def){
       ROUNDS[String(id)] = Object.assign({
@@ -349,7 +422,20 @@
 
            A round that declares none gets a generic two-field editor, which is
            enough to see its card and wrong only in its labels. */
-        editor: null
+        editor: null,
+        /* **The buttons this round wants beside the host's commit button**, and
+           what a press of one means. Declared rather than hard-wired because the
+           strip was a hand-listed skeleton and `group-btn` is a single element —
+           so a round could have exactly one button, which is the one thing that
+           blocked round designs outright.
+
+           `actions(state, ctx)` returns `[{id, label, disabled}]`; `press(id,
+           state, ctx)` does the thing and returns truthy if the card changed, at
+           which point the host redraws and re-asks the handsets. Neither may
+           score: that is the commit button's, and the commit button is the
+           host's. A round that declares neither is exactly as it was. */
+        actions: null,
+        press(){ return false; }
       }, def || {});
       return ROUNDS[String(id)];
     },
@@ -391,7 +477,7 @@
       }
       return null;
     },
-    shares, settle, poll, agreement, lanes, mustHold, arrangement,
+    shares, settle, poll, agreement, lanes, mustHold, arrangement, cap, actions, strip,
     /* A comma-separated field as a list. Three rounds' editors parse one, which
        is what puts it here rather than in each of them. */
     list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); }

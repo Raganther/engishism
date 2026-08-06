@@ -5348,6 +5348,84 @@ async function testGroupingClue(browser){
   checkClean(page, 'ordering clue');
   await page.close();
 
+  /* ---------- a round with more than one button ----------
+     The action strip was a hand-listed skeleton and `group-btn` is one element, so
+     a round could have exactly one button — the single thing that blocked round
+     designs outright. A round declares `actions`/`press` now, and the ordering
+     climb is what proves it rather than describes it: **a class that cannot
+     separate *livid* from *furious* learns more from being shown than from four
+     wrong guesses**, which the bench thermometer has always offered and the round
+     never could.
+
+     Driven on the board rather than on the bench because what could break is the
+     wiring at the host — where the buttons are mounted, whether a press re-asks the
+     handsets, and whether the strip still clears. */
+  page = await openLab(['Word Thermometer','Anagram','Gap Fill'], { phones:false });
+  await page.evaluate(() => window.HubSettings.set('round_ordering', 'climb', 'jeopardy'));
+  await openTile(page, 'Word Thermometer', 0);
+  const strip = () => page.evaluate(() => ({
+    own: [...document.querySelectorAll('#round-actions button')]
+           .map(b => ({ id:b.dataset.action, label:b.textContent, off:b.disabled })),
+    /* Mounted beside the commit button rather than written into the skeleton, which
+       is what lets a fourth host have it without markup of its own. */
+    after: document.getElementById('round-actions')?.previousElementSibling?.id || null,
+    commit: document.getElementById('group-btn').textContent
+  }));
+  let s = await strip();
+  check('a round can put its own button in the strip, beside the host’s commit',
+        s.own.length === 1 && s.own[0].id === 'show' && s.after === 'group-btn' &&
+        /Check it/i.test(s.commit), JSON.stringify(s));
+  await page.locator('#round-actions button[data-action="show"]').click();
+  await page.waitForTimeout(500);
+  check('pressing it fills the rung and prints the gloss, and scores nobody',
+        await page.locator('#clue-group .ord-rung.filled').count() === 1 &&
+        /shown:\s*annoyed/i.test(await page.locator('#clue-group .group-say').innerText()) &&
+        (await scoresOf(page)).join('/') === '0/0',
+        (await scoresOf(page)).join('/') + ' · ' +
+        await page.locator('#clue-group .group-say').innerText());
+  /* It must never be able to end the round: with one rung left there is one word
+     left, so it teaches nothing — and a round ending with nobody having answered is
+     a question about scoring, which is not the round's to answer. */
+  for(let i = 0; i < 3; i++){
+    await page.locator('#round-actions button[data-action="show"]').click();
+    await page.waitForTimeout(350);
+  }
+  s = await strip();
+  check('and it stands down on the last rung rather than ending the round',
+        s.own[0].off === true &&
+        await page.locator('#clue-group .ord-rung.filled').count() === 4 &&
+        (await scoresOf(page)).join('/') === '0/0',
+        JSON.stringify(s.own) + ' · ' + (await scoresOf(page)).join('/'));
+  /* The strip used to be cleared from a hand-typed list of ids. Nothing would have
+     complained if the round's own buttons were left off it — they would simply have
+     outlived the question, which is how `wager-ok` was missed for as long as it has
+     existed. */
+  await page.locator('#reveal-btn').click(); await page.waitForTimeout(700);
+  check('revealing clears the round’s buttons with the rest of the strip',
+        (await strip()).own.length === 0, JSON.stringify((await strip()).own));
+  checkClean(page, 'a round’s own button');
+  await page.close();
+
+  /* Declared per mode, so the button exists only where it is a lesson: in a race
+     every team has its own ladder, and showing a word gives it either to one team
+     or to all of them. */
+  page = await openLab(['Word Thermometer','Anagram','Gap Fill'], { phones:false });
+  await page.evaluate(() => window.HubSettings.set('round_ordering', 'race', 'jeopardy'));
+  await openTile(page, 'Word Thermometer', 0);
+  check('a race offers no second button — the round says which modes have one',
+        await page.locator('#round-actions button').count() === 0);
+  await page.close();
+
+  /* And the default is untouched: a round that declares nothing is exactly as it
+     was, which is what makes this additive rather than a migration. */
+  page = await openLab(['Connections','Anagram','Gap Fill'], { phones:false });
+  await openTile(page, 'Connections', 0);
+  check('a round that declares no buttons has none, and its commit reads as before',
+        await page.locator('#round-actions button').count() === 0 &&
+        /Check these 4 \(0\/4\)/.test(await page.locator('#group-btn').innerText()),
+        await page.locator('#group-btn').innerText());
+  await page.close();
+
   /* ---------- a multiple choice clue ----------
      The third round, and the one that proves the contract holds for something
      ordinary rather than something that shaped it. **The engine gained nothing to

@@ -3675,9 +3675,17 @@
     onPick: i => (modalMode === 'jeopardy' && jSteal) ? jTakeSteal(i) : claimHex(i)
   });
 
+  /* Everything in the strip goes away; each opener then shows what it wants. The
+     ids used to be typed out here, which is the defect class this project has paid
+     for most — a new button had to be threaded into the list by hand and nothing
+     complained if you missed one. `wager-ok` never was threaded in, so a bet left
+     standing outlived every one of these calls. Asked of the strip now, so the next
+     button is covered by existing. */
   function hideAllActionButtons(){
-    ['reveal-btn','correct-btn','wrong-btn','skip-btn','close-btn','hint-btn','group-btn']
-      .forEach(id=>{ document.getElementById(id).style.display='none'; });
+    document.querySelectorAll('#clue-actions > button')
+      .forEach(b => { b.style.display = 'none'; });
+    const own = document.getElementById('round-actions');
+    if(own) own.innerHTML = '';
     clueClaim.hide();
   }
 
@@ -3898,25 +3906,58 @@
     if(roundHost.autoCommit && roundHost.autoCommit() && jGroup.chosen.length === cap) roundCommit();
   }
   /* How many the teacher may hold at once. An ordering climb wants one at a time —
-     the ladder takes the next rung, not the whole scale. */
-  function jRoundCap(){
-    const arm = jGroup ? jRoundDef().arm(jGroup, jGroupCtx()) : null;
-    return Math.max(1, Math.min(jGroup ? jGroup.need : 1, (arm && arm.multi) || 1));
+     the ladder takes the next rung, not the whole scale. The question bench had
+     this written out a second time, so the sum lives on the shelf now. */
+  function jRoundCap(){ return Kit.round.cap(jRoundDef(), jGroup, jGroupCtx()); }
+
+  /* Where a round's own buttons go: beside the host's commit button, whichever
+     element that is — the clue card's Check, Millionaire's "Final answer?",
+     Quickfire's "Lock it in". Created next to it rather than written into the
+     skeleton, the same move `CARD_MOUNT` makes for the card, so a fourth host
+     needs no markup of its own. */
+  function roundActionsMount(){
+    const btn = document.getElementById(roundHost.commit);
+    if(!btn || !btn.parentNode) return null;
+    let box = document.getElementById('round-actions');
+    if(!box || box.previousSibling !== btn){
+      if(box) box.remove();
+      box = document.createElement('span');
+      box.id = 'round-actions'; box.className = 'round-actions';
+      btn.parentNode.insertBefore(box, btn.nextSibling);
+    }
+    return box;
   }
 
   function renderJGroupButton(){
     const btn = document.getElementById(roundHost.commit);
     if(!btn) return;
     const on = jGroupLive() && roundHost.live();
+    // minted only once a round is actually live — an ordinary clue's strip is the hub's
+    const box = on ? roundActionsMount() : document.getElementById('round-actions');
     btn.style.display = on ? 'inline-block' : 'none';
-    if(!on) return;
-    const cap = jRoundCap();
-    btn.disabled = jGroup.chosen.length !== cap;
-    /* The wording is the host's when it has one: Millionaire's button is the show's
-       "Final answer?", which is the same beat and must not read as "Check it". */
-    btn.textContent = roundHost.commitText ? roundHost.commitText(cap, jGroup.chosen.length)
-      : (cap === 1 ? 'Check it'
-        : ('Check these ' + cap + ' (' + jGroup.chosen.length + '/' + cap + ')'));
+    if(!on){ if(box) box.innerHTML = ''; return; }
+    /* The commit button is the host's — it scores — and everything beside it is
+       the round's. The wording of the host's is still the host's when it has one:
+       Millionaire's is the show's "Final answer?", which is the same beat and must
+       not read as "Check it". */
+    const list = Kit.round.actions(jRoundDef(), jGroup, jGroupCtx(),
+                                   { commitText: roundHost.commitText });
+    if(!list.length) return;
+    btn.disabled = !!list[0].disabled;
+    btn.textContent = list[0].label;
+    Kit.round.strip(box, list, roundPress);
+  }
+
+  /* A round's own button, pressed. It may change the question and may not score —
+     scoring is what `roundCommit` is, and that is the host's beat. What the host
+     owes afterwards is a redraw and a re-ask, because whatever the round just did
+     to itself has left the handsets holding an out-of-date question. */
+  function roundPress(id){
+    if(!jGroupLive()) return;
+    if(!jRoundDef().press(id, jGroup, jGroupCtx())) return;
+    jGroup.chosen = [];
+    renderJGroup();
+    if(buzzHost && currentClueItem) askPhones(currentClueItem.text, roundHost.game);
   }
 
   /* Replies off the wire. The round works out what each team is holding; this only
