@@ -571,6 +571,18 @@ Where games should *diverge*, use a `variant` setting (`cardFlip`, `bbWinRoute`,
 builds the per-game override rows itself. Shared by default, divergent by declaration.
 
 ## Solve once, use anywhere
+**Ask the code what is already on the shelves before writing anything shared:**
+```bash
+node tools/shelf.js            # every Kit.round / Kit / BenchKit helper, with its shape
+```
+It loads the registries and lists them, so a helper added next month appears with
+nobody editing anything — the same move `tools/question-types.js` makes for content.
+**It also runs as a hook**: `.claude/settings.json` fires it before any edit to
+`rounds/*.js`, `hub-rounds.js`, `hub-kit.js` or `bench-kit.js`, and it hands the
+inventory back as context. Silent for every other file. It exists because the
+expensive mistake in this project is never a hard bug — it is writing a second copy
+of something that already exists, and the reason that happens is that nobody looked.
+
 Anything more than one game needs lives in `hub-kit.js`, not in a game:
 
 | Service | Replaces | Used by |

@@ -1,1 +1,17 @@
-{}
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/tools/shelf.js\" 2>/dev/null || true",
+            "timeout": 15,
+            "statusMessage": "Checking the shared shelf…"
+          }
+        ]
+      }
+    ]
+  }
+}
