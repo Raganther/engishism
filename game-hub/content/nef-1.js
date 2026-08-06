@@ -179,6 +179,23 @@ window.UNITS.push({
         choice:{ options:["know and believe","chew and swallow",
                           "stir and chop","fry and grill"], answer:"know and believe" }},
     ]},
+    /* Information Gap — each phone on a team is dealt the sentence with a
+       different starred word hidden, so the only way to fill your blank is to ask
+       the people beside you. Targets are single words with no apostrophes: the
+       spelling tolerance is zero under five letters, so "won't" would mark a
+       student wrong for the apostrophe rather than the English. */
+    { id:'nef1-infogap-1a', section:'1A', name:'Information Gap', clues:[
+      {v:100, q:"A morning habit — ask your team for your missing words.",
+        infogap:{ sentence:"I always *drink* a black *coffee* before I eat anything" }},
+      {v:200, q:"Food she avoids — ask your team for your missing words.",
+        infogap:{ sentence:"She never eats meat that is *raw* in the middle, and she hates *spicy* food" }},
+      {v:300, q:"A meal out — ask your team for your missing words.",
+        infogap:{ sentence:"We had *grilled* salmon and *steamed* vegetables at the new *restaurant*" }},
+      {v:400, q:"Why she cannot talk — ask your team for your missing words.",
+        infogap:{ sentence:"She is *having* lunch right now, so she cannot *answer* the phone" }},
+      {v:500, q:"The article's advice — ask your team for your missing words.",
+        infogap:{ sentence:"Eat your *vegetables* first — the *fibre* fills you up and helps your *digestion*" }},
+    ]},
     { id:'nef1-family-ties', section:'1B', name:'Family Ties', clues:[
       {v:100, q:"Your brothers and sisters, in one word.", a:"siblings"},
       {v:200, q:"Your father's new wife, who is not your mother.", a:"stepmother"},
@@ -307,6 +324,18 @@ window.UNITS.push({
       {v:500, q:"'Look at that queue — we ___ be waiting an hour.' Which fits best?",
         choice:{ options:["are going to","will have","shall","would"], answer:"are going to" }},
     ]},
+    { id:'nef1-infogap-1b', section:'1B', name:'Information Gap', clues:[
+      {v:100, q:"Who is in the family — ask your team for your missing words.",
+        infogap:{ sentence:"My *siblings* are older than me, but my *cousin* is younger" }},
+      {v:200, q:"Visitors — ask your team for your missing words.",
+        infogap:{ sentence:"My *nephew* and my *niece* are staying with us this *weekend*" }},
+      {v:300, q:"An arrangement — ask your team for your missing words.",
+        infogap:{ sentence:"I am *seeing* my grandparents on *Sunday* because it is all *arranged*" }},
+      {v:400, q:"A promise — ask your team for your missing words.",
+        infogap:{ sentence:"Don't worry — I promise I will not *tell* anyone about the *engagement*" }},
+      {v:500, q:"Closing a topic down politely — ask your team for your missing words.",
+        infogap:{ sentence:"I would *rather* not talk about that, because it *depends* on the *situation*" }},
+    ]},
   ],
 
   /* Blockbusters — an ordinary hexagon needs a one-word answer beginning with its
@@ -344,6 +373,8 @@ window.UNITS.push({
                       portion:"one person's share.",
                       plateful:"as much as the plate holds.",
                       banquet:"a formal feast." } }},
+    {section:'1A', topic:'1A-vocab', letter:'W', clue:"At the restaurant — ask your team for the missing words.",
+      infogap:{ sentence:"The *waiter* brought us the *bill* before we had finished our *dessert*" }},
 
     {section:'1B', topic:'1B-vocab', letter:'S', clue:"One word for your brothers and sisters.", answer:"Siblings"},
     {section:'1B', topic:'1B-vocab', letter:'N', clue:"Your brother's son.", answer:"Nephew"},
@@ -369,11 +400,13 @@ window.UNITS.push({
                       should:"expected, if nothing goes wrong.",
                       will:"a straight prediction.",
                       must:"the only explanation that fits." } }},
+    {section:'1B', topic:'1B-vocab', letter:'V', clue:"A family plan — ask your team for the missing words.",
+      infogap:{ sentence:"My *parents* are going to *visit* us in the *spring*" }},
   ],
 
   blockbustersSectionNames: {
-    '1A': '1A · Food & cooking (20 clues)',
-    '1B': '1B · Family & the future (15 clues)'
+    '1A': '1A · Food & cooking (21 clues)',
+    '1B': '1B · Family & the future (16 clues)'
   },
 
   /* Race — the answers become tiles on the board, so every one is a single word and
