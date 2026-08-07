@@ -224,20 +224,20 @@ git add -A && git commit -m "..." && git push      # live in about 40 seconds</p
 
 <!-- Registries only. These are data-only registrations with no DOM of their own, so
      asking them what exists costs nothing and starts no game. -->
-<script src="game-hub/hub-kit.js?v=20260807c"></script>
+<script src="game-hub/hub-kit.js?v=20260807d"></script>
 <!-- Captured between the two script tags: which forms are in the shipped kit. The
      one moment a kit form and a lab-only one are distinguishable. -->
 <script>window.IN_THE_KIT = (window.HubKit && window.HubKit.prompt.types()) || [];</script>
-<script src="playground/lab-forms.js?v=20260807c"></script>
-<script src="game-hub/hub-rounds.js?v=20260807c"></script>
-<script src="game-hub/rounds/default.js?v=20260807c"></script>
-<script src="game-hub/rounds/grouping.js?v=20260807c"></script>
-<script src="game-hub/rounds/ordering.js?v=20260807c"></script>
-<script src="game-hub/rounds/choice.js?v=20260807c"></script>
-<script src="game-hub/rounds/anagram.js?v=20260807c"></script>
-<script src="game-hub/rounds/scramble.js?v=20260807c"></script>
-<script src="game-hub/rounds/infogap.js?v=20260807c"></script>
-<script src="game-hub/rounds/drop.js?v=20260807c"></script>
+<script src="playground/lab-forms.js?v=20260807d"></script>
+<script src="game-hub/hub-rounds.js?v=20260807d"></script>
+<script src="game-hub/rounds/default.js?v=20260807d"></script>
+<script src="game-hub/rounds/grouping.js?v=20260807d"></script>
+<script src="game-hub/rounds/ordering.js?v=20260807d"></script>
+<script src="game-hub/rounds/choice.js?v=20260807d"></script>
+<script src="game-hub/rounds/anagram.js?v=20260807d"></script>
+<script src="game-hub/rounds/scramble.js?v=20260807d"></script>
+<script src="game-hub/rounds/infogap.js?v=20260807d"></script>
+<script src="game-hub/rounds/drop.js?v=20260807d"></script>
 <script>
 (function(){
   'use strict';
@@ -400,9 +400,22 @@ git add -A && git commit -m "..." && git push      # live in about 40 seconds</p
           const used = new Set();
           (t.match(/\b(?:K|Kit|HubKit)\.round\.(\w+)\s*\(/g) || [])
             .forEach(m => used.add(m.replace(/.*\.round\./, '').replace(/\s*\($/, '')));
-          return Object.assign({}, f, { used });
+          return Object.assign({}, f, { used, read: t.length > 0 });
         })
     )).then(scanned => {
+      /* **An unread source is not an uncalled function.** `fetch` cannot read a
+         `file://` URL at all, so opened as a file every row here says "nothing
+         calls it" — a map of the whole shelf reported as dead code, stated with
+         exactly the confidence of a real answer. That is the failure this page
+         exists to prevent, one level up: a thing that looks derived and is in fact
+         wrong. Say what happened instead of drawing zeros. */
+      if(!scanned.some(s => s.read)){
+        mount.innerHTML = '<div class="tier"><span class="w"><span class="warn-one">' +
+          'The sources could not be read, so there is nothing to count — this is not ' +
+          '“nothing calls it”. `fetch` cannot open a `file://` URL. Serve the project ' +
+          '(`node tools/buzzer-relay.js`) and this map fills in.</span></span></div>';
+        return;
+      }
       const rows = shelf.map(fn => ({
         fn, callers: scanned.filter(s => s.used.has(fn))
       })).sort((a, b) => b.callers.length - a.callers.length || a.fn.localeCompare(b.fn));
