@@ -85,7 +85,7 @@
         mode:  (ctx && ctx.mode === 'agree') ? 'agree' : 'first',
         chosen: [],
         picks: {}, leading: {}, votes: {}, by: {}, got: {},
-        hint: 0,                       // how many opening words have been given away
+        hint: [],                      // slot indexes given away, in no order
         say: '', shown: false, done: false
       };
     },
@@ -115,7 +115,7 @@
           b.classList.add('filled');
           b.textContent = bare(tok);
           if(c.onPick && !s.shown) b.addEventListener('click', ()=> c.onPick(tok));
-        }else if(i < (s.hint || 0)){
+        }else if((s.hint || []).indexOf(i) !== -1){
           // a given-away word, in an empty slot — see `hint` below
           b.classList.add('hinted');
           b.textContent = s.words[i];
@@ -242,22 +242,27 @@
     },
 
     /* ---------- the hint ----------
-       The next word of the sentence, in its slot, from the left — the same shape as
-       Drag the Letters and for the same reason, only more so: a sentence is read
-       forwards, so *"The jury …"* is a run-up the room can carry on from, where a
-       word planted in slot seven is a fact with no sentence around it yet.
+       One word, in its slot, at a **random** empty position — the same shape as Drag
+       the Letters and for the same reason, only more so here: a sentence read from
+       the left is a run-up, so *"The jury …"* hands over most of what comes next and
+       the second hint costs nothing. A word pinned at position seven is one fact
+       about the sentence and leaves the rest to be worked out.
 
-       The card only, exactly as the letters are: nobody's tray is re-dealt, the
-       word is read off the projector and still has to be placed. **Never the last
-       word** — one slot left is one chip left, so the sentence finishes itself. */
+       The card only, exactly as the letters are: nobody's tray is re-dealt, the word
+       is read off the projector and still has to be placed. **Never the last word** —
+       one slot left is one chip left, so the sentence finishes itself. */
     hintsLeft(s){
-      return Math.max(0, s.need - 1 - (s.hint || 0));
+      return Math.max(0, s.need - 1 - (s.hint || []).length);
     },
 
     hint(s){
       if(!this.hintsLeft(s)) return false;
-      s.hint = (s.hint || 0) + 1;
-      s.say  = 'Hint: word ' + s.hint + ' is "' + s.words[s.hint - 1] + '".';
+      const open = [];
+      for(let i = 0; i < s.need; i++) if((s.hint || []).indexOf(i) === -1) open.push(i);
+      if(!open.length) return false;
+      const at = shuffle(open)[0];
+      s.hint = (s.hint || []).concat([at]);
+      s.say  = 'Hint: word ' + (at + 1) + ' is "' + s.words[at] + '".';
       return true;
     },
 

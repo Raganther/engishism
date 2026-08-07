@@ -123,6 +123,7 @@
         votes:  {},                 // team -> { for:{word:n}, said, agreed }
         by:     {},                 // team -> whose phone the answer came from
         won:    null,               // the team that finished first, `race` only
+        hint:   0,                  // scale positions given away from the cold end, `race` only
         say:    '',
         done:   false
       };
@@ -257,9 +258,17 @@
           const t = document.createElement('span');
           t.className = 'gw-text';
           const at = s.chosen.indexOf(w);
-          t.textContent = at === -1 ? w : (at + 1) + '. ' + w;
+          /* A word whose place on the scale has been given away carries its number.
+             Only ever set in a race — a climb's hint places the word, so it leaves
+             the pool rather than being labelled in it. */
+          const pos = s.scale.indexOf(w);
+          const hinted = pos !== -1 && (s.hint || 0) > pos;
+          t.textContent = at !== -1 ? (at + 1) + '. ' + w
+                        : hinted    ? (pos + 1) + '. ' + w
+                        : w;
           b.appendChild(t);
           if(at !== -1) b.classList.add('chosen');
+          if(hinted) b.classList.add('hinted');
           if(s.mode === 'race' && mine.indexOf(w) !== -1) b.classList.add('spent');
           if(s.mode === 'climb'){
             /* A dot for **any** team with a vote on this word, not just the ones
@@ -354,21 +363,42 @@
        `null` rather than `0`, which is how the strip knows to offer no button at
        all instead of a disabled one. */
     hintsLeft(s){
-      if(s.mode !== 'climb') return null;
-      /* Never the last rung: with one step left there is exactly one word left, so
-         showing it teaches nothing — and it would end the round with nobody having
-         answered, which is a question about scoring and therefore not this round's
-         to answer. */
-      return Math.max(0, s.need - s.placed.length - 1);
+      /* Never the last one: with one step left there is exactly one word left, so
+         showing it teaches nothing — and on a shared ladder it would end the round
+         with nobody having answered, which is a question about scoring and therefore
+         not this round's to answer. */
+      return s.mode === 'climb'
+        ? Math.max(0, s.need - s.placed.length - 1)
+        : Math.max(0, s.need - (s.hint || 0) - 1);
     },
 
     hint(s){
       if(!this.hintsLeft(s)) return false;
-      const word = s.scale[s.placed.length];
+      const gloss = w => (s.gloss && s.gloss[w] ? ' — ' + s.gloss[w] : '');
+      if(s.mode === 'climb'){
+        const word = s.scale[s.placed.length];
+        if(!word) return false;
+        s.placed.push(word);
+        s.picks = {}; s.leading = {}; s.votes = {};
+        s.say = 'Shown: ' + word + gloss(word);
+        return true;
+      }
+      /* **A race gets a hint about the *scale*, not about anybody's ladder.** The
+         first version offered none here, on the reasoning that placing a word would
+         give it either to one team or to all of them — true, and the answer is not
+         to place it. Naming which word sits at a given position on the scale is one
+         fact about the question, identical for every team, and each still has to
+         drag it onto their own ladder. So the pool marks it with its number and the
+         card prints its gloss, which is the teaching either way.
+
+         Counted from the cold end because that is the end the scale is read from,
+         and it is a property of the question rather than of any team's progress —
+         which is exactly what makes it fair to give to four lanes at once. */
+      const n = s.hint || 0;
+      const word = s.scale[n];
       if(!word) return false;
-      s.placed.push(word);
-      s.picks = {}; s.leading = {}; s.votes = {};
-      s.say = 'Shown: ' + word + (s.gloss && s.gloss[word] ? ' — ' + s.gloss[word] : '');
+      s.hint = n + 1;
+      s.say = 'Hint: number ' + s.hint + ' on the scale is ' + word + gloss(word);
       return true;
     },
 

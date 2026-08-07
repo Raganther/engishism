@@ -1263,6 +1263,21 @@ playground's point, that one board can host several:
     stops at two live options, and the drag rounds stop one short. Held back in
     `hintsLeft` rather than guarded downstream: what the button can do should be what
     it offers.
+  - **The drag rounds fill a *random* empty slot, not the next one along.** Reported
+    from the first look: filling left to right gives away more than one part, because
+    `V E _ _` and *"The jury …"* are run-ups a class can guess the rest of, so the
+    second hint is nearly free — and it is the same hint every replay. A random slot
+    pins exactly one position and leaves the shape of the answer open. `hint` is a
+    list of revealed indexes now rather than a count.
+  - **The thermometer race got a hint too, and it is about the scale rather than any
+    team's ladder.** It offered none at first, on the reasoning that placing a word
+    would give it to one team or to all of them — true, and the answer is not to
+    place it. Naming which word sits at position *n* is one fact about the question,
+    identical for four lanes at once, and each team still has to drag it onto their
+    own ladder. The pool marks it with its number and the card prints its gloss.
+    Counted from the cold end, which is the end a scale is read from — deliberately
+    not random, unlike the drag rounds, because a position on a scale only means
+    anything in relation to the ones below it.
   - **`null` and `0` are different answers and the difference is whether the button
     exists.** `0` is offered-and-spent, drawn disabled. `null` is not-in-this-mode:
     the ordering race gives every team its own ladder, so a shown word would go either
