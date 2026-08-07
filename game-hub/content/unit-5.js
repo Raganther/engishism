@@ -1,6 +1,24 @@
 /* ================= Content bank — Empower C1 Unit 5: Fairness =================
    Data only. Consumed by game-hub/hub-engine.js via window.UNIT.
-   Authored from material/empower-c1-unit-5/ (pp.55-66 + Grammar/Vocab Focus). */
+   Authored from material/empower-c1-unit-5/ (pp.55-66 + Grammar/Vocab Focus).
+
+   **Jeopardy and Blockbusters are all rounds.** Every clue on those two boards is
+   a question the room *plays* from their handsets — Connections, Word Thermometer,
+   Multiple Choice, Drag the Letters, Drag the Words — rather than one the teacher
+   reads out. The simple question-and-answer content those two banks used to hold
+   is gone.
+
+   **Race and Millionaire are untouched, for opposite reasons.** Millionaire needs
+   none: its ladder already builds a Multiple Choice round out of every rung when
+   the question opens, so `millionaireBank` was rounds before this was written, and
+   Quickfire reads the same bank. Race cannot host one at all — its scattered words
+   *are* the board, so a round would need the stage as its mount, which is on the
+   build order and not built. Its bank stays gapped sentences.
+
+   **`bingoBank` is where the old Blockbusters calls went.** A bingo call is a clue
+   with one single-word answer; a round hexagon has no answer at all — a Connections
+   set has four and a scale has five — so an all-rounds Blockbusters bank would have
+   taken Bingo out of the unit with it. Same content, its own field. */
 (window.UNITS = window.UNITS || []).push({
   id: "unit-5",
   label: "Cambridge Empower C1 · Unit 5 · Fairness",
@@ -14,64 +32,19 @@
     '5D': "5D · It's a way of making the application process more efficient",
   },
 
+  /* Every clue on this board is a **round** — a question the room plays from their
+     handsets, not one the teacher reads out. Five categories per section, one per
+     round type, so a teacher picking 5A gets all five dynamics and a teacher
+     picking three sections gets fifteen columns of them.
+
+     The rounds were matched to the language point rather than sprinkled: relative
+     clauses are a word-order problem, so they are Drag the Words; the crime
+     vocabulary is dense enough that four-that-belong-together is a real
+     discrimination, so it is Connections; the certainty and obligation language is
+     a scale by nature, so it is the Thermometer. */
   jeopardyCategories: [
-    { id:'crime-justice', section:'5A', name:'Crime & Justice', clues:[
-      {v:100, q:"Being kept in prison while awaiting trial: being 'held in ___'.", a:"custody"},
-      {v:200, q:"'They made an ___ of fraud against him' — a formal accusation.", a:"an allegation"},
-      {v:300, q:"Found by a court to have committed a crime: 'he's been ___ of murder'.", a:"convicted"},
-      {v:400, q:"The formal evidence a witness gives in court.", a:"testimony"},
-      {v:500, q:"'He ___ guilty to the crime' — he admitted it in court.", a:"pleaded"},
-    ]},
-    { id:'punishment', section:'5A', name:'Punishment & Rehab', clues:[
-      {v:100, q:"Unpaid work done as a punishment: 'do ___ service'.", a:"community"},
-      {v:200, q:"The most severe sentence: 'sentenced to life ___'.", a:"imprisonment"},
-      {v:300, q:"Isolating a prisoner from all others: 'solitary ___'.", a:"confinement"},
-      {v:400, q:"One-to-one or group sessions that support prisoners.", a:"counselling"},
-      {v:500, q:"'Served a reduced sentence for good ___' — released early.", a:"behaviour"},
-    ]},
-    { id:'relative-clauses', section:'5A', name:'Relative Clauses', clues:[
-      {v:100, q:"Relative pronoun for people: 'the officer ___ arrested him'.", a:"who"},
-      {v:200, q:"Relative pronoun for a place: 'the prison ___ he was held'.", a:"where"},
-      {v:300, q:"Defining or non-defining? 'Halden, which opened in 2010, is humane.'", a:"non-defining (extra info, uses commas)"},
-      {v:400, q:"Complete (formal): 'the prison, the walls ___ which are covered in art'.", a:"of"},
-      {v:500, q:"Make it formal: 'some of the prisoners, who have committed serious crimes' → 'some ___ ___ …'.", a:"of whom"},
-    ]},
-    /* Word order, which neither of the other two 5A grammar categories can ask.
-       A gap fill hands the student a finished sentence and asks for the pronoun;
-       only a scramble asks where the clause interrupts the main clause, whether
-       the preposition fronts, and where the commas fall — the actual C1 difficulty
-       on p146. Sentences are the book's own, put back out of order. */
-    { id:'rel-sentence-order', section:'5A', name:'Sentence Order', clues:[
-      {v:100, type:'scramble', q:"Word order — defining clause with 'that':", a:"The law that was recently passed makes no sense"},
-      {v:200, type:'scramble', q:"Word order — the clause interrupts the main clause:", a:"The officer who arrested him has since retired"},
-      {v:300, type:'scramble', q:"Word order — preposition before 'whom':", a:"The witness to whom we spoke has disappeared"},
-      {v:400, type:'scramble', q:"Word order — non-defining, so mind the commas:", a:"Halden prison, which opened in 2010, is humane"},
-      {v:500, type:'scramble', q:"Word order — 'of which' in formal writing:", a:"The prison, the walls of which are covered in art"},
-    ]},
-    /* The second half of Grammar Focus 5A (p146). The first category covers who /
-       where / defining-vs-non-defining; this one takes the parts a C1 class actually
-       gets wrong — whom after a preposition, whose, which for a whole clause, the
-       fixed formal phrases, and the multi-word-verb trap the book flags explicitly. */
-    { id:'which-or-whom', section:'5A', name:'Which or Whom?', clues:[
-      {v:100, q:"Object pronoun for people in formal writing: 'the woman ___ I met at the party'.", a:"whom"},
-      {v:200, q:"Possessive relative pronoun: 'the elderly woman ___ bag was taken'.", a:"whose"},
-      {v:300, q:"Which word refers back to the whole clause? 'She lied on her form, ___ was a bad sign.'", a:"which"},
-      {v:400, q:"Finish the formal phrase: 'the guilty person has been found, in ___ ___ you are free to go'.", a:"which case"},
-      {v:500, q:"Correct it: 'The children after whom I look are very naughty.'", a:"the children who I look after (keep the particle with the verb)"},
-    ]},
-    { id:'change-the-word', section:'5A', name:'Change the Word', clues:[
-      {v:100, q:"Change the verb 'to convict' into the noun for the court's decision.", a:"conviction"},
-      {v:200, q:"Change 'crime' into the word for the person who commits one.", a:"criminal"},
-      {v:300, q:"Change 'guilt' into the adjective a court uses in its verdict.", a:"guilty"},
-      {v:400, q:"Change the verb 'to prosecute' into the noun for the lawyers doing it.", a:"the prosecution"},
-      {v:500, q:"Change 'rehabilitate' into the noun for the whole process.", a:"rehabilitation"},
-    ]},
-    /* The first two round categories in a class-facing unit. Every other category
-       here is a question the teacher reads out; these two are played — the words go
-       on the card and every handset in the room is armed. Crime & justice is the
-       right place to try it: the vocabulary is dense enough that the four that
-       belong together are a real discrimination rather than a guess. */
-    { id:'connections', section:'5A', name:'Connections', clues:[
+    /* ================= 5A · crime, justice and relative clauses ================= */
+    { id:'5a-connections', section:'5A', name:'Connections', clues:[
       {v:100, q:"Four of these are people you find in a courtroom. Find the four.",
         group:{ pick:["jury","witness","defendant","judge"],
                 with:["tenant","surgeon","applicant","referee"] }},
@@ -88,7 +61,7 @@
         group:{ pick:["arrested","charged","remanded","questioned"],
                 with:["convicted","sentenced","imprisoned","released"] }},
     ]},
-    { id:'word-thermometer', section:'5A', name:'Word Thermometer', clues:[
+    { id:'5a-thermometer', section:'5A', name:'Word Thermometer', clues:[
       {v:100, q:"Put these in order — least certain first.",
         order:{ scale:["gossip","suspicion","allegation","charge","conviction"],
                 low:"just talk", high:"proved in court",
@@ -130,88 +103,320 @@
                         verdict:"guilty or not guilty — the jury decides.",
                         sentence:"the judge says what the punishment is." } }},
     ]},
-    { id:'employment', section:'5B', name:'Employment & Sectors', clues:[
-      {v:100, q:"A distinct area of the economy, such as retail or transport: a ___.", a:"sector"},
-      {v:200, q:"Banking and investment belong to the ___ sector.", a:"financial"},
-      {v:300, q:"When jobs are cut and workers lose them: ___.", a:"redundancies"},
-      {v:400, q:"Farming belongs to the ___ sector.", a:"agricultural"},
-      {v:500, q:"Building houses and roads: the ___ sector.", a:"construction"},
+    /* Grammar Focus 5A (p146). A four-way choice is the right shape for relative
+       pronouns because the book's own exercise b is already written as one — the
+       distractors are the pronouns a C1 student actually reaches for by mistake. */
+    { id:'5a-choice', section:'5A', name:'Multiple Choice', clues:[
+      {v:100, q:"'The juror ___ fell asleep during the trial was replaced.'",
+        choice:{ options:["who","which","whose","whom"], answer:"who" }},
+      {v:200, q:"'The elderly woman ___ bag was taken has come forward.'",
+        choice:{ options:["whose","who's","which","whom"], answer:"whose" }},
+      {v:300, q:"'The witness to ___ we spoke has disappeared.'",
+        choice:{ options:["whom","who","which","that"], answer:"whom" }},
+      {v:400, q:"Which word refers back to the whole clause? 'She lied on her form, ___ was a bad sign.'",
+        choice:{ options:["which","that","what","who"], answer:"which" }},
+      {v:500, q:"'The prison, the walls ___ which are covered in art, is famous.'",
+        choice:{ options:["of","in","for","by"], answer:"of" }},
     ]},
-    { id:'pay-benefits', section:'5B', name:'Pay & Benefits', clues:[
-      {v:100, q:"Flexible working hours are called ___.", a:"flexitime"},
-      {v:200, q:"A long paid career break, often six months: a ___.", a:"sabbatical"},
-      {v:300, q:"Pay linked to how well you do your job: ___-related pay.", a:"performance"},
-      {v:400, q:"Leave for new fathers: ___ leave.", a:"paternity"},
-      {v:500, q:"'Four ___ days' — days off a year with no reason needed.", a:"personal"},
+    /* Only a word-order round asks the thing p146 is actually about: where the
+       clause interrupts the main clause, whether the preposition fronts, and where
+       the commas fall. A gap fill hands you the finished sentence. */
+    { id:'5a-scramble', section:'5A', name:'Drag the Words', clues:[
+      {v:100, q:"Put the words in order — a defining clause with 'that'.",
+        scramble:{ sentence:"The law that was recently passed makes no sense" }},
+      {v:200, q:"Put the words in order — the clause interrupts the main clause.",
+        scramble:{ sentence:"The detective who interviewed her has now retired" }},
+      {v:300, q:"Put the words in order — the preposition comes before 'whom'.",
+        scramble:{ sentence:"The witness to whom we spoke has disappeared" }},
+      {v:400, q:"Put the words in order — non-defining, so mind the commas.",
+        scramble:{ sentence:"Halden prison, which opened in 2010, is humane" }},
+      {v:500, q:"Put the words in order — 'of which' in formal writing.",
+        scramble:{ sentence:"The prison, the walls of which are covered in art" }},
     ]},
-    { id:'obligation', section:'5B', name:'Obligation & Permission', clues:[
-      {v:100, q:"Strong obligation from a rule (modal verb): 'you ___ wear a helmet'.", a:"must"},
-      {v:200, q:"Formal necessity: 'you'll be ___ to have a diving qualification'.", a:"required"},
-      {v:300, q:"Not allowed (formal): 'visitors are ___ to bring food into the building'.", a:"forbidden / not permitted"},
-      {v:400, q:"Lack of obligation: 'you ___ have to pay tax on it' (it isn't necessary).", a:"don't"},
-      {v:500, q:"Mild advice, not 'must': 'you ___ to get some experience first'.", a:"ought / should"},
+    { id:'5a-anagram', section:'5A', name:'Drag the Letters', clues:[
+      {v:100, q:"the decision a jury delivers", anagram:{ word:"verdict" }},
+      {v:200, q:"where you are held before your trial begins", anagram:{ word:"custody" }},
+      {v:300, q:"a claim that you were somewhere else at the time", anagram:{ word:"alibi" }},
+      {v:400, q:"the sworn account a witness gives in court", anagram:{ word:"testimony" }},
+      {v:500, q:"the formal word for an illegal act", anagram:{ word:"offence" }},
     ]},
-    { id:'spot-the-error', section:'5B', name:'Spot the Error', clues:[
-      {v:100, q:"Correct it: 'You must to wear a helmet on site.'", a:"you must wear (no 'to' after a modal)"},
-      {v:200, q:"Correct it: 'She is obliged for provide safety gear.'", a:"obliged TO provide"},
-      {v:300, q:"Correct it: 'It isn't permitted bringing food into the lab.'", a:"permitted TO BRING"},
-      {v:400, q:"Correct it: 'You haven't to pay tax on that.'", a:"you don't have to pay"},
-      {v:500, q:"Correct it: 'He was made redundancy last year.'", a:"he was made REDUNDANT (adjective)"},
+
+    /* ================= 5B · employment, pay and obligation ================= */
+    { id:'5b-connections', section:'5B', name:'Connections', clues:[
+      {v:100, q:"Four of these are sectors of the economy. Find the four.",
+        group:{ pick:["financial","retail","construction","agricultural"],
+                with:["flexitime","sabbatical","paternity","overtime"] }},
+      {v:200, q:"Four of these are benefits an employer offers. Find the four.",
+        group:{ pick:["flexitime","sabbatical","paternity","pension"],
+                with:["transport","energy","manufacturing","retail"] }},
+      {v:300, q:"Four of these mean you have no choice. Find the four.",
+        group:{ pick:["compulsory","mandatory","required","obliged"],
+                with:["optional","voluntary","advisable","discretionary"] }},
+      {v:400, q:"Four of these are about losing a job. Find the four.",
+        group:{ pick:["redundancy","dismissal","sacking","layoffs"],
+                with:["recruitment","appointment","promotion","hiring"] }},
+      {v:500, q:"Four of these are qualifications. The others are pay. Find the qualifications.",
+        group:{ pick:["degree","diploma","certificate","apprenticeship"],
+                with:["salary","bonus","commission","wages"] }},
     ]},
-    /* The distinction Grammar Focus 5B (p147) is built around — must imposes an
-       obligation, have to describes one somebody else imposed — plus the parts of
-       the page nothing else tested: must has no past, had better, be supposed to. */
-    { id:'must-or-have-to', section:'5B', name:'Must or Have To?', clues:[
-      {v:100, q:"Which one describes a rule somebody else made — 'must' or 'have to'?", a:"have to (must imposes the rule yourself)"},
-      {v:200, q:"Imposing an obligation on yourself: 'I really ___ organise my time better'.", a:"must"},
-      {v:300, q:"'Must' has no past. Put it in the past: 'I must go on a business trip.'", a:"I had to go"},
-      {v:400, q:"Urgent advice, two words: 'You ___ ___ be early tomorrow!'", a:"had better"},
-      {v:500, q:"What the rules say: 'The Finance Director is ___ ___ authorise all major spending.'", a:"supposed to"},
+    { id:'5b-thermometer', section:'5B', name:'Word Thermometer', clues:[
+      {v:100, q:"Put these in order — least obligation first.",
+        order:{ scale:["optional","advisable","expected","required","compulsory"],
+                low:"entirely up to you", high:"no choice at all",
+                gloss:{ optional:"nobody minds either way.",
+                        advisable:"a good idea, and that is all.",
+                        expected:"people will notice if you do not.",
+                        required:"the rules say you do it.",
+                        compulsory:"there is no way out of it." } }},
+      {v:200, q:"Put these in order — least permitted first.",
+        order:{ scale:["forbidden","discouraged","tolerated","permitted","encouraged"],
+                low:"never, under any circumstances", high:"please do",
+                gloss:{ forbidden:"formally not allowed — the strongest refusal.",
+                        discouraged:"allowed, but they would rather you did not.",
+                        tolerated:"nobody stops you, nobody approves.",
+                        permitted:"officially allowed.",
+                        encouraged:"they actively want you to." } }},
+      {v:300, q:"Put these in order — most junior first.",
+        order:{ scale:["intern","trainee","assistant","manager","director"],
+                low:"just arrived", high:"runs the place",
+                gloss:{ intern:"often unpaid, and there to learn.",
+                        trainee:"employed, but still being taught the job.",
+                        assistant:"doing the job, supporting someone senior.",
+                        manager:"responsible for other people's work.",
+                        director:"sets what the organisation does." } }},
+      {v:400, q:"Put these in order — shortest time off first.",
+        order:{ scale:["break","day","weekend","holiday","sabbatical"],
+                low:"minutes", high:"months",
+                gloss:{ 'break':"ten minutes away from your desk.",
+                        day:"a single day off, often at short notice.",
+                        weekend:"two days, and the standard one.",
+                        holiday:"a week or more of your annual leave.",
+                        sabbatical:"a long paid career break, often six months." } }},
+      {v:500, q:"Put these in order — least secure job first.",
+        order:{ scale:["casual","temporary","probationary","permanent","tenured"],
+                low:"could end today", high:"almost impossible to end",
+                gloss:{ casual:"paid by the shift, with no promise of another.",
+                        temporary:"a fixed end date from the start.",
+                        probationary:"permanent in name, but they can still let you go.",
+                        permanent:"no end date, and proper notice required.",
+                        tenured:"protected by contract — you keep the post." } }},
     ]},
-    { id:'recall-speculate', section:'5C', name:'Recall or Speculate?', clues:[
-      {v:100, q:"Recalling or speculating? 'If my memory serves me correctly…'", a:"recalling"},
-      {v:200, q:"Recalling or speculating? 'I'd hazard a guess that…'", a:"speculating"},
-      {v:300, q:"Recalling or speculating? 'What stands out in my mind is…'", a:"recalling"},
-      {v:400, q:"Recalling or speculating? 'I was under the impression that…'", a:"speculating"},
-      {v:500, q:"Recalling or speculating? 'I think I remember her saying…'", a:"recalling"},
+    /* Grammar Focus 5B (p147) — must imposes the obligation yourself, have to
+       describes one somebody else imposed, and must has no past. */
+    { id:'5b-choice', section:'5B', name:'Multiple Choice', clues:[
+      {v:100, q:"Which one describes a rule that somebody ELSE imposed on you?",
+        choice:{ options:["have to","must","ought to","had better"], answer:"have to" }},
+      {v:200, q:"'Must' has no past. Put it in the past: 'I must go on a business trip.'",
+        choice:{ options:["I had to go","I musted go","I must went","I have must go"], answer:"I had to go" }},
+      {v:300, q:"'You ___ be early tomorrow!' — urgent advice, two words.",
+        choice:{ options:["had better","would rather","ought better","must to"], answer:"had better" }},
+      {v:400, q:"'You ___ pay tax on that' — it simply is not necessary.",
+        choice:{ options:["don't have to","mustn't","can't","shouldn't"], answer:"don't have to" }},
+      {v:500, q:"'Visitors are ___ to bring food into the building' — a formal refusal.",
+        choice:{ options:["forbidden","required","expected","obliged"], answer:"forbidden" }},
     ]},
-    { id:'complete-expression', section:'5C', name:'Complete the Expression', clues:[
-      {v:100, q:"'If my memory ___ me correctly…'", a:"serves"},
-      {v:200, q:"'I'd ___ a guess that…'", a:"hazard"},
-      {v:300, q:"'What ___ out in my mind is…'", a:"stands"},
-      {v:400, q:"'I was under the ___ that you were writing another book.'", a:"impression"},
-      {v:500, q:"'___ you're a technician, right?' — making an assumption.", a:"Presuming"},
+    { id:'5b-scramble', section:'5B', name:'Drag the Words', clues:[
+      {v:100, q:"Put the words in order — a modal takes no 'to'.",
+        scramble:{ sentence:"You must wear a helmet on this site" }},
+      {v:200, q:"Put the words in order — 'obliged' takes 'to'.",
+        scramble:{ sentence:"She is obliged to provide safety equipment" }},
+      {v:300, q:"Put the words in order — the negative of 'have to'.",
+        scramble:{ sentence:"You do not have to pay tax on it" }},
+      {v:400, q:"Put the words in order — 'made' plus the adjective.",
+        scramble:{ sentence:"He was made redundant late last year" }},
+      {v:500, q:"Put the words in order — what the rules say.",
+        scramble:{ sentence:"The director is supposed to authorise all major spending" }},
     ]},
-    { id:'meaning-match', section:'5C', name:'What Does It Mean?', clues:[
-      {v:100, q:"'It's slipped my mind' means…", a:"I've forgotten it"},
-      {v:200, q:"'I'd hazard a guess' means…", a:"I'll make a rough guess / estimate"},
-      {v:300, q:"'No doubt you heard that from…' expresses…", a:"a confident assumption"},
-      {v:400, q:"'If my memory serves me correctly' is used to…", a:"introduce something you're recalling (with slight uncertainty)"},
-      {v:500, q:"'What stands out in my mind' refers to…", a:"the thing you remember most clearly"},
+    { id:'5b-anagram', section:'5B', name:'Drag the Letters', clues:[
+      {v:100, q:"the money paid for a week's work", anagram:{ word:"wages" }},
+      {v:200, q:"a long paid career break, often six months", anagram:{ word:"sabbatical" }},
+      {v:300, q:"the benefit that lets you choose your own hours", anagram:{ word:"flexitime" }},
+      {v:400, q:"describes something you absolutely must do", anagram:{ word:"mandatory" }},
+      {v:500, q:"a duty you cannot get out of", anagram:{ word:"obligation" }},
     ]},
-    { id:'odd-one-out', section:'5C', name:'Odd One Out', clues:[
-      {v:100, q:"Which is NOT about remembering? recall / remember / hazard / memory", a:"hazard (it's for guessing)"},
-      {v:200, q:"Which shows you are SURE? I'd hazard a guess / I'd say roughly / no doubt / I'm not certain", a:"no doubt"},
-      {v:300, q:"Which is NOT a real expression? it slipped my mind / it crossed my mind / it fell out of my mind", a:"it fell out of my mind"},
-      {v:400, q:"Which adjective does NOT go with 'memory'? vague / painful / lasting / heavy", a:"heavy"},
-      {v:500, q:"Which does NOT introduce something you recall? if my memory serves / what stands out in my mind / I'd hazard a guess", a:"I'd hazard a guess (that's speculating)"},
+
+    /* ================= 5C · recalling and speculating ================= */
+    { id:'5c-connections', section:'5C', name:'Connections', clues:[
+      {v:100, q:"Four of these are about remembering. The others are about guessing.",
+        group:{ pick:["recall","remember","recollect","reminisce"],
+                with:["speculate","presume","assume","suppose"] }},
+      {v:200, q:"Four of these appear in expressions about memory. Find the four.",
+        group:{ pick:["serves","stands","slipped","crossed"],
+                with:["hazard","presume","reckon","gather"] }},
+      {v:300, q:"Four of these show you are certain. Find the four.",
+        group:{ pick:["definitely","certainly","undoubtedly","clearly"],
+                with:["possibly","perhaps","presumably","arguably"] }},
+      {v:400, q:"Four of these go with the word 'memory'. Find the four.",
+        group:{ pick:["vague","vivid","painful","lasting"],
+                with:["heavy","loud","narrow","steep"] }},
+      {v:500, q:"Four of these are rough. The others are certain. Find the rough four.",
+        group:{ pick:["guess","estimate","reckon","suppose"],
+                with:["confirm","verify","prove","establish"] }},
     ]},
-    /* 5D, Skills for Writing (pp.64-65). The writing lesson is as gameable as any
-       other section once you stop treating it as "an essay": the linkers are
-       vocabulary, and the paragraph functions are a fixed, testable structure. */
-    { id:'essay-structure', section:'5D', name:'Essay Structure', clues:[
-      {v:100, q:"Which paragraph outlines the topic and gets the reader interested?", a:"the introduction"},
-      {v:200, q:"What do paragraphs 2 and 3 of an opinion essay do?", a:"present each side of the argument"},
-      {v:300, q:"What belongs in the last paragraph of an opinion essay?", a:"the writer's balanced opinion of both sides"},
-      {v:400, q:"Name one good way to open an essay introduction.", a:"facts and figures / a surprising statement / outlining the issue"},
-      {v:500, q:"Which must NOT go in a conclusion: a course of action, a summary, or new information?", a:"new information"},
+    { id:'5c-thermometer', section:'5C', name:'Word Thermometer', clues:[
+      {v:100, q:"Put these in order — least certain first.",
+        order:{ scale:["possibly","probably","presumably","definitely","undoubtedly"],
+                low:"a wild guess", high:"no doubt at all",
+                gloss:{ possibly:"it might be true, and might not.",
+                        probably:"more likely than not.",
+                        presumably:"you assume it, without checking.",
+                        definitely:"you are sure.",
+                        undoubtedly:"nobody could reasonably disagree." } }},
+      {v:200, q:"Put these in order — faintest memory first.",
+        order:{ scale:["forgotten","hazy","vague","clear","vivid"],
+                low:"gone completely", high:"as if it were yesterday",
+                gloss:{ forgotten:"nothing is left of it at all.",
+                        hazy:"you know it happened, and little more.",
+                        vague:"the outline, none of the detail.",
+                        clear:"you can describe it accurately.",
+                        vivid:"you can still see and hear it." } }},
+      {v:300, q:"Put these in order — least reliable source first.",
+        order:{ scale:["rumour","hunch","impression","recollection","record"],
+                low:"someone said so", high:"written down at the time",
+                gloss:{ rumour:"passed along, from nobody in particular.",
+                        hunch:"a feeling, with nothing behind it.",
+                        impression:"what you took away — often wrong.",
+                        recollection:"what you actually remember.",
+                        record:"written down, and checkable." } }},
+      {v:400, q:"Put these in order — roughest first.",
+        order:{ scale:["guess","estimate","calculation","measurement","proof"],
+                low:"a number off the top of your head", high:"settles the question",
+                gloss:{ guess:"no working at all.",
+                        estimate:"a considered approximation.",
+                        calculation:"worked out from figures you have.",
+                        measurement:"you went and checked it.",
+                        proof:"nothing is left to argue about." } }},
+      {v:500, q:"Put these in order — least committed first.",
+        order:{ scale:["wondered","suspected","believed","knew","witnessed"],
+                low:"the thought crossed your mind", high:"you were there",
+                gloss:{ wondered:"it occurred to you as a possibility.",
+                        suspected:"you leaned towards it being true.",
+                        believed:"you took it to be true.",
+                        knew:"you had no doubt.",
+                        witnessed:"you saw it happen yourself." } }},
     ]},
-    { id:'linking-addition', section:'5D', name:'Linking: Addition', clues:[
-      {v:100, q:"One-word linker meaning 'in addition', used to start a new sentence.", a:"moreover / furthermore"},
-      {v:200, q:"Complete: '___ addition, they complain that companies go trawling.'", a:"In"},
-      {v:300, q:"Which joins two ideas inside ONE sentence — 'as well as' or 'in addition'?", a:"as well as"},
-      {v:400, q:"Which two-word phrase marks your single most important argument?", a:"above all"},
-      {v:500, q:"Start with 'Beyond': 'Employers research applicants online and also contact referees.'", a:"Beyond researching applicants online, employers contact referees"},
+    { id:'5c-choice', section:'5C', name:'Multiple Choice', clues:[
+      {v:100, q:"'If my memory ___ me correctly…'",
+        choice:{ options:["serves","helps","holds","keeps"], answer:"serves" }},
+      {v:200, q:"'I'd ___ a guess that she already knew.'",
+        choice:{ options:["hazard","risk","throw","take"], answer:"hazard" }},
+      {v:300, q:"'What ___ out in my mind is how quiet it was.'",
+        choice:{ options:["stands","comes","goes","puts"], answer:"stands" }},
+      {v:400, q:"'It's ___ my mind' — I have forgotten it completely.",
+        choice:{ options:["slipped","dropped","fallen","lost"], answer:"slipped" }},
+      {v:500, q:"Which one shows the speaker is SURE?",
+        choice:{ options:["no doubt","I'd hazard a guess","roughly speaking","I'm not certain"], answer:"no doubt" }},
+    ]},
+    { id:'5c-scramble', section:'5C', name:'Drag the Words', clues:[
+      {v:100, q:"Put the words in order — recalling, with slight uncertainty.",
+        scramble:{ sentence:"If my memory serves me correctly we met before" }},
+      {v:200, q:"Put the words in order — speculating.",
+        scramble:{ sentence:"I would hazard a guess that she already knew" }},
+      {v:300, q:"Put the words in order — what you remember most vividly.",
+        scramble:{ sentence:"What stands out in my mind is the silence" }},
+      {v:400, q:"Put the words in order — a belief that turned out wrong.",
+        scramble:{ sentence:"I was under the impression that you had left" }},
+      {v:500, q:"Put the words in order — admitting you forgot.",
+        scramble:{ sentence:"The whole thing has completely slipped my mind" }},
+    ]},
+    { id:'5c-anagram', section:'5C', name:'Drag the Letters', clues:[
+      {v:100, q:"to bring a past event back to mind", anagram:{ word:"recall" }},
+      {v:200, q:"a feeling about something, with no evidence behind it", anagram:{ word:"hunch" }},
+      {v:300, q:"to guess about something you cannot be sure of", anagram:{ word:"speculate" }},
+      {v:400, q:"a belief you were 'under', which turned out to be wrong", anagram:{ word:"impression" }},
+      {v:500, q:"unclear and hazy — said of a memory", anagram:{ word:"vague" }},
+    ]},
+
+    /* ================= 5D · opinion essays and linking ================= */
+    { id:'5d-connections', section:'5D', name:'Connections', clues:[
+      {v:100, q:"Four of these add a point. The others contrast. Find the four that add.",
+        group:{ pick:["moreover","furthermore","besides","additionally"],
+                with:["however","nevertheless","whereas","conversely"] }},
+      {v:200, q:"Four of these are parts of an essay. Find the four.",
+        group:{ pick:["introduction","argument","counterargument","conclusion"],
+                with:["heading","footnote","caption","index"] }},
+      {v:300, q:"Four of these narrow to one case. The others add a new point.",
+        group:{ pick:["notably","especially","particularly","chiefly"],
+                with:["moreover","besides","furthermore","additionally"] }},
+      {v:400, q:"Four of these are things an employer does to check you. Find the four.",
+        group:{ pick:["trawling","screening","vetting","researching"],
+                with:["hiring","promoting","training","paying"] }},
+      {v:500, q:"Four of these are concerns applicants raise. Find the four.",
+        group:{ pick:["privacy","discrimination","transparency","fairness"],
+                with:["salary","overtime","bonus","pension"] }},
+    ]},
+    { id:'5d-thermometer', section:'5D', name:'Word Thermometer', clues:[
+      {v:100, q:"Put these in order — first paragraph to last.",
+        order:{ scale:["introduction","argument","counterargument","evaluation","conclusion"],
+                low:"opens the essay", high:"closes the essay",
+                gloss:{ introduction:"outlines the topic and catches the reader's interest.",
+                        argument:"the case for one side, with support.",
+                        counterargument:"the case for the other side, given fairly.",
+                        evaluation:"weighing the two against each other.",
+                        conclusion:"your balanced opinion — and no new information." } }},
+      {v:200, q:"Put these in order — chattiest first, most formal last.",
+        order:{ scale:["plus","and","also","moreover","furthermore"],
+                low:"a text message", high:"an academic essay",
+                gloss:{ plus:"spoken English only — never write it in an essay.",
+                        and:"joins two things inside a sentence.",
+                        also:"neutral, and fine in most writing.",
+                        moreover:"formal, and starts a new sentence.",
+                        furthermore:"the most formal of the four." } }},
+      {v:300, q:"Put these in order — weakest claim first.",
+        order:{ scale:["suggests","indicates","shows","demonstrates","proves"],
+                low:"hints at it", high:"settles it",
+                gloss:{ suggests:"points that way, without insisting.",
+                        indicates:"the evidence leans this way.",
+                        shows:"makes it visible.",
+                        demonstrates:"makes it plain, step by step.",
+                        proves:"leaves nothing to argue about." } }},
+      {v:400, q:"Put these in order — least attention first.",
+        order:{ scale:["glance","skim","read","study","scrutinise"],
+                low:"barely looks", high:"goes through every line",
+                gloss:{ glance:"a second, at most.",
+                        skim:"picks up the gist and moves on.",
+                        read:"the ordinary word — start to finish.",
+                        study:"reads it in order to understand it properly.",
+                        scrutinise:"examines it looking for something wrong." } }},
+      {v:500, q:"Put these in order — mildest first.",
+        order:{ scale:["arguably","probably","clearly","certainly","undeniably"],
+                low:"you could make the case", high:"nobody could disagree",
+                gloss:{ arguably:"a case can be made, and also against.",
+                        probably:"more likely than not.",
+                        clearly:"obvious once stated.",
+                        certainly:"you are committing to it.",
+                        undeniably:"the strongest of the five — use it rarely." } }},
+    ]},
+    { id:'5d-choice', section:'5D', name:'Multiple Choice', clues:[
+      {v:100, q:"Which paragraph gives your balanced opinion of both sides?",
+        choice:{ options:["the conclusion","the introduction","paragraph two","paragraph three"], answer:"the conclusion" }},
+      {v:200, q:"Which of these must NOT appear in a conclusion?",
+        choice:{ options:["new information","a summary","a course of action","your opinion"], answer:"new information" }},
+      {v:300, q:"Which one joins two ideas inside a SINGLE sentence?",
+        choice:{ options:["as well as","in addition","moreover","furthermore"], answer:"as well as" }},
+      {v:400, q:"Which phrase introduces the point you most want remembered?",
+        choice:{ options:["above all","in addition","as well","what is more"], answer:"above all" }},
+      {v:500, q:"'___ addition, they complain that companies go trawling.'",
+        choice:{ options:["In","On","By","With"], answer:"In" }},
+    ]},
+    { id:'5d-scramble', section:'5D', name:'Drag the Words', clues:[
+      {v:100, q:"Put the words in order — adding a point.",
+        scramble:{ sentence:"In addition employers now routinely check social media" }},
+      {v:200, q:"Put the words in order — your most important argument.",
+        scramble:{ sentence:"Above all the process must be fair and transparent" }},
+      {v:300, q:"Put the words in order — a formal linker opens it.",
+        scramble:{ sentence:"Moreover applicants are rarely told what was actually found" }},
+      {v:400, q:"Put the words in order — 'Beyond' plus the -ing form.",
+        scramble:{ sentence:"Beyond researching applicants online employers also contact referees" }},
+      {v:500, q:"Put the words in order — what the writer concludes.",
+        scramble:{ sentence:"Clear guidelines are needed to restrict what employers research" }},
+    ]},
+    { id:'5d-anagram', section:'5D', name:'Drag the Letters', clues:[
+      {v:100, q:"the paragraph that closes an essay", anagram:{ word:"conclusion" }},
+      {v:200, q:"the paragraph that opens one", anagram:{ word:"introduction" }},
+      {v:300, q:"open, and easy for anyone to see into", anagram:{ word:"transparent" }},
+      {v:400, q:"to treat someone unfairly because of their age or health", anagram:{ word:"discriminate" }},
+      {v:500, q:"the one-word linker meaning 'what is more'", anagram:{ word:"moreover" }},
     ]},
   ],
 
@@ -229,8 +434,16 @@
     '5D-vocab': '5D · Essay writing',
   },
 
-  blockbustersBank: [
-    /* ---- typed forms: the shape of the question is the task (Kit.prompt) ---- */
+  /* ---- Bingo calls ----------------------------------------------------------
+     These were the Blockbusters bank until that board went all-rounds. A bingo
+     call is a clue with one single-word answer, which is exactly what a round
+     hexagon is not — a Connections set has four answers and a scale has five — so
+     the two could not stay one list. Bingo reads `bingoBank` when a unit has one
+     and falls back to `blockbustersBank` when it does not, which is every unit
+     that has not been converted.
+     Fields: section, topic, letter (unused by Bingo, kept so a call can go back
+     on a hexagon), clue, answer (one word). */
+  bingoBank: [
     {section:'5A', topic:'5A-vocab', type:'anagram', letter:'V', clue:"Unscramble: the decision a jury delivers.", answer:"Verdict"},
     {section:'5B', topic:'5B-vocab', type:'anagram', letter:'W', clue:"Unscramble: the money paid for a week's work.", answer:"Wages"},
     {section:'5C', topic:'5C-vocab', type:'anagram', letter:'H', clue:"Unscramble: a guess based on very little evidence.", answer:"Hunch"},
@@ -239,7 +452,6 @@
     {section:'5B', topic:'5B-vocab', type:'oddoneout', letter:'T', clue:"Which does NOT belong: salary / bonus / testimony", answer:"Testimony"},
     {section:'5C', topic:'5C-vocab', type:'oddoneout', letter:'B', clue:"Which does NOT belong: reckon / suspect / burgle", answer:"Burgle"},
     {section:'5D', topic:'5D-vocab', type:'oddoneout', letter:'A', clue:"Which does NOT belong: however / moreover / arrest", answer:"Arrest"},
-    /* ---- 5A: crime & justice (single-word answers) ---- */
     {section:'5A', topic:'5A-vocab', letter:'F', clue:"A financial crime of deception for personal gain.", answer:"Fraud"},
     {section:'5A', topic:'5A-vocab', letter:'M', clue:"The most serious crime — unlawful killing.", answer:"Murder"},
     {section:'5A', topic:'5A-vocab', letter:'C', clue:"Held before trial: held in ___.", answer:"Custody"},
@@ -258,36 +470,6 @@
     {section:'5A', topic:'5A-vocab', letter:'D', clue:"The ___ lawyer argues on behalf of the accused.", answer:"Defence"},
     {section:'5A', topic:'5A-vocab', letter:'O', clue:"The formal word for a crime or illegal act.", answer:"Offence"},
     {section:'5A', topic:'5A-vocab', letter:'S', clue:"Kept apart from all other prisoners: '___ confinement'.", answer:"Solitary"},
-    /* Round hexagons, filed in with the ordinary ones on purpose. A category
-       announces its question type in its heading; a hexagon does not — you take R
-       and you do not know whether you are getting a one-word definition or five
-       words to put in order. That surprise is what the honeycomb buys, and it is
-       why these are not a section of their own. The letter is the hexagon's name,
-       not a constraint: a round has no single-word answer to match it against. */
-    {section:'5A', topic:'5A-vocab', letter:'P', clue:"Four of these are places a person can be held. Find the four.",
-      group:{ pick:["prison","cell","custody","remand"], with:["verdict","appeal","plea","bail"] }},
-    {section:'5A', topic:'5A-vocab', letter:'W', clue:"Four of these mean breaking the law. Find the four.",
-      group:{ pick:["offence","crime","violation","breach"], with:["sentence","verdict","appeal","custody"] }},
-    {section:'5A', topic:'5A-vocab', letter:'N', clue:"Eight punishments. Find the four that do NOT involve being locked up.",
-      group:{ pick:["fine","probation","curfew","community"], with:["imprisonment","custody","confinement","detention"] }},
-    {section:'5A', topic:'5A-vocab', letter:'R', clue:"Put these in order — least free first.",
-      order:{ scale:["solitary","imprisonment","custody","curfew","probation"],
-              low:"no freedom at all", high:"nearly free",
-              gloss:{ solitary:"alone in a cell, apart from everyone.",
-                      imprisonment:"in prison with the other inmates.",
-                      custody:"held, but usually short-term and before trial.",
-                      curfew:"at home, but only between certain hours.",
-                      probation:"out in the world, reporting to an officer." } }},
-    {section:'5A', topic:'5A-vocab', letter:'D', clue:"Put these in order — mildest first.",
-      order:{ scale:["misleading","dishonest","deceitful","fraudulent","criminal"],
-              low:"careless with the truth", high:"a matter for the courts",
-              gloss:{ misleading:"gives the wrong impression — may be an accident.",
-                      dishonest:"not telling the truth, deliberately.",
-                      deceitful:"lying as a habit, to gain something.",
-                      fraudulent:"lying for money — the legal word.",
-                      criminal:"the law is now involved." } }},
-
-    /* ---- 5B: employment & obligation (single-word answers) ---- */
     {section:'5B', topic:'5B-vocab', letter:'F', clue:"Banking and investment belong to this sector.", answer:"Financial"},
     {section:'5B', topic:'5B-vocab', letter:'A', clue:"Farming belongs to this sector.", answer:"Agricultural"},
     {section:'5B', topic:'5B-vocab', letter:'C', clue:"Building houses and roads: this sector.", answer:"Construction"},
@@ -304,16 +486,10 @@
     {section:'5B', topic:'5B-vocab', letter:'M', clue:"A ___ requirement is one you absolutely MUST meet.", answer:"Mandatory"},
     {section:'5B', topic:'5B-grammar', letter:'O', clue:"'You are ___ to wear protective clothing' — formal strong obligation (be ___).", answer:"Obliged"},
     {section:'5B', topic:'5B-vocab', letter:'Q', clue:"The training and certificates a job requires.", answer:"Qualifications"},
-    /* Phrase-box exponents from Grammar Focus 5B (p147). Relative clauses are
-       deliberately NOT here: single-word answers keyed by an initial make W
-       ambiguous across who / whom / whose / where / when / why, which would make
-       the letter a hindrance rather than the clue it is meant to be. */
     {section:'5B', topic:'5B-grammar', letter:'F', clue:"'Visitors are ___ to bring food into the building' — formal refusal of permission.", answer:"Forbidden"},
     {section:'5B', topic:'5B-grammar', letter:'E', clue:"'How can she be ___ to be in two places at once?' — mild obligation.", answer:"Expected"},
     {section:'5B', topic:'5B-vocab', letter:'S', clue:"'I was ___ to read the report by today' — what the rules said I'd do.", answer:"Supposed"},
     {section:'5B', topic:'5B-vocab', letter:'A', clue:"'It is ___ to wear protective clothing' — formal advice, not an order.", answer:"Advisable"},
-
-    /* ---- 5C: recalling & speculating (single-word answers) ---- */
     {section:'5C', topic:'5C-vocab', letter:'M', clue:"'If my ___ serves me correctly…'", answer:"Memory"},
     {section:'5C', topic:'5C-vocab', letter:'I', clue:"A belief you held that turned out to be wrong — you were 'under' one.", answer:"Impression"},
     {section:'5C', topic:'5C-vocab', letter:'H', clue:"'I'd ___ a guess that…' — make a rough estimate.", answer:"Hazard"},
@@ -323,8 +499,6 @@
     {section:'5C', topic:'5C-vocab', letter:'D', clue:"'No ___ you heard that from…' — a confident assumption.", answer:"Doubt"},
     {section:'5C', topic:'5C-vocab', letter:'R', clue:"To ___ something is to bring a past event back to mind.", answer:"Recall"},
     {section:'5C', topic:'5C-vocab', letter:'S', clue:"To ___ is to guess about something you're not sure of.", answer:"Speculate"},
-
-    /* ---- 5D: opinion essays & linking (single-word answers) ---- */
     {section:'5D', topic:'5D-grammar', letter:'M', clue:"A one-word linker meaning 'in addition', used to start a new sentence.", answer:"Moreover"},
     {section:'5D', topic:'5D-grammar', letter:'F', clue:"Another one-word linker meaning 'what is more' — often the final point.", answer:"Furthermore"},
     {section:'5D', topic:'5D-grammar', letter:'B', clue:"'___, time saved is money saved' — adds a reinforcing point.", answer:"Besides"},
@@ -340,8 +514,6 @@
     {section:'5D', topic:'5D-vocab', letter:'T', clue:"Checks need to be fair and ___ — open and easy to see.", answer:"Transparent"},
     {section:'5D', topic:'5D-vocab', letter:'G', clue:"'___ or laws' are needed to restrict what employers may research.", answer:"Guidelines"},
     {section:'5C', topic:'5C-vocab', letter:'M', clue:"'It's slipped my ___' — I've forgotten it.", answer:"Mind"},
-
-    /* ---- added later: transformations and opposites, to vary the clue types ---- */
     {section:'5A', topic:'5A-vocab', letter:'C', clue:"The formal record that a court has found you guilty.", answer:"Conviction"},
     {section:'5A', topic:'5A-vocab', letter:'C', clue:"The adjective in both '___ record' and '___ damage'.", answer:"Criminal"},
     {section:'5A', topic:'5A-vocab', letter:'I', clue:"The opposite of a guilty verdict.", answer:"Innocent"},
@@ -356,11 +528,257 @@
     {section:'5C', topic:'5C-vocab', letter:'V', clue:"Which adjective describes a memory that is unclear or hazy?", answer:"Vague"},
   ],
 
+  /* Every hexagon on this board is a **round**. The letter is the hexagon's name —
+     it is how a team says which square they are attacking, and it is what the
+     picking vote counts — not a constraint on the answer, because a round has no
+     single-word answer to match against.
+
+     **Every question here is a different question from the Jeopardy column on the
+     same language**, not the same one reworded. That is the per-game authoring
+     rule (§3.2) and the content gate enforces it: the first draft of this bank
+     reused the Jeopardy sets and the gate found 47 of them. Same *answer* in two
+     games is spaced retrieval working; same *prompt* is the thing the rule exists
+     to stop.
+
+     Filed with each other rather than in a section of their own, and the surprise
+     is the point: a Jeopardy column announces its question type in the heading, a
+     hexagon does not. Eighteen per section, because eighteen is the board. */
+  blockbustersBank: [
+    /* ---- 5A: crime & justice ---- */
+    {section:'5A', topic:'5A-vocab', letter:'P', clue:"Four of these are places a person can be held. Find the four.",
+      group:{ pick:["prison","cell","custody","remand"], with:["verdict","appeal","plea","bail"] }},
+    {section:'5A', topic:'5A-vocab', letter:'W', clue:"Four of these mean breaking the law. Find the four.",
+      group:{ pick:["offence","crime","violation","breach"], with:["sentence","verdict","appeal","custody"] }},
+    {section:'5A', topic:'5A-vocab', letter:'N', clue:"Eight punishments. Find the four that do NOT involve being locked up.",
+      group:{ pick:["fine","probation","curfew","community"], with:["imprisonment","custody","confinement","detention"] }},
+    {section:'5A', topic:'5A-vocab', letter:'J', clue:"Four of these argue for the accused. Find the four.",
+      group:{ pick:["defence","solicitor","barrister","advocate"], with:["prosecution","plaintiff","magistrate","bailiff"] }},
+    {section:'5A', topic:'5A-vocab', letter:'E', clue:"Four of these mean the court let you go. Find the four.",
+      group:{ pick:["acquitted","cleared","exonerated","pardoned"], with:["convicted","sentenced","charged","remanded"] }},
+    {section:'5A', topic:'5A-vocab', letter:'R', clue:"Put these in order — least free first.",
+      order:{ scale:["solitary","imprisonment","custody","curfew","probation"],
+              low:"no freedom at all", high:"nearly free",
+              gloss:{ solitary:"alone in a cell, apart from everyone.",
+                      imprisonment:"in prison with the other inmates.",
+                      custody:"held, but usually short-term and before trial.",
+                      curfew:"at home, but only between certain hours.",
+                      probation:"out in the world, reporting to an officer." } }},
+    {section:'5A', topic:'5A-vocab', letter:'D', clue:"Put these in order — least dishonest first.",
+      order:{ scale:["misleading","dishonest","deceitful","fraudulent","criminal"],
+              low:"careless with the truth", high:"a matter for the courts",
+              gloss:{ misleading:"gives the wrong impression — may be an accident.",
+                      dishonest:"not telling the truth, deliberately.",
+                      deceitful:"lying as a habit, to gain something.",
+                      fraudulent:"lying for money — the legal word.",
+                      criminal:"the law is now involved." } }},
+    {section:'5A', topic:'5A-vocab', letter:'K', clue:"Put these in order — least harm done first.",
+      order:{ scale:["trespass","vandalism","burglary","robbery","murder"],
+              low:"you should not be there", high:"the gravest crime of all",
+              gloss:{ trespass:"being on land that is not yours.",
+                      vandalism:"damaging property deliberately.",
+                      burglary:"entering a building to steal.",
+                      robbery:"stealing with force or the threat of it.",
+                      murder:"unlawful killing." } }},
+    {section:'5A', topic:'5A-grammar', letter:'H', clue:"'This is the colleague ___ I share an office.'",
+      choice:{ options:["with whom","whom","who","that"], answer:"with whom" }},
+    {section:'5A', topic:'5A-grammar', letter:'X', clue:"'The house ___ roof was damaged has been sold.'",
+      choice:{ options:["whose","who's","which","that"], answer:"whose" }},
+    {section:'5A', topic:'5A-grammar', letter:'Y', clue:"'The prison ___ he was held has now closed.'",
+      choice:{ options:["where","which","who","whose"], answer:"where" }},
+    {section:'5A', topic:'5A-vocab', letter:'Q', clue:"Which one is decided by the jury rather than the judge?",
+      choice:{ options:["the verdict","the sentence","the appeal","the charge"], answer:"the verdict" }},
+    {section:'5A', topic:'5A-grammar', letter:'Z', clue:"Put the words in order — the clause defines which one.",
+      scramble:{ sentence:"The evidence that convicted him was purely circumstantial" }},
+    {section:'5A', topic:'5A-grammar', letter:'U', clue:"Put the words in order — mind the commas.",
+      scramble:{ sentence:"Halden prison, which opened in 2010, is humane" }},
+    {section:'5A', topic:'5A-vocab', letter:'V', clue:"the person a crime was committed against", anagram:{ word:"victim" }},
+    {section:'5A', topic:'5A-vocab', letter:'A', clue:"a formal claim that somebody has done wrong", anagram:{ word:"allegation" }},
+    {section:'5A', topic:'5A-vocab', letter:'F', clue:"the crime of tricking people out of money", anagram:{ word:"fraud" }},
+    {section:'5A', topic:'5A-vocab', letter:'S', clue:"the person the police believe did it", anagram:{ word:"suspect" }},
+
+    /* ---- 5B: employment, pay & obligation ---- */
+    {section:'5B', topic:'5B-vocab', letter:'S', clue:"Four of these name a part of the economy. Find the four.",
+      group:{ pick:["retail","transport","energy","manufacturing"], with:["flexitime","sabbatical","paternity","pension"] }},
+    {section:'5B', topic:'5B-vocab', letter:'B', clue:"Four of these are perks rather than industries. Find the perks.",
+      group:{ pick:["flexitime","sabbatical","paternity","pension"], with:["financial","retail","construction","agricultural"] }},
+    {section:'5B', topic:'5B-grammar', letter:'N', clue:"Four of these leave you no way out. Find the four.",
+      group:{ pick:["compulsory","mandatory","required","obliged"], with:["optional","voluntary","advisable","discretionary"] }},
+    {section:'5B', topic:'5B-vocab', letter:'L', clue:"Four of these mean your job has ended. Find the four.",
+      group:{ pick:["redundancy","dismissal","sacking","layoffs"], with:["recruitment","promotion","appointment","hiring"] }},
+    {section:'5B', topic:'5B-vocab', letter:'G', clue:"Four of these you earn by studying. Find the four.",
+      group:{ pick:["degree","diploma","certificate","apprenticeship"], with:["salary","bonus","commission","wages"] }},
+    {section:'5B', topic:'5B-grammar', letter:'O', clue:"Put these in order — starting with the one you may ignore.",
+      order:{ scale:["optional","advisable","expected","required","compulsory"],
+              low:"entirely up to you", high:"no choice at all",
+              gloss:{ optional:"nobody minds either way.",
+                      advisable:"a good idea, and that is all.",
+                      expected:"people will notice if you do not.",
+                      required:"the rules say you do it.",
+                      compulsory:"there is no way out of it." } }},
+    {section:'5B', topic:'5B-grammar', letter:'T', clue:"Put these in order — starting with what is never allowed.",
+      order:{ scale:["forbidden","discouraged","tolerated","permitted","encouraged"],
+              low:"never, under any circumstances", high:"please do",
+              gloss:{ forbidden:"formally not allowed — the strongest refusal.",
+                      discouraged:"allowed, but they would rather you did not.",
+                      tolerated:"nobody stops you, nobody approves.",
+                      permitted:"officially allowed.",
+                      encouraged:"they actively want you to." } }},
+    {section:'5B', topic:'5B-vocab', letter:'J', clue:"Put these in order — lowest position first.",
+      order:{ scale:["intern","trainee","assistant","manager","director"],
+              low:"just arrived", high:"runs the place",
+              gloss:{ intern:"often unpaid, and there to learn.",
+                      trainee:"employed, but still being taught the job.",
+                      assistant:"doing the job, supporting someone senior.",
+                      manager:"responsible for other people's work.",
+                      director:"sets what the organisation does." } }},
+    {section:'5B', topic:'5B-vocab', letter:'K', clue:"Put these in order — the job most easily lost first.",
+      order:{ scale:["casual","temporary","probationary","permanent","tenured"],
+              low:"could end today", high:"almost impossible to end",
+              gloss:{ casual:"paid by the shift, with no promise of another.",
+                      temporary:"a fixed end date from the start.",
+                      probationary:"permanent in name, but they can still let you go.",
+                      permanent:"no end date, and proper notice required.",
+                      tenured:"protected by contract — you keep the post." } }},
+    {section:'5B', topic:'5B-grammar', letter:'H', clue:"'She ___ work Saturdays — it is in her contract.'",
+      choice:{ options:["has to","must","ought to","had better"], answer:"has to" }},
+    {section:'5B', topic:'5B-grammar', letter:'P', clue:"'We ___ to leave early yesterday' — the past of 'must'.",
+      choice:{ options:["had","must","have","ought"], answer:"had" }},
+    {section:'5B', topic:'5B-grammar', letter:'X', clue:"'You ___ touch that — it is live.' Strong prohibition.",
+      choice:{ options:["mustn't","don't have to","needn't","shouldn't"], answer:"mustn't" }},
+    {section:'5B', topic:'5B-vocab', letter:'C', clue:"Which sector would a wind farm belong to?",
+      choice:{ options:["energy","retail","financial","agricultural"], answer:"energy" }},
+    {section:'5B', topic:'5B-grammar', letter:'Y', clue:"Put the words in order — the rule applies to everyone.",
+      scramble:{ sentence:"All staff must complete the safety course first" }},
+    {section:'5B', topic:'5B-grammar', letter:'Z', clue:"Put the words in order — no obligation at all.",
+      scramble:{ sentence:"We do not have to be there until nine" }},
+    {section:'5B', topic:'5B-vocab', letter:'W', clue:"everyone a company employs, taken together", anagram:{ word:"workforce" }},
+    {section:'5B', topic:'5B-vocab', letter:'A', clue:"someone learning a trade while working at it", anagram:{ word:"apprentice" }},
+    {section:'5B', topic:'5B-vocab', letter:'F', clue:"not allowed, in the most formal way", anagram:{ word:"forbidden" }},
+
+    /* ---- 5C: recalling & speculating ---- */
+    {section:'5C', topic:'5C-vocab', letter:'R', clue:"Four of these are about remembering. Find the four.",
+      group:{ pick:["recall","remember","recollect","reminisce"], with:["speculate","presume","assume","suppose"] }},
+    {section:'5C', topic:'5C-vocab', letter:'E', clue:"Four of these turn up in memory idioms. Find the four.",
+      group:{ pick:["serves","stands","slipped","crossed"], with:["hazard","presume","reckon","gather"] }},
+    {section:'5C', topic:'5C-vocab', letter:'C', clue:"Four of these leave no room for doubt. Find the four.",
+      group:{ pick:["definitely","certainly","undoubtedly","clearly"], with:["possibly","perhaps","presumably","arguably"] }},
+    {section:'5C', topic:'5C-vocab', letter:'W', clue:"Four of these can describe a memory. Find the four.",
+      group:{ pick:["vague","vivid","painful","lasting"], with:["heavy","loud","narrow","steep"] }},
+    {section:'5C', topic:'5C-vocab', letter:'B', clue:"Four of these settle a question. Find those four.",
+      group:{ pick:["confirm","verify","prove","establish"], with:["guess","estimate","reckon","suppose"] }},
+    {section:'5C', topic:'5C-vocab', letter:'O', clue:"Put these in order — starting with the biggest guess.",
+      order:{ scale:["possibly","probably","presumably","definitely","undoubtedly"],
+              low:"a wild guess", high:"no doubt at all",
+              gloss:{ possibly:"it might be true, and might not.",
+                      probably:"more likely than not.",
+                      presumably:"you assume it, without checking.",
+                      definitely:"you are sure.",
+                      undoubtedly:"nobody could reasonably disagree." } }},
+    {section:'5C', topic:'5C-vocab', letter:'F', clue:"Put these in order — the dimmest memory first.",
+      order:{ scale:["forgotten","hazy","vague","clear","vivid"],
+              low:"gone completely", high:"as if it were yesterday",
+              gloss:{ forgotten:"nothing is left of it at all.",
+                      hazy:"you know it happened, and little more.",
+                      vague:"the outline, none of the detail.",
+                      clear:"you can describe it accurately.",
+                      vivid:"you can still see and hear it." } }},
+    {section:'5C', topic:'5C-vocab', letter:'L', clue:"Put these in order — the source you would trust least first.",
+      order:{ scale:["rumour","hunch","impression","recollection","record"],
+              low:"someone said so", high:"written down at the time",
+              gloss:{ rumour:"passed along, from nobody in particular.",
+                      hunch:"a feeling, with nothing behind it.",
+                      impression:"what you took away — often wrong.",
+                      recollection:"what you actually remember.",
+                      record:"written down, and checkable." } }},
+    {section:'5C', topic:'5C-vocab', letter:'N', clue:"Put these in order — starting with the loosest hold on it.",
+      order:{ scale:["wondered","suspected","believed","knew","witnessed"],
+              low:"the thought crossed your mind", high:"you were there",
+              gloss:{ wondered:"it occurred to you as a possibility.",
+                      suspected:"you leaned towards it being true.",
+                      believed:"you took it to be true.",
+                      knew:"you had no doubt.",
+                      witnessed:"you saw it happen yourself." } }},
+    {section:'5C', topic:'5C-vocab', letter:'M', clue:"'That name doesn't ___ a bell.'",
+      choice:{ options:["ring","sound","hit","knock"], answer:"ring" }},
+    {section:'5C', topic:'5C-vocab', letter:'Z', clue:"'I ___ she must have known all along.'",
+      choice:{ options:["reckon","count","number","tell"], answer:"reckon" }},
+    {section:'5C', topic:'5C-vocab', letter:'T', clue:"'It ___ my mind that she might already know.'",
+      choice:{ options:["crossed","passed","went","ran"], answer:"crossed" }},
+    {section:'5C', topic:'5C-vocab', letter:'D', clue:"'___ nothing goes wrong, we finish by six.'",
+      choice:{ options:["Presuming","Presumed","Presume","Presumption"], answer:"Presuming" }},
+    {section:'5C', topic:'5C-vocab', letter:'Y', clue:"Put the words in order — reporting what you heard.",
+      scramble:{ sentence:"I gather she had already handed in her notice" }},
+    {section:'5C', topic:'5C-vocab', letter:'X', clue:"Put the words in order — the name will not come.",
+      scramble:{ sentence:"Her name has completely escaped me again today" }},
+    {section:'5C', topic:'5C-vocab', letter:'H', clue:"to venture a guess you are not sure of", anagram:{ word:"hazard" }},
+    {section:'5C', topic:'5C-vocab', letter:'I', clue:"what you took away, though it proved wrong", anagram:{ word:"impression" }},
+    {section:'5C', topic:'5C-vocab', letter:'V', clue:"sharp and detailed — said of a memory", anagram:{ word:"vivid" }},
+
+    /* ---- 5D: opinion essays & linking ---- */
+    {section:'5D', topic:'5D-grammar', letter:'A', clue:"Four of these add a point. Find the four that add.",
+      group:{ pick:["moreover","furthermore","besides","additionally"], with:["however","nevertheless","whereas","conversely"] }},
+    {section:'5D', topic:'5D-vocab', letter:'E', clue:"Four of these are sections of an essay. Find the four.",
+      group:{ pick:["introduction","argument","counterargument","conclusion"], with:["heading","footnote","caption","index"] }},
+    {section:'5D', topic:'5D-grammar', letter:'N', clue:"Four of these narrow to one case. Find the four.",
+      group:{ pick:["notably","especially","particularly","chiefly"], with:["moreover","besides","furthermore","additionally"] }},
+    {section:'5D', topic:'5D-vocab', letter:'K', clue:"Four of these are what a recruiter does to you. Find the four.",
+      group:{ pick:["trawling","screening","vetting","researching"], with:["hiring","promoting","training","paying"] }},
+    {section:'5D', topic:'5D-vocab', letter:'Q', clue:"Four of these are what applicants object to. Find the four.",
+      group:{ pick:["privacy","discrimination","transparency","fairness"], with:["salary","overtime","bonus","pension"] }},
+    {section:'5D', topic:'5D-vocab', letter:'P', clue:"Put these in order — the order you write them in.",
+      order:{ scale:["introduction","argument","counterargument","evaluation","conclusion"],
+              low:"opens the essay", high:"closes the essay",
+              gloss:{ introduction:"outlines the topic and catches the reader's interest.",
+                      argument:"the case for one side, with support.",
+                      counterargument:"the case for the other side, given fairly.",
+                      evaluation:"weighing the two against each other.",
+                      conclusion:"your balanced opinion — and no new information." } }},
+    {section:'5D', topic:'5D-grammar', letter:'L', clue:"Put these in order — chattiest first.",
+      order:{ scale:["plus","and","also","moreover","furthermore"],
+              low:"a text message", high:"an academic essay",
+              gloss:{ plus:"spoken English only — never write it in an essay.",
+                      and:"joins two things inside a sentence.",
+                      also:"neutral, and fine in most writing.",
+                      moreover:"formal, and starts a new sentence.",
+                      furthermore:"the most formal of the four." } }},
+    {section:'5D', topic:'5D-vocab', letter:'W', clue:"Put these in order — starting with the most cautious verb.",
+      order:{ scale:["suggests","indicates","shows","demonstrates","proves"],
+              low:"hints at it", high:"settles it",
+              gloss:{ suggests:"points that way, without insisting.",
+                      indicates:"the evidence leans this way.",
+                      shows:"makes it visible.",
+                      demonstrates:"makes it plain, step by step.",
+                      proves:"leaves nothing to argue about." } }},
+    {section:'5D', topic:'5D-vocab', letter:'G', clue:"Put these in order — the quickest look first.",
+      order:{ scale:["glance","skim","read","study","scrutinise"],
+              low:"barely looks", high:"goes through every line",
+              gloss:{ glance:"a second, at most.",
+                      skim:"picks up the gist and moves on.",
+                      read:"the ordinary word — start to finish.",
+                      study:"reads it in order to understand it properly.",
+                      scrutinise:"examines it looking for something wrong." } }},
+    {section:'5D', topic:'5D-vocab', letter:'C', clue:"Which paragraph outlines the topic and hooks the reader?",
+      choice:{ options:["the introduction","the conclusion","paragraph three","the evaluation"], answer:"the introduction" }},
+    {section:'5D', topic:'5D-vocab', letter:'X', clue:"Where does the writer's balanced opinion belong?",
+      choice:{ options:["the last paragraph","the first paragraph","paragraph two","a footnote"], answer:"the last paragraph" }},
+    {section:'5D', topic:'5D-grammar', letter:'S', clue:"Which linker is too informal for an essay?",
+      choice:{ options:["plus","moreover","furthermore","in addition"], answer:"plus" }},
+    {section:'5D', topic:'5D-grammar', letter:'B', clue:"Which one contrasts rather than adds?",
+      choice:{ options:["nevertheless","moreover","besides","furthermore"], answer:"nevertheless" }},
+    {section:'5D', topic:'5D-grammar', letter:'Y', clue:"Put the words in order — adding a further point.",
+      scramble:{ sentence:"Furthermore many applicants never learn what was found" }},
+    {section:'5D', topic:'5D-vocab', letter:'Z', clue:"Put the words in order — the writer's main point.",
+      scramble:{ sentence:"Above all the selection process must remain transparent" }},
+    {section:'5D', topic:'5D-vocab', letter:'T', clue:"actively hunting through somebody's old posts", anagram:{ word:"trawling" }},
+    {section:'5D', topic:'5D-vocab', letter:'D', clue:"fair to both sides of an argument", anagram:{ word:"balanced" }},
+    {section:'5D', topic:'5D-vocab', letter:'M', clue:"official advice a company is expected to follow", anagram:{ word:"guidelines" }},
+  ],
+
   blockbustersSectionNames: {
-    '5A':'5A · Crime & justice (29 clues)',
-    '5B':'5B · Employment & obligation (26 clues)',
-    '5C':'5C · Recalling & speculating (16 clues)',
-    '5D':'5D · Opinion essays & linking (16 clues)',
+    '5A':'5A · Crime & justice (18 rounds)',
+    '5B':'5B · Employment & obligation (18 rounds)',
+    '5C':'5C · Recalling & speculating (18 rounds)',
+    '5D':'5D · Opinion essays & linking (18 rounds)',
   },
 
   /* ---- Race to the Board ----------------------------------------------------

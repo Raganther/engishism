@@ -391,10 +391,16 @@
       badge:'Best for: whole-class listening, everyone in at once' },
     intro:{ eyebrow:'Cambridge Empower C1', title:'BINGO',
             sub:'Nine words each. Listen for yours. Three in a row.', accent:'#FF7AC8' },
-    /* Same bank Blockbusters uses: single-word answers with a clue apiece. A card
-       needs nine distinct words and the call list wants a few spare. */
-    hasBank: u => bingoWordsIn(u.blockbustersBank || []).length >= BINGO_POOL,
-    load(u){ BINGO_BANK          = u.blockbustersBank || [];
+    /* **Its own bank if the unit has one, Blockbusters' if not.** It began as
+       "the same bank Blockbusters uses", which held for as long as that bank was
+       single-word answers with a clue apiece — exactly what a bingo call is. A
+       unit whose Blockbusters board is all *rounds* has none of those: a round
+       hexagon carries no `answer` at all, so `bingoWordsIn` finds nothing and the
+       game silently leaves the unit. `bingoBank` is where those calls live once
+       the hexagons stop being them, and the fallback keeps every unit that has
+       not been converted working untouched. */
+    hasBank: u => bingoWordsIn(u.bingoBank || u.blockbustersBank || []).length >= BINGO_POOL,
+    load(u){ BINGO_BANK          = u.bingoBank || u.blockbustersBank || [];
              BINGO_SECTION_NAMES = u.blockbustersSectionNames || {};
              BINGO_TOPIC_NAMES   = u.topicNames || {}; },
     renderContent: renderBingoContent,
