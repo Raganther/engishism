@@ -1653,7 +1653,22 @@
   /* A team is data, never DOM: renderScorebar() tears the whole bar down and
      rebuilds it on every score change, so anything held in an element is destroyed.
      `run` is the current unbroken streak of correct answers. */
-  function newTeam(name){ return { name, score:0, run:0 }; }
+  /* **A competitor, not a team.** The scoreboard has always held teams because
+     that is all a class-facing board has ever had, but nothing in the shape says
+     "team": a name, a score and a streak fit one person exactly as well. Widening
+     the meaning here is what lets the roster later be built from the phones in the
+     room rather than from the + Team button, without every board learning about it
+     — the 60-odd places that read `roster[i].name` and `roster[i].score` do not
+     care what put it there.
+
+     `id` is new and is the thing solo play cannot do without. An index is a
+     competitor's identity everywhere today, which is why removing one is a special
+     case rather than a splice, and it is why the first live class paid a win to a
+     team that no longer existed. A person has to be matched to their handset
+     across a reconnect, and an index cannot do that. Nothing reads it yet; it is
+     minted now so that a competitor created today is already addressable. */
+  let nextCompetitorId = 1;
+  function newTeam(name){ return { id:'c' + (nextCompetitorId++), name, score:0, run:0 }; }
 
   /* Teams could be added and never removed, so a class that split four ways one
      lesson carried four teams into the next one. Removing is more than a splice,
@@ -1663,7 +1678,7 @@
        - `bbSideAt`, which team is up within each Blockbusters alliance.
      Two is the floor: every board is built for at least two sides. */
   function removeTeam(i){
-    if(teams.length <= 2 || !teams[i]) return;
+    if(teams.length <= Roster.floor() || !teams[i]) return;
     // points are a lesson's worth of work — a mis-tap must not silently bin them
     if(teams[i].score !== 0 &&
        !confirm('Remove ' + teams[i].name + '? They have ' + teams[i].score + ' points.')) return;
@@ -1683,8 +1698,40 @@
     hook('onResize');
   }
 
-  // shared team roster — persists across games AND unit switches until Reset
+  /* The roster: whoever is competing for points, persisting across games AND unit
+     switches until Reset. Still called `teams` throughout, because it is read in
+     about sixty places and a rename would be churn with no gain — what matters is
+     that the *meaning* is now "the competitors" and only `Roster` decides what
+     goes in it. In team play a teacher fills it with the + Team button. In solo
+     play it would be filled from the phones that have joined, and every board
+     would be unaffected. */
   let teams = [newTeam('Team 1'), newTeam('Team 2')];
+
+  /* **The one seam.** Everything that *reads* the roster keeps indexing the array
+     directly, which is fine and stays. What goes through here is everything that
+     *changes* it — because that is the only part that differs between a room of
+     teams and a room of people, and putting it in one place is what stops solo
+     play from being sixty edits.
+
+     `mode` is declared now and only ever 'teams'. It is not a setting yet: a
+     switch offering a value that does nothing is worse than no switch. */
+  const Roster = {
+    mode: 'teams',
+    all(){ return teams; },
+    at(i){ return teams[i] || null; },
+    count(){ return teams.length; },
+    indexes(){ return teams.map((_, i) => i); },
+    byId(id){ return teams.find(t => t.id === id) || null; },
+    /* Two is the floor in team play — every board is built for at least two
+       sides — and the caller is the team bar, which hides its own remove control
+       there. Named here so a solo roster can answer differently. */
+    floor(){ return 2; },
+    add(name){
+      teams.push(newTeam(name || ('Team ' + (teams.length + 1))));
+      return teams.length;
+    },
+    label(){ return this.mode === 'solo' ? 'player' : 'team'; }
+  };
 
   /* The room bench's handle on the team bar, same-origin only. `ensure` grows and
      never shrinks: the teacher's team bar stays the sole owner of teams, and the
@@ -1695,7 +1742,7 @@
     ensure(n){
       n = Math.max(0, Math.min(8, Number(n) || 0));
       let grew = false;
-      while(teams.length < n){ teams.push(newTeam('Team ' + (teams.length + 1))); grew = true; }
+      while(teams.length < n){ Roster.add(); grew = true; }
       if(grew) renderScorebar();
       return teams.length;
     }
@@ -1933,7 +1980,9 @@
         ? `<span class="dot" style="background:${bbSideOf(i)===0?'var(--yellow)':'var(--blue)'}"></span>` : '';
       // two is the floor — every board is built for at least two sides — so the
       // remove button only appears above it, and it never appears on the last two
-      const del = teams.length > 2 ? `<button class="tdel" title="Remove team">×</button>` : '';
+      // the remove control hides at the floor, so the floor is asked rather than restated
+    const del = teams.length > Roster.floor()
+      ? `<button class="tdel" title="Remove ${Roster.label()}">×</button>` : '';
       el.innerHTML = `${dot}<input class="tname" value="${t.name}"><button class="minus">−</button><span class="score">${t.score}</span><button class="plus">+</button>${del}`;
       el.addEventListener('click', (ev)=>{
         if(ev.target.closest('button') || ev.target.classList.contains('tname')) return;
@@ -1947,7 +1996,7 @@
       bar.appendChild(el);
     });
     const addBtn=document.createElement('button'); addBtn.id='add-team-btn'; addBtn.textContent='+ Team';
-    addBtn.addEventListener('click', ()=>{ teams.push(newTeam('Team '+(teams.length+1))); renderScorebar(); });
+    addBtn.addEventListener('click', ()=>{ Roster.add(); renderScorebar(); });
     bar.appendChild(addBtn);
     // icon-only in the header: the words cost more room than the button is worth,
     // and the tooltip still says what it does
@@ -1966,6 +2015,8 @@
      tooltip, a board saying who just took a tile. A team index can outrun the list
      (a reply from a handset still holding a team that has since been removed), so
      this never returns undefined. */
+  /* One definition of what a competitor is called, fallback included — a round's
+     `ctx.teamName`, every banner and every phone push read through it. */
   function teamName(i){ return teams[i] ? teams[i].name : ('Team ' + (Number(i) + 1)); }
 
   /* ---------- one scoring path, so a mechanic is written once ----------

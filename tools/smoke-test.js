@@ -57,7 +57,7 @@ async function openHub(browser, viewport){
     if (m.type() === 'error' && !/ERR_CONNECTION_RESET|fonts\.(googleapis|gstatic)/.test(m.text()))
       page.__console.push(m.text());
   });
-  await page.goto(BASE + '/game-hub.html');
+  await page.goto(BASE + (openHub.shell || '/game-hub.html'));
   await page.waitForTimeout(350);
   return page;
 }
@@ -264,6 +264,22 @@ async function claimHexAt(page, r, c, team){
   await claimForTeam(page, team);
   await page.waitForFunction(() => document.getElementById('clue-modal').style.display === 'none',
                              null, { timeout:6000 });
+}
+
+/* **Some behaviour only exists on a plain question, and the class-facing units no
+   longer have any.** Phone modes (buzz / write / type) and Jeopardy's steal both
+   belong to a question the *teacher* runs: a round arms the handsets itself and
+   owns its own verdict, so neither can fire on a board where every clue is a
+   round. Units 4 and 5 became all-rounds, and these two suites started timing out
+   waiting for a buzzer and a claim chooser that correctly never appear.
+
+   The Lab board is the durable home for them. It is a mixing desk with one
+   question type per category — eight plain, five rounds — and it is deliberately
+   not class-facing, so it will not be converted out from under a test. */
+async function openLabHub(browser, viewport){
+  openHub.shell = '/game-hub-lab.html';
+  try { return await openHub(browser, viewport); }
+  finally { openHub.shell = null; }
 }
 
 /* Blockbusters awards through its own two buttons today; after the shared team
@@ -1942,12 +1958,15 @@ async function testTurnsAndPoints(browser){
   section('Turns and points across the phone modes');
 
   const openJeopardy = async (mode) => {
-    const page = await openHub(browser);
+    /* The Lab board, and L1/L2 specifically: `round_default` is what the phones do
+       when **no round owns them**, so this suite needs plain clues. See the note on
+       `openLabHub` — the class-facing units have none left. */
+    const page = await openLabHub(browser);
     await page.evaluate(m => {
       window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
       window.HubSettings.set('buzzers', true); window.HubSettings.set('round_default', m, 'jeopardy');
     }, mode);
-    await startGame(page, 'Jeopardy', { sections:'all' });
+    await startGame(page, 'Jeopardy', { sections:3, unit:'Lab' });
     await page.waitForTimeout(700);
     const chip = await page.locator('#buzzer-chip').innerText().catch(()=>'');
     return { page, code:(chip.match(/CODE\s+(\d{5})/i)||[])[1] };
@@ -2418,6 +2437,11 @@ async function testJoinTeams(browser){
 async function testCompetition(browser){
   section('Competitive dynamics');
 
+  /* The Lab board's plain categories. The steal and the deduction belong to a
+     question the teacher runs — a live round owns its own verdict and offers no
+     steal, which is correct and is why these timed out once the class-facing
+     units became all-rounds. See `openLabHub`. */
+
   const activeTeam = page => page.evaluate(() =>
     [...document.querySelectorAll('.team')].findIndex(e => e.classList.contains('active')));
   const openFirstClue = async page => {
@@ -2430,7 +2454,7 @@ async function testCompetition(browser){
      the clue was worth. Shown and paid are asserted together, because a card
      offering one number and award() paying another is the card lying to the room. */
   {
-    const pg = await openHub(browser);
+    const pg = await openLabHub(browser);
     await pg.evaluate(() => {
       const S = window.HubSettings;
       S.set('cardFlip','off'); S.set('intro','off'); S.set('sound',false);
@@ -2439,7 +2463,7 @@ async function testCompetition(browser){
       S.set('jDeduct', false, 'jeopardy');        // isolate what the steal pays
       S.set('round_default','off','jeopardy');
     });
-    await startGame(pg, 'Jeopardy', { sections:3 });
+    await startGame(pg, 'Jeopardy', { sections:3, unit:'Lab' });
     await openFirstClue(pg);
     await pg.locator('#wrong-btn').click(); await pg.waitForTimeout(400);
     check('classic offers the steal at the full value',
@@ -2457,12 +2481,12 @@ async function testCompetition(browser){
   }
 
   // ---- steal on, in Jeopardy
-  let page = await openHub(browser);
+  let page = await openLabHub(browser);
   await page.evaluate(() => {
     window.HubSettings.set('cardFlip', 'off'); window.HubSettings.set('intro', 'off');
     window.HubSettings.set('stealOnWrong', true, 'jeopardy');
   });
-  await startGame(page, 'Jeopardy', { sections:3 });
+  await startGame(page, 'Jeopardy', { sections:3, unit:'Lab' });
   await openFirstClue(page);
   await page.locator('#wrong-btn').click(); await page.waitForTimeout(400);
 
@@ -2495,13 +2519,13 @@ async function testCompetition(browser){
   await page.close();
 
   // ---- steal off: exactly the old behaviour
-  page = await openHub(browser);
+  page = await openLabHub(browser);
   await page.evaluate(() => {
     window.HubSettings.set('cardFlip', 'off'); window.HubSettings.set('intro', 'off');
     window.HubSettings.set('stealOnWrong', false, 'jeopardy');
     window.HubSettings.set('keepControl', false, 'jeopardy');
   });
-  await startGame(page, 'Jeopardy', { sections:3 });
+  await startGame(page, 'Jeopardy', { sections:3, unit:'Lab' });
   const before = await activeTeam(page);
   await openFirstClue(page);
   await page.locator('#wrong-btn').click(); await page.waitForTimeout(1300);
@@ -2512,14 +2536,14 @@ async function testCompetition(browser){
 
   // ---- keep control, both ways
   await page.evaluate(() => window.HubSettings.set('keepControl', false, 'jeopardy'));
-  await startGame(page, 'Jeopardy', { sections:3 });
+  await startGame(page, 'Jeopardy', { sections:3, unit:'Lab' });
   const heldBefore = await activeTeam(page);
   await openFirstClue(page);
   await page.locator('#correct-btn').click(); await page.waitForTimeout(1300);
   check('with keep-control off, a correct answer hands over', await activeTeam(page) !== heldBefore);
 
   await page.evaluate(() => window.HubSettings.set('keepControl', true, 'jeopardy'));
-  await startGame(page, 'Jeopardy', { sections:3 });
+  await startGame(page, 'Jeopardy', { sections:3, unit:'Lab' });
   const keptBefore = await activeTeam(page);
   await openFirstClue(page);
   await page.locator('#correct-btn').click(); await page.waitForTimeout(1300);
@@ -2528,13 +2552,13 @@ async function testCompetition(browser){
   await page.close();
 
   // ---- streak: three in a row for one team
-  page = await openHub(browser);
+  page = await openLabHub(browser);
   await page.evaluate(() => {
     window.HubSettings.set('cardFlip', 'off'); window.HubSettings.set('intro', 'off');
     window.HubSettings.set('keepControl', true, 'jeopardy');
     window.HubSettings.set('streak', true, 'jeopardy');
   });
-  await startGame(page, 'Jeopardy', { sections:3 });
+  await startGame(page, 'Jeopardy', { sections:3, unit:'Lab' });
   const paid = [];
   for (let i = 0; i < 3; i++){
     const tile = page.locator('#board .tile:not(.used)').first();
@@ -2559,7 +2583,10 @@ async function testCompetition(browser){
     window.HubSettings.set('intro', 'off');
     window.HubSettings.set('stealOnWrong', true, 'millionaire');
   });
-  await startGame(page, 'Millionaire', { sections:'all' });
+  /* Millionaire keeps Unit 5: its ladder needs every rung covered and the Lab's
+       Millionaire section is a single one. Its steal is the *rung's* value, which a
+       round host pays out normally, so it never depended on a plain question. */
+    await startGame(page, 'Millionaire', { sections:'all', unit:'Unit 5' });
   const right = await currentMillionaireAnswer(page);
   const wrong = await page.evaluate(r => {
     const b = [...document.querySelectorAll('#m-options .mc-opt')].find(x => x.dataset.word !== r);
