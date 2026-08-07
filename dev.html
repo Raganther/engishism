@@ -85,6 +85,13 @@
   .tier .w strong{ color:var(--ink); }
   .tier .w em{ color:var(--accent); font-style:normal; }
   .tier .w code{ color:var(--gold); }
+  .use{ display:inline-block; background:rgba(124,192,255,.12); border:1px solid var(--edge);
+        border-radius:999px; padding:1px 8px; font-size:12px; margin:2px 4px 2px 0; color:var(--ink); }
+  .use.host{ background:rgba(255,209,102,.12); color:var(--gold); }
+  .n{ font-family:ui-monospace,monospace; font-size:11px; color:var(--dim); margin-left:6px; }
+  .warn-one{ color:var(--warn); }
+  .tier.lonely{ border-color:rgba(251,191,36,.45); }
+  .tier.unused{ opacity:.55; }
   a.chip .k{ color:var(--dim); font-size:11px; margin-left:6px; text-transform:uppercase; letter-spacing:.08em; }
   .note{ color:var(--dim); font-size:13px; margin:8px 0 12px; }
   .note strong{ color:var(--ink); }
@@ -145,6 +152,14 @@
      joiners, per-team and per-player views. What it gets by <em>asking</em> is the team lanes, the
      agree rule, the reply readers and its own buttons. Nothing is automatic there: a round that
      never calls the lanes simply has none.</p>
+
+  <h2>The shelf, and who calls it</h2>
+  <p class="note">Read from the source files when this page loads — the call sites themselves, not a
+     drawing of them — so it cannot go stale. <strong>Rounds</strong> call the shelf to do their own
+     work; <strong>hosts</strong> (the hub engine, the question bench) call it to drive a round they
+     are showing. A row with one caller is a guess about an API rather than a shelf, which is the
+     rule for when something is ready to be shared.</p>
+  <div class="tiers" id="shelf-map"><div class="tier"><code>…</code><span class="w">reading the source files…</span></div></div>
 
   <h2>Skills — name it and the checklist loads</h2>
   <p class="note">Type <strong>/name</strong> in Claude Code, or just describe the job — these open
@@ -209,20 +224,20 @@ git add -A && git commit -m "..." && git push      # live in about 40 seconds</p
 
 <!-- Registries only. These are data-only registrations with no DOM of their own, so
      asking them what exists costs nothing and starts no game. -->
-<script src="game-hub/hub-kit.js?v=20260807a"></script>
+<script src="game-hub/hub-kit.js?v=20260807b"></script>
 <!-- Captured between the two script tags: which forms are in the shipped kit. The
      one moment a kit form and a lab-only one are distinguishable. -->
 <script>window.IN_THE_KIT = (window.HubKit && window.HubKit.prompt.types()) || [];</script>
-<script src="playground/lab-forms.js?v=20260807a"></script>
-<script src="game-hub/hub-rounds.js?v=20260807a"></script>
-<script src="game-hub/rounds/default.js?v=20260807a"></script>
-<script src="game-hub/rounds/grouping.js?v=20260807a"></script>
-<script src="game-hub/rounds/ordering.js?v=20260807a"></script>
-<script src="game-hub/rounds/choice.js?v=20260807a"></script>
-<script src="game-hub/rounds/anagram.js?v=20260807a"></script>
-<script src="game-hub/rounds/scramble.js?v=20260807a"></script>
-<script src="game-hub/rounds/infogap.js?v=20260807a"></script>
-<script src="game-hub/rounds/drop.js?v=20260807a"></script>
+<script src="playground/lab-forms.js?v=20260807b"></script>
+<script src="game-hub/hub-rounds.js?v=20260807b"></script>
+<script src="game-hub/rounds/default.js?v=20260807b"></script>
+<script src="game-hub/rounds/grouping.js?v=20260807b"></script>
+<script src="game-hub/rounds/ordering.js?v=20260807b"></script>
+<script src="game-hub/rounds/choice.js?v=20260807b"></script>
+<script src="game-hub/rounds/anagram.js?v=20260807b"></script>
+<script src="game-hub/rounds/scramble.js?v=20260807b"></script>
+<script src="game-hub/rounds/infogap.js?v=20260807b"></script>
+<script src="game-hub/rounds/drop.js?v=20260807b"></script>
 <script>
 (function(){
   'use strict';
@@ -350,6 +365,60 @@ git add -A && git commit -m "..." && git push      # live in about 40 seconds</p
     ];
     $('tier-table').innerHTML = rows.map(r =>
       '<div class="tier"><code>' + r[0] + '</code><span class="w">' + r[1] + '</span></div>').join('');
+  })();
+
+  /* ---------- the shelf map ----------
+     **The call sites, read rather than drawn.** A hand-drawn diagram of what calls
+     what is the same defect as a hand-kept list of games: right the day it is made
+     and wrong the first time somebody adds a caller. This fetches the sources and
+     counts `Kit.round.<fn>(` in each, so a round that starts calling `lanes`
+     tomorrow appears here with nobody editing anything.
+
+     Both sides are scanned on purpose. A ROUND calls the shelf to do its own work;
+     a HOST — the hub engine, this project's benches — calls it to drive a round it
+     is showing. Scanning only the rounds would have shown `actions`, `cap` and
+     `strip` as dead, when they are the host's half of the action strip. */
+  (function(){
+    const mount = $('shelf-map');
+    if(!Kit || !Kit.round){ mount.innerHTML = ''; return; }
+    const LOOKUPS = ['register','get','ids','authored','checkItem','fields','of'];
+    const shelf = Object.keys(Kit.round)
+      .filter(k => LOOKUPS.indexOf(k) === -1 && typeof Kit.round[k] === 'function');
+
+    const rounds = Kit.round.ids().map(id => ({ label:id, kind:'round', src:'game-hub/rounds/' + id + '.js' }));
+    const hosts = [
+      { label:'hub engine',     kind:'host', src:'game-hub/hub-engine.js' },
+      { label:'question bench', kind:'host', src:'playground/question-bench.html' }
+    ];
+    const files = rounds.concat(hosts);
+
+    Promise.all(files.map(f =>
+      fetch(f.src).then(r => r.ok ? r.text() : '').catch(()=>'')
+        .then(t => {
+          /* `K.round.x(` inside a round, `Kit.round.x(` in a host — both spellings
+             of the same call, because each file aliases the kit its own way. */
+          const used = new Set();
+          (t.match(/\b(?:K|Kit|HubKit)\.round\.(\w+)\s*\(/g) || [])
+            .forEach(m => used.add(m.replace(/.*\.round\./, '').replace(/\s*\($/, '')));
+          return Object.assign({}, f, { used });
+        })
+    )).then(scanned => {
+      const rows = shelf.map(fn => ({
+        fn, callers: scanned.filter(s => s.used.has(fn))
+      })).sort((a, b) => b.callers.length - a.callers.length || a.fn.localeCompare(b.fn));
+
+      mount.innerHTML = rows.map(r => {
+        const n = r.callers.length;
+        const cls = n === 0 ? ' unused' : (n === 1 ? ' lonely' : '');
+        const chips = n ? r.callers.map(c =>
+              '<span class="use' + (c.kind === 'host' ? ' host' : '') + '">' + c.label + '</span>').join('')
+            : '<span class="warn-one">nothing calls it</span>';
+        const tag = n === 1 ? '<span class="n warn-one">1 caller — still a guess</span>'
+                            : '<span class="n">' + n + ' callers</span>';
+        return '<div class="tier' + cls + '"><code>' + r.fn + '</code>' +
+               '<span class="w">' + chips + (n ? tag : '') + '</span></div>';
+      }).join('');
+    });
   })();
 
   /* ---------- the derived lists ----------
