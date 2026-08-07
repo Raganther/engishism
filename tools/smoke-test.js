@@ -6114,8 +6114,12 @@ async function testQuestionBench(browser){
           await una.locator('.group-tally').innerText().catch(()=>'(none)'));
     /* Being split is not being wrong. A verdict here would tell off a team that has
        done nothing but disagree, which is the part of the lesson worth having. */
+    /* Asked of the *text*, not of the element. `.group-say` is always in the DOM
+       now — it reserves its row so that a message appearing cannot make the card
+       jump under the room — so counting it would say "there is a verdict" on every
+       card ever drawn. */
     check('and being short of agreement draws no verdict at all',
-          !(await una.locator('.group-say').count()),
+          !(await una.locator('.group-say').innerText().catch(()=>'')).trim(),
           await una.locator('.group-say').innerText().catch(()=>'(none)'));
 
     await tapW(uf[2], 'annoyed'); await una.waitForTimeout(1400);
@@ -6281,13 +6285,13 @@ async function testQuestionBench(browser){
     await mf2[0].locator('#opts button', { hasText:new RegExp('^'+word+'$') }).first().click();
     await mc.waitForTimeout(1500);
     check('agree: one of a team of two is not the team, so nothing is judged',
-          !(await mc.locator('#card-round .group-say').count()) &&
+          !(await mc.locator('#card-round .group-say').innerText().catch(()=>'')).trim() &&
           /1\/2/.test(await mc.locator('#card-round .group-tally').innerText()),
           await mc.locator('#card-round .group-tally').innerText().catch(()=>'(none)'));
     await mf2[2].locator('#opts button', { hasText:new RegExp('^'+word+'$') }).first().click();
     await mc.waitForTimeout(1500);
     check('agree: and it is judged the moment the whole team agrees',
-          (await mc.locator('#card-round .group-say').count()) > 0,
+          !!(await mc.locator('#card-round .group-say').innerText().catch(()=>'')).trim(),
           await mc.locator('#card-round .group-say').innerText().catch(()=>'(none)'));
   }
   checkClean(mc, 'multiple choice bench');

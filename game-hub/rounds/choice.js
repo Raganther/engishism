@@ -130,13 +130,6 @@
       const grid = document.createElement('div');
       grid.className = 'mc-options';
       s.options.forEach((w, i)=>{
-        /* **A hinted option is gone from the card, not struck through it.** A
-           crossed-out box still costs a slot and the room still reads it; removing
-           it makes what is left the whole question, which is what a hint is for.
-           The letters are taken from the option's own position and so do **not**
-           renumber — a teacher who said "who went for C?" before the hint means the
-           same option after it. */
-        if((s.hint || []).indexOf(w) !== -1 && !s.shown) return;
         const b = document.createElement('button');
         b.type = 'button'; b.className = 'gword mc-opt'; b.dataset.word = w;
 
@@ -151,6 +144,18 @@
         if(s.chosen.indexOf(w) !== -1) b.classList.add('chosen');
         const gone = (s.hidden || []).indexOf(w) !== -1;
         if(gone){ b.classList.add('removed'); b.disabled = true; }
+        /* **A hinted option goes invisible; its cell stays.** A crossed-out box
+           still costs a slot on the projector and the room still reads it, so the
+           box has to go — but *removing the element* re-flows the grid and the whole
+           card jumps a row every time a hint is pressed, which is worse than the
+           thing it fixed. `visibility` empties the box and holds its place, so the
+           card is exactly as tall after four hints as before one.
+
+           It also keeps A/B/C/D where they were: a teacher who said "who went for
+           C?" before the hint means the same option after it. */
+        if((s.hint || []).indexOf(w) !== -1 && !s.shown){
+          b.classList.add('gone'); b.disabled = true;
+        }
         /* Once the answer is out the options stop being a question: the right one
            lights and the rest stand down, rather than four tiles still inviting a
            click that can no longer mean anything. */
@@ -250,12 +255,9 @@
         });
       }
 
-      if(s.say){
-        const say = document.createElement('div');
-        say.className = 'group-say' + (s.done ? ' good' : '');
-        say.textContent = s.say;
-        mount.appendChild(say);
-      }
+      /* Always drawn, empty or not — see `Kit.round.say`. An appearing line was
+         what made the card jump on the first hint. */
+      K.round.say(mount, s);
     },
 
     reveal(mount, s, ctx){

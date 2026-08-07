@@ -255,17 +255,24 @@
         left.forEach(w=>{
           const b = document.createElement('button');
           b.type = 'button'; b.className = 'gword'; b.dataset.word = w;
-          const t = document.createElement('span');
-          t.className = 'gw-text';
           const at = s.chosen.indexOf(w);
           /* A word whose place on the scale has been given away carries its number.
              Only ever set in a race — a climb's hint places the word, so it leaves
              the pool rather than being labelled in it. */
           const pos = s.scale.indexOf(w);
           const hinted = pos !== -1 && (s.hint || 0) > pos;
-          t.textContent = at !== -1 ? (at + 1) + '. ' + w
-                        : hinted    ? (pos + 1) + '. ' + w
-                        : w;
+          /* **The number's column is always there, empty or not.** Putting the digit
+             inside the word's own text made the chip wider the moment it got one, so
+             the pool re-flowed and the card changed height — on a hint, and equally
+             on the teacher's own click, which had been doing it since this round was
+             written. A fixed gutter costs one character of width and nothing moves. */
+          const num = document.createElement('span');
+          num.className = 'gw-num';
+          num.textContent = at !== -1 ? (at + 1) + '.' : hinted ? (pos + 1) + '.' : '';
+          b.appendChild(num);
+          const t = document.createElement('span');
+          t.className = 'gw-text';
+          t.textContent = w;
           b.appendChild(t);
           if(at !== -1) b.classList.add('chosen');
           if(hinted) b.classList.add('hinted');
@@ -329,12 +336,9 @@
         }
       }
 
-      if(s.say){
-        const say = document.createElement('div');
-        say.className = 'group-say' + (s.done ? ' good' : '');
-        say.textContent = s.say;
-        mount.appendChild(say);
-      }
+      /* Always drawn, empty or not — see `Kit.round.say`. An appearing line was
+         what made the card jump on the first hint. */
+      K.round.say(mount, s);
     },
 
     reveal(mount, s, ctx){
@@ -380,7 +384,9 @@
         if(!word) return false;
         s.placed.push(word);
         s.picks = {}; s.leading = {}; s.votes = {};
-        s.say = 'Shown: ' + word + gloss(word);
+        /* No gloss here: the rung it just landed in prints it, and printing it twice
+           costs a second line on a card that is already the tallest of the five. */
+        s.say = 'Shown: ' + word + '.';
         return true;
       }
       /* **A race gets a hint about the *scale*, not about anybody's ladder.** The

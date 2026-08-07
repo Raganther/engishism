@@ -77,7 +77,17 @@
 .group-count{ font-size:0.72em; padding:3px 9px; border-radius:99px;
   border:1.5px solid var(--gw-line, rgba(18,38,63,0.3)); }
 .group-count small{ opacity:0.7; }
-.group-say{ margin-top:10px; font-size:0.85em; opacity:0.85; }
+/* **It holds its row even when empty.** The first hint of a question — or the
+   first wrong answer — used to make the whole clue card jump, because this line was
+   the first thing to occupy that row. Reserved, so nothing moves. `Kit.round.say`
+   is what draws it for every round. */
+.group-say{ margin-top:10px; font-size:0.85em; opacity:0.85; min-height:1.4em; }
+/* **Two lines, but only here.** Every other round's messages are short — "Team 1
+   has it.", "Hint: it is not make." — and one reserved line holds them. A ladder
+   race is the exception: with no shared ladder to print a gloss in, its own hint has
+   to carry the word *and* its meaning, which wraps. Reserving two lines everywhere
+   was the first fix and cost ~25px on five cards that never need it. */
+.round-ordering.racing .group-say{ min-height:2.8em; }
 .group-say.good{ color:var(--gw-good, #2FA84F); opacity:1; font-weight:600; }
 /* Same specificity fight as `#hint-btn` above — see the note there. */
 #clue-actions #group-btn{ background:transparent; border:1px solid rgba(0,122,201,0.45); color:var(--blue); }
@@ -241,6 +251,11 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
 .round-choice .gword.leading{ background:var(--gw-wash, rgba(18,38,63,0.07)); }
 /* The answer is out: the rest stand down rather than still inviting a click. */
 .round-choice .gword.spent{ opacity:0.4; }
+/* A hinted option. `visibility` rather than `display`, so the box empties and the
+   grid keeps its cell — removing the element re-flowed the options and made the
+   card jump a row on every hint, which is worse than the crossed-out box it was
+   meant to replace. */
+.round-choice .gword.gone{ visibility:hidden; }
 .round-choice .gword:disabled{ cursor:default; }
 .round-choice .group-tally{ margin-top:10px; }
 
@@ -261,6 +276,10 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
    card lie to the other three — but it is dimmed, because clicking it for that lane
    could only ever be wrong. */
 .round-ordering.racing .ord-pool .gword.spent{ opacity:0.4; }
+/* The gutter a position number sits in, always present so a chip never changes
+   width when it gets one. Tabular figures so 1 and 4 are the same width too. */
+.round-ordering .ord-pool .gw-num{ display:inline-block; min-width:1.15em;
+  margin-right:0.15em; font-variant-numeric:tabular-nums; opacity:0.7; }
 
 /* ================= the question forms (Kit.prompt) =================
    Moved here out of `hub.css` for exactly the reason the round card's innards
@@ -451,14 +470,22 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
    several teams are compared down, and a sentence is one line being built. Sizing
    an empty slot to the word it will hold would give away the answer's shape. */
 .round-scramble .scr-line{ display:flex; flex-wrap:wrap; gap:0.3em; justify-content:center; }
+/* `--scr-w` is set by the round from the longest word — every slot is that wide,
+   filled or not, so the sentence never re-flows as words land. Same rule the
+   handset already follows, and for the same reason. */
 .round-scramble .scr-slot{
-  min-width:1.8em; padding:0.2em 0.55em; border-radius:10px; line-height:1.25;
+  min-width:var(--scr-w, 1.8em); padding:0.2em 0.55em; border-radius:10px; line-height:1.25;
   display:inline-flex; align-items:center; justify-content:center; font-weight:600;
   border:2px dashed var(--gw-line, #00A0DF); color:var(--gw-ink, #12263F);
 }
 /* The number is a position marker, not a word — quieter, so a half-built sentence
-   reads as the words in it rather than as a row of digits. */
-.round-scramble .scr-slot.empty{ opacity:0.45; font-size:0.8em; font-weight:500; }
+   reads as the words in it rather than as a row of digits. **Quieter by opacity and
+   weight only, never by font-size**: a smaller font makes the empty slot a shorter
+   box, so the first word to land in a row made that row taller and the card grew
+   9px. (Pinning `min-height:1.65em` did not fix it and is worth knowing why — `em`
+   on the slot resolves against the slot's *own* font-size, so the shrunken empty one
+   got a shrunken minimum and the two still differed.) */
+.round-scramble .scr-slot.empty{ opacity:0.45; font-weight:500; }
 .round-scramble .scr-slot.filled{
   border-style:solid; cursor:pointer;
   background:var(--gw-hot, #FFC20E); color:var(--gw-ink, #12263F);

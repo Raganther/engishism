@@ -1221,6 +1221,43 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The clue card stops changing height mid-question.** Reported as the question box
+  warping — on the first hint in some rounds, on every hint in others — and it turned
+  out to be four different causes wearing one symptom. Measured before and after
+  rather than eyeballed: the card's height across every hint, in all five rounds.
+  - **The say line was the big one, and it was never about hints.** `.group-say` is
+    the first thing to occupy its row, so the first *anything* — a hint, a wrong
+    answer, a team taking it — grew the card. It is drawn even when empty now and
+    holds its line. That was six identical copies across the rounds, so it went on
+    the shelf as `Kit.round.say` in the same change.
+  - **Reserved one line, not two, and only the ordering race gets two.** Reserving
+    two everywhere was the first fix and cost ~25px on five cards that never need it.
+    A race has no shared ladder to print a gloss in, so its own hint has to carry the
+    word *and* its meaning, which wraps; every other message is short. The climb's
+    hint stopped repeating the gloss it had just printed in the rung, which is what
+    let it back down to one line.
+  - **Multiple Choice hides the box rather than removing it.** Taking the element out
+    re-flowed the grid and jumped the card a row on every hint — worse than the
+    struck-out box it replaced. `visibility` empties the box and keeps its cell, and
+    it keeps A/B/C/D where they were as a bonus.
+  - **Drag the Words gives every slot one width, measured off the tray.** The handset
+    learned this first, from the room bench, and for the same reason; the card never
+    got it. The `ch` estimate alone was not enough — `ch` is the width of a zero and a
+    proportional font's `w` is wider, so the longest word still overflowed its slot.
+  - **A smaller font makes a shorter box, and `em` resolves against the element's own
+    font-size.** The empty slot's number was `0.8em`, so the first word to land in a
+    row made that row 9px taller. Pinning `min-height:1.65em` did *not* fix it — the
+    shrunken slot got a shrunken minimum — which is the trap worth remembering. The
+    number is quiet by opacity and weight now, never by size.
+  - **The ordering pool reserves a gutter for a position number**, so a chip does not
+    widen when it gets one — on a hint, and equally on the teacher's own click, which
+    had been doing it since the round was written.
+  - **Still moves, and it is not the hint's doing: the climb ladder.** Filling a rung
+    is what the climb hint *does*, and `accept` pushes to `s.placed` identically on a
+    right answer — so the card has always changed height there. A rung carrying a
+    gloss is taller than one without, and the pool loses the word. Fixing it means
+    reserving a gloss row on every rung, and that card is **already 713–728px tall on
+    a 720px board**, so the real job is that overflow rather than the wobble.
 - **A won round stays on screen until the teacher closes it, and every round has a
   hint.** Two reports from a real board, and the answer to both was the same one:
   neither is a round's feature, so all five inherit them.

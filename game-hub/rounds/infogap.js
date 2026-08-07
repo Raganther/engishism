@@ -251,12 +251,9 @@
         });
       }
 
-      if(s.say){
-        const say = document.createElement('div');
-        say.className = 'group-say' + (s.done ? ' good' : '');
-        say.textContent = s.say;
-        mount.appendChild(say);
-      }
+      /* Always drawn, empty or not — see `Kit.round.say`. An appearing line was
+         what made the card jump on the first hint. */
+      K.round.say(mount, s);
     },
 
     reveal(mount, s, ctx){

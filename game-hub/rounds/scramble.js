@@ -107,6 +107,18 @@
 
       const line = document.createElement('div');
       line.className = 'scr-line';
+      /* **Every slot is one width — the widest word's.** The handset learned this
+         first and for the same reason, reported from the room bench: content-sized
+         slots re-flow the row every time something lands in one, so the sentence
+         jumps and the card changes height under the room. A hint made it obvious,
+         because a slot going from `7` to `retracted` moves every slot after it.
+
+         Uniform, not sized-to-its-own-word: a slot as wide as the word it is
+         waiting for would give away the answer's shape before anybody placed
+         anything. The tray underneath already shows every word, so one width gives
+         nothing away. */
+      const widest = s.words.reduce((n, w) => Math.max(n, w.length), 1);
+      line.style.setProperty('--scr-w', (widest + 1) + 'ch');
       for(let i = 0; i < s.need; i++){
         const b = document.createElement('div');
         b.className = 'scr-slot';
@@ -145,6 +157,17 @@
 
       mount.appendChild(tray);
       mount.appendChild(line);
+      /* Now the tray is laid out, take the width from the widest chip actually
+         rendered. The `ch` estimate above is a guess — `ch` is the width of a zero
+         and a proportional font's `w` and `m` are wider — so the longest word could
+         still overflow its slot and grow it, which is the re-flow this is here to
+         stop. One read, once per render, off elements that are already on screen.
+         Falls back to the estimate when the card is not laid out yet. */
+      let widest_px = 0;
+      Array.prototype.forEach.call(tray.children, el => {
+        widest_px = Math.max(widest_px, el.getBoundingClientRect().width);
+      });
+      if(widest_px > 0) line.style.setProperty('--scr-w', Math.ceil(widest_px) + 'px');
 
       /* **A lane per team, and the sentence itself rather than a count.**
          This used to be one chip per team reading "1/9", on the reasoning that a
@@ -192,12 +215,9 @@
         });
       }
 
-      if(s.say){
-        const say = document.createElement('div');
-        say.className = 'group-say' + (s.done ? ' good' : '');
-        say.textContent = s.say;
-        mount.appendChild(say);
-      }
+      /* Always drawn, empty or not — see `Kit.round.say`. An appearing line was
+         what made the card jump on the first hint. */
+      K.round.say(mount, s);
     },
 
     reveal(mount, s, ctx){

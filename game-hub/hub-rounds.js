@@ -395,6 +395,25 @@
     return !!def.press(id, state, ctx);
   }
 
+  /* The round's line of prose under the card — "not a group", "Team 2 has it",
+     "Hint: dismissed is one of them". Six rounds wrote this block identically, so
+     it belongs here on that alone; but the reason it is worth changing is that
+     **it is drawn even when there is nothing to say.**
+
+     A projected card that changes height mid-question is the same defect as a
+     ladder whose rungs move, and this line was the commonest cause of it: it is
+     the first thing to occupy that row, so the first hint — or the first wrong
+     answer — made the whole card jump under the room. An empty one holds its line
+     instead, and nothing moves. */
+  function say(mount, state){
+    if(!mount) return null;
+    const el = document.createElement('div');
+    el.className = 'group-say' + (state && state.done ? ' good' : '');
+    el.textContent = (state && state.say) || '';
+    mount.appendChild(el);
+    return el;
+  }
+
   /* Draw a round's own buttons into a mount — the commit button is not among them,
      because it is the host's and already lives in the host's own strip. Rebuilt
      rather than reconciled: the list is two or three buttons that change with the
@@ -590,7 +609,7 @@
       }
       return null;
     },
-    shares, settle, poll, agreement, lanes, mustHold, arrangement, cap, actions, strip, press,
+    shares, settle, poll, agreement, lanes, mustHold, arrangement, cap, actions, strip, press, say,
     /* A comma-separated field as a list. Three rounds' editors parse one, which
        is what puts it here rather than in each of them. */
     list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); }
