@@ -29,6 +29,38 @@
     return m ? decodeURIComponent(m[1]) : 'dev';
   })();
 
+  /* ---- `?desktop=1` — the projected layout, on a handset ----
+     The phone layout is for a *teacher checking a lesson*: it compacts the chrome,
+     lets the board scroll, and keeps everything reachable under a thumb. That is
+     the right thing when you are teaching, and the wrong thing when you are away
+     from the laptop and want to see **what the room will actually see** — the
+     board at projector proportions, with the columns and the fit it will really
+     have.
+
+     So: `game-hub.html?desktop=1` lays the page out at a projector's 1280 and lets
+     the browser scale it down, exactly as `phone-bench.html` already does with a
+     board in a frame. The media queries key off width, so pinning the width is the
+     whole mechanism — none of the handset tiers match at 1280 and nothing else has
+     to know this mode exists.
+
+     A number sets the width (`?desktop=1440`) for checking a wider screen; `1` or
+     an empty value means 1280, which is what the layout suites assert against and
+     therefore the honest default. Text will be small — pinch to read. That is the
+     trade for seeing the real thing rather than a reflowed version of it. */
+  (function(){
+    const m = String(location.search).match(/[?&]desktop=([^&]*)/);
+    if(!m) return;
+    const asked = parseInt(m[1], 10);
+    const w = (asked && asked >= 480) ? asked : 1280;
+    let tag = document.querySelector('meta[name="viewport"]');
+    if(!tag){ tag = document.createElement('meta'); tag.name = 'viewport'; document.head.appendChild(tag); }
+    /* `initial-scale` is deliberately not set: letting the browser choose the
+       fit-to-screen scale is what makes 1280 land inside a 390px phone, and
+       pinning it to 1 would put the board off the right edge instead. */
+    tag.setAttribute('content', 'width=' + w);
+    document.documentElement.dataset.desktopPreview = w;
+  })();
+
   /* ================= GAME REGISTRY =================
      A game declares itself once, here, and the engine drives it through this
      contract instead of asking `if (activeGame === 'jeopardy')` in nine places.
