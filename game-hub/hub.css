@@ -102,7 +102,15 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 .cat-check .kind-q{ background: rgba(18,38,63,0.07); color: var(--muted); }
 .cat-check .kind-r{ background: rgba(0,160,223,0.16); color:#046C96; }
 .cat-check .kind-m{ background: rgba(255,194,14,0.28); color:#7A5B00; }
-.section-label{ font-family:'Space Grotesk', sans-serif; font-size:1.02rem; margin: 22px 0 12px; color: var(--navy); text-transform:uppercase; }
+.section-label{ font-family:'Space Grotesk', sans-serif; font-size:1.02rem; margin: 22px 0 12px; color: var(--navy); text-transform:uppercase;
+  letter-spacing:0.04em; font-weight:700; }
+/* How many questions are behind the row. Its own column rather than part of the
+   name, so the numbers line up down the list instead of trailing each label at a
+   different place. */
+.cat-check .count{
+  font-family:'IBM Plex Mono', monospace; font-size:0.74rem; color:var(--muted);
+  min-width:2.2em; text-align:right; flex-shrink:0;
+}
 .rules-note{ background: rgba(0,160,223,0.08); border:1px dashed var(--blue); border-radius:10px; padding:16px 18px; margin: 20px 0; font-size:0.88rem; line-height:1.6; color: var(--ink); }
 .rules-note .team-tag{ font-weight:700; padding:1px 7px; border-radius:5px; }
 .tag-gold{ background:var(--yellow); color:var(--navy); }
@@ -740,6 +748,14 @@ body.theme-gameshow{
   color: var(--paper);
 }
 body.theme-gameshow header h1{ color: var(--gold); text-shadow: 0 0 26px rgba(255,200,61,0.45); }
+/* **The section headings on the content screen.** `.section-label` is `--navy`,
+   which is right on the DCU theme and all but invisible on this one — navy text
+   on a near-black stage, reported as "almost impossible to see". The skin styles
+   every other part of that screen (`.cat-check`, its name, its tag, its chip) and
+   this one row was simply missed, which is what a theme that names classes one by
+   one will always eventually do. */
+body.theme-gameshow .section-label{ color: var(--gold); opacity:0.85; }
+body.theme-gameshow .cat-check .count{ color: rgba(234,240,255,0.55); }
 body.theme-gameshow .eyebrow{ color: var(--glow); }
 body.theme-gameshow .geo-band{
   background-color:#000;

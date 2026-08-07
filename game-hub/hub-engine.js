@@ -2526,24 +2526,68 @@
     return `<span class="kind kind-${k.cls}">${k.text}</span>`;
   };
 
+  /* ---- one shape for every content screen ----
+     A teacher picking content should not have to learn a second vocabulary
+     because they picked a different board. Jeopardy grouped its rows under
+     section headings and showed no counts; every other game showed a flat list
+     with counts and no headings, and repeated the section inside each row's own
+     label. Same job, two layouts, and the markup was written out twice.
+
+     The standard, and it is the same whatever the board and whatever the unit:
+
+         <section heading>
+         [ ] [5A]  Topic or round             ROUND · CONNECTIONS   (n)
+
+     the tick, the section tag, what the row *is*, and what kind of questions are
+     behind it. `contentRow` builds it and `sectionHeading` draws the heading, so
+     a sixth game gets the layout by calling them rather than by copying it. */
+  function sectionHeading(list, text){
+    const label = document.createElement('div');
+    label.className = 'section-label';
+    label.textContent = text;
+    list.appendChild(label);
+  }
+  function contentRow(list, { value, section, label, items, count }){
+    const div = document.createElement('label');
+    div.className = 'cat-check';
+    const n = count == null ? (items || []).length : count;
+    div.innerHTML = `<input type="checkbox" value="${value}">` +
+                    (section ? `<span class="tag">${section}</span>` : '') +
+                    `<span class="name">${label}</span>` +
+                    kindChip(items || []) +
+                    `<span class="count">${n}</span>`;
+    div.querySelector('input').addEventListener('change', onContentToggle);
+    list.appendChild(div);
+  }
+  /* A topic name is authored with its section on the front — "5A · Relative
+     clauses" — which was right when the row was the only thing on screen. With a
+     heading above it and a tag beside it the section is now said three times, so
+     the row drops it. */
+  const stripSection = (label, sec) =>
+    String(label).replace(new RegExp('^\\s*' + sec + '\\s*[·\\-–]\\s*', 'i'), '');
+
   function groupCheckboxes(list, bank, topicNames, sectionNames){
     const seen = [];
     bank.forEach(i=>{ const g = groupOf(i); if(g && seen.indexOf(g) === -1) seen.push(g); });
     // keep the reading order of the bank, which is section order
     seen.sort();
+    let lastSection = null;
     seen.forEach(g=>{
       const items = bank.filter(i => groupOf(i) === g);
-      const n = items.length;
-      const label = (topicNames && topicNames[g]) ||
-                    (sectionNames && sectionNames[g] && sectionNames[g].split('·').slice(1).join('·').replace(/\s*\(\d+[^)]*\)\s*$/, '')) ||
-                    g;
       const sec = String(g).split('-')[0];
-      const div = document.createElement('label');
-      div.className = 'cat-check';
-      div.innerHTML = `<input type="checkbox" value="${g}"><span class="tag">${sec}</span>` +
-                      `<span class="name">${label} <em>(${n})</em></span>` + kindChip(items);
-      div.querySelector('input').addEventListener('change', onContentToggle);
-      list.appendChild(div);
+      if(sec !== lastSection){
+        /* The section name without its own count — the rows carry those, and a
+           heading that also counted would be a second number to keep in step. */
+        const head = (sectionNames && sectionNames[sec])
+          ? String(sectionNames[sec]).replace(/\s*\(\d+[^)]*\)\s*$/, '')
+          : sec;
+        sectionHeading(list, head);
+        lastSection = sec;
+      }
+      const raw = (topicNames && topicNames[g]) ||
+                  (sectionNames && sectionNames[g] && sectionNames[g].split('·').slice(1).join('·').replace(/\s*\(\d+[^)]*\)\s*$/, '')) ||
+                  g;
+      contentRow(list, { value:g, section:sec, label:stripSection(raw, sec), items });
     });
   }
 
@@ -2553,7 +2597,7 @@
       div.className='cat-check';
       div.innerHTML = `<input type="checkbox" value="${sec}"><span class="tag">${sec}</span><span class="name">${names[sec].split('·')[1]}</span>`;
       div.querySelector('input').addEventListener('change', onContentToggle);
-      list.appendChild(div);
+      list.appendChild(div);   // dead code — see the note above; it would want contentRow
     });
   }
 
@@ -2562,18 +2606,11 @@
     let lastSection=null;
     JEOPARDY_CATEGORIES.forEach(cat=>{
       if(cat.section!==lastSection){
-        const label=document.createElement('div');
-        label.className='section-label';
-        label.textContent = JEOPARDY_SECTION_LABELS[cat.section] || cat.section;
-        list.appendChild(label);
+        sectionHeading(list, JEOPARDY_SECTION_LABELS[cat.section] || cat.section);
         lastSection=cat.section;
       }
-      const div=document.createElement('label');
-      div.className='cat-check';
-      div.innerHTML = `<input type="checkbox" value="${cat.id}"><span class="tag">${cat.section}</span>` +
-                      `<span class="name">${cat.name}</span>` + kindChip(cat.clues);
-      div.querySelector('input').addEventListener('change', onContentToggle);
-      list.appendChild(div);
+      contentRow(list, { value:cat.id, section:cat.section,
+                         label:stripSection(cat.name, cat.section), items:cat.clues });
     });
   }
 
