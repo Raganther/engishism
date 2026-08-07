@@ -339,34 +339,31 @@
       return 0;
     },
 
-    /* ---------- the round's own button ----------
+    /* ---------- the hint ----------
        **A class that cannot separate *livid* from *furious* learns more from being
        shown than from four wrong guesses.** The bench thermometer has had this
-       since it was written; the round never could, because the action strip held
-       one button and that one is the host's Check. It is the first thing to use
-       the second slot, and it is what proves the strip rather than describing it.
+       since it was written, and this round had it first in the hub as a button of
+       its own — it is the hint now, which is the same thing under the name every
+       other round uses for it, so a teacher meets one affordance rather than five.
 
-       Only on a shared ladder: in a race each team has its own, so showing a word
-       would either give it to one team or to all of them, and neither is a lesson.
+       One rung, from the cold end, with its gloss. **The gloss is the whole point**:
+       a word shown without one is a spoiler rather than a lesson.
 
-       **Never the last rung.** With one step left there is exactly one word left,
-       so revealing it teaches nothing — and it would end the round with nobody
-       having answered, which is a question about scoring and therefore not the
-       round's to answer. Disabled there rather than guarded downstream, so what
-       the button can do is what the button offers. */
-    actions(s){
-      if(s.mode !== 'climb' || s.done) return [];
-      const left = s.need - s.placed.length;
-      return [{ id:'show', label:'Show this one', disabled: left <= 1 }];
+       Only on a shared ladder. In a race each team has its own, so a shown word
+       would go either to one team or to all of them, and neither is a lesson —
+       `null` rather than `0`, which is how the strip knows to offer no button at
+       all instead of a disabled one. */
+    hintsLeft(s){
+      if(s.mode !== 'climb') return null;
+      /* Never the last rung: with one step left there is exactly one word left, so
+         showing it teaches nothing — and it would end the round with nobody having
+         answered, which is a question about scoring and therefore not this round's
+         to answer. */
+      return Math.max(0, s.need - s.placed.length - 1);
     },
 
-    /* Place the next word as though the room had got it, and print its gloss —
-       which is the whole point, because the gloss is the teaching and a word shown
-       without one is just a spoiler. Nothing scores: `accept` is reached from the
-       commit button and this is not it. */
-    press(id, s){
-      if(id !== 'show' || s.mode !== 'climb' || s.done) return false;
-      if(s.need - s.placed.length <= 1) return false;
+    hint(s){
+      if(!this.hintsLeft(s)) return false;
       const word = s.scale[s.placed.length];
       if(!word) return false;
       s.placed.push(word);

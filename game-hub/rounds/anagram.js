@@ -119,6 +119,7 @@
            the same reason: `picks` is what gets judged, `leading` is what the card
            draws while a team is still working, `votes` is the count behind it. */
         picks: {}, leading: {}, votes: {}, by: {}, got: {},
+        hint: 0,                           // how many leading letters have been given away
         say: '', shown: false, done: false
       };
     },
@@ -148,6 +149,12 @@
           b.classList.add('filled');
           b.textContent = bare(tok);
           if(c.onPick && !s.shown) b.addEventListener('click', ()=> c.onPick(tok));
+        } else if(i < (s.hint || 0)){
+          /* A given-away letter, in its own box. Only in an *empty* box: writing
+             over what the teacher has placed would make the card disagree with the
+             tray, and the box the hint is about is the one nobody has filled. */
+          b.classList.add('hinted');
+          b.textContent = s.word[i];
         }
         if(s.shown){ b.classList.add('right'); b.textContent = s.word[i]; }
         boxes.appendChild(b);
@@ -266,6 +273,30 @@
       });
       s.leading = p.leading; s.votes = p.votes; s.by = p.by; s.got = p.got;
       return p.picks;
+    },
+
+    /* ---------- the hint ----------
+       The next letter of the word, in its own box, from the left. Left to right
+       rather than "wherever it helps most" because an anagram is read as a word
+       being built: `V _ _ _ _ _ _` is a start a class can work forward from, where
+       a letter dropped into slot five is a fact with nothing attached to it.
+
+       **The card only.** The handsets are not re-dealt a partly-filled tray — a
+       student still has to find and place the letter themselves, and they read
+       which one off the projector, which is what the projector is for. That also
+       keeps the hint free of the relay, so it works with no room at all.
+
+       **Never the last letter.** With one box left there is one tile left, so the
+       word is finished either way. */
+    hintsLeft(s){
+      return Math.max(0, s.need - 1 - (s.hint || 0));
+    },
+
+    hint(s){
+      if(!this.hintsLeft(s)) return false;
+      s.hint = (s.hint || 0) + 1;
+      s.say  = 'Hint: letter ' + s.hint + ' is ' + s.word[s.hint - 1] + '.';
+      return true;
     },
 
     judge(answer, s){

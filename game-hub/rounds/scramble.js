@@ -85,6 +85,7 @@
         mode:  (ctx && ctx.mode === 'agree') ? 'agree' : 'first',
         chosen: [],
         picks: {}, leading: {}, votes: {}, by: {}, got: {},
+        hint: 0,                       // how many opening words have been given away
         say: '', shown: false, done: false
       };
     },
@@ -114,6 +115,10 @@
           b.classList.add('filled');
           b.textContent = bare(tok);
           if(c.onPick && !s.shown) b.addEventListener('click', ()=> c.onPick(tok));
+        }else if(i < (s.hint || 0)){
+          // a given-away word, in an empty slot — see `hint` below
+          b.classList.add('hinted');
+          b.textContent = s.words[i];
         }else{
           // a number, not an empty box: on a line of ten it is the only way to see
           // which slot is which without counting from the left every time
@@ -234,6 +239,26 @@
       });
       s.leading = p.leading; s.votes = p.votes; s.by = p.by; s.got = p.got;
       return p.picks;
+    },
+
+    /* ---------- the hint ----------
+       The next word of the sentence, in its slot, from the left — the same shape as
+       Drag the Letters and for the same reason, only more so: a sentence is read
+       forwards, so *"The jury …"* is a run-up the room can carry on from, where a
+       word planted in slot seven is a fact with no sentence around it yet.
+
+       The card only, exactly as the letters are: nobody's tray is re-dealt, the
+       word is read off the projector and still has to be placed. **Never the last
+       word** — one slot left is one chip left, so the sentence finishes itself. */
+    hintsLeft(s){
+      return Math.max(0, s.need - 1 - (s.hint || 0));
+    },
+
+    hint(s){
+      if(!this.hintsLeft(s)) return false;
+      s.hint = (s.hint || 0) + 1;
+      s.say  = 'Hint: word ' + s.hint + ' is "' + s.words[s.hint - 1] + '".';
+      return true;
     },
 
     judge(answer, s){

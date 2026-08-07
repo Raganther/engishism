@@ -76,6 +76,7 @@
         need:   pick.length,
         words:  shuffle(pick.concat(rest)),
         chosen: [],     // what the teacher has clicked, with no phones in the room
+        hint:   [],     // words given away as belonging to the group, one per press
         picks:  {},     // team index -> the union of that team's players' picks
         say:    '',
         done:   false
@@ -109,6 +110,10 @@
         b.appendChild(label);
         // once it is over, the four that were right say so whoever found them
         if(s.done && s.pick.indexOf(w) !== -1) b.classList.add('right');
+        /* A hinted word is marked as *in the group* and stays fully playable — it
+           narrows the search rather than answering it, and a word that could not
+           then be picked would make the hint cost the class a slot. */
+        if(!s.done && (s.hint || []).indexOf(w) !== -1) b.classList.add('hinted');
         /* The teacher's own selection is a neutral dashed ring and never a team
            colour: on a round every team is playing at once, nothing the teacher
            clicks belongs to anybody. */
@@ -206,6 +211,27 @@
         });
       });
       return out;
+    },
+
+    /* ---------- the hint ----------
+       One word named as belonging to the group. That is the right size of give-away
+       here because the search is combinatorial: eight words with four to find is 70
+       possible sets, and naming one takes it to 35, then 20, then 10 — a real cut
+       each time without ever handing over the answer.
+
+       **Never the last one.** With three of four named the fourth is whichever
+       remaining word makes a group, so the set is decided — and a hint that decides
+       the answer is Reveal, which is already a button. */
+    hintsLeft(s){
+      return Math.max(0, s.need - 1 - (s.hint || []).length);
+    },
+
+    hint(s){
+      const next = s.pick.filter(w => (s.hint || []).indexOf(w) === -1)[0];
+      if(!next || !this.hintsLeft(s)) return false;
+      s.hint = (s.hint || []).concat([next]);
+      s.say = 'Hint: ' + next + ' is one of them.';
+      return true;
     },
 
     // is this team's set complete, and if so is it the group

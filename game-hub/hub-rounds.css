@@ -59,6 +59,14 @@
 .gword.held{ border-color:var(--gw-ink, rgba(18,38,63,0.6)); }
 .gword.right{ border-color:var(--gw-good, #2FA84F); background:var(--gw-goodwash, rgba(47,168,79,0.14));
   color:var(--gw-goodink, #1B6B32); }
+/* ---------- a hint, given away ----------
+   Deliberately *not* the right-answer green. A hinted word is a word the teacher
+   handed over, and painting it the same as one the class earned would make the
+   board tell the room it got something it did not. Solid where an ordinary word is
+   quiet, and no green anywhere near it. The property is shared by every round that
+   marks a hint on the card, so the look is one decision rather than five. */
+.gword.hinted{ border-style:solid; border-width:2px;
+  border-color:var(--gw-hint, #D68A10); background:var(--gw-hintwash, rgba(214,138,16,0.18)); }
 .gdots{ display:flex; gap:3px; position:absolute; top:-4px; right:-4px; }
 .gdot{ width:9px; height:9px; border-radius:50%; border:1.5px solid var(--gw-bg, #fff); }
 .gword.shake{ animation:gShake .38s ease; }
@@ -109,6 +117,13 @@ body.theme-gameshow #clue-card{
      declared property in the first place. */
   --gw-warnwash:rgba(255,183,51,0.26);
   --gw-badwash:rgba(255,110,95,0.26);
+  /* A hint given away, lifted for the dark card exactly as the green was. It must
+     not be `--gw-hot`, which is near-white here — a hinted word bordered in white
+     is indistinguishable from an untouched one, which is the whole thing the mark
+     exists to say. */
+  --gw-hint:#FFC83D;
+  --gw-hintwash:rgba(255,200,61,0.22);
+  --gw-hintink:#FFE9A8;
 }
 body.theme-gameshow #clue-card .group-count,
 body.theme-gameshow #clue-card .group-say{ color:var(--paper); }
@@ -401,6 +416,14 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
   border-style:solid; cursor:pointer;
   background:var(--gw-hot, #FFC20E); color:var(--gw-ink, #12263F);
 }
+/* A given-away letter: legible, and visibly not one the room placed. Outlined
+   rather than filled, so a box a student has actually dropped a tile into (solid
+   yellow) still reads as the thing that happened. */
+.round-anagram .ana-box.hinted{
+  border-style:solid; border-color:var(--gw-hint, #D68A10);
+  background:var(--gw-hintwash, rgba(214,138,16,0.18));
+  color:var(--gw-hintink, inherit);
+}
 .round-anagram .ana-box.right{
   border-style:solid;
   background:var(--gw-good, #2e9e4f); color:var(--gw-goodink, #fff);
@@ -439,6 +462,13 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
 .round-scramble .scr-slot.filled{
   border-style:solid; cursor:pointer;
   background:var(--gw-hot, #FFC20E); color:var(--gw-ink, #12263F);
+}
+/* Same rule as the letters: outlined, never the filled yellow a placed word gets
+   and never the green a right one gets. */
+.round-scramble .scr-slot.hinted{
+  border-style:solid; border-color:var(--gw-hint, #D68A10);
+  background:var(--gw-hintwash, rgba(214,138,16,0.18));
+  color:var(--gw-hintink, inherit);
 }
 .round-scramble .scr-slot.right{
   background:var(--gw-good, #2e9e4f); color:var(--gw-goodink, #fff);

@@ -126,29 +126,59 @@ would catch.
 what a round owns is anything that changes its own question. Declare them:
 
 ```js
-actions(state, ctx){ return [{ id:'show', label:'Show this one', disabled:state.done }]; }
-press(id, state, ctx){ if(id === 'show'){ …; return true; } return false; }
+actions(state, ctx){ return [{ id:'redeal', label:'Shuffle again', disabled:state.done }]; }
+press(id, state, ctx){ if(id === 'redeal'){ …; return true; } return false; }
 ```
 
 `Kit.round.actions` puts the host's commit button at the head of the list and yours
-after it; `Kit.round.strip` draws them. Returning truthy from `press` tells the host
-to redraw the card and re-ask the handsets, which is what it owes you after your
-question has moved under them. Style with the shared `.round-action` block in
-`hub-rounds.css` — deliberately quieter than the commit button, because these change
-the question and that one ends it.
+after it; `Kit.round.strip` draws them, and `Kit.round.press` dispatches a press back
+to you. Returning truthy from `press` tells the host to redraw the card and re-ask
+the handsets, which is what it owes you after your question has moved under them.
+Style with the shared `.round-action` block in `hub-rounds.css` — deliberately
+quieter than the commit button, because these change the question and that one ends
+it.
 
 Three rules:
 - **Never score in `press`.** If what you want is "this answer counts", that is the
   commit button and it is the host's.
-- **Declare per mode.** Ordering offers *Show this one* on a shared ladder and not in
-  a race, where showing a word would give it either to one team or to all of them.
+- **Declare per mode**, when a button is only a lesson in one of them.
 - **A button that could end the round is a scoring question**, so it is not yours.
-  Ordering's disables on the last rung rather than being guarded downstream — what
-  the button can do should be what the button offers.
 
 *(Until F3.9.1/F3.9.2 a round had exactly one button, because `group-btn` is one
 element and the strip was a hand-listed skeleton. That was the single thing blocking
 round designs outright.)*
+
+## 2d. The hint — declare what one part of your answer is
+
+**Every round owes the teacher a way to be too hard.** A class that is stuck has one
+button today and it is Reveal, which ends the question — so a round declares how to
+give away *one* part of its answer, and the strip builds the button:
+
+```js
+hintsLeft(state, ctx){ … }   // parts still to give · 0 = offered but spent · null = not in this mode
+hint(state, ctx){ …; return true; }   // give one away, mutate state, say what you did
+```
+
+Do **not** write the button yourself. `Kit.round.actions` builds it from these two,
+so the wording, the count and the disabled state are one decision rather than one per
+round — that list-kept-in-step-by-hand is the defect this project has paid for most.
+A round that declares neither offers no hint, which is a correct state.
+
+Four rules:
+- **Never the last part.** Giving away the last part *is* the answer, and Reveal is
+  already that button. Hold it back in `hintsLeft`, not downstream — what the button
+  can do should be what the button offers.
+- **`null` is not `0`.** `0` draws the button disabled ("nothing left"); `null` draws
+  no button at all ("not in this mode"). Ordering returns `null` in a race, where a
+  shown word would go either to one team or to all of them.
+- **A hint may not score**, exactly as `press` may not. Whether being helped costs
+  points is the host's question, and no host asks it yet.
+- **Say what you gave away**, in `state.say`. "Hint: dismissed is one of them" teaches;
+  a word appearing on the card with no sentence around it does not.
+- **Mark it on the card as given, never as earned.** The shared `.hinted` look
+  (`--gw-hint` / `--gw-hintwash`) is deliberately not the right-answer green: painting
+  a handed-over word as a correct one makes the board tell the room it got something
+  it did not.
 
 ## 3. The card must not assume its host's background
 

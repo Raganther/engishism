@@ -5079,6 +5079,21 @@ async function testGroupingClue(browser){
   };
   const words   = page => page.locator('#clue-group .gword').allInnerTexts();
   const scoresOf= page => page.locator('.team .score').allInnerTexts();
+  /* **A won round no longer takes itself off screen.** The card holds the answer and
+     the winning team until the teacher closes it — reported from a real board, where
+     the tile flipped away within a second of the four lighting up and the room was
+     left with no answer and no idea who took it. So the payout rides on the Close
+     press, which is why every "did it score" check below has to make it. The button
+     names the team it is about to pay, which is the assertion worth making here
+     rather than in each of them. */
+  const closeWonRound = async page => {
+    const btn = page.locator('#close-btn');
+    check('a won round waits for the teacher, naming who it pays',
+          /^Close — .+ takes it$/.test((await btn.innerText()).trim()),
+          (await btn.innerText()).trim());
+    await btn.click();
+    await page.waitForTimeout(1800);
+  };
 
   /* ---------- the content is on the board at all ---------- */
   let page = await openLab(['Connections','Anagram','Gap Fill'], { phones:true });
@@ -5157,6 +5172,7 @@ async function testGroupingClue(browser){
           await page.locator('#clue-group .gword.right').count() === 4,
           String(await page.locator('#clue-group .gword.right').count()));
     await page.waitForTimeout(1800);
+    await closeWonRound(page);
     check('the tile scores to the team that found it',
           (await scoresOf(page)).join('/') === '200/0', (await scoresOf(page)).join('/'));
     check('and the strip names them with what it paid',
@@ -5210,6 +5226,7 @@ async function testGroupingClue(browser){
         String(await page.locator('#clue-group .gword.chosen').count()));
   await pickOnBoard(['livid','furious','incensed','irate']);
   await btn.click(); await page.waitForTimeout(1600);
+  await closeWonRound(page);
   check('and the right set takes the tile for the team on turn',
         (await scoresOf(page)).join('/') === '100/0', (await scoresOf(page)).join('/'));
   checkClean(page, 'no-phones board');
@@ -5341,6 +5358,7 @@ async function testGroupingClue(browser){
     await page.waitForTimeout(70);
   }
   await page.locator('#group-btn').click(); await page.waitForTimeout(1600);
+  await closeWonRound(page);
   check('the wager pays the team that found it',
         Number((await scoresOf(page))[0]) > 0, (await scoresOf(page)).join('/'));
   checkClean(page, 'daily double');
@@ -5382,6 +5400,7 @@ async function testGroupingClue(browser){
         await page.locator('#clue-group .group-say').innerText());
   for(const w of ['irritated','angry','livid','furious']) await climb(w);
   await page.waitForTimeout(1500);
+  await closeWonRound(page);
   check('and only the last rung pays the tile',
         (await scoresOf(page)).join('/') === '100/0', (await scoresOf(page)).join('/'));
   checkClean(page, 'ordering clue');
@@ -5411,10 +5430,15 @@ async function testGroupingClue(browser){
     commit: document.getElementById('group-btn').textContent
   }));
   let s = await strip();
+  /* The button is `hint` now, not the round's own `show`. Same beat and the same
+     wiring — what changed is that giving away one part of the answer turned out to
+     be every round's problem, so the strip builds the button from the round's
+     `hint`/`hintsLeft` rather than each round declaring one and five of them
+     writing the same thing five ways. */
   check('a round can put its own button in the strip, beside the host’s commit',
-        s.own.length === 1 && s.own[0].id === 'show' && s.after === 'group-btn' &&
+        s.own.length === 1 && s.own[0].id === 'hint' && s.after === 'group-btn' &&
         /Check it/i.test(s.commit), JSON.stringify(s));
-  await page.locator('#round-actions button[data-action="show"]').click();
+  await page.locator('#round-actions button[data-action="hint"]').click();
   await page.waitForTimeout(500);
   check('pressing it fills the rung and prints the gloss, and scores nobody',
         await page.locator('#clue-group .ord-rung.filled').count() === 1 &&
@@ -5426,7 +5450,7 @@ async function testGroupingClue(browser){
      left, so it teaches nothing — and a round ending with nobody having answered is
      a question about scoring, which is not the round's to answer. */
   for(let i = 0; i < 3; i++){
-    await page.locator('#round-actions button[data-action="show"]').click();
+    await page.locator('#round-actions button[data-action="hint"]').click();
     await page.waitForTimeout(350);
   }
   s = await strip();
@@ -5455,14 +5479,22 @@ async function testGroupingClue(browser){
         await page.locator('#round-actions button').count() === 0);
   await page.close();
 
-  /* And the default is untouched: a round that declares nothing is exactly as it
-     was, which is what makes this additive rather than a migration. */
+  /* Every round on this board offers a hint now, so the old "a round that declares
+     nothing has no buttons" case has no example left on the Lab board — the point
+     it was making is asked of the registry instead, where it is the real rule: the
+     strip builds the button from `hint`, so a round without one offers nothing. */
   page = await openLab(['Connections','Anagram','Gap Fill'], { phones:false });
   await openTile(page, 'Connections', 0);
-  check('a round that declares no buttons has none, and its commit reads as before',
-        await page.locator('#round-actions button').count() === 0 &&
+  check('the host’s commit button is untouched by the round having its own',
         /Check these 4 \(0\/4\)/.test(await page.locator('#group-btn').innerText()),
         await page.locator('#group-btn').innerText());
+  check('a round that declares no hint is offered no button at all',
+        await page.evaluate(() => {
+          const K = window.HubKit;
+          const def = Object.assign({}, K.round.get('grouping'), { hint:null });
+          const st  = K.round.get('grouping').setup(K.round.get('grouping').sample);
+          return K.round.actions(def, st, {}).filter(a => !a.primary).length === 0;
+        }));
   await page.close();
 
   /* ---------- a multiple choice clue ----------
@@ -5492,6 +5524,7 @@ async function testGroupingClue(browser){
         await page.locator('#clue-group .group-say').innerText());
   await pick('pass');
   await page.waitForTimeout(1500);
+  await closeWonRound(page);
   /* Unlike an ordering climb, being right *is* the ending here — so the tile pays
      on the first correct answer. That is the host's `done !== false` default doing
      its job for a round that never had to think about progress. */
@@ -5567,6 +5600,10 @@ async function testGroupingClue(browser){
   await page.locator('#clue-group .gword[data-word="serve"]').click();
   await page.waitForTimeout(120);
   await page.locator('#group-btn').click(); await page.waitForTimeout(2400);
+  /* The hexagon is claimed out of `roundHost.win`, which now runs on the Close
+     press — so on this board too the card holds the answer up until the teacher
+     takes it down, and the claim lands with it. */
+  await closeWonRound(page);
   check('a correct round claims the hexagon and scores it',
         await page.locator('.hex.claimed-gold, .hex.claimed-silver').count() === 1 &&
         Number((await scoresOf(page))[0]) > 0,
@@ -6547,11 +6584,19 @@ async function testAnagramRound(browser){
         await page.locator('#clue-card .ana-box.filled').count() === 7,
         String(await page.locator('#clue-card .ana-box.filled').count()));
   const before = (await page.locator('.team .score').allInnerTexts())[0];
-  await page.locator('#group-btn').click(); await page.waitForTimeout(700);
+  await page.locator('#group-btn').click(); await page.waitForTimeout(1500);
+  /* **The card holds until the teacher closes it, and Close is what pays.** A won
+     round used to flip away within a second of the letters landing, which left the
+     room with no answer on screen and no idea who took it. So the payout is read
+     after the close, not before it. */
+  check('a won round waits, with the answer and the winner still up',
+        await page.locator('#clue-card .ana-box.right').count() === 7 &&
+        /^Close — .+ takes it$/.test((await page.locator('#close-btn').innerText()).trim()),
+        (await page.locator('#close-btn').innerText()).trim());
+  await closeCard(page);
   const after = (await page.locator('.team .score').allInnerTexts())[0];
   check('and a correct arrangement pays the tile',
         before !== after, before + ' -> ' + after);
-  await closeCard(page);
 
   /* ---------- duplicate letters, which is what this round is built around ----------
      SENTENCE has three Es and two Ns. Keyed by text — which is how every other
@@ -6566,11 +6611,11 @@ async function testAnagramRound(browser){
   const filled = await page.locator('#clue-card .ana-box').allInnerTexts();
   check('and all three can be placed independently',
         filled.join('') === 'SENTENCE', filled.join(''));
-  /* Asserted on the payout rather than on anything the card says, because taking a
-     round closes the card — so the first version of this check was reading a
-     `.group-say` that had already gone with it. */
+  /* Asserted on the payout, which now lands on the Close press rather than on the
+     check — a won round holds the card up until the teacher takes it down. */
   const dupBefore = (await page.locator('.team .score').allInnerTexts())[0];
-  await page.locator('#group-btn').click(); await page.waitForTimeout(800);
+  await page.locator('#group-btn').click(); await page.waitForTimeout(1500);
+  await closeCard(page);
   check('so a repeated-letter word can actually be answered, and pays',
         (await page.locator('.team .score').allInnerTexts())[0] !== dupBefore,
         dupBefore + ' -> ' + (await page.locator('.team .score').allInnerTexts())[0]);
@@ -6742,6 +6787,10 @@ async function testAnagramRound(browser){
       used.push(idx); await drag(idx, i);
     }
     await live.waitForTimeout(1600);
+    check('finishing the word holds the card up for the room to read',
+          /^Close — .+ takes it$/.test((await live.locator('#close-btn').innerText()).trim()),
+          (await live.locator('#close-btn').innerText()).trim());
+    await closeCard(live);
     check('finishing the word takes the tile and scores it',
           (await live.locator('.team .score').allInnerTexts())[0] !== scoreBefore,
           scoreBefore + ' -> ' + (await live.locator('.team .score').allInnerTexts())[0]);

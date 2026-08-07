@@ -326,12 +326,14 @@
      never restates the commit button, which is why a round that declares nothing
      needs no change.
 
-       { actions(s, c){ return [{ id:'show', label:'Show this one' }]; },
-         press(id, s, c){ if(id === 'show'){ …; return true; } } }
+       { actions(s, c){ return [{ id:'redeal', label:'Shuffle again' }]; },
+           press(id, s, c){ if(id === 'redeal'){ …; return true; } } }
 
-     (Written as one object literal rather than two bare lines because `shelf.js`
-     reads a signature by finding the name at the start of a line, and an example
-     laid out like a definition is one it will believe over the real one.)
+     (Written as one object literal, and the second line pushed off the margin,
+     because `shelf.js` reads a signature by finding the name at the start of a
+     line — an example laid out like a definition is one it will believe over the
+     real one, and `press` is now a shelf function in its own right, so an example
+     of the *round's* `press` sitting at the margin here misreports it.)
 
      The default commit wording lived in two places — the engine and the bench —
      and the bench had grown an `Answered` state the engine had not. One home now;
@@ -352,7 +354,45 @@
            : ('Check these ' + n + ' (' + held + '/' + n + ')')
     };
     const own = (def.actions ? def.actions(state, ctx) : null) || [];
-    return [commit].concat(own.filter(a => a && a.id && a.id !== 'commit'));
+    const list = [commit].concat(own.filter(a => a && a.id && a.id !== 'commit'));
+    /* **The hint button is built here, not declared by each round** — the same move
+       the commit button makes one line up. What a hint *is* differs completely per
+       round (a word of the group, a wrong option struck out, a letter dropped into
+       its slot), and only the round can know that; what a hint *button* is — its
+       wording, its count, standing down when there is nothing left to give — is the
+       same everywhere, and six rounds hand-writing it is the list-kept-in-step-by-
+       hand defect this project has paid for most. So a round declares `hint()` and
+       `hintsLeft()` and gets the button; a round that declares neither offers none,
+       which is a correct state rather than a broken one.
+
+       `hints:false` from the host is the teacher's ⚙ switch reaching this list.
+
+       **`null` and `0` are different answers, and the difference is whether the
+       button exists at all.** `0` is "offered, and there is nothing left to give" —
+       drawn disabled, because what a button can do should be what it offers, and
+       the last part of an answer is never a hint (giving it away *is* Reveal, which
+       is already a button). `null` is "not in this mode": the ordering race gives
+       every team its own ladder, so a hint would hand a word either to one team or
+       to all of them, and a disabled control there never had a meaning. */
+    const left = def.hint && o.hints !== false && !state.done
+               ? def.hintsLeft(state, ctx) : null;
+    if(left != null){
+      list.push({ id:'hint', disabled: left <= 0,
+                  label: left > 0 ? ('Hint · ' + left + ' left') : 'Hint' });
+    }
+    return list;
+  }
+
+  /* A round's own button pressed, dispatched. `hint` is routed to `hint()` and
+     everything else to `press()`, so the two callers — the hub and the question
+     bench — do not each have to know that the synthesised button is not one the
+     round declared. Returns truthy when the card changed, which is the host's cue
+     to redraw and re-ask the handsets. Neither may score: that is the commit
+     button's, and the commit button is the host's. */
+  function press(def, id, state, ctx){
+    if(!def || !state || state.done) return false;
+    if(id === 'hint') return def.hint ? !!def.hint(state, ctx) : false;
+    return !!def.press(id, state, ctx);
   }
 
   /* Draw a round's own buttons into a mount — the commit button is not among them,
@@ -461,7 +501,26 @@
            score: that is the commit button's, and the commit button is the
            host's. A round that declares neither is exactly as it was. */
         actions: null,
-        press(){ return false; }
+        press(){ return false; },
+        /* **One more part of the answer, given away on purpose.** A round that is
+           too hard for the room in front of it stops being a lesson, and a teacher's
+           only way out was Reveal, which ends the question. So `hint(state, ctx)`
+           gives away exactly one part and returns truthy; press it again for the
+           next. `hintsLeft(state, ctx)` says how many parts are still to give, and
+           **must never count the last one** — giving away the last part is Reveal,
+           and that button already exists.
+
+           What a "part" is belongs entirely to the round: a word of the group, a
+           wrong option struck out, a letter into its slot, the next rung of the
+           ladder. What the *button* is belongs to `actions()` above, which builds
+           it from these two. A round declaring neither offers no hint at all.
+
+           It may not score, exactly as `press` may not — a hint that cost points
+           would put scoring inside the round tier, which is the one thing that
+           would stop a round being portable. Whether a hint is worth points is the
+           host's question, and no host asks it yet. */
+        hint: null,
+        hintsLeft(){ return 0; }
       }, def || {});
 
       /* **Every arm says how this question is being played**, in the round's own
@@ -531,7 +590,7 @@
       }
       return null;
     },
-    shares, settle, poll, agreement, lanes, mustHold, arrangement, cap, actions, strip,
+    shares, settle, poll, agreement, lanes, mustHold, arrangement, cap, actions, strip, press,
     /* A comma-separated field as a list. Three rounds' editors parse one, which
        is what puts it here rather than in each of them. */
     list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); }

@@ -292,6 +292,33 @@
       return p.answers;
     },
 
+    /* ---------- the hint ----------
+       One wrong option out of play, which is 50:50 by another name — and that is
+       the point: `hidden` was written generic for Millionaire's lifeline precisely
+       because "narrow the choice" is a hint mechanic rather than one board's
+       feature, so this round needed no new state and the phones already honour it
+       (`arm` filters `hidden`, so a struck option leaves every handset).
+
+       **Never below two.** One option left is not a choice, it is the answer, and
+       giving away the answer is Reveal. On four options that is two hints; the
+       lifeline can still take two at once because a lifeline is spent rather than
+       pressed, and the two mechanics do not fight — each only ever removes an
+       option that is still live. */
+    hintsLeft(s){
+      return Math.max(0, s.options.length - (s.hidden || []).length - 2);
+    },
+
+    hint(s){
+      if(!this.hintsLeft(s)) return false;
+      const gone = s.hidden || [];
+      const wrong = s.options.filter(w => !same(w, s.answer) && gone.indexOf(w) === -1);
+      if(!wrong.length) return false;
+      const out = shuffle(wrong.slice())[0];
+      s.hidden = gone.concat([out]);
+      s.say = 'Hint: it is not ' + out + '.';
+      return true;
+    },
+
     judge(answer, s){
       const pick = (answer || [])[0];
       if(!pick) return { verdict:'incomplete', hits:0 };

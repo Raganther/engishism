@@ -891,6 +891,29 @@
     label:'Winner banner when a round is taken',
     help:'After a team takes a round, a banner names them and what it paid, and lingers a moment — the strip alone was gone before the back of the room could read it.' });
 
+  /* **The card stops leaving on its own when a round is won.** Reported from a real
+     board: the four words light up, the tile flips away, and the room is left with
+     no answer on screen and no idea who took it. The round pays the moment it is
+     won *because* the class produced the answer and the host judged it — there is
+     nothing left to confirm — but "nothing to confirm" was read as "nothing to
+     read", and those are different. The teacher closes it now; the payout and the
+     winner banner ride on that press, so the beat is one thing rather than two.
+     Every round on a card board inherits it, because the wait is the host's. */
+  S.register({ id:'roundWinClose', group:'Questions', type:'variant', default:'teacher',
+    games: ROUND_GAMES.filter(g => ROUND_HOSTS[g].mount === CARD_MOUNT),
+    label:'When a round is won',
+    variants:[{ value:'teacher', label:'Keep the card up — the answer stays on screen until you close it' },
+              { value:'auto',    label:'Close the card straight away' }],
+    help:'A won round used to flip the card away within a second of the answer landing. Keeping it up leaves the answer and the winning team on screen for as long as you want to talk about them.' });
+
+  /* Offered wherever a round can be hosted, including the two boards with no card:
+     a hint changes the question rather than the card, so Millionaire and Quickfire
+     get it too. Which rounds actually offer a button is the round's own business —
+     one that declares no `hint` shows none, whatever this says. */
+  S.register({ id:'roundHints', group:'Questions', type:'toggle', default:true,
+    games:ROUND_GAMES, label:'Hint button on a round',
+    help:'Gives away one part of the answer — a word of the group, a wrong option struck out, a letter into its slot, the next rung. Press again for the next part. It never gives away the last part; that is what Reveal is for. Costs nothing.' });
+
   S.register({ id:'roundWho', group:'Questions', type:'variant', default:'room',
     games:ROUND_GAMES, label:'Who plays a round',
     variants:[{ value:'room', label:'The whole class races — first team to get it takes the square' },
@@ -3949,6 +3972,12 @@
       .forEach(b => { b.style.display = 'none'; });
     const own = document.getElementById('round-actions');
     if(own) own.innerHTML = '';
+    /* A won round renames Close to say who it pays, and this is the one call every
+       opener makes — so the wording is put back here rather than by each of the six
+       places that show the button. A stale "Close — Team 2 takes it" over the next
+       clue is exactly the kind of thing nobody notices until a lesson. */
+    const close = document.getElementById('close-btn');
+    if(close) close.textContent = 'Close';
     clueClaim.hide();
   }
 
@@ -4204,7 +4233,8 @@
        Millionaire's is the show's "Final answer?", which is the same beat and must
        not read as "Check it". */
     const list = Kit.round.actions(jRoundDef(), jGroup, jGroupCtx(),
-                                   { commitText: roundHost.commitText });
+                                   { commitText: roundHost.commitText,
+                                     hints: !!S.get('roundHints', roundHost.game) });
     if(!list.length) return;
     btn.disabled = !!list[0].disabled;
     btn.textContent = list[0].label;
@@ -4217,7 +4247,7 @@
      to itself has left the handsets holding an out-of-date question. */
   function roundPress(id){
     if(!jGroupLive()) return;
-    if(!jRoundDef().press(id, jGroup, jGroupCtx())) return;
+    if(!Kit.round.press(jRoundDef(), id, jGroup, jGroupCtx())) return;
     jGroup.chosen = [];
     renderJGroup();
     if(buzzHost && currentClueItem) askPhones(currentClueItem.text, roundHost.game);
@@ -4316,27 +4346,79 @@
        for the teacher to confirm — the same rule a typed word has always followed.
        A beat first, or the four lighting up and the card leaving land in one frame
        and the room never sees which four it was. */
-    const value = currentClueValue;
     const label = (jRoundDef() || {}).label || 'Round';
     setTimeout(()=>{
       if(!jGroup) return;                 // the teacher closed the card in the meantime
-      const paid = roundHost.win(team);
-      notePhoneScore(teamName(team), team, null, paid || value);
-      /* The winner's moment. The strip's note holds a second and a half and the
-         card is already leaving, so from the back of a room a win was over before
-         anybody could read whose it was — the first live class asked for this by
-         name. The shared banner lingers over the board, then leaves by itself;
-         the teacher's click still outranks the timer. */
-      if(S.get('roundWinBanner', roundHost.game)){
-        showResult({ eyebrow: label,
-                     title: teamName(team),
-                     sub: 'takes it — +' + (paid || value),
-                     tone: 'gold',
-                     actions: [{ label:'Continue', primary:true }] });
-        const mine = resultSeq;
-        setTimeout(()=>{ if(resultSeq === mine) hideResult(); }, ROUND_WIN_LINGER_MS);
-      }
+      if(jRoundHolds()) jRoundHold(team, label);
+      else jRoundPayout({ team, label });
     }, J_GROUP_TAKE_MS);
+  }
+
+  /* Whether this board waits for the teacher before taking a won round off screen.
+     Only the two boards that put a round on the clue card can: Millionaire and
+     Quickfire mount on their own stage, where the options are still there after the
+     question ends and there is no card to hold. Derived from `mount` rather than
+     named per game, so a third card board arrives already correct. */
+  function jRoundHolds(){
+    return roundHost.mount === CARD_MOUNT &&
+           S.get('roundWinClose', roundHost.game) !== 'auto';
+  }
+
+  /* The card a team has just won, held open. **What is waiting is the payout, not
+     the animation** — the alternative was to pay now and defer only the flip, which
+     means splitting `closeModal` out of both hosts' `win()` and then re-running the
+     board's after-work (a cleared Jeopardy board, a finished Blockbusters line) by
+     hand from somewhere else. Deferring the whole thing keeps one path: Close
+     presses the same button the round used to press for itself.
+
+     The residual, stated rather than hidden: leaving the play screen without
+     closing loses the points. Close is the only button on screen, so the only way
+     there is abandoning the board — which already scores nothing on an ordinary
+     clue left open, so it is the behaviour this board has always had. */
+  let jRoundWin = null;
+  function jRoundHold(team, label){
+    jRoundWin = { team, label };
+    /* The answer, out on the card. This is the round's own `reveal` — the same one
+       the Reveal button calls — because "what the answer was" is the round's to
+       draw and there is no second version of it. */
+    jRoundDef().reveal(document.getElementById('clue-group'), jGroup, jGroupCtx());
+    // `reveal` speaks for the round; who took it is the host's, so it is said after
+    jGroup.say = teamName(team) + ' has it.';
+    renderJGroup();
+    /* Exactly what the Reveal button does with the answer line, down to asking the
+       prompt whether the word already landed in its own blank — a won round and a
+       revealed one show the same answer, so they must not be two pieces of code
+       that could come to disagree about how to show it. */
+    const inPlace = Kit.prompt.reveal(document.getElementById('clue-text'), currentClueItem);
+    document.getElementById('clue-answer').style.display = inPlace ? 'none' : 'block';
+    jGroupStandDown();
+    jClockStop();                 // the answer is out; whatever the clock said is over
+    hideAllActionButtons();
+    const close = document.getElementById('close-btn');
+    close.textContent = 'Close — ' + teamName(team) + ' takes it';
+    close.style.display = 'inline-block';
+  }
+
+  /* Paying a won round out. Reached either straight away (`auto`) or from the Close
+     press, and it is the same function both ways so the two cannot drift. */
+  function jRoundPayout(p){
+    const value = currentClueValue;
+    const paid = roundHost.win(p.team);
+    notePhoneScore(teamName(p.team), p.team, null, paid || value);
+    /* The winner's moment. The strip's note holds a second and a half and the
+       card is already leaving, so from the back of a room a win was over before
+       anybody could read whose it was — the first live class asked for this by
+       name. The shared banner lingers over the board, then leaves by itself;
+       the teacher's click still outranks the timer. */
+    if(S.get('roundWinBanner', roundHost.game)){
+      showResult({ eyebrow: p.label,
+                   title: teamName(p.team),
+                   sub: 'takes it — +' + (paid || value),
+                   tone: 'gold',
+                   actions: [{ label:'Continue', primary:true }] });
+      const mine = resultSeq;
+      setTimeout(()=>{ if(resultSeq === mine) hideResult(); }, ROUND_WIN_LINGER_MS);
+    }
   }
 
   /* The round is over — because the tile was taken, or because the teacher closed
@@ -4344,18 +4426,30 @@
      words up with a dead button: that is what "not asking them at all" did to the
      Daily Double, and it reads as broken rather than deliberate. */
   function jGroupEnd(){
+    jRoundWin = null;         // whatever closed the card, nothing is waiting on it now
     if(!jGroup) return;
-    if(jGroupSettler) jGroupSettler.stop();
+    jGroupStandDown();
     jGroup = null; jGroupSettler = null; jRoundId = null;
     const host = document.getElementById('clue-group');
     if(host) host.remove();
+    clearReplies();
+  }
+
+  /* Telling thirty handsets the question is over, *without* taking the card down
+     with it. The two used to be one function because they had only ever happened
+     together; a won round that stays on screen splits them — the phones must stand
+     down the moment the answer is out, or the room is holding a live-looking button
+     for a question that has been decided, but the card is the whole point of
+     waiting. The strip is deliberately not cleared here: who answered is what the
+     teacher is about to read out. */
+  function jGroupStandDown(){
+    if(jGroupSettler) jGroupSettler.stop();
     if(buzzHost){
       buzzWinner = null;
       lastAsk = { mode:'off', prompt:'' };
       buzzHost.disarm();
       renderBuzzChip();
     }
-    clearReplies();
   }
 
   function openJeopardyClue(cat, clue, tile){
@@ -5108,6 +5202,10 @@
   });
 
   document.getElementById('close-btn').addEventListener('click', ()=>{
+    /* A round that has been won is waiting on this press to pay: the win closes the
+       card itself, exactly as it did when it closed it a second after the answer
+       landed. Cleared first, so the close it triggers cannot come back round here. */
+    if(jRoundWin){ const p = jRoundWin; jRoundWin = null; jRoundPayout(p); return; }
     closeWager();
     jDoubleTeam = null;
     document.getElementById('clue-card').classList.remove('daily-double');

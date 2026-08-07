@@ -262,10 +262,18 @@ restates the commit button, which is why the six rounds that declare nothing nee
 change. `Kit.round.actions` builds the list (host's first) and `Kit.round.strip` draws
 it; the hub and the question bench both call them, which is what makes it a shelf.
 
+**The hint button is built by the strip, not declared by each round.** A round says
+`hint()` and `hintsLeft()` — what one part of *its* answer is, which only it can know
+— and `Kit.round.actions` makes the button. Five rounds hand-writing the same wording
+and count is the hand-kept list this project has paid for most, one tier over. The
+rules it enforces for all of them: never the last part (that is Reveal), `null` means
+no button rather than a disabled one, and a hint may not score.
+
 **`hideAllActionButtons()` stopped carrying a list of ids.** It asks the strip. The
 list was hand-typed and a new button had to be threaded into it by hand with nothing
 complaining if you missed one — and `wager-ok` never was, so a bet left standing
-outlived every call to it. **The hub's and the skins' own buttons are still listed in
+outlived every call to it. It does still put Close's wording back by hand, because a
+won round renames it to say who it pays and this is the one call every opener makes. **The hub's and the skins' own buttons are still listed in
 the skeleton**, which is correct: they are that tier's and each opener shows what it
 wants. What is gone is the tier that had no way to declare at all.
 
@@ -1213,6 +1221,81 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A won round stays on screen until the teacher closes it, and every round has a
+  hint.** Two reports from a real board, and the answer to both was the same one:
+  neither is a round's feature, so all five inherit them.
+  - **The card was flipping away within a second of the answer landing**, which left
+    the room with no answer on screen and no idea who had taken it. The round paid
+    itself the moment it was won *because* the class produced the answer and the host
+    judged it — there was nothing left to confirm. But "nothing to confirm" is not
+    "nothing to read", and only the second one was true.
+  - **What waits is the payout, not the animation.** The alternative was to pay now
+    and defer only the flip, which means splitting `closeModal` out of both hosts'
+    `win()` and then re-running the board's after-work — a cleared Jeopardy board, a
+    finished Blockbusters line — by hand from somewhere else. Deferring the whole
+    thing keeps one path: **Close presses the same button the round used to press for
+    itself**, so the tile, the turn, the banner and the ending all follow as before.
+  - **It is the *host's* wait, not the round's**, which is why nothing in any of the
+    five rounds changed for it. Derived from `mount === CARD_MOUNT` rather than named
+    per game, so the two card boards get it and Millionaire and Quickfire — whose
+    options stay on their own stage and have no card to hold — correctly do not.
+    `roundWinClose` in ⚙ puts the old behaviour back.
+  - **The residual, stated rather than hidden:** leaving the board without pressing
+    Close loses the points. Close is the only button on screen, so the only way there
+    is abandoning the play screen — which already scores nothing on an ordinary clue
+    left open.
+  - **`jGroupEnd` split in two.** Telling thirty handsets the question is over and
+    taking the card down had only ever happened together; a card that outlives its own
+    round separates them. The phones stand down the moment the answer is out — or the
+    room holds a live-looking button for a question that has been decided — and the
+    strip is deliberately *not* cleared, because who answered is what the teacher is
+    about to read out.
+  - **The hint is one part of the answer, given away, and pressing again gives the
+    next.** What a "part" is could only ever be the round's: a word named as belonging
+    to the group, a wrong option struck out, the next letter into its slot, the next
+    word of the sentence, the next rung with its gloss. What the *button* is — its
+    wording, its count, standing down when there is nothing left — is the same
+    everywhere, so `Kit.round.actions` builds it from `hint()`/`hintsLeft()` and no
+    round writes a button. A round declaring neither offers none, which is what the
+    default round, the information gap and Word Drop correctly do.
+  - **Never the last part**, in all five. Giving away the last one *is* the answer and
+    Reveal is already that button — so Connections stops at three of four, a choice
+    stops at two live options, and the drag rounds stop one short. Held back in
+    `hintsLeft` rather than guarded downstream: what the button can do should be what
+    it offers.
+  - **`null` and `0` are different answers and the difference is whether the button
+    exists.** `0` is offered-and-spent, drawn disabled. `null` is not-in-this-mode:
+    the ordering race gives every team its own ladder, so a shown word would go either
+    to one team or to all of them, and a disabled control there never had a meaning.
+  - **Ordering's *Show this one* became the hint rather than sitting beside it.** It
+    was the first thing to use the second slot in the strip and it was already this
+    idea under its own name; a teacher should meet one affordance, not five.
+  - **A hint is marked as given, never as earned.** `--gw-hint` is a first-class card
+    property beside `--gw-good`, because the obvious reach — `--gw-hot` — is near-white
+    on the game-show card and on the bench, so a hinted word would have been
+    indistinguishable from an untouched one. And it is deliberately not the
+    right-answer green: painting a handed-over word as a correct one makes the board
+    tell the room it got something it did not.
+  - **Free, and that is a tier decision rather than a kindness.** A round may not
+    score, so a hint that cost points would put scoring inside the round tier — the
+    one thing that would stop a round being portable. Whether being helped costs
+    points is the host's question and no host asks it yet.
+  - **`Kit.round.press` went on the shelf with it**, dispatching `hint` to `hint()`
+    and everything else to `press()`, with both callers — the hub and the question
+    bench — rewired in the same change, so neither has to know the button was
+    synthesised rather than declared.
+  - Driven in a browser on the Lab board and on the bench: 22 checks over the hint in
+    all five rounds, the win holding, Close paying, and the second host. `grouping,
+    anagram` 141/0 after **ten suite checks were updated in the same change** — they
+    pinned the old auto-pay, which is the behaviour that was asked to change, so a
+    `closeWonRound` helper presses Close before every "did it score".
+  - **No classroom run.** The thing to watch is whether Close becomes a click a
+    teacher resents on a fast board — `roundWinClose` is there for that — and whether
+    a hint that costs nothing gets pressed too early.
+  - **Found on the way and not fixed, because it predates this:** the `qbench` suite
+    throws on Multiple Choice in `agree` mode, waiting for a `.group-tally` that never
+    appears on the bench. Identical on the base build (66/1 both ways). It is a real
+    red check and it is somebody's next job.
 - **Units 4 and 5 play as rounds — every Jeopardy clue and every Blockbusters
   hexagon.** 100 clues in 20 categories and 72 hexagons per unit, five round types
   per section. The ~175 simple question-and-answer items each of those two boards
@@ -3866,6 +3949,13 @@ for the full version with requirement IDs. The short form, in order:
    **stage-as-mount for Race**, then **Bingo extracted**, then **Race extracted**.
    A round is no longer limited to one button, so nothing on the list of round
    designs is blocked outright any more.
+4b. **A red check in `qbench` that predates the hint work**: Multiple Choice in
+   `agree` mode on the bench never draws the `.group-tally`, so the suite throws
+   waiting for it and the rest of that suite never runs. Verified identical on the
+   base build (66 passed / 1 failed both ways), so it is not the action-strip work.
+   Two jobs, and the second matters more: find out whether the tally is genuinely
+   missing on the bench in that mode, and make the check read it with a fallback so
+   one absent element stops aborting sixty others.
 5. **Decide what Millionaire's buzz settings are for.** `mBuzzRole` cannot fire since
    its ladder became a round host. Either retire the setting so it stops lying, or let
    a buzz pick who answers for the team *before* the round takes the handsets — which
