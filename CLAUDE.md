@@ -1213,6 +1213,87 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Units 4 and 5 play as rounds — every Jeopardy clue and every Blockbusters
+  hexagon.** 100 clues in 20 categories and 72 hexagons per unit, five round types
+  per section. The ~175 simple question-and-answer items each of those two boards
+  held are gone. NEF-1 is **not** converted, so it is the one unit left to compare
+  against.
+  - **Race and Millionaire are untouched, for opposite reasons.** Millionaire needs
+    nothing — its ladder already builds a Multiple Choice round out of every rung
+    when the question opens, so that bank was rounds before any of this, and
+    Quickfire reads the same one. **Race cannot host a round at all**: its scattered
+    words *are* the board, so it needs the stage as a mount, which is still on the
+    build order. Deleting its bank would have taken the game out of the unit for
+    nothing.
+  - **`bingoBank` is new and is why Bingo survived.** A bingo call is a clue with
+    one single-word answer; a round hexagon carries no answer at all, so
+    `bingoWordsIn` finds nothing in an all-rounds bank and the game silently leaves
+    the unit. The old calls moved there verbatim, and Bingo reads its own bank when
+    a unit has one and falls back to `blockbustersBank` when it does not — so an
+    unconverted unit is untouched by the change.
+  - **The gate found 49 duplicated prompts on Unit 5's first pass and 5 on Unit
+    4's.** The 49 were the Jeopardy sets copied straight into the Blockbusters
+    bank, which is exactly what the per-game rule exists to stop; the difference
+    between the two numbers is the whole return on authoring a different question
+    per game rather than rewording one.
+  - **The rule that matters most, and it was learned by breaking it: every word in
+    an ordering scale should be the unit's own language.** Unit 5 was authored from
+    its existing bank and has six scales — job security, seniority, attention,
+    claim strength, commitment, reliability — that are plausible C1 English the
+    unit never teaches. Unit 4 was authored from `material/empower-c1-unit-4/` and
+    holds to it. **`author-content` §3 says read the pages first and that is the
+    step that was skipped**; the gate cannot catch it, because sourcing is not form.
+    An audit against the scans is outstanding on all three units.
+- **One shape for every content screen, and the round type became an axis you can
+  pick along.** Jeopardy grouped rows under section headings with no counts; every
+  other board was a flat list with counts, no headings, and the section repeated
+  inside each row — the same job, two layouts, and the markup written out twice.
+  `contentRow` and `sectionHeading` are what both builders call now.
+  - **`selectedContent.includes(groupOf(x))` was hand-copied in eight places**, so
+    a second axis would have had to be threaded into all eight by hand. They call
+    `inPlay` now, and a seventh game gets both axes by filtering with it.
+  - The filter strip is built from the round types **actually in that game's bank
+    for that unit**, and hides itself below two — Millionaire shows none, because
+    every rung is already a Multiple Choice round and a filter that cannot narrow
+    anything is a control that lies. Counts follow the filter.
+  - **Jeopardy filters whole categories, never clue by clue**: the board indexes
+    tiles by row, so a column short of one clue is `undefined` rather than shorter.
+  - The section headings were `--navy` on the game-show skin — navy on near-black,
+    reported as almost invisible. The skin styles every other part of that screen
+    and missed this one line, which is what a theme naming classes one at a time
+    will always eventually do.
+- **A team is a competitor now — step 1 of individual play, and deliberately
+  invisible.** The shape gained an `id`: an index is a competitor's identity
+  everywhere today, which is why removing one is a special case rather than a
+  splice and why the first live class paid a win to a team that no longer existed.
+  A person must be matched to their handset across a reconnect and an index cannot
+  do that. Nothing reads it yet.
+  - **`Roster` is the one seam.** Everything that *reads* the roster keeps indexing
+    the array — about sixty places, all staying, because a board looking up
+    `roster[i].name` does not care what put it there. Only what *changes* it goes
+    through `Roster`: add, the floor of two, the label. That is the sole difference
+    between a room of teams and a room of people.
+  - **Solo does not fit every game, and that is a declaration to make rather than a
+    thing to discover.** Jeopardy, Quickfire and Bingo take it; Millionaire draws a
+    ladder per competitor, Blockbusters' board has exactly two routes across it, and
+    Race is two people physically at the screen. Same shape as Race and Bingo not
+    hosting rounds.
+  - **Still to decide before step 2:** what "everyone on the team agrees" means when
+    a competitor is one person. `poll({unanimous})`, `mustHold` and every `agree`
+    mode assume several handsets per competitor.
+- **`?desktop=1` shows the projected layout on a handset** — it pins the viewport to
+  1280 instead of the device width, so none of the phone tiers match. It gives the
+  real *width* and not the real height: a portrait phone at a 1280 layout width
+  reports ~2770px of height, so the board fits itself to that and the tiles stretch.
+  For a true 1280x720 frame the room bench already does it properly.
+- **A content conversion can break a suite silently, and did — twice.** `turns` and
+  `competition` went red several commits before anyone noticed, because the content
+  gate was re-run after converting and the shared set was not. The app was right:
+  **phone modes and Jeopardy's steal only exist on a plain question**, since a round
+  arms the handsets itself and owns its own verdict, so the tests were waiting for a
+  buzzer and a claim chooser that correctly never appear. Both use the Lab board now
+  — eight plain categories, and not class-facing, so it will not be converted out
+  from under them. **Re-run the shared set after content work, not just the gate.**
 - **Multiple choice joined the lane standard, and a finished lane says which of three
   things happened.** Reported from a real board, in two rounds.
   - **It was the last round drawing its own team progress**, and what it drew was a
@@ -3745,7 +3826,18 @@ playground's point, that one board can host several:
 this is going: skins hosting rounds", and `docs/game-hub-requirements.md` §3.8–§3.10
 for the full version with requirement IDs. The short form, in order:
 
-0. ~~**Fix resume — a reconnecting handset lands on "Waiting for the teacher".**~~
+0. **Individual play — steps 2 to 5.** Step 1 is done (see Current status): a team
+   is a competitor, it carries an id, and `Roster` owns everything that changes the
+   list. What is left: the teams/solo switch; building the roster from the joined
+   phones in solo; each game declaring whether solo suits it (three do, three
+   cannot); and nothing at all in the rounds, which is the sign it is the right
+   layer. **Decide first** what "everyone agrees" means when a competitor is one
+   person.
+0b. **Convert NEF-1, and audit the ordering scales against the scans.** NEF-1 is the
+   one unit still carrying simple questions on Jeopardy and Blockbusters. The audit
+   is the more important half: Unit 5 has six scales built from English the unit
+   never teaches, and no check can catch that — only reading the pages can.
+0c. ~~**Fix resume — a reconnecting handset lands on "Waiting for the teacher".**~~
    **Done** — and the phone was innocent: the deployed relay restarts on every push
    and forgets every room, and the hub never re-told the new room the question. See
    the top of Current status.
