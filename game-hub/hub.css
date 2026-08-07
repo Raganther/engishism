@@ -1517,6 +1517,22 @@ body.theme-gameshow .settings-preset-note{ color:var(--gold); }
   #scorebar{ gap:5px; padding:3px 4px; }
   .team{ gap:5px; padding:3px 6px; }
   .team input.tname{ width:50px; }
+
+  /* **The content row wraps here rather than squeezing.** One line of tick, tag,
+     name, kind chip and count is about 430px of content, so at 390 the name was
+     wrapping to three words a line while the chip and the count were pushed past
+     the right edge — the count clipped in half and unreadable. On a handset the
+     row becomes two lines: what it is on top, what kind and how many underneath.
+     Nothing is hidden, which is the handset rule everywhere in this app.
+
+     Found by looking at a screenshot. The assertion said the row did not overflow
+     and it was right — the row did not, its *contents* did, which is the measure-
+     the-elements-not-the-container mistake this project has paid for before. */
+  .cat-check{ flex-wrap:wrap; gap:8px 10px; padding:12px 14px; }
+  .cat-check .name{ flex:1 1 100%; order:1; }
+  .cat-check input, .cat-check .tag{ order:0; }
+  .cat-check .kind{ order:2; }
+  .cat-check .count{ order:3; margin-left:auto; text-align:right; }
 }
 
 /* --- Active team + turn highlight --- */
