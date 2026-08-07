@@ -91,6 +91,30 @@ walk('game-hub', '.css').forEach(checkCSS);
         .forEach(s => problems.push(`dev.html links "${s}", which is not a skill any more`));
 })();
 
+/* ---- a shell that loads any round must load them all ----
+   The per-unit deep links carried a hand-typed list of round `<script>` tags and
+   it had gone four rounds stale: `game-hub-unit4.html` and `-unit5.html` loaded
+   only the first four, so anagram, scramble, infogap and drop content opened in
+   them as **plain text with no error anywhere** — the round simply was not
+   registered, so `Kit.round.of()` found nothing and the item read as an ordinary
+   question. HTML cannot glob, so the list has to be written by hand; what it does
+   not have to be is unchecked. */
+(function checkRoundScripts(){
+  const dir = path.join(ROOT, 'game-hub/rounds');
+  if (!fs.existsSync(dir)) return;
+  const all = fs.readdirSync(dir).filter(f => f.endsWith('.js')).map(f => f.replace(/\.js$/, '')).sort();
+  walk('.', '.html').forEach(rel => {
+    if (rel.indexOf('node_modules') !== -1) return;
+    const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+    const has = [...new Set((src.match(/rounds\/([a-z0-9-]+)\.js/g) || [])
+                   .map(m => m.replace(/rounds\/|\.js/g, '')))];
+    if (!has.length) return;                        // this page hosts no rounds at all
+    const missing = all.filter(r => has.indexOf(r) === -1);
+    if (missing.length)
+      problems.push(`${rel} loads some rounds but not ${missing.join(', ')} — that content will draw as plain text`);
+  });
+})();
+
 /* ---- the cache stamp: one value, or the phone gets a mix of two builds ---- */
 const shells = ['game-hub.html', 'game-hub-unit4.html', 'game-hub-unit5.html', 'join.html'];
 const stamps = new Set();

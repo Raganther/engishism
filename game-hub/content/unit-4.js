@@ -35,6 +35,28 @@
       {v:400, q:"What does the logical left brain tend to do with the right brain's urges?", a:"dismiss them as irrational"},
       {v:500, q:"What's the article's advice for decisions that could affect your whole future?", a:"use your whole brain — don't discount your gut instincts"},
     ]},
+    /* Four round categories, one per section — Unit 4 was written before rounds
+       existed and had none at all, so every category read "Question" on the
+       content screen. Each round is matched to what its section actually
+       teaches rather than dropped in: 4A's whole point is gut against head,
+       which is a discrimination, so it is Connections. */
+    { id:'u4-connections-4a', section:'4A', name:'Connections', clues:[
+      {v:100, q:"Four of these are ways of deciding without thinking it through. Find the four.",
+        group:{ pick:["impulse","instinct","hunch","whim"],
+                with:["analysis","logic","reason","evidence"] }},
+      {v:200, q:"Four of these are what the article says the LEFT brain does. Find the four.",
+        group:{ pick:["calculate","analyse","plan","reason"],
+                with:["sense","feel","imagine","intuit"] }},
+      {v:300, q:"Four of these are places the body signals a hunch. Find the four.",
+        group:{ pick:["palms","spine","stomach","chest"],
+                with:["elbow","ankle","wrist","knee"] }},
+      {v:400, q:"Four of these mean giving an idea your proper attention. Find the four.",
+        group:{ pick:["weigh","consider","evaluate","examine"],
+                with:["ignore","dismiss","discount","overlook"] }},
+      {v:500, q:"Four of these describe knowing something below awareness. Find the four.",
+        group:{ pick:["subconscious","unconscious","intuitive","instinctive"],
+                with:["conscious","deliberate","aware","intentional"] }},
+    ]},
     { id:'memory-vocab', section:'4B', name:'Memory Vocabulary', clues:[
       {v:100, q:"A memory that's unclear or hazy: a ___ memory.", a:"vague memory"},
       {v:200, q:"A memory that makes you unhappy to recall: a ___ memory.", a:"painful memory"},
@@ -72,6 +94,21 @@
     ]},
     /* 4C and 4D had no categories at all, though the unit card claimed 4A-4D —
        so picking those sections gave you a board built from the other two. */
+    /* 4B's grammar is a word order the students have to *build* — have and get
+       put the object before the participle, which is exactly what a scrambled
+       sentence tests. Every sentence here repeats a word on purpose. */
+    { id:'u4-dragwords-4b', section:'4B', name:'Drag the Words', clues:[
+      {v:100, q:"Put the words in order — something was done to you.",
+        scramble:{ sentence:"I had my bike stolen from outside the library" }},
+      {v:200, q:"Put the words in order — he caused it himself.",
+        scramble:{ sentence:"He got himself locked in the garden shed" }},
+      {v:300, q:"Put the words in order — they paid somebody to do the work.",
+        scramble:{ sentence:"They had their kitchen renovated by a builder" }},
+      {v:400, q:"Put the words in order — she caused somebody else to do it.",
+        scramble:{ sentence:"She had me sitting on my own all afternoon" }},
+      {v:500, q:"Put the words in order — persuading somebody to act.",
+        scramble:{ sentence:"I got my mum to say that I was sick" }},
+    ]},
     { id:'being-tactful', section:'4C', name:'Being Tactful', clues:[
       {v:100, q:"Complete: 'I beg to ___' — a polite way of disagreeing.", a:"differ"},
       {v:200, q:"Complete: 'With all due ___, I don't think that's your decision.'", a:"respect"},
@@ -86,6 +123,23 @@
       {v:400, q:"Give the homophone of 'allowed'.", a:"aloud"},
       {v:500, q:"Being too forceful in your approach: '___-handed'.", a:"heavy"},
     ]},
+    /* 4C is functional language people have to *say*, so the round that makes
+       them say it: each phone holds the sentence with a different word missing
+       and the only way to fill your blank is to ask the person beside you.
+       Targets carry no apostrophes — under five letters the spelling tolerance
+       is zero, so "don't" would mark a student wrong for the punctuation. */
+    { id:'u4-infogap-4c', section:'4C', name:'Information Gap', clues:[
+      {v:100, q:"Disagreeing politely — ask your team for your missing words.",
+        infogap:{ sentence:"With all due *respect*, I do not think that is your *decision* to make" }},
+      {v:200, q:"Softening a criticism — ask your team for your missing words.",
+        infogap:{ sentence:"No *offence* intended, but I could not follow your *argument* at all" }},
+      {v:300, q:"Warning before bad news — ask your team for your missing words.",
+        infogap:{ sentence:"Do not take this *personally*, but the report needs a complete *rewrite*" }},
+      {v:400, q:"Taking the sting out of it — ask your team for your missing words.",
+        infogap:{ sentence:"I mean that in the *nicest* possible way, so please do not be *offended*" }},
+      {v:500, q:"Agreeing completely — ask your team for your missing words.",
+        infogap:{ sentence:"You have hit the *nail* on the head, and that is exactly my *point*" }},
+    ]},
     { id:'time-expressions', section:'4D', name:'Time Expressions', clues:[
       {v:100, q:"Time expression meaning 'right away'.", a:"immediately"},
       {v:200, q:"Time expression meaning 'slowly, over time'.", a:"gradually"},
@@ -99,6 +153,52 @@
       {v:300, q:"Describing this helps the reader picture where the interview took place.", a:"the setting"},
       {v:400, q:"Name one thing worth asking about in a profile interview.", a:"achievements / breakthrough moment / influences"},
       {v:500, q:"Should a profile argue the writer's own opinion of the subject?", a:"no — it reports and quotes, it doesn't argue"},
+    ]},
+    /* 4D teaches time expressions and how a profile is built, and both are
+       scales — which is the one thing an ordering round needs. Each step
+       carries a gloss, because the gloss prints as the word lands and is what
+       turns a right answer into a taught one. */
+    { id:'u4-thermometer-4d', section:'4D', name:'Word Thermometer', clues:[
+      {v:100, q:"Put these in order — soonest first.",
+        order:{ scale:["immediately","shortly","before long","gradually","eventually"],
+                low:"the same second", high:"after a very long time",
+                gloss:{ immediately:"at once, with no gap at all.",
+                        shortly:"in a few minutes — the most formal of these.",
+                        "before long":"soon, but you are not saying exactly when.",
+                        gradually:"bit by bit, over a stretch of time.",
+                        eventually:"in the end, after a long wait." } }},
+      {v:200, q:"Put these in order — earliest stage of a career first.",
+        order:{ scale:["unknown","discovered","breakthrough","established","legendary"],
+                low:"nobody has heard of them", high:"the name everybody knows",
+                gloss:{ unknown:"before anybody is paying attention.",
+                        discovered:"somebody with influence notices them.",
+                        breakthrough:"the moment it changes — the word this unit is built on.",
+                        established:"a career rather than a moment.",
+                        legendary:"remembered long after they stop." } }},
+      {v:300, q:"Put these in order — smallest audience first.",
+        order:{ scale:["local","regional","national","international","household name"],
+                low:"one town knows them", high:"you need no introduction",
+                gloss:{ local:"one town, one scene.",
+                        regional:"a part of the country.",
+                        national:"the whole country.",
+                        international:"more than one country.",
+                        "household name":"you do not have to explain who they are." } }},
+      {v:400, q:"Put these in order — the stages of writing a profile.",
+        order:{ scale:["research","arrange","interview","draft","publish"],
+                low:"before you have met them", high:"the reader can read it",
+                gloss:{ research:"find out what has already been said.",
+                        arrange:"agree a time and a place — the setting matters.",
+                        interview:"where the quotes come from.",
+                        draft:"the writing itself, quotes and all.",
+                        publish:"it stops being yours." } }},
+      {v:500, q:"Put these in order — least certain first.",
+        order:{ scale:["no idea","a hunch","fairly sure","convinced","positive"],
+                low:"you are guessing", high:"you would stake anything on it",
+                gloss:{ "no idea":"nothing to go on at all.",
+                        "a hunch":"a feeling with no evidence — 4A's word.",
+                        "fairly sure":"more likely than not.",
+                        convinced:"you have talked yourself into it.",
+                        positive:"no doubt is left." } }},
     ]},
   ],
 
@@ -203,13 +303,33 @@
     {section:'4D', topic:'4D-vocab', letter:'W', clue:"'It ___ until she was 17 that she felt confident' — the emphatic time structure.", answer:"Wasn't"},
     {section:'4D', topic:'4D-vocab', letter:'S', clue:"The place and surroundings an interview happens in.", answer:"Setting"},
     {section:'4D', topic:'4D-vocab', letter:'A', clue:"Things a person has accomplished — one thing to ask about in an interview.", answer:"Achievements"},
+
+    /* Round hexagons, filed in with the ordinary ones on purpose — a Jeopardy
+       column announces its type in the heading, a hexagon does not, so you take
+       G without knowing whether it is a one-word definition or a set of eight
+       words to sort. They carry a letter (it is how a team says which square it
+       is attacking) and no answer, because a grouping set has four of them. */
+    {section:'4A', topic:'4A-vocab', letter:'G', clue:"Four of these are the head talking, not the gut. Find the four.",
+      group:{ pick:["evidence","proof","data","fact"], with:["feeling","sense","urge","itch"] }},
+    {section:'4B', topic:'4B-vocab', letter:'M', clue:"Put these in order — haziest memory first.",
+      order:{ scale:["forgotten","vague","hazy","clear","photographic"],
+              low:"nothing is left of it", high:"you could read it back",
+              gloss:{ forgotten:"gone entirely.",
+                      vague:"you know it happened, and little else.",
+                      hazy:"outlines, no detail.",
+                      clear:"you can describe it properly.",
+                      photographic:"perfect recall, as if from a picture." } }},
+    {section:'4C', topic:'4C-vocab', letter:'D', clue:"Disagreeing without a row — ask your team for the missing words.",
+      infogap:{ sentence:"I beg to *differ*, though I can see where you are *coming* from" }},
+    {section:'4D', topic:'4D-vocab', letter:'S', clue:"Put the words in order — the emphatic time structure.",
+      scramble:{ sentence:"It was not until she was seventeen that she performed" }},
   ],
 
   blockbustersSectionNames: {
-    '4A':'4A · Instinct & reason (18 clues)',
-    '4B':'4B · Memory, eyewitnesses & have/get (26 clues)',
-    '4C':'4C · Tact & idioms (16 clues)',
-    '4D':'4D · Profile writing & time expressions (14 clues)',
+    '4A':'4A · Instinct & reason (19 clues)',
+    '4B':'4B · Memory, eyewitnesses & have/get (27 clues)',
+    '4C':'4C · Tact & idioms (17 clues)',
+    '4D':'4D · Profile writing & time expressions (15 clues)',
   },
 
   /* ---- Race to the Board ----------------------------------------------------
