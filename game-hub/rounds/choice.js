@@ -96,6 +96,13 @@
            the drama; they leave the handsets entirely, because a phone offering a
            tap that cannot count is just broken. */
         hidden:  [],
+        /* Options the **hint** has taken off the card. Deliberately a separate list
+           from `hidden`, because the two do opposite things at the two ends of the
+           room: a host's 50:50 stays on screen struck through *and leaves every
+           handset* — watching two go is the drama a lifeline is spent on — whereas a
+           hint takes the box off the card and **leaves the phones exactly as they
+           were**. See `hint` below for why. */
+        hint:    [],
         /* The same three-way split the ordering round keeps, and for the same
            reason: `picks` is what gets judged, `leading` is what the card draws
            while a team argues, `votes` is the count behind it. */
@@ -123,6 +130,13 @@
       const grid = document.createElement('div');
       grid.className = 'mc-options';
       s.options.forEach((w, i)=>{
+        /* **A hinted option is gone from the card, not struck through it.** A
+           crossed-out box still costs a slot and the room still reads it; removing
+           it makes what is left the whole question, which is what a hint is for.
+           The letters are taken from the option's own position and so do **not**
+           renumber — a teacher who said "who went for C?" before the hint means the
+           same option after it. */
+        if((s.hint || []).indexOf(w) !== -1 && !s.shown) return;
         const b = document.createElement('button');
         b.type = 'button'; b.className = 'gword mc-opt'; b.dataset.word = w;
 
@@ -293,28 +307,40 @@
     },
 
     /* ---------- the hint ----------
-       One wrong option out of play, which is 50:50 by another name — and that is
-       the point: `hidden` was written generic for Millionaire's lifeline precisely
-       because "narrow the choice" is a hint mechanic rather than one board's
-       feature, so this round needed no new state and the phones already honour it
-       (`arm` filters `hidden`, so a struck option leaves every handset).
+       One wrong option off the card. It is 50:50's idea, and it is deliberately
+       **not** 50:50's mechanism, because the two want opposite things at the two
+       ends of the room:
 
-       **Never below two.** One option left is not a choice, it is the answer, and
-       giving away the answer is Reveal. On four options that is two hints; the
-       lifeline can still take two at once because a lifeline is spent rather than
-       pressed, and the two mechanics do not fight — each only ever removes an
-       option that is still live. */
+       - the **card** loses the box entirely. A struck-out option still costs a slot
+         and the room still reads it; taking it away makes what is left the whole
+         question, which is the point of asking for a hint.
+       - the **phones keep it**. Re-arming would redraw four buttons as three under
+         thirty thumbs mid-question, which moves the option somebody was about to
+         tap — and a student who then picks the one that has gone from the board has
+         told the teacher something worth knowing. A lifeline is different: it is
+         *spent*, so the class watching two options leave their own handsets is what
+         it was spent on.
+
+       So this keeps its own list. `hidden` is still the host's — Millionaire's
+       50:50 — and still behaves exactly as it did.
+
+       **Never below two on the card.** One option left is not a choice, it is the
+       answer, and giving away the answer is Reveal. On four options that is two
+       hints. The two mechanics do not fight: each only ever removes an option the
+       other has left alone, and neither can ever remove the right one. */
     hintsLeft(s){
-      return Math.max(0, s.options.length - (s.hidden || []).length - 2);
+      return Math.max(0, s.options.length - (s.hidden || []).length
+                                          - (s.hint   || []).length - 2);
     },
 
     hint(s){
       if(!this.hintsLeft(s)) return false;
-      const gone = s.hidden || [];
-      const wrong = s.options.filter(w => !same(w, s.answer) && gone.indexOf(w) === -1);
-      if(!wrong.length) return false;
-      const out = shuffle(wrong.slice())[0];
-      s.hidden = gone.concat([out]);
+      const out = shuffle(s.options.filter(w =>
+        !same(w, s.answer) &&
+        (s.hidden || []).indexOf(w) === -1 &&
+        (s.hint   || []).indexOf(w) === -1))[0];
+      if(!out) return false;
+      s.hint = (s.hint || []).concat([out]);
       s.say = 'Hint: it is not ' + out + '.';
       return true;
     },

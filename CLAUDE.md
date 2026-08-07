@@ -1285,6 +1285,17 @@ playground's point, that one board can host several:
   - **Ordering's *Show this one* became the hint rather than sitting beside it.** It
     was the first thing to use the second slot in the strip and it was already this
     idea under its own name; a teacher should meet one affordance, not five.
+  - **Multiple Choice takes the box off the card and leaves the phones alone**, which
+    is 50:50's idea and deliberately not its mechanism — so it keeps its own list
+    beside `hidden`. The two want opposite things at the two ends of the room: a
+    struck-out box still costs a slot on the projector and the room still reads it,
+    while re-arming thirty handsets would redraw four buttons as three under the
+    thumbs mid-question and move the one somebody was about to tap. A student who
+    then picks the option that has gone from the board has told the teacher
+    something worth knowing. A *lifeline* is the other way round, and correctly so:
+    it is spent, and watching two options leave your own handset is what it was
+    spent on. The letters do not renumber, so "who went for C?" still means the same
+    option after a hint, and Reveal puts every box back so the right one can light.
   - **A hint is marked as given, never as earned.** `--gw-hint` is a first-class card
     property beside `--gw-good`, because the obvious reach — `--gw-hot` — is near-white
     on the game-show card and on the bench, so a hinted word would have been
