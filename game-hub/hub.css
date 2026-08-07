@@ -102,6 +102,29 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 .cat-check .kind-q{ background: rgba(18,38,63,0.07); color: var(--muted); }
 .cat-check .kind-r{ background: rgba(0,160,223,0.16); color:#046C96; }
 .cat-check .kind-m{ background: rgba(255,194,14,0.28); color:#7A5B00; }
+/* ---- the round-type filter ----
+   Above the list, and quieter than the list: it narrows what is there rather
+   than being the thing you came to pick. Wraps, because five round types on a
+   handset is two rows. */
+#round-filter{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 16px; }
+.rf-label{
+  font-family:'IBM Plex Mono', monospace; font-size:0.7rem; letter-spacing:0.1em;
+  text-transform:uppercase; color:var(--muted); margin-right:2px;
+}
+.rf-chip{
+  font-family:'IBM Plex Sans', sans-serif; font-size:0.78rem; font-weight:600;
+  padding:6px 13px; border-radius:999px; cursor:pointer;
+  background:transparent; color:var(--ink);
+  border:1.5px solid rgba(18,38,63,0.22);
+}
+.rf-chip:hover{ border-color:var(--blue); }
+.rf-chip.on{ background:var(--blue); color:var(--white); border-color:var(--blue); }
+.rf-chip.rf-all{ border-style:dashed; color:var(--muted); }
+body.theme-gameshow .rf-label{ color:rgba(234,240,255,0.6); }
+body.theme-gameshow .rf-chip{ color:var(--paper); border-color:rgba(255,255,255,0.28); }
+body.theme-gameshow .rf-chip:hover{ border-color:var(--gold); }
+body.theme-gameshow .rf-chip.on{ background:var(--gold); color:#0A0A14; border-color:var(--gold); }
+body.theme-gameshow .rf-chip.rf-all{ color:rgba(234,240,255,0.6); background:transparent; }
 .section-label{ font-family:'Space Grotesk', sans-serif; font-size:1.02rem; margin: 22px 0 12px; color: var(--navy); text-transform:uppercase;
   letter-spacing:0.04em; font-weight:700; }
 /* How many questions are behind the row. Its own column rather than part of the

@@ -270,7 +270,19 @@ async function claimHexAt(page, r, c, team){
    chooser lands it will be team chips instead. Accept either, so this test spans
    the refactor rather than needing a rewrite mid-way. */
 async function claimForTeam(page, index){
-  const chips = page.locator('.claim-team');
+  /* **A live round owns the verdict**, so the claim chooser stands down while one
+     is open and comes back on Reveal — otherwise the chooser would be a second way
+     to award the same hexagon. Every hexagon in the converted units is a round now,
+     so the teacher's path to a claim runs through Reveal, and this helper has to
+     take it too. It was written when a hexagon was a plain clue and the chooser was
+     simply there. */
+  /* `:visible`, not merely present: the chooser's chips stay in the DOM and are
+     hidden, so counting them found five buttons nobody could click. */
+  const chips = page.locator('.claim-team:visible');
+  if (!(await chips.count()) && await page.locator('#reveal-btn:visible').count()){
+    await page.locator('#reveal-btn').click();
+    await page.waitForTimeout(600);
+  }
   if (await chips.count() > index) { await chips.nth(index).click(); return; }
   await page.locator(index === 0 ? '#gold-btn' : '#silver-btn').click();
 }

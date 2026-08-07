@@ -241,7 +241,7 @@
     renderContent: renderBlockbustersContent,
     startButton:   blockbustersStartButton,
     start(){
-      pool = shuffle(BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(groupOf(c))));
+      pool = shuffle(BLOCKBUSTERS_BANK.filter(inPlay));
       pool = pool.slice(0, 18);          // classic 5/4/5/4 board holds 18
       buildBlockbustersBoard();
       bbTurn=0; bbSideAt=[0,0]; renderBBTurn(); bbClearOutcome();
@@ -1336,6 +1336,9 @@
     <div class="screen" id="screen-content-select">
       <span class="back-link" id="back-to-games">&larr; Back to game choice</span>
       <p class="helptext" id="content-helptext"></p>
+      <!-- Narrow by round type. Built from whatever is in this game's bank, and
+           hidden when there is nothing to choose between. -->
+      <div id="round-filter" style="display:none;"></div>
       <div id="content-list"></div>
       <div class="rules-note" id="blockbusters-rules" style="display:none;">
         <span class="team-tag tag-gold">YELLOW</span> connects a path of hexagons from the <strong>left</strong> edge to the <strong>right</strong> edge.<br>
@@ -1979,7 +1982,7 @@
   let jeoRows = 0;
 
   function buildJeopardyBoard(){
-    const cats = JEOPARDY_CATEGORIES.filter(c=>selectedContent.includes(c.id));
+    const cats = JEOPARDY_CATEGORIES.filter(c=>selectedContent.includes(c.id) && catAllowed(c));
     const board = document.getElementById('board');
     /* The count goes in a custom property and the stylesheet owns the track size.
        Writing `repeat(n, 1fr)` inline meant no media query could change it — a
@@ -2038,7 +2041,7 @@
      Same `--tension` contract as Millionaire, so the CSS is shared. */
   function jValueRange(){
     const vals = [];
-    JEOPARDY_CATEGORIES.filter(c=>selectedContent.includes(c.id))
+    JEOPARDY_CATEGORIES.filter(c=>selectedContent.includes(c.id) && catAllowed(c))
       .forEach(c=>c.clues.forEach(cl=>vals.push(cl.v)));
     return vals.length ? { lo:Math.min(...vals), hi:Math.max(...vals) } : { lo:0, hi:1 };
   }
@@ -2458,6 +2461,75 @@
   });
 
   /* ================= CONTENT SCREEN ================= */
+  /* The round-type filter, above the list and on every board. Built from the round
+     types **actually in this game's bank for this unit** — asked, never listed — so
+     a board with nothing but Multiple Choice offers one chip and a unit that has
+     not been converted offers none at all, which is the honest picture rather than
+     a row of controls that would narrow nothing.
+
+     It hides itself below two types: a filter with a single option is a control
+     that cannot change anything, and a filter with none is a lie. */
+  function bankForFilter(){
+    const g = gameDef(); if(!g) return [];
+    if(activeGame === 'jeopardy')
+      return JEOPARDY_CATEGORIES.reduce((a,c)=> a.concat(c.clues||[]), []);
+    if(activeGame === 'blockbusters') return BLOCKBUSTERS_BANK;
+    if(activeGame === 'race')         return RACE_BANK;
+    if(activeGame === 'millionaire' || activeGame === 'kahoot') return MILLIONAIRE_BANK;
+    if(activeGame === 'bingo')        return bingoWordsIn(BINGO_BANK);
+    return [];
+  }
+  function renderRoundFilter(){
+    const strip = document.getElementById('round-filter');
+    if(!strip) return;
+    /* Millionaire and Quickfire build their round when the rung opens, so the raw
+       item says nothing — `asRound` is how a game declares what its bank becomes,
+       and the chip on each row already reads through it. */
+    const g = gameDef();
+    const asRound = (g && g.asRound) || (x => x);
+    const kinds = [];
+    bankForFilter().forEach(it=>{
+      const id = roundTypeOf(asRound(it));
+      if(kinds.indexOf(id) === -1) kinds.push(id);
+    });
+    strip.innerHTML = '';
+    if(kinds.length < 2){ strip.style.display='none'; selectedRounds.clear(); return; }
+    strip.style.display = '';
+    const label = document.createElement('span');
+    label.className = 'rf-label'; label.textContent = 'Round types';
+    strip.appendChild(label);
+    kinds.forEach(id=>{
+      const def = Kit.round && Kit.round.get ? Kit.round.get(id) : null;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'rf-chip' + (selectedRounds.has(id) ? ' on' : '');
+      b.dataset.round = id;
+      b.textContent = id === 'plain' ? 'Plain question' : ((def && def.label) || id);
+      b.addEventListener('click', ()=>{
+        if(selectedRounds.has(id)) selectedRounds.delete(id); else selectedRounds.add(id);
+        redrawContent();
+      });
+      strip.appendChild(b);
+    });
+    if(selectedRounds.size){
+      const all = document.createElement('button');
+      all.type='button'; all.className='rf-chip rf-all'; all.textContent='Show all';
+      all.addEventListener('click', ()=>{ selectedRounds.clear(); redrawContent(); });
+      strip.appendChild(all);
+    }
+  }
+  /* A filter change rebuilds the list, so the ticks are gone — which is right: a
+     tick on a row the filter has just removed would still be counted by
+     `selectedContent` and would put back exactly what the teacher filtered out. */
+  function redrawContent(){
+    const list = document.getElementById('content-list');
+    const help = document.getElementById('content-helptext');
+    list.innerHTML=''; selectedContent=[];
+    const g = gameDef();
+    if(g) g.renderContent(list, help);
+    renderRoundFilter();
+    updateStartButton();
+  }
   function renderContentScreen(){
     const list = document.getElementById('content-list');
     const help = document.getElementById('content-helptext');
@@ -2465,12 +2537,14 @@
     const raceNote  = document.getElementById('race-rules');
     list.innerHTML='';
     selectedContent=[];
+    selectedRounds.clear();          // a fresh game starts with everything in play
     raceNote.style.display='none';
     document.getElementById('race-mode').style.display='none';
 
     rulesNote.style.display='none';        // a game that wants it turns it on
     const g = gameDef();
     if(g) g.renderContent(list, help);
+    renderRoundFilter();
     updateStartButton();
   }
 
@@ -2486,6 +2560,39 @@
      the hand-written ones have drifted before, and the content gate exists to
      catch that. */
   const groupOf = item => (item && item.topic) || (item && item.section) || '';
+
+  /* ---------- the two axes a teacher picks along ----------
+     Content is filed on **three** facts and only two of them are authored: the
+     section (5A) and the topic (5A-vocab) are written on every item, and the round
+     type is *derived* from the item's own fields by `Kit.round.of()` — never
+     labelled, so a round written next month files its own content for free.
+
+     Picking used to happen along one axis and it differed by board: Jeopardy's
+     rows are round types, everybody else's are topics. So "just the Connections"
+     was answerable on one board and not on the other four, for no reason a teacher
+     could see. `selectedRounds` is the missing axis, and because both axes end in
+     one predicate, a board narrows by calling `inPlay` rather than by learning
+     about either of them.
+
+     Empty means all — the honest default for a filter nobody has touched, and it
+     keeps every existing board exactly as it was. */
+  let selectedRounds = new Set();
+  const roundTypeOf = item => {
+    const hit = Kit.round && Kit.round.of ? Kit.round.of(item) : null;
+    return hit ? hit.id : 'plain';
+  };
+  const typeAllowed = item => !selectedRounds.size || selectedRounds.has(roundTypeOf(item));
+  /* Both axes at once. This replaced `selectedContent.includes(groupOf(x))`, which
+     was written out in eight places — so the round-type half would have had to be
+     threaded into all eight by hand, which is the defect this project has paid for
+     most. One predicate, and a seventh game gets both axes by filtering with it. */
+  const inPlay = item => selectedContent.includes(groupOf(item)) && typeAllowed(item);
+  /* A Jeopardy category is filtered whole, never clue by clue: the board indexes
+     tiles by row and a column short of one clue is `undefined`, not a shorter
+     column. Each category is one round type in the converted units, so whole-column
+     filtering is also what a teacher means; a mixed category shows if any of its
+     clues qualifies, and its chip already says it is mixed. */
+  const catAllowed = cat => !selectedRounds.size || (cat.clues || []).some(typeAllowed);
 
   /* ---------- what kind of questions are behind a tick box ----------
      Reported as: on the content screen you cannot tell a clue the room **plays** on
@@ -2573,7 +2680,10 @@
     seen.sort();
     let lastSection = null;
     seen.forEach(g=>{
-      const items = bank.filter(i => groupOf(i) === g);
+      /* Counts follow the filter, so the number beside a topic is how many
+         questions that tick actually puts in play — not how many exist. */
+      const items = bank.filter(i => groupOf(i) === g && typeAllowed(i));
+      if(!items.length) return;             // nothing of the chosen kinds in here
       const sec = String(g).split('-')[0];
       if(sec !== lastSection){
         /* The section name without its own count — the rows carry those, and a
@@ -2605,6 +2715,7 @@
     help.textContent = "Pick which categories to include — the board builds itself from your selection (choose at least 3).";
     let lastSection=null;
     JEOPARDY_CATEGORIES.forEach(cat=>{
+      if(!catAllowed(cat)) return;
       if(cat.section!==lastSection){
         sectionHeading(list, JEOPARDY_SECTION_LABELS[cat.section] || cat.section);
         lastSection=cat.section;
@@ -2655,7 +2766,7 @@
   }
 
   function blockbustersStartButton(btn){
-    const total = BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(groupOf(c))).length;
+    const total = BLOCKBUSTERS_BANK.filter(inPlay).length;
     btn.disabled = selectedContent.length===0 || total < 18;
     btn.textContent = selectedContent.length===0 ? 'Select at least one section'
       : total < 18 ? `Need 18 clues for a full board — ${total} selected, add another topic`
@@ -2663,7 +2774,7 @@
   }
 
   function millionaireStartButton(btn){
-    const pool = MILLIONAIRE_BANK.filter(q=>selectedContent.includes(groupOf(q)));
+    const pool = MILLIONAIRE_BANK.filter(inPlay);
     const rungs = new Set(pool.map(q=>q.level));
     const missing = M_LADDER.map((_,i)=>i+1).filter(l=>!rungs.has(l));
     btn.disabled = selectedContent.length===0 || missing.length>0;
@@ -2673,7 +2784,7 @@
   }
 
   function raceStartButton(btn){
-    const total = RACE_BANK.filter(c=>selectedContent.includes(groupOf(c))).length;
+    const total = RACE_BANK.filter(inPlay).length;
     btn.disabled = total < RACE_MIN_WORDS;
     btn.textContent = selectedContent.length===0 ? 'Select at least one section'
       : total < RACE_MIN_WORDS ? `Need ${RACE_MIN_WORDS} words for a board — ${total} selected, add another topic`
@@ -3252,7 +3363,7 @@
   // games and units by design, so a new board shouldn't wipe it either.
   function bbPlayAgain(){
     bbClearOutcome();
-    pool = shuffle(BLOCKBUSTERS_BANK.filter(c=>selectedContent.includes(groupOf(c)))).slice(0, 18);
+    pool = shuffle(BLOCKBUSTERS_BANK.filter(inPlay)).slice(0, 18);
     buildBlockbustersBoard();
     bbTurn=0; bbSideAt=[0,0]; renderBBTurn();
     bbVote=null; bbVoting=false; renderBBVote();
@@ -3299,7 +3410,7 @@
   }
 
   function bingoStartButton(btn){
-    const total = bingoWordsIn(BINGO_BANK).filter(c => selectedContent.includes(groupOf(c))).length;
+    const total = bingoWordsIn(BINGO_BANK).filter(inPlay).length;
     btn.disabled = selectedContent.length === 0 || total < BINGO_POOL;
     btn.textContent = selectedContent.length === 0 ? 'Select at least one section'
       : total < BINGO_POOL ? `Need ${BINGO_POOL} words — ${total} selected, add another topic`
@@ -3307,7 +3418,7 @@
   }
 
   function startBingo(){
-    const pool = shuffle(bingoWordsIn(BINGO_BANK).filter(c => selectedContent.includes(groupOf(c))));
+    const pool = shuffle(bingoWordsIn(BINGO_BANK).filter(inPlay));
     bingoWords = pool.slice(0, BINGO_POOL);
     dealBingoCards();
     bingoQueue   = shuffle(bingoWords.slice());
