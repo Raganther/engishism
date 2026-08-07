@@ -73,14 +73,18 @@
   a.chip:hover{ border-color:var(--accent); }
   /* The skills read as a list rather than pills: six of them, each with a sentence,
      and a sentence inside a pill is a pill that has stopped being one. */
-  .skills{ display:grid; gap:8px; }
-  .skill{
+  .skills, .tiers{ display:grid; gap:8px; }
+  .tiers{ margin-bottom:4px; }
+  .skill, .tier{
     display:grid; grid-template-columns:minmax(0,auto) 1fr; gap:14px; align-items:baseline;
     background:var(--panel); border:1px solid var(--edge); border-radius:10px; padding:9px 14px;
   }
-  .skill code{ color:var(--gold); font-size:13px; white-space:nowrap; }
-  .skill .w{ color:var(--dim); font-size:13px; }
-  @media (max-width:620px){ .skill{ grid-template-columns:1fr; gap:2px; } }
+  .skill code, .tier code{ color:var(--gold); font-size:13px; white-space:nowrap; }
+  .skill .w, .tier .w{ color:var(--dim); font-size:13px; }
+  @media (max-width:620px){ .skill, .tier{ grid-template-columns:1fr; gap:2px; } }
+  .tier .w strong{ color:var(--ink); }
+  .tier .w em{ color:var(--accent); font-style:normal; }
+  .tier .w code{ color:var(--gold); }
   a.chip .k{ color:var(--dim); font-size:11px; margin-left:6px; text-transform:uppercase; letter-spacing:.08em; }
   .note{ color:var(--dim); font-size:13px; margin:8px 0 12px; }
   .note strong{ color:var(--ink); }
@@ -109,6 +113,38 @@
   <p class="note">One app and two workshops. The hub is what a class meets; the benches are
      where rounds get built and tried. Everything else on this page is a detour.</p>
   <div class="grid" id="main-links"></div>
+
+  <h2>Words we use</h2>
+  <p class="note">Four tiers. The test for which one a thing belongs to is always the same:
+     <strong>who would still be correct if you swapped the tier below it out?</strong></p>
+  <div class="tiers" id="tier-table"></div>
+
+  <h2>How one fix reaches everything</h2>
+  <p class="note">Two mechanisms. Both get called "sharing" and they solve opposite problems,
+     which is why they are worth separate words.</p>
+  <div class="tiers">
+    <div class="tier"><code>registry</code><span class="w"><strong>A thing declares itself and the
+      app finds it.</strong> Nobody keeps a list — the app loops over whatever registered, so a new
+      round appears in the workshop menu, the settings panel, the content checker and this page at
+      once. Cures the defect where a new thing must be threaded into nine places by hand and nothing
+      complains when you miss one. <em>Declare, don't special-case.</em></span></div>
+    <div class="tier"><code>shelf</code><span class="w"><strong>A thing calls shared code.</strong>
+      One copy of the behaviour, so mending it mends every caller — including rounds not written
+      yet. Cures the defect where the same code sits in four files and drifts apart.
+      <em>Solve once, use anywhere.</em> Run <code>node tools/shelf.js</code> to see what is on
+      them.</span></div>
+  </div>
+  <p class="note"><strong>When something moves onto a shelf:</strong> the first caller writes it
+     inside itself — one caller is a guess about what the shared version should look like — and the
+     <strong>second</strong> caller moves it and rewires both in the same change. The rewiring is
+     what proves it is a shelf rather than a second copy under a new name.</p>
+  <p class="note">Every tier has both. A game show declares itself to the game registry and calls
+     <code>Kit</code>; a round declares itself to the round registry and calls
+     <code>Kit.round</code>; a playground page calls <code>BenchKit</code>. What a round gets for
+     free by <em>existing</em> is the whole phone layer — arming thirty handsets, reconnects, late
+     joiners, per-team and per-player views. What it gets by <em>asking</em> is the team lanes, the
+     agree rule, the reply readers and its own buttons. Nothing is automatic there: a round that
+     never calls the lanes simply has none.</p>
 
   <h2>Skills — name it and the checklist loads</h2>
   <p class="note">Type <strong>/name</strong> in Claude Code, or just describe the job — these open
@@ -173,20 +209,20 @@ git add -A && git commit -m "..." && git push      # live in about 40 seconds</p
 
 <!-- Registries only. These are data-only registrations with no DOM of their own, so
      asking them what exists costs nothing and starts no game. -->
-<script src="game-hub/hub-kit.js?v=20260806h"></script>
+<script src="game-hub/hub-kit.js?v=20260807a"></script>
 <!-- Captured between the two script tags: which forms are in the shipped kit. The
      one moment a kit form and a lab-only one are distinguishable. -->
 <script>window.IN_THE_KIT = (window.HubKit && window.HubKit.prompt.types()) || [];</script>
-<script src="playground/lab-forms.js?v=20260806h"></script>
-<script src="game-hub/hub-rounds.js?v=20260806h"></script>
-<script src="game-hub/rounds/default.js?v=20260806h"></script>
-<script src="game-hub/rounds/grouping.js?v=20260806h"></script>
-<script src="game-hub/rounds/ordering.js?v=20260806h"></script>
-<script src="game-hub/rounds/choice.js?v=20260806h"></script>
-<script src="game-hub/rounds/anagram.js?v=20260806h"></script>
-<script src="game-hub/rounds/scramble.js?v=20260806h"></script>
-<script src="game-hub/rounds/infogap.js?v=20260806h"></script>
-<script src="game-hub/rounds/drop.js?v=20260806h"></script>
+<script src="playground/lab-forms.js?v=20260807a"></script>
+<script src="game-hub/hub-rounds.js?v=20260807a"></script>
+<script src="game-hub/rounds/default.js?v=20260807a"></script>
+<script src="game-hub/rounds/grouping.js?v=20260807a"></script>
+<script src="game-hub/rounds/ordering.js?v=20260807a"></script>
+<script src="game-hub/rounds/choice.js?v=20260807a"></script>
+<script src="game-hub/rounds/anagram.js?v=20260807a"></script>
+<script src="game-hub/rounds/scramble.js?v=20260807a"></script>
+<script src="game-hub/rounds/infogap.js?v=20260807a"></script>
+<script src="game-hub/rounds/drop.js?v=20260807a"></script>
 <script>
 (function(){
   'use strict';
@@ -287,6 +323,33 @@ git add -A && git commit -m "..." && git push      # live in about 40 seconds</p
         if(el) el.textContent = '(description reads from the skill file — served over http only)';
       });
     });
+  })();
+
+  /* ---------- the vocabulary ----------
+     The words are prose and cannot be derived, but the counts can be, so the tiers
+     this page holds a registry for are read rather than typed. Games are not
+     counted: they register inside `hub-engine.js`, which this page deliberately
+     does not load. */
+  (function(){
+    const nR = (Kit && Kit.round ? Kit.round.authored().length : 0);
+    const nF = (Kit && Kit.prompt ? Kit.prompt.types().length : 0);
+    const rows = [
+      ['Game Hub', 'The <strong>container</strong>. Teams, scores, the timer, the phone room, the ' +
+                   'settings, and the clue card as a surface. True whatever game is on screen.'],
+      ['game show', 'A <strong>skin</strong> — Jeopardy, Blockbusters, Millionaire, Race, Bingo, ' +
+                    'Quickfire. Owns geometry, turns, what a question is worth, and what winning ' +
+                    'is. True for this board, whatever question is in the slot. A skin that opens ' +
+                    'a round is that round\'s <strong>host</strong>.'],
+      ['round', 'A question the room <strong>plays</strong>: the card, what the handsets are put ' +
+                'into, how several students become one team answer, and the judging. True wherever ' +
+                'it is hosted — which is what makes it portable. <em>' + nR + ' registered.</em>'],
+      ['form', 'A way a question is <strong>drawn</strong>: render and reveal, no phones, the ' +
+               'teacher marks it. A gap fill is a form. <em>' + nF + ' registered.</em>'],
+      ['content', 'The questions themselves, filed per game inside a unit file. Which round an ' +
+                  'item wants is derived from its own fields, never labelled on it.']
+    ];
+    $('tier-table').innerHTML = rows.map(r =>
+      '<div class="tier"><code>' + r[0] + '</code><span class="w">' + r[1] + '</span></div>').join('');
   })();
 
   /* ---------- the derived lists ----------
