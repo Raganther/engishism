@@ -1229,6 +1229,32 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The clue card fits a laptop, and the pool words are centred in their own boxes.**
+  Both fell out of the previous fix, and the first is the more general problem.
+  - **`#clue-card` is capped in width and has no cap on height at all**, and it is
+    centred — so on a window shorter than a projector it runs off the bottom and
+    takes its own buttons with it. Reported as the card going past the screen once
+    four ladders made it taller. Nothing fires at the 720 a projector gives; below
+    that it is the **chrome** that gives way rather than the question — 88px of card
+    padding and 48px of prompt margin is generous at 720 and is the cheapest ~70px to
+    hand back before any round shrinks its own type. 559px at every height from 660
+    down to 560, where it was 625 and overflowing.
+  - **Deliberately not a transform.** The card's `transform` belongs to the flip
+    animation — the same reason dragging it writes `translate` — so fitting is done
+    with padding and margin or not at all.
+  - **A media query beat by source order, which CSS gives no warning about.** The
+    block was written next to `#clue-modal` near the top and did nothing: `@media`
+    adds no specificity, `#clue-back{padding:44px 40px}` sits 50 lines further down,
+    and the later rule simply won. It reads exactly like the query not matching. It
+    lives at the end of the file now.
+  - **The invisible line in an empty rung is a race-only rule.** Applied to every
+    mode it added ~65px to the climb — the tallest card in the app — for no gain,
+    because a climb has one ladder and nothing to line up against.
+  - **The number gutter was pushing every pool word off-centre.** Reserving it inline
+    kept the chip from resizing when a hint numbered it, which was the point, but it
+    took its space *before* the word. It is absolutely positioned in symmetric
+    padding now: the word centres in the whole chip, the chip still never resizes.
+    Measured equal to the pixel either side, before and after a hint.
 - **The thermometer's ladders line up, and an empty rung is a box rather than a
   dotted hole.** Reported from a four-team board: the lanes drifted apart as teams
   filled rungs, so one team's *gossip* sat lower than another's.

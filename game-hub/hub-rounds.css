@@ -153,6 +153,7 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
    it — the state is stored cold-end-first because that is the order it is filled
    in, and the two are deliberately not the same thing. */
 .ord-ladder{ display:flex; flex-direction:column; gap:4px; margin:4px 0 10px; }
+.round-ordering.racing .ord-ladder{ gap:3px; margin:2px 0 4px; }
 .ord-cap{ font-size:0.66em; letter-spacing:0.16em; text-transform:uppercase; opacity:0.5; }
 .ord-cap.hot{ margin-bottom:2px; }
 .ord-cap.cold{ margin-top:2px; }
@@ -182,7 +183,12 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
    Height is therefore never a pixel guess: change the type size and every rung
    still agrees with every other. */
 .ord-rung.empty{ opacity:0.45; }
-.ord-rung.empty::before{ content:'\00a0'; }
+/* **Only in a race**, which is the only mode where it buys anything: there, four
+   ladders stand side by side and rung 3 of one has to sit level with rung 3 of the
+   next. A climb has a single ladder with nothing to line up against, so an empty
+   rung there stays collapsed on its floor — giving it a full line each would add
+   ~65px to the tallest card in the app for no gain at all. */
+.round-ordering.racing .ord-rung.empty::before{ content:'\00a0'; }
 /* Same size as every other rung — it used to be smaller, which made its box shorter
    and knocked the lanes out of line by itself. It is marked out by its letters, not
    by being a different height. */
@@ -238,9 +244,26 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
 /* Same box for every rung here too — a lane whose empty rungs are a different size
    from its filled ones does not line up with the lane beside it, and four ladders
    that disagree about where rung three sits is not a race you can read. */
-.round-ordering.racing .ord-rung{ font-size:0.78em; padding:3px 6px;
-  min-height:clamp(20px, 2.7vh, 29px); }
+/* **Tighter than it was, because every rung now carries a full line of text.** An
+   empty rung used to collapse to its floor, so a mostly-empty ladder was short — and
+   the card only fitted a laptop by accident. Making them all equal was right and had
+   to be paid for, so the type comes down and the padding with it. */
+.round-ordering.racing .ord-rung{ font-size:0.68em; padding:1px 6px;
+  min-height:clamp(18px, 2.4vh, 26px); }
 .round-ordering.racing .ord-cap{ font-size:0.58em; }
+/* **A laptop is shorter than a projector, and the card has no height limit.**
+   `#clue-card` is capped in width and centred, so a card taller than the window
+   simply runs off the bottom and takes its buttons with it — which is what a browser
+   with a bookmarks bar does to four ladders. Nothing here fires at the 720 a
+   projector gives; below that the race gives up type rather than buttons. */
+@media (max-height: 700px){
+  .round-ordering.racing .ord-rung{ font-size:0.6em; padding:0 5px;
+    min-height:clamp(15px, 2.1vh, 22px); }
+  .round-ordering.racing .ord-ladder{ gap:2px; margin:1px 0 3px; }
+  .round-ordering.racing .ord-pool .gword{ font-size:0.66em; padding:4px 8px; }
+  .round-ordering.racing .ord-who{ font-size:0.62em; }
+  .round-ordering.racing .group-say{ font-size:0.74em; }
+}
 /* A team's next answer sits in the rung it is aimed at, in italic until it settles —
    so the room watches it land or shake rather than reading a verdict afterwards. */
 .ord-rung.guessing{ font-style:italic; text-transform:none; letter-spacing:0;
@@ -291,10 +314,16 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
    card lie to the other three — but it is dimmed, because clicking it for that lane
    could only ever be wrong. */
 .round-ordering.racing .ord-pool .gword.spent{ opacity:0.4; }
-/* The gutter a position number sits in, always present so a chip never changes
-   width when it gets one. Tabular figures so 1 and 4 are the same width too. */
-.round-ordering .ord-pool .gw-num{ display:inline-block; min-width:1.15em;
-  margin-right:0.15em; font-variant-numeric:tabular-nums; opacity:0.7; }
+/* **The number sits in the padding, not in the line.** Reserving it as an inline
+   gutter kept the chip from changing width when a hint numbered it — which was the
+   point — but it also took up space *before* the word, so every word in the pool sat
+   pushed to the right of its own box. Out of the flow and into the left padding: the
+   word centres in the whole chip as it always should have, the chip never resizes,
+   and the number still has somewhere to be. The padding is symmetric for the same
+   reason — a chip padded only on one side is a chip whose text is off-centre. */
+.round-ordering .ord-pool .gword{ position:relative; padding-left:1.9em; padding-right:1.9em; }
+.round-ordering .ord-pool .gw-num{ position:absolute; left:0.6em; top:50%;
+  transform:translateY(-50%); font-variant-numeric:tabular-nums; opacity:0.7; }
 
 /* ================= the question forms (Kit.prompt) =================
    Moved here out of `hub.css` for exactly the reason the round card's innards

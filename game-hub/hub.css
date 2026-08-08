@@ -383,6 +383,7 @@ body.theme-gameshow #play-blockbusters.lit .hex.pick{
    does, so the board underneath stays live. */
 #clue-modal{ display:none; position:fixed; inset:0; background:transparent; pointer-events:none;
              align-items:center; justify-content:center; z-index:50; padding:24px; perspective: 1800px; }
+
 #clue-card{ pointer-events:auto; }
 /* Visible, not clickable. Every control that matters while a clue is up is on the
    card, and a stray click on the board behind used to be impossible because the
@@ -1762,3 +1763,23 @@ body.theme-gameshow #play-kahoot.lit #k-clock{
   background:rgba(255,255,255,0.1); color:#fff; border:2px solid rgba(255,255,255,0.25);
 }
 body.theme-gameshow #play-kahoot.lit #k-clock.low{ background:#C0392B; border-color:#E74C3C; }
+
+/* **The card is capped in width and centred, with no cap on height** — so on a
+   window shorter than a projector it runs off the bottom and takes its own buttons
+   with it. Reported from a laptop: four ladders and the Close button was gone.
+
+   Everything here is padding and margin, and none of it fires at the 720 a projector
+   gives. Deliberately **not** a transform: the card's `transform` belongs to the flip
+   animation, and borrowing it for fitting is how the drag would have broken too —
+   the same reason dragging writes `translate` instead.
+
+   It is the *chrome* that gives way rather than the question: 88px of card padding
+   and 48px of prompt margin is generous at 720 and is the cheapest ~70px to hand
+   back on a laptop, before any round has to shrink its own type. */
+@media (max-height: 700px){
+  #clue-modal{ padding:8px; }
+  #clue-back{ padding:24px 32px; }
+  #clue-text{ margin:14px 0; }
+  #clue-answer{ padding:10px; margin-bottom:14px; }
+  #clue-actions button{ padding:9px 16px; }
+}
