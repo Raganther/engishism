@@ -162,7 +162,16 @@
 
          Identity by default, so a game whose bank carries its round fields outright
          (Jeopardy, Blockbusters) declares nothing. */
-      asRound:      function(item){ return item; }
+      asRound:      function(item){ return item; },
+      /* **Whether this board works with one person per competitor.** Not every one
+         does, and it is a fact about the *geometry* rather than about the questions:
+         Millionaire draws a ladder each and thirty ladders is not a board,
+         Blockbusters has exactly two routes across it, and Race is two people
+         physically at the screen. Jeopardy, Bingo and Quickfire are fine with it.
+         Declared rather than discovered, the same shape as `hasBank` — and `false`
+         by default, because teams is what every board here was built for and a new
+         one should have to say it has thought about the other. */
+      solo:         false
     }, def);
     GAMES.push(g);
     GAME_BY_ID[g.id] = g;
@@ -196,6 +205,9 @@
      declaration can sit here where all four can be compared side by side. */
   registerGame({
     id:'jeopardy', title:'Jeopardy',
+    /* A tile is answered by whoever is on turn, and one person is as good a turn
+       as four — nothing on this board assumes several handsets behind a name. */
+    solo: true,
     card:{
       icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="9" height="7" rx="1"/><rect x="15.5" y="6" width="9" height="7" rx="1"/><rect x="27" y="6" width="9" height="7" rx="1"/><rect x="4" y="16.5" width="9" height="7" rx="1"/><rect x="15.5" y="16.5" width="9" height="7" rx="1"/><rect x="27" y="16.5" width="9" height="7" rx="1"/><rect x="4" y="27" width="9" height="7" rx="1"/><rect x="15.5" y="27" width="9" height="7" rx="1"/><rect x="27" y="27" width="9" height="7" rx="1"/></svg>',
       blurb:'Category board, five point values each. Teams pick a tile, answer, bank the points.',
@@ -417,6 +429,9 @@
      being written for it. */
   registerGame({
     id:'bingo', title:'Bingo',
+    /* This is what bingo actually is: a card each. `bingoCards:'phones'` already
+       deals one per student, so solo is the shape it was reaching for. */
+    solo: true,
     card:{
       icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="30" height="30" rx="2"/><path d="M15 5 L15 35 M25 5 L25 35 M5 15 L35 15 M5 25 L35 25"/><path d="M7 17 L13 23 M13 17 L7 23" stroke-width="2.4"/><path d="M27 27 L33 33 M33 27 L27 33" stroke-width="2.4"/></svg>',
       blurb:'Every team gets a card of words. Read a clue &mdash; the first team to answer marks it off. Three in a row wins.',
@@ -517,6 +532,12 @@
 
   registerGame({
     id:'kahoot', title:'Quickfire',
+    /* **The board solo suits best, and it needed no scoring work to say so.**
+       `scoreEach` already pays every competitor for its own answer at its own
+       speed — there is no slot one side takes — which is exactly the individual
+       model. No geometry, no turns, and with one handset per competitor the
+       whole-team-agrees question does not arise. */
+    solo: true,
     card:{
       icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="20" cy="21" r="13"/><path d="M20 13 L20 21 L26 25"/><path d="M14 6 L26 6"/><path d="M20 6 L20 8"/></svg>',
       blurb:'Fifteen questions against the clock. Every team answers every one, and the faster you are the more it pays.',
@@ -633,7 +654,17 @@
       turn: () => bbTeamOnTurn(),
       /* A hexagon is worth what the board says a hexagon is worth — the floor is
          there because a round that paid nothing would read as not having counted. */
-      win:  team => claimHex(team) || 1
+      win:  team => claimHex(team) || 1,
+      /* **This board is team-based too, and it had been playing as though it were
+         not.** Jeopardy declared this and Blockbusters did not, so every round here
+         fell to its own first mode — first tap wins — which on a yellow-versus-blue
+         board means the fastest thumb on the side that is up answers while the rest
+         of their alliance never has to commit to anything. That is the exact
+         objection that put the declaration on Jeopardy; there was no reason for the
+         two to differ, only an omission. Ordering is *not* named here the way it is
+         on Jeopardy: only one side is at the board at a time, so a shared climb
+         reads as the one ladder it is. */
+      teamMode: true
     },
     millionaire: {
       game:'millionaire', stage:'play-millionaire',
@@ -1161,6 +1192,21 @@
     label:'Confer time', help:'How long a team gets to consult when they use Confer.',
     options:[{value:30,label:'30 seconds'},{value:45,label:'45 seconds'},{value:60,label:'60 seconds'}] });
 
+  /* **Who is competing: sides, or people.** Deliberately *not* per game. It is a
+     fact about the room — the roster persists across games and unit switches, so a
+     lesson cannot be in teams on one board and individual on the next without the
+     scoreboard being rebuilt underneath the class. Which boards *can* do it is the
+     game's own `solo` declaration, and the game screen only offers those; this row
+     says what the room is doing.
+
+     Registered with no `games`, the same as the relay address, because a per-game
+     override here would offer a control that cannot mean anything. */
+  S.register({ id:'roster', group:'Competition', type:'variant', default:'teams',
+    label:'Who is competing',
+    help:'Teams is the classroom default. Individuals gives everybody their own score, and only the boards built for it are offered.',
+    variants:[{ value:'teams', label:'Teams — a name is a group of students' },
+              { value:'solo',  label:'Individuals — everyone against everyone' }] });
+
   S.register({ id:'buzzers', group:'Phones', type:'toggle', default:false,
     label:'Phone buzzers', help:'Students join on their phones and buzz to win the right to answer. Needs a relay — this will not work from the GitHub Pages copy. See docs/buzzers.md.' });
   S.register({ id:'buzzerRelay', group:'Phones', type:'text', default:'',
@@ -1384,6 +1430,9 @@
     <div class="screen" id="screen-game-select">
       <span class="back-link" id="change-unit" style="display:none;">&larr; Change unit</span>
       <p class="intro"></p>
+      <!-- A board missing from this screen with nothing saying why reads as a bug.
+           Filled by applyGameAvailability, and empty in team play. -->
+      <p class="roster-note" id="roster-note" style="display:none;"></p>
       <div class="game-grid"></div>
     </div>
 
@@ -1639,15 +1688,39 @@
 
   // Which games a unit can actually offer — a unit without a bank for a game
   // simply doesn't show that card, so units can adopt new games one at a time.
-  function gamesFor(u){ return GAMES.filter(g => g.hasBank(u)).map(g => g.id); }
+  /* Two reasons a board may not be on offer, and they are the same kind of reason:
+     it has no content for this unit, or it is not built for the way the room is
+     competing. Both are the game's own declaration — `hasBank` and `solo` — so a
+     seventh board answers for itself and nothing here holds a list. */
+  function suitsRoster(g){ return !Roster.solo() || g.solo; }
+  function gamesFor(u){
+    return GAMES.filter(g => g.hasBank(u) && suitsRoster(g)).map(g => g.id);
+  }
+
+  /* Split out of `loadUnit` because the roster mode can change while a unit is
+     already loaded, and re-running `loadUnit` would reload every bank to redraw
+     some cards. */
+  function applyGameAvailability(){
+    if(!UNIT) return;
+    const available = gamesFor(UNIT);
+    document.querySelectorAll('.game-card').forEach(c=>{
+      c.style.display = available.includes(c.dataset.game) ? 'block' : 'none';
+    });
+    const note = document.getElementById('roster-note');
+    if(note){
+      const hidden = GAMES.filter(g => g.hasBank(UNIT) && !suitsRoster(g));
+      note.textContent = hidden.length
+        ? 'Playing as individuals — ' + hidden.map(g => g.title).join(', ') +
+          (hidden.length === 1 ? ' is' : ' are') + ' built for teams and not shown.'
+        : '';
+      note.style.display = hidden.length ? 'block' : 'none';
+    }
+  }
 
   function loadUnit(u){
     UNIT = u;
     GAMES.forEach(g => g.load(u));
-    const available = gamesFor(u);
-    document.querySelectorAll('.game-card').forEach(c=>{
-      c.style.display = available.includes(c.dataset.game) ? 'block' : 'none';
-    });
+    applyGameAvailability();
     document.querySelector('.eyebrow').textContent = u.label || '';
     document.querySelector('#screen-game-select p.intro').textContent = u.intro || '';
     if(u.label){ document.title = u.label + ' — Game Hub'; }
@@ -1736,10 +1809,12 @@
      teams and a room of people, and putting it in one place is what stops solo
      play from being sixty edits.
 
-     `mode` is declared now and only ever 'teams'. It is not a setting yet: a
-     switch offering a value that does nothing is worse than no switch. */
+     `mode` reads the `roster` setting rather than holding a copy of it. A stored
+     mode is a second answer to a question the settings already answer, and the two
+     would differ the first time somebody changed it mid-lesson. */
   const Roster = {
-    mode: 'teams',
+    get mode(){ return S.get('roster') === 'solo' ? 'solo' : 'teams'; },
+    solo(){ return this.mode === 'solo'; },
     all(){ return teams; },
     at(i){ return teams[i] || null; },
     count(){ return teams.length; },
@@ -1750,10 +1825,13 @@
        there. Named here so a solo roster can answer differently. */
     floor(){ return 2; },
     add(name){
-      teams.push(newTeam(name || ('Team ' + (teams.length + 1))));
+      const fallback = (this.solo() ? 'Player ' : 'Team ') + (teams.length + 1);
+      teams.push(newTeam(name || fallback));
       return teams.length;
     },
-    label(){ return this.mode === 'solo' ? 'player' : 'team'; }
+    label(){ return this.solo() ? 'player' : 'team'; },
+    /* Capitalised for a button; the lowercase one is for a tooltip mid-sentence. */
+    Label(){ const l = this.label(); return l.charAt(0).toUpperCase() + l.slice(1); }
   };
 
   /* The room bench's handle on the team bar, same-origin only. `ensure` grows and
@@ -1812,6 +1890,16 @@
     document.body.classList.toggle('theme-gameshow', themeOf() === 'gameshow');
   }
   S.onChange(id=>{ if(id === 'theme') applyTheme(); });   // ⚙ changes show at once
+  /* Switching who is competing has to reach the screen it changes: the game cards,
+     because half of them are no longer on offer, and the team bar, because its add
+     button and its remove tooltips are named after what a competitor is. Neither is
+     rebuilt on a timer, so a setting read once at build time is a setting the
+     drawer cannot change — the Daily Double paid for that lesson. */
+  S.onChange(id=>{
+    if(id !== 'roster') return;
+    applyGameAvailability();
+    renderScorebar();
+  });
 
   function motionOK(){
     try{ return !window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
@@ -2018,7 +2106,8 @@
       if(delBtn) delBtn.addEventListener('click', ()=> removeTeam(i));
       bar.appendChild(el);
     });
-    const addBtn=document.createElement('button'); addBtn.id='add-team-btn'; addBtn.textContent='+ Team';
+    const addBtn=document.createElement('button'); addBtn.id='add-team-btn';
+    addBtn.textContent='+ ' + Roster.Label();
     addBtn.addEventListener('click', ()=>{ Roster.add(); renderScorebar(); });
     bar.appendChild(addBtn);
     // icon-only in the header: the words cost more room than the button is worth,

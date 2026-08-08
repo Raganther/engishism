@@ -60,6 +60,13 @@ h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size: clamp(1
 /* --- Game select --- */
 #screen-game-select{ max-width: 1120px; margin: 50px auto; padding: 0 24px 60px; }
 #screen-game-select p.intro{ color: var(--muted); margin-bottom:24px; font-size:1.02rem; }
+/* Why a board a teacher expects to see is not on this screen. Quiet, because it is
+   an explanation rather than a warning — but present, because a card that vanishes
+   with nothing saying why is indistinguishable from a broken build. */
+#screen-game-select p.roster-note{
+  color: var(--muted); margin:-14px 0 22px; font-size:0.92rem;
+  border-left:3px solid var(--blue); padding-left:10px;
+}
 .game-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; }
 @media(max-width:600px){ .game-grid{ grid-template-columns:1fr; } }
 .game-card{
@@ -806,8 +813,12 @@ body.theme-gameshow .team.active{ box-shadow: 0 0 0 2px var(--gold), 0 0 26px rg
 /* --- the setup screens: choose a unit, choose a game, choose sections ---
    These are the first thing a class sees, so they carry the same stage the games
    do. Cards sit as lit panels on the dark background rather than white boxes. --- */
+/* The roster note is in here too. A theme that names the parts of a screen one at
+   a time always eventually misses one — that is how the content screen's section
+   headings ended up navy on near-black. */
 body.theme-gameshow .screen .intro,
 body.theme-gameshow #screen-game-select p.intro,
+body.theme-gameshow #screen-game-select p.roster-note,
 body.theme-gameshow .helptext{ color: rgba(234,240,255,0.7); }
 body.theme-gameshow .back-link{ color: var(--gold); }
 

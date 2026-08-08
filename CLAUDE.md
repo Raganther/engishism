@@ -1229,6 +1229,44 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Individual play is a switch now — step 2, and the blocking question turned out
+  to be already answered.** The note under Next said to decide what "everyone on
+  the team agrees" means when a competitor is one person, before going further.
+  Reading the code answered it: unanimity is `agreed >= size` and the size is the
+  live roster's, so **a competitor of one is satisfied by that one answer, and no
+  round needed changing at all.** That is the tier boundary being in the right
+  place, and it is the whole reason this step was small.
+  - **`roster` is a room-wide setting, deliberately not per game.** The roster
+    persists across games and unit switches, so a lesson cannot be in teams on one
+    board and individual on the next without the scoreboard being rebuilt under the
+    class. Registered with no `games`, the same as the relay address.
+  - **A board declares whether solo suits it** — `solo:true`, the same shape as
+    `hasBank`, and **false by default** so a new board has to say it has thought
+    about it. Jeopardy, Bingo and Quickfire take it. Millionaire draws a ladder each
+    and thirty ladders is not a board; Blockbusters has exactly two routes across
+    it; Race is two people physically at the screen. It is a fact about the
+    *geometry*, never about the questions.
+  - **A card that vanishes with nothing saying why is indistinguishable from a
+    broken build**, so the game screen names what it is not showing and why.
+  - **Blockbusters was missing `teamMode` and had been playing as though it were
+    not a team game.** Jeopardy declared it, Blockbusters did not, so every round
+    there fell to first-tap-wins — the fastest thumb on the side that is up answers
+    while the rest of their alliance never commits. The same objection that put the
+    declaration on Jeopardy. There was no reason for the two to differ, only an
+    omission. **Ordering is not named as an exception here** the way it is on
+    Jeopardy: only one side is at the board at a time, so a shared climb reads as
+    the one ladder it is.
+  - **Which boards host a round, checked rather than assumed** — the audit that
+    prompted this. Jeopardy and Blockbusters host all five in the clue card;
+    Millionaire and Quickfire host **Multiple Choice only**, and that is *content*
+    rather than wiring (their bank is `{prompt, answer, distractors}` and the round
+    is derived from it). Bingo hosts none by design — it owns the handsets. **Race
+    hosts none and is the one real gap**, still waiting on the stage as a mount.
+    There is no legacy rot: every difference above is a declaration.
+  - **Not done, and next:** the roster built from the joined phones, and Quickfire
+    as the first solo board. Until then solo is the teacher's own + Player button.
+    The game-card blurbs still say "teams" in solo, which is a second string per
+    game and was left alone.
 - **A dragged tile is the size of the tile you picked up.** Reported for both drag
   rounds: a letter or a word warps the instant the thumb takes it. The ghost was
   appended to `document.body`, which put it **outside `#arrange`** — so in words
