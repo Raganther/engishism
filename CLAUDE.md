@@ -1229,6 +1229,20 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A dragged tile is the size of the tile you picked up.** Reported for both drag
+  rounds: a letter or a word warps the instant the thumb takes it. The ghost was
+  appended to `document.body`, which put it **outside `#arrange`** — so in words
+  mode none of the `#arrange.words` rules reached it and it took the *letters*
+  sizing, `padding:0`, its content width rather than its column width, and
+  uppercase. Four changes at once.
+  - **Drawn inside `#arrange` now, and pinned off the tile it came from.** The pin
+    has to be the element rather than a rule: a tray tile is as wide as its grid
+    column and a slot as wide as its own, and no stylesheet can say that. Everything
+    the pin does not cover — the face, the case, the padding — is inherited instead
+    of guessed, which is the half that appending to `body` threw away.
+  - **`scale(1.14)` went with it.** It was there to say *lifted*, and saying that by
+    changing the size is the same complaint one step smaller. A shadow says it
+    without moving anything.
 - **Drag the Words breaks the sentence in the same places on the wall as in the
   hand.** Reported from a four-team board: the card wrapped a nine-word sentence
   six-and-three and the handsets wrapped it five-and-four, so the same question

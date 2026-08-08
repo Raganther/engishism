@@ -246,10 +246,23 @@
      what the word is made of. */
   .ana-tile.used{ opacity:0.28; }
   /* The tile that follows the finger. Fixed, and out of the way of hit-testing, or
-     elementFromPoint would return the clone on every move. */
+     elementFromPoint would return the clone on every move.
+
+     **It is the size of the tile you picked up, and nothing else.** It used to be
+     appended to `document.body`, which put it outside `#arrange` — so in words mode
+     none of the `#arrange.words` rules reached it and it took the *letters* sizing,
+     `padding:0`, its content width instead of its column width, and uppercase. Four
+     changes at once, which reads as the word warping the moment you touch it. It is
+     drawn inside `#arrange` now, and `anaGrab` pins the width, height and type size
+     off the tile it came from.
+
+     `scale(1.14)` went with it. It was there to say "lifted", and saying that by
+     changing the size is the same complaint one step smaller — a shadow says it
+     without moving anything. */
   #ana-drag{
     position:fixed; z-index:99; pointer-events:none; opacity:0.94;
-    transform:translate(-50%,-50%) scale(1.14);
+    box-sizing:border-box; transform:translate(-50%,-50%);
+    box-shadow:0 8px 18px rgba(0,0,0,0.45);
   }
   #ana-note{ font-size:0.85rem; opacity:0.7; text-align:center; min-height:1.2em; }
   .write{ display:none; width:100%; gap:10px; flex-direction:column; }
@@ -329,7 +342,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260808b"></script>
+<script src="game-hub/hub-buzzer.js?v=20260808c"></script>
 <script>
 (function(){
   'use strict';
@@ -615,6 +628,9 @@
     slots.classList.remove('gridded'); tray.classList.remove('gridded');
     $('arrange').style.removeProperty('--ana-slot-w');
     $('arrange').style.removeProperty('--ana-fit');
+    // the dragged tile lives in here now, so a re-arm mid-drag must not leave one behind
+    const stray = document.getElementById('ana-drag');
+    if(stray) stray.remove();
     tray.innerHTML = ''; slots.innerHTML = '';
     anaTiles = []; anaSlots = list.map(()=> null); anaDrag = null;
     list.forEach((ch, i)=>{
@@ -746,7 +762,20 @@
     el.id = 'ana-drag'; el.className = 'ana-tile filled';
     el.style.background = 'var(--team, #ffc83d)'; el.style.color = '#0a0d26';
     el.textContent = anaTiles[tile].ch;
-    document.body.appendChild(el);
+    /* **The same size as the tile it came from.** Pinned off that tile rather than
+       left to the stylesheet: a tray tile is as wide as its grid column and a slot
+       is as wide as its own, so there is no rule that could say it — only the
+       element. Inside `#arrange`, not on `document.body`, so everything the pin
+       does not cover (the type face, the case, the padding) is inherited instead
+       of guessed. */
+    const src = fromSlot == null ? anaTiles[tile].el
+                                 : $('ana-slots').children[fromSlot];
+    if(src){
+      el.style.width  = src.offsetWidth + 'px';
+      el.style.height = src.offsetHeight + 'px';
+      el.style.fontSize = getComputedStyle(src).fontSize;
+    }
+    $('arrange').appendChild(el);
     anaDrag = { tile, fromSlot, el, x:e.clientX, y:e.clientY, moved:0 };
     anaMoveTo(e.clientX, e.clientY);
     try{ e.target.setPointerCapture(e.pointerId); }catch(err){}
