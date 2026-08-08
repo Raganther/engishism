@@ -11,6 +11,17 @@
             "statusMessage": "Checking the shared shelf…"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/tools/memory-check.js\" 2>/dev/null || true",
+            "timeout": 15,
+            "statusMessage": "Checking CLAUDE.md is current…"
+          }
+        ]
       }
     ]
   }

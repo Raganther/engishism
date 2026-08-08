@@ -13,7 +13,15 @@ the project's memory. The repo is re-cloned fresh each session (the workspace is
 ephemeral), so **anything worth keeping must be committed and pushed.** Continuity
 = this file (kept current) + `git log` (what changed) + `docs/` (specs). At the
 end of a work session, update the **Current status** / **Next** sections below and
-commit. No hooks, no roadmap file, no domain-file discipline required.
+commit. No roadmap file, no domain-file discipline required.
+
+**Two hooks, and both exist because a thing that is nobody's job does not happen.**
+`tools/shelf.js` fires before any edit to shared code and says what is already on
+the shelf *and what has been written three times*; `tools/memory-check.js` fires
+before a `git commit` and, **only when this file is not in it**, names what is
+being committed and asks whether it is a memory event. Neither blocks. The silence
+is the design: a reminder that fires every time is one you stop reading, so the
+memory one can only speak when the memory genuinely has not been touched.
 
 ## How to talk to me
 **Short. Plain words. Say the thing, then why, then stop.**
@@ -1221,6 +1229,28 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The memory is checked at the one moment it can be, and stays quiet otherwise.**
+  `tools/memory-check.js` runs as a `PreToolUse` hook on Bash, notices a `git
+  commit`, and names what is about to go in — **but only when `CLAUDE.md` is not
+  among it.**
+  - **The silence is the whole design.** A reminder that fires on every commit is
+    one you stop reading by the third day, which is the same lesson as the
+    duplication report and as every "are you sure?" anybody has ever clicked
+    through. This one is structurally incapable of firing when the memory is
+    already being updated, so it is always at least a fair question.
+  - **Matched anywhere in the command, not as a prefix.** The way this project
+    actually commits is `git add -A && git commit …`, so the hook's own `if`
+    filter (`Bash(git commit*)`) would never have fired. Worth knowing before
+    writing the next Bash hook.
+  - It reads `--cached`, falls back to the working tree for `commit -a`, and says
+    how many of the files are code, tooling or a skill — the places decisions live
+    — rather than judging the change, which it cannot do and the author can. It
+    never blocks.
+  - **It found its own first target**: this file opened with *"No hooks, no roadmap
+    file"*, which had been false since `shelf.js` was hooked.
+  - Proved by sentinel — prefix the command, run a Bash call, read the file, strip
+    the prefix. Three cases piped by hand first: not a commit (silent), a commit
+    without `CLAUDE.md` (speaks), a commit with it (silent).
 - **Ending a round went on the shelf, and the shelf tool learned to find what is
   copied.** The three bugs below were shared-tier bugs, but only two had shared-tier
   *fixes* — the third had to be made in five round files by hand, which is the same
