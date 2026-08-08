@@ -127,6 +127,10 @@ body.theme-gameshow #clue-card{
      declared property in the first place. */
   --gw-warnwash:rgba(255,183,51,0.26);
   --gw-badwash:rgba(255,110,95,0.26);
+  /* The borders that go with those two washes, lifted for a dark card the same way
+     the green was — the base amber and red are chosen against white. */
+  --gw-warn:#FFB733;
+  --gw-bad:#FF6E5F;
   /* A hint given away, lifted for the dark card exactly as the green was. It must
      not be `--gw-hot`, which is near-white here — a hinted word bordered in white
      is indistinguishable from an untouched one, which is the whole thing the mark
@@ -274,6 +278,15 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
    so the room watches it land or shake rather than reading a verdict afterwards. */
 .ord-rung.guessing{ font-style:italic; text-transform:none; letter-spacing:0;
   border-style:dashed; }
+/* The same two tones the other rounds' lanes use, so a teacher reads one vocabulary
+   across every round: **amber, the team has not agreed yet** — which is not being
+   wrong, it is the argument this round exists for — and **red, they agree and it is
+   not the word that comes next**. Dashed stays: it is still a proposal, not a rung
+   they have earned. */
+.ord-rung.guessing.split{ border-color:var(--gw-warn, #D68A10);
+  background:var(--gw-warnwash, rgba(214,138,16,0.18)); }
+.ord-rung.guessing.miss{ border-color:var(--gw-bad, #C0392B);
+  background:var(--gw-badwash, rgba(192,57,43,0.18)); }
 
 /* ---- the multiple choice round --------------------------------------------
    Two columns, which is the shape a handset lays four short options out in — so the

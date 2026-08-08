@@ -202,7 +202,28 @@
                of unanimous would look like a team that had done nothing. */
             const guess = team != null && (s.leading[team] || [])[0];
             rung.textContent = guess || 'next?';
-            if(guess) rung.classList.add('guessing');
+            if(guess){
+              rung.classList.add('guessing');
+              /* **Three things a guess can be, and the room should be able to tell
+                 them apart from the back.** The other rounds' lanes already say this
+                 with a tone; a ladder had only "there is a word here".
+
+                 `split` — the team has not settled on one word yet. Amber, because
+                 being split is not being wrong: it is the argument, which is the
+                 part of this round worth having.
+
+                 `miss` — they agree, and it is not the word that comes next. Red.
+                 It gives nothing away that the round has not already said out loud
+                 in the say line, and it is what lets a team read the board and learn
+                 from a rival's dead end rather than only from their own.
+
+                 Neither, and it simply stands as the current proposal. */
+              const ag = agreement(s, c, team);
+              const want = s.scale[placed.length];
+              if(ag && !ag.all) rung.classList.add('split');
+              else if(String(guess).toLowerCase() !== String(want || '').toLowerCase())
+                rung.classList.add('miss');
+            }
           } else {
             rung.classList.add('empty');
           }
@@ -343,11 +364,19 @@
        the ladder, so every rung fills in. `finish` first, then the extra. */
     reveal(mount, s, ctx){
       K.round.finish(s);
-      s.placed = s.scale.slice();       // the whole ladder, in the right order
-      Object.keys(s.lanes || {}).forEach(t => { s.lanes[t] = s.scale.slice(); });
-      /* The ladder now *is* the answer, so what the room was part-way to agreeing
-         is no longer news — this is the one round where clearing these is right,
-         because its lanes are the ladders rather than a record of who said what. */
+      /* **A race keeps every team's own ladder; only a climb fills itself in.**
+         Filling the lanes with the right answer wiped the one thing worth looking at
+         when a round ends — how far each team actually got. Four identical ladders
+         say nothing about a race that was won by one rung. A lane can only ever hold
+         correct placements (`accept` pushes on a right answer and nothing else), so
+         what is left standing is a true picture, and the answer itself is on the
+         card's own answer line where it always was.
+
+         A climb is the opposite case: there is one ladder, it *is* the answer, and
+         filling it is the reveal. */
+      if(s.mode !== 'race') s.placed = s.scale.slice();
+      /* What the room was part-way to agreeing stops being news once the answer is
+         out — and in a race it would leave a guess sitting above a finished lane. */
       s.picks = {}; s.leading = {}; s.votes = {};
       this.render(mount, s, ctx);
       return 0;

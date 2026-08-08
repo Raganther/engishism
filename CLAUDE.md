@@ -1229,6 +1229,29 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A finished race shows how the race went, and a guess says what kind of guess it
+  is.** Two reports from a four-team board.
+  - **`reveal` was filling every lane with the right answer**, which wiped the one
+    thing worth looking at when a round ends: how far each team actually got. Four
+    identical ladders say nothing about a race won by one rung. A lane can only ever
+    hold *correct* placements — `accept` pushes on a right answer and nothing else —
+    so what is left standing is already a true picture, and the answer itself is on
+    the card's own answer line where it always was. **A climb still fills itself in**,
+    which is the opposite case: one ladder, and it *is* the answer.
+  - **The guess rung had one state and needed three.** It is the only place a team's
+    live proposal appears, and it said nothing about whether the team had settled on
+    it or whether it was wrong. Now: **amber** when they have not agreed — being
+    split is not being wrong, it is the argument this round exists for — **red** when
+    they agree and it is not the word that comes next, and plain when it is simply
+    the current proposal. Same two tones the other rounds' lanes use, so a teacher
+    reads one vocabulary across all five.
+  - **Derived, not stored.** "Wrong" is `leading[team]` against `scale[lane.length]`
+    and "split" is `agreement()` — both already on hand at draw time, so no new state
+    and nothing that can go stale. It gives away nothing the say line has not already
+    said out loud, and it is what lets a team learn from a rival's dead end.
+  - Driven on the relay with three handsets: two on one team disagreeing (amber), a
+    second team agreed on the wrong word (red), the right word landing, and the end
+    state keeping one lane at one rung and the other empty.
 - **The pool chips are one size, roomy, and the hint's number is out of the word's
   way.** Third attempt at the number, and the first two failed on the same thing —
   where the word actually is.
