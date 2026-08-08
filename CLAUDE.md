@@ -1247,6 +1247,18 @@ playground's point, that one board can host several:
     nine words are 3·3·3 and not 4·4·1. A box alone on a line reads as a mistake and
     is where a thumb aims first — the anagram row had already paid for that, and the
     old handset layout put a nine-word sentence at 2·2·2·2·1.
+  - **A rect is what is *painted*, and the card opens by growing out of its tile.**
+    Shipped broken for one push and reported straight back: the columns came out
+    ~45px, every word lay on top of the next, and **any redraw at all — a hint, a
+    word landing on a phone — snapped it into shape**, which is the tell. The
+    re-measure below runs on the frame after the clue opens, and on that frame the
+    whole card is still scaled down to a $100 tile, so every chip measured a
+    fraction of its width. `offsetWidth` is the layout width and ignores every
+    ancestor transform; the handset has always used it, which is why only the card
+    was wrong. Measured with the flip on: 69px against the correct 121px.
+    **And the reason the suite missed it is that the test harness sets
+    `cardFlip:'off'`** — as does every layout check in this project. A measurement
+    taken during an animation cannot be verified by a build that has no animation.
   - **The card's own measurement had never run on a board.** Jeopardy calls
     `jShowClue` and *then* `openClueCard`, so the modal is still `display:none` while
     the round renders and every rect reads 0 — the `ch` estimate is what has actually

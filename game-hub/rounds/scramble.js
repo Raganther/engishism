@@ -203,10 +203,20 @@
          The bench draws its card in the open, so it has always measured. `isConnected`
          is what makes a stale frame harmless: a later render empties the mount, and
          the row this closure is holding is no longer in the document. */
+      /* **`offsetWidth`, never `getBoundingClientRect()`.** A rect is what is
+         *painted*: the card opens by growing out of its tile, so on the frame this
+         runs the whole card is still scaled down to a $100 tile and every chip
+         measures a fraction of its real width. The columns then came out ~45px and
+         the words lay on top of one another — until any redraw at all (a hint, a
+         word landing) measured the card at rest and it snapped into shape, which is
+         exactly how it was reported. `offsetWidth` is the layout width and ignores
+         every ancestor transform. The handset has always used it, which is why only
+         the card was wrong; the Blockbusters board paid for this same lesson once.
+         And it is why turning the flip off in a test hides the bug completely. */
       const measure = () => {
         let widest_px = 0;
         Array.prototype.forEach.call(tray.children, el => {
-          widest_px = Math.max(widest_px, el.getBoundingClientRect().width);
+          widest_px = Math.max(widest_px, el.offsetWidth);
         });
         if(!widest_px) return false;
         /* **Four columns of a long word can be wider than the card**, and the card
