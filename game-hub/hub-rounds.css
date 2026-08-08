@@ -204,7 +204,13 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
 /* The gloss is what turns a right answer into a taught one — it prints as the word
    lands, which is the moment the room is actually looking at it. */
 .ord-gloss{ font-size:0.72em; opacity:0.75; font-weight:400; }
-.ord-pool{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
+/* **`grid-auto-rows:1fr` is what makes every chip the same size.** Grid rows size to
+   their own content, so a row holding a two-line phrase — "rational analysis" — was
+   taller than the row under it holding "on impulse", and the odd one out looked like
+   a mistake. `1fr` on auto rows makes them all equal to the tallest, without
+   reserving space that nothing needs when every word is short. */
+.ord-pool{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px;
+  grid-auto-rows:1fr; }
 
 /* ---- a ladder per team ----
    A race gives each side its own ladder side by side, because the climb *is* the
@@ -248,7 +254,7 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
    empty rung used to collapse to its floor, so a mostly-empty ladder was short — and
    the card only fitted a laptop by accident. Making them all equal was right and had
    to be paid for, so the type comes down and the padding with it. */
-.round-ordering.racing .ord-rung{ font-size:0.68em; padding:1px 6px;
+.round-ordering.racing .ord-rung{ font-size:0.76em; padding:1px 6px;
   min-height:clamp(18px, 2.4vh, 26px); }
 .round-ordering.racing .ord-cap{ font-size:0.58em; }
 /* **A laptop is shorter than a projector, and the card has no height limit.**
@@ -301,12 +307,17 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
    are on their handsets — so it packs down to make room for the lanes. Four ladders
    plus a full-width two-column pool came to within 2px of a 720px card, which is
    not a margin, it is a coincidence waiting to break on a longer word. */
+/* **Wider columns, smaller type — and that trade is a priority, not a compromise.**
+   Every chip is the same size as the tallest, so one phrase wrapping to three lines
+   sets the height of all five and the card ran 45px past a 720 board. The fix is to
+   stop it wrapping to three: fewer, wider columns.
+
+   The type comes down at the same time because **in a race the pool is the teacher's
+   control** — each team's own remaining words are on their handsets, and what the
+   room reads is the ladders. So the pool gives up size and the rungs take it. */
 .round-ordering.racing .ord-pool{
-  /* 130, not 110: a C1 vocabulary word is long and `overflow-wrap:anywhere` will
-     break it mid-syllable rather than overflow — "outstandin/g" is worse than a
-     narrower grid. */
-  grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:6px; margin-top:4px; }
-.round-ordering.racing .ord-pool .gword{ font-size:0.78em; padding:6px 8px; }
+  grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:6px; margin-top:4px; }
+.round-ordering.racing .ord-pool .gword{ font-size:0.68em; padding:5px 9px; }
 .round-ordering.racing .ord-lanes{ margin:4px 0 2px; }
 .round-ordering.racing .ord-who{ margin-bottom:2px; }
 /* A word the teacher's own lane has already used. It stays on the card — every team
@@ -314,16 +325,24 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
    card lie to the other three — but it is dimmed, because clicking it for that lane
    could only ever be wrong. */
 .round-ordering.racing .ord-pool .gword.spent{ opacity:0.4; }
-/* **The number sits in the padding, not in the line.** Reserving it as an inline
-   gutter kept the chip from changing width when a hint numbered it — which was the
-   point — but it also took up space *before* the word, so every word in the pool sat
-   pushed to the right of its own box. Out of the flow and into the left padding: the
-   word centres in the whole chip as it always should have, the chip never resizes,
-   and the number still has somewhere to be. The padding is symmetric for the same
-   reason — a chip padded only on one side is a chip whose text is off-centre. */
-.round-ordering .ord-pool .gword{ position:relative; padding-left:1.9em; padding-right:1.9em; }
-.round-ordering .ord-pool .gw-num{ position:absolute; left:0.6em; top:50%;
-  transform:translateY(-50%); font-variant-numeric:tabular-nums; opacity:0.7; }
+/* **The number goes in the corner, out of the word's way.** Two earlier attempts
+   both failed on the same thing — where the word is. Inline, it pushed every word
+   right of its own centre; in a left gutter, it sat *on* the word the moment a chip
+   was only as wide as what it held, which is every chip in a race. The corner is the
+   one place in a centred box that the text never reaches.
+   (The gutter version also never applied in a race at all: the racing rule sets
+   `padding` as a shorthand and is a class more specific, so it silently replaced the
+   whole thing. A shorthand from a more specific selector beats a longhand from a
+   less specific one, and CSS says nothing about it.)
+
+   The chip is a centring box in its own right, so the word sits in the middle of the
+   whole chip however wide the grid makes it, and `min-height` keeps a band clear for
+   the number even when nothing wraps. */
+.round-ordering .ord-pool .gword{
+  position:relative; display:flex; align-items:center; justify-content:center;
+  text-align:center; min-height:2.4em; }
+.round-ordering .ord-pool .gw-num{ position:absolute; top:3px; left:7px;
+  font-size:0.78em; line-height:1; opacity:0.65; font-variant-numeric:tabular-nums; }
 
 /* ================= the question forms (Kit.prompt) =================
    Moved here out of `hub.css` for exactly the reason the round card's innards

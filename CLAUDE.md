@@ -1229,6 +1229,31 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The pool chips are one size, roomy, and the hint's number is out of the word's
+  way.** Third attempt at the number, and the first two failed on the same thing —
+  where the word actually is.
+  - **The odd-sized chip was a row height, not a width.** Grid rows size to their own
+    content, so the row holding a two-line phrase was taller than the row under it
+    holding a one-line one, and the last chip looked like a mistake.
+    `grid-auto-rows:1fr` makes every row equal to the tallest without reserving space
+    that nothing needs when every word is short.
+  - **The number went to the top-left corner**, which is the one place in a centred
+    box the text never reaches. Inline it pushed every word right of its own centre;
+    in a left gutter it sat *on* the word the moment a chip was only as wide as what
+    it held — which is every chip in a race.
+  - **And the gutter had never applied in a race at all.** The racing rule sets
+    `padding` as a *shorthand* and is one class more specific, so it silently
+    replaced the whole longhand. A shorthand from a more specific selector beats a
+    longhand from a less specific one, and nothing anywhere says so.
+  - **Uniformity has a price and it has to be paid by the right thing.** Every chip
+    matching the tallest meant one three-line phrase set all five and pushed the card
+    45px past a 720 board. Fewer, wider columns stop it wrapping that far; the pool's
+    type comes down and the **rungs' goes up**, because in a race the pool is the
+    teacher's control — each team's own words are on their handsets — and what the
+    room reads is the ladders.
+  - Worst case measured: a five-phrase scale with four teams, 708 of 720 on a
+    projector and 591 of 660 on a laptop, every chip identical, no number touching a
+    word.
 - **The clue card fits a laptop, and the pool words are centred in their own boxes.**
   Both fell out of the previous fix, and the first is the more general problem.
   - **`#clue-card` is capped in width and has no cap on height at all**, and it is
