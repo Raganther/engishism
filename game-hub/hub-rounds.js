@@ -204,6 +204,13 @@
 
   function lanes(mount, ctx, opts){
     const o = opts || {};
+    /* **No lanes in a room of individuals.** A lane's whole job is a team building
+       one answer out of several handsets — how many have committed, whether they
+       agree. A competitor of one has neither question: they have answered or they
+       have not. Drawing one lane each would also put twenty-five rows on a board
+       nobody at the back could read. Asked of the host, because who is competing is
+       the room's fact and never the round's. */
+    if(ctx && ctx.solo) return null;
     const teams = laneTeams(ctx, o.progressed);
     if(!teams.length) return null;
     const colour = i => (window.HubBuzzer && window.HubBuzzer.teamColour)

@@ -85,7 +85,7 @@ function getRoom(code, create){
        says who it is: same epoch on `ready` means "I still hold what you told
        me", a new one means "I know nothing — tell me everything again". */
     r = { epoch: Math.random().toString(36).slice(2, 10),
-          host:null, players:new Map(), teams:[], armed:false, locked:null,
+          host:null, players:new Map(), teams:[], solo:false, armed:false, locked:null,
           mode:'buzz', prompt:'', options:[], team:null, responses:new Map(),
           spent:new Set(), cooling:new Map(), cards:new Map(), emptiedAt:0,
           answerSecs:0, rethink:false, secs:0, armedAt:0, multi:1,
@@ -249,7 +249,8 @@ function openStream(req, res, q){
      always locked, or on the wrong WiFi, or joining thirty seconds late — so the
      room's current state travels with the join. */
   pushEvent(res, 'joined', {
-    id, name, team, teams:room.teams, armed:room.armed, locked:lockedNow(room),
+    id, name, team, teams:room.teams, solo:room.solo,
+    armed:room.armed, locked:lockedNow(room),
     mode:room.mode, prompt:promptFor(room, id), note:room.note,
     options:optionsFor(room, team), turnTeam:room.team,
     spent:[...room.spent],
@@ -537,9 +538,30 @@ function handleSend(req, res){
         return sendJSON(res, 200, { ok:true });
       }
       case 'teams':
-        room.teams = Array.isArray(msg.teams) ? msg.teams.slice(0,8).map(t=>String(t).slice(0,24)) : [];
-        toPlayers(room, 'teams', { teams:room.teams });
+        room.teams = Array.isArray(msg.teams) ? msg.teams.slice(0,60).map(t=>String(t).slice(0,24)) : [];
+        /* **Whether the room is a set of teams or a set of people**, carried so the
+           join screen can stop asking a student which team they are on — in solo
+           there is nothing to pick, because the host gives every phone a slot of
+           its own the moment it arrives. Carried, never acted on: the relay does
+           not learn what a competitor is, only that the phone should not be asked.
+           Sticky when the key is absent, so a plain names push does not silently
+           put the room back into teams. */
+        if('solo' in msg) room.solo = !!msg.solo;
+        toPlayers(room, 'teams', { teams:room.teams, solo:room.solo });
         return sendJSON(res, 200, { ok:true });
+
+      /* **One phone's competitor, set by the host.** `remap` renumbers everybody
+         after a removal; this names one. It is what individual play is made of —
+         a person arrives, the host gives them their own slot, and their handset is
+         told so the pill in their hand is right. Same bookkeeping as `remap`, one
+         player wide. */
+      case 'seat': {
+        const p = room.players.get(String(msg.id || ''));
+        if(!p) return sendJSON(res, 200, { ok:true, ignored:'not in room' });
+        const n = Math.max(0, Math.min(59, Math.floor(Number(msg.team) || 0)));
+        if(p.team !== n){ p.team = n; pushEvent(p.res, 'team', { team:n }); }
+        return sendJSON(res, 200, { ok:true });
+      }
 
       /* A team was removed on the host. A team's index is its identity — on the
          board, in every reply's attribution, and here — so every player above the
@@ -647,7 +669,8 @@ const server = http.createServer((req, res)=>{
   if(p === '/buzzer/room'){
     const room = rooms.get(String(url.searchParams.get('code') || ''));
     if(!room) return sendJSON(res, 404, { error:'no such room' });
-    return sendJSON(res, 200, { ok:true, teams:room.teams, players:room.players.size });
+    return sendJSON(res, 200, { ok:true, teams:room.teams, solo:!!room.solo,
+                                players:room.players.size });
   }
   if(p === '/buzzer/stream')  return openStream(req, res, url.searchParams);
   if(p === '/buzzer/send' && req.method==='POST') return handleSend(req, res);

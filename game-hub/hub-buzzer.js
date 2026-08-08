@@ -169,6 +169,9 @@ window.HubBuzzer = (function(){
          match, because an index is a team's identity on both ends and the first
          live class paid a win to a team that no longer existed. */
       remap:    removed => post(relay, { room:code, type:'remap', removed }),
+      /* One phone's competitor, named by the host. `remap` renumbers everybody after
+         a removal; this seats one person, which is what individual play is made of. */
+      seat:     (id, team) => post(relay, { room:code, type:'seat', id, team }),
       /* How many options one phone may hold, per team. Separate from `arm` on
          purpose: a team's share changes when somebody joins or drops, and a fresh
          arm would clear every handset's picks — throwing away a negotiation in
@@ -180,7 +183,8 @@ window.HubBuzzer = (function(){
       prompts:  per    => post(relay, { room:code, type:'prompts', promptByPlayer:per }),
       disarm:   ()     => post(relay, { room:code, type:'disarm' }),
       reset:    ()     => post(relay, { room:code, type:'reset' }),
-      setTeams: names  => post(relay, { room:code, type:'teams', teams:names }),
+      setTeams: (names, solo) => post(relay, { room:code, type:'teams', teams:names,
+                                              solo: solo === undefined ? undefined : !!solo }),
       close:    ()     => { try{ src.close(); }catch(e){} }
     };
   }

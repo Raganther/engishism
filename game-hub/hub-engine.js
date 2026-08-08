@@ -171,7 +171,14 @@
          Declared rather than discovered, the same shape as `hasBank` — and `false`
          by default, because teams is what every board here was built for and a new
          one should have to say it has thought about the other. */
-      solo:         false
+      solo:         false,
+      /* **The roster changed under a live board.** In team play that only happens
+         when a teacher presses a button between games; in individual play a student
+         walking in late *is* a new competitor, mid-question, and a board that draws
+         its own picture of who is playing has to hear about it. Quickfire's
+         leaderboard is the first caller — without this a latecomer scored and never
+         appeared on it. A no-op for every board that reads `teams` at draw time. */
+      onRoster:     NO_OP
     }, def);
     GAMES.push(g);
     GAME_BY_ID[g.id] = g;
@@ -546,6 +553,9 @@
             sub:'Fifteen questions. No turns. The clock is the opponent.', accent:'#2BD9C4' },
     /* Consumed, not authored — see the note above. */
     hasBank: u => (u.millionaireBank || []).length >= 5,
+    /* A latecomer is a new competitor mid-run, and the leaderboard is the only
+       place this board says who is playing. */
+    onRoster(){ renderKahootBoard(); },
     load(u){ KAHOOT_BANK          = u.millionaireBank || [];
              KAHOOT_SECTION_NAMES = u.millionaireSectionNames || {};
              KAHOOT_TOPIC_NAMES   = u.topicNames || {}; },
@@ -1764,7 +1774,13 @@
      across a reconnect, and an index cannot do that. Nothing reads it yet; it is
      minted now so that a competitor created today is already addressable. */
   let nextCompetitorId = 1;
-  function newTeam(name){ return { id:'c' + (nextCompetitorId++), name, score:0, run:0 }; }
+  /* `auto` means "nobody chose this name" — it is the placeholder the app starts
+     with, not something a teacher typed. It is what lets the first two students to
+     join a solo room take the two default slots instead of landing under them, and
+     it is cleared the moment anybody renames one. */
+  function newTeam(name, auto){
+    return { id:'c' + (nextCompetitorId++), name, score:0, run:0, auto:!!auto };
+  }
 
   /* Teams could be added and never removed, so a class that split four ways one
      lesson carried four teams into the next one. Removing is more than a splice,
@@ -1801,7 +1817,7 @@
      goes in it. In team play a teacher fills it with the + Team button. In solo
      play it would be filled from the phones that have joined, and every board
      would be unaffected. */
-  let teams = [newTeam('Team 1'), newTeam('Team 2')];
+  let teams = [newTeam('Team 1', true), newTeam('Team 2', true)];
 
   /* **The one seam.** Everything that *reads* the roster keeps indexing the array
      directly, which is fine and stays. What goes through here is everything that
@@ -1826,7 +1842,7 @@
     floor(){ return 2; },
     add(name){
       const fallback = (this.solo() ? 'Player ' : 'Team ') + (teams.length + 1);
-      teams.push(newTeam(name || fallback));
+      teams.push(newTeam(name || fallback, !name));
       return teams.length;
     },
     label(){ return this.solo() ? 'player' : 'team'; },
@@ -1841,10 +1857,12 @@
   window.HubTeams = {
     count(){ return teams.length; },
     ensure(n){
-      n = Math.max(0, Math.min(8, Number(n) || 0));
+      /* Eight was the cap when this only ever grew a team bar. A room of
+         individuals is a class, so the ceiling is a class. */
+      n = Math.max(0, Math.min(40, Number(n) || 0));
       let grew = false;
       while(teams.length < n){ Roster.add(); grew = true; }
-      if(grew) renderScorebar();
+      if(grew){ renderScorebar(); hook('onRoster'); }
       return teams.length;
     }
   };
@@ -1899,6 +1917,9 @@
     if(id !== 'roster') return;
     applyGameAvailability();
     renderScorebar();
+    /* Switched on with a class already in the room: seat everybody who is already
+       here rather than waiting for the next phone to join. */
+    if(buzzHost) seatSoloPlayers(buzzHost.players());
   });
 
   function motionOK(){
@@ -2099,7 +2120,8 @@
         if(ev.target.closest('button') || ev.target.classList.contains('tname')) return;
         active = i; renderScorebar();
       });
-      el.querySelector('.tname').addEventListener('change', e=>{ t.name = e.target.value; pushTeamNames(); });
+      el.querySelector('.tname').addEventListener('change', e=>{
+        t.name = e.target.value; t.auto = false; pushTeamNames(); });
       el.querySelector('.minus').addEventListener('click', ()=>{ t.score-=step; renderScorebar(); renderClassLine(); });
       el.querySelector('.plus').addEventListener('click', ()=>{ t.score+=step; renderScorebar(); renderClassLine(); });
       const delBtn = el.querySelector('.tdel');
@@ -4146,6 +4168,12 @@
          a typed word was received and the host owns the wire. */
       verdict: (id, verdict, note, coolMs) => { if(buzzHost) buzzHost.judge(id, verdict, { note, coolMs }); },
       teamName,
+      /* **Individuals, so there is nothing to assemble.** A lane exists to show a
+         team building one answer out of several handsets — how many have committed,
+         whether they agree. A competitor of one has neither question to answer: they
+         have answered or they have not, and the option counts already say how many
+         of the room have. Twenty-five lanes on a board is also simply unreadable. */
+      solo:   Roster.solo(),
       prompt: !!S.get('phonePrompt', roundHost.game),
       // `null` is the whole room; a scoped round belongs to the team on turn
       team:   S.get('roundWho', roundHost.game) === 'turn' ? roundHost.turn() : null,
@@ -5919,8 +5947,26 @@
   function renderKahootBoard(){
     const host = document.getElementById('k-board');
     if(!host) return;
+    /* **The board changed height, so the stage owes itself a re-fit.** It used to be
+       the same five rows all game and `fit` at the start was enough; a room of
+       individuals grows as students walk in, mid-run. Same rule as the buzzer chip
+       and the room bench's pane: anything that changes size around a board owes it
+       a re-fit. Deferred to the end, once the rows are actually in the document. */
+    const refit = () => { if(activeGame === 'kahoot') fitKahoot(); };
     const rows = teams.map((t, i) => ({ i, name:t.name, pts:t.score }))
                       .sort((a, b) => b.pts - a.pts);
+    /* **How many columns, worked out here because CSS cannot count its own
+       children.** Two teams are a short list down the page; a class of twenty-five
+       individuals is a wall, and one column of twenty-five is a leaderboard nobody
+       at the back can read — which is the only thing this board is for. Eight rows
+       is about what fits under the question at projector size, so the columns are
+       however many that many rows needs. Capped at four: past that a name is
+       narrower than the names people actually have. */
+    const KROWS = 6;
+    const cols  = Math.max(1, Math.min(4, Math.ceil(rows.length / KROWS)));
+    host.style.setProperty('--kcols', String(cols));
+    host.style.setProperty('--krows', String(Math.ceil(rows.length / cols)));
+    host.classList.toggle('crowd', cols > 1);
     /* Built rather than templated, because a team name is typed by a teacher and
        `innerHTML` would take whatever they typed literally. `renderScorebar` builds
        its rows the same way for the same reason. */
@@ -5939,6 +5985,7 @@
       if(gain != null) add('k-gain', '+' + gain);
       host.appendChild(row);
     });
+    refit();
   }
 
   function finishKahoot(){
@@ -6652,7 +6699,12 @@
                                      saying there were no phones in a room the class
                                      had just joined. Nothing re-painted it. */
                                   if(activeGame === 'millionaire') renderMillionaire(); });
-      buzzHost.on('players', list=>{ buzzPlayers=list.length; renderBuzzChip(); renderJoinCount();
+      buzzHost.on('players', list=>{ buzzPlayers=list.length;
+                                     /* First, because everything below is judged
+                                        against the roster and in a solo room this
+                                        is what the roster *is*. */
+                                     seatSoloPlayers(list);
+                                     renderBuzzChip(); renderJoinCount();
                                      // a student who joins mid-round gets a card
                                      bingoDealHands();
                                      /* …and a team that just grew or shrank gets a
@@ -6708,6 +6760,52 @@
     renderBBVote();
   });
 
+  /* ---------- individual play: the roster is whoever has joined ----------
+     In team play a teacher fills the roster with the + Player button and a student
+     picks which side they are on. In individual play neither of those is a question
+     anybody can answer: a person *is* a competitor, so the roster is the room.
+
+     **Keyed by player id, mapped to the competitor's id, and never to an index.**
+     Both ends of that would be wrong as an index: a phone reconnects under the same
+     player id, which is what makes a seat survive a dropped connection, and a
+     competitor's index shifts the moment one above it is removed — which is exactly
+     the bug that paid a Drag the Letters win to a team that no longer existed.
+
+     **A phone that leaves keeps its seat.** A student whose battery dies has still
+     played, and their score is a lesson's work; binning a competitor because a
+     handset went quiet would be the same mistake the team bar's confirm exists to
+     stop. They come back to the same slot. */
+  const soloSeat   = Object.create(null);   // playerId -> competitor id
+  const soloSeatAt = Object.create(null);   // playerId -> the index last sent to it
+
+  function seatSoloPlayers(list){
+    if(!Roster.solo() || !buzzHost) return;
+    let changed = false;
+    (list || []).forEach(p=>{
+      if(!p || !p.id) return;
+      let comp = soloSeat[p.id] ? Roster.byId(soloSeat[p.id]) : null;
+      if(!comp){
+        /* An unclaimed placeholder first — the two the app starts with. Otherwise a
+           room of six reads "Team 1 · Team 2 · Ana · Ben · Cara · Dan", with two
+           empty rows nobody put there. Unclaimed means auto-named, unscored and not
+           already somebody's seat. */
+        const taken = Object.keys(soloSeat).map(k => soloSeat[k]);
+        comp = teams.find(t => t.auto && !t.score && taken.indexOf(t.id) === -1);
+        if(!comp){ Roster.add(p.name); comp = teams[teams.length - 1]; }
+        comp.name = p.name || comp.name;
+        comp.auto = false;
+        soloSeat[p.id] = comp.id;
+        changed = true;
+      }
+      const at = teams.indexOf(comp);
+      /* Told once per move, not once per roster event: `seat` does not come back
+         to the host, so `p.team` here stays stale until the next join and we would
+         re-POST it forever. */
+      if(at >= 0 && soloSeatAt[p.id] !== at){ soloSeatAt[p.id] = at; buzzHost.seat(p.id, at); }
+    });
+    if(changed){ renderScorebar(); hook('onRoster'); }
+  }
+
   /* The phones need the team list, not just at the start: a team renamed mid-lesson
      or a fifth added has to reach every handset, because the name on the phone is
      how a student knows which score on the board is theirs. Called from
@@ -6719,10 +6817,13 @@
   function pushTeamNames(){
     if(!buzzHost) return;
     const names = teams.map(t=>t.name);
-    const key = names.join('\u0000');
+    const solo = Roster.solo();
+    /* The mode is part of the key: switching to individuals changes nothing about
+       the names, and the join screen has to hear about it anyway. */
+    const key = names.join('\u0000') + '\u0001' + solo;
     if(key === lastPushedTeams) return;
     lastPushedTeams = key;
-    buzzHost.setTeams(names);
+    buzzHost.setTeams(names, solo);
   }
 
   /* Ask the whole class rather than racing for the floor. `mode` is 'vote' (pick

@@ -290,7 +290,7 @@
   <input id="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="00000" autocomplete="off">
   <label for="name">Your name</label>
   <input id="name" maxlength="24" placeholder="Name" autocomplete="off">
-  <label>Your team</label>
+  <label id="team-label">Your team</label>
   <div class="teams" id="teams"></div>
   <button class="go" id="join-btn" disabled>Join</button>
   <p class="err" id="join-err"></p>
@@ -342,7 +342,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260808d"></script>
+<script src="game-hub/hub-buzzer.js?v=20260808e"></script>
 <script>
 (function(){
   'use strict';
@@ -397,6 +397,11 @@
     const label = teamNames[team] || ('Team ' + (team+1));
     document.documentElement.style.setProperty('--team', colourOf(team));
     $('who').textContent = who + ' ';
+    /* **No pill in a room of individuals.** The competitor there *is* this person,
+       so its name is their name — the pill would print what the line already says.
+       The colour still means something and stays: it is how a student matches
+       themselves to their own row on the board. */
+    if(joinSolo && label === who) return;
     const pill = document.createElement('span');
     pill.className = 'tteam'; pill.textContent = label;
     $('who').appendChild(pill);
@@ -418,12 +423,31 @@
     fetch((RELAY || '') + '/buzzer/room?code=' + encodeURIComponent(code))
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if(!d || !d.teams || !d.teams.length || $('code').value.trim() !== code) return;
+        if(!d || $('code').value.trim() !== code) return;
+        /* **In a room of individuals there is nothing to pick.** Everyone gets their
+           own score, and the teacher's board gives this phone a slot of its own the
+           moment it arrives — so asking a student to choose a team here would be
+           asking them to answer a question that has no answer, and whatever they
+           chose would be overwritten a second later. Name only. */
+        setSolo(!!d.solo);
+        if(!d.teams || !d.teams.length) return;
         teamNames = d.teams;
         if(team >= teamNames.length) team = 0;   // the choice has to stay on the list
         renderTeams();
       })
       .catch(()=>{});
+  }
+
+  /* Solo is a property of the room, learned from it — never a thing this page can
+     decide. Both the label and the buttons go, because a heading over nothing reads
+     as a list that failed to load. */
+  let joinSolo = false;
+  function setSolo(on){
+    if(joinSolo === on) return;
+    joinSolo = on;
+    if(on) team = 0;
+    $('team-label').style.display = on ? 'none' : '';
+    $('teams').style.display      = on ? 'none' : '';
   }
 
   function validate(){
@@ -999,6 +1023,7 @@
     });
 
     client.on('joined', d=>{
+      if('solo' in d) setSolo(!!d.solo);
       if(d.teams && d.teams.length){ teamNames = d.teams; }
       $('room').innerHTML = 'Room <b>' + String(code).replace(/[^0-9]/g,'') + '</b>';
       paintWho(name);
@@ -1046,6 +1071,9 @@
     /* Renaming a team mid-lesson, or adding a fifth, has to reach the phones — the
        name on the handset is how a student knows the score on the board is theirs. */
     client.on('teams', d=>{
+      /* The mode can change mid-lesson — a teacher switching the room to
+         individuals between games — and it arrives on the same push as the names. */
+      if('solo' in d) setSolo(!!d.solo);
       if(d.teams && d.teams.length){
         teamNames = d.teams;
         renderTeams();

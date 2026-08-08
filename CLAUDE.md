@@ -1229,6 +1229,53 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The roster builds itself from the phones, and Quickfire is the first solo board
+  — steps 3 and 4.** A student opens the join page, types a name, and is a
+  competitor: no team to pick, their own row on the leaderboard, their own score.
+  - **`seat` is the relay's whole part** — the host names one phone's competitor,
+    the relay sets it and tells that handset so the pill in their hand is right.
+    `remap` already did this for everybody after a removal; this does it for one.
+    ~10 lines, and the relay still learns nothing about what a competitor *is*.
+  - **Keyed by player id → competitor id, never by index at either end.** A phone
+    reconnects under the same player id, which is what makes a seat survive a
+    dropped connection; a competitor's index shifts the moment one above it is
+    removed, which is the bug that paid a Drag the Letters win to a team that no
+    longer existed.
+  - **A phone that leaves keeps its seat.** A student whose battery dies has still
+    played and their score is a lesson's work. They come back to the same row.
+  - **The first joiners take the two placeholder slots.** `auto` on a competitor
+    means nobody chose that name; cleared the moment anyone renames one. Without it
+    a room of six reads *Team 1 · Team 2 · Ana · Ben · Cara · Dan*, with two empty
+    rows nobody put there.
+  - **The join screen stops asking which team**, because in a room of individuals
+    there is nothing to pick and whatever they chose would be overwritten a second
+    later. The room says so (`solo` rides the names push and the join payload); the
+    page never decides it. The team pill goes too when it would print the name the
+    line above already says.
+  - **No lanes in solo — `Kit.round.lanes` returns null.** A lane's whole job is a
+    team building one answer out of several handsets: how many have committed,
+    whether they agree. A competitor of one has neither question. Twenty-five lanes
+    is also unreadable, and dropping them bought 137px back on the Quickfire stage.
+  - **`onRoster` is a new hook on the game contract.** In team play the roster only
+    changes between games; in individual play a student walking in late *is* a new
+    competitor, mid-question. Quickfire's leaderboard is the first caller — without
+    it a latecomer scored and never appeared. A no-op for every board that reads
+    `teams` at draw time.
+  - **The leaderboard became a wall rather than a list** — `--kcols` from the
+    competitor count, six to a column, capped at four, filled column-first so first
+    place is top-left. Same move as `--jcols` and `--ana-n`: CSS cannot count what it
+    is laying out. **At 24 people it is 741px of a 720 board, which is better than
+    5 people at 757** — the columns are working; what does not fit is the stage.
+  - **Not fixed, and it is not solo's doing: Quickfire's stage overflows a 720 board
+    whenever the phone chip is up.** Measured identical on the pre-change build
+    (806px with lanes, both). `fitKahoot` asks for `floor:true`, so the board hands
+    its height back rather than forcing one, and the scoreboard sits below what was
+    fitted. Same family as the climb card.
+  - **The team bar is redundant in solo on a board that draws its own leaderboard**,
+    and it is roughly the overflow. Hiding it is a layer-1 change and was left alone.
+  - Driven on the relay: five phones join with no picker, take the two placeholders
+    and three new rows, get their own names, answer independently, and two score
+    +80 each. **No classroom run.**
 - **Individual play is a switch now — step 2, and the blocking question turned out
   to be already answered.** The note under Next said to decide what "everyone on
   the team agrees" means when a competitor is one person, before going further.
