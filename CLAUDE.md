@@ -1221,6 +1221,45 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Three bugs the card-holds-open change introduced, all reported from a board and
+  all now proved by reverting.** Two were mine outright; the third is a latent one of
+  the same family that I could not reproduce on the exact clue.
+  - **A hint wiped what the room had already sent.** `roundPress` re-armed the phones
+    after every press, and an arm clears the relay's held replies and resets every
+    handset. That was right for the one press it was written for — the ordering
+    climb fills a rung, so the next question really is different — and wrong for
+    every hint, which only changes the projector. Thirty students lost a half-built
+    sentence to a letter appearing on a wall.
+    - **A round says which it was**: `'card'` from `hint`/`press` means redraw me and
+      leave the phones alone, anything else truthy means the question moved. Only
+      ordering's climb returns the second.
+    - **`Kit.round.press` was coercing the answer to a boolean**, so a round could not
+      have said so even if it wanted to. It passes the value through now.
+    - **The board looked fine while the phones were wiped**, which is why it was
+      reported as a phone bug: the relay's replies were cleared but the card kept the
+      picks it had already read, so only the handsets visibly lost anything. Proved by
+      reverting — the phone's selection goes `["discharged"]` → `[]`.
+  - **The team lanes vanished at the moment a team won.** `reveal()` in choice,
+    anagram and scramble wiped `picks`/`leading`/`votes`/`got`, and all four renders
+    drew lanes only while the round was live. Invisible for as long as a won card
+    flipped away in under a second; now that it stays up until the teacher closes it,
+    it took the picture off the screen at exactly the moment there was time to read
+    it — and shrank the card doing so, which was a warp on top of the warps. The
+    state survives and the lanes draw when the round is over. Reverted: 0 lanes then,
+    2 now.
+  - **The prompt has to be revealed *before* the round, not after.** The round's card
+    is mounted inside `#clue-text` and `Kit.prompt.reveal` rewrites that element, so
+    revealing the prompt second tore out the card that had just been drawn. The
+    Reveal *button* has always had this order; the new win path had it backwards. It
+    only bites on clues whose question form actually rewrites the prompt, which fits
+    "*sometimes* the answer doesn't come up" — but the reported case was Drag the
+    Words, whose prompts carry no blank, so the form declines and the card survived.
+    **The likelier cause there is the hint wipe above**: a reset handset means the
+    team never reaches unanimity and nothing happens at all. Fixed both; only the
+    first is proved.
+  - `roundHost.mount()` instead of `getElementById('clue-group')` on that path, which
+    is what puts the card back when the prompt has just replaced everything inside
+    `#clue-text`.
 - **The clue card stops changing height mid-question.** Reported as the question box
   warping — on the first hint in some rounds, on every hint in others — and it turned
   out to be four different causes wearing one symptom. Measured before and after
@@ -4012,6 +4051,12 @@ for the full version with requirement IDs. The short form, in order:
    **stage-as-mount for Race**, then **Bingo extracted**, then **Race extracted**.
    A round is no longer limited to one button, so nothing on the list of round
    designs is blocked outright any more.
+4a. **`openHex` in the `grouping` suite is a coin toss.** It finds a Blockbusters
+   hexagon by its clue text, and the board deals 18 from the 28 in LB1+LB2 — so any
+   named clue is only there about two thirds of the time, and when it is not, three
+   checks fail and the suite throws. Cost a debugging cycle: the failures look like
+   a real break in the round, and a re-run was 104/0. Either deal every clue for the
+   test or have `openHex` say "not dealt this time" and skip.
 4b. **A red check in `qbench` that predates the hint work**: Multiple Choice in
    `agree` mode on the bench never draws the `.group-tally`, so the suite throws
    waiting for it and the rest of that suite never runs. Verified identical on the

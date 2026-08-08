@@ -391,8 +391,11 @@
      button's, and the commit button is the host's. */
   function press(def, id, state, ctx){
     if(!def || !state || state.done) return false;
-    if(id === 'hint') return def.hint ? !!def.hint(state, ctx) : false;
-    return !!def.press(id, state, ctx);
+    /* The round's own answer, passed straight back rather than coerced to a
+       boolean: `'card'` means the card changed and the handsets did not, and a
+       host that re-arms on it throws away every answer the room has sent. */
+    if(id === 'hint') return def.hint ? (def.hint(state, ctx) || false) : false;
+    return def.press(id, state, ctx) || false;
   }
 
   /* The round's line of prose under the card — "not a group", "Team 2 has it",

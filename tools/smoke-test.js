@@ -5469,14 +5469,27 @@ async function testGroupingClue(browser){
   checkClean(page, 'a round’s own button');
   await page.close();
 
-  /* Declared per mode, so the button exists only where it is a lesson: in a race
-     every team has its own ladder, and showing a word gives it either to one team
-     or to all of them. */
+  /* **A race gets a hint too now, and it is about the scale rather than any team's
+     ladder** — reported as the thermometer having no hint at all, because Jeopardy
+     defaults this round to a race. Placing a word would hand it to one team or to
+     all of them, so it does not place one: it names which word sits at a position on
+     the scale, which is one fact about the question that four lanes can be told at
+     once, and each team still has to drag it onto their own ladder. */
   page = await openLab(['Word Thermometer','Anagram','Gap Fill'], { phones:false });
   await page.evaluate(() => window.HubSettings.set('round_ordering', 'race', 'jeopardy'));
   await openTile(page, 'Word Thermometer', 0);
-  check('a race offers no second button — the round says which modes have one',
-        await page.locator('#round-actions button').count() === 0);
+  check('a race offers the hint, and nothing else',
+        await page.locator('#round-actions button').count() === 1 &&
+        await page.locator('#round-actions button[data-action="hint"]').count() === 1,
+        String(await page.locator('#round-actions button').count()));
+  await page.locator('#round-actions button[data-action="hint"]').click();
+  await page.waitForTimeout(400);
+  /* Marked in the pool with its position, never placed on anybody's ladder — that
+     is the whole difference between this hint and the climb's. */
+  check('and it names a position on the scale without filling a rung',
+        await page.locator('#clue-group .ord-pool .gword.hinted').count() === 1 &&
+        await page.locator('#clue-group .ord-rung.filled').count() === 0,
+        (await page.locator('#clue-group .group-say').innerText().catch(()=>'')).trim());
   await page.close();
 
   /* Every round on this board offers a hint now, so the old "a round that declares

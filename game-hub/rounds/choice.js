@@ -202,7 +202,10 @@
 
          `hideVotes` still silences it, because Millionaire holds the room's vote
          back until the team spends Ask the class. */
-      if(!s.done && !c.hideVotes){
+      /* Drawn once the round is over too. A won card stays on screen now, and who
+         got there is the most interesting thing left on it — the lanes vanishing at
+         the moment of the win is exactly what was reported. */
+      if(!c.hideVotes){
         K.round.lanes(mount, c, {
           kind: 'mc',
           progressed: Object.keys(s.votes || {}),
@@ -262,7 +265,11 @@
 
     reveal(mount, s, ctx){
       s.done = true; s.shown = true; s.chosen = [];
-      s.picks = {}; s.leading = {}; s.votes = {};
+      /* **What the room did is kept, not wiped.** These used to be cleared here, and
+         it was invisible while a won card flipped away within a second — now that it
+         stays up until the teacher closes it, clearing them took the team lanes off
+         the screen at exactly the moment there was finally time to read them. The
+         card shrank as it did so, which was a second warp on top. */
       this.render(mount, s, ctx);
       return 0;
     },
@@ -343,8 +350,16 @@
         (s.hint   || []).indexOf(w) === -1))[0];
       if(!out) return false;
       s.hint = (s.hint || []).concat([out]);
+      // the teacher cannot un-click a box that is no longer on screen
+      s.chosen = (s.chosen || []).filter(w => w !== out);
       s.say = 'Hint: it is not ' + out + '.';
-      return true;
+      /* The phones keep all four, so there is nothing to re-arm — which is the
+         whole reason this hint has its own list instead of using `hidden`. */
+      /* `'card'` — the projector changed and the handsets did not, so the host must
+         **not** re-arm. An arm resets every phone and clears the replies the relay
+         is holding, which on a hint means throwing away what the room has already
+         dragged or typed for the sake of a letter on a wall. */
+      return 'card';
     },
 
     judge(answer, s){

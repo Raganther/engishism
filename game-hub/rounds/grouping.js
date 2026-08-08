@@ -130,7 +130,10 @@
          answers: a grouping answer is only ever judged as a whole set, so the
          picks are the only live fact there is to show. */
       const sizes = c.sizes || [];
-      if(!s.done){
+      /* Drawn once the round is over too. A won card stays on screen now, and who
+         got there is the most interesting thing left on it — the lanes vanishing at
+         the moment of the win is exactly what was reported. */
+      {
         K.round.lanes(mount, c, {
           kind: 'grp',
           progressed: Object.keys(s.picks || {}),
@@ -228,7 +231,11 @@
       if(!next || !this.hintsLeft(s)) return false;
       s.hint = (s.hint || []).concat([next]);
       s.say = 'Hint: ' + next + ' is one of them.';
-      return true;
+      /* `'card'` — the projector changed and the handsets did not, so the host must
+         **not** re-arm. An arm resets every phone and clears the replies the relay
+         is holding, which on a hint means throwing away what the room has already
+         dragged or typed for the sake of a letter on a wall. */
+      return 'card';
     },
 
     // is this team's set complete, and if so is it the group

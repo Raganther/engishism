@@ -191,7 +191,10 @@
          (all of them, from the moment the round opens), the colour, the agree
          chip; this round supplies only what a cell holds and when it lights:
          `mustHold` — any member in a race, the whole team when they must agree. */
-      if(!s.shown){
+      /* Drawn once the round is over too. A won card stays on screen now, and who
+         got there is the most interesting thing left on it — the lanes vanishing at
+         the moment of the win is exactly what was reported. */
+      {
         K.round.lanes(mount, c, {
           kind: 'scr',
           progressed: Object.keys(s.got || {}),
@@ -222,7 +225,11 @@
 
     reveal(mount, s, ctx){
       s.done = true; s.shown = true; s.chosen = [];
-      s.picks = {}; s.leading = {}; s.votes = {}; s.got = {};
+      /* **What the room did is kept, not wiped.** These used to be cleared here, and
+         it was invisible while a won card flipped away within a second — now that it
+         stays up until the teacher closes it, clearing them took the team lanes off
+         the screen at exactly the moment there was finally time to read them. The
+         card shrank as it did so, which was a second warp on top. */
       this.render(mount, s, ctx);
       return 0;
     },
@@ -283,7 +290,11 @@
       const at = shuffle(open)[0];
       s.hint = (s.hint || []).concat([at]);
       s.say  = 'Hint: word ' + (at + 1) + ' is "' + s.words[at] + '".';
-      return true;
+      /* `'card'` — the projector changed and the handsets did not, so the host must
+         **not** re-arm. An arm resets every phone and clears the replies the relay
+         is holding, which on a hint means throwing away what the room has already
+         dragged or typed for the sake of a letter on a wall. */
+      return 'card';
     },
 
     judge(answer, s){

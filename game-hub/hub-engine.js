@@ -4242,15 +4242,28 @@
   }
 
   /* A round's own button, pressed. It may change the question and may not score —
-     scoring is what `roundCommit` is, and that is the host's beat. What the host
-     owes afterwards is a redraw and a re-ask, because whatever the round just did
-     to itself has left the handsets holding an out-of-date question. */
+     scoring is what `roundCommit` is, and that is the host's beat.
+
+     **What the host owes afterwards depends on what actually changed, and getting
+     that wrong throws the room's answers away.** A re-ask is an *arm*, and an arm
+     clears the relay's collected replies and resets every handset — right when a
+     round has moved on (the ordering climb fills a rung, so the next question is a
+     different one), and badly wrong when only the card changed. Every hint but that
+     one is card-only: a letter shown on the projector, an option taken off it. Those
+     used to re-arm anyway, so pressing Hint wiped what thirty students had already
+     dragged or typed.
+
+     So a round says which it was: `'card'` for "redraw me, leave the phones alone",
+     anything else truthy for "the question moved". */
   function roundPress(id){
     if(!jGroupLive()) return;
-    if(!Kit.round.press(jRoundDef(), id, jGroup, jGroupCtx())) return;
-    jGroup.chosen = [];
+    const changed = Kit.round.press(jRoundDef(), id, jGroup, jGroupCtx());
+    if(!changed) return;
+    if(changed !== 'card'){
+      jGroup.chosen = [];
+      if(buzzHost && currentClueItem) askPhones(currentClueItem.text, roundHost.game);
+    }
     renderJGroup();
-    if(buzzHost && currentClueItem) askPhones(currentClueItem.text, roundHost.game);
   }
 
   /* Replies off the wire. The round works out what each team is holding; this only
@@ -4378,19 +4391,24 @@
   let jRoundWin = null;
   function jRoundHold(team, label){
     jRoundWin = { team, label };
+    /* **The prompt first, then the round — that order is load-bearing.** The round's
+       card is mounted *inside* `#clue-text`, and `Kit.prompt.reveal` rewrites that
+       element, so revealing the prompt second tore out the card that had just been
+       drawn: the sentence, the letters or the four options simply never appeared. It
+       depends on the clue's own question form, which is why it showed up as "the
+       answer sometimes doesn't come up". The Reveal *button* has always done it in
+       this order; this path had it backwards. */
+    const inPlace = Kit.prompt.reveal(document.getElementById('clue-text'), currentClueItem);
+    document.getElementById('clue-answer').style.display = inPlace ? 'none' : 'block';
     /* The answer, out on the card. This is the round's own `reveal` — the same one
        the Reveal button calls — because "what the answer was" is the round's to
-       draw and there is no second version of it. */
-    jRoundDef().reveal(document.getElementById('clue-group'), jGroup, jGroupCtx());
+       draw and there is no second version of it. Asked of `roundHost.mount()` rather
+       than by id, because that is what puts the card back when the prompt has just
+       replaced everything inside `#clue-text`. */
+    jRoundDef().reveal(roundHost.mount(), jGroup, jGroupCtx());
     // `reveal` speaks for the round; who took it is the host's, so it is said after
     jGroup.say = teamName(team) + ' has it.';
     renderJGroup();
-    /* Exactly what the Reveal button does with the answer line, down to asking the
-       prompt whether the word already landed in its own blank — a won round and a
-       revealed one show the same answer, so they must not be two pieces of code
-       that could come to disagree about how to show it. */
-    const inPlace = Kit.prompt.reveal(document.getElementById('clue-text'), currentClueItem);
-    document.getElementById('clue-answer').style.display = inPlace ? 'none' : 'block';
     jGroupStandDown();
     jClockStop();                 // the answer is out; whatever the clock said is over
     hideAllActionButtons();

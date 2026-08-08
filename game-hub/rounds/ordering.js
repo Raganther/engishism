@@ -387,6 +387,8 @@
         /* No gloss here: the rung it just landed in prints it, and printing it twice
            costs a second line on a card that is already the tallest of the five. */
         s.say = 'Shown: ' + word + '.';
+        /* The one hint that genuinely moves the question: a rung has landed, so the
+           remaining words are different and every handset has to be asked again. */
         return true;
       }
       /* **A race gets a hint about the *scale*, not about anybody's ladder.** The
@@ -405,7 +407,11 @@
       if(!word) return false;
       s.hint = n + 1;
       s.say = 'Hint: number ' + s.hint + ' on the scale is ' + word + gloss(word);
-      return true;
+      /* `'card'` — the projector changed and the handsets did not, so the host must
+         **not** re-arm. An arm resets every phone and clears the replies the relay
+         is holding, which on a hint means throwing away what the room has already
+         dragged or typed for the sake of a letter on a wall. */
+      return 'card';
     },
 
     /* ---------- the handsets ----------
