@@ -180,6 +180,43 @@ Four rules:
   a handed-over word as a correct one makes the board tell the room it got something
   it did not.
 
+## 2e. Ending the round — you probably declare nothing
+
+**`reveal` has a default and it is almost certainly the one you want.** It marks the
+round finished (`Kit.round.finish`) and redraws your card; your `render` already
+knows how to show a finished round, because that is the state it is in after a team
+wins. Declare `reveal` **only to do something extra**:
+
+```js
+reveal(mount, s, ctx){ K.round.finish(s); …the extra…; this.render(mount, s, ctx); return 0; }
+```
+
+Ordering fills every rung, because the ladder *is* the answer. Word Drop stops its
+fall clock. Nothing else overrides it.
+
+**Never clear `picks` / `leading` / `votes` / `got` when a round ends.** Three rounds
+did, each having written its own `reveal`, and it was invisible for months because a
+won card flipped away inside a second. The day the card started waiting for the
+teacher it became "the team list disappears the moment somebody wins" — those fields
+are the only record of who got there, and the end of the round is when they are
+finally worth reading. `finish` deliberately leaves them alone.
+
+## 2f. Before you write a helper, run the tool
+
+```bash
+node tools/shelf.js --list
+```
+
+It prints what is already on `Kit.round`, **and what has been written three times or
+more across the round files** — which is the half that matters, because the thing you
+are about to copy is usually not on the shelf *yet*. That is exactly how the
+end-of-round block came to live in five rounds at once. It also runs as a hook on any
+edit to a round file, so you get it without asking.
+
+The rule: first caller writes it inside the round, the **second** caller moves it to
+`hub-rounds.js` and rewires both in the same change. One caller is a guess about an
+API; a second is evidence.
+
 ## 3. The card must not assume its host's background
 
 The hub's clue card is light by default and dark under the game-show skin; the

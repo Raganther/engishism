@@ -40,8 +40,6 @@
   const K = window.HubKit;
   if(!K || !K.round){ console.error('ordering.js needs hub-rounds.js loaded first'); return; }
 
-  const colourOf = i => (window.HubBuzzer && window.HubBuzzer.teamColour)
-                        ? window.HubBuzzer.teamColour(i) : '';
 
   K.round.register('ordering', {
     label: 'Word Thermometer',
@@ -109,7 +107,7 @@
         mode,
         placed: [],                 // the shared ladder, `climb` only
         lanes,                      // team -> that team's own ladder, `race` only
-        pool:   shuffle(scale.slice()),
+        pool:   K.round.shuffle(scale.slice()),
         chosen: [],                 // the teacher's own working order, with no phones
         /* Three facts about what the room is saying, and they are deliberately not
            one. `picks` is a team's *committed* answer — the thing that gets judged —
@@ -152,7 +150,7 @@
         if(team != null){
           const who = document.createElement('div');
           who.className = 'ord-who';
-          who.style.color = colourOf(team);
+          who.style.color = K.round.teamColour(team);
           if(s.won === team) who.classList.add('won');
           const nm = document.createElement('span');
           nm.className = 'ord-name';
@@ -182,7 +180,7 @@
           const isNext = !s.done && i === placed.length;
           if(word){
             rung.classList.add('filled');
-            if(team != null) rung.style.borderColor = colourOf(team);
+            if(team != null) rung.style.borderColor = K.round.teamColour(team);
             const w = document.createElement('span');
             w.className = 'ord-word'; w.textContent = word;
             rung.appendChild(w);
@@ -296,7 +294,7 @@
               holders.forEach(t2=>{
                 const d = document.createElement('span');
                 d.className = 'gdot';
-                d.style.background = colourOf(Number(t2));
+                d.style.background = K.round.teamColour(Number(t2));
                 d.title = c.teamName ? c.teamName(Number(t2)) : ('Team ' + (Number(t2)+1));
                 dots.appendChild(d);
               });
@@ -323,7 +321,7 @@
           chips.forEach(({ t, ag })=>{
             const chip = document.createElement('span');
             chip.className = 'group-count' + (ag.all ? ' all' : '');
-            chip.style.borderColor = colourOf(t);
+            chip.style.borderColor = K.round.teamColour(t);
             const lead = (s.leading[t] || [])[0];
             chip.textContent = (c.teamName ? c.teamName(t) : ('Team ' + (t + 1)))
                              + (lead ? ' · ' + lead + ' ' : ' ');
@@ -341,12 +339,15 @@
       K.round.say(mount, s);
     },
 
+    /* One of the two rounds with more to do than the default: the answer here *is*
+       the ladder, so every rung fills in. `finish` first, then the extra. */
     reveal(mount, s, ctx){
-      s.done = true;
+      K.round.finish(s);
       s.placed = s.scale.slice();       // the whole ladder, in the right order
       Object.keys(s.lanes || {}).forEach(t => { s.lanes[t] = s.scale.slice(); });
-      s.chosen = [];
-      // the answer is out, so what the room was part-way to agreeing is no longer news
+      /* The ladder now *is* the answer, so what the room was part-way to agreeing
+         is no longer news — this is the one round where clearing these is right,
+         because its lanes are the ladders rather than a record of who said what. */
       s.picks = {}; s.leading = {}; s.votes = {};
       this.render(mount, s, ctx);
       return 0;
@@ -552,8 +553,4 @@
   // on the shelf, because the multiple choice card counts the same way
   const agreement = (s, c, team) => K.round.agreement(s, c, team);
 
-  function shuffle(a){
-    for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
-    return a;
-  }
 })();

@@ -1221,6 +1221,42 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Ending a round went on the shelf, and the shelf tool learned to find what is
+  copied.** The three bugs below were shared-tier bugs, but only two had shared-tier
+  *fixes* — the third had to be made in five round files by hand, which is the same
+  defect one tier down and would have shipped again in round six.
+  - **`reveal` is a default now, not something each round writes.** It calls
+    `Kit.round.finish(state)` — the round is over, the answer is out, the teacher's
+    selection is finished with — and redraws the card. **Five rounds declare no
+    `reveal` at all.** Ordering and Word Drop override it, and both call `finish`
+    first: the ladder *is* the answer there, and the falling tile has a clock to stop.
+  - **`finish` deliberately does not touch what the room did.** That is the whole
+    bug it retires: three rounds cleared `picks`/`leading`/`votes`/`got` in their own
+    `reveal`, which was invisible while a won card flipped away inside a second and
+    became "the team list disappears the moment somebody wins" the day it stopped.
+  - **`shuffle` was written out six times and `teamColour` five** — eleven copies of
+    two helpers nobody would ever look for. Both on `Kit.round` now. 94 lines deleted
+    across the seven round files against 24 added.
+  - **`tools/shelf.js` finds duplication, which is the half it was missing.** Listing
+    what is on the shelf answers "does this exist?", which is no help when the answer
+    is "no, it has been copied into five rounds" — the hook fired on every one of
+    those edits and correctly reported a shelf the code was not on. It now strips
+    comments, slides a three-line window over the round files, and reports any run
+    appearing in three or more of them.
+    - **Three lines, not four**, because four missed `shuffle`: a nine-line helper
+      survives stripping as three, and the window can be no longer than the smallest
+      thing worth reporting.
+    - **What it ignores is derived, not listed**: a state field, a *hook signature*
+      (asked of the registry, so a hook added next month stops being reported with
+      nothing edited), a call into `K.round` (the shelf working is the opposite of a
+      finding), and the file preamble. Then it wants **two** lines of real logic —
+      one is `const c = ctx || {};` at the top of every render, which is true and
+      useless.
+    - **Proved both ways**, which is the rule: run against the tree that had the bug
+      it finds the `reveal` block in four files, `s.done = true; s.shown = true;
+      s.chosen = [];` in four, and `shuffle` in six. Run against this tree it finds
+      one thing — the three-line `render` preamble — and the report says in as many
+      words that the tool has no taste and a finding is a question.
 - **Three bugs the card-holds-open change introduced, all reported from a board and
   all now proved by reverting.** Two were mine outright; the third is a latent one of
   the same family that I could not reproduce on the exact clue.

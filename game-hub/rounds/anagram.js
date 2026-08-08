@@ -49,8 +49,6 @@
   const K = window.HubKit;
   if(!K || !K.round){ console.error('anagram.js needs hub-rounds.js loaded first'); return; }
 
-  const colourOf = i => (window.HubBuzzer && window.HubBuzzer.teamColour)
-                        ? window.HubBuzzer.teamColour(i) : '';
 
   /* A tile's identity on the card. The letter alone cannot be one — see the header
      — and `#` can never appear in a letter, so the two are unambiguous in both
@@ -104,9 +102,9 @@
       /* Re-scrambled until it is not the word itself. A one-letter-off "scramble"
          that happens to come out as the answer is not a puzzle, and with a short
          word it comes up often enough to be worth the loop. */
-      let pool = shuffle(tiles.slice());
+      let pool = K.round.shuffle(tiles.slice());
       for(let n = 0; n < 12 && pool.map(t => t.ch).join('') === word; n++)
-        pool = shuffle(tiles.slice());
+        pool = K.round.shuffle(tiles.slice());
       return {
         text:  String((item && item.text) || ''),
         word,
@@ -219,16 +217,6 @@
       K.round.say(mount, s);
     },
 
-    reveal(mount, s, ctx){
-      s.done = true; s.shown = true; s.chosen = [];
-      /* **What the room did is kept, not wiped.** These used to be cleared here, and
-         it was invisible while a won card flipped away within a second — now that it
-         stays up until the teacher closes it, clearing them took the team lanes off
-         the screen at exactly the moment there was finally time to read them. The
-         card shrank as it did so, which was a second warp on top. */
-      this.render(mount, s, ctx);
-      return 0;
-    },
 
     /* ---------- the handsets ----------
        The letters in the order the card draws them, so the tray in the hand matches
@@ -303,7 +291,7 @@
       const open = [];
       for(let i = 0; i < s.need; i++) if((s.hint || []).indexOf(i) === -1) open.push(i);
       if(!open.length) return false;
-      const at = shuffle(open)[0];
+      const at = K.round.shuffle(open)[0];
       s.hint = (s.hint || []).concat([at]);
       s.say  = 'Hint: letter ' + (at + 1) + ' is ' + s.word[at] + '.';
       /* `'card'` — the projector changed and the handsets did not, so the host must
@@ -363,8 +351,4 @@
     return seq.every(ch => (left[ch] = (left[ch] || 0) - 1) >= 0);
   }
 
-  function shuffle(a){
-    for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
-    return a;
-  }
 })();

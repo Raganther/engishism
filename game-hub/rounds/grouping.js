@@ -27,8 +27,6 @@
   const K = window.HubKit;
   if(!K || !K.round){ console.error('grouping.js needs hub-rounds.js loaded first'); return; }
 
-  const colourOf = i => (window.HubBuzzer && window.HubBuzzer.teamColour)
-                        ? window.HubBuzzer.teamColour(i) : '';
 
   K.round.register('grouping', {
     label: 'Connections',
@@ -74,7 +72,7 @@
         answer: pick.join(', '),
         pick,
         need:   pick.length,
-        words:  shuffle(pick.concat(rest)),
+        words:  K.round.shuffle(pick.concat(rest)),
         chosen: [],     // what the teacher has clicked, with no phones in the room
         hint:   [],     // words given away as belonging to the group, one per press
         picks:  {},     // team index -> the union of that team's players' picks
@@ -165,12 +163,6 @@
     /* Answering it on the board: the four light where they stand, which is the
        thing worth seeing. The host still prints the answer line, because "which
        four" and "why those four" are different questions. */
-    reveal(mount, s, ctx){
-      s.done = true;
-      s.chosen = [];
-      this.render(mount, s, ctx);
-      return 0;                       // never in place of the answer line
-    },
 
     /* ---------- the handsets ----------
        Everything past `mode` and `options` is carried to the relay unread, so the
@@ -279,8 +271,4 @@
     settleMs: 700
   });
 
-  function shuffle(a){
-    for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
-    return a;
-  }
 })();

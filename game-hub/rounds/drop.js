@@ -42,10 +42,6 @@
 
   const reduced = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  function shuffle(a){
-    for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
-    return a;
-  }
 
   /* Where the tile should sit horizontally, as a fraction across the field:
      under its bin when the room leads with one, centred when nobody has said. */
@@ -133,7 +129,7 @@
       return {
         text: String((item && item.text) || 'Which group does each word belong to?'),
         buckets,
-        queue: shuffle(words.slice()),
+        queue: K.round.shuffle(words.slice()),
         at: 0,
         fallMs: FALL0,
         votes: {}, lead: null,
@@ -250,9 +246,11 @@
       }
     },
 
+    /* The other round with more to do: the tile is falling on a clock of its own
+       and nothing else will stop it. */
     reveal(mount, s, ctx){
       if(s._timer){ clearTimeout(s._timer); s._timer = null; }
-      s.done = true; s.shown = true;
+      K.round.finish(s);
       this.render(mount, s, ctx);
       return 0;
     },

@@ -85,7 +85,7 @@
       return {
         text:    String((item && item.text) || ''),
         answer,
-        options: shuffle(options.slice()),
+        options: K.round.shuffle(options.slice()),
         need:    1,
         mode:    (ctx && ctx.mode === 'agree') ? 'agree' : 'first',
         chosen:  [],                // the teacher's own pick, with no phones
@@ -263,16 +263,6 @@
       K.round.say(mount, s);
     },
 
-    reveal(mount, s, ctx){
-      s.done = true; s.shown = true; s.chosen = [];
-      /* **What the room did is kept, not wiped.** These used to be cleared here, and
-         it was invisible while a won card flipped away within a second — now that it
-         stays up until the teacher closes it, clearing them took the team lanes off
-         the screen at exactly the moment there was finally time to read them. The
-         card shrank as it did so, which was a second warp on top. */
-      this.render(mount, s, ctx);
-      return 0;
-    },
 
     /* ---------- the handsets ----------
        The options exactly as the card draws them, in the same order, so a student
@@ -344,7 +334,7 @@
 
     hint(s){
       if(!this.hintsLeft(s)) return false;
-      const out = shuffle(s.options.filter(w =>
+      const out = K.round.shuffle(s.options.filter(w =>
         !same(w, s.answer) &&
         (s.hidden || []).indexOf(w) === -1 &&
         (s.hint   || []).indexOf(w) === -1))[0];
@@ -401,8 +391,4 @@
     settleMs: 700
   });
 
-  function shuffle(a){
-    for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
-    return a;
-  }
 })();

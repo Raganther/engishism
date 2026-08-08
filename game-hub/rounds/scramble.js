@@ -27,8 +27,6 @@
   const K = window.HubKit;
   if(!K || !K.round){ console.error('scramble.js needs hub-rounds.js loaded first'); return; }
 
-  const colourOf = i => (window.HubBuzzer && window.HubBuzzer.teamColour)
-                        ? window.HubBuzzer.teamColour(i) : '';
   const bare = x => String(x == null ? '' : x).replace(/#\d+$/, '');
   const norm = x => bare(x).trim().toLowerCase();
   const MIN = 3;
@@ -72,9 +70,9 @@
       /* Re-shuffled until it is not the sentence itself. On a short sentence the
          shuffle lands on the answer often enough to be worth the loop, and a
          "scramble" that is already in order is not a puzzle. */
-      let pool = shuffle(chips.slice());
+      let pool = K.round.shuffle(chips.slice());
       for(let n = 0; n < 12 && pool.map(c => c.w).join(' ') === sentence; n++)
-        pool = shuffle(chips.slice());
+        pool = K.round.shuffle(chips.slice());
       return {
         text:  String((item && item.text) || 'Put the words in order.'),
         sentence,
@@ -223,16 +221,6 @@
       K.round.say(mount, s);
     },
 
-    reveal(mount, s, ctx){
-      s.done = true; s.shown = true; s.chosen = [];
-      /* **What the room did is kept, not wiped.** These used to be cleared here, and
-         it was invisible while a won card flipped away within a second — now that it
-         stays up until the teacher closes it, clearing them took the team lanes off
-         the screen at exactly the moment there was finally time to read them. The
-         card shrank as it did so, which was a second warp on top. */
-      this.render(mount, s, ctx);
-      return 0;
-    },
 
     /* ---------- the handsets ----------
        The same `arrange` mode the anagram uses, unchanged — it takes a list of
@@ -287,7 +275,7 @@
       const open = [];
       for(let i = 0; i < s.need; i++) if((s.hint || []).indexOf(i) === -1) open.push(i);
       if(!open.length) return false;
-      const at = shuffle(open)[0];
+      const at = K.round.shuffle(open)[0];
       s.hint = (s.hint || []).concat([at]);
       s.say  = 'Hint: word ' + (at + 1) + ' is "' + s.words[at] + '".';
       /* `'card'` — the projector changed and the handsets did not, so the host must
@@ -347,8 +335,4 @@
     return seq.every(w => (left[norm(w)] = (left[norm(w)] || 0) - 1) >= 0);
   }
 
-  function shuffle(a){
-    for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
-    return a;
-  }
 })();

@@ -398,6 +398,51 @@
     return def.press(id, state, ctx) || false;
   }
 
+  /* ---------- two helpers that were copied into every round file ----------
+     `shuffle` was written out six times and `teamColour` five, identically, which
+     is eleven copies of nine lines. Neither is interesting; both are here because
+     the cost of a copy is not the lines, it is that a fix reaches one of them.
+
+     The palette still has exactly one home — `hub-buzzer.js` — and this only
+     reaches for it, the same way `BenchKit.teamColour` does one tier up. A page
+     without the buzzer client gets an empty string and inherits, which is what a
+     bench page wants. */
+  function shuffle(arr){
+    for(let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+  function teamColour(i){
+    return (window.HubBuzzer && window.HubBuzzer.teamColour)
+             ? window.HubBuzzer.teamColour(i) : '';
+  }
+
+  /* **The end of a round, which five rounds had written out separately — and which
+     produced a bug in three of them at once.** Being revealed or being won means
+     the same three things every time: the round is over, the answer is out, and the
+     teacher's own working selection is finished with.
+
+     **What it deliberately does not touch is what the room did.** Three rounds used
+     to clear `picks`/`leading`/`votes`/`got` here, which was invisible while a won
+     card flipped away inside a second and became "the team list disappears the
+     moment somebody wins" the day the card started waiting for the teacher. Those
+     are the only record of who got there, and the end of a round is exactly when
+     they are worth reading.
+
+     A round with more to do calls this and then does it — the ordering ladder fills
+     itself in with the whole scale, Word Drop stops its fall clock. A round with
+     nothing more to do declares no `reveal` at all and inherits the default below,
+     which is what stops the next round repeating any of this. */
+  function finish(state){
+    if(!state) return state;
+    state.done = true;
+    state.shown = true;
+    state.chosen = [];
+    return state;
+  }
+
   /* The round's line of prose under the card — "not a group", "Team 2 has it",
      "Hint: dismissed is one of them". Six rounds wrote this block identically, so
      it belongs here on that alone; but the reason it is worth changing is that
@@ -446,6 +491,20 @@
         arm(){ return null; },
         read(){ return {}; },
         judge(){ return { verdict:'wrong', hits:0 }; },
+        /* **The default end of a round, so five rounds stop writing it.** Mark it
+           finished and draw the card again — the card's own `render` already knows
+           how to show a finished round, because that is the state it is in after a
+           team wins. The return is how long the reveal runs for, and `0` means it
+           is instant, which every round's was.
+
+           Override it only to do something *extra* (call `Kit.round.finish` first,
+           then do it). Overriding it to do something *different* is how the state
+           the lanes are drawn from got wiped in three rounds. */
+        reveal(mount, state, ctx){
+          finish(state);
+          this.render(mount, state, ctx);
+          return 0;
+        },
         /* `t` is which team is being judged, and it is not decoration: a round can
            give each team its own board — the ordering race gives each a ladder — so
            whether an answer is right depends on where *that* team has got to. */
@@ -612,7 +671,7 @@
       }
       return null;
     },
-    shares, settle, poll, agreement, lanes, mustHold, arrangement, cap, actions, strip, press, say,
+    shares, settle, poll, agreement, lanes, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour,
     /* A comma-separated field as a list. Three rounds' editors parse one, which
        is what puts it here rather than in each of them. */
     list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); }

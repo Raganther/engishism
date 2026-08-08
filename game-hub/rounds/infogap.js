@@ -43,8 +43,6 @@
   const K = window.HubKit;
   if(!K || !K.round){ console.error('infogap.js needs hub-rounds.js loaded first'); return; }
 
-  const colourOf = i => (window.HubBuzzer && window.HubBuzzer.teamColour)
-                        ? window.HubBuzzer.teamColour(i) : '';
   const MIN = 2;              // one gap is a gap fill, not a gap between students
   const MAX = 5;              // past this a sentence stops being one sentence
   const BLANK = '____';
@@ -256,11 +254,6 @@
       K.round.say(mount, s);
     },
 
-    reveal(mount, s, ctx){
-      s.done = true; s.shown = true; s.chosen = [];
-      this.render(mount, s, ctx);
-      return 0;
-    },
 
     /* ---------- the handsets ----------
        `answer` mode — everyone types, rethink on so the relay replaces rather
