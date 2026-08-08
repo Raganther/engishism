@@ -528,29 +528,62 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
 /* The team lanes are `Kit.round.lanes` now — see the lane standard block. */
 
 /* ================= the word order round =================
-   Words rather than letters, so the layout inverts: the anagram's row divides into
-   equal columns because a letter is one character wide, and a sentence's words are
-   all different lengths and must wrap and be sized to their content. */
-.round-scramble{ display:flex; flex-direction:column; align-items:center; gap:14px; }
+   Words rather than letters, so a chip is a whole word wide and the row is only
+   a few chips long. **Both rows are the same grid**, and the number of columns
+   comes from `HubBuzzer.wordCols` — the one place the board and the handset both
+   read, so the sentence breaks in the same places on the projector as it does in
+   thirty hands. Wrapping to each end's own width can only agree by luck: a clue
+   card is 636px across and a phone is 390.
 
-.round-scramble .scr-tray{ display:flex; flex-wrap:wrap; gap:0.35em; justify-content:center; }
+   Flex until the round has measured its widest word, then gridded — in the grid a
+   chip is as wide as its column, so measuring then reports the layout back to
+   itself. See `render()` in rounds/scramble.js. */
+/* 10px rather than the 14 every other round uses: a sentence needs three rows of
+   boxes where a set of options needs one, so this is the round that pays for its
+   own vertical rhythm. */
+.round-scramble{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+
+.round-scramble .scr-tray, .round-scramble .scr-line{
+  display:flex; flex-wrap:wrap; gap:var(--scr-gap, 6px); justify-content:center;
+  width:100%;
+}
+.round-scramble .scr-tray.gridded, .round-scramble .scr-line.gridded{
+  display:grid; justify-content:center;
+  grid-template-columns:repeat(var(--scr-n, 4), minmax(0, var(--scr-w, 4em)));
+}
+.round-scramble .gridded > .scr-chip, .round-scramble .gridded > .scr-slot{ width:100%; min-width:0; }
+/* **A word never wraps.** These are single words in boxes, so a break inside one is
+   never the wanted answer — and it is the expensive kind of wrong: a wrapped word
+   makes its row taller than the rows beside it, which is the card changing height
+   under the room. `nowrap` turns a width that is a pixel short into a pixel of
+   overflow into the padding, which nobody sees, instead of a restructured row.
+
+   `0.85em` because the pool on this card is not what the room reads — every word
+   is already in every student's hand, and what the projector is for is the sentence
+   forming. The thermometer's race made the same trade for the same reason, and it
+   is what pays for a sentence needing three rows of boxes rather than two.
+
+   `--scr-fit` is 1 unless the columns of the longest word are wider than the card;
+   the padding is in `em`, so the whole chip scales with the type and the row lands
+   on exactly the width it was measured against. */
+.round-scramble .scr-chip, .round-scramble .scr-slot{
+  font-size:calc(0.85em * var(--scr-fit, 1)); white-space:nowrap;
+}
 .round-scramble .scr-chip{
-  padding:0.2em 0.6em; border-radius:10px; font-weight:600; line-height:1.25;
+  padding:0.14em 0.6em; border-radius:10px; font-weight:600; line-height:1.25;
   background:var(--gw-bg, #fff); color:var(--gw-ink, #12263F);
   border:2px solid var(--gw-line, #00A0DF); cursor:pointer;
 }
 .round-scramble .scr-chip.spent{ opacity:0.3; cursor:default; }
 
-/* The sentence forming, left to right. Slots grow as words land — deliberately
-   unlike the ordering ladder, whose rungs must never resize: a ladder is a column
-   several teams are compared down, and a sentence is one line being built. Sizing
-   an empty slot to the word it will hold would give away the answer's shape. */
-.round-scramble .scr-line{ display:flex; flex-wrap:wrap; gap:0.3em; justify-content:center; }
-/* `--scr-w` is set by the round from the longest word — every slot is that wide,
-   filled or not, so the sentence never re-flows as words land. Same rule the
-   handset already follows, and for the same reason. */
+/* The sentence forming, left to right. `--scr-w` is set by the round from the
+   longest word and is the width of every column, so a slot is the same box filled
+   or not and the sentence never re-flows as words land. Sizing a slot to the word
+   it is waiting for would give away the answer's shape; the tray under it already
+   shows every word, so one width gives nothing away. Same rule the handset
+   follows, and now literally the same number of columns. */
 .round-scramble .scr-slot{
-  min-width:var(--scr-w, 1.8em); padding:0.2em 0.55em; border-radius:10px; line-height:1.25;
+  min-width:var(--scr-w, 1.8em); padding:0.14em 0.55em; border-radius:10px; line-height:1.25;
   display:inline-flex; align-items:center; justify-content:center; font-weight:600;
   border:2px dashed var(--gw-line, #00A0DF); color:var(--gw-ink, #12263F);
 }

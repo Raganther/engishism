@@ -33,6 +33,30 @@ window.HubBuzzer = (function(){
     return TEAM_COLOURS[((n >= 0 ? n : 0) | 0) % TEAM_COLOURS.length];
   }
 
+  /* ---------- how many words go on a line ----------
+     The same argument as the palette, one row over. A shuffled sentence broken
+     six-and-three on the projector and five-and-four in the hand is one question
+     wearing two shapes, and a student looking up from their phone has to find
+     their place again before they can do anything with what they saw. So where
+     the line breaks is **one fact**, and it lives in the one file the board and
+     the handset both load — rather than each end wrapping to its own width,
+     which is what made them differ in the first place, a clue card being 636px
+     wide and a handset 390.
+
+     **Four to a line at most, and never an orphan.** The rows are taken first
+     and the words spread evenly across them, so nine words are 3·3·3 and not
+     4·4·1. A single box on a line of its own reads as a mistake and is exactly
+     where a thumb aims first — a lesson the anagram row has already paid for.
+
+     It costs the relay nothing, which is right: how a word is *drawn* is
+     presentation, and the relay deliberately learns as little as it can. */
+  const WORD_MAX = 4;
+  function wordCols(n){
+    const count = Math.max(1, Math.floor(Number(n) || 1));
+    const rows  = Math.ceil(count / WORD_MAX);
+    return Math.ceil(count / rows);
+  }
+
   function emitter(){
     const map = Object.create(null);
     return {
@@ -195,5 +219,5 @@ window.HubBuzzer = (function(){
       .catch(()=>null);
   }
 
-  return { host, player, newCode, teamColour, TEAM_COLOURS };
+  return { host, player, newCode, teamColour, TEAM_COLOURS, wordCols };
 })();

@@ -1229,6 +1229,52 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Drag the Words breaks the sentence in the same places on the wall as in the
+  hand.** Reported from a four-team board: the card wrapped a nine-word sentence
+  six-and-three and the handsets wrapped it five-and-four, so the same question
+  wore two shapes and a student looking up had to find their place again.
+  - **Neither end was wrong — they were both wrapping, to different widths.** A
+    clue card is 636px across and a phone is 390, so flex wrap can only ever agree
+    by luck. Both rows at both ends are one grid of the same number of columns now.
+  - **Four to a line at most, and the rule has one home.** `HubBuzzer.wordCols(n)`
+    — the one file the board and the handset both load, exactly where the team
+    palette lives and for the same reason. **It costs the relay nothing**, which is
+    right: how a word is drawn is presentation, and the wire stays as ignorant as
+    it can. The alternative was sending the count on the arm, which is a relay
+    change, a key in the hand-typed `armed` payload, and a fact travelling that
+    both ends could already work out from the word list they hold.
+  - **Never an orphan.** Rows first, then the words spread evenly across them, so
+    nine words are 3·3·3 and not 4·4·1. A box alone on a line reads as a mistake and
+    is where a thumb aims first — the anagram row had already paid for that, and the
+    old handset layout put a nine-word sentence at 2·2·2·2·1.
+  - **The card's own measurement had never run on a board.** Jeopardy calls
+    `jShowClue` and *then* `openClueCard`, so the modal is still `display:none` while
+    the round renders and every rect reads 0 — the `ch` estimate is what has actually
+    been shipping, and the bench measured properly, which is why the two differed
+    there too. It measures again on the next frame now, guarded by `isConnected` so a
+    stale frame from a discarded render does nothing.
+  - **A word never wraps: `white-space:nowrap`, not `overflow-wrap`.** The first
+    version let a word break, and a column one pixel short of its widest word then
+    made that row taller than the rows beside it — the card changing height under the
+    room, the exact bug three of last week's fixes were about. `convicted` split as
+    `convicte`/`d` in a screenshot and no assertion saw it.
+  - **The pool's type comes down to 0.85em, which is what pays for the third row.**
+    Three rows of boxes where there were two costs ~150px, and a nine-word sentence
+    with four teams then ran off a 720 board. The pool is not what the room reads —
+    every word is already in every student's hand — so it gives way first, the same
+    trade the thermometer's race made. Worst case measured at 1280x720 with four
+    teams: 730 of 720, against 737 before the change. **Still over, and that is the
+    same open card-height problem the climb has.**
+  - **Boxes above the pool on the card now**, which is the handset's order. The
+    phone has a reason — the word being dragged sits directly under where it goes —
+    and the card had none, so it follows rather than differing for nothing.
+  - **The handset had the shrinking-empty-box bug the card paid for last week**, and
+    nobody had reported it because nobody watches two phones at once: an empty slot
+    was `0.8rem`, so the first word to land in a row made that row taller. Quiet by
+    opacity and weight, never by font-size.
+  - Driven on the relay at 1280x720 and 390x844 over all five Lab sentences at two
+    and four teams: identical row shapes at both ends every time, a drag still
+    landing, and neither the shape nor the card height moving as words land.
 - **A finished race shows how the race went, and a guess says what kind of guess it
   is.** Two reports from a four-team board.
   - **`reveal` was filling every lane with the right answer**, which wiped the one

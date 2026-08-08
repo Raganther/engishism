@@ -178,29 +178,44 @@
     display:grid; grid-template-columns:repeat(var(--ana-n, 7), minmax(0, 1fr));
     gap:6px; width:100%;
   }
-  /* **Words invert the rule.** Equal columns are right for letters, where every
-     tile is one character wide; a sentence's words are all different lengths, so
-     dividing the row equally makes `a` as wide as `retracted` and wraps nothing
-     where it should. Words wrap and are sized to their content instead — the same
-     split `#opts` already makes between a keypad and a list, decided the same way,
-     by looking at how long the options are. */
+  /* **Words break at four a line, and the board breaks at the same four.** A
+     letter row divides into `--ana-n` equal columns because every tile is one
+     character wide; a sentence cannot, so it used to wrap to whatever fitted 390px
+     — and the clue card wrapped to whatever fitted 636px, so the same nine words
+     were 3·3·3 here and 6·3 on the wall. One question wearing two shapes, and a
+     student looking up has to find their place again.
+
+     The column count is `HubBuzzer.wordCols`, the one file this page and the board
+     both load, so the two agree by construction rather than by measurement. Rows
+     first, then the words spread evenly across them, so nine are 3·3·3 and never
+     4·4·1 — a box alone on a line reads as a mistake and is where a thumb aims.
+
+     Flex until `buildArrange` has measured its widest word, then gridded: in the
+     grid a tile is as wide as its column, so measuring then would report the
+     layout back to itself. */
   #arrange.words #ana-slots, #arrange.words #ana-tray{
     display:flex; flex-wrap:wrap; gap:6px; justify-content:center;
   }
+  #arrange.words #ana-slots.gridded, #arrange.words #ana-tray.gridded{
+    display:grid; justify-content:center;
+    grid-template-columns:repeat(var(--ana-cols, 4), minmax(0, var(--ana-slot-w, 1fr)));
+  }
+  #arrange.words .gridded > *{ width:100%; min-width:0; }
+  /* `--ana-fit` is 1 unless four columns of the longest word are wider than the
+     screen. Only the type scales — the padding here is px, not em — which is why
+     the fit is worked out against the word inside the box in `buildArrange`. */
   #arrange.words .ana-slot, #arrange.words .ana-tile{
-    font-size:1rem; height:auto; min-height:42px; padding:8px 12px;
-    min-width:2.4em; text-transform:none;
+    font-size:calc(1rem * var(--ana-fit, 1));
+    height:auto; min-height:42px; padding:8px 12px;
+    min-width:2.4em; text-transform:none; white-space:nowrap;
   }
   /* A number rather than an empty box: on a ten-word sentence it is the only way to
-     see which slot is which without counting from the left every time. */
-  #arrange.words .ana-slot:not(.filled){ font-size:0.8rem; opacity:0.5; font-weight:500; }
-  /* Every slot one width — the widest word's, measured off the tray when the round
-     is built. Content-sized slots reflowed the whole row every time a word landed,
-     so two phones in different states showed two different grids of boxes, which
-     reads as the phones being formatted differently — and on a projector bench,
-     eight at once, it reads as chaos. One width gives nothing away: the tray under
-     the boxes already shows every word in the sentence. */
-  #arrange.words .ana-slot{ width:var(--ana-slot-w, auto); max-width:100%; }
+     see which slot is which without counting from the left every time.
+     **Quieter by opacity and weight, never by font-size** — a smaller font makes a
+     shorter box, so the first word to land in a row made that row taller and the
+     card grew under the room. The clue card paid for this one; the handset had the
+     same bug and it was never reported because nobody watches two phones at once. */
+  #arrange.words .ana-slot:not(.filled){ opacity:0.5; font-weight:500; }
   /* Sized off the column rather than fixed, so a ten-letter word shrinks instead of
      overflowing. Capped, or a three-letter word draws three enormous tiles. */
   .ana-slot, .ana-tile{
@@ -314,7 +329,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260807w"></script>
+<script src="game-hub/hub-buzzer.js?v=20260808a"></script>
 <script>
 (function(){
   'use strict';
@@ -594,6 +609,12 @@
        learning a second thing. Same test `#opts` uses to pick a keypad over a
        list. */
     $('arrange').classList.toggle('words', list.some(o => String(o).length > 2));
+    /* Back to wrapping flex and no measured width, so the tiles below are laid out
+       at their natural size for the measure. Last round's numbers must not be the
+       ruler this round is measured against. */
+    slots.classList.remove('gridded'); tray.classList.remove('gridded');
+    $('arrange').style.removeProperty('--ana-slot-w');
+    $('arrange').style.removeProperty('--ana-fit');
     tray.innerHTML = ''; slots.innerHTML = '';
     anaTiles = []; anaSlots = list.map(()=> null); anaDrag = null;
     list.forEach((ch, i)=>{
@@ -611,15 +632,34 @@
       d.addEventListener('pointerdown', e => anaGrab(e, anaSlots[s], s));
       slots.appendChild(d);
     });
-    /* One slot width for the whole row, taken from the widest tray tile — same
-       word, same font, same padding, so the measure is exact. Fixed here, once,
-       is what keeps the grid of boxes identical on every phone whatever each has
-       placed; letting a slot grow to its word reflowed the row on every drop. */
+    /* One column width for both rows, taken from the widest tray tile — same word,
+       same font, same padding, so the measure is exact. Fixed here, once, is what
+       keeps the grid of boxes identical on every phone whatever each has placed;
+       letting a slot grow to its word reflowed the row on every drop, and eight
+       phones on the bench then showed eight different grids. */
     if($('arrange').classList.contains('words')){
+      const a = $('arrange');
       let w = 0;
       anaTiles.forEach(t => { w = Math.max(w, t.el.offsetWidth); });
-      if(w) slots.style.setProperty('--ana-slot-w', Math.ceil(w) + 'px');
-      else slots.style.removeProperty('--ana-slot-w');
+      /* The same line break as the clue card, from the one file both load. */
+      const cols = (window.HubBuzzer && window.HubBuzzer.wordCols)
+                     ? window.HubBuzzer.wordCols(list.length) : list.length;
+      a.style.setProperty('--ana-cols', String(cols));
+      /* **Four columns of a long word can be wider than the phone.** The columns
+         give way first, and the type after them: the padding here is px, so only
+         the word inside the box scales, and the fit is worked out against the word
+         rather than the box. Floored, because a word nobody can read is not a
+         better answer than a word that wraps. */
+      const room = tray.clientWidth || 0;
+      const per  = room > 0 ? Math.floor((room - (cols - 1) * 6) / cols) : w;
+      const PAD  = 26;                       // 12px each side, plus the 2px border
+      if(w){
+        a.style.setProperty('--ana-slot-w', Math.min(w, per > 0 ? per : w) + 'px');
+        const fit = (per > 0 && per < w && w > PAD)
+                      ? Math.max(0.62, (per - PAD) / (w - PAD)) : 1;
+        a.style.setProperty('--ana-fit', String(Math.round(fit * 100) / 100));
+      }
+      slots.classList.add('gridded'); tray.classList.add('gridded');
     }
     paintArrange();
   }

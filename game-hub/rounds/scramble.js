@@ -36,6 +36,19 @@
 
   const wordsOf = str => String(str || '').trim().split(/\s+/).filter(Boolean);
 
+  /* The gap between chips, in px and owned here rather than in the stylesheet,
+     because `render` has to subtract it to work out how wide a column can be.
+     Two numbers that must agree is one number in the wrong place. */
+  const GAP = 6;
+
+  /* **Where the line breaks is not this round's to decide — it is the sentence's,
+     and it has to be the same answer in the hand as on the wall.** So it comes
+     from `hub-buzzer.js`, the one file the board and the handset both load, the
+     same way the team palette does. A page without the buzzer client gets one
+     row and wraps as it always did; there is no such page that draws a card. */
+  const colsFor = n => (window.HubBuzzer && window.HubBuzzer.wordCols)
+                         ? window.HubBuzzer.wordCols(n) : n;
+
   K.round.register('scramble', {
     label: 'Drag the Words',
     blurb: 'A shuffled sentence, and a slot for each word.',
@@ -103,6 +116,15 @@
 
       const held = s.chosen.slice();
 
+      /* **N words a line, the same N the handsets are drawing.** Both rows here
+         and both rows on every phone are one grid of `colsFor(need)` equal
+         columns, so the sentence breaks in the same places at both ends of the
+         room. They wrapped to their own widths before, which can only ever agree
+         by luck — a card is 636px wide and a phone is 390. */
+      const cols = colsFor(s.need);
+      mount.style.setProperty('--scr-n', String(cols));
+      mount.style.setProperty('--scr-gap', GAP + 'px');
+
       const line = document.createElement('div');
       line.className = 'scr-line';
       /* **Every slot is one width — the widest word's.** The handset learned this
@@ -116,7 +138,9 @@
          anything. The tray underneath already shows every word, so one width gives
          nothing away. */
       const widest = s.words.reduce((n, w) => Math.max(n, w.length), 1);
-      line.style.setProperty('--scr-w', (widest + 1) + 'ch');
+      // on the mount, not the row: the tray's columns are the same width as the
+      // slots' now, so both rows read it
+      mount.style.setProperty('--scr-w', (widest + 1) + 'ch');
       for(let i = 0; i < s.need; i++){
         const b = document.createElement('div');
         b.className = 'scr-slot';
@@ -153,19 +177,57 @@
         tray.appendChild(b);
       });
 
-      mount.appendChild(tray);
+      /* Boxes above the pool, which is the handset's order and used to be the
+         other way round here. On a phone the tray sits under its own boxes so the
+         word being dragged is directly below where it has to go; the card has no
+         drag and no reason of its own, so it follows rather than differing for
+         nothing. */
       mount.appendChild(line);
+      mount.appendChild(tray);
+
       /* Now the tray is laid out, take the width from the widest chip actually
          rendered. The `ch` estimate above is a guess — `ch` is the width of a zero
-         and a proportional font's `w` and `m` are wider — so the longest word could
-         still overflow its slot and grow it, which is the re-flow this is here to
-         stop. One read, once per render, off elements that are already on screen.
-         Falls back to the estimate when the card is not laid out yet. */
-      let widest_px = 0;
-      Array.prototype.forEach.call(tray.children, el => {
-        widest_px = Math.max(widest_px, el.getBoundingClientRect().width);
-      });
-      if(widest_px > 0) line.style.setProperty('--scr-w', Math.ceil(widest_px) + 'px');
+         and a proportional font's `w` and `m` are wider — so the longest word
+         overflows its column, and with a grid that means it *wraps*, which is the
+         one thing every rule here exists to stop.
+
+         **Measured while both rows are still wrapping flex, and gridded after.**
+         In the grid a chip is as wide as its column, so measuring then would report
+         the layout back to itself and the width would never settle.
+
+         **And measured again on the next frame if the card is not on screen yet.**
+         Jeopardy calls `jShowClue` and *then* `openClueCard`, so the modal is still
+         `display:none` while this runs and every rect reads 0 — which is why the
+         estimate is what has actually been shipping on a board, and why nobody
+         noticed: a slot merely a little too narrow used to grow, and now it wraps.
+         The bench draws its card in the open, so it has always measured. `isConnected`
+         is what makes a stale frame harmless: a later render empties the mount, and
+         the row this closure is holding is no longer in the document. */
+      const measure = () => {
+        let widest_px = 0;
+        Array.prototype.forEach.call(tray.children, el => {
+          widest_px = Math.max(widest_px, el.getBoundingClientRect().width);
+        });
+        if(!widest_px) return false;
+        /* **Four columns of a long word can be wider than the card**, and the card
+           may not give way — so the words do. `--scr-fit` scales the type, and the
+           padding is in `em`, so the whole chip scales with it and the measured
+           width scales by exactly the same factor. 1 whenever the row already fits,
+           which is most sentences. */
+        const room = mount.clientWidth || 0;
+        const per  = room > 0 ? (room - (cols - 1) * GAP) / cols : widest_px;
+        const fit  = per > 0 ? Math.min(1, per / widest_px) : 1;
+        mount.style.setProperty('--scr-fit', String(Math.round(fit * 1000) / 1000));
+        /* Rounded **up**, and a pixel over: a column a pixel short of its widest
+           word is a word that overflows its box by a pixel, which is invisible in
+           the padding — and would have been a wrapped word and a taller row before
+           `white-space:nowrap`. */
+        mount.style.setProperty('--scr-w', (Math.ceil(widest_px * fit) + 1) + 'px');
+        return true;
+      };
+      const gridded = () => { line.classList.add('gridded'); tray.classList.add('gridded'); };
+      if(measure()) gridded();
+      else requestAnimationFrame(()=>{ if(tray.isConnected && measure()) gridded(); });
 
       /* **A lane per team, and the sentence itself rather than a count.**
          This used to be one chip per team reading "1/9", on the reasoning that a
