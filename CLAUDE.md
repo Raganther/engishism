@@ -1229,6 +1229,48 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **All six boards play solo, and three of the four exclusions were wrong.** They
+  were asserted from memory rather than read, and reading the code disproved them.
+  Nothing about team play changed: `roster` is one setting, teams is the default,
+  and a board that suits both is offered in both.
+  - **Millionaire draws one ladder, not one each** — `renderMillionaire` reads
+    `mTeamState(active)`, so twenty-five people is twenty-five *stored* ladders and
+    one on screen. The real caveat is pacing: turns rotate, so a big class answers
+    rarely. A warning, not a broken board.
+  - **Blockbusters already seats any number in two alliances** — `bbSideOf` is index
+    parity and has done this since the board took more than two teams. Individuals
+    need nothing new, and it is the one board where solo and team play are the same
+    game: your points are yours, the line belongs to your half of the room.
+  - **Race suits individuals better than teams** — two people at the screen is what
+    it *is*. The rough edge is the claim chooser at sixteen chips, and phones in
+    `type` mode remove it outright.
+  - **Bingo and Quickfire were already declared.** So the honest count was six all
+    along, and what the declaration is really for is the *caveat*, not the veto.
+- **The Quickfire leaderboard sizes itself to the room it has.** Reported from a
+  class of sixteen: three rows visible, three under the player bar — a leaderboard
+  hiding the people it exists to show. The first version picked six rows a column in
+  advance; it measures the gap between the question and `Kit.floorTop()` now, which
+  is the floor that *moves* — the bar is taller with sixteen names on it than with
+  two. Columns come out of the rows rather than the other way round, and when four
+  columns still cannot hold the room it draws the top of the table and **`+N more`**
+  rather than hiding the tail.
+- **Lanes are capped at five, and the cap is a count rather than a mode.** The first
+  version dropped them whenever the room was individuals, which was wrong twice
+  over: five people is exactly when a lane each is worth having, and eight *teams*
+  would be as unreadable as eight people. **Five is measured** — a Multiple Choice
+  clue is 718px of a 720 board at five lanes and 754 at six, so six is the number
+  that puts the card off the screen. A ceiling, not a comfortable figure.
+- **What a round looks like in solo, which was the open question:** the phone strip
+  is the picture. At sixteen it reads `16 of 16 · Ana: give · Ben: make · Lex: pass`
+  — every person named with what they said, which beats a lane each at that size.
+  Driven on the Lab board: sixteen individuals, a Multiple Choice tile, one right
+  answer, `Cara has it`, `Close — Cara takes it`, and **Cara alone scores 100**.
+  - **And that strip prints the answer on the wall, which predates solo.** Branch 4
+    of `renderPhoneBar` shows `name: value` for every reply, so a multiple choice
+    round has always been showing the room what everybody picked — including whoever
+    got it right. Invisible at four teams, unmissable at sixteen people. Not fixed:
+    showing what the room said is the whole point of that strip in `write` mode, so
+    which rounds should hide it is a decision rather than a bug.
 - **The roster builds itself from the phones, and Quickfire is the first solo board
   — steps 3 and 4.** A student opens the join page, types a name, and is a
   competitor: no team to pick, their own row on the leaderboard, their own score.

@@ -1765,6 +1765,9 @@ body.theme-gameshow #clue-actions #hint-btn{ border-color:rgba(255,200,61,0.5); 
 #k-board.crowd .k-row{ padding:4px 9px; gap:7px; font-size:0.86rem; grid-template-columns:1.8rem 1fr auto auto; }
 #k-board.crowd .k-place{ font-size:0.78rem; }
 #k-board.crowd .k-gain{ font-size:0.72rem; }
+/* The tail the board could not fit, counted rather than hidden. */
+.k-more{ align-self:center; font-size:0.8rem; opacity:0.6;
+  font-family:'IBM Plex Mono',monospace; }
 .k-row.scored{ border-color:var(--navy); background:var(--cream); }
 .k-place{ font-family:'IBM Plex Mono',monospace; color:var(--muted); font-size:0.9rem; }
 .k-name{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

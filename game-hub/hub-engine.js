@@ -278,6 +278,12 @@
 
   registerGame({
     id:'blockbusters', title:'Blockbusters',
+    /* **Two routes across the board, and any number of people on them.** `bbSideOf`
+       is index parity and has split four teams into two alliances since the day this
+       board seated more than two — individuals need nothing new. Points stay yours;
+       the line belongs to your half of the room, which is the one place on any board
+       where solo and team play are the same game. */
+    solo: true,
     card:{
       icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4 L33 11.5 L33 26.5 L20 34 L7 26.5 L7 11.5 Z"/><path d="M20 13 L26 16.5 L26 23.5 L20 27 L14 23.5 L14 16.5 Z"/></svg>',
       blurb:'Hexagon board. Yellow connects left&rarr;right, Blue connects top&rarr;bottom, by answering letter clues.',
@@ -331,6 +337,11 @@
 
   registerGame({
     id:'race', title:'Race to the Board',
+    /* Two people at the screen is what this board *is*, so individuals suit it
+       better than teams do. The one rough edge is the claim chooser — with sixteen
+       people the teacher picks from sixteen chips — and phones in `type` mode remove
+       it outright, because a typed word already carries who produced it. */
+    solo: true,
     card:{
       icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="13" height="6" rx="1.5"/><rect x="21" y="9" width="15" height="6" rx="1.5"/><rect x="5" y="20" width="15" height="6" rx="1.5"/><rect x="24" y="24" width="12" height="6" rx="1.5"/><path d="M13 36 L20 30 L27 36"/></svg>',
       blurb:'Target words scattered on screen. Read the sentence aloud &mdash; a student runs up and touches the missing word.',
@@ -377,6 +388,13 @@
 
   registerGame({
     id:'millionaire', title:'Millionaire',
+    /* **It draws one ladder, not one per competitor** — `renderMillionaire` reads
+       `mTeamState(active)`, so twenty-five people is twenty-five *stored* ladders
+       and one on screen. This was excluded on the assumption that it drew them all,
+       which reading the code disproved. What is true is that turns rotate, so with a
+       big class each person answers rarely — a pacing warning, not a broken board,
+       and the game card says so. */
+    solo: true,
     card:{
       icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 34 L8 26"/><path d="M16 34 L16 20"/><path d="M24 34 L24 14"/><path d="M32 34 L32 7"/><path d="M4 34 L36 34"/></svg>',
       blurb:'Four options, rising difficulty. Teams climb their own ladder, with 50:50, Ask the class and Confer to spend.',
@@ -5955,23 +5973,36 @@
     const refit = () => { if(activeGame === 'kahoot') fitKahoot(); };
     const rows = teams.map((t, i) => ({ i, name:t.name, pts:t.score }))
                       .sort((a, b) => b.pts - a.pts);
-    /* **How many columns, worked out here because CSS cannot count its own
-       children.** Two teams are a short list down the page; a class of twenty-five
-       individuals is a wall, and one column of twenty-five is a leaderboard nobody
-       at the back can read — which is the only thing this board is for. Eight rows
-       is about what fits under the question at projector size, so the columns are
-       however many that many rows needs. Capped at four: past that a name is
-       narrower than the names people actually have. */
-    const KROWS = 6;
-    const cols  = Math.max(1, Math.min(4, Math.ceil(rows.length / KROWS)));
+    /* **How many rows fit, measured — not a number picked in advance.** The first
+       version used a fixed six a column and a class of sixteen ran straight off the
+       bottom of the board: three rows visible, three under the player bar, which is
+       a leaderboard that hides the people it is there to show. What is actually
+       available is the gap between the question and the floor, and the floor moves —
+       the bar is taller with sixteen people on it than with two.
+
+       `Kit.floorTop()` is that floor and is asked rather than restated, the same as
+       every layout rule in this project. Columns come out of the rows, not the other
+       way round, and are capped at four: past that a name is narrower than the names
+       people actually have. */
+    const above = document.getElementById('k-stage');
+    const rowH  = 34;                     // a compacted row plus its gap
+    const room  = Kit.floorTop() - ((above ? above.getBoundingClientRect().bottom : 0) + 20);
+    const perCol = Math.max(1, Math.floor(room / rowH));
+    const cols   = Math.max(1, Math.min(4, Math.ceil(rows.length / perCol)));
+    /* **And when even four columns cannot hold the room, the board says so rather
+       than hiding the tail.** A class of thirty on a short screen shows the top of
+       the table and a count of who is below it — which is the honest picture, and
+       the one a leaderboard is for anyway. */
+    const shown = Math.min(rows.length, cols * perCol);
+    const krows = Math.max(1, Math.ceil(shown / cols));
     host.style.setProperty('--kcols', String(cols));
-    host.style.setProperty('--krows', String(Math.ceil(rows.length / cols)));
+    host.style.setProperty('--krows', String(krows));
     host.classList.toggle('crowd', cols > 1);
     /* Built rather than templated, because a team name is typed by a teacher and
        `innerHTML` would take whatever they typed literally. `renderScorebar` builds
        its rows the same way for the same reason. */
     host.innerHTML = '';
-    rows.forEach((r, place) => {
+    rows.slice(0, shown).forEach((r, place) => {
       const gain = kPaid ? kPaid[r.i] : null;
       const row  = document.createElement('div');
       row.className = 'k-row' + (gain != null ? ' scored' : '');
@@ -5985,6 +6016,12 @@
       if(gain != null) add('k-gain', '+' + gain);
       host.appendChild(row);
     });
+    if(rows.length > shown){
+      const more = document.createElement('div');
+      more.className = 'k-more';
+      more.textContent = '+' + (rows.length - shown) + ' more';
+      host.appendChild(more);
+    }
     refit();
   }
 

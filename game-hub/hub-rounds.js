@@ -204,15 +204,25 @@
 
   function lanes(mount, ctx, opts){
     const o = opts || {};
-    /* **No lanes in a room of individuals.** A lane's whole job is a team building
-       one answer out of several handsets — how many have committed, whether they
-       agree. A competitor of one has neither question: they have answered or they
-       have not. Drawing one lane each would also put twenty-five rows on a board
-       nobody at the back could read. Asked of the host, because who is competing is
-       the room's fact and never the round's. */
-    if(ctx && ctx.solo) return null;
     const teams = laneTeams(ctx, o.progressed);
     if(!teams.length) return null;
+    /* **Lanes are drawn while they can be read, and six is where that stops.** The
+       first version of this dropped them whenever the room was playing as
+       individuals, which was the wrong rule twice over: five people is exactly when
+       a lane each is worth having, and eight *teams* would be just as unreadable as
+       eight people. So it is a count, not a mode — one rule, no special case, and it
+       happens to bite mostly in a room of individuals, because that is the easiest
+       way to get past five competitors.
+
+       **Five is measured, not chosen.** A Multiple Choice clue on a 1280x720 board
+       is 718px of 720 at five lanes and 754 at six — so six is the number that puts
+       the card off the screen. It is a ceiling rather than a comfortable figure, and
+       a longer prompt will still overflow at five; the real fix is the clue card's
+       own height, which is open.
+
+       What is lost above the cap is a picture, never a mechanic: the round judges
+       from the replies and does not know whether it was drawn. */
+    if(teams.length > 5) return null;
     const colour = i => (window.HubBuzzer && window.HubBuzzer.teamColour)
                         ? window.HubBuzzer.teamColour(i) : '';
     const wrap = document.createElement('div');
