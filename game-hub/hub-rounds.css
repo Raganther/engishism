@@ -166,13 +166,28 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   gap:1px; padding:4px 10px; border-radius:9px;
   min-height:clamp(24px, 3.2vh, 34px);
-  border:2px dashed var(--gw-line, rgba(18,38,63,0.18));
+  /* **Solid, not dashed, even when empty.** A dotted outline reads as a different
+     kind of thing from a filled rung; what an empty rung actually is is the same
+     box with nothing in it yet, and the ladder is easier to read down when every
+     rung is the same object. Quiet is done with opacity and colour, never shape. */
+  border:2px solid var(--gw-line, rgba(18,38,63,0.18));
   font-size:0.86em; line-height:1.15;
 }
-/* Same shape, only quieter. */
-.ord-rung.empty{ opacity:0.55; }
-.ord-rung.next{ border-style:solid; border-color:var(--gw-hot, rgba(0,122,201,0.5));
-  opacity:0.85; font-size:0.72em; letter-spacing:0.12em; text-transform:uppercase; }
+/* **Every rung holds exactly one line box, so rung 3 of one lane sits level with
+   rung 3 of the next.** `min-height` alone could not do this: it is a floor, and a
+   rung with a word in it is taller than its floor while an empty one sits exactly
+   on it — so a lane that had filled two rungs stacked shorter than the lane beside
+   it and the two ladders drifted apart as the race was won. An empty rung carries
+   a non-breaking space, which is invisible and occupies the same line as a word.
+   Height is therefore never a pixel guess: change the type size and every rung
+   still agrees with every other. */
+.ord-rung.empty{ opacity:0.45; }
+.ord-rung.empty::before{ content:'\00a0'; }
+/* Same size as every other rung — it used to be smaller, which made its box shorter
+   and knocked the lanes out of line by itself. It is marked out by its letters, not
+   by being a different height. */
+.ord-rung.next{ border-color:var(--gw-hot, rgba(0,122,201,0.5));
+  opacity:0.85; letter-spacing:0.12em; text-transform:uppercase; }
 .ord-rung.filled{ border-style:solid; border-color:var(--gw-good, #2FA84F);
   background:var(--gw-goodwash, rgba(47,168,79,0.14)); color:var(--gw-goodink, #1B6B32); }
 /* A revealed ladder shows what the room actually had, so a rung in the wrong place

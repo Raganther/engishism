@@ -1229,6 +1229,23 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The thermometer's ladders line up, and an empty rung is a box rather than a
+  dotted hole.** Reported from a four-team board: the lanes drifted apart as teams
+  filled rungs, so one team's *gossip* sat lower than another's.
+  - **`min-height` cannot do this, and that is the whole cause.** It is a floor: a
+    rung with a word in it is taller than the floor while an empty one sits exactly
+    on it, so a lane that had filled two stacked shorter than the lane beside it.
+    Every rung carries **one line box** now — an empty one holds a non-breaking
+    space, invisible and exactly as tall as a word — so height is never a pixel
+    guess and survives any change to the type size.
+  - **`NEXT?` was the second cause**, at a smaller font than every other rung, which
+    made its box shorter on its own. Same size as the rest now; it is marked out by
+    its letters rather than by being a different height.
+  - **Solid borders everywhere, including empty.** A dotted outline reads as a
+    different kind of thing; an empty rung is the same box with nothing in it yet.
+    Quiet is opacity and colour, never shape.
+  - Proved with lanes at 0, 1, 2 and 3 filled: every rung top identical across four
+    lanes, which is the state that drifted.
 - **The memory is checked at the one moment it can be, and stays quiet otherwise.**
   `tools/memory-check.js` runs as a `PreToolUse` hook on Bash, notices a `git
   commit`, and names what is about to go in — **but only when `CLAUDE.md` is not
