@@ -1229,6 +1229,48 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Every board hosts a round now — Race is the fifth host, and the audit found the
+  other two were never the gap they looked like.**
+  - **Millionaire and Quickfire already accepted any round.** Both call
+    `jGroupOf(asRound(item))`, and `asRound` hands the item straight back when it
+    carries no `distractors` — so an item with a `group:` or `order:` field would be
+    hosted today. They only ever *see* Multiple Choice because that is all their
+    banks hold. **Content, never wiring**, which is worth knowing before anybody
+    plans work on it.
+  - **Race was the one real gap, and it needed the mount rather than the card.**
+    Race owns the card — the scattered words *are* the answer surface — so a round
+    here gets `#race-round` under the prompt, the same declared fact Millionaire and
+    Quickfire use. A host is still four facts plus two calls: `ROUND_HOSTS.race`,
+    then `jGroupOf`/`jGroupOpen` where a prompt goes up.
+  - **One bank, both kinds.** An ordinary item puts its answer on the board as a
+    tile a student runs to touch; a round item has no single answer, so it
+    contributes no tile and is played on the handsets while the board waits.
+    `buildRaceBoard` splits them — the board from the words, the queue from
+    everything — which is what lets the two mix at all.
+  - **The content gate had to learn the same split.** It checked every race answer
+    for one-word-and-unique and a round has none, so it reported "answer would need
+    two tiles — undefined". Rounds stand down from the tile rules exactly as they do
+    from Blockbusters' one-word-and-initial rules; their own shape is `check(item)`.
+  - **`LR1` on the Lab board is the first mixed section** — seven words to touch and
+    three rounds to play. **The rule no check can make for you: no word in a round
+    may be a word on the board.** The first draft had a Connections set holding
+    *appeal*, *verdict* and *custody*, all three of them tiles, so the round pointed
+    at the answers to other sentences. The gate cannot catch it — it is about what
+    else is in the bank rather than about the item.
+  - **The round palette is declared once now, on `body.theme-gameshow`.** Only the
+    clue card had ever set it, so a round on any *stage* fell back to the light theme
+    defaults — Millionaire papered over it with its own gold block and the next two
+    stages inherited nothing. Custom properties inherit, so a sixth stage is correct
+    the day it exists. Same lesson as a theme naming one round's word tiles, one tier
+    up.
+  - **Bingo is the one board that still hosts none, and that is the design.** Every
+    phone already holds a card; a round would be a second dynamic fighting for the
+    same handsets. It could host one card-only with the teacher clicking, which is
+    the no-relay path every round already owes — worth doing only if somebody wants
+    it.
+  - Driven on the relay: seven tiles on the board and none from the rounds, a round
+    opening on the prompt strip, four options reaching a handset, the claim chooser
+    standing down while it is live, and the card reading on the green track.
 - **Solo plays first-tap-wins, each mode keeps its own roster, and a win goes to
   whoever was first rather than to the lowest index.** Three reports in one.
   - **A board's `teamMode` ask only means anything in a room of teams.** Jeopardy

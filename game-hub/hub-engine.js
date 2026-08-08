@@ -365,6 +365,12 @@
     askingNow:   () => !!raceCurrent,
     // a team that has already missed this sentence cannot buzz back in on it
     buzzEntitled: b => raceCanTry(b.team),
+    /* **The two wires a phone dynamic needs, and declaring one looks exactly like
+       declaring both.** Blockbusters shipped with only the first and every tap was
+       dropped on the floor with nothing anywhere saying so. */
+    phoneRound(){ return jGroupRound(); },
+    wantsVote:   () => jGroupLive(),
+    onVoteReply(all){ if(jGroupLive()) jGroupOnReplies(all); },
     /* The typed word is the claim here too, and awarding it deals the next sentence
        — so this returns *after* the award and the engine names the student on the
        strip, which outlives the re-arm. */
@@ -720,6 +726,31 @@
       /* On this board a wrong answer ends the go — the steal, then the rung stands.
          Every other host lets one cost nothing but the time. */
       miss: team => mMissed(team)
+    },
+    /* **The fifth host, and the one the build order kept last for a reason.** Race
+       owns the *card* — the scattered words are the answer surface — so a round
+       here cannot open a clue over the board the way Jeopardy's tile does. It gets
+       the prompt strip as its mount instead, which is the same declared fact
+       Millionaire and Quickfire use, and the board sits idle for that one question.
+
+       That is the honest shape of it: a Race bank can hold both kinds. An ordinary
+       item puts its answer on the board as a tile and a student runs to touch it; a
+       round item has no single answer, so it contributes no tile and is played on
+       the handsets instead. Mixing them is a teaching decision — a burst of running
+       broken by a question the whole room assembles — and nothing here forces it. */
+    race: {
+      game:'race', stage:'play-race',
+      mount: () => document.getElementById('race-round'),
+      commit:'race-commit',
+      live: () => !!raceCurrent && raceRunning !== false && jGroupClue(),
+      turn: () => active,
+      /* A word is worth a point on this board, so a round is worth a point. Paid
+         through the same path a touched word is, which is what makes the strip, the
+         streak and the scoreboard all follow without this knowing about any of it. */
+      win:  team => { awardRaceRound(team); return 1; },
+      /* Two people at the screen, and in head-to-head nobody is on turn — so a round
+         here is the whole room's, exactly as a Connections tile is. */
+      teamMode: true
     },
     kahoot: {
       game:'kahoot', stage:'play-kahoot',
@@ -1543,6 +1574,10 @@
       </div>
       <div id="play-race">
         <div id="race-prompt"></div>
+        <!-- Where a round draws, when the bank hands this board one. Under the
+             prompt and above the bar, so the question reads top to bottom exactly as
+             it does on a clue card; empty and out of the flow the rest of the time. -->
+        <div id="race-round" style="display:none;"></div>
         <div id="race-bar">
           <div id="race-status"></div>
           <div id="race-claim">
@@ -1552,6 +1587,10 @@
           <div class="race-actions">
             <button id="race-start">&#9654; Start</button>
             <button id="race-skip" style="display:none;">Skip this one</button>
+            <!-- The round's commit button, beside this board's own controls the way
+                 Millionaire's "Final answer?" sits beside its ladder. Hidden until a
+                 round opens; the round declares anything else it wants. -->
+            <button id="race-commit" style="display:none;">Check</button>
           </div>
         </div>
         <div id="race-words"></div>
@@ -7452,10 +7491,17 @@
   });
 
   function buildRaceBoard(){
-    const picked = shuffle(RACE_BANK.filter(c=>selectedContent.includes(groupOf(c))))
-                     .slice(0, RACE_MAX_WORDS);
+    const chosen = RACE_BANK.filter(inPlay);
+    /* **The board is built from the words, the queue from everything.** An ordinary
+       item puts its answer on the board as a tile a student runs to touch; a round
+       item has no single answer, so it contributes no tile and is simply a question
+       in the queue. Splitting them here is what lets one bank hold both without the
+       board trying to scatter a Connections set. */
+    const words  = shuffle(chosen.filter(c => !raceIsRound(c))).slice(0, RACE_MAX_WORDS);
+    const rounds = chosen.filter(raceIsRound);
+    const picked = words;
     raceWords   = picked.map(p=>({ word:p.answer, section:p.section, found:false, by:-1 }));
-    raceQueue   = shuffle(picked.slice());
+    raceQueue   = shuffle(picked.concat(rounds));
     raceCurrent = null;
     raceRunning = false;
     racePending = null;
@@ -7566,9 +7612,25 @@
     el.appendChild(sec); el.appendChild(sent);
   }
 
+  /* A round item has no single answer, so it puts no word on the board and the
+     tile-matching loop above would drop it. Recognised before that loop rather than
+     inside it, because "is this a round" is a question about the item and "is its
+     word still on the board" is a question about the board. */
+  const raceIsRound = item => !!Kit.round.of(item);
+
   function nextRacePrompt(){
     while(raceQueue.length){
       const item = raceQueue.shift();
+      if(raceIsRound(item)){
+        raceCurrent = item; raceFailed = new Set();
+        setRacePrompt(item); updateRaceBar();
+        /* Opening the round arms the room, exactly as it does on every other host —
+           written as one expression so the two can never be half-done. A round that
+           fails to set up falls through to the ordinary path. */
+        if(!raceOpenRound(item)) askPhones(item.prompt, 'race');
+        rTension();
+        return;
+      }
       const w = raceWords.find(x=>x.word===item.answer);
       if(w && !w.found){
         raceCurrent=item; raceFailed = new Set(); setRacePrompt(item); updateRaceBar();
@@ -7591,6 +7653,28 @@
     endRaceRound(true);
   }
 
+  /* The two calls a host makes: name yourself at `jGroupOf`, because `setup` is
+     handed a ctx scoped to whichever board is asking, and then open. */
+  function raceOpenRound(item){
+    jGroupEnd();
+    const found = jGroupOf(item, 'race');
+    const opened = found ? jGroupOpen(found) : null;
+    document.getElementById('race-round').style.display = opened ? 'block' : 'none';
+    if(opened) hook('onResize');       // the stage just changed height under the board
+    return !!opened;
+  }
+
+  /* A round pays a point, the same as a touched word, and then the board moves on —
+     which is what `awardRaceWord` does for a word. There is no tile to colour here,
+     so this is the short version of that path: score, name the student on the strip,
+     next sentence. */
+  function awardRaceRound(team){
+    award(team, 1);
+    raceCurrent = null;
+    document.getElementById('race-round').style.display = 'none';
+    setTimeout(()=>{ if(raceRunning) nextRacePrompt(); else updateRaceBar(); }, 700);
+  }
+
   function startRaceRound(){
     if(!raceWords.some(w=>!w.found)) return;
     raceRunning=true;
@@ -7601,6 +7685,10 @@
   function endRaceRound(cleared){
     raceRunning=false;
     hideClaimBar();
+    /* A round outlives nothing here: the clock stopping ends the question, so the
+       handsets stand down and the mount goes with them. */
+    jGroupEnd();
+    document.getElementById('race-round').style.display = 'none';
     resetBuzzers();
     // the sentence on screen when the clock stopped hasn't been answered — put it
     // back in the queue, or its word could never be claimed and the board never clears
@@ -7768,6 +7856,10 @@
     onPick: i => awardRaceWord(i)
   });
   function showClaimBar(){
+    /* **A live round owns the verdict**, so this board's own way of awarding stands
+       down while one is open — otherwise the chooser is a second way to pay for the
+       same question. Blockbusters' team chooser learned this first. */
+    if(jGroupLive()){ hideClaimBar(); return; }
     const allow = teams.map((_, i) => i).filter(raceCanTry);
     raceClaim.show(teams, allow.length ? allow : null);
   }

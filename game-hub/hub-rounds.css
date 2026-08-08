@@ -109,6 +109,29 @@
    Scoped to the card, NOT to `#play-jeopardy.lit`: the clue card sits outside the
    stage — which is why `openClueCard` has to set `--tension` on it by hand — so a
    rule hung off the stage reaches nothing at all. */
+/* **The dark-stage palette, declared once for every board rather than per board.**
+   A round mounted on a lit stage — Millionaire's options, Quickfire's, Race's — was
+   falling back to the light-theme defaults inside each `var()`, because only the
+   clue card had ever declared them. Millionaire papered over it with its own gold
+   block and the next two stages inherited nothing, which is exactly the failure this
+   file already records one tier down: *a theme that names one host is a bug waiting
+   for the next one.*
+
+   On `body` because custom properties inherit, so a sixth stage is correct the day
+   it exists. `#clue-card` and `#m-options` are more specific and keep their own
+   flavours; nothing outside a round reads these. */
+body.theme-gameshow{
+  --gw-bg:rgba(255,255,255,0.06);
+  --gw-fg:var(--paper);
+  --gw-line:rgba(255,255,255,0.30);
+  --gw-hot:rgba(255,255,255,0.55);
+  --gw-ink:var(--paper);
+  --gw-wash:rgba(255,255,255,0.14);
+  --gw-good:#5BE08A;
+  --gw-goodwash:rgba(91,224,138,0.24);
+  --gw-goodink:#DFFFE9;
+}
+
 body.theme-gameshow #clue-card{
   --gw-bg:rgba(255,255,255,0.06);
   --gw-fg:var(--paper);

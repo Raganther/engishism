@@ -1020,7 +1020,8 @@ const UNIT_AUDIT = () => {
       const banks = { jeopardy:[], blockbusters:[], race:[], millionaire:[] };
       (u.jeopardyCategories||[]).forEach(c => c.clues.forEach(x => banks.jeopardy.push({ p:x.q, a:x.a, section:c.section })));
       (u.blockbustersBank||[]).forEach(x => banks.blockbusters.push({ p:x.clue, a:x.answer, section:x.section, letter:x.letter, round:!!ROUNDS.of(x) }));
-      (u.raceBank||[]).forEach(x => banks.race.push({ p:x.prompt, a:x.answer, section:x.section }));
+      (u.raceBank||[]).forEach(x => banks.race.push({ p:x.prompt, a:x.answer, section:x.section,
+                                                      round: !!window.HubKit.round.of(x) }));
       (u.millionaireBank||[]).forEach(x => banks.millionaire.push({ p:x.prompt, a:x.answer, section:x.section, level:x.level, distractors:x.distractors }));
 
       // a prompt in two banks
@@ -1092,9 +1093,14 @@ const UNIT_AUDIT = () => {
           out.push({kind:'blockbusters', msg:id + ': letter ' + i.letter + ' does not match ' + i.a});
       });
 
-      // Race: answers become tiles, so one word and never repeated
+      /* Race: an *ordinary* answer becomes a tile, so one word and never repeated.
+         A round item has no single answer — it puts nothing on the board and is
+         played on the handsets — so the tile rules do not apply to it, exactly as
+         Blockbusters' one-word-and-initial rules stand down for a round hexagon.
+         Its own shape is checked by the round's `check(item)` above. */
       const tiles = new Set();
       banks.race.forEach(i => {
+        if(i.round) return;
         if(/\s/.test(String(i.a).trim())) out.push({kind:'race', msg:id + ': answer is not one word — ' + i.a});
         const k = norm(i.a);
         if(tiles.has(k)) out.push({kind:'race', msg:id + ': answer would need two tiles — ' + i.a});

@@ -506,4 +506,41 @@
     {section:'LB2', letter:'B', clue:"Arrange these words into a sentence.",
       scramble:{ sentence:'She was released on bail on the day of the hearing' }},
   ],
+
+  /* ---- Race to the Board ----------------------------------------------------
+     **Both kinds of item in one bank, which is the whole point of this section.**
+     An ordinary item puts its answer on the board as a tile a student runs up and
+     touches; a round item has no single answer, so it puts nothing on the board and
+     is played on the handsets while the board waits. Mixing them is a burst of
+     running broken by a question the whole room assembles — and this is the only
+     place to find out whether that rhythm works or ruins the game. */
+  raceSectionNames: {
+    'LR1': 'LR1 · Race — words to touch and rounds to play (10)',
+  },
+  raceBank: [
+    {section:'LR1', topic:'LR1-mixed', prompt:"The jury returned a ___ of not guilty.", answer:"verdict"},
+    {section:'LR1', topic:'LR1-mixed', prompt:"He was held in ___ until the trial began.", answer:"custody"},
+    {section:'LR1', topic:'LR1-mixed', prompt:"She was granted ___ and went home that evening.", answer:"bail"},
+    {section:'LR1', topic:'LR1-mixed', prompt:"The court heard the ___ from three witnesses.", answer:"evidence"},
+    {section:'LR1', topic:'LR1-mixed', prompt:"They lodged an ___ against the sentence.", answer:"appeal"},
+    {section:'LR1', topic:'LR1-mixed', prompt:"The judge passed a five-year ___.", answer:"sentence"},
+    {section:'LR1', topic:'LR1-mixed', prompt:"He entered a ___ of not guilty.", answer:"plea"},
+    /* **No option may be a word on the board.** Every ordinary answer in this
+       section is scattered as a tile, so an option that matches one hands the class
+       a free tile and reads as a mistake. The gate cannot catch it — it is about
+       what else is in the bank, not about the item. */
+    {section:'LR1', topic:'LR1-mixed', prompt:"Which word means the court let you go?",
+      choice:{ options:["acquitted","convicted","charged","remanded"], answer:"acquitted" }},
+    /* Same rule as the choice item above, and it is the one this section is easiest
+       to get wrong: none of these eight may be a word scattered on the board, or the
+       round is quietly pointing at the answer to somebody else's sentence. */
+    {section:'LR1', topic:'LR1-mixed', prompt:"Four of these mean breaking the law. Find the four.",
+      group:{ pick:["offence","crime","violation","breach"], with:["defence","witness","hearing","juror"] }},
+    {section:'LR1', topic:'LR1-mixed', prompt:"Rank these from the weakest claim to the firmest.",
+      order:{ scale:["doubt","suspect","believe","know","certain"],
+              low:"barely a hunch", high:"beyond question",
+              gloss:{ doubt:"you lean against it.", suspect:"a feeling with little behind it.",
+                      believe:"you would say it out loud.", know:"you could show why.",
+                      certain:"there is nothing left to argue." } }},
+  ],
 });
