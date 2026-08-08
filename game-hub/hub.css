@@ -170,11 +170,31 @@ body.theme-gameshow .rf-chip.rf-all{ color:rgba(234,240,255,0.6); background:tra
    the board. It scrolls sideways rather than wrapping: a sixth team costs horizontal
    room, never a second row, or the floor moves under a board that has already fitted
    itself to it. */
+/* `safe center` rather than `center`: a centred flex row that overflows is clipped
+   at the *start*, so with sixteen names on the bar the first one was cut in half off
+   the left edge and could not be scrolled back to. `safe` falls back to flex-start
+   the moment it would overflow, which is the behaviour the ≤760px query already had
+   to ask for by hand. */
 #scorebar{ position:fixed; bottom:0; left:0; right:0; z-index:40;
-           display:flex; align-items:center; justify-content:center; gap:10px;
+           display:flex; align-items:center; justify-content:safe center; gap:10px;
            background: var(--navy); border-top:3px solid var(--yellow);
            padding:8px 14px; overflow-x:auto; overflow-y:hidden;
            scrollbar-width:none; }
+/* Sticky to the left edge of a bar that scrolls sideways, so a class of sixteen
+   never pushes the one control that changes what the bar is off the screen. The
+   background is its own, or the names would slide under a transparent chip. */
+#roster-mode{ position:sticky; left:0; z-index:1; flex:0 0 auto;
+  display:flex; gap:2px; padding:2px; border-radius:8px;
+  background:var(--navy2); box-shadow:0 0 0 6px var(--navy); }
+#roster-mode button{
+  background:transparent; color:rgba(251,243,213,0.6); border:none; cursor:pointer;
+  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.75rem;
+  padding:0 10px; height:24px; border-radius:6px; line-height:1;
+}
+#roster-mode button:hover{ color:var(--white); }
+#roster-mode button.on{ background:var(--yellow); color:var(--navy); }
+body.theme-gameshow #roster-mode{ background:#11163A; box-shadow:0 0 0 6px #02030A; }
+body.theme-gameshow #roster-mode button.on{ background:var(--gold); color:#02030A; }
 #scorebar::-webkit-scrollbar{ display:none; }
 .team{ display:flex; align-items:center; gap:5px; background: var(--navy2); border-radius:8px; padding: 3px 6px; flex:0 0 auto; }
 .team input.tname{ background:transparent; border:none; color:var(--white); font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:0.82rem; width: 68px; }

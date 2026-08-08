@@ -2115,6 +2115,34 @@
   function renderScorebar(){
     const bar=document.getElementById('scorebar'); bar.innerHTML='';
     const playing = document.getElementById('screen-play').classList.contains('active');
+
+    /* ---------- who is competing, on the bar rather than three clicks into ⚙ ----------
+       It lived in the settings panel first and that was the wrong home twice over: it
+       is on the *All games* tab, because it is a room-wide fact rather than a per-game
+       one, and ⚙ during play opens the **drawer**, which is filtered to one game and so
+       never showed it at all. A teacher mid-lesson had to open the drawer, press
+       All games, find Competition, and change it there.
+
+       The bar is where it belongs because the bar *is* the roster — add, rename,
+       remove and reset all live here, it is on every screen, and switching it changes
+       what the bar itself shows, so cause and effect are in one place. Sticky to the
+       left edge, so a class of sixteen names scrolling past never takes it off screen. */
+    const seg = document.createElement('div');
+    seg.id = 'roster-mode';
+    [['teams','Teams'], ['solo','Solo']].forEach(([value, label])=>{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.dataset.mode = value;
+      b.className = (Roster.mode === value) ? 'on' : '';
+      b.title = value === 'solo'
+        ? 'Everyone against everyone — the roster builds itself from the phones'
+        : 'Teams — students pick a side when they join';
+      b.addEventListener('click', ()=>{ if(Roster.mode !== value) S.set('roster', value); });
+      seg.appendChild(b);
+    });
+    bar.appendChild(seg);
+
     // head-to-head has no "whose turn" — both teams are at the board at once
     const hi = !playing ? -1
              /* the *team* playing this turn, which is only the side index while

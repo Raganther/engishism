@@ -1229,6 +1229,23 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Teams or Solo is a switch on the team bar.** Asked as "how do I change from team
+  mode to solo mode", which is the question a control has failed to answer.
+  - **It was in ⚙ and that was the wrong home twice over.** It is a room-wide fact,
+    so it registered with no `games` and landed on the *All games* tab; and ⚙ during
+    play opens the **drawer**, which is filtered to one game and therefore never
+    showed it at all. Mid-lesson the path was: ⚙ → All games → Competition.
+  - **The bar is where it belongs because the bar *is* the roster** — add, rename,
+    remove and reset all live there, it is on every screen, and switching it changes
+    what the bar itself shows, so cause and effect are in one place.
+  - **Sticky to the left edge**, because the bar scrolls sideways and a class of
+    sixteen would otherwise push the one control that changes what the bar is clean
+    off the screen.
+  - **`justify-content: safe center` fixed a bug that was already on screen.** A
+    centred flex row that overflows is clipped at the *start*, so with sixteen names
+    the first one was cut in half off the left edge and could not be scrolled back
+    to. `safe` falls back to flex-start exactly when it would overflow — which is
+    what the ≤760px query had been asking for by hand.
 - **All six boards play solo, and three of the four exclusions were wrong.** They
   were asserted from memory rather than read, and reading the code disproved them.
   Nothing about team play changed: `roster` is one setting, teams is the default,
