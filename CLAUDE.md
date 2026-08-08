@@ -1249,6 +1249,10 @@ playground's point, that one board can host several:
     and "split" is `agreement()` — both already on hand at draw time, so no new state
     and nothing that can go stale. It gives away nothing the say line has not already
     said out loud, and it is what lets a team learn from a rival's dead end.
+  - **A filled rung is green and nothing else.** It carried the team's colour on its
+    border as well, which made one box argue with itself — green says *the room got
+    this right*, and a second signal in the same border says *whose lane this is*, a
+    question already answered once at the top of the lane where the name is.
   - Driven on the relay with three handsets: two on one team disagreeing (amber), a
     second team agreed on the wrong word (red), the right word landing, and the end
     state keeping one lane at one rung and the other empty.

@@ -179,8 +179,12 @@
           const word = placed[i] || (s.done && team == null ? s.scale[i] : null);
           const isNext = !s.done && i === placed.length;
           if(word){
+            /* **The team's colour is on the lane's name, not on its rungs.** A filled
+               rung means one thing — the room got this one right — and the green says
+               so; painting the same box in the team's colour as well made it read as
+               two different signals fighting over one border. Which lane is whose is
+               already answered at the top of the lane, once, where a name is. */
             rung.classList.add('filled');
-            if(team != null) rung.style.borderColor = K.round.teamColour(team);
             const w = document.createElement('span');
             w.className = 'ord-word'; w.textContent = word;
             rung.appendChild(w);
