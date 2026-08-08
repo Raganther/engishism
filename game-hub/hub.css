@@ -180,6 +180,15 @@ body.theme-gameshow .rf-chip.rf-all{ color:rgba(234,240,255,0.6); background:tra
            background: var(--navy); border-top:3px solid var(--yellow);
            padding:8px 14px; overflow-x:auto; overflow-y:hidden;
            scrollbar-width:none; }
+/* The setup screen's teams-or-solo chooser: the same two values as the bar's
+   segmented control, with room to say what each one means, because this is where a
+   teacher chooses rather than corrects. `.mode-opt` is Race's own picker styling,
+   reused rather than restyled — one look for "how shall we run it". */
+#roster-pick{ margin: 4px 0 18px; }
+#roster-pick .mode-opt.on{ border-color:var(--blue); }
+#roster-pick #roster-pick-note{ margin-top:6px; }
+body.theme-gameshow #roster-pick .mode-opt.on{ border-color:var(--gold); }
+
 /* Sticky to the left edge of a bar that scrolls sideways, so a class of sixteen
    never pushes the one control that changes what the bar is off the screen. The
    background is its own, or the names would slide under a transparent chip. */
@@ -280,7 +289,12 @@ body.theme-gameshow #play-blockbusters.lit .hex.pick{
 
 /* --- Race to the Board: mode picker on the content screen --- */
 #race-mode{ margin: 22px 0 4px; }
-#race-mode .mode-title{ font-family:'Space Grotesk',sans-serif; font-size:1.02rem; text-transform:uppercase; color:var(--navy); margin-bottom:12px; }
+/* Generic, not scoped to Race. It was `#race-mode .mode-title` and there are two
+   "how shall we run it" pickers on this screen now — a class styled by naming one
+   of its hosts is the same defect as a theme naming one round's word tiles, and it
+   fails silently: navy on near-black, exactly how the content screen's section
+   headings became invisible. */
+.mode-title{ font-family:'Space Grotesk',sans-serif; font-size:1.02rem; text-transform:uppercase; color:var(--navy); margin-bottom:12px; }
 .mode-opt{ display:flex; align-items:flex-start; gap:12px; background:var(--white); border:2px solid rgba(18,38,63,0.12); border-radius:10px; padding:13px 16px; margin-bottom:10px; cursor:pointer; font-size:0.9rem; line-height:1.5; color:var(--muted); }
 .mode-opt:hover{ border-color:var(--blue); }
 .mode-opt input{ width:18px; height:18px; accent-color:var(--blue); flex-shrink:0; margin-top:2px; }
@@ -881,7 +895,7 @@ body.theme-gameshow .cat-check .tag{ background: rgba(62,99,255,0.3); color: var
 body.theme-gameshow .cat-check .kind-q{ background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.62); }
 body.theme-gameshow .cat-check .kind-r{ background: rgba(0,160,223,0.30); color:#BDE8FF; }
 body.theme-gameshow .cat-check .kind-m{ background: rgba(255,194,14,0.26); color: var(--yellow); }
-body.theme-gameshow #race-mode .mode-title{ color: var(--gold); }
+body.theme-gameshow .mode-title{ color: var(--gold); }
 body.theme-gameshow .rules-note{
   background: rgba(62,99,255,0.10); border-color: rgba(62,99,255,0.55); color: rgba(234,240,255,0.82);
 }

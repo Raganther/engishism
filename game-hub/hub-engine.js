@@ -1448,6 +1448,14 @@
     </header>
     <div class="geo-band"></div>
 
+    <!-- The room, on every screen rather than only during a game. A class cannot
+         join a room they cannot see the code for, and the whole of setup — picking a
+         unit, a game, the sections — is exactly when they are walking in and getting
+         their phones out. It was inside #screen-play, so the code appeared at the
+         moment it stopped being useful. Above the screens rather than fixed, so the
+         board still measures around it the way it always did. -->
+    <div id="buzzer-chip" style="display:none;"></div>
+
     <!-- SCREEN 0: choose unit -->
     <div class="screen" id="screen-unit-select">
       <p class="intro" id="unit-intro">Choose a unit to gamify.</p>
@@ -1467,6 +1475,17 @@
     <!-- SCREEN 2: choose content -->
     <div class="screen" id="screen-content-select">
       <span class="back-link" id="back-to-games">&larr; Back to game choice</span>
+      <!-- **Teams or individuals is a setup decision, decided here.** It cannot
+           usefully be changed once a board is running: sixteen people cannot be
+           regrouped into four teams without rebuilding the roster, and rebuilding it
+           bins a lesson's points. So it is asked before the game starts, next to the
+           other how-shall-we-run-it choices (Race's mode picker is right below), and
+           the bar's own switch stands down while a game is on. -->
+      <div id="roster-pick">
+        <div class="mode-title">Who is competing?</div>
+        <div id="roster-pick-opts"></div>
+        <p class="helptext" id="roster-pick-note"></p>
+      </div>
       <p class="helptext" id="content-helptext"></p>
       <!-- Narrow by round type. Built from whatever is in this game's bank, and
            hidden when there is nothing to choose between. -->
@@ -1494,7 +1513,6 @@
 
     <!-- SCREEN 3: play -->
     <div class="screen" id="screen-play">
-      <div id="buzzer-chip" style="display:none;"></div>
       <!-- Everything the class does, in one place, for every game and every mode:
            who buzzed, who typed what, what the room answered, who just scored. It
            used to be four different places — the chip, the clue card, under the race
@@ -1934,6 +1952,7 @@
   S.onChange(id=>{
     if(id !== 'roster') return;
     applyGameAvailability();
+    renderRosterPick();
     renderScorebar();
     /* Switched on with a class already in the room: seat everybody who is already
        here rather than waiting for the next phone to join. */
@@ -2127,21 +2146,12 @@
        remove and reset all live here, it is on every screen, and switching it changes
        what the bar itself shows, so cause and effect are in one place. Sticky to the
        left edge, so a class of sixteen names scrolling past never takes it off screen. */
-    const seg = document.createElement('div');
-    seg.id = 'roster-mode';
-    [['teams','Teams'], ['solo','Solo']].forEach(([value, label])=>{
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.textContent = label;
-      b.dataset.mode = value;
-      b.className = (Roster.mode === value) ? 'on' : '';
-      b.title = value === 'solo'
-        ? 'Everyone against everyone — the roster builds itself from the phones'
-        : 'Teams — students pick a side when they join';
-      b.addEventListener('click', ()=>{ if(Roster.mode !== value) S.set('roster', value); });
-      seg.appendChild(b);
-    });
-    bar.appendChild(seg);
+    /* **Not while a game is on.** The decision is made on the setup screen, because
+       it cannot be un-made usefully once a board is running — sixteen people do not
+       regroup into four teams without the roster being rebuilt, and rebuilding it
+       bins the points. Leaving a control there that flips a label and changes
+       nothing else is worse than not offering it. */
+    if(!playing) bar.appendChild(rosterSwitch());
 
     // head-to-head has no "whose turn" — both teams are at the board at once
     const hi = !playing ? -1
@@ -2187,6 +2197,65 @@
     // adding a team, or renaming one, has to reach the phones — this is the one
     // place that runs on any change to the list, and the push skips a no-op
     pushTeamNames();
+  }
+
+  /* **One definition of the teams-or-solo control**, drawn in two places: the team
+     bar between games, and the setup screen where the decision actually belongs. Two
+     copies would be two things that could disagree about what the current mode is,
+     which is the defect this project has paid for most. */
+  const ROSTER_MODES = [
+    { value:'teams', label:'Teams',
+      blurb:'A name is a group of students. They pick a side when they join.' },
+    { value:'solo',  label:'Individuals',
+      blurb:'Everyone against everyone. The roster fills itself from the phones as they join.' }
+  ];
+  function rosterSwitch(){
+    const seg = document.createElement('div');
+    seg.id = 'roster-mode';
+    ROSTER_MODES.forEach(m=>{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = m.value === 'solo' ? 'Solo' : m.label;   // the bar has no room for a sentence
+      b.dataset.mode = m.value;
+      b.className = (Roster.mode === m.value) ? 'on' : '';
+      b.title = m.blurb;
+      b.addEventListener('click', ()=>{ if(Roster.mode !== m.value) S.set('roster', m.value); });
+      seg.appendChild(b);
+    });
+    return seg;
+  }
+
+  /* The setup screen's version: the same two values with room to say what each one
+     means, because this is where a teacher chooses rather than corrects. */
+  function renderRosterPick(){
+    const mount = document.getElementById('roster-pick-opts');
+    if(!mount) return;
+    mount.innerHTML = '';
+    ROSTER_MODES.forEach(m=>{
+      const el = document.createElement('label');
+      el.className = 'mode-opt' + (Roster.mode === m.value ? ' on' : '');
+      const input = document.createElement('input');
+      input.type = 'radio'; input.name = 'rostermode'; input.value = m.value;
+      input.checked = Roster.mode === m.value;
+      input.addEventListener('change', ()=>{ if(input.checked) S.set('roster', m.value); });
+      const txt = document.createElement('span');
+      const strong = document.createElement('strong'); strong.textContent = m.label;
+      txt.appendChild(strong);
+      txt.appendChild(document.createTextNode(' \u2014 ' + m.blurb));
+      el.appendChild(input); el.appendChild(txt);
+      mount.appendChild(el);
+    });
+    /* What the room actually is right now, so the choice is made against the truth
+       rather than against a guess: how many have joined, and what the roster holds. */
+    const note = document.getElementById('roster-pick-note');
+    if(note){
+      note.textContent = Roster.solo()
+        ? (buzzPlayers
+            ? buzzPlayers + (buzzPlayers === 1 ? ' phone has joined' : ' phones have joined') +
+              ' \u2014 ' + teams.length + ' on the roster.'
+            : 'Nobody has joined yet. Players appear here as they scan the code above.')
+        : teams.length + ' teams. Add, rename or remove them on the bar below.';
+    }
   }
 
   function nextTurn(){ if(teams.length){ active=Kit.passTurn(teams.length, active); renderScorebar(); } }
@@ -2805,6 +2874,10 @@
     document.getElementById('race-mode').style.display='none';
 
     rulesNote.style.display='none';        // a game that wants it turns it on
+    /* Asked on every game, because every board plays both ways now — and asked here
+       rather than left to whatever the last lesson used, so the teacher sees what
+       they are about to start. */
+    renderRosterPick();
     const g = gameDef();
     if(g) g.renderContent(list, help);
     renderRoundFilter();
@@ -6639,10 +6712,15 @@
      says `idle here`, so nothing pretends otherwise. Exceptions had already been
      carved out for Millionaire's lifelines and Bingo's cards; this makes the rule
      the exception's shape rather than the other way round. */
-  function phonesWanted(){
-    if(!activeGame) return false;
-    return !!S.get('buzzers');
-  }
+  /* **A room exists whenever phones are switched on, game or no game.** It used to
+     need `activeGame`, so the code only appeared once a board was already running —
+     which is the moment it stops being useful. The whole of setup is when a class is
+     walking in and getting their phones out, and they cannot join a room that does
+     not exist yet. Same reversal this file already made once for `phoneMode: off`,
+     and for the same reason: *whether a room exists* is a property of the lesson,
+     and *what the phones do in a question* is a property of the game. Conflating
+     them is what hid the code both times. */
+  function phonesWanted(){ return !!S.get('buzzers'); }
   /* Both votes are worth a room even when nothing else on the board wants one:
      Millionaire's Ask the class, and Blockbusters asking the team on turn which
      hexagon to attack. */
@@ -6868,7 +6946,7 @@
          re-POST it forever. */
       if(at >= 0 && soloSeatAt[p.id] !== at){ soloSeatAt[p.id] = at; buzzHost.seat(p.id, at); }
     });
-    if(changed){ renderScorebar(); hook('onRoster'); }
+    if(changed){ renderScorebar(); renderRosterPick(); hook('onRoster'); }
   }
 
   /* The phones need the team list, not just at the start: a team renamed mid-lesson
@@ -7714,5 +7792,9 @@
     renderUnitSelect();
     showScreen('screen-unit-select');
   }
+  /* Open the room now rather than when a board starts, so the code is on the wall
+     while the class is still walking in. Nothing else about it changes: the room is
+     the lesson's, it parks between games, and only switching phones off ends it. */
+  syncBuzzRoom();
 
 })();

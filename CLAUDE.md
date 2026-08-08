@@ -1229,6 +1229,42 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The room is open from the first screen, and teams-or-solo is decided before the
+  board is built.** Reported as: you can switch to solo but not back during a game,
+  and students can only join once a game is running.
+  - **Switching back mid-game is not a bug that can be fixed, and the report said
+    so.** The button flips and the label follows; what cannot happen is the thing a
+    teacher means by it — sixteen people do not regroup into four teams without the
+    roster being rebuilt, and rebuilding it bins a lesson's points. So it is asked
+    **before** the game, on the content screen beside the other how-shall-we-run-it
+    choices, and the bar's switch stands down while a board is on. A control that
+    flips a label and changes nothing else is worse than no control.
+  - **One definition, drawn twice** — `ROSTER_MODES` plus `rosterSwitch()` for the
+    bar and `renderRosterPick()` for the setup screen. Two copies would be two
+    things that could disagree about what the current mode is.
+  - **`phonesWanted()` stopped requiring a game**, which is the whole of the join
+    fix: a room only existed once a board was running, so the code appeared at the
+    moment it stopped being useful. The class is walking in during unit and game
+    selection, and they cannot join a room that does not exist. **This is the same
+    reversal this file already records for `phoneMode: off`** — whether a room
+    exists is a property of the lesson, what the phones do in a question is a
+    property of the game, and conflating them hid the code both times.
+  - **The chip moved out of `#screen-play`** to sit above every screen. Still in the
+    flow rather than fixed, so the boards measure around it exactly as before.
+  - **The setup chooser says what the room actually is** — "3 phones have joined — 3
+    on the roster" — so the choice is made against the truth rather than a guess.
+    Picking Individuals with phones already in seats them there and then.
+  - **`.mode-title` stopped being `#race-mode .mode-title`.** There are two
+    how-shall-we-run-it pickers on that screen now, and a class styled by naming one
+    of its hosts fails silently — navy on near-black, exactly how the content
+    screen's section headings became invisible.
+  - Driven end to end: code on the wall from the unit screen, three phones join
+    while the teacher picks, the chooser seats them, the bar switch is absent in
+    play and back after New game. `joinbar, degradation` 29/1, and **that one is
+    pre-existing** — identical on the base build. It asserts Millionaire's chip says
+    "idle here" with the mode off, and Millionaire always hosts a round now, so the
+    chip correctly says "pick an answer" instead. The check describes a state that
+    board can no longer be in; it belongs with the dead `mBuzzRole` item under Next.
 - **Teams or Solo is a switch on the team bar.** Asked as "how do I change from team
   mode to solo mode", which is the question a control has failed to answer.
   - **It was in ⚙ and that was the wrong home twice over.** It is a room-wide fact,
