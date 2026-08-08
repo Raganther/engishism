@@ -1949,13 +1949,56 @@
      button and its remove tooltips are named after what a competitor is. Neither is
      rebuilt on a timer, so a setting read once at build time is a setting the
      drawer cannot change — the Daily Double paid for that lesson. */
+  /* **Each mode keeps its own roster, and switching swaps between them.**
+     Reported as "it won't switch back", and the picker was innocent: the setting,
+     the radio and the bar all flipped: what did not change was the *list*, so teams
+     mode showed three competitors called Ana, Ben and Cara and looked exactly like
+     the solo it had just left.
+
+     A roster of people and a roster of teams are two different lists, and neither
+     can be derived from the other — so both are kept, and going back and forth costs
+     nothing. Without this, switching to solo would bin whatever teams a teacher had
+     set up and switching back would leave the class as competitors, which is why the
+     switch felt broken in both directions. */
+  const rosterStash = Object.create(null);
+  function swapRoster(to){
+    const from = to === 'solo' ? 'teams' : 'solo';
+    rosterStash[from] = { list: teams.slice(),
+                          seat: Object.assign({}, soloSeat),
+                          at:   Object.assign({}, soloSeatAt) };
+    const back = rosterStash[to];
+    teams.length = 0;
+    Object.keys(soloSeat).forEach(k => delete soloSeat[k]);
+    Object.keys(soloSeatAt).forEach(k => delete soloSeatAt[k]);
+    if(back){
+      back.list.forEach(t => teams.push(t));
+      Object.assign(soloSeat, back.seat);
+      Object.assign(soloSeatAt, back.at);
+    }else{
+      /* Two placeholders rather than none: every board is built for at least two
+         sides, and in solo the first two students to join claim them rather than
+         landing under two empty rows. */
+      const word = to === 'solo' ? 'Player ' : 'Team ';
+      teams.push(newTeam(word + '1', true), newTeam(word + '2', true));
+    }
+    /* Millionaire's ladders are a parallel array and `active` is an index — both are
+       about the list that has just been replaced. */
+    if(Array.isArray(mState)) mState.length = 0;
+    active = 0;
+    /* The seats we just cleared have to be re-sent, or every phone keeps the number
+       it was given under the old roster — the index-shift bug that paid a win to a
+       team that no longer existed, one switch over. */
+    lastPushedTeams = null;
+  }
+
   S.onChange(id=>{
     if(id !== 'roster') return;
+    swapRoster(Roster.mode);
     applyGameAvailability();
     renderRosterPick();
     renderScorebar();
-    /* Switched on with a class already in the room: seat everybody who is already
-       here rather than waiting for the next phone to join. */
+    /* Seat whoever is already in the room rather than waiting for the next phone —
+       in solo that fills the roster on the spot, and in teams it does nothing. */
     if(buzzHost) seatSoloPlayers(buzzHost.players());
   });
 
@@ -4365,7 +4408,27 @@
   function jRoundMode(id){
     const def = id ? Kit.round.get(id) : null;
     if(!def || !def.modes || !def.modes.length) return null;
-    return S.get('round_' + id, roundHost.game);
+    const key  = 'round_' + id;
+    const game = roundHost.game;
+    const mode = S.get(key, game);
+    /* **A board's `teamMode` ask only means anything in a room of teams.** Jeopardy
+       and Blockbusters say "give me whichever mode each round calls its whole-team
+       one", which is right when a name is four students who have to agree — and is
+       nonsense when a name is one person. Worse than nonsense in practice: with
+       every competitor a team of one, `agree` is satisfied the instant anybody taps,
+       so several correct answers land inside the same settle window and which of
+       them takes the question comes down to the order teams are read in rather than
+       who was first. Reported as the *second* right answer winning.
+
+       Resolved here rather than at registration, because the roster mode is a live
+       fact and a setting's default is computed once. A teacher's own override still
+       wins — this only replaces the board's silent default. */
+    if(Roster.solo() && def.teamMode && mode === def.teamMode &&
+       !S.hasOverride(key, game)){
+      const solo = def.modes.filter(m => m.value !== def.teamMode)[0];
+      if(solo) return solo.value;
+    }
+    return mode;
   }
 
   /* The round the phones are put into, read through `phoneRound()` so it reaches the
@@ -4504,9 +4567,32 @@
 
   /* Replies off the wire. The round works out what each team is holding; this only
      decides what that is worth on a Jeopardy board. */
+  /* **Who answered first, which the picks themselves do not say.** `read()` hands
+     back one answer per competitor and nothing about when each arrived — so the
+     settle used to take `verdicts[0]`, which is the *lowest index* among the correct
+     ones rather than the earliest. With two or three teams that is invisible; with
+     sixteen individuals it is the reported bug, where a later right answer takes the
+     tile off an earlier one for no reason anybody in the room can see.
+
+     Stamped with a counter rather than a clock: nothing here needs to know how long
+     ago, only what came before what, and a counter cannot disagree with anything.
+     The stamp moves only when a competitor's answer actually *changes*, so somebody
+     re-reading their own reply does not lose their place. */
+  let jGroupSeq = 0;
+  function jGroupStamp(){
+    if(!jGroup) return;
+    const at = jGroup.at || (jGroup.at = {});
+    Object.keys(jGroup.picks || {}).forEach(t=>{
+      const key = (jGroup.picks[t] || []).slice().sort().join('\u0000');
+      if(!at[t] || at[t].key !== key) at[t] = { key, n: ++jGroupSeq };
+    });
+  }
+  const jGroupAt = t => ((jGroup && jGroup.at && jGroup.at[t]) || { n: Infinity }).n;
+
   function jGroupOnReplies(all){
     if(!jGroupLive()) return;
     jGroup.picks = jRoundDef().read(all, jGroup, jGroupCtx());
+    jGroupStamp();
     renderJGroup();
     jGroupSettler.bump();
   }
@@ -4532,7 +4618,9 @@
        The settler's per-team memory is what stops a team being paid twice: a right
        answer settles once, and `win()` itself is idempotent per team. */
     if(roundHost.scoreEach){
-      verdicts.filter(v => v.r.verdict === 'right').forEach(v => {
+      verdicts.filter(v => v.r.verdict === 'right')
+              .sort((a, b) => jGroupAt(a.team) - jGroupAt(b.team))
+              .forEach(v => {
         if(!jGroupSettler.fresh(v.team, 'ok:' + v.set.slice().sort().join('|'))) return;
         def.accept(v.set, jGroup, v.team, ctx);
         const paid = roundHost.win(v.team);
@@ -4542,7 +4630,11 @@
       return;                       // the clock ends the question, not the first right answer
     }
 
-    const won = verdicts.filter(v => v.r.verdict === 'right')[0];
+    /* Earliest right answer, not lowest index — see `jGroupStamp`. The teacher's own
+       clicks carry no stamp and sort last, which is correct: a click is a judgement
+       made after the room has had its go. */
+    const won = verdicts.filter(v => v.r.verdict === 'right')
+                        .sort((a, b) => jGroupAt(a.team) - jGroupAt(b.team))[0];
     if(won){
       /* Right does not always mean the round is over. A grouping clue ends the
          moment a team has the set; an ordering climb has four more rungs to fill,

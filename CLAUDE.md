@@ -1229,6 +1229,36 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Solo plays first-tap-wins, each mode keeps its own roster, and a win goes to
+  whoever was first rather than to the lowest index.** Three reports in one.
+  - **A board's `teamMode` ask only means anything in a room of teams.** Jeopardy
+    and Blockbusters say "give me whichever mode each round calls its whole-team
+    one", which is right when a name is four students and nonsense when it is one
+    person — "everyone on this competitor agrees" is satisfied by that person's
+    single tap, so every round in solo was running under a rule that could not
+    apply. Resolved in `jRoundMode` rather than at registration, because the roster
+    mode is a live fact and a setting's default is computed once; a teacher's own
+    override still wins. The handset says so: `First team with the right answer
+    takes it` instead of `A team answers only when all of them agree`.
+  - **"It won't switch back" was the roster, not the picker.** The setting, the
+    radio and the bar all flipped correctly — what did not change was the *list*, so
+    teams mode showed three competitors called Ana, Ben and Cara and looked exactly
+    like the solo it had just left. A roster of people and a roster of teams are two
+    different lists and neither can be derived from the other, so **both are kept
+    and switching swaps between them**. Without it, going to solo binned whatever
+    teams a teacher had set up and coming back left the class as competitors.
+  - **The winner is the earliest right answer, not the lowest index.** `verdicts[0]`
+    is object-key order, so two correct answers in one settle window paid whichever
+    competitor sat higher up the bar. Invisible at three teams; at sixteen people it
+    is arbitrary. Stamped with a counter rather than a clock — nothing needs to know
+    how long ago, only what came before what — and the stamp moves only when an
+    answer actually changes, so re-reading your own reply does not lose your place.
+    **Not proved against the report.** Driving two correct answers back to back pays
+    the earlier one on the *old* build too, because the settle fires before the
+    second reply lands. The change is right on its own terms — index order is not
+    arrival order — but whatever produced "the second player gets the points" is
+    still unexplained, and the next thing to ask is what the two students actually
+    did.
 - **The room is open from the first screen, and teams-or-solo is decided before the
   board is built.** Reported as: you can switch to solo but not back during a game,
   and students can only join once a game is running.
