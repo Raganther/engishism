@@ -1,9 +1,64 @@
 # Classroom Game Hub — MVP System Requirements
 
-**Version:** 0.5
+**Version:** 0.6
 **Author:** Alistair
 **Date:** August 2026
 **Purpose:** Proof-of-concept demonstration to academic management
+
+> **How to read this document.** The status blocks below run newest first and are a
+> *record*, not a spec: v0.2–v0.5 are left exactly as written, so several of them
+> contain claims later blocks contradict. **Only "Status at v0.6" and sections 1–9
+> describe the system as it stands.** Two body sections are deliberately not
+> specification and say so at their own heads — §3.11 (considered and declined) and
+> §3.12 (brainstormed, unagreed).
+
+## Status at v0.6
+
+**Every status block from v0.2 to v0.5 named the same thing as the largest gap:
+nothing had been run in front of a class. That is no longer true.** A lesson was
+taught with it on 2026-08-05, with rounds on real student handsets. Five things came
+back and all five are fixed. That is the single most important change in this version,
+and everything below is smaller than it.
+
+**Built since v0.5:**
+
+| | |
+|---|---|
+| **A classroom run** | One lesson, real phones. Reports: a phantom handset inflating a team's size and locking every all-agree gate; a round win with no winner's moment; the anagram lanes unreadable; removing a team paying a win to a team that no longer existed; and a test runner that truncated silently. All five closed |
+| Games | **6** — **Quickfire** joined: a straight run of multiple choice against a clock, with **no board at all**. It wrote no question handling (the round draws the card, arms the phones and judges) and authored no content (it reads `millionaireBank`), so three units gained a sixth game for a sequence, a clock and a scoreboard |
+| Round hosts | **5** — Quickfire and **Race** joined. Race needed the stage as a mount, and one bank now holds both kinds: an ordinary item becomes a board tile, a round item is played on the handsets while the board waits. Bingo hosts none, by design — it owns the phones |
+| Rounds | **8 authored + the default round** — Information Gap, Word Drop and Bingo joined Connections, Word Thermometer, Multiple Choice, Drag the Letters and Drag the Words |
+| **F3.8.8** | **Built** — `ctx.keep`, round state that outlives one question, keyed by player id and scoped to the round type. This was "the highest-value contract addition" in v0.5 and the top of the build order |
+| **F3.9.1 / F3.9.2** | **Built** — the action strip takes a declaration, so a round may have more than one button. The split that resolved it: **committing scores**, so the commit button can only ever be the host's. Six rounds declare nothing and needed no change |
+| **Individual play** | New capability, not on any previous build order. A competitor may be one person; the roster builds itself from the phones as students join; all six boards declare whether solo suits them; the join screen stops asking which team. **No round changed at all** — unanimity is `agreed >= size`, so a competitor of one is satisfied by their own answer |
+| The information gap | The first round to put a **different prompt on every handset** — the technique §3.10 called one step away. It needed `promptByPlayer` on the relay and **not** F3.8.8: check what a round needs *per player* before concluding it is blocked |
+| Evidence quality | The regression suite was found to be **describing an older version of the app**: five checks asserted pictures deliberately replaced, and one of them was hiding sixty more, because an assertion that throws takes the rest of its suite with it and the run still prints a total. `phonemodes` had been reporting "2 passed, 2 failed" for a suite of 80. All closed, and §9.24 records why the underlying cause is not mechanical |
+| Content total | **986 items** across three units — 370 (Unit 4), 423 (Unit 5), 193 (NEF Unit 1). Units 4 and 5 now play **entirely as rounds** on Jeopardy and Blockbusters; the ~175 simple question-and-answer items those two boards held are gone |
+
+**Answered since v0.5:**
+
+- **Q18 — what Millionaire's buzz settings are for.** **Retired.** `mBuzzRole` could not
+  fire in either state: a live question puts four options in every hand, and between
+  questions nothing is open and a buzz is refused. A control a teacher can pick that
+  changes nothing reads as a broken game rather than an absent feature. What is *not*
+  decided is a buzz that picks who speaks for the team **before** the round takes the
+  room — a new beat, and it needs a classroom question first.
+
+**What is NOT yet true, and matters most:**
+
+- **One lesson is not a trial.** Every fix listed above is a first iteration — the
+  winner banner's 4 seconds, the progress lanes, the kick flow, the hint that costs
+  nothing. None has met a second class. Individual play, the new setup flow, Race
+  rounds and Bingo-as-a-round have met **none**.
+- **Bingo the skin still runs its own implementation.** The bingo *round* exists and
+  plays on another board; the skin has not been moved onto it. That is the second half
+  of build-order item 7 and the natural next job.
+- **The ordering climb's card overflows a 720px board** (726px), as does Quickfire's
+  stage with the phone chip up. Both are pre-existing and measured; both are layout
+  work rather than contract work.
+- **Word Drop is bench-only on purpose.** No game show can run its fall clock —
+  `ctx.again()` is lent by the question bench and nothing else. It is there to be
+  judged and deleted if it does not earn its place.
 
 ## Status at v0.5
 
@@ -170,8 +225,11 @@ hypothetical one.
 - 3–5 game formats. Current candidates, all Tier 1 or Tier 2 per §3.6:
   Jeopardy, Blockbusters, Race to the Board, Millionaire, Bullseye.
   Final count depends on measured authoring cost (§3.4, §9.2).
-  → **Four built** (all but Bullseye). Authoring cost is now measured, and four is
-  the honest answer — see §9.2.
+  → **Six built** — Jeopardy, Blockbusters, Race to the Board, Millionaire, Bingo and
+  Quickfire (all but Bullseye). That overshoots the range, and the reason matters more
+  than the number: **Bingo and Quickfire authored no content at all**, reading
+  `blockbustersBank` and `millionaireBank` as they stand. A game that consumes an
+  existing bank is very nearly free. See §9.2.
 - Content coverage of Unit 5, selectable by lesson section (5A / 5B / 5C / 5D)
   → **Complete, 5A–5D.** 5D (the opinion-essay lesson) was the last gap and turned out
   to suit the formats well: linkers make excellent Race tiles, and paragraph function
@@ -191,7 +249,17 @@ hypothetical one.
   point, since a unit adopts games one at a time (F3.7.4) — and now carries all four.
 - Any data persistence (scores, saved games, history)
 - Student devices / individual logins
+  → **Departed from, deliberately and in two directions.** Student *devices* are now an
+  optional layer (§4.4c) — no accounts, no installs, a room code and a name. Individual
+  *play* followed in v0.6: a competitor may be one person, and in that mode the roster
+  builds itself from whoever joins. What remains firmly out of scope is the thing this
+  line was really protecting — **logins, and any record of a named student.** Nothing
+  is stored about anybody between lessons.
 - Accounts, cloud sync, or backend services
+  → **One qualification:** the relay (§4.4c) is a backend service in the literal sense.
+  It holds rooms in memory only, has no database and no accounts, and forgets
+  everything when it restarts — which is a real operational property, not a caveat: see
+  F4c.10 for what that cost before it was handled.
 - Accessibility audit (noted as future work, see §8)
 
 ### 1.4 Success criteria
@@ -199,6 +267,11 @@ hypothetical one.
 The MVP succeeds if:
 
 1. It runs a full revision lesson on Unit 5 without technical failure.
+   → **Met once, 2026-08-05.** The lesson ran. Five defects came back and none of them
+   stopped it: a phantom handset, a missing winner's moment, unreadable progress lanes,
+   a win paid to a removed team, and a truncating test runner. "Without technical
+   failure" is satisfied; "without technical friction" is not yet, and one lesson is
+   not a sample.
 2. The academic manager can see that the games test *the unit's actual target
    language*, not generic English.
 3. The manager can see how the same approach would extend to other units.
@@ -458,12 +531,12 @@ registerGame({
 
 **Where the layering leaks.** Honesty matters more than tidiness here:
 
-- `hub-engine.js` holds layer 1 *and* all four layer-2 games in one closure. The
+- `hub-engine.js` holds layer 1 *and* all six layer-2 games in one closure. The
   registry gives the contract; it does not yet give a file boundary (F3.7.5).
 - Parts of layer 1 were generalised *from* particular games and still carry their
   assumptions: the banner's team tones are gold/silver, the team-chooser's `allow`
   parameter exists for Blockbusters' two-team geometry, and the clue card is used by
-  only two of the four games.
+  only two of the six games.
 
 Layer 1 is therefore best read as *what happens to be shared so far*, not *what is
 inherently shared*. That is the correct state for a system at this stage, but it should
@@ -503,11 +576,16 @@ bench.
 
 #### The direction: game shows become skins
 
-Today all five games carry their own phone handling, and they fight over the handsets —
-`phoneRound()` exists precisely because Bingo's cards and Jeopardy's grouping clue both
-wanted them. **The target is that all phone logic lives in rounds**, and a game show is
-a skin that provides context, geometry and scoring around a question slot. That removes
-the conflict class rather than managing it.
+~~Today all five games carry their own phone handling, and they fight over the
+handsets.~~ **This target is now substantially met.** `phoneRound()` was written
+because Bingo's cards and Jeopardy's grouping clue both wanted the handsets; since
+F3.8.16 every question in the app is a round, so **all phone logic lives in rounds**
+and a game show is a skin providing context, geometry and scoring around a question
+slot. The conflict class was removed rather than managed.
+
+**One exception remains, and it is the last of its kind: the Bingo skin.** Its cards,
+marking and line detection are still its own, even though a bingo *round* now exists
+and plays on another board. That is the outstanding half of build-order item 7.
 
 | ID | Requirement | Priority |
 |---|---|---|
@@ -518,8 +596,9 @@ the conflict class rather than managing it.
 | F3.8.5 | A round declares what makes an authored item invalid (`check`); the content gate and the bench editor both read that one rulebook | Must |
 | F3.8.6 | A round must be fully playable with no relay — the teacher clicks and judges | Must |
 | F3.8.7 | Phone behaviour should live in the round, not the game show | Should |
-| F3.8.8 | A round may hold state that outlives one question (for a game like Bingo, where a card persists across many calls) | Should — **not built** |
-| F3.8.9 | A round may be given the stage as its mount, not only the clue card | Should — **built in v0.4** for Millionaire, which has no clue card. `mount` is a declared fact in `ROUND_HOSTS`. Race needs more: its answers *are* the board |
+| F3.8.8 | A round may hold state that outlives one question (for a game like Bingo, where a card persists across many calls) | Should — **built in v0.6** as `ctx.keep`: the host's store, keyed by **player id** because that is the only identity surviving a dropped connection, scoped to the round type, cleared when a game starts. A round writes to it by re-arming, so its state rides the arm rather than needing a message of its own |
+| F3.8.9 | A round may be given the stage as its mount, not only the clue card | Should — **built in v0.4** for Millionaire, then used again by Quickfire and Race, which is what made it a declared fact (`mount` in `ROUND_HOSTS`) rather than one game's exception |
+| F3.8.18 | A round is portable across rosters as well as skins: "the whole team has committed" is `agreed >= size` against the **live** roster, so a competitor of one is satisfied by their own answer and no round learns that individual play exists | Must — **built in v0.6**, and it cost no change to any round, which is the evidence the tier boundary is in the right place |
 
 #### A note on the word "mode"
 
@@ -549,10 +628,15 @@ Today the split is:
 - an **ordinary clue** is a `Kit.prompt` *form* — render and reveal, no `arm()`, no
   phones of its own — so `phoneMode` decides what the handsets do.
 
-Units 4 and 5 hold 565 items and **not one of them is a round**, so `phoneMode` today
-governs one hundred per cent of class-facing content. Deleting it in the name of the
-architecture would leave every teachable lesson with idle handsets and no switch to
-turn them on.
+~~Units 4 and 5 hold 565 items and **not one of them is a round**~~ — **that was the
+state when this argument was written, and it is worth keeping because the argument was
+right.** `phoneMode` governed one hundred per cent of class-facing content, so deleting
+it in the name of the architecture would have left every teachable lesson with idle
+handsets and no switch to turn them on. **Since v0.5 the position has inverted:** Units
+4 and 5 play *entirely* as rounds on Jeopardy and Blockbusters, so on those boards the
+default round's modes now govern almost nothing. The setting survives because it is
+still what an ordinary question does — on Race, on NEF Unit 1, and on any unit authored
+without rounds.
 
 **The proposal: a default round that wraps an ordinary question**, whose declared
 `modes` are exactly the values `phoneMode` holds now — `off` / `buzz` / `write` /
@@ -603,9 +687,22 @@ phones; a skin conflicts only if it already owns one of them.
 |---|---|---|---|
 | Jeopardy | no — a tile opens one | no | **yes** — built |
 | Blockbusters | no — a hexagon opens one | no | **yes** — built, and it cost no change to any of the five rounds, which is the measurement that says the tier is real |
-| Millionaire | no — a rung opens one | no | **yes** — built, via F3.8.9. Its whole bank becomes Multiple Choice at question time, which also made its `mBuzzRole` setting unreachable — see §9 Q18 |
-| Bingo | no | **yes** — every phone holds a card | card-only rounds, teacher-judged |
-| Race | **yes** — the scattered words *are* the board | no | needs F3.8.9 |
+| Millionaire | no — a rung opens one | no | **yes** — built, via F3.8.9. Its whole bank becomes Multiple Choice at question time, which also retired its `mBuzzRole` setting — see §9 Q18 |
+| Quickfire | no — a question is the stage | no | **yes** — built. Second caller for F3.8.9, which is what turned a private exception into a declared fact |
+| Race | **yes** — the scattered words *are* the board | no | **yes** — built in v0.6. It gets `#race-round` under the prompt as its mount, and one bank holds both kinds: an ordinary item contributes a board tile, a round item contributes none and is played on the handsets while the board waits |
+| Bingo | no | **yes** — every phone holds a card | card-only rounds, teacher-judged — **and none is hosted, by design** |
+
+**Millionaire and Quickfire were never the gap they looked like.** Both call
+`jGroupOf(asRound(item))`, and `asRound` hands the item straight back when it carries
+no `distractors` — so an item with a `group:` or `order:` field would be hosted today.
+They only ever *see* Multiple Choice because that is all their banks hold. **Content,
+never wiring**, which is worth knowing before anyone plans work on it.
+
+**The one rule no check can make for you, learned writing Race's first mixed section:
+no word inside a round may be a word on the board.** The first draft had a Connections
+set holding three answers that were also tiles, so the round pointed at the answers to
+other sentences. The content gate cannot catch it — it is a fact about what else is in
+the bank, not about the item.
 
 **Blockbusters is not restricted to one-word answers**, and is now the second host.
 The hexagon's letter appears in its display, the clue card's topline and the
@@ -659,26 +756,38 @@ first caller is what proves the extraction was behaviour-neutral.
    topline, and the picking vote's options — and never a constraint: `bbOutcome()`
    searches *claimed* hexagons and has never read it. "The answer starts with the
    letter shown" was a rule about the bank, so it is asked of ordinary clues only.
-2. **Round content in a class-facing unit.** Rounds have never been played outside the
-   Lab, because Units 4 and 5 carry no round fields between them. Grouping and ordering
-   for 5A/5B is the cheapest way to close the largest gap in this document, and it is
-   authoring rather than engineering.
-3. **F3.8.8 — persistent per-player round state.** Moved ahead of the remaining hosts:
-   most of §3.10 is blocked on it, and the relay already does the hard half.
-4. **Millionaire hosts the multiple choice round.** No contract change, and it deletes
-   Millionaire's private option rendering — the same question drawn twice in the
-   codebase today. Still cheap; simply no longer the most *valuable* next thing.
-5. **F3.9.1/F3.9.2** — the action strip becomes declarative, so a round may contribute
-   more than one button.
-6. **F3.8.16 — the default round**, which folds `phoneMode` and its four companions
-   into a declaration and deletes the mode-or-round branch. Blocked on item 2: until a
-   class-facing unit carries rounds, those settings are carrying the whole product.
-7. **F3.8.9** (the stage as a mount), then **Bingo extracted**, then **Race
-   extracted** — smaller first.
-8. **Content filing (§3.11).** Beside the existing banks, migrating a unit at a time.
-   This is where the tagged pool, the query and agent-assisted authoring live. It is
-   last because it is the largest, it touches all 565 items, and §3.11 records why
-   several of its requirements are cheaper to design for now than to discover later.
+2. ~~**Round content in a class-facing unit.**~~ **Done in v0.5, and gone further in
+   v0.6:** Units 4 and 5 now play *entirely* as rounds on Jeopardy and Blockbusters —
+   100 clues in 20 categories and 72 hexagons each, with the ~175 simple
+   question-and-answer items those boards held deleted. NEF Unit 1 is deliberately
+   left unconverted, so there is still one unit to compare against.
+3. ~~**F3.8.8 — persistent per-player round state.**~~ **Done in v0.6** as `ctx.keep`:
+   the host's store, keyed by player id because that is the only identity that
+   survives a phone dropping off the wifi, and scoped to the round type so a round
+   keeps its state across all of its own calls. A round updates it by re-arming, so
+   the card rides the arm that was going anyway and no round sends the relay its own
+   messages. Bingo is the first caller.
+4. ~~**Millionaire hosts the multiple choice round.**~~ **Done in v0.5**, and it did
+   need a contract change after all — F3.8.9, because Millionaire has no clue card.
+5. ~~**F3.9.1/F3.9.2** — the action strip becomes declarative.~~ **Done in v0.6.**
+   A round declares `actions(state, ctx)` and `press(id, state, ctx)`; the commit
+   button stays the host's because committing *scores*; and `hideAllActionButtons()`
+   stopped carrying a hand-typed list of ids, which had already lost `wager-ok`.
+6. ~~**F3.8.16 — the default round.**~~ **Done in v0.5.** Every question in the app is
+   a round; `phoneMode` is `round_default`, built by the same loop that builds every
+   other round's mode row.
+7. ~~**F3.8.9** (the stage as a mount)~~ **— done in v0.5** for Millionaire and used
+   again in v0.6 by Quickfire and Race, which is what turned it from one game's
+   exception into a declared fact in `ROUND_HOSTS`. **What is left of this item:
+   Bingo extracted, then Race extracted.** The bingo *round* now exists and plays on
+   another board; the Bingo *skin* still runs its own card, marking and line
+   detection. Moving it onto the round is the next job.
+8. ~~**Content filing (§3.11).**~~ **Decided against in v0.5** — asked for and withdrawn
+   in the same conversation once the shape was clear. It is a different product from
+   §1.2, it migrates every item, and nothing had met a class. Content stays in
+   per-game banks inside a unit file. What was wanted from it — that new content reuses
+   the established question shapes so the phones behave identically every time — is the
+   `author-content` skill instead. §3.11 is kept because the reasoning will come back.
 
 **What changed in the ordering, and why.** v0.3 put the two remaining hosts first, on
 the reasoning that the pattern should be proved on cheap cases before anything working
@@ -692,11 +801,14 @@ Bingo and Race still come last, and for the original reason: they are working ga
 with a great deal of tested behaviour, and there is nothing left to learn from
 extracting them that a third host would not teach more cheaply.
 
-**F3.8.8 has moved up.** It was a *Should* behind two hosts; it is now the thing most
-of §3.10 is blocked on, and the relay is already most of the way there — it persists a
-bingo card and its marks per player, across a reconnection, keyed to a remembered seat.
-What is missing is exposing that to rounds. On the evidence it buys more than
-Millionaire and Race hosting rounds combined.
+~~**F3.8.8 has moved up.**~~ **Built in v0.6**, and the reasoning held: it was moved
+ahead of the remaining hosts because most of §3.10 was blocked on it, and the relay
+already did the hard half. One qualification worth carrying forward, learned by
+building the information gap first — **check what a round needs *per player* before
+concluding it is blocked on persistence.** The information gap looked like an F3.8.8
+case and was not: a different prompt on every handset *within* one question is
+`promptByPlayer`, about fifteen relay lines, and the per-recipient arm path already
+existed.
 
 ### 3.9 The container — what owns what
 
@@ -770,7 +882,12 @@ two properties are doing more work than they appear to:
 2. **Every handset can be shown something different.** The relay already does
    `optionsByTeam`, per-player shares, and per-player bingo cards. That is one step
    from an **information gap**, which is among the highest-value techniques in ESL
-   methodology and the most awkward to run on paper.
+   methodology and the most awkward to run on paper. — **Built in v0.6, and the step
+   really was one step: about fifteen relay lines (`promptByPlayer`), because the
+   per-recipient arm path already existed.** Each phone on a team is dealt the same
+   sentence with a *different* key word blanked and its teammates' words shown, so the
+   only way to fill your own gap is to ask the people beside you. The card blanks every
+   key word, because the projector is the one screen nobody may read an answer off.
 
 Three axes, in rough order of cost:
 
@@ -795,20 +912,33 @@ than a question), **prediction** (guess before a reading, scored after), and
 judge, where the *room* judges instead. Everything in Axis 3 depends on the round
 contract surviving that.
 
+**Two changes to this axis since v0.5.** **Word Drop** was built and is not in the list
+above because nothing here predicted it — a word falls toward group bins and the room
+steers it by voting, the first round where *time* closes the question rather than the
+replies settling. It is bench-only and exists to be judged (§9.22). And **Word Spy**
+joins the list as the cheapest thing on it: every phone shows the same secret word
+except one, which shows a near neighbour ("beach" / "swimming pool"); each student says
+one sentence about their word, then the room votes on who the spy is. It is a deal plus
+a vote, both already on the shelf, and it only became buildable when `promptByPlayer`
+shipped with the information gap. **Highest speaking-per-minute of anything on this
+page, for roughly a third of what Word Drop cost.**
+
 **Axis 3 — formats that are not games shows at all.**
 
 | Format | What the handsets do | Why it is worth building |
 |---|---|---|
 | **Just a Minute** | the class **buzzes to challenge** hesitation, repetition, deviation | the buzzer inverted: not "I know it" but "I am listening critically". Real fluency practice, and it uses what is already built |
-| **Information gap / negotiation** | each team's phones carry *different* facts | the classic ESL technique, miserable on paper, trivial here. The largest single win available |
+| **Information gap / negotiation** | each team's phones carry *different* facts | the classic ESL technique, miserable on paper, trivial here. The largest single win available — **built in v0.6**, and it cost about fifteen relay lines |
 | **Secret roles** | a private instruction per handset | produces accusation, defence and hedging — precisely C1 register work |
 | **Debate with a measured swing** | vote a position, argue, **re-vote** | the score is how many minds changed, making persuasion competitive without being right/wrong |
 | **Card decks and drilling** | a private "did you know it?" self-report | not a game — a live diagnostic of what is actually shaky. Possibly the highest teaching value here |
 | **Describe and guess** | the word goes to **one** phone; everyone else types | already flagged in §4.4 as the highest language value and least code of the Race variations; it generalises |
 
-**Four of those six need one thing: state that outlives a question.** That is F3.8.8,
-which is why it moved up the build order. It converts roughly half of this section from
-"not possible" to "an afternoon's work".
+**Four of those six need one thing: state that outlives a question.** That was F3.8.8,
+which is why it moved up the build order — and it is **built** (v0.6). Roughly half of
+this section moved from "not possible" to "unwritten" in one change. Nothing in the
+third axis has been attempted yet; Bingo is the only caller, and its round is the
+proof that the mechanism works rather than that the ideas do.
 
 **The test worth running:** if **Just a Minute** works in this container — a format
 with no questions in it at all — then "Game Hub" is the wrong name for what has been
@@ -821,8 +951,15 @@ because it will come back.** This section describes where the product could go r
 than what it does.
 
 It was asked for explicitly and withdrawn in the same conversation once the shape was
-clear: it is a different product from §1.2, it migrates 565 items, and nothing in this
-project has met a class. **Content stays in per-game banks inside a unit file.**
+clear: it is a different product from §1.2, it migrates every authored item (565 then,
+**986** now), and nothing in this project had met a class. **Content stays in per-game
+banks inside a unit file.**
+
+**One leg of that reasoning has since changed and the decision has not been revisited.**
+A class *has* now met it (v0.6). The other two legs stand — it is still a different
+product, and the migration is larger than it was — so the conclusion is probably
+unchanged, but it is worth saying that it is being carried forward rather than
+re-decided.
 
 **What was actually wanted from it turned out to be much smaller** — that newly authored
 content reuses the established question shapes, so formatting is consistent and the
@@ -899,7 +1036,9 @@ Recorded now because most of them are cheaper to design around than to discover.
 - **Granularity has no obviously right answer.** `grammar` is too coarse to filter on;
   `present-perfect-continuous-for-unfinished-actions` is so fine that every item is
   unique and nothing groups. Expect to get this wrong once and have to re-tag.
-- **Retrofitting 565 existing items.** Automated tagging is plausible and unverifiable —
+- **Retrofitting the existing items.** (Written when there were 565; there are now
+  **986**, which makes the point sharper rather than different.) Automated tagging is
+  plausible and unverifiable —
   the gate can check that a tag is *in the vocabulary*, never that it is *true of the
   item*. This is the largest single hand-review job in the project.
 - **The same word in two books at different levels** breaks duplicate detection, which
@@ -1119,6 +1258,12 @@ which of these ideas were ever wanted.
 | F3.4 | Used or claimed items are visually distinct from unused ones | Must |
 | F3.5 | Team scores can be adjusted manually by the teacher | Must |
 | F3.6 | Team names are editable | Should |
+| F3.7a | A **competitor** may be a team or one person. Which one is a property of the room, not of a game — the roster persists across games and unit switches, so a lesson cannot be in teams on one board and individuals on the next without rebuilding the scoreboard underneath the class | Must — built v0.6 |
+| F3.7b | Teams-or-individuals is decided **before** a board is built, on the content screen beside the other how-shall-we-run-it choices, and the roster switch stands down while a game is on | Must — built v0.6 |
+| F3.7c | Each mode keeps its own roster and switching swaps between them. A roster of people and a roster of teams cannot be derived from one another, so binning either on a switch loses a lesson's work | Must — built v0.6 |
+| F3.7d | In individual play the roster **builds itself from the phones**: a student opens the join page, types a name, and is a competitor with their own row and score. The join screen stops asking which team, because there is nothing to pick and anything chosen would be overwritten | Must — built v0.6 |
+| F3.7e | A board declares whether individual play suits its geometry (`solo`), defaulting to **false** so a new board has to have thought about it. A card that vanishes says why | Must — built v0.6 |
+| F3.7f | A competitor carries an **id**. An index is not an identity: it shifts when one above it is removed, which paid a live class's win to a team that no longer existed, and it cannot match a person to their handset across a reconnection | Must — built v0.5 |
 
 ### 4.4 Gameplay — per game
 
@@ -1157,7 +1302,7 @@ which of these ideas were ever wanted.
     route lit up behind it. On a shallow screen the board scales down to stay clear
     of it — it is the only board of the four not already sized to fit.
 
-**Connecting wall**
+**Connecting wall** — **no longer the expensive item this entry describes**
 - 16 tiles, four hidden groups of four
 - Students identify groups; teacher confirms
 - Solved groups lock and are colour-coded
@@ -1165,6 +1310,14 @@ which of these ideas were ever wanted.
 - Authoring note: groups should share a real linguistic property — collocation,
   register, word class — not merely topic. At least one group should be a plausible
   trap for another.
+- **Status changed since this was written.** It exists twice already in weaker forms:
+  `playground/connections.html` is the full sixteen-word game, and the **Connections
+  round** is the same mechanic inside a question slot, hosted on four boards. So a
+  Connecting Wall *skin* is now mostly geometry and scoring around a round that is
+  already built and tested — which makes it **the cheapest available test of whether a
+  new skin costs what Blockbusters did**, rather than the Tier 3 authoring problem §9.6
+  still treats it as. The authoring cost is unchanged and is the real constraint: a
+  decoy group has to be a coherent group of its own.
 
 **Race to the Board** *(kinaesthetic)* — **built**, Unit 5
 - Target words displayed scattered on screen
@@ -1259,6 +1412,36 @@ its own content set, authored in its own shape. The rest of §3.2 stands.
   they collectively know, which is itself useful retrieval practice. Fits any content,
   since difficulty tiers are assigned by the author.
 
+**Quickfire** — **built in v0.6**, the sixth game and the first with **no board at all**
+
+A straight run of ~15 multiple choice questions against a clock. No geometry, no turns,
+no tiles: the only decisions in the room are made on the handsets. It exists as a test
+of how much a sixth game costs once the tiers are real, and the answer is the useful
+part of it.
+
+- **It wrote no question handling.** The Multiple Choice round draws the card, arms the
+  phones, merges each team's taps and judges them. What is in the game is a sequence, a
+  clock and a scoreboard.
+- **It authored no content.** It reads `millionaireBank`, already
+  `{prompt, answer, distractors}`, so three units gained a sixth game with nothing
+  written. Bingo did this first against `blockbustersBank`; two callers is a pattern.
+- **The one genuinely new thing is scoring by speed**, and it needed the shared settle
+  path to grow a declaration. Every board until now had a slot one team takes, so the
+  first right answer ended the question. A straight run has no slot: `scoreEach` on the
+  host says every right team is paid for its own answer at its own speed. The clock is
+  read at `win()` time, so no round learned about time.
+- **The leaderboard sizes itself to the room**, measuring the gap to the floor rather
+  than picking a row count in advance, and draws `+N more` rather than hiding the tail.
+- **Known and not fixed:** its stage overflows a 720px board whenever the phone chip is
+  up. Measured identical before individual play existed, so it is not solo's doing.
+
+**Bingo** — **built in v0.4**, and in v0.6 it became a *round* as well as a skin
+
+The round (`ctx.keep`, a card per player, marks surviving a reconnection) is built and
+plays on another board. **The skin still runs its own implementation** — its own card
+dealing, marking and line detection. Moving the skin onto the round is the outstanding
+half, and is the natural next engineering job.
+
 **Optional additional games — for later selection**
 
 Not committed for the MVP. Listed so the choice is deliberate rather than default.
@@ -1328,7 +1511,7 @@ saved boards and history — that still holds. Teacher **preferences** are persi
 no setting. Nothing about a game in progress is saved, and where a browser blocks
 storage the app degrades to session-only and says so in the panel.
 
-### 4.4d Game show mode — built for all four games, untrialled
+### 4.4d Game show mode — built for every game, trialled once
 
 An alternative **skin**, chosen per game in that game's settings tab: `dcu` (the
 default, unchanged) or `gameshow`. Dark stage, chase lights, a title sequence,
@@ -1396,7 +1579,7 @@ whether the title sequence is still welcome by the fourth round of a lesson. Bot
 need a real class. Extending the skin to another game is a `games` entry, an `INTROS`
 entry and a block of stage CSS — no engine change.
 
-### 4.4c Phone buzzers — first draft, not yet trialled
+### 4.4c Phone buzzers — trialled once, with a real class
 
 §1.3 put "student devices" out of scope for the MVP, and for the demo that still
 holds: the teacher drives everything and the games are complete without phones.
@@ -1404,6 +1587,25 @@ This is an **optional layer** built on top, because the "who got there first?"
 problem in Race to the Board head-to-head has no good answer from one screen —
 the engine can't see who touched the projected image, so the teacher has been
 supplying that fact by hand.
+
+**One lesson has now been taught with it (2026-08-05), with rounds on real
+handsets.** The layer works: everyone connected, first time. What came back was not
+about connectivity, and three of the five reports are worth carrying into the
+requirements rather than the changelog:
+
+- **A phantom handset is a structural problem, not a nuisance.** A phone that dies
+  without closing its stream lingers in the room, inflating its team's size — and
+  every "the whole team must agree" gate is measured against that size, so one ghost
+  on a team of three makes the gate unreachable and the round unfinishable. The room
+  must be able to shed a handset a human can see is gone (F4c.9 below).
+- **A competitor's identity may not be its position.** Removing a team renumbered the
+  phones on the board's side only, and a win was paid to a team that no longer
+  existed. This is what F3.7f exists for.
+- **The relay forgets every room on every deploy.** Rooms live in memory, so a push
+  mid-lesson silently recreates each room empty under the same code and every phone
+  that rejoins lands on "waiting for the teacher". The room announces which instance
+  of itself is speaking (an epoch on `ready`) and re-tells a forgetful room
+  everything. **This was misdiagnosed as a phone-side resume bug for two sessions.**
 
 | ID | Requirement | Priority |
 |---|---|---|
@@ -1413,6 +1615,11 @@ supplying that fact by hand.
 | F4c.4 | With buzzers off, unreachable, or no network, every game behaves exactly as before | Must |
 | F4c.5 | A wrong answer re-opens the buzzers so the other team can steal | Should |
 | F4c.6 | The room survives a teacher page reload | Should |
+| F4c.7 | The room outlives the game: changing games parks it, never drops it, so a class does not rejoin mid-lesson | Must — built v0.4 |
+| F4c.8 | The room exists from the **first screen**, before a game is chosen. A class walks in during unit and game selection and cannot join a room that does not exist yet — the same reversal already made for "phones off means no room" | Must — built v0.6 |
+| F4c.9 | A handset that is visibly gone can be removed from the room by the teacher, and the room recomputes what depended on its presence | Must — built v0.5, from the classroom run |
+| F4c.10 | A room announces which **instance** of itself is speaking, so a relay restart is distinguishable from an ordinary reconnection and a forgetful room is re-told everything it held | Must — built v0.5 |
+| F4c.11 | Anything the round carries beyond `{mode, prompt, options}` reaches the relay **verbatim**, never through a hand-kept list of keys. Two separate silent drops were caused by such a list — `optionsByTeam` on a re-ask, and `promptByPlayer` nearly | Must — built v0.5 |
 
 **Architecture.** Phones cannot reach the teacher's laptop directly: school and
 guest WiFi normally run client isolation. Both ends therefore connect *outbound*
@@ -1501,7 +1708,11 @@ natural next steps:
   **Still missing:** keyboard navigation and screen-reader support, and no audit by
   anyone qualified to do one.
 - **Copyright position** if the tool is ever shared beyond the school
-- **Student-device mode** for individual or pair practice outside class
+- **Student-device mode** for individual or pair practice *outside* class. Note this is
+  no longer the same thing as students having devices *in* class, which is built
+  (§4.4c) and now extends to individual play with a per-person roster. What is still
+  excluded is unsupervised practice, which would need the two things this project
+  deliberately does not have: accounts, and a record of a named student
 
 ---
 
@@ -1518,10 +1729,14 @@ here with their answers rather than deleted, because the reasoning is the useful
    shape. Millionaire is the most expensive format at 36 questions per unit, because
    each needs three plausible distractors; Race is the cheapest, because it authors no
    distractors at all.
-2. **How many games can the MVP sustain?** — **Answered: four.** The lower bound in
-   v0.1 turned out to be close to right. A fifth is affordable in engineering terms
-   (§3.7 makes it cheap) but not in authoring terms until 5D and Unit 4's missing banks
-   are done. Content, not code, is the constraint.
+2. **How many games can the MVP sustain?** — **Answered, and the answer moved: six.**
+   v0.3 said four and called content the constraint. That was right about the
+   constraint and wrong about the ceiling, because the two games added since **authored
+   no content at all**: Bingo reads `blockbustersBank` through a predicate, Quickfire
+   reads `millionaireBank` as it stands. A game that consumes an existing bank is very
+   nearly free, and a game that needs its own is still expensive. The real answer is
+   that the number of games is not the interesting quantity — **the number of banks
+   is.**
 3. **Which games best suit Unit 5's content?** — **Answered, and the concern was
    justified.** Blockbusters does fight some of the content: its single-word answers
    keyed by an initial letter make relative pronouns unusable (**W** is ambiguous
@@ -1551,19 +1766,26 @@ here with their answers rather than deleted, because the reasoning is the useful
 
 ### New since v0.1
 
-9. **Does the atmosphere help or hinder?** Game show mode is now the default (§4.4d)
-   and has never been in front of a class. Three specific unknowns: whether the music
+9. **Does the atmosphere help or hinder?** Game show mode is now the default (§4.4d).
+   It has been in front of **one** class, and nothing about the atmosphere came back in
+   either direction — weak evidence that it did not get in the way, and no evidence at
+   all on the three unknowns below. They stand: whether the music
    bed competes with the teacher's voice on classroom speakers; whether the title
    sequence is still welcome by the fourth round of a lesson (the once-per-session
    default is a guess, not evidence); and whether the lights lift a class's energy or
    tip it over. All three need one real lesson, not more building.
-10. **Are phone buzzers a net gain?** (§4.4c) Never run with real handsets. Unknowns:
-    latency, whether school WiFi permits it, and whether phones in hands are a
-    behaviour cost that outweighs the fairness gain.
+10. **Are phone buzzers a net gain?** (§4.4c) — **Partly answered.** One lesson with
+    real handsets: everyone connected first time, and latency and school WiFi were both
+    non-issues. What is still open is the part that was always the real question —
+    whether phones in hands are a behaviour cost that outweighs the fairness gain. One
+    lesson does not settle it, and the note from v0.2 stands: a room of buzzers makes
+    everyone mash a button as fast as possible, which is a reflex test rather than a
+    language one. That is why the handsets now mostly run *rounds* instead.
 11. **Should the games live in their own files?** (F3.7.5) The registry contract makes
-    it possible; the four built-ins still share one closure. Worth doing when a fifth
-    game arrives, not before — the move is mechanical and the current arrangement is
-    not costing anything yet.
+    it possible; all **six** built-ins still share one closure. The trigger named here
+    ("when a fifth game arrives") has come and gone twice without the arrangement
+    costing anything, which is mild evidence that the file boundary was never the point
+    — the *contract* was. Still mechanical, still not urgent.
 12. **What is the second unit's authoring cost, now that the formats are settled?**
     Unit 5 was authored while the games were still changing shape. Unit 4's missing
     Race and Millionaire banks would give a clean measurement of steady-state cost,
@@ -1572,13 +1794,16 @@ here with their answers rather than deleted, because the reasoning is the useful
 ### New since v0.3
 
 18. **What are Millionaire's buzz settings for, now that its ladder is a round host?**
-    `phoneRound()` there always returns the Multiple Choice round, so `mBuzzRole`
-    (speaker / floor / off) can never fire and a teacher choosing "buzz for the floor"
-    gets four options on the phone instead. Either retire the setting so it stops
-    describing behaviour that cannot happen, or let a buzz pick who answers *for the
-    team* before the round takes the handsets — which is what `speaker` was always for.
-    Three checks are deliberately left failing to describe it. A design question, not a
-    defect to patch.
+    — **Answered in v0.6: retired.** `mBuzzRole` could not fire in either state a
+    handset can be in there. A live question puts four options in every hand; between
+    questions nothing is open and a buzz is refused. **A control a teacher can pick
+    that changes nothing reads as a broken game rather than as an absent feature**, so
+    it was dropped with its stored per-game values, and both hooks it fed
+    (`buzzEntitled`, `onBuzzTaken`) went with it — a no-op is the correct state on that
+    board and is now stated as one. What is **not** decided by removing it: whether a
+    buzz should pick who speaks for the team *before* the round takes the room. That is
+    what `speaker` was always for, it is a new beat rather than that switch, and it
+    needs a classroom question first.
 19. **Does authoring with rounds from the start differ from adding them afterwards?**
     Unit 5's 5A is rounds bolted onto a finished unit; New English File Unit 1 was
     written with them from the first line and a quarter of its Jeopardy content is
@@ -1590,6 +1815,37 @@ here with their answers rather than deleted, because the reasoning is the useful
     nothing tests it, and only a model reads it. The mitigation used here is to make the
     skill *ask the code* — `author-content` holds no list of question types and runs
     `tools/question-types.js` instead — but that only works for facts the code knows.
+
+### New since v0.5
+
+21. **Does individual play change what the games are *for*?** Built and driven, never
+    taught with. Two things are visibly different at sixteen people and invisible at
+    four teams. **Pacing**: turns rotate, so on a board like Millionaire a big class
+    answers rarely. And **the phone strip prints every answer on the wall** — branch 4
+    of `renderPhoneBar` shows `name: value` for every reply, so a multiple choice round
+    has always been showing the room what everybody picked, including whoever got it
+    right. That is the whole point of the strip in `write` mode and a leak in a round.
+    Which rounds should hide it is a decision, not a defect.
+22. **Is Word Drop worth a host, or worth deleting?** It is bench-only on purpose: no
+    game show can run its fall clock, because `ctx.again()` is lent by the question
+    bench and nothing else. Every number in it is a guess (9s→4s, −700ms a word). If it
+    earns its place the host work is one line in `jGroupCtx` plus content; if it does
+    not, deleting it costs nothing, because a round nobody authors for never meets a
+    class. **The first round built to be judged rather than kept.**
+23. **Does the round tier survive a skin that owns the *phones*?** Blockbusters proved
+    a round survives a different card, and Millionaire and Quickfire proved it survives
+    having no card. The untested contention is the other one — Bingo, where every
+    handset is already busy. The bingo *round* exists and runs elsewhere, so the
+    extraction is now a question about the skin rather than about the round, and it is
+    the last case where the tier could still turn out to be one board's helper.
+24. **Is a stale test worse than no test?** Five checks were found asserting pictures
+    the app had deliberately replaced, and one of them was hiding sixty others: a
+    `.innerText()` on an absent element throws while the *argument to* the assertion is
+    being built, so it takes the rest of its suite down and the run still prints a
+    total. "2 passed, 2 failed" read exactly like a complete run. The mechanical
+    mitigations are in place (a non-throwing text read, polling instead of sleeping),
+    but the underlying cause is not mechanical: **a content conversion or a deliberate
+    rewording silently invalidates checks elsewhere, and nothing links the two.**
 
 ### New since v0.2
 
