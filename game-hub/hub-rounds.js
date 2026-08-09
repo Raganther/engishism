@@ -244,7 +244,12 @@
       who.className = 'rl-who' + (spec.agree && spec.agree.all ? ' all' : '');
       who.textContent = (ctx && ctx.teamName) ? ctx.teamName(t) : ('Team ' + (t + 1));
       if(spec.agree){
+        /* Named rather than left as a bare `small`: this fraction is the only place
+           the card says how close a team is to agreeing, so anything looking *at*
+           the lanes needs a handle on it that is not a tag name. The styling still
+           matches through `.rl-who small`. */
         const a = document.createElement('small');
+        a.className = 'rl-agree';
         a.textContent = spec.agree.agreed + '/' + spec.agree.size;
         who.appendChild(a);
       }

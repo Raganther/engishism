@@ -106,6 +106,33 @@ async function startGame(page, gameTitle, { sections = 1, unit = 'Unit 5', keepI
 
 const scores = page => page.locator('.team .score').allInnerTexts();
 
+/* **`innerText()` on a locator that matches nothing waits thirty seconds and then
+   throws — and the throw happens while the *argument* to `check` is being built, so
+   it takes every remaining check in that suite with it.** A missing element should
+   be one red check, not an abort: `qbench` lost sixty checks for two builds because
+   one selector went stale.
+
+   `allInnerTexts()` resolves immediately with `[]` rather than waiting for a match,
+   so this reports absence in milliseconds and can never throw. Reach for it whenever
+   a check is asking *whether* something is drawn; keep `innerText()` for reading an
+   element the test has already established is there. */
+const textOf = async loc => (await loc.allInnerTexts()).join(' ').trim();
+
+/* **Poll for a thing to become true; never sleep for it.** A fixed wait is how a
+   check turns into a coin toss — a tap on a handset has to reach the relay, come
+   back to the board and redraw it, and the number of milliseconds that passes on a
+   quiet machine is the number that fails under load. This returns as soon as the
+   condition holds and gives up honestly, so the check that follows still reports
+   what it actually saw rather than throwing. */
+const until = async (fn, ms = 4000, step = 120) => {
+  const stop = Date.now() + ms;
+  for(;;){
+    if (await fn()) return true;
+    if (Date.now() > stop) return false;
+    await new Promise(r => setTimeout(r, step));
+  }
+};
+
 function checkClean(page, who){
   const w = who ? who + ' ' : '';
   check(w + 'nothing thrown', page.__errors.length === 0, page.__errors[0]);
@@ -590,9 +617,18 @@ async function testSettings(browser){
   await page.locator('#settings-btn').click(); await page.waitForTimeout(250);
   await page.locator('.settings-tab', { hasText:'All games' }).click(); await page.waitForTimeout(150);
   const masterRow = page.locator('.settings-row', { hasText:'Think-music drone' });
+  /* **Asserted on the marker and the game's name, not on the sentence.** This asked
+     for the words "overridden in millionaire" and had been red since that line was
+     deliberately reworded — a game can differ because a teacher set it *or* because
+     it registered its own default, so the row says "Has its own value in …" and
+     carries a comment saying why it must not say "overridden". Pinning prose pins
+     the wrong thing: what this check is about is that the master row does not
+     silently reach a game it cannot change, and that there is a way to get there. */
   check('the master row names the game overriding it',
-        /overridden in millionaire/i.test(await masterRow.innerText()),
-        await masterRow.innerText());
+        await masterRow.locator('.settings-state.overridden').count() === 1 &&
+        (await textOf(masterRow.locator('.settings-state.overridden .settings-undo')))
+          .toLowerCase().includes('millionaire'),
+        (await textOf(masterRow)).replace(/\n/g,' · '));
   await masterRow.locator('.settings-undo').click(); await page.waitForTimeout(200);
   check('clicking the name jumps straight to that game\'s tab',
         (await page.locator('.settings-tab.on').innerText()).toLowerCase() === 'millionaire');
@@ -3158,14 +3194,23 @@ async function testBuzzers(browser){
 async function testPhoneModes(browser){
   section('Phones — ask the room');
 
+  /* `lab:true` opens the Lab shell and its plain categories. **`round_default` is
+     what the phones do when no round owns them, and the class-facing units have no
+     plain questions left** — every Jeopardy clue in Units 4 and 5 is a round now, so
+     a board opened there arms the handsets with the round and `write`/`buzz` can
+     never fire. This suite went red at its third check and *threw*, taking the other
+     sixty with it, which is why the Millionaire checks further down had not run for
+     two builds. Same move `turns` and `competition` already made — see `openLabHub`. */
   const openRoom = async (game, prefs, opts) => {
-    const host = await openHub(browser);
+    const o = opts || {};
+    const host = await (o.lab ? openLabHub(browser) : openHub(browser));
     await host.evaluate(p => {
       window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
       window.HubSettings.set('buzzers', true);
       Object.keys(p).forEach(k => { if(k !== '__g') window.HubSettings.set(k, p[k], p.__g); });
     }, prefs);
-    await startGame(host, game, Object.assign({ sections:'all' }, opts || {}));
+    await startGame(host, game, Object.assign({ sections:o.lab ? 3 : 'all' },
+                                              o.lab ? { unit:'Lab' } : {}, o));
     await host.waitForTimeout(700);
     const chip = await host.locator('#buzzer-chip').innerText().catch(()=>'');
     return { host, code:(chip.match(/CODE\s+(\d{5})/i)||[])[1] };
@@ -3181,7 +3226,8 @@ async function testPhoneModes(browser){
   };
 
   // ---- typing: the whole class answers, not one student
-  const w = await openRoom('Jeopardy', { __g:'jeopardy', round_default:'write', phoneOneEach:true });
+  const w = await openRoom('Jeopardy', { __g:'jeopardy', round_default:'write', phoneOneEach:true },
+                           { lab:true });
   check('a room opens for a game that wants phones', !!w.code, w.code || 'none');
   if (w.code){
     const ana = await join(w.code, 'Ana', 0), ben = await join(w.code, 'Ben', 1);
@@ -3246,11 +3292,15 @@ async function testPhoneModes(browser){
           (await v.host.locator('.mc-votes').allInnerTexts()).join('/'));
     /* And the board stays answerable. With phones voting there are no hands to tap,
        so turning the options into a tally pad only dead-ends the round: the counts
-       arrive over the wire and the teacher's next click is the team's answer. The
-       button is there, but it closes the vote — it is not a tally pad. */
-    check('the vote is closed, not counted, when the phones are doing it',
-          (await v.host.locator('#m-done-count').innerText()).trim() === 'Done voting',
-          await v.host.locator('#m-done-count').innerText());
+       arrive over the wire and the teacher's next click is the team's answer.
+
+       **The tally pad is gone entirely now, not merely relabelled.** This asked for
+       the button to read "Done voting" — the wording it had while the lifeline
+       borrowed the handsets and had to hand them back. There is no borrowing, so
+       there is nothing to close, and the control is not offered at all. */
+    check('there is no tally pad to dead-end in',
+          !(await v.host.locator('#m-done-count').isVisible()),
+          await textOf(v.host.locator('#m-done-count')) || '(hidden)');
     /* Answer it correctly on purpose. Clicking whichever option the shuffle put
        first made this a coin toss: a wrong one is legitimately answered *and* then
        handed to the other team by stealOnWrong, which reopens the question — so
@@ -3268,37 +3318,68 @@ async function testPhoneModes(browser){
   checkClean(v.host, 'voting');
   await v.host.close();
 
-  /* The borrowing has to end as explicitly as it starts. A class set to buzz for
-     the floor must get its buzzer back when the vote closes — otherwise using a
-     lifeline silently costs the room its dynamic for the rest of the question. */
+  /* **Ask the class stopped borrowing the phones, and these checks had not noticed.**
+     They asserted a buzzer being taken away by the vote and handed back when it
+     closed — the shape the lifeline had when it ran a second poll of its own. It does
+     not: the round already asks the room on every question, so the lifeline reveals
+     the counts the board is holding and the handsets are never disturbed. Running a
+     second vote against them was two dynamics arming one phone, which is the bug that
+     change was made to remove.
+
+     So what is pinned now is that the handsets do **not** move. `round_default:'buzz'`
+     again on purpose: it is the value that used to produce the borrowing. */
   const vb = await openRoom('Millionaire', { __g:'millionaire', round_default:'buzz' });
   if (vb.code){
     const ana = await join(vb.code, 'Ana', 0);
     await vb.host.waitForTimeout(500);
-    check('the phone is a buzzer while the question is live',
-          await ana.locator('#buzzer').isVisible() && !(await ana.locator('#opts').isVisible()));
+    const beforeOpts = await ana.locator('#opts button').allInnerTexts();
+    check('the round has the phones before the lifeline',
+          beforeOpts.length === 4 && !(await ana.locator('#buzzer').isVisible()),
+          beforeOpts.join('|'));
+    /* **Answer it wrongly on purpose**, the same coin toss the block above already
+       pays for: one phone is the whole of its team, so a right answer wins the
+       question outright and there is no live round left to say anything about. Which
+       option the shuffle put first is not the test. */
+    const vbRight = await currentMillionaireAnswer(vb.host);
+    const vbWrong = beforeOpts.filter(o => o !== vbRight);
+    /* The class votes *first*, which is the order the room actually runs in: the
+       round asks on every question, and the lifeline is spent to see what came back.
+       Spending it against a room that has said nothing reveals nothing, which is the
+       one case that would say nothing about the borrowing either way. */
+    await ana.locator('#opts button', { hasText:new RegExp('^' + vbWrong[0]
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$') }).first().click();
+    await vb.host.waitForTimeout(600);
+    check('the board holds the votes without showing them',
+          (await vb.host.locator('.mc-votes').count()) === 0,
+          (await vb.host.locator('.mc-votes').allInnerTexts()).join('/'));
     await vb.host.locator('.lifeline[data-life="class"]').click(); await vb.host.waitForTimeout(700);
-    check('the vote borrows the buzzer',
-          await ana.locator('#opts').isVisible() && !(await ana.locator('#buzzer').isVisible()));
-    await vb.host.locator('#m-done-count').click(); await vb.host.waitForTimeout(700);
-    /* Visibility, not the option buttons: the vote leaves its four buttons in the
-       phone's DOM and only hides them, so counting them says nothing about what the
-       student is looking at. */
-    check('and closing the vote gives it back',
-          !(await ana.locator('#opts').isVisible()) &&
-          await ana.locator('#buzzer').isVisible() &&
-          !(await ana.locator('#buzzer').isDisabled()),
-          await ana.locator('#state').innerText().catch(()=>''));
-    check('the counts stay on the board after the vote closes',
-          (await vb.host.locator('.mc-votes').count()) === 4);
+    /* A count is drawn on an option somebody chose and nowhere else, so one vote is
+       one tag reading "1" — asserting four would be asserting a row of zeroes that
+       are deliberately not drawn. */
+    check('Ask the class reveals them without touching the handsets',
+          (await ana.locator('#opts button').allInnerTexts()).join('|') === beforeOpts.join('|') &&
+          (await vb.host.locator('.mc-votes').allInnerTexts()).join('/') === '1',
+          (await ana.locator('#opts button').allInnerTexts()).join('|') + ' · counts ' +
+          (await vb.host.locator('.mc-votes').allInnerTexts()).join('/'));
+    /* And the student is not spent for the rest of the question. The old flow
+       disarmed the room for the length of the vote, which is exactly the cost the
+       reveal-only version removes — so a change of mind still lands. The strip names
+       the *team* and what it is saying, not the student, once a round owns the room. */
+    const second = vbWrong[1];
+    await ana.locator('#opts button', { hasText:new RegExp('^' + second
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$') }).first().click();
+    await until(async () => (await textOf(vb.host.locator('#phone-bar'))).includes(second));
+    check('and a phone can still change its mind while the counts are up',
+          (await textOf(vb.host.locator('#phone-bar'))).includes(second),
+          (await textOf(vb.host.locator('#phone-bar'))).replace(/\n/g,' ') + ' · wanted ' + second);
     check('phone had no errors', ana.__errors.length === 0, ana.__errors[0]);
     await ana.close();
   }
-  checkClean(vb.host, 'vote hands the phones back');
+  checkClean(vb.host, 'ask the class leaves the phones alone');
   await vb.host.close();
 
   // ---- buzzing for the floor in a tile game
-  const bz = await openRoom('Jeopardy', { __g:'jeopardy', round_default:'buzz' });
+  const bz = await openRoom('Jeopardy', { __g:'jeopardy', round_default:'buzz' }, { lab:true });
   if (bz.code){
     const ben = await join(bz.code, 'Ben', 1);
     await bz.host.waitForTimeout(400);
@@ -3313,70 +3394,46 @@ async function testPhoneModes(browser){
   checkClean(bz.host, 'buzzing');
   await bz.host.close();
 
-  /* ---- what a buzz wins in Millionaire ----
-     Its ladder is per team and its turn order is fixed so everyone gets a full arc,
-     so "fastest thumb wins" is not automatically the right answer here. All three
-     answers are offered; each has to actually do what its label says. */
+  /* ---- there is no buzz to win in Millionaire any more ----
+     This was three blocks driving `mBuzzRole`'s three values, and they had been red
+     — and *throwing*, on a `#buzzer` that is never drawn — since the ladder became a
+     round host. The setting is retired (see the note where it is dropped in
+     `hub-engine.js`), so what is worth pinning is the state that replaced it: the
+     round owns the handsets for the whole of a live question, whatever the default
+     round is set to. Asserted with `round_default:'buzz'` deliberately — that is the
+     setting that used to produce a buzzer here, so this fails if a rung ever stops
+     hosting its round. */
   const mTurn = host => host.evaluate(() =>
     [...document.querySelectorAll('.team')].findIndex(e => e.classList.contains('active')));
 
-  // speaker: the buzz names who answers for the team already on turn, and a phone
-  // from the other team cannot take the turn off them
-  const sp = await openRoom('Millionaire', { __g:'millionaire', round_default:'buzz', mBuzzRole:'speaker' });
-  if (sp.code){
-    const before = await mTurn(sp.host);
-    const other  = await join(sp.code, 'Bea', before === 0 ? 1 : 0);
-    await sp.host.waitForTimeout(500);
-    await other.locator('#buzzer').click(); await sp.host.waitForTimeout(700);
-    check('speaker: a buzz from off-turn does not take the turn',
-          await mTurn(sp.host) === before, 'turn moved to ' + await mTurn(sp.host));
-    /* And it must re-arm rather than swallow the buzz: the relay locks the room on
-       the first buzz whoever sent it, so a refused phone left holding the lock would
-       keep the team that *is* entitled from ever getting in. */
-    const onTurn = await join(sp.code, 'Ali', before);
-    await sp.host.waitForTimeout(500);
-    check('speaker: the room re-armed, so the team on turn can still buzz',
-          !(await onTurn.locator('#buzzer').isDisabled()));
-    await onTurn.locator('#buzzer').click(); await sp.host.waitForTimeout(600);
-    check('speaker: their buzz is the one that shows',
-          (await sp.host.locator('#phone-bar').innerText()).includes('Ali'),
-          (await sp.host.locator('#phone-bar').innerText()).replace(/\n/g,' '));
-    for (const p of [other, onTurn]) await p.close();
-  }
-  checkClean(sp.host, 'millionaire buzz speaker');
-  await sp.host.close();
-
-  // floor: whoever buzzes first takes the question, on their own ladder
-  const fl = await openRoom('Millionaire', { __g:'millionaire', round_default:'buzz', mBuzzRole:'floor' });
-  if (fl.code){
-    const before = await mTurn(fl.host);
-    const want   = before === 0 ? 1 : 0;
-    const bea    = await join(fl.code, 'Bea', want);
-    await fl.host.waitForTimeout(500);
-    await bea.locator('#buzzer').click(); await fl.host.waitForTimeout(700);
-    check('floor: a buzz takes the question for that team',
-          await mTurn(fl.host) === want, 'turn is ' + await mTurn(fl.host) + ', wanted ' + want);
-    check('floor: and the board says so', (await fl.host.locator('#m-turn').innerText()).length > 0);
+  const nb = await openRoom('Millionaire', { __g:'millionaire', round_default:'buzz' });
+  if (nb.code){
+    const before = await mTurn(nb.host);
+    const bea    = await join(nb.code, 'Bea', before === 0 ? 1 : 0);
+    await nb.host.waitForTimeout(600);
+    check('the round owns the handsets, so a rung offers options rather than a buzzer',
+          await bea.locator('#opts button').count() === 4 &&
+          !(await bea.locator('#buzzer').isVisible()),
+          String(await bea.locator('#opts button').count()) + ' options');
+    /* The turn order is the reason `mBuzzRole` existed at all — the ladder is per
+       team so everyone gets a full arc, and nothing a handset does may take that
+       off the team on turn. Still true, now because there is no buzz rather than
+       because a setting refused it. Answered wrongly on purpose: a right answer from
+       the only phone on a team ends the question, and what happens after that is the
+       ladder's business rather than this check's. */
+    const nbRight = await currentMillionaireAnswer(nb.host);
+    const nbWrong = (await bea.locator('#opts button').allInnerTexts())
+      .find(o => o !== nbRight);
+    await bea.locator('#opts button', { hasText:new RegExp('^' + nbWrong
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$') }).first().click();
+    await nb.host.waitForTimeout(700);
+    check('and a handset answering does not move the turn',
+          await mTurn(nb.host) === before, 'turn moved to ' + await mTurn(nb.host));
+    check('phone had no errors', bea.__errors.length === 0, bea.__errors[0]);
     await bea.close();
   }
-  checkClean(fl.host, 'millionaire buzz floor');
-  await fl.host.close();
-
-  // off: the buzz is shown and changes nothing — what it did before the setting
-  const bo = await openRoom('Millionaire', { __g:'millionaire', round_default:'buzz', mBuzzRole:'off' });
-  if (bo.code){
-    const before = await mTurn(bo.host);
-    const bea    = await join(bo.code, 'Bea', before === 0 ? 1 : 0);
-    await bo.host.waitForTimeout(500);
-    await bea.locator('#buzzer').click(); await bo.host.waitForTimeout(700);
-    check('off: the buzz shows on the chip',
-          (await bo.host.locator('#phone-bar').innerText()).includes('Bea'),
-          (await bo.host.locator('#phone-bar').innerText()).replace(/\n/g,' '));
-    check('off: and the turn is untouched', await mTurn(bo.host) === before);
-    await bea.close();
-  }
-  checkClean(bo.host, 'millionaire buzz off');
-  await bo.host.close();
+  checkClean(nb.host, 'millionaire has no buzz');
+  await nb.host.close();
 
   /* ---- Race timed rounds ask the phones too ----
      This was `if(raceMode==='h2h')`, so half of Race ignored phoneMode entirely and
@@ -3462,20 +3519,35 @@ async function testPhoneModes(browser){
 
   /* Millionaire deals its first question inside start(), and opening the room is a
      fetch — so that question was asked before there were any phones to ask, and
-     never reached them. It also never called askPhones at all. */
+     never reached them. It also never called askPhones at all.
+
+     **That bug is still worth pinning; the text box it used to be pinned with is
+     not.** The ladder hosts a round, so `round_default` never gets a look in here and
+     the handsets get the round's four options rather than a reply field. What the
+     race between the deal and the room's code decides is the same either way: does
+     the first question of the game reach a phone at all. */
   const mw = await openRoom('Millionaire', { __g:'millionaire', round_default:'write' });
   if (mw.code){
     const ana = await join(mw.code, 'Ana', 0);
     await mw.host.waitForTimeout(700);
     check('Millionaire asks the room when it deals a question',
-          await ana.locator('#reply').isVisible());
+          await ana.locator('#opts button').count() === 4,
+          String(await ana.locator('#opts button').count()));
     check('and the question travels with it',
-          (await ana.locator('#qtext').innerText()).trim().length > 0);
-    await ana.fill('#reply', 'furthermore'); await ana.locator('#send').click();
-    await mw.host.waitForTimeout(700);
+          (await textOf(ana.locator('#qtext'))).length > 0);
+    /* The strip names the team and what it is saying rather than the student, once a
+       round owns the room — so this reads back the option that was tapped. A wrong
+       one on purpose: a right answer from the only phone on a team wins the question
+       and the strip then names the payout instead, which is a different check. */
+    const mwRight = await currentMillionaireAnswer(mw.host);
+    const picked = (await ana.locator('#opts button').allInnerTexts())
+      .find(o => o !== mwRight);
+    await ana.locator('#opts button', { hasText:new RegExp('^' + picked
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$') }).first().click();
+    await until(async () => (await textOf(mw.host.locator('#phone-bar'))).includes(picked));
     check('the answers land in the standard strip, the same one every game uses',
-          /Ana: furthermore/i.test(await mw.host.locator('#phone-bar').innerText().catch(()=>'')),
-          await mw.host.locator('#phone-bar').innerText().catch(()=>'none'));
+          (await textOf(mw.host.locator('#phone-bar'))).includes(picked),
+          (await textOf(mw.host.locator('#phone-bar'))).replace(/\n/g,' ') + ' · wanted ' + picked);
     await ana.close();
   }
   checkClean(mw.host, 'millionaire typing');
@@ -3483,7 +3555,7 @@ async function testPhoneModes(browser){
 
   /* Students trickle in. One who joins mid-question has to arrive into that
      question rather than watch a blank screen until the next one. */
-  const late = await openRoom('Jeopardy', { __g:'jeopardy', round_default:'write' });
+  const late = await openRoom('Jeopardy', { __g:'jeopardy', round_default:'write' }, { lab:true });
   if (late.code){
     await late.host.locator('#board .tile').first().click(); await late.host.waitForTimeout(800);
     const cara = await join(late.code, 'Cara', 0);
@@ -5583,16 +5655,44 @@ async function testGroupingClue(browser){
   if (await page.locator('#intro-overlay.on').count()){
     await page.keyboard.press('Space'); await page.waitForTimeout(300);
   }
+  /* **This only works because every LB1 clue is dealt, and nothing was saying so.**
+     The board holds 18 hexagons; if LB1 ever grows past that, the deal becomes a
+     sample and any clue named below is present only some of the time — three checks
+     then fail at random and read as a broken round rather than as drifted content.
+     So the precondition is asserted rather than assumed, and it names the real cause
+     when it goes. */
+  check('every LB1 clue is on the board, so a named one is always dealt',
+        await page.evaluate(() => {
+          const u = (window.UNITS || []).find(x => (x.blockbustersBank || [])
+                      .some(i => i.section === 'LB1'));
+          const n = (u.blockbustersBank || []).filter(i => i.section === 'LB1').length;
+          return { items:n, hexes:document.querySelectorAll('.hex').length };
+        }).then(r => r.items === r.hexes),
+        JSON.stringify(await page.evaluate(() => ({
+          items:((window.UNITS || []).find(x => (x.blockbustersBank || [])
+                   .some(i => i.section === 'LB1')).blockbustersBank || [])
+                   .filter(i => i.section === 'LB1').length,
+          hexes:document.querySelectorAll('.hex').length }))));
+
   /* Open the hexagon carrying a given clue. The board shuffles, and a letter is a
      *name* rather than a key — two hexagons may share one — so it is found by its
-     clue rather than by its letter. */
+     clue rather than by its letter.
+
+     It closes whatever is open before it starts. A caller that revealed a clue and
+     did not close it left the card up, so the first hexagon this clicked did nothing
+     and the loop burned an iteration reading the *previous* clue — harmless until the
+     day the previous clue happens to match, which would open nothing and report true. */
   const openHex = async want => {
-    for (let i = 0; i < 18; i++){
+    if (await page.locator('#clue-modal:visible').count()){
+      await page.locator('#skip-btn').click({ force:true }); await page.waitForTimeout(300);
+    }
+    const total = await page.locator('.hex').count();
+    for (let i = 0; i < total; i++){
       const hex = page.locator('.hex').nth(i);
       if (await hex.evaluate(h => h.classList.contains('claimed-gold') ||
                                   h.classList.contains('claimed-silver'))) continue;
       await hex.click({ force:true }); await page.waitForTimeout(320);
-      if (new RegExp(want, 'i').test(await page.locator('#clue-text').innerText())) return true;
+      if (new RegExp(want, 'i').test(await textOf(page.locator('#clue-text')))) return true;
       await page.locator('#skip-btn').click({ force:true }); await page.waitForTimeout(300);
     }
     return false;
@@ -6303,15 +6403,21 @@ async function testQuestionBench(browser){
     const word = (await mc.locator('#card-round .gw-text').allInnerTexts())[0];
     await mf2[0].locator('#opts button', { hasText:new RegExp('^'+word+'$') }).first().click();
     await mc.waitForTimeout(1500);
+    /* **The fraction is on the lane header, not in a tally of its own.** Multiple
+       Choice joined the lane standard and lost `.group-tally` with it: a count beside
+       the boxes says what the boxes already say, and in `agree` mode the header
+       carries `1/2` next to the team's name. This check went on asking for the old
+       element for two builds — and because a bare `innerText()` on nothing *throws*,
+       it took the rest of the suite down rather than going red on its own. */
     check('agree: one of a team of two is not the team, so nothing is judged',
-          !(await mc.locator('#card-round .group-say').innerText().catch(()=>'')).trim() &&
-          /1\/2/.test(await mc.locator('#card-round .group-tally').innerText()),
-          await mc.locator('#card-round .group-tally').innerText().catch(()=>'(none)'));
+          !(await textOf(mc.locator('#card-round .group-say'))) &&
+          /\b1\/2\b/.test(await textOf(mc.locator('#card-round .rlanes-mc .rl-agree'))),
+          await textOf(mc.locator('#card-round .rlanes-mc .rl-who')) || '(no lanes)');
     await mf2[2].locator('#opts button', { hasText:new RegExp('^'+word+'$') }).first().click();
     await mc.waitForTimeout(1500);
     check('agree: and it is judged the moment the whole team agrees',
-          !!(await mc.locator('#card-round .group-say').innerText().catch(()=>'')).trim(),
-          await mc.locator('#card-round .group-say').innerText().catch(()=>'(none)'));
+          !!(await textOf(mc.locator('#card-round .group-say'))),
+          await textOf(mc.locator('#card-round .group-say')) || '(none)');
   }
   checkClean(mc, 'multiple choice bench');
   await mc.close();

@@ -1229,6 +1229,70 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The suite had stopped describing the app, and one stale selector was hiding
+  sixty checks.** Five red checks, and **not one of them was a bug in the app** —
+  every one was a check still asserting a picture that had been deliberately
+  replaced. That is the whole finding: a test that goes stale does not merely stop
+  helping, it **actively lies**, and a green-looking partial run is what lets the
+  next one through.
+  - **`phonemodes` was running 2 checks of 80.** It aborted at the third, on a
+    Jeopardy `write` clue — Units 4 and 5 are all-rounds now, so the round arms the
+    handsets and `round_default` correctly never gets a look in. **The suite had been
+    reporting "2 passed, 2 failed" as though that were the whole of it.** The fix is
+    the one already recorded for `turns` and `competition`: the Lab board, whose
+    plain categories are not class-facing and so will not be converted out from under
+    a test. `openRoom` takes `{lab:true}`. **80 passed, 0 failed.**
+  - **`.innerText()` on a locator matching nothing waits thirty seconds and then
+    throws — and the throw happens while the *argument to* `check` is being built,
+    so it takes every remaining check in that suite with it.** That is the mechanism
+    behind both aborts, and it is worth knowing before writing another check.
+    `textOf()` is on the shelf now: `allInnerTexts()` resolves immediately with `[]`,
+    so absence is one red check in milliseconds instead of an abort. Reach for it
+    whenever a check asks *whether* something is drawn.
+  - **The qbench tally: the element was genuinely gone, and correctly.** Multiple
+    Choice joined the lane standard and lost `.group-tally` with it — in `agree` mode
+    the fraction is on the lane header beside the team's name. Proved by driving the
+    bench rather than by reading: four phones, two teams, one tap, and the card holds
+    `Team 1 1/2` with no tally anywhere. The fraction is `.rl-agree` now rather than
+    a bare `<small>`, because the only handle on it was a tag name.
+  - **`openHex` was never the coin toss this file claimed.** LB1 is exactly 18 items
+    and the board is exactly 18 hexagons, so every named clue *is* dealt; the note
+    described a selection the test does not make. The real fragility was an **open
+    card** — a caller that revealed a clue and left it up made the first hexagon
+    click a no-op and the loop read the *previous* clue, which would have reported
+    success the day that clue happened to match. It closes what is open, counts the
+    hexes, and **asserts the precondition**: if LB1 outgrows the board the suite says
+    so by name instead of failing three checks at random.
+  - **`mBuzzRole` is retired.** It asked what a buzz wins in Millionaire, which was a
+    real question while a rung was an ordinary clue. The ladder hosts a round: a live
+    question puts four options in every hand, and between questions nothing is open
+    and a buzz is refused. So it could not fire in either state, and **a control a
+    teacher can pick that changes nothing reads as a broken game rather than as an
+    absent feature.** Dropped with its stored per-game values, and both dead hooks
+    (`buzzEntitled`, `onBuzzTaken`) went with it — a no-op is the correct state here
+    and is now stated as one.
+    - **What is *not* decided by removing it:** a buzz that picks who speaks for the
+      team **before** the round takes the room. That is what `speaker` was always
+      for, it is a new beat rather than that switch, and it needs a classroom
+      question first — whether naming a speaker is wanted on this board at all.
+  - **A fourth stale check, found on the way, in `settings`.** The master row's
+    "overridden in millionaire" was reworded to "Has its own value in …" *with a
+    comment saying why it must not say overridden* — a game can differ because a
+    teacher set it or because it registered its own default. The check had been red
+    since. It asserts the marker and the game's name now, not the sentence: **pinning
+    prose pins the wrong thing.**
+  - **Two sleeps that were coin tosses, and one that still is.** A tap has to reach
+    the relay, come back and redraw the board, so `until(fn)` polls instead of
+    guessing a number. And two checks tapped whichever option the shuffle put first —
+    a right answer from the only phone on a team wins the question outright, so they
+    passed or failed on the shuffle. They pick a wrong option on purpose now, which
+    is the fix the block above them had already been given and documented.
+  - `phonemodes` 80/0, `settings, millionaire, registry, scoping, lab, card,
+    gameshow, anagram` 181/0, `qbench, grouping` 197/2 — **and both of those two are
+    pre-existing**: the ordering climb at 726px on a 720 board (its own item under
+    Next), and one `ERR_CERT_AUTHORITY_INVALID` from the sandbox proxy that did not
+    reproduce on the previous run. Every fix above was proved against the base build
+    by stashing, which is how the `settings` one was shown not to be mine.
 - **Bingo is the eighth round, and the contract addition it needed is built —
   `ctx.keep`, state that outlives one question.** Build-order item 5, and the thing
   most of "what the container makes possible" was waiting on. **Partly proved: the
@@ -4583,23 +4647,22 @@ for the full version with requirement IDs. The short form, in order:
    **stage-as-mount for Race**, then **Bingo extracted**, then **Race extracted**.
    A round is no longer limited to one button, so nothing on the list of round
    designs is blocked outright any more.
-4a. **`openHex` in the `grouping` suite is a coin toss.** It finds a Blockbusters
-   hexagon by its clue text, and the board deals 18 from the 28 in LB1+LB2 — so any
-   named clue is only there about two thirds of the time, and when it is not, three
-   checks fail and the suite throws. Cost a debugging cycle: the failures look like
-   a real break in the round, and a re-run was 104/0. Either deal every clue for the
-   test or have `openHex` say "not dealt this time" and skip.
-4b. **A red check in `qbench` that predates the hint work**: Multiple Choice in
-   `agree` mode on the bench never draws the `.group-tally`, so the suite throws
-   waiting for it and the rest of that suite never runs. Verified identical on the
-   base build (66 passed / 1 failed both ways), so it is not the action-strip work.
-   Two jobs, and the second matters more: find out whether the tally is genuinely
-   missing on the bench in that mode, and make the check read it with a fallback so
-   one absent element stops aborting sixty others.
-5. **Decide what Millionaire's buzz settings are for.** `mBuzzRole` cannot fire since
-   its ladder became a round host. Either retire the setting so it stops lying, or let
-   a buzz pick who answers for the team *before* the round takes the handsets — which
-   is what `speaker` was always for. Three checks sit red describing it.
+4a. ~~**`openHex` in the `grouping` suite is a coin toss.**~~ **Done** — and the
+   premise was wrong, which is the useful half. LB1 is exactly 18 items and the board
+   is exactly 18 hexagons, so every named clue *is* dealt; the note's "18 from the 28
+   in LB1+LB2" described a selection the test does not make. The real fragility was
+   an open card: a caller that revealed a clue and left it up made the first hexagon
+   click a no-op and the loop read the *previous* clue. It closes what is open before
+   it starts, counts the hexes rather than assuming 18, and **the precondition is now
+   asserted** — if LB1 ever outgrows the board the suite says so by name instead of
+   failing three checks at random.
+4b. ~~**A red check in `qbench`**~~ — **Done**, and it was a stale selector rather
+   than a missing element. See Current status.
+5. ~~**Decide what Millionaire's buzz settings are for.**~~ **Retired** — see Current
+   status. What is *not* decided: a buzz that picks who speaks for the team **before**
+   the round takes the room, which is what `speaker` was always for and is a new beat
+   rather than that switch. Still open, and it needs a classroom question first —
+   whether naming a speaker is a thing a teacher wants on this board at all.
 6. ~~**Content filing by topic**~~ — **decided against for now**, see build order item 8.
    Content stays in per-game banks; the `author-content` skill delivers what was wanted
    from it.

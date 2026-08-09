@@ -418,24 +418,12 @@
     expects:     () => (mCurrent && mCurrent.q && mCurrent.q.answer) || '',
     phonePrompt: () => (mCurrent && mCurrent.q && mCurrent.q.prompt) || '',
     askingNow:   () => !!(mCurrent && !mAnswered),
-    /* The ladder is per team with a fixed turn order so everyone gets a full arc,
-       and "fastest thumb wins" cuts against that on purpose — so a buzz means
-       whatever `mBuzzRole` says it means. `speaker` refuses a buzz from a team that
-       is not on turn; the engine re-arms so the entitled team can still get in. */
-    buzzEntitled(b){
-      if(!teams[b.team]) return true;
-      if(S.get('mBuzzRole', 'millionaire') !== 'speaker') return true;
-      return b.team === (mCurrent ? mCurrent.team : active);
-    },
-    onBuzzTaken(b){
-      if(!teams[b.team] || S.get('mBuzzRole', 'millionaire') !== 'floor') return;
-      if(!mCurrent || mAnswered) return;
-      mCurrent.team = b.team;
-      active = b.team;               // the turn strip, lifelines and ladder follow
-      if(jGroup) jGroup.chosen = []; // a new team decides for itself
-      renderScorebar();
-      renderMillionaire();
-    },
+    /* **No buzz hooks, and that is a statement rather than an omission.** This board
+       used to answer `buzzEntitled` and `onBuzzTaken` against `mBuzzRole`; the ladder
+       hosts a round now, so a live question puts the four options in every hand and
+       there is no buzzer to be entitled to. Between questions `askingNow()` is false
+       and the engine disarms. Both hooks default to a no-op, which is the correct
+       state here — see the note where `mBuzzRole` was dropped. */
     // no onTypedWin: typing is not offered here, for the same reason it never gets
     // an anagram — the four options hand you the word
     /* Every question is a round now, so the handsets are the round's for the whole
@@ -1227,25 +1215,24 @@
   S.register({ id:'mFinalAnswer', group:'Millionaire', type:'toggle', default:true, games:['millionaire'],
     label:'Final answer?',
     help:'A picked option locks in highlighted and waits for "Final answer?" before the reveal. The team can change their mind until then. Off reveals on the first click.' });
-  /* What a buzz is *for* is a different question in Millionaire than in the tile
-     games, and it has no single right answer — which is why it is a variant rather
-     than a decision taken here. The ladder is per team and the turn order is fixed
-     so that everyone gets a full arc (§9.5), and "fastest thumb wins" cuts straight
-     across that. So: does the buzz pick the student, or take the turn?
-       speaker — names who answers for the team already on turn; a buzz from the
-                 other team is refused and the room re-armed, so the entitled team
-                 can still get in. Turn order and both ladders are untouched.
-       floor   — whoever buzzes first takes the question and plays it on their own
-                 ladder. Fastest thumb, like Jeopardy. Gives up the even arc.
-       off     — the buzz shows on the chip and changes nothing on the board. What
-                 it did before this setting existed. */
-  S.register({ id:'mBuzzRole', group:'Millionaire', type:'variant', default:'speaker',
-    games:['millionaire'],
-    label:'What a buzz wins',
-    help:'Millionaire has a fixed turn order so every team gets a full ladder. This decides whether a buzz picks who speaks for the team on turn, or takes the turn outright.',
-    variants:[{value:'speaker', label:'Picks who answers for the team on turn'},
-              {value:'floor',   label:'Takes the question — played on their ladder'},
-              {value:'off',     label:'Nothing — the buzz is just shown'}] });
+  /* **`mBuzzRole` was retired here, and the reason is worth keeping.** It asked what
+     a buzz wins in Millionaire — name the speaker for the team on turn, take the
+     question outright, or nothing — which was a real question while a rung was an
+     ordinary clue that armed the handsets as buzzers.
+
+     Its ladder became a round host: `phoneRound()` returns the Multiple Choice round
+     for every live question, so the round owns the handsets and there is no buzzer
+     for a role to be given to. Between questions nothing is open, and a buzz arriving
+     then is refused and the room disarmed. So the setting could not fire in either
+     state, and **a control a teacher can pick that changes nothing is worse than no
+     control** — it reads as a broken game rather than as an absent feature.
+
+     What is *not* decided by removing it: whether a buzz should pick who speaks for
+     the team **before** the round takes the room, which is what `speaker` was always
+     for and is a new beat rather than this switch. That stays open — see Next. */
+  (function dropBuzzRole(){
+    S.drop([''].concat(gameIds().map(g => '@' + g)).map(sfx => 'mBuzzRole' + sfx));
+  })();
 
   S.register({ id:'mConferSeconds', group:'Millionaire', type:'select', default:30, games:['millionaire'],
     label:'Confer time', help:'How long a team gets to consult when they use Confer.',
