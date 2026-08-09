@@ -515,7 +515,7 @@
      running broken by a question the whole room assembles — and this is the only
      place to find out whether that rhythm works or ruins the game. */
   raceSectionNames: {
-    'LR1': 'LR1 · Race — words to touch and rounds to play (10)',
+    'LR1': 'LR1 · Race — words to touch and rounds to play (11)',
   },
   raceBank: [
     {section:'LR1', topic:'LR1-mixed', prompt:"The jury returned a ___ of not guilty.", answer:"verdict"},
@@ -536,6 +536,24 @@
        round is quietly pointing at the answer to somebody else's sentence. */
     {section:'LR1', topic:'LR1-mixed', prompt:"Four of these mean breaking the law. Find the four.",
       group:{ pick:["offence","crime","violation","breach"], with:["defence","witness","hearing","juror"] }},
+    /* **The bingo round on a board that is not Bingo**, which is the whole point of
+       it being a round: a card in every hand, persisting across all twelve calls,
+       inside a game of Race. No word here is a tile on this board. */
+    {section:'LR1', topic:'LR1-mixed', prompt:"Bingo — listen for your words.",
+      bingo:{ calls:[
+        { clue:"The twelve who decide.",                    answer:"jury" },
+        { clue:"Formally accused of a crime.",              answer:"charged" },
+        { clue:"Found not guilty and released.",            answer:"acquitted" },
+        { clue:"Found guilty by a court.",                  answer:"convicted" },
+        { clue:"A punishment paid in money.",               answer:"fine" },
+        { clue:"The lawyer who argues against you.",        answer:"prosecutor" },
+        { clue:"Someone who saw what happened.",            answer:"witness" },
+        { clue:"The room where a trial is held.",           answer:"courtroom" },
+        { clue:"Time served instead of prison, at home.",   answer:"probation" },
+        { clue:"The person accused, standing in the dock.", answer:"defendant" },
+        { clue:"What a guilty person may show afterwards.", answer:"remorse" },
+        { clue:"A written promise to appear in court.",     answer:"summons" }
+      ] }},
     {section:'LR1', topic:'LR1-mixed', prompt:"Rank these from the weakest claim to the firmest.",
       order:{ scale:["doubt","suspect","believe","know","certain"],
               low:"barely a hunch", high:"beyond question",

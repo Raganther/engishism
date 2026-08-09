@@ -342,7 +342,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260808j"></script>
+<script src="game-hub/hub-buzzer.js?v=20260808k"></script>
 <script>
 (function(){
   'use strict';
@@ -1094,6 +1094,15 @@
 
     function applyArmed(d){
       floorClockStop();          // a fresh floor retires whoever was on the clock
+      /* **A round deals its card on the arm**, and updates its marks the same way —
+         a round cannot send the relay a second message, so the card rides the arm.
+         Applied before the mode is set up, or the grid below draws last call's
+         marks for a frame. */
+      if(d && d.card){
+        card = { words:d.card.words || [], marked:d.card.marked || [] };
+        cardBusy = false;
+        renderCard();
+      }
       canRethink = !!(d && d.rethink);
       timeUp = false;
       maxPicks = Math.max(1, Number(d && d.multi) || 1);

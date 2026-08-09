@@ -909,3 +909,50 @@ body.theme-gameshow .round-actions button.round-action{
   --ra-ink:  var(--gold, #FFC20E);
   --ra-hover: rgba(255,194,14,0.16);
 }
+
+/* ================= the bingo round =================
+   **The board is not thirty cards.** Every student is holding their own, so what a
+   projector can usefully add is the room: the call being read, which words have gone,
+   and who is close. The card itself is deliberately not drawn here.
+
+   Palette through the same custom properties as every other round, so this reads on
+   a light clue card, on a lit stage and on the bench without any of them knowing. */
+.round-bingo{ display:flex; flex-direction:column; align-items:center; gap:12px; }
+
+.bg-call{ display:flex; flex-direction:column; align-items:center; gap:4px; }
+.bg-num{ font-family:'IBM Plex Mono',monospace; font-size:0.66em; opacity:0.6;
+  letter-spacing:0.08em; text-transform:uppercase; }
+.bg-clue{ font-weight:600; line-height:1.25; text-align:center; }
+
+/* Every word in the pool, struck through once it has been called. A list that shrank
+   would tell a student nothing about what has already gone past them. */
+.bg-pool{ display:flex; flex-wrap:wrap; justify-content:center; gap:6px; }
+.bg-word{
+  font-size:0.72em; padding:3px 10px; border-radius:99px; line-height:1.3;
+  border:1.5px solid var(--gw-line, rgba(18,38,63,0.28));
+  color:var(--gw-ink, #12263F);
+}
+.bg-word.called{
+  opacity:0.42; text-decoration:line-through;
+  background:var(--gw-wash, rgba(18,38,63,0.07));
+}
+
+/* One row per *player*, not per team — a card belongs to a person, which is the one
+   place in this app where that is true. `Kit.round.lanes` is deliberately not used:
+   it draws a team assembling one answer, and there is no assembling here. */
+.bg-players{ display:flex; flex-wrap:wrap; justify-content:center; gap:5px; }
+.bg-player{
+  display:flex; align-items:center; gap:7px; font-size:0.7em; line-height:1.3;
+  padding:3px 9px; border-radius:8px;
+  border:1.5px solid var(--gw-line, rgba(18,38,63,0.22));
+  border-left:4px solid var(--team, var(--gw-line, #00A0DF));
+  color:var(--gw-ink, #12263F);
+}
+.bg-player span{ font-family:'IBM Plex Mono',monospace; opacity:0.7; }
+/* One square off a line. Amber, the same "there is something to say about this"
+   the round lanes use — never the right-answer green, because nobody has won yet. */
+.bg-player.close{ border-color:var(--gw-warn, #E8A33D);
+  background:var(--gw-warnwash, rgba(232,163,61,0.16)); }
+.bg-player.won{ border-color:var(--gw-good, #2FA84F);
+  background:var(--gw-goodwash, rgba(47,168,79,0.16));
+  color:var(--gw-goodink, inherit); font-weight:700; }

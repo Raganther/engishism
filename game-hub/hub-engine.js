@@ -3219,6 +3219,8 @@
     if(!g) return;
     GAMES.forEach(x => { document.getElementById(x.stage).style.display='none'; });
     document.getElementById(g.stage).style.display='block';
+    // a new game is a new lesson: whatever a round was keeping per student goes
+    roundKeepReset();
     g.start();
     syncBuzzRoom();
     showScreen('screen-play');
@@ -4369,6 +4371,23 @@
          a typed word was received and the host owns the wire. */
       verdict: (id, verdict, note, coolMs) => { if(buzzHost) buzzHost.judge(id, verdict, { note, coolMs }); },
       teamName,
+      /* **State that outlives one question — the contract addition, and the last one
+         on the build order.** Every hook a round has is handed one question and
+         forgets it afterwards, which is right for a question and wrong for anything
+         a *student* carries: a bingo card and its marks, a hand, a secret role, a
+         personal scorecard.
+
+         Keyed by player id, because that is the only identity that survives a phone
+         dropping off the wifi and coming back — a competitor's index shifts and a
+         name is not unique. Scoped to the round *type*, so a bingo round keeps its
+         cards across all of its own calls and a different round starts clean, and
+         cleared when a game starts, because a new game is a new lesson.
+
+         The relay was already doing the hard half: it holds a card per player across
+         a reconnect. What was missing was a way for a round to put one there, which
+         is `cardsByPlayer` on the arm. This is the host's half — anything a round
+         wants to remember that the phones do not need to see. */
+      keep: roundKeepFor(id || jRoundId),
       /* **Individuals, so there is nothing to assemble.** A lane exists to show a
          team building one answer out of several handsets — how many have committed,
          whether they agree. A competitor of one has neither question to answer: they
@@ -4617,6 +4636,23 @@
      ago, only what came before what, and a counter cannot disagree with anything.
      The stamp moves only when a competitor's answer actually *changes*, so somebody
      re-reading their own reply does not lose their place. */
+  /* One store per round type, thrown away when a game starts. `all()` copies, so a
+     round cannot hand its own store out and have it mutated behind its back. */
+  let roundKeep = null;
+  function roundKeepFor(id){
+    const key = String(id || '');
+    if(!roundKeep || roundKeep.id !== key) roundKeep = { id:key, store:new Map() };
+    const store = roundKeep.store;
+    return {
+      get: pid => store.get(String(pid)),
+      set: (pid, v) => { store.set(String(pid), v); return v; },
+      has: pid => store.has(String(pid)),
+      all: () => { const out = {}; store.forEach((v, k) => { out[k] = v; }); return out; },
+      clear: () => store.clear()
+    };
+  }
+  function roundKeepReset(){ roundKeep = null; }
+
   let jGroupSeq = 0;
   function jGroupStamp(){
     if(!jGroup) return;
@@ -7657,6 +7693,11 @@
      handed a ctx scoped to whichever board is asking, and then open. */
   function raceOpenRound(item){
     jGroupEnd();
+    /* **The item the round is playing, which every other host sets and this one did
+       not.** `roundPress` re-asks the room through `currentClueItem`, so without it a
+       round button that moves the question — bingo's next call — redrew the board and
+       left thirty handsets on the previous one. */
+    currentClueItem = item;
     const found = jGroupOf(item, 'race');
     const opened = found ? jGroupOpen(found) : null;
     document.getElementById('race-round').style.display = opened ? 'block' : 'none';

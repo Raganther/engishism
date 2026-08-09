@@ -401,6 +401,10 @@ function handleSend(req, res){
             }, {})
           : null;
         room.team  = (msg.team === 0 || Number(msg.team) > 0) ? Number(msg.team) : null;
+        /* A round dealing, or re-dealing, its own per-player cards. Carried unread
+           like everything else on the arm — the relay never learns which word is
+           the right one, exactly as it never learns a typed answer. */
+        dealCards(room, msg.cardsByPlayer, false);
         room.responses = new Map();
         // a new round clears who has already had a go, unless the host is
         // deliberately continuing one (spending is how "one each" is enforced)
@@ -428,6 +432,12 @@ function handleSend(req, res){
                                    spent: [...room.spent], reopen: !!msg.reopen,
                                    rethink: room.rethink, secs: room.secs,
                                    multi: capFor(room, p.team),
+                                   /* This phone's own card, if the room holds one. On
+                                      the arm as well as the join, because a round
+                                      updates its marks by re-arming and a card that
+                                      only travelled on `joined` would freeze on the
+                                      first call. */
+                                   card: room.cards.get(p.id) || null,
                                    cooling: [...room.cooling].map(([id,until])=>({ id, until })) }));
         return sendJSON(res, 200, { ok:true });
       }
@@ -508,16 +518,7 @@ function handleSend(req, res){
       /* One card per player, dealt by the host. Sent as {id: [words]} so a class of
          thirty is one request rather than thirty. */
       case 'deal': {
-        const cards = (msg.cards && typeof msg.cards === 'object') ? msg.cards : {};
-        Object.keys(cards).forEach(pid => {
-          const words = Array.isArray(cards[pid]) ? cards[pid].slice(0,25).map(w=>String(w).slice(0,40)) : [];
-          if(!words.length) return;
-          const card = { words, marked:words.map(()=>false) };
-          room.cards.set(pid, card);
-          const p = room.players.get(pid);
-          if(p) pushEvent(p.res, 'card', card);
-        });
-        return sendJSON(res, 200, { ok:true, dealt:Object.keys(cards).length });
+        return sendJSON(res, 200, { ok:true, dealt: dealCards(room, msg.cards, true) });
       }
       /* The host judged a tap and it was right. The relay stores the mark so a
          phone that reconnects gets its card back with the marks still on it. */
@@ -621,6 +622,35 @@ function serveStatic(req, res, pathname){
    a phone is never asked to compare its clock with the relay's. */
 /* Everybody's replies and the count against each value. Two callers now: a reply
    arriving, and a held reply leaving with the phone that held it. */
+/* **Storing one player's card and telling that phone.** Two callers: the `deal`
+   message, which is how the Bingo skin has always dealt, and the `arm` message,
+   which is how a *round* does it — a round cannot send its own relay messages, so
+   the card rides the arm it was already sending. That is the whole of "state that
+   outlives one question" on this side: the relay was already keeping cards across
+   calls and across a phone dropping off the wifi; what was missing was a way for a
+   round to put one here.
+
+   `[words]` is the old shape and stays; `{words, marked}` is the round's, because a
+   round updates marks by re-arming rather than by sending a second message. `push`
+   is false on an arm, where the per-recipient payload carries the card anyway and a
+   second event would only make the handset draw twice. */
+function dealCards(room, cards, push){
+  if(!cards || typeof cards !== 'object') return 0;
+  let n = 0;
+  Object.keys(cards).slice(0, 60).forEach(pid => {
+    const v = cards[pid];
+    const raw = Array.isArray(v) ? v : (v && Array.isArray(v.words) ? v.words : null);
+    if(!raw || !raw.length) return;
+    const words  = raw.slice(0,25).map(w => String(w).slice(0,40));
+    const marked = (v && Array.isArray(v.marked))
+      ? words.map((_, i) => !!v.marked[i]) : words.map(()=>false);
+    room.cards.set(String(pid).slice(0,40), { words, marked });
+    n++;
+    if(push){ const p = room.players.get(pid); if(p) pushEvent(p.res, 'card', { words, marked }); }
+  });
+  return n;
+}
+
 function tallyOf(room){
   const all = [...room.responses.values()];
   const tally = {};

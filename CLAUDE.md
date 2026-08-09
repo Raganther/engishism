@@ -1229,6 +1229,40 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Bingo is the eighth round, and the contract addition it needed is built —
+  `ctx.keep`, state that outlives one question.** Build-order item 5, and the thing
+  most of "what the container makes possible" was waiting on. **Partly proved: the
+  cards and the marks work on a board; advancing to the next call does not.**
+  - **`ctx.keep` is the host's store, keyed by player id.** Every other hook is
+    handed one question and forgets it, which is right for a question and wrong for
+    anything a *student* carries — a card, a hand, a role, a personal scorecard.
+    Keyed by player id because that is the only identity that survives a phone
+    dropping off the wifi; scoped to the round type, so a bingo round keeps its cards
+    across all its own calls; cleared when a game starts.
+  - **`cardsByPlayer` on the arm is the wire half.** A round cannot send the relay
+    its own messages, so the card and its marks ride the arm that was going anyway —
+    and a round updates a mark by *re-arming*, which is why the `armed` payload
+    carries the card now and not only `joined`. The relay's own `deal` path is
+    unchanged and both go through one `dealCards`.
+  - **One authored item is a whole game of bingo, not one call**, because a card is
+    drawn from a pool and the pool is only knowable if the item holds every call. The
+    pool is the answers, not a second list to keep in step.
+  - **The board is not thirty cards.** It shows the call, which words have gone, and
+    who is close — the only thing a projector can add when the card is in every hand.
+    `Kit.round.lanes` is deliberately not used: a lane draws a team assembling one
+    answer, and there is no assembling here.
+  - **Proved on the Race board with two handsets**: each phone dealt its own nine
+    words, the two cards differing; a tap on the called word marked it; the board
+    read `Ana 1/9 Ben 0/9`, which is the mark coming back out of `keep`. The relay
+    half is proved separately over raw HTTP, including a mark landing on a re-arm.
+  - **Not working, and it is the next thing to fix: Next call jumps to the end.** On
+    a board, pressing it once leaves the card reading "All 12 called" — `s.at` is
+    past the end, which one `press` cannot do. **The same button advances correctly
+    on the question bench**, so it is the host path rather than the round. Found on
+    the way: `roundPress` re-asks the room through `currentClueItem`, which Race
+    never set — fixed, and not the cause.
+  - **Bingo the skin still runs its own implementation.** Moving it onto the round is
+    the second half of the job and is not started.
 - **Every board hosts a round now — Race is the fifth host, and the audit found the
   other two were never the gap they looked like.**
   - **Millionaire and Quickfire already accepted any round.** Both call
