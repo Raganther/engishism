@@ -184,7 +184,7 @@
     </div>
   </div>
 
-<script src="bench-kit.js?v=20260809c"></script>
+<script src="bench-kit.js?v=20260809d"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -452,10 +452,19 @@ function applyLayout(n, m){
      holding points. In typed-code mode there is no frame to ask and the extra
      columns simply rack as Team n, which is the honest picture of a rig
      pointed at somebody else's room. */
+  /* **Exactly n teams, both directions.** `ensure` only grew, so pressing 4×4 and
+     then 3×3 left the board on four teams while the rack drew three — the bench
+     disagreeing with the board it exists to mirror, which is the one thing it must
+     never do. `size` refuses to shrink over a running game or a team holding points
+     and says so, because that is the board's rule and not the bench's to overrule. */
   try{
     const f = $('stage-frame');
     const bt = f && f.contentWindow && f.contentWindow.HubTeams;
-    if(bt && bt.ensure){ bt.ensure(n); setTimeout(()=> loadTeams(true), 800); }
+    if(bt && bt.size){
+      const r = bt.size(n) || {};
+      if(r.refused) setStatus('the board kept ' + r.count + ' teams — ' + r.refused);
+      setTimeout(()=> loadTeams(true), 800);
+    }else if(bt && bt.ensure){ bt.ensure(n); setTimeout(()=> loadTeams(true), 800); }
   }catch(e){}
   phones.slice().filter(p => p.team >= n).forEach(removePhone);
   for(let t = 0; t < n; t++)

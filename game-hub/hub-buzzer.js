@@ -140,7 +140,17 @@ window.HubBuzzer = (function(){
         if(name==='ready') ev.emit('ready', d);
         else if(name==='buzz') ev.emit('buzz', d);
         else if(name==='response') ev.emit('response', d);
-        else ev.emit('players', players);
+        else {
+          /* **A student arriving is a different fact from the roster changing**, and
+             this used to flatten the two into one `players` event — so the *only*
+             moment a handset's team is unambiguously the student's own choice was
+             thrown away, and anything downstream had to re-derive it from a roster
+             the host itself also writes to. Carried through when the relay names who
+             joined; the seat path re-emits `join` with the roster alone, and has no
+             `id`, which is exactly the difference worth keeping. */
+          if(name === 'join' && d && d.id) ev.emit('join', d);
+          ev.emit('players', players);
+        }
       });
     });
 

@@ -1926,6 +1926,27 @@
       while(teams.length < n){ Roster.add(); grew = true; }
       if(grew){ renderScorebar(); hook('onRoster'); }
       return teams.length;
+    },
+    /* **Exactly n, which is what a classroom-division preset means.** `ensure` only
+       ever grew, so the room bench's 4×4 → 3×3 → 2×2 left the board on four teams
+       while the rack showed two — the bench quietly disagreeing with the board it is
+       there to mirror, which makes it useless for the one job it has.
+
+       Shrinking is still not free, and the reason `ensure` was grow-only stands:
+       removing a team can bin points somebody earned. But that reason belongs to a
+       lesson in progress, not to setting the room up — so this refuses rather than
+       asks, and says which it did. The caller is a preset button, not a person
+       deciding; a confirm dialog behind a remote control is nobody's idea of a
+       question. `removeTeam` keeps its own confirm for the human path. */
+    size(n){
+      n = Math.max(Roster.floor(), Math.min(40, Number(n) || 0));
+      const playing = document.getElementById('screen-play').classList.contains('active');
+      const held    = teams.some(t => t.score !== 0);
+      if(teams.length > n && (playing || held))
+        return { count: teams.length, refused: playing ? 'a game is running' : 'a team has points' };
+      while(teams.length > n) removeTeam(teams.length - 1);
+      this.ensure(n);
+      return { count: teams.length };
     }
   };
   let active = 0;   // jeopardy: selected/active team index
@@ -1997,16 +2018,10 @@
      The board already keeps two rosters and swaps between them; this is the same
      idea one layer out. What the teams roster remembers is where each *player* was,
      by player id — never by index, for the reason `soloSeat` is keyed that way. */
-  const teamSeat = Object.create(null);     // playerId -> team index, teams mode only
+  const teamSeat = Object.create(null);     // playerId -> the side this student chose
   let reseatTeams = false;                  // set on the way back, cleared once done
   function swapRoster(to){
     const from = to === 'solo' ? 'teams' : 'solo';
-    /* Snapshot before anything is cleared. In teams mode the relay's own record is
-       the truth — the student chose it — so it is read rather than kept in step. */
-    if(from === 'teams' && buzzHost)
-      (buzzHost.players() || []).forEach(p=>{
-        if(p && p.id) teamSeat[p.id] = Number(p.team) || 0;
-      });
     reseatTeams = to === 'teams';
     rosterStash[from] = { list: teams.slice(),
                           seat: Object.assign({}, soloSeat),
@@ -7024,6 +7039,9 @@
                                      saying there were no phones in a room the class
                                      had just joined. Nothing re-painted it. */
                                   if(activeGame === 'millionaire') renderMillionaire(); });
+      /* **Which side a student is on, recorded from the one event that can only be
+         their own choice.** See `rememberSides` for why nothing else will do. */
+      buzzHost.on('join', p=> rememberSides(p));
       buzzHost.on('players', list=>{ buzzPlayers=list.length;
                                      /* First, because everything below is judged
                                         against the roster and in a solo room this
@@ -7140,6 +7158,33 @@
      would quietly overrule them. This fires on the transition and clears its own
      flag. A player nobody remembers (they joined during solo) lands on team 0, which
      is where a new phone lands anyway. */
+  /* **Recorded from the join, and from nothing else — which took three attempts.**
+     A student's side is a fact about *them*: they pick it on the join screen, and
+     going to solo and back has to be able to put them there again.
+
+     Attempt one read every player's current team off the relay whenever the roster
+     mode changed. That is the value **solo has just overwritten**, so the first round
+     trip worked and the next recorded the solo seats as if they were the students'
+     choices — four phones flipped teams → solo → teams → solo → teams and collapsed
+     onto Team 1, which is exactly the "flip back and forth and they all turn blue"
+     report.
+
+     Attempt two recorded the first sighting in the roster and never rewrote it. Also
+     wrong, and it failed identically: a join is processed in more than one step, so
+     the first roster event a new phone appears in can still carry team 0 — and being
+     write-once, that zero was permanent.
+
+     What both attempts shared is re-deriving a choice from a list the **host itself
+     writes to**. The relay names the joining player on its own event, with the team
+     that handset sent, and nothing the host does produces one of those. So this is
+     driven by `join` and overwrites freely: a student changing side goes through
+     "Not you?", which rejoins, which is another join. Skipped in solo, where a
+     competitor index means something else entirely. */
+  function rememberSides(p){
+    if(Roster.solo() || !p || !p.id) return;
+    teamSeat[p.id] = Number(p.team) || 0;
+  }
+
   function seatTeamPlayers(list){
     if(!reseatTeams || Roster.solo() || !buzzHost) return;
     reseatTeams = false;

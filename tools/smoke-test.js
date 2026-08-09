@@ -7346,6 +7346,11 @@ async function testPhoneBench(browser){
                       .filter(h => getComputedStyle(h).display !== 'none').length,
              rows: Object.keys(rows).length, phones: ph.length };
   });
+  /* **The second phone goes on a different side, and that is what makes the round-trip
+     checks mean anything.** With both handsets on team 0 a scrambled restore still
+     lands them both on team 0, so the assertion passes on the broken build — which it
+     did, until this line. A test that cannot fail on its bug is not yet a test. */
+  await hub.locator('#team-pick').selectOption('1');
   await hub.locator('#add').click(); await hub.waitForTimeout(1200);
   const teamShape = await rackShape();
   check('in teams the rack draws a row per team, headed',
@@ -7411,6 +7416,48 @@ async function testPhoneBench(browser){
   check('and coming back from solo puts every handset on the side it started on',
         JSON.stringify(await pills()) === JSON.stringify(beforeSolo),
         JSON.stringify(await pills()) + ' · started ' + JSON.stringify(beforeSolo));
+
+  /* **A second round trip, because the first one passing is not the same as the
+     mechanism being right.** Reported as "flip back and forth and eventually they
+     all turn blue", and it was true: one trip worked and the next left every handset
+     on Team 1. Three wrong diagnoses went by before the cause turned up on the
+     *handset* — it zeroed its own team on the way into solo, so the relay, which only
+     tells a phone its team when its own record changes, had nothing to say when the
+     board restored it. One trip cannot see that; two can. */
+  for (const mode of ['solo','teams'])
+    await hub.evaluate(m => document.getElementById('stage-frame')
+                              .contentWindow.HubSettings.set('roster', m), mode);
+  await until(async () => (await pills()).every(p => /team \d/i.test(p)), 12000);
+  check('and it still holds after flipping again — the record is not re-derived',
+        JSON.stringify(await pills()) === JSON.stringify(beforeSolo),
+        JSON.stringify(await pills()) + ' · started ' + JSON.stringify(beforeSolo));
+
+  /* **The bench and the board must agree about how many teams there are**, in both
+     directions. `HubTeams.ensure` only grew, so 4×4 then 3×3 left the board on four
+     while the rack drew three — the bench disagreeing with the board it exists to
+     mirror. Driven through the preset buttons rather than by calling `size` directly,
+     because the wiring between them is the thing that was broken. */
+  /* Out of the game first, because refusing to shrink *while one is running* is the
+     rule rather than a fault — a team can be holding points somebody earned. Setting
+     the room up is something you do between games, which is where this belongs. */
+  await hub.frameLocator('#stage-frame').locator('#new-game-btn').click();
+  await hub.waitForTimeout(600);
+  /* And wait for the *bench* to know the room is back in teams. It re-reads the room
+     on a 4s poll, and in solo a preset is deliberately a head count rather than a
+     division — so pressing one too early tests the other branch and reads as a
+     failure of this one. */
+  await until(async () => !/individuals/.test(await textOf(hub.locator('#status'))), 12000);
+  const boardTeams = () => hub.evaluate(() => document.getElementById('stage-frame')
+                                                .contentWindow.HubTeams.count());
+  const rackCols   = () => hub.evaluate(() => document.querySelectorAll('.team-col').length);
+  const agreed = [];
+  for (const [label, want] of [['3×3', 3], ['2×2', 2], ['4×4', 4]]){
+    await hub.locator('#bar-layouts button', { hasText: label }).click();
+    await until(async () => await boardTeams() === want, 15000);
+    agreed.push(label + ':' + (await boardTeams()) + '/' + (await rackCols()));
+  }
+  check('a classroom-division preset sets the board’s team count exactly, both ways',
+        agreed.join(' ') === '3×3:3/3 2×2:2/2 4×4:4/4', agreed.join(' '));
 
   check('the hub bench had no errors', hub.__errors.length === 0, hub.__errors[0]);
   await hub.close();

@@ -342,7 +342,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260809c"></script>
+<script src="game-hub/hub-buzzer.js?v=20260809d"></script>
 <script>
 (function(){
   'use strict';
@@ -455,7 +455,18 @@
   function setSolo(on){
     if(joinSolo === on) return;
     joinSolo = on;
-    if(on) team = 0;
+    /* **The handset does not reset its own team here, and that one line cost three
+       wrong diagnoses.** It used to zero `team` on the way into solo — which looks
+       harmless, because solo draws no tag and no colour so nothing reads it there.
+       What it actually did was make the phone disagree with the relay in a way only
+       the phone knew about: the relay tells a handset its team **only when its own
+       record changes**, so when the board later restored this student to the side
+       they chose, the relay saw the number it already held, sent nothing, and the
+       phone stayed on 0. One flip to solo and back looked fine; the next left every
+       handset reading TEAM 1.
+
+       `team` is now written in exactly two places — the student picking a side, and
+       a `team` event from the room. Nothing local guesses at it. */
     $('team-label').style.display = on ? 'none' : '';
     $('teams').style.display      = on ? 'none' : '';
     /* The way back offers what there is to change. In a room of individuals there

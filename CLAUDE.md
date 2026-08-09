@@ -1229,6 +1229,49 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Flipping teams↔solo repeatedly turned every phone blue, and the cause was on the
+  handset.** The previous session's fix held for one round trip and lost it on the
+  next — reported as "flip back and forth and eventually they all turn blue", and
+  reproduced exactly: flip 2 correct, flip 4 collapsed onto Team 1.
+  - **Three wrong diagnoses before the right one, and the pattern in them is the
+    lesson.** Attempt one rebuilt the record of each student's side on every switch by
+    reading the relay — which is the value *solo has just overwritten*. Attempt two
+    recorded the first sighting and never rewrote it — but a join is processed in more
+    than one step, so the first roster event a phone appears in can still carry team 0,
+    and write-once made that zero permanent. **Both were re-deriving a student's own
+    choice from a list the host itself writes to.**
+  - **The relay names the joining player on its own event, and `hub-buzzer.js` was
+    throwing that away.** `join` and `leave` both collapsed into one `players` emit, so
+    the `{id, name, team}` the relay sends — the one moment a handset's team is
+    unambiguously the student's choice — never reached the hub. It is carried through
+    now; the seat path re-emits `join` with the roster alone and no `id`, which is
+    exactly the difference worth keeping.
+  - **And the actual bug was one line on the phone: `setSolo` zeroed its own `team`.**
+    Harmless-looking, because solo draws no tag and no colour so nothing reads it
+    there. What it did was make the handset disagree with the relay in a way only the
+    handset knew — and **the relay tells a phone its team only when its own record
+    changes**, so when the board restored the student to their side the relay saw the
+    number it already held, sent nothing, and the phone stayed on 0. `team` is now
+    written in exactly two places: the student picking a side, and a `team` event from
+    the room.
+  - **Found by instrumenting rather than by a fourth guess.** Printing `teamSeat` and
+    the restore target showed the host doing everything right on every flip, which is
+    what moved the search downstream. Three guesses is the point at which to stop
+    reasoning and print something.
+  - **A preset sets the board's team count exactly now, both directions.** `ensure`
+    only ever grew, so 4×4 → 3×3 → 2×2 on the room bench left the board on four teams
+    while the rack drew two — the bench disagreeing with the board it exists to
+    mirror, which is the one thing it must never do. `HubTeams.size(n)` refuses to
+    shrink over a running game or a team holding points **and says which**, because
+    that reason belongs to a lesson in progress rather than to setting the room up.
+    `removeTeam` keeps its own confirm for the human path: a dialog behind a remote
+    control is nobody's idea of a question.
+  - **The check that mattered most nearly did not work.** Both bench phones were on
+    team 0, so a scrambled restore still landed them both on team 0 and the assertion
+    passed on the broken build. The second phone joins a different side now. **A test
+    that cannot fail on its bug is not yet a test**, met again.
+  - Three checks in `bench`, all three proved by reverting the sources and keeping the
+    tests. `bench` 38/0.
 - **Going to solo and back scrambled the class across the teams, silently.** Reported
   as a cosmetic thing — every phone on the bench showing the *same* blue `TEAM 1` tag
   whatever row it sat in — and the tag was telling the truth. The phones really were on
