@@ -1255,12 +1255,25 @@ playground's point, that one board can host several:
     words, the two cards differing; a tap on the called word marked it; the board
     read `Ana 1/9 Ben 0/9`, which is the mark coming back out of `keep`. The relay
     half is proved separately over raw HTTP, including a mark landing on a re-arm.
-  - **Not working, and it is the next thing to fix: Next call jumps to the end.** On
-    a board, pressing it once leaves the card reading "All 12 called" — `s.at` is
-    past the end, which one `press` cannot do. **The same button advances correctly
-    on the question bench**, so it is the host path rather than the round. Found on
-    the way: `roundPress` re-asks the room through `currentClueItem`, which Race
-    never set — fixed, and not the cause.
+  - **The host was writing into the round's state under a name the round already
+    owned.** Reported as Next call jumping straight to the end: pressing it once left
+    the card reading "All 12 called". `jGroupStamp` — the arrival-order stamp added
+    for the solo first-answer fix — stored itself as `jGroup.at`, and this round uses
+    `s.at` for which call it is reading. The host quietly replaced a number with a
+    map, and the next `s.at++` produced `NaN`.
+    - **Nothing could have warned about it.** Two files writing different meanings
+      into one field on one object is a collision only a name prevents, and it was
+      invisible on the bench because the bench does not stamp arrivals.
+    - **The rule, now stated: anything the *host* stores on a round's state carries
+      `host` in its name** (`jGroup.hostAt`). A round's own fields are the round's to
+      choose freely, which is the whole point of handing it a state object.
+    - Found by printing `s.at` in `press` and `render` — the value came back as `{}`,
+      which is not a thing any code in the round could produce.
+  - **Played through on a board with two handsets**: twelve calls, each phone tapping
+    when it held the called word, the counts climbing independently, and Ana lining
+    up three at call four — `Ana has it`, one point, the round over and Race moving
+    on. Also: `roundPress` re-asks the room through `currentClueItem`, which Race
+    never set. Fixed on the way and not the cause.
   - **Bingo the skin still runs its own implementation.** Moving it onto the round is
     the second half of the job and is not started.
 - **Every board hosts a round now — Race is the fifth host, and the audit found the

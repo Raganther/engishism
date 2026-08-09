@@ -4654,15 +4654,23 @@
   function roundKeepReset(){ roundKeep = null; }
 
   let jGroupSeq = 0;
+  /* **Namespaced, because the state object belongs to the round.** This was
+     `jGroup.at`, and the bingo round uses `s.at` for which call it is reading — so
+     the host quietly replaced a number with a map of stamps and the next `s.at++`
+     produced NaN, which rendered as "all twelve called" one press in. Nothing warned
+     about it and nothing could: two files writing different meanings into one field
+     on the same object is a collision only a name can prevent.
+     **The rule: anything the host stores on a round's state carries `host` in its
+     name.** A round's own fields are the round's to choose freely. */
   function jGroupStamp(){
     if(!jGroup) return;
-    const at = jGroup.at || (jGroup.at = {});
+    const at = jGroup.hostAt || (jGroup.hostAt = {});
     Object.keys(jGroup.picks || {}).forEach(t=>{
       const key = (jGroup.picks[t] || []).slice().sort().join('\u0000');
       if(!at[t] || at[t].key !== key) at[t] = { key, n: ++jGroupSeq };
     });
   }
-  const jGroupAt = t => ((jGroup && jGroup.at && jGroup.at[t]) || { n: Infinity }).n;
+  const jGroupAt = t => ((jGroup && jGroup.hostAt && jGroup.hostAt[t]) || { n: Infinity }).n;
 
   function jGroupOnReplies(all){
     if(!jGroupLive()) return;
