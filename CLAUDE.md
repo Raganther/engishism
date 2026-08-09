@@ -1229,6 +1229,38 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A room of individuals has no rows, and the room bench was drawing them anyway.**
+  Reported from the bench: switching the board to solo left the rack grouping phones
+  under headers, so a header reading **"Ana" sat over a row holding Ana, Ben and
+  Carla**. Reproduced exactly before touching anything.
+  - **The cause is that in solo the board's "team names" *are* names.** The roster is
+    people, so `/buzzer/room` returns `["Ana","Ben","Carla"]` where it used to return
+    `["Team 1","Team 2"]`, and the rack drew that list the only way it knew. **It
+    cannot be inferred from the shape of the list** — "Ana, Ben" is a perfectly good
+    pair of team names — so the bench reads the room's `solo` flag, which the relay
+    has carried since the join screen stopped asking which team. No relay change.
+  - **Flattened with `display:contents`, and that choice is the whole point.** Moving
+    every phone into one container would have re-parented the iframes, and
+    re-parenting an iframe reloads it and drops its stream — a switch mid-room is
+    exactly when you least want thirty handsets to blink out. The columns stay where
+    they are and stop generating boxes, so each `.phone` becomes a grid item of
+    `#rack` itself. **Proved rather than asserted**: every racked handset is stamped
+    before the switch and still carries its stamp after.
+  - **The team picker goes with the rows**, because in solo the board seats a joining
+    phone into its own competitor and anything picked here is overwritten a moment
+    later — a control that is silently ignored is worse than an absent one. A preset
+    becomes a **head count** rather than a division, and must *not* ask the board to
+    grow its team bar: in solo the roster builds itself from whoever joins, so
+    `HubTeams.ensure` would plant empty competitors nobody put there.
+  - **The status line says `· individuals`**, so a rack with no headers reads as the
+    room it is rather than as the headers having failed to draw. Same rule as a game
+    card naming what it is not showing.
+  - **The handset had the same slip, and only the screenshot showed it**: with no
+    teams in the room it still offered "Not you? Change name **or team**", over a
+    join screen that no longer asks for one. `setSolo` already hid the picker; it
+    words the way back now too.
+  - Four checks in the `bench` suite, driven as a switch under a live rack because
+    that is the case with something to lose. `bench` 33/0.
 - **The suite had stopped describing the app, and one stale selector was hiding
   sixty checks.** Five red checks, and **not one of them was a bug in the app** —
   every one was a check still asserting a picture that had been deliberately
@@ -1287,12 +1319,25 @@ playground's point, that one board can host several:
     a right answer from the only phone on a team wins the question outright, so they
     passed or failed on the shuffle. They pick a wrong option on purpose now, which
     is the fix the block above them had already been given and documented.
+  - **Two more of the same family, found by running the wider set and both proved
+    pre-existing by stashing.** The `bench` suite threw clicking `#buzzer` on a racked
+    phone — a hub tile opens a round, so the button is there and disabled; it taps
+    whatever the tile actually put in the hand now. And `joinbar` asserted the chip
+    against a **fixed list of phrases** (`idle here|votes only|cards on phones`),
+    which Millionaire stopped matching when its ladder became a round host. It asks
+    the game for its own `roomNote()` instead — and deliberately does *not* restate
+    the engine's fallback for a game that declares none, because that would be a
+    second copy of one expression, which is what the phrase list already was.
   - `phonemodes` 80/0, `settings, millionaire, registry, scoping, lab, card,
-    gameshow, anagram` 181/0, `qbench, grouping` 197/2 — **and both of those two are
-    pre-existing**: the ordering climb at 726px on a 720 board (its own item under
-    Next), and one `ERR_CERT_AUTHORITY_INVALID` from the sandbox proxy that did not
-    reproduce on the previous run. Every fix above was proved against the base build
-    by stashing, which is how the `settings` one was shown not to be mine.
+    gameshow, anagram` 181/0, `bench` 33/0, `joinbar, degradation` 30/0,
+    `buzzers, reconnect, teamvote, phonebingo, typetobuzz, playground, qbench` clean,
+    `qbench, grouping` 197/2 — **and both of those two are pre-existing**: the
+    ordering climb at 726px on a 720 board (its own item under Next), and one
+    `ERR_CERT_AUTHORITY_INVALID` from the sandbox proxy that did not reproduce on the
+    previous run. Every fix above was proved against the base build by stashing,
+    which is how the `settings`, `bench` and `joinbar` ones were shown not to be mine.
+  - **With those, every red check named in this file is closed** except the climb
+    card's overflow, which is a layout item rather than a stale test.
 - **Bingo is the eighth round, and the contract addition it needed is built —
   `ctx.keep`, state that outlives one question.** Build-order item 5, and the thing
   most of "what the container makes possible" was waiting on. **Partly proved: the
@@ -1443,11 +1488,12 @@ playground's point, that one board can host several:
     screen's section headings became invisible.
   - Driven end to end: code on the wall from the unit screen, three phones join
     while the teacher picks, the chooser seats them, the bar switch is absent in
-    play and back after New game. `joinbar, degradation` 29/1, and **that one is
-    pre-existing** — identical on the base build. It asserts Millionaire's chip says
+    play and back after New game. `joinbar, degradation` was 29/1, and **that one was
+    pre-existing** — identical on the base build: it asserted Millionaire's chip says
     "idle here" with the mode off, and Millionaire always hosts a round now, so the
-    chip correctly says "pick an answer" instead. The check describes a state that
-    board can no longer be in; it belongs with the dead `mBuzzRole` item under Next.
+    chip correctly says "pick an answer" instead. ~~It belongs with the dead
+    `mBuzzRole` item under Next.~~ **Both are closed** — the check asks the game for
+    its own note rather than matching a list of phrases. 30/0.
 - **Teams or Solo is a switch on the team bar.** Asked as "how do I change from team
   mode to solo mode", which is the question a control has failed to answer.
   - **It was in ⚙ and that was the wrong home twice over.** It is a room-wide fact,

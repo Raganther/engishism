@@ -93,6 +93,25 @@
   .team-col .phones{ display:grid; gap:12px; align-items:start;
                      grid-template-columns:repeat(4, calc(var(--phone-w) * var(--phone-scale))); }
 
+  /* **A room of individuals has no rows, because there are no teams to be a row
+     of.** The roster is people, so the board's team list is a list of *names* —
+     drawing it the same way put a header reading "Ana" over a row holding Ana, Ben
+     and Carla, which reads as the rack having lost track of the room. Each phone
+     already carries its own name in its title bar; that is the whole label a
+     competitor needs.
+
+     **Done with `display:contents`, deliberately, rather than by moving phones into
+     one container.** Re-parenting an iframe reloads it and drops its stream, and
+     switching mode mid-room is exactly when you least want thirty handsets to blink
+     out. The columns stay exactly where they are in the DOM and stop generating
+     boxes, so every `.phone` becomes a grid item of `#rack` itself and the whole
+     rack reflows into one four-across grid with nothing re-parented at all. */
+  #rack.solo{ display:grid; gap:12px; align-items:start;
+              grid-template-columns:repeat(4, calc(var(--phone-w) * var(--phone-scale))); }
+  #rack.solo .team-col,
+  #rack.solo .team-col .phones{ display:contents; }
+  #rack.solo .team-col h2{ display:none; }
+
   .phone{
     width:calc(var(--phone-w) * var(--phone-scale));
     border:1px solid var(--border); border-radius:18px; overflow:hidden;
@@ -165,7 +184,7 @@
     </div>
   </div>
 
-<script src="bench-kit.js?v=20260809a"></script>
+<script src="bench-kit.js?v=20260809b"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -278,7 +297,14 @@ function loadTeams(force){
          Say it where the code was typed. */
       if(d.missing){ setStatus('no game with code ' + code + ' — open the board first'); return; }
       if(d.teams && d.teams.length) teamNames = d.teams;
-      setStatus(d.players + ' in the room');
+      /* The room says whether it is teams or individuals — the relay has carried
+         `solo` since the join screen stopped asking which team — so the rack reads
+         it rather than guessing from the shape of the name list. Guessing is not
+         possible anyway: "Ana, Ben" is a valid pair of team names. */
+      setSolo(!!d.solo);
+      /* Say which room this is, so a rack with no headers reads as a room of
+         individuals rather than as the headers having failed to draw. */
+      setStatus(d.players + ' in the room' + (solo ? ' · individuals' : ''));
       renderTeamPick(); renderHeaders();
     })
     .catch(()=> setStatus('can’t reach the relay — is the board open?'));
@@ -288,6 +314,22 @@ setInterval(()=> loadTeams(true), 4000);
 $('code').addEventListener('input', ()=>{ loadTeams(); repointPhones(); });
 
 function setStatus(t){ $('status').textContent = t; }
+
+/* Which roster the room is running. Kept as one flag with one setter, because the
+   three things that follow from it — the rack's shape, the team picker, and whether
+   a preset may grow the board's team bar — would otherwise be three places that
+   could disagree about what the room is. */
+let solo = false;
+function setSolo(on){
+  if(on === solo) return;
+  solo = on;
+  $('rack').classList.toggle('solo', solo);
+  /* Nothing to pick when every competitor is one person: the board seats a joining
+     phone into its own slot, so a team chosen here would be overwritten a moment
+     later. A control that is silently ignored is worse than an absent one. */
+  $('team-pick').style.display = solo ? 'none' : '';
+  fitRack();
+}
 
 function renderTeamPick(){
   const sel = $('team-pick');
@@ -342,6 +384,7 @@ function colFor(team){
   return col;
 }
 function renderHeaders(){
+  if(solo) return;   // the headers are not drawn at all in a room of individuals
   document.querySelectorAll('.team-col').forEach(c=>{
     const t = Number(c.dataset.team);
     c.querySelector('h2').textContent = teamNames[t] || ('Team ' + (t+1));
@@ -391,6 +434,18 @@ const phonesOn = t => phones.filter(p => p.team === t).length;
    yet, which is the honest picture of a testing rig. */
 function applyLayout(n, m){
   if(!/^\d{4,6}$/.test($('code').value.trim())){ setStatus('open a board first, or type a room code'); return; }
+  /* **In a room of individuals a preset is a head count, not a division.** "3 × 3"
+     means nine handsets, because there are no teams to divide them between — and
+     the board must *not* be asked to grow its roster to three, since in solo the
+     roster builds itself from whoever joins. Asking would plant empty competitors
+     nobody put there, which is the very thing the placeholder-slot rule exists to
+     avoid. */
+  if(solo){
+    const want = n * m;
+    while(phones.length > want) removePhone(phones[phones.length - 1]);
+    while(phones.length < want) addPhone(0);
+    return;
+  }
   /* The board owns the teams, so a preset wider than its team bar asks the
      board to grow — through the board's own + Team path, same origin only, and
      grow-only: removing a team stays a human decision because a team can be
@@ -409,7 +464,9 @@ function applyLayout(n, m){
     while(phonesOn(t) < m) addPhone(t);
 }
 
-$('add').addEventListener('click', ()=> addPhone(Number($('team-pick').value) || 0));
+/* Team 0 in solo: the board seats a joining phone into its own competitor, so what
+   is sent here is overwritten either way and the picker is not on screen to ask. */
+$('add').addEventListener('click', ()=> addPhone(solo ? 0 : (Number($('team-pick').value) || 0)));
 const layoutCtl = BenchKit.layout($('bar-layouts'), applyLayout);
 let laidOut = false, openedBoard = false;
 

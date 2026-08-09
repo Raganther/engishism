@@ -342,7 +342,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260809a"></script>
+<script src="game-hub/hub-buzzer.js?v=20260809b"></script>
 <script>
 (function(){
   'use strict';
@@ -448,6 +448,12 @@
     if(on) team = 0;
     $('team-label').style.display = on ? 'none' : '';
     $('teams').style.display      = on ? 'none' : '';
+    /* The way back offers what there is to change. In a room of individuals there
+       is no team to pick — the screen it returns to does not ask for one — so
+       saying "or team" offers something that cannot happen. Small, and it is the
+       same complaint as a rack drawing team headers over a room of people: the
+       handset should say what the room actually is. */
+    $('rejoin').textContent = on ? 'Not you? Change name' : 'Not you? Change name or team';
   }
 
   function validate(){

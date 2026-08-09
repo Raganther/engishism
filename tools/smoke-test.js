@@ -7304,11 +7304,68 @@ async function testPhoneBench(browser){
         /^\d{5}$/.test(hubCode), hubCode);
   await hub.locator('#add').click(); await hub.waitForTimeout(1200);
   await hubFrame.locator('#board .tile').first().click(); await hub.waitForTimeout(900);
-  await hub.frameLocator('.phone iframe').first().locator('#buzzer').click();
-  await hub.waitForTimeout(900);
-  check('a buzz from a bench phone reaches the hub board',
-        /ana/i.test(await hubFrame.locator('#phone-bar').innerText()),
-        (await hubFrame.locator('#phone-bar').innerText()).replace(/\n/g,' '));
+  /* **Whatever the tile put in their hand**, not a buzzer specifically. This clicked
+     `#buzzer` and had been throwing on it since Units 4 and 5 became all-rounds — a
+     round arms the handsets itself, so the button is there but disabled and hidden
+     behind the round's own controls. What the bench exists to prove is that a tap on
+     a racked phone reaches the board it is sitting next to, and that is true of
+     either dynamic; which one is on screen is the board's business. */
+  const benchPhone = hub.frameLocator('.phone iframe').first();
+  const roundOpt = benchPhone.locator('#opts button').first();
+  if (await roundOpt.count()) await roundOpt.click();
+  else await benchPhone.locator('#buzzer').click();
+  await hub.waitForTimeout(1200);
+  check('a tap from a bench phone reaches the hub board',
+        /ana/i.test(await textOf(hubFrame.locator('#phone-bar'))),
+        (await textOf(hubFrame.locator('#phone-bar'))).replace(/\n/g,' ') || '(empty)');
+
+  /* ---- a room of individuals has no rows ----
+     Reported from the bench: switching the board to solo left the rack drawing team
+     headers, so a header reading "Ana" sat over a row holding Ana, Ben and Carla.
+     The roster is people in solo, so the board's "team names" *are* names — the rack
+     has to read the room's `solo` flag rather than infer anything from the list.
+
+     Driven as a switch under a live rack rather than by opening the bench into solo,
+     because that is the case with something to lose: the flattening is done with
+     `display:contents` precisely so no iframe is re-parented, and re-parenting one
+     reloads it and drops its stream. The marks are how that is proved — a reloaded
+     frame comes back without one. */
+  const rackShape = () => hub.evaluate(() => {
+    const ph = [...document.querySelectorAll('.phone')];
+    const rows = {};
+    ph.forEach(p => { const t = Math.round(p.getBoundingClientRect().top);
+                      rows[t] = (rows[t] || 0) + 1; });
+    return { display: getComputedStyle(document.getElementById('rack')).display,
+             heads: [...document.querySelectorAll('.team-col h2')]
+                      .filter(h => getComputedStyle(h).display !== 'none').length,
+             rows: Object.keys(rows).length, phones: ph.length };
+  });
+  await hub.locator('#add').click(); await hub.waitForTimeout(1200);
+  const teamShape = await rackShape();
+  check('in teams the rack draws a row per team, headed',
+        teamShape.heads >= 1, JSON.stringify(teamShape));
+  let marked = 0;
+  for (const f of hub.frames().filter(f => /join\.html/.test(f.url())))
+    await f.evaluate(i => { window.__benchMark = i; }, marked++);
+
+  await hub.evaluate(() => document.getElementById('stage-frame')
+                             .contentWindow.HubSettings.set('roster','solo'));
+  // the bench re-reads the room on a 4s poll; wait for the shape rather than guess
+  await until(async () => (await rackShape()).heads === 0, 12000);
+  const soloShape = await rackShape();
+  check('in solo it flattens to one grid with no team headers at all',
+        soloShape.heads === 0 && soloShape.display === 'grid' &&
+        soloShape.rows === 1 && soloShape.phones === teamShape.phones,
+        JSON.stringify(soloShape));
+  check('and the team picker goes with them — there is nothing to pick',
+        !(await hub.locator('#team-pick').isVisible()));
+  const marks = [];
+  for (const f of hub.frames().filter(f => /join\.html/.test(f.url())))
+    marks.push(await f.evaluate(() => window.__benchMark).catch(()=>null));
+  check('no phone was re-parented, so every stream survived the switch',
+        marks.length === marked && marks.every(m => m != null),
+        JSON.stringify(marks));
+
   check('the hub bench had no errors', hub.__errors.length === 0, hub.__errors[0]);
   await hub.close();
 }
@@ -7659,9 +7716,11 @@ async function testJeopardyClassic(browser){
    answer to that. The chip says `idle here`, so nothing is pretending. */
 async function testJoinAlwaysThere(browser){
   section('The join address is always there');
-  for (const [game, sections] of [['Jeopardy', 4], ['Blockbusters', 'all'],
-                                  ['Race to the Board', 'all'], ['Millionaire', 'all'],
-                                  ['Bingo', 'all']]){
+  for (const [game, sections, id] of [['Jeopardy', 4, 'jeopardy'],
+                                      ['Blockbusters', 'all', 'blockbusters'],
+                                      ['Race to the Board', 'all', 'race'],
+                                      ['Millionaire', 'all', 'millionaire'],
+                                      ['Bingo', 'all', 'bingo']]){
     const page = await openHub(browser);
     await page.evaluate(() => {
       const S = window.HubSettings;
@@ -7677,10 +7736,30 @@ async function testJoinAlwaysThere(browser){
     });
     check(game + ': the chip is on screen with the mode off', chip.shown, chip.text);
     check(game + ': and it carries a code to join with', /code\s*\d{5}/i.test(chip.text), chip.text);
-    /* Honest about what will happen: a room to join, and nothing to do in it yet.
-       Bingo says its own thing when the cards are on phones. */
-    check(game + ': and says the phones are idle rather than promising a dynamic',
-          /idle here|votes only|cards on phones/i.test(chip.text), chip.text);
+    /* Honest about what will happen: a room to join, and whatever this board has
+       actually put in the class's hands.
+
+       **Asked of the game rather than matched against a list of phrases.** This was
+       `/idle here|votes only|cards on phones/`, and it had been red since the
+       Millionaire ladder became a round host: `round_default:'off'` describes what
+       an *ordinary* question does, and there are none left on that board, so its
+       chip correctly reads "pick an answer" instead. A fixed set of wordings is the
+       hand-kept list this project keeps paying for — a board that grows a new note
+       next month would fail here for being new. The game declares its own note, so
+       the check reads that and asserts the chip agrees with it. */
+    const own = await page.evaluate(g => {
+      const def = window.HubGames.get(g);
+      return (def && def.roomNote && def.roomNote()) || null;
+    }, id);
+    /* Two things, and deliberately not a third: a note is drawn at all, and where
+       the game declares one it is the game's own words. What the engine falls back
+       to when a game declares nothing ("votes only" against "idle here") is left
+       alone on purpose — restating that expression here would be a second copy of it
+       that could drift, which is the thing the phrase list was already guilty of. */
+    check(game + ': and says what the phones are for rather than promising a dynamic',
+          !!(await textOf(page.locator('#buzzer-chip .buzz-idle'))) &&
+          (!own || chip.text.toLowerCase().includes(String(own).toLowerCase())),
+          chip.text + '  · the game says: ' + (own || '(nothing of its own)'));
     checkClean(page);
     await page.close();
   }
