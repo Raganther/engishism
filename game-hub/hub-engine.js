@@ -1987,8 +1987,27 @@
      set up and switching back would leave the class as competitors, which is why the
      switch felt broken in both directions. */
   const rosterStash = Object.create(null);
+  /* **The phones have a roster mode too, and forgetting that scrambled a class.**
+     Solo seats every handset into its own competitor, which overwrites the team the
+     student picked when they joined — so coming back to teams left each phone
+     holding the *index* it had been seated at, now pointing at whatever team happens
+     to sit there. Four phones went Team 1/1/2/2 → solo → Team 2/3/4/1, silently, and
+     their answers would have scored for the wrong side.
+
+     The board already keeps two rosters and swaps between them; this is the same
+     idea one layer out. What the teams roster remembers is where each *player* was,
+     by player id — never by index, for the reason `soloSeat` is keyed that way. */
+  const teamSeat = Object.create(null);     // playerId -> team index, teams mode only
+  let reseatTeams = false;                  // set on the way back, cleared once done
   function swapRoster(to){
     const from = to === 'solo' ? 'teams' : 'solo';
+    /* Snapshot before anything is cleared. In teams mode the relay's own record is
+       the truth — the student chose it — so it is read rather than kept in step. */
+    if(from === 'teams' && buzzHost)
+      (buzzHost.players() || []).forEach(p=>{
+        if(p && p.id) teamSeat[p.id] = Number(p.team) || 0;
+      });
+    reseatTeams = to === 'teams';
     rosterStash[from] = { list: teams.slice(),
                           seat: Object.assign({}, soloSeat),
                           at:   Object.assign({}, soloSeatAt) };
@@ -2024,8 +2043,9 @@
     renderRosterPick();
     renderScorebar();
     /* Seat whoever is already in the room rather than waiting for the next phone —
-       in solo that fills the roster on the spot, and in teams it does nothing. */
-    if(buzzHost) seatSoloPlayers(buzzHost.players());
+       in solo that fills the roster on the spot, and in teams it puts each handset
+       back on the side its student chose. */
+    if(buzzHost){ seatSoloPlayers(buzzHost.players()); seatTeamPlayers(buzzHost.players()); }
   });
 
   function motionOK(){
@@ -7109,6 +7129,31 @@
       if(at >= 0 && soloSeatAt[p.id] !== at){ soloSeatAt[p.id] = at; buzzHost.seat(p.id, at); }
     });
     if(changed){ renderScorebar(); renderRosterPick(); hook('onRoster'); }
+  }
+
+  /* The other half of the swap: put every handset back on the side its student
+     chose, once, on the way back from solo.
+
+     **Once, not continuously**, and that is the whole design. In teams mode the
+     student owns which side they are on — they pick it when they join and may change
+     it from their own phone — so a host that re-asserted a team on every roster event
+     would quietly overrule them. This fires on the transition and clears its own
+     flag. A player nobody remembers (they joined during solo) lands on team 0, which
+     is where a new phone lands anyway. */
+  function seatTeamPlayers(list){
+    if(!reseatTeams || Roster.solo() || !buzzHost) return;
+    reseatTeams = false;
+    (list || []).forEach(p=>{
+      if(!p || !p.id) return;
+      const want = Math.min(teamSeat[p.id] || 0, Math.max(0, teams.length - 1));
+      /* **Sent unconditionally, and the first version's "only if it changed" check
+         was exactly wrong.** `seat` does not come back to the host, so `p.team` here
+         is still the value from the last *join* — which is the same number this is
+         trying to restore. Comparing against it concluded every phone was already
+         right and sent nothing, while every phone sat on its solo index. This runs
+         once per switch, so a handful of extra posts costs nothing. */
+      buzzHost.seat(p.id, want);
+    });
   }
 
   /* The phones need the team list, not just at the start: a team renamed mid-lesson

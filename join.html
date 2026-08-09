@@ -342,7 +342,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260809b"></script>
+<script src="game-hub/hub-buzzer.js?v=20260809c"></script>
 <script>
 (function(){
   'use strict';
@@ -394,16 +394,26 @@
      the player's name is a parameter of joinRoom, and an undeclared `name` here
      would quietly resolve to `window.name` — an empty string, on every handset. */
   function paintWho(who){
-    const label = teamNames[team] || ('Team ' + (team+1));
-    document.documentElement.style.setProperty('--team', colourOf(team));
     $('who').textContent = who + ' ';
-    /* **No pill in a room of individuals.** The competitor there *is* this person,
-       so its name is their name — the pill would print what the line already says.
-       The colour still means something and stays: it is how a student matches
-       themselves to their own row on the board. */
-    if(joinSolo && label === who) return;
+    /* **A room of individuals gets no tag and no colour, and that is a decision
+       rather than a tidy-up.** A colour on a handset means "this is the side you are
+       on" — it is how a student matches themselves to a coloured row on the board.
+       In individual play there are no sides, so a colour would be decoration that
+       looks like information, and the tag would print the name the line above
+       already says.
+
+       It also removes a whole class of wrong: the tag read whatever competitor sat
+       at this phone's index, so a handset that had not been re-seated announced
+       somebody else's name in confident blue. Nothing to be stale when nothing is
+       drawn. */
+    if(joinSolo){
+      document.documentElement.style.removeProperty('--team');
+      return;
+    }
+    document.documentElement.style.setProperty('--team', colourOf(team));
     const pill = document.createElement('span');
-    pill.className = 'tteam'; pill.textContent = label;
+    pill.className = 'tteam';
+    pill.textContent = teamNames[team] || ('Team ' + (team+1));
     $('who').appendChild(pill);
   }
 

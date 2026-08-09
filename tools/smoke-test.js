@@ -3155,8 +3155,14 @@ async function testBuzzers(browser){
             .filter({ hasNotText: new RegExp('^' + next + '$','i') }).first().click();
   await host.waitForTimeout(600);
 
-  check('the steal re-opens the buzzers', await armed(bruno));
-  await bruno.locator('#buzzer').click(); await host.waitForTimeout(600);
+  /* `armed()` already polls and gives up honestly, so a slow relay is one red check —
+     but the *click* on the next line then throws on a disabled button and takes the
+     rest of the suite with it, which is the abort pattern this file has paid for
+     twice. Seen once under a nine-suite sequential run and never standalone, so it is
+     load rather than a defect; guarded so the difference stays visible either way. */
+  const stealArmed = await armed(bruno);
+  check('the steal re-opens the buzzers', stealArmed);
+  if (stealArmed){ await bruno.locator('#buzzer').click(); await host.waitForTimeout(600); }
   check('the team that missed cannot buzz back in',
         !(await host.locator('#phone-bar').innerText()).includes('Bruno'),
         (await host.locator('#phone-bar').innerText()).replace(/\n/g,' '));
@@ -7348,6 +7354,20 @@ async function testPhoneBench(browser){
   for (const f of hub.frames().filter(f => /join\.html/.test(f.url())))
     await f.evaluate(i => { window.__benchMark = i; }, marked++);
 
+  /* Read off the handsets rather than off the host, because the host's own record of
+     a player's team is deliberately stale (`seat` does not come back to it) — which
+     is exactly what made the first attempt at the fix below do nothing at all. */
+  const pills = async () => {
+    const out = [];
+    for (const f of hub.frames().filter(f => /join\.html/.test(f.url())))
+      out.push((await f.locator('#who').innerText().catch(()=>'?')).replace(/\s+/g,' ').trim());
+    return out;
+  };
+  const beforeSolo = await pills();
+  check('in teams each handset carries its own side',
+        beforeSolo.length > 0 && beforeSolo.every(p => /team \d/i.test(p)),
+        JSON.stringify(beforeSolo));
+
   await hub.evaluate(() => document.getElementById('stage-frame')
                              .contentWindow.HubSettings.set('roster','solo'));
   // the bench re-reads the room on a 4s poll; wait for the shape rather than guess
@@ -7365,6 +7385,32 @@ async function testPhoneBench(browser){
   check('no phone was re-parented, so every stream survived the switch',
         marks.length === marked && marks.every(m => m != null),
         JSON.stringify(marks));
+
+  /* ---- and the way back puts everybody where they were ----
+     **The worst kind of bug this project has had: silent, and it scores for the
+     wrong side.** Solo seats every handset into its own competitor, which overwrites
+     the team its student chose. Coming back to teams left each phone holding that
+     *index*, now pointing at whatever team sits there — four phones went 1/1/2/2 →
+     solo → 2/3/4/1 with nothing on any screen saying so.
+
+     Read off the handsets rather than off the host, because the host's own record of
+     a player's team is deliberately stale (`seat` does not come back to it) — which
+     is exactly what made the first attempt at the fix do nothing. */
+  /* No tag and no colour in a room of individuals: a colour means "this is the side
+     you are on", and there are no sides. It also cannot then be stale. */
+  check('in solo a handset carries no side at all',
+        (await pills()).every(p => !/team \d/i.test(p)) &&
+        await hub.frames().filter(f => /join\.html/.test(f.url()))[0]
+          .evaluate(() => getComputedStyle(document.documentElement)
+                            .getPropertyValue('--team').trim()) === '',
+        JSON.stringify(await pills()));
+
+  await hub.evaluate(() => document.getElementById('stage-frame')
+                             .contentWindow.HubSettings.set('roster','teams'));
+  await until(async () => (await pills()).every(p => /team \d/i.test(p)), 12000);
+  check('and coming back from solo puts every handset on the side it started on',
+        JSON.stringify(await pills()) === JSON.stringify(beforeSolo),
+        JSON.stringify(await pills()) + ' · started ' + JSON.stringify(beforeSolo));
 
   check('the hub bench had no errors', hub.__errors.length === 0, hub.__errors[0]);
   await hub.close();

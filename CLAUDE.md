@@ -1229,6 +1229,44 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Going to solo and back scrambled the class across the teams, silently.** Reported
+  as a cosmetic thing — every phone on the bench showing the *same* blue `TEAM 1` tag
+  whatever row it sat in — and the tag was telling the truth. The phones really were on
+  the wrong teams, so their answers would have scored for the wrong side.
+  - **Solo seats every handset into its own competitor, which overwrites the team its
+    student picked when they joined.** Coming back to teams left each phone holding
+    that *index*, now pointing at whatever team happens to sit there. Reproduced
+    exactly: four phones on 1/1/2/2 went to solo and came back on **2/3/4/1**.
+  - **The board already keeps two rosters and swaps between them; the phones needed the
+    same thing one layer out.** `teamSeat` remembers where each *player* was — by
+    player id, never by index, for the same reason `soloSeat` is keyed that way — and
+    the switch back re-seats everybody. Snapshotted on the way *out*, because in teams
+    mode the relay's own record is the truth: the student chose it.
+  - **Restored once, on the transition, and never continuously.** In teams mode the
+    student owns which side they are on and may change it from their own phone, so a
+    host re-asserting a team on every roster event would quietly overrule them.
+  - **The first version of the fix did nothing, and the reason is worth keeping.** It
+    only sent a seat "if it changed" — but `seat` does not come back to the host, so
+    `p.team` there is still the value from the last *join*, which is the same number
+    the fix was trying to restore. It concluded every phone was already right and sent
+    nothing. The `soloSeatAt` map exists precisely because of that staleness and it
+    was read as a general rule rather than as the note it is. **Send unconditionally
+    on a one-off transition.**
+  - **In solo a handset now carries no tag and no colour at all**, which is the user's
+    call and also removes the class of bug: a colour means "this is the side you are
+    on", and there are no sides. Nothing drawn is nothing that can be stale. The tag
+    had been printing whatever competitor sat at this phone's index — somebody else's
+    name, in confident blue.
+  - Three checks in `bench`, and **both new ones were proved by reverting the fix while
+    keeping the tests** — the round-trip one reports `BEN TEAM 2 · started BEN TEAM 1`,
+    which is the bug in one line. `buzzers, phonemodes, joinbar, degradation, bench,
+    qbench` 257/0.
+  - **One flake found on the way, and it was load rather than a defect.** Race's steal
+    check went red once inside a nine-suite sequential run and never standalone — the
+    re-arm had not reached the handset within the 8s the poll allows. The check was
+    left as it is; what was wrong is that the *click* on the next line then threw on a
+    disabled button and took the rest of the suite, which is the abort pattern this
+    file has now paid for three times. Guarded, so a slow relay costs one red check.
 - **A room of individuals has no rows, and the room bench was drawing them anyway.**
   Reported from the bench: switching the board to solo left the rack grouping phones
   under headers, so a header reading **"Ana" sat over a row holding Ana, Ben and
