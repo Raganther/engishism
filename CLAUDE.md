@@ -1229,6 +1229,29 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The solo roster only ever grew, so the bar could not follow the phones down.**
+  Reported from the room bench: seven handsets racked, several removed, and the board
+  still listed everybody — teams synced correctly by then, individuals did not.
+  - **The rule it broke was a good one applied too widely.** "A phone that leaves
+    keeps its seat" was written for a student whose battery dies mid-lesson, and it is
+    right for exactly that. As a general rule it made the roster a one-way ratchet,
+    and a bench that can only add is a bench that cannot mirror the room it exists to
+    mirror.
+  - **What that rule was actually protecting is a score, so that is what it keeps
+    now.** A competitor holding points stays whatever their handset does, and their
+    seat stays with them so they come back to the same row. One who never scored is
+    not a lesson's work, it is clutter, and it goes with the phone. Never below the
+    floor of two, which is where an empty room starts and returns to.
+  - **Dropping a competitor invalidates every seat above it**, and `seat` never comes
+    back to the host — so the map of what each phone was last told is a lie about all
+    of them and is cleared rather than patched. Same "send unconditionally after a
+    shift" the roster swap needed, met a second time.
+  - Driven on the bench: 0 phones → 2 rows (the placeholders), +4 → 4 rows, remove 2 →
+    2 rows, then a 2×2 preset → 4 rows. `bench` 40/0.
+  - **The check nearly tested the wrong thing twice.** Removing "the first" phone took
+    somebody else's, and removing "the last" did too — in solo the rack is flattened
+    with `display:contents`, so DOM order still follows the columns the phones were
+    added under and the newest card sits in the middle. It removes by name now.
 - **Flipping teams↔solo repeatedly turned every phone blue, and the cause was on the
   handset.** The previous session's fix held for one round trip and lost it on the
   next — reported as "flip back and forth and eventually they all turn blue", and

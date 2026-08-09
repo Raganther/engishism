@@ -7121,9 +7121,49 @@
   const soloSeat   = Object.create(null);   // playerId -> competitor id
   const soloSeatAt = Object.create(null);   // playerId -> the index last sent to it
 
+  /* **The other direction, which the roster did not have: a competitor who has gone.**
+     The rule above — a phone that leaves keeps its seat — was written for a student
+     whose battery dies mid-lesson, and it is right for exactly that. Applied to
+     *every* departure it made the roster a one-way ratchet: seven phones on the room
+     bench, then five removed, and the board still listed everybody. The bench cannot
+     mirror a room it can only add to.
+
+     **What the original rule was actually protecting is a score**, and that is what
+     this keeps: a competitor holding points stays whatever their handset does, and
+     their seat stays with them so they come back to the same row. One who never
+     scored is not a lesson's work, it is clutter, and it goes with the phone.
+
+     Never below the floor, because a board with nothing on it is not a state worth
+     reaching — the two placeholders are where an empty room starts and where it
+     returns to. */
+  function dropDepartedSolo(list){
+    if(!Roster.solo()) return false;
+    const here = Object.create(null);
+    (list || []).forEach(p=>{ if(p && p.id) here[p.id] = true; });
+    let dropped = false;
+    Object.keys(soloSeat).forEach(pid=>{
+      if(here[pid] || teams.length <= Roster.floor()) return;
+      const comp = Roster.byId(soloSeat[pid]);
+      if(comp && comp.score !== 0) return;      // played and scored: the row is theirs
+      const i = comp ? teams.indexOf(comp) : -1;
+      if(i >= 0){ teams.splice(i, 1); dropped = true; }
+      delete soloSeat[pid]; delete soloSeatAt[pid];
+    });
+    if(dropped){
+      /* Every seat above the hole has moved, and `seat` never comes back to the host —
+         so the map of what each phone was last told is now a lie about all of them.
+         Cleared, which makes `seatSoloPlayers` re-send every index rather than trust
+         it. The same "send unconditionally after a shift" the roster swap needed. */
+      Object.keys(soloSeatAt).forEach(k => delete soloSeatAt[k]);
+      if(Array.isArray(mState)) mState.length = 0;
+      if(active >= teams.length) active = Math.max(0, teams.length - 1);
+    }
+    return dropped;
+  }
+
   function seatSoloPlayers(list){
     if(!Roster.solo() || !buzzHost) return;
-    let changed = false;
+    let changed = dropDepartedSolo(list);
     (list || []).forEach(p=>{
       if(!p || !p.id) return;
       let comp = soloSeat[p.id] ? Roster.byId(soloSeat[p.id]) : null;

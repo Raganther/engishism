@@ -7410,6 +7410,31 @@ async function testPhoneBench(browser){
                             .getPropertyValue('--team').trim()) === '',
         JSON.stringify(await pills()));
 
+  /* **The roster follows the phones in solo, both ways.** It only ever grew: a phone
+     that left kept its row, which is right for a student whose battery dies and wrong
+     as a general rule — seven handsets on the bench, five removed, and the board still
+     listed everybody. What the original rule protects is a *score*, so that is what it
+     keeps now; a competitor who never scored goes with the phone. */
+  const barRows = () => hub.evaluate(() => document.getElementById('stage-frame')
+                                             .contentWindow.HubTeams.count());
+  const soloWas  = await barRows();
+  const nameOf   = () => hub.locator('.phone .head b').allInnerTexts();
+  const hadNames = await nameOf();
+  await hub.locator('#add').click();
+  await until(async () => await barRows() === soloWas + 1, 12000);
+  check('a phone joining in solo adds a competitor to the bar',
+        await barRows() === soloWas + 1, soloWas + ' → ' + await barRows());
+  /* **Remove the one just added, by name.** Neither `first()` nor `last()` finds it:
+     in solo the rack is flattened with `display:contents`, so DOM order still follows
+     the team columns the phones were added under and the newest card is in the middle.
+     Removing somebody else leaves a different set of handsets for the round-trip
+     checks below, which then compare two different rooms. */
+  const added = (await nameOf()).find(n => hadNames.indexOf(n) === -1);
+  await hub.locator('.phone').filter({ hasText: added }).locator('.head button').click();
+  await until(async () => await barRows() === soloWas, 12000);
+  check('and removing one takes it away again',
+        await barRows() === soloWas, soloWas + 1 + ' → ' + await barRows());
+
   await hub.evaluate(() => document.getElementById('stage-frame')
                              .contentWindow.HubSettings.set('roster','teams'));
   await until(async () => (await pills()).every(p => /team \d/i.test(p)), 12000);
