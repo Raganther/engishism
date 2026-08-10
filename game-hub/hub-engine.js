@@ -634,6 +634,14 @@
       live: () => modalMode === 'jeopardy',
       turn: () => active,
       win:  team => jCorrect(team),
+      /* **What the question is worth to a team that was not first** — see
+         `roundOpenToAll`. The tile is the slot and the slot pays in full; this is
+         what is left for everybody else who still got there. Rounded to 50 like
+         everything else on this board, because `award` already rounds a steal that
+         way and two roundings that disagree is a card saying one number and a
+         scoreboard showing another. */
+      worth: () => currentClueValue,
+      speed: () => ({ floor:0.5, step:50 }),
       /* Which of a round's modes suits *this board*, when that differs from the
          round's own first choice. Jeopardy is team-based — a tile is a team's
          answer, not a thumb's — so a multiple choice here waits for the whole
@@ -669,6 +677,13 @@
       /* A hexagon is worth what the board says a hexagon is worth — the floor is
          there because a round that paid nothing would read as not having counted. */
       win:  team => claimHex(team) || 1,
+      /* A hexagon is one point, and a point is the smallest thing this board has —
+         so a team that gets there second is paid the same 1. That is not the floor
+         failing, it is the board having no smaller unit: what being first buys here
+         is the *square*, which is what wins the game, and no amount of points is
+         that. Declared rather than left out so the row exists to be tuned. */
+      worth: () => 1,
+      speed: () => ({ floor:0.5, step:1 }),
       /* **This board is team-based too, and it had been playing as though it were
          not.** Jeopardy declared this and Blockbusters did not, so every round here
          fell to its own first mode — first tap wins — which on a yellow-versus-blue
@@ -694,6 +709,12 @@
       turn: () => (mCurrent ? mCurrent.team : active),
       scorer: () => (mCurrent ? mCurrent.team : active),
       win:  team => mPayRung(team),
+      /* The rung the team being paid is standing on — read per team, because every
+         competitor climbs its own ladder here and "what this question is worth" is
+         a different number for each of them. */
+      worth: team => M_LADDER[Math.min(mTeamState(team == null ? active : team).rung,
+                                       M_LADDER.length - 1)],
+      speed: () => ({ floor:0.5, step:50 }),
       /* The class votes on every question now, so the counts exist from the first
          tap. Holding them back is what leaves Ask the class worth spending. */
       hideVotes: () => !mTally,
@@ -728,6 +749,9 @@
          through the same path a touched word is, which is what makes the strip, the
          streak and the scoreboard all follow without this knowing about any of it. */
       win:  team => { awardRaceRound(team); return 1; },
+      /* Same as a hexagon: a word is one point and there is nothing smaller. */
+      worth: () => 1,
+      speed: () => ({ floor:0.5, step:1 }),
       /* Two people at the screen, and in head-to-head nobody is on turn — so a round
          here is the whole room's, exactly as a Connections tile is. */
       teamMode: true
@@ -753,7 +777,11 @@
          about time; what it owns is the decision that time should matter here.
          A board saying neither is untimed and pays face value. */
       clock: () => kSecs(),
-      speedFloor: () => 0.5,
+      speed: () => ({ floor:0.5, step:5 }),
+      /* What a question is worth here, for a team that is not first. On this board
+         nobody is first — there is no slot — so it is what every right answer is
+         measured against. */
+      worth: () => kBase(),
       /* The clock is the opponent, so a tap is a commitment. Changing your mind
          after seeing where the room went is the opposite of what this board is
          measuring — and the speed score has already been decided by then. */
@@ -770,7 +798,7 @@
 
   /* ---------- what a question is worth, when being quick is worth something ----------
      **Kahoot's own curve, and it is chosen rather than invented**: full marks for an
-     instant answer, `speedFloor` of it for one that arrives as the clock dies. It
+     instant answer, `speed().floor` of it for one that arrives as the clock dies. It
      rewards knowing over guessing without making a slow right answer worthless,
      which is the whole reason a class keeps trying after the fast students have
      answered.
@@ -787,18 +815,26 @@
      team is paid is how fast they were; by the time the clock dies everyone who
      answered would score the same, which is exactly the thing this replaces.
 
-     Rounded to 5 so a scoreboard stays readable from the back of a room, and floored
-     at 5 so a right answer at the death is still visibly a right answer. */
+     **One declared fact, `speed()`, not two.** `floor` is what a right answer keeps
+     when it is as late as it can be; `step` is what the board rounds to, because a
+     scoreboard reading 92 and 87 is arithmetic nobody at the back of a room can
+     follow. They are declared together because neither means anything alone, and a
+     board that says nothing pays face value.
+
+     **With no clock running, late is worth the floor, flat.** That is the case on
+     every board but Quickfire: a tile is opened and read out at the teacher's pace,
+     so there is no fraction to decay against — what there is instead is "you got
+     there, but not first", which is exactly what the floor says. */
   function roundValue(base, host){
     const h = host || roundHost;
-    const floor = h && h.speedFloor ? Number(h.speedFloor()) : null;
-    /* Untimed is five of the six boards, and it pays face value. Asking whether a
-       clock happens to be *running* would make a value depend on whether the teacher
-       had switched a timer on, which is a different question from whether this board
-       scores by speed. */
-    if(floor == null || !(floor >= 0 && floor < 1)) return base;
-    const frac = Kit.round.clock.fraction();
-    return Math.max(5, Math.round((base * (floor + (1 - floor) * frac)) / 5) * 5);
+    const s = h && h.speed ? (h.speed() || null) : null;
+    if(!s) return base;
+    const floor = Number(s.floor);
+    if(!(floor >= 0 && floor < 1)) return base;
+    const step = Number(s.step) || 1;
+    const frac = Kit.round.clock.running() ? Kit.round.clock.fraction() : 0;
+    const paid = base * (floor + (1 - floor) * frac);
+    return Math.max(step, Math.round(paid / step) * step);
   }
 
   /* One definition of "this board runs its questions against a clock", asked of the
@@ -1009,6 +1045,25 @@
     games: ROUND_GAMES.filter(g => !ROUND_HOSTS[g].scoreEach),
     label:'Winner banner when a round is taken',
     help:'After a team takes a round, a banner names them and what it paid, and lingers a moment — the strip alone was gone before the back of the room could read it.' });
+
+  /* Offered only to the boards that *have* a slot to lock. Quickfire plays this way
+     already and has nothing to switch, so a row there would be a control that reads
+     as a choice and is not one. Derived from the host's own declaration, so a
+     seventh board sorts itself. */
+  /* **Off by default, and the suite is why.** It shipped on, and the shared checks
+     said what a paragraph could not: three games encode "a right answer takes the
+     tile *now*" in their own assertions, because that is the beat those boards have
+     always had. Holding the slot back until the question ends is the right shape for
+     the dynamic and it is still a change to a working game — it costs the teacher a
+     press (Reveal, then Close, where a won round used to take itself), and no class
+     has met it. So it is a switch a teacher turns on to try, which is what the ⚙
+     drawer during play is for, rather than a new default nobody asked for mid-lesson.
+     Every existing check passes with it off, which is the evidence that the shared
+     change underneath it is inert until it is wanted. */
+  S.register({ id:'roundOpenToAll', group:'Questions', type:'toggle', default:false,
+    games: ROUND_GAMES.filter(g => !ROUND_HOSTS[g].scoreEach),
+    label:'Everyone finishes, not just the first',
+    help:'A right answer stops closing the question. The first team still takes the tile at full value when you reveal; everyone else who gets there still scores, for less. Off is the old race.' });
 
   /* **The card stops leaving on its own when a round is won.** Reported from a real
      board: the four words light up, the tile flips away, and the room is left with
@@ -4763,24 +4818,61 @@
 
        The settler's per-team memory is what stops a team being paid twice: a right
        answer settles once, and `win()` itself is idempotent per team. */
-    if(roundHost.scoreEach){
-      verdicts.filter(v => v.r.verdict === 'right')
-              .sort((a, b) => jGroupAt(a.team) - jGroupAt(b.team))
-              .forEach(v => {
-        if(!jGroupSettler.fresh(v.team, 'ok:' + v.set.slice().sort().join('|'))) return;
-        def.accept(v.set, jGroup, v.team, ctx);
-        const paid = roundHost.win(v.team);
-        notePhoneScore(teamName(v.team), v.team, null, paid || 0);
-      });
-      renderJGroup();
-      return;                       // the clock ends the question, not the first right answer
-    }
-
     /* Earliest right answer, not lowest index — see `jGroupStamp`. The teacher's own
        clicks carry no stamp and sort last, which is correct: a click is a judgement
        made after the room has had its go. */
-    const won = verdicts.filter(v => v.r.verdict === 'right')
-                        .sort((a, b) => jGroupAt(a.team) - jGroupAt(b.team))[0];
+    const rights = verdicts.filter(v => v.r.verdict === 'right')
+                           .sort((a, b) => jGroupAt(a.team) - jGroupAt(b.team));
+
+    /* **The question does not end because somebody was right.** Two boards' worth of
+       reasons, and they are the same reason: the first team to get there locks
+       everybody else out, so the rest of the room stops working on a question they
+       had not finished. On Quickfire there is no slot to lock — every team answers
+       every question — and `roundOpenToAll` is that same beat on a board that *does*
+       have one.
+
+       The slot still belongs to whoever was first, and it still pays in full. What
+       changes is that it is **held back** rather than paid now: the tile, the turn,
+       the banner and the ending are the ordinary take beat, run when the question
+       actually ends (the teacher reveals, or their own Check decides it). Everybody
+       else who still gets there is paid `roundValue` of what the question is worth —
+       less, and less the longer they took, which is what keeps being first worth
+       something.
+
+       **Who was first is deliberately not said out loud.** The say line naming them
+       would tell thirty handsets that the answer they are still assembling is the
+       one that team just sent. The lanes go on showing who has committed, which is
+       what a teacher needs and what the room already sees. */
+    if(roundHost.scoreEach || jOpenToAll()){
+      rights.forEach(v => {
+        if(!jGroupSettler.fresh(v.team, 'ok:' + v.set.slice().sort().join('|'))) return;
+        def.accept(v.set, jGroup, v.team, ctx);
+        if(!roundHost.scoreEach && jGroup.hostTook == null){
+          jGroup.hostTook = v.team;     // the slot, paid when the question ends
+          Sound.play('correct');
+          return;
+        }
+        const paid = roundHost.scoreEach ? roundHost.win(v.team) : jPayLate(v.team);
+        notePhoneScore(teamName(v.team), v.team, null, paid || 0);
+      });
+      /* **A wrong answer is still named, and forgetting that was the one real bug in
+         this change.** Paying the right answers and returning skipped the miss loop
+         entirely, so a board holding its question open said nothing at all to a team
+         that had just got it wrong — the shake, the "not that one" and the strip note
+         all silently gone. A `scoreEach` board is the deliberate exception: its clock
+         is about to end the question for everybody, and a verdict per team on the way
+         past is noise rather than teaching. */
+      if(!roundHost.scoreEach){
+        verdicts.filter(v => v.r.verdict !== 'right').forEach(v => {
+          if(!jGroupSettler.fresh(v.team, v.set.slice().sort().join('|'))) return;
+          jGroupMiss(v.team, v.r);
+        });
+      }
+      renderJGroup();
+      return;                       // the clock or the teacher ends it, not the first right answer
+    }
+
+    const won = rights[0];
     if(won){
       /* Right does not always mean the round is over. A grouping clue ends the
          moment a team has the set; an ordering climb has four more rungs to fill,
@@ -4806,6 +4898,27 @@
       if(!jGroupSettler.fresh(v.team, v.set.slice().sort().join('|'))) return;
       jGroupMiss(v.team, v.r);
     });
+  }
+
+  /* Whether this board keeps a question open after somebody has it right. Only the
+     boards with a slot can answer it — Quickfire has none, so it is already true
+     there by construction and asking would be a second way to say one thing. */
+  function jOpenToAll(){
+    return !roundHost.scoreEach && !!S.get('roundOpenToAll', roundHost.game);
+  }
+
+  /* A right answer that was not first. It takes nothing — the slot is somebody
+     else's — so it cannot go through `win()`, which is the function that pays *and*
+     clears the tile, advances the line, ends the go. It is paid directly instead,
+     against what the host says the question is worth.
+
+     No streak and no `markRun`: a run is about holding the board, and this team has
+     not taken anything. Paying a bonus for a second-place answer would also make the
+     run multiplier the fastest way to score on a board where nobody is first. */
+  function jPayLate(team){
+    const worth = roundHost.worth ? Number(roundHost.worth(team)) || 0 : 0;
+    if(!worth || !teams[team]) return 0;
+    return award(team, roundValue(worth), { streak:false });
   }
 
   function jGroupMiss(team, r){
@@ -5479,6 +5592,12 @@
   }
 
   document.getElementById('reveal-btn').addEventListener('click', ()=>{
+    /* **An open round has already decided who took it — revealing is what ends it.**
+       The slot was held back so the rest of the room could finish, so this hands over
+       to the ordinary take beat rather than to Correct/Wrong: the tile, the turn, the
+       banner and the ending are all in there and none of them should have a second
+       version. A question nobody got right has no `hostTook` and reveals as always. */
+    if(jGroupLive() && jGroup.hostTook != null){ jGroupTake(jGroup.hostTook); return; }
     jClockStop();      // the answer is out; whatever the clock was saying is over
     Sound.play('reveal');
     // The word drops into the blank rather than only appearing underneath it —

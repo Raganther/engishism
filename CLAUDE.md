@@ -1229,6 +1229,82 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A right answer stops locking the room out, and the clock that decides what an
+  answer is worth is one clock now.** Asked for as three things — every skin playable
+  solo, points for how fast you were, and everyone able to finish rather than the
+  first taking it — and reading the code said the first was already built and the
+  other two were one change.
+  - **All six skins already declared `solo: true`.** The exclusions were dropped a
+    session earlier. Nothing to build, which is worth knowing before anybody plans it.
+  - **`Kit.round.clock` — three private clocks were the same thirty lines.** Jeopardy's
+    answer clock painting into the clue card, Quickfire's question clock painting onto
+    its own stage, and a round's own clock sent to the handsets as a duration. That was
+    tolerable while a clock only *said* how long was left; it stops being tolerable the
+    moment a board scores by speed, because the number a team is paid from has to be
+    the number the room is watching count down. Both callers rewired in the same
+    change, which is what makes it a shelf.
+  - **It decides nothing.** Expiry is a fact the room hears — one host ends its
+    question on `onEnd`, the other pulses the card red and changes nothing, and both
+    are correct. `fraction()` is 1 when nothing is running, so an untimed board pays
+    face value and a curve can be asked for anywhere without every board first having
+    to grow a clock.
+  - **The curve is `roundValue`, and where it lives is the whole layering argument.**
+    Not in a round — **a round may not score**, and a curve there would end its
+    portability. Not on `Kit` either — what a question is worth is the *skin's*, and
+    five games calling a shared helper by hand is the hand-kept list this project has
+    paid for most. So the **host declares two facts** (`speed()` → `{floor, step}`,
+    and `worth()`) and the shared settle path reads them. Quickfire's private `kValue`
+    is gone and no game asks for any of it.
+  - **`roundOpenToAll`: the first team still takes the slot, everybody else still
+    finishes.** The slot is *held back* rather than paid at once — the tile,
+    the turn, the banner and the ending are the ordinary take beat, run when the
+    question actually ends (the teacher reveals, or their own Check decides it).
+    Everyone else who gets there is paid `roundValue` of what the question is worth.
+    Proved both ways on a board with two handsets: **off** gives `taps=pass/LOCKED OUT`
+    and a final `[100, 0]`, **on** gives `pass/pass` and `[100, 50]`.
+  - **It shipped on and the suite changed that, which is the suite doing its job.**
+    Three games encode "a right answer takes the tile *now*" in their own assertions,
+    because that is the beat those boards have always had — six checks went red, all
+    of them describing behaviour rather than breaking. Holding the slot back is the
+    right shape for the dynamic and it is still a change to a working game: it costs
+    the teacher a press (Reveal, then Close, where a won round used to take itself),
+    and no class has met it. **Off by default**, on from ⚙ during play, which is what
+    the drawer is for. Every existing check passes with it off, which is the evidence
+    that the shared change underneath is inert until it is asked for.
+  - **The one real bug in it, and only the suite found it:** paying the right answers
+    and returning skipped the miss loop, so a board holding its question open said
+    *nothing* to a team that had just got it wrong — no shake, no "not that one", no
+    strip note. A `scoreEach` board stays the deliberate exception: its clock is about
+    to end the question for everybody.
+  - **Who was first is deliberately not said out loud.** A say line naming them would
+    tell thirty handsets that the answer they are still assembling is the one that team
+    just sent. The lanes go on showing who has committed, which is what a teacher needs.
+  - **With no clock running, late is worth the floor, flat**, which is every board but
+    Quickfire: a tile is read out at the teacher's pace, so there is no fraction to
+    decay against — what there is instead is "you got there, but not first".
+  - **On a board that scores in single points there is nothing smaller than 1**, so a
+    late right answer on Blockbusters or Race is worth the same 1. That is not the
+    floor failing: what being first buys there is the *square*, which is what wins the
+    game, and no number of points is that.
+  - **The `jclock` suite had been running 4 checks of 13.** It opened a class-facing
+    unit where every clue is a round now, so `#buzzer` sat present and disabled, and it
+    hung thirty seconds and threw — taking its last nine checks. The Lab board, the
+    same move `phonemodes`, `turns` and `competition` already made. 13/0.
+  - **A test that cannot fail on its bug is not a test, met again.** The first version
+    of the two-handset drive looked up the answer under the wrong bank key, so `right`
+    was null, nobody tapped anything, and *the first two checks passed anyway* — on a
+    question no one had answered.
+  - **Two red checks left after it, both proved pre-existing by stashing.** The
+    ordering climb at 726px on a 720 board, which already has its own item under Next
+    — and a **new one**: `classic` says *a wrong answer costs the value when the rule
+    is on* and the score does not move (`500/0 -> 500/0`, clue $100). Either `jDeduct`
+    has stopped firing or the check has gone stale; it is not this change's doing and
+    it is somebody's next job. `grouping, qbench, anagram, jeopardy, millionaire,
+    turns, competition, card, classic, together` 376/2.
+  - **Not done, and next:** the scoreboard is still inside `#play-kahoot` rather than
+    a sibling of every stage, and `score` is still a running total with no history, so
+    nothing can show a competitor rising or falling. **No classroom run**, and the
+    floor of 0.5 is a guess.
 - **The room bench was taking a live lesson's room, and the chip went on showing the
   code.** Asked as "should each bench and hub generate a new room number, so they do
   not get in each other's way" — the answer was yes, and it was not a precaution:
