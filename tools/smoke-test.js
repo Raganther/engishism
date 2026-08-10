@@ -7537,7 +7537,13 @@ async function testPhoneBench(browser){
    countdown, sent as a duration with the lock so no clock comparison is needed. */
 async function testAnswerClock(browser){
   section('Jeopardy: the answer clock');
-  const host = await openHub(browser);
+  /* **The Lab board, because the answer clock only exists on a plain question.** It
+     starts when a team takes the *floor*, and a round never gives anybody the floor
+     — it arms every handset at once. Every Jeopardy clue in Units 4 and 5 is a round
+     now, so a tile opened there leaves `#buzzer` present and disabled, and this suite
+     hung thirty seconds on it and then threw, taking its last five checks with it.
+     Same move `phonemodes`, `turns` and `competition` already made. */
+  const host = await openLabHub(browser);
   await host.evaluate(() => {
     const S = window.HubSettings;
     S.set('intro','off'); S.set('sound',false); S.set('cardFlip','off');
@@ -7562,7 +7568,7 @@ async function testAnswerClock(browser){
     window.HubSettings.set('round_default','buzz','jeopardy');
     window.HubSettings.set('jAnswerSeconds', 5, 'jeopardy');
   });
-  await startGame(host, 'Jeopardy', { sections: 3 });
+  await startGame(host, 'Jeopardy', { sections: 3, unit: 'Lab' });
   await host.waitForTimeout(900);
   const chip = await host.locator('#buzzer-chip').innerText().catch(()=>'');
   const code = (chip.match(/CODE\s+(\d{5})/i)||[])[1];

@@ -171,6 +171,77 @@
     };
   }
 
+  /* ---------- the question clock ----------
+     **One clock, because a clock that decides what an answer is worth cannot be
+     three private ones.** There were three when this was written, and they were
+     never the same thing wearing three hats — they were the same thirty lines
+     written out three times: Jeopardy's answer clock painting into the clue card,
+     Quickfire's question clock painting onto its own stage, and a round's own
+     clock sent to the handsets as a duration. The moment a *value* is read off one
+     of them, "which clock" stops being a cosmetic question: a board scoring by
+     speed has to read the same number the room is watching count down.
+
+     What it deliberately does not do is decide anything. Expiry is a fact the room
+     hears — the same rule Jeopardy's answer clock already followed, and the reason
+     it is a callback rather than a verdict: the teacher controls everything is the
+     app's constraint, and a clock that marked an answer wrong mid-sentence would
+     fight it. One host ends its question on `onEnd`, the other pulses the card red
+     and changes nothing, and both are correct.
+
+       const c = Kit.round.clock.start({ secs:20, onTick:paint, onEnd:endQuestion });
+       Kit.round.clock.fraction()   // 1.0 at the start, 0 at the death
+       Kit.round.clock.stop()
+
+     **`fraction()` is 1 when nothing is running, and that default is load-bearing.**
+     An untimed board — which is five of the six — pays face value rather than
+     nothing, so a value curve can be asked for on any board without every board
+     first having to grow a clock.
+
+     One clock at module scope rather than per host, because there is one room, one
+     board and one question in it: starting a second is what stopping the first
+     means. Ticking at 100ms rather than 1s so a host painting whole seconds sees
+     them turn over on time — a 1s tick started mid-second paints its last number
+     for two beats, which reads as a clock that stalls at the worst moment. */
+  let clockAt = 0, clockSecs = 0, clockTick = null, clockEnded = true;
+  const clockLeft = () => clockSecs > 0
+    ? Math.max(0, clockSecs - (Date.now() - clockAt) / 1000) : 0;
+  const clock = {
+    start(cfg){
+      const o = cfg || {};
+      clock.stop();
+      clockSecs = Number(o.secs) || 0;
+      if(!clockSecs) return clock;          // 0 is "untimed", not "a clock of zero"
+      clockAt = Date.now();
+      clockEnded = false;
+      const beat = ()=>{
+        const left = clockLeft();
+        if(o.onTick) o.onTick(left, clock.fraction());
+        if(left > 0 || clockEnded) return;
+        /* Ended once, and the tick stopped before the callback runs — an `onEnd`
+           that opens the next question would otherwise be re-entered by the beat
+           still in flight. */
+        clockEnded = true;
+        clock.stop();
+        if(o.onEnd) o.onEnd();
+      };
+      beat();
+      clockTick = setInterval(beat, 100);
+      return clock;
+    },
+    stop(){
+      if(clockTick) clearInterval(clockTick);
+      clockTick = null;
+      clockSecs = 0;
+      return clock;
+    },
+    running(){ return !!clockTick; },
+    left(){ return clockLeft(); },
+    /* Read at the moment an answer settles, never at the end of the question: what
+       a team is paid is how fast *they* were, and by the time the clock dies every
+       team would score the same. */
+    fraction(){ return clockSecs > 0 ? Math.max(0, Math.min(1, clockLeft() / clockSecs)) : 1; }
+  };
+
   /* ---------- the lane standard ----------
      Every round that builds an answer up draws the same picture: a lane per team,
      on the card from the moment the round opens, blank cells filling as that
@@ -693,7 +764,7 @@
       }
       return null;
     },
-    shares, settle, poll, agreement, lanes, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour,
+    shares, settle, clock, poll, agreement, lanes, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour,
     /* A comma-separated field as a list. Three rounds' editors parse one, which
        is what puts it here rather than in each of them. */
     list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); }

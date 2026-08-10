@@ -531,23 +531,15 @@
      else in the app scores by time. `level` is ignored — a ladder needs difficulty,
      a straight run does not. */
   let kQueue = [], kAt = -1, kCurrent = null, kAsked = 0;
-  let kStartedAt = 0, kTick = null, kPaid = null, kOver = false;
+  let kPaid = null, kOver = false;
 
   const kSecs      = () => Number(S.get('kSeconds', 'kahoot')) || 20;
   const kBase      = () => Number(S.get('kPoints',  'kahoot')) || 100;
   const kWanted    = () => Number(S.get('kQuestions', 'kahoot')) || 15;
-  const kLeft      = () => Math.max(0, kSecs() - (Date.now() - kStartedAt) / 1000);
+  /* The clock is `Kit.round.clock` now — the shared one, which is what lets the
+     value below be the shared curve rather than this skin's private arithmetic. */
+  const kLeft      = () => Kit.round.clock.left();
   const kLive      = () => !!kCurrent && !kOver;
-
-  /* The whole point of the skin, in one function. Full marks for an instant answer,
-     half for one that arrives as the clock dies — which is Kahoot's own curve, and
-     it is chosen rather than invented: it rewards knowing over guessing without
-     making a slow right answer worthless. Rounded to 5 so the scoreboard stays
-     readable from the back of a room. */
-  function kValue(){
-    const frac = kSecs() > 0 ? Math.max(0, Math.min(1, kLeft() / kSecs())) : 1;
-    return Math.max(5, Math.round((kBase() * (0.5 + 0.5 * frac)) / 5) * 5);
-  }
 
   registerGame({
     id:'kahoot', title:'Quickfire',
@@ -755,6 +747,13 @@
          answer at its own speed. So the settle path pays each right team as it
          settles instead of ending on the first — see `scoreEach` below. */
       scoreEach: true,
+      /* **How long a question runs, and what a slow right answer keeps** — the two
+         declared facts a board needs to score by speed, and the only two. The curve
+         itself is shared (`roundValue`), so this skin no longer owns any arithmetic
+         about time; what it owns is the decision that time should matter here.
+         A board saying neither is untimed and pays face value. */
+      clock: () => kSecs(),
+      speedFloor: () => 0.5,
       /* The clock is the opponent, so a tap is a commitment. Changing your mind
          after seeing where the room went is the opposite of what this board is
          measuring — and the speed score has already been decided by then. */
@@ -768,6 +767,48 @@
   };
   const ROUND_GAMES = Object.keys(ROUND_HOSTS);
   let roundHost = ROUND_HOSTS.jeopardy;
+
+  /* ---------- what a question is worth, when being quick is worth something ----------
+     **Kahoot's own curve, and it is chosen rather than invented**: full marks for an
+     instant answer, `speedFloor` of it for one that arrives as the clock dies. It
+     rewards knowing over guessing without making a slow right answer worthless,
+     which is the whole reason a class keeps trying after the fast students have
+     answered.
+
+     It lives here rather than in a round because **a round may not score** — that is
+     the one rule that keeps a round portable, and a speed curve inside one would put
+     scoring in the round tier and end it. It is not on `Kit` either, for the opposite
+     reason: what a question is worth is the *skin's*, and a game calling a shared
+     helper by hand is five hand-written call sites and the defect this project has
+     paid for most. So the host declares two facts and the shared settle path reads
+     them; no game asks for this and no round knows it happened.
+
+     **Read at the moment a team settles, never at the end of the question.** What a
+     team is paid is how fast they were; by the time the clock dies everyone who
+     answered would score the same, which is exactly the thing this replaces.
+
+     Rounded to 5 so a scoreboard stays readable from the back of a room, and floored
+     at 5 so a right answer at the death is still visibly a right answer. */
+  function roundValue(base, host){
+    const h = host || roundHost;
+    const floor = h && h.speedFloor ? Number(h.speedFloor()) : null;
+    /* Untimed is five of the six boards, and it pays face value. Asking whether a
+       clock happens to be *running* would make a value depend on whether the teacher
+       had switched a timer on, which is a different question from whether this board
+       scores by speed. */
+    if(floor == null || !(floor >= 0 && floor < 1)) return base;
+    const frac = Kit.round.clock.fraction();
+    return Math.max(5, Math.round((base * (floor + (1 - floor) * frac)) / 5) * 5);
+  }
+
+  /* One definition of "this board runs its questions against a clock", asked of the
+     host rather than of the game's name, so a seventh board answers it by declaring
+     one fact. `clock` is a function because the seconds come from a ⚙ range a teacher
+     can move between questions. */
+  function roundClockSecs(host){
+    const h = host || roundHost;
+    return h && h.clock ? (Number(h.clock()) || 0) : 0;
+  }
 
   /* ---- feature switches. Adding a feature? Register it here and the settings
      panel picks it up automatically — there is no panel markup to edit. ---- */
@@ -5502,10 +5543,15 @@
 
      Time up is a fact the room hears, not a verdict: klaxon, red pulse, and the
      buttons stay exactly as they were. The teacher controls everything is the
-     app's constraint, and auto-marking wrong mid-sentence would fight it. */
-  let jClockTick = null;
+     app's constraint, and auto-marking wrong mid-sentence would fight it.
+
+     **It runs on `Kit.round.clock` now, and that is the point of the shelf.** This
+     and Quickfire's question clock were the same thirty lines written twice, and
+     only one of them could ever have been read by a value curve. What is left here
+     is what genuinely belongs to this board: where the number is painted, and that
+     running out of time changes nothing. */
   function jClockStop(){
-    if(jClockTick){ clearInterval(jClockTick); jClockTick = null; }
+    Kit.round.clock.stop();
     const el = document.getElementById('clue-clock');
     if(el) el.remove();
     document.getElementById('clue-card').classList.remove('overtime');
@@ -5517,20 +5563,22 @@
     const el = document.createElement('span');
     el.id = 'clue-clock';
     document.getElementById('clue-topline').appendChild(el);
-    let left = secs;
-    const paint = ()=>{ el.textContent = String(left); el.classList.toggle('urgent', left <= 3); };
-    paint();
-    jClockTick = setInterval(()=>{
-      left--;
-      if(left <= 0){
-        clearInterval(jClockTick); jClockTick = null;
-        el.textContent = '0'; el.classList.add('urgent');
+    Kit.round.clock.start({
+      secs,
+      onTick(left){
+        const n = Math.ceil(left);
+        el.textContent = String(n);
+        el.classList.toggle('urgent', n <= 3);
+      },
+      /* The clock is stopped by the time this runs, so the mark it leaves has to be
+         painted here rather than by a tick that will not come again. */
+      onEnd(){
+        el.textContent = '0';
+        el.classList.add('urgent');
         document.getElementById('clue-card').classList.add('overtime');
         Sound.play('klaxon');
-        return;
       }
-      paint();
-    }, 1000);
+    });
   }
 
   function jOfferSteal(teamIdx){
@@ -6177,27 +6225,25 @@
        round, so there is no ordinary-question path to fall back to. */
     if(!(found && jGroupOpen(found))) askPhones(kCurrent.prompt, 'kahoot');
 
-    kStartedAt = Date.now();
     kStartClock();
     hook('tension');
     fitKahoot();
   }
 
+  /* The shared clock, painted onto this stage. What is left here is the painting —
+     which is all a host should ever own of a clock, because the number itself is
+     what the value curve reads and there can only be one of those. */
   function kStartClock(){
-    kStopClock();
-    kPaintClock();
-    kTick = setInterval(()=>{
-      kPaintClock();
-      if(kLeft() <= 0) kTimeUp();
-    }, 100);
+    Kit.round.clock.start({ secs: roundClockSecs(ROUND_HOSTS.kahoot),
+                            onTick: kPaintClock, onEnd: kTimeUp });
   }
-  function kStopClock(){ if(kTick) clearInterval(kTick); kTick = null; }
-  function kPaintClock(){
+  function kStopClock(){ Kit.round.clock.stop(); }
+  function kPaintClock(left){
     const el = document.getElementById('k-secs');
     if(!el) return;
-    const left = kLeft();
-    el.textContent = Math.ceil(left);
-    document.getElementById('k-clock').classList.toggle('low', left <= 5);
+    const secs = left == null ? Kit.round.clock.left() : left;
+    el.textContent = Math.ceil(secs);
+    document.getElementById('k-clock').classList.toggle('low', secs <= 5);
   }
 
   /* Time up is a fact, not a verdict — the same rule Jeopardy's answer clock
@@ -6244,7 +6290,7 @@
        repaint come for free rather than being re-implemented here. `streak:false`:
        every team answers every question, so a "run" would only measure who has been
        right most recently, which is what the points already say. */
-    const paid = award(team, kValue(), { streak:false });
+    const paid = award(team, roundValue(kBase()), { streak:false });
     kPaid[team] = paid;
     renderKahootBoard();
     /* **The no-relay path ends the question here.** With phones in the room several
