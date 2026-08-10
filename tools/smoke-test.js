@@ -5170,7 +5170,14 @@ async function testGroupingClue(browser){
      press, which is why every "did it score" check below has to make it. The button
      names the team it is about to pay, which is the assertion worth making here
      rather than in each of them. */
+  /* **And a right answer no longer ends the question either** (`roundOpenToAll`), so
+     there are two presses now rather than one: Reveal is what ends an open round —
+     it hands over to the ordinary take beat — and Close is what pays. Written as one
+     helper because every "did it score" check below needs both, and a check that
+     forgot the first would report "nothing scored" for a board working perfectly. */
   const closeWonRound = async page => {
+    const rv = page.locator('#reveal-btn');
+    if (await rv.isVisible().catch(()=>false)){ await rv.click(); await page.waitForTimeout(900); }
     const btn = page.locator('#close-btn');
     check('a won round waits for the teacher, naming who it pays',
           /^Close — .+ takes it$/.test((await btn.innerText()).trim()),
@@ -5252,10 +5259,23 @@ async function testGroupingClue(browser){
     await tap(ana, ['verdict','jury']);          // the buzz cleared the picks
     await tap(bo,  ['testimony','acquittal']);
     await page.waitForTimeout(1100);
-    check('the four that belong are lit before anything is scored',
-          await page.locator('#clue-group .gword.right').count() === 4,
+    /* **The four stay dark while the question is still open, and that is the whole
+       point of holding it open on this round.** Grouping lights them at `done`, which
+       is its own reveal — the four *are* the answer, so lighting them the moment one
+       team has it would hand it to everybody still hunting. With the question held
+       open they keep hunting and can find the same four independently, which is the
+       dynamic; the light comes when the teacher ends it. */
+    check('the four stay dark while other teams are still hunting',
+          await page.locator('#clue-group .gword.right').count() === 0,
           String(await page.locator('#clue-group .gword.right').count()));
     await page.waitForTimeout(1800);
+    /* Reveal ends the open round; the four light there, before Close takes the card
+       away — which is the order the room sees it in. */
+    await page.locator('#reveal-btn').click();
+    await page.waitForTimeout(900);
+    check('the four that belong are lit once the question is over',
+          await page.locator('#clue-group .gword.right').count() === 4,
+          String(await page.locator('#clue-group .gword.right').count()));
     await closeWonRound(page);
     check('the tile scores to the team that found it',
           (await scoresOf(page)).join('/') === '200/0', (await scoresOf(page)).join('/'));
@@ -6676,6 +6696,11 @@ async function testAnagramRound(browser){
   /* Taking a round *closes the card itself* — the tile has been paid and there is
      nothing left to look at — so Close is only there when the clue is still open.
      Clicking it unconditionally is what hung the first run of this suite. */
+  /* **Deliberately does not press Reveal.** An open round needs Reveal to end it, but
+     on an *ordinary* clue Reveal swaps Close out for Correct/Wrong — so revealing here
+     unconditionally left every plain card open, and the next tile click was
+     intercepted by the modal. The one caller that needs the take beat presses Reveal
+     itself, right where it is asserting the take. */
   const closeCard = async (page) => {
     if(await page.locator('#close-btn:visible').count()){
       await page.locator('#close-btn').click();
@@ -6922,6 +6947,12 @@ async function testAnagramRound(browser){
       used.push(idx); await drag(idx, i);
     }
     await live.waitForTimeout(1600);
+    /* The question is held open for the rest of the room, so Reveal is what ends it;
+       the Close button names who it pays only once it has. */
+    if(await live.locator('#reveal-btn:visible').count()){
+      await live.locator('#reveal-btn').click();
+      await live.waitForTimeout(800);
+    }
     check('finishing the word holds the card up for the room to read',
           /^Close — .+ takes it$/.test((await live.locator('#close-btn').innerText()).trim()),
           (await live.locator('#close-btn').innerText()).trim());
