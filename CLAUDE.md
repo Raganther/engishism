@@ -1229,6 +1229,26 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The room bench was taking a live lesson's room, and the chip went on showing the
+  code.** Asked as "should each bench and hub generate a new room number, so they do
+  not get in each other's way" — the answer was yes, and it was not a precaution:
+  reproduced first try, hub on `80873` and the bench's board on `80873`.
+  - **The cause is a good rule meeting a case it was not written for.** The hub
+    remembers its room code per *device* for six hours, so that reloading the page —
+    the first thing anyone does when something looks wrong — does not mint a new code
+    and throw the class out. A board opened inside the bench is the same origin, so it
+    read the same stored code. The relay allows one host and the newest wins, so the
+    real board was replaced on its own room while its chip still showed the number.
+  - **A rig is not a lesson.** A bench board mints its own code every time and stores
+    nothing; the teaching hub's memory is untouched. `bench=1` was already on the URL
+    for the bench's own reasons and now means exactly this.
+  - **Nothing in the suite could ever have caught it**, which is the reusable part.
+    `browser.newPage()` gives every page its own storage, so two tabs of *one* browser
+    — the case that matters — is the one the harness does not produce by default. The
+    four new checks share a `browser.newContext()` deliberately.
+  - Pinned in both directions: a hub keeps its room across a reload (the rule this
+    must not break), and the bench's board differs from it. Proved by reverting —
+    `bench 67855 · lesson 67855`. `bench` 44/0.
 - **The solo roster only ever grew, so the bar could not follow the phones down.**
   Reported from the room bench: seven handsets racked, several removed, and the board
   still listed everybody — teams synced correctly by then, individuals did not.

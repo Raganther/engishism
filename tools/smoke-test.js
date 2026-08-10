@@ -7486,6 +7486,47 @@ async function testPhoneBench(browser){
 
   check('the hub bench had no errors', hub.__errors.length === 0, hub.__errors[0]);
   await hub.close();
+
+  /* ---- the bench must not take a live lesson's room ----
+     **A teaching hub remembers its room code per device for six hours**, on purpose:
+     reloading the page is the first thing anyone does when something looks wrong, and
+     without the memory a reload would mint a new code and throw the whole class out
+     mid-lesson. But a board opened *inside the bench* is the same origin and read the
+     same stored code — so it connected to the very same room, and the relay allows one
+     host and the newest wins. Opening the bench during a lesson quietly replaced the
+     real board on its own room, while its chip went on showing the code.
+
+     **One browser context deliberately**, because that is the whole mechanism.
+     `browser.newPage()` gives each page its own storage, which is exactly why nothing
+     in this suite could ever have caught this — two tabs of one browser is the case
+     that matters and the one the harness does not produce by default. */
+  const shared = await browser.newContext({ viewport:{ width:1400, height:900 } });
+  const codeIn = t => (String(t).match(/(\d{5})/) || [])[1];
+  const teach  = await shared.newPage();
+  await teach.goto(BASE + '/game-hub.html'); await teach.waitForTimeout(700);
+  await teach.evaluate(() => { window.HubSettings.set('buzzers', true);
+                               window.HubSettings.set('intro','off'); });
+  await teach.reload();
+  await until(async () => !!codeIn(await textOf(teach.locator('#buzzer-chip'))), 15000);
+  const lesson = codeIn(await textOf(teach.locator('#buzzer-chip')));
+  check('a teaching hub opens a room', !!lesson, String(lesson));
+
+  await teach.reload();
+  await until(async () => !!codeIn(await textOf(teach.locator('#buzzer-chip'))), 15000);
+  check('and keeps it across a reload, so a class is not thrown out mid-lesson',
+        codeIn(await textOf(teach.locator('#buzzer-chip'))) === lesson,
+        lesson + ' → ' + codeIn(await textOf(teach.locator('#buzzer-chip'))));
+
+  const rig = await shared.newPage();
+  await rig.goto(BASE + '/playground/phone-bench.html?board=../game-hub.html');
+  await until(async () => /^\d{4,6}$/.test(await rig.locator('#code').inputValue()), 15000);
+  check('a bench board mints its own room instead of taking the lesson’s',
+        await rig.locator('#code').inputValue() !== lesson,
+        'bench ' + await rig.locator('#code').inputValue() + ' · lesson ' + lesson);
+  check('and the lesson still has the room it opened',
+        codeIn(await textOf(teach.locator('#buzzer-chip'))) === lesson,
+        codeIn(await textOf(teach.locator('#buzzer-chip'))) + ' · was ' + lesson);
+  await shared.close();
 }
 
 /* ---- the answer clock ----

@@ -6964,7 +6964,21 @@
      for as long as a lesson could plausibly run. */
   const ROOM_KEY = 'engishism.gamehub.room';
   const ROOM_TTL = 6 * 60 * 60 * 1000;
+  /* **A board opened inside the room bench takes no part in that memory**, and
+     without this the bench quietly steals a live lesson's room. The memory is per
+     *device*, so a bench board — same origin, same storage — read the code the
+     teaching hub had stored and connected to the very same room. The relay allows
+     one host and the newest wins, so the real board was replaced on its own room
+     while its chip went on showing the code. Confirmed: hub on 80873, bench on
+     80873.
+
+     A rig is not a lesson. The bench's board mints its own code every time and
+     stores nothing, so the two are independent and can be open side by side — which
+     is the whole point of having a bench. `bench=1` is the flag the bench already
+     passed for its own reasons; it means exactly this. */
+  const BENCHED = /[?&]bench=1\b/.test(location.search);
   function rememberedRoom(relay){
+    if(BENCHED) return null;
     try{
       const r = JSON.parse(window.localStorage.getItem(ROOM_KEY) || 'null');
       if(!r || r.relay !== relay || !/^\d{4,6}$/.test(String(r.code))) return null;
@@ -6972,6 +6986,7 @@
     }catch(e){ return null; }
   }
   function rememberRoom(code, relay){
+    if(BENCHED) return;
     try{ window.localStorage.setItem(ROOM_KEY, JSON.stringify({ code, relay, at:Date.now() })); }
     catch(e){}
   }
