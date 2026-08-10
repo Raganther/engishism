@@ -242,6 +242,95 @@
     fraction(){ return clockSecs > 0 ? Math.max(0, Math.min(1, clockLeft() / clockSecs)) : 1; }
   };
 
+  /* ---------- who got there, in what order, how fast ----------
+     **The record a board scores from, and the reason it is one thing rather than
+     each board's own.** Until this existed the app knew who was first only as a
+     yes/no and measured the time only to spend it immediately, so a board could pay
+     "faster is worth more" and could not pay "3 for first, 2 for second, 1 for
+     third" — nothing anywhere ever saw that somebody came third.
+
+       Kit.round.results.open()                // a question begins
+       Kit.round.results.note(2, {done:true})  // competitor 2 has it
+       Kit.round.results.list()                // [{who, place, seconds, fraction, done}]
+
+     **`who` is a competitor index**, which is the same number in a room of teams and
+     a room of individuals — so nothing here has a roster branch in it, and neither
+     does anything reading it.
+
+     **`place` is arrival order, and the moment it is taken is the whole subtlety.**
+     For a team that must agree, `note` is called when the team's *answer* appears,
+     and a round only produces one once every member has committed (`read()` returns
+     `poll().answers`, and the partial lives in `leading`). So a team of four is
+     placed by its last student, not its keenest — which is the difference between
+     rewarding a team that agreed and rewarding a team that had one fast thumb. This
+     falls out of where `note` is called from rather than from anything here, so it
+     is pinned by a check rather than by a comment.
+
+     **`done` separates getting a piece right from finishing.** The ordering climb is
+     correct five times in one question, once per rung, and a board paying every
+     correct answer would pay that question five times over. A scoring rule reads the
+     finished entries; the unfinished ones are kept because they are the picture of
+     how the question actually went, which is what a scoreboard is for.
+
+     **Re-noting a competitor keeps their first place and updates nothing else.** A
+     team that answers, is re-read after somebody leaves the room, and settles again
+     has not answered twice — and losing your place because the roster changed under
+     you is exactly the sort of unfairness nobody would ever be able to explain. */
+  const LATE = 1e9;                    // "after everything the room sent" — see `note`
+  let resAt = 0, resSeq = 0, resRows = Object.create(null);
+  const results = {
+    open(){
+      resAt = Date.now();
+      resSeq = 0;
+      resRows = Object.create(null);
+      return results;
+    },
+    /* `at` is when this competitor's *answer* arrived, which the host knows and this
+       does not: several teams can settle inside one tick, so the moment a reply
+       landed and the moment it was judged are different numbers. Pass it and order is
+       right however the caller iterates; leave it out and call order stands in.
+
+       **Ordering by a supplied stamp rather than by call order is deliberate.** The
+       caller currently sorts before it iterates, so both would work today — and a
+       caller added later that forgets to sort would get silently wrong places, which
+       is precisely the kind of unfairness nobody in the room could ever explain. */
+    note(who, opts){
+      const key = String(who);
+      const o = opts || {};
+      /* The clock is read here and never at the end of the question: what a
+         competitor is paid for is how fast *they* were, and by the time the question
+         is over everybody who answered would look identical. */
+      if(!resRows[key]){
+        /* **No stamp sorts last, and it has to be last rather than first.** The
+           caller with no stamp is the teacher's own click, which is a judgement made
+           after the room has had its go — the same rule the settle path already
+           followed by treating an unstamped team as arriving at `Infinity`. A plain
+           counter here would have sorted those clicks *ahead* of every phone answer,
+           which is the wrong end and would have been invisible until a teacher
+           finished a question the class had already half-answered. */
+        resRows[key] = { who: Number(who), at: o.at == null ? LATE + (++resSeq) : o.at,
+                         seconds: resAt ? (Date.now() - resAt) / 1000 : 0,
+                         fraction: clock.fraction(), done: !!o.done };
+      } else if(o.done){
+        resRows[key].done = true;      // the last rung of a climb, on an entry that stands
+      }
+      return resRows[key];
+    },
+    of(who){ return results.list().filter(r => r.who === Number(who))[0] || null; },
+    place(who){ const r = results.of(who); return r ? r.place : Infinity; },
+    /* Sorted by arrival, with `place` stamped on the way out — one definition of what
+       first means, rather than four callers each sorting and two of them disagreeing. */
+    list(){
+      return Object.keys(resRows).map(k => resRows[k])
+        .sort((a, b) => a.at - b.at)
+        .map((r, i) => Object.assign({ place: i + 1 }, r));
+    },
+    /* Only the ones that finished. What a scoring rule pays — the rest are the
+       picture of how the question went, which is a different job. */
+    finished(){ return results.list().filter(r => r.done).map((r, i) => Object.assign({}, r, { place: i + 1 })); },
+    any(){ return Object.keys(resRows).length > 0; }
+  };
+
   /* ---------- the lane standard ----------
      Every round that builds an answer up draws the same picture: a lane per team,
      on the card from the moment the round opens, blank cells filling as that
@@ -764,7 +853,7 @@
       }
       return null;
     },
-    shares, settle, clock, poll, agreement, lanes, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour,
+    shares, settle, clock, results, poll, agreement, lanes, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour,
     /* A comma-separated field as a list. Three rounds' editors parse one, which
        is what puts it here rather than in each of them. */
     list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); }

@@ -83,9 +83,18 @@ function roundShelf(){
   /* The registry's own keys, minus the lookup functions — what is left is the
      shelf a round calls. Derived, so a helper added later shows up untouched. */
   const lookups = ['register','get','ids','authored','checkItem','fields','of'];
+  /* **A shelf item is not always a function**, and filtering to functions alone made
+     two of them invisible — `clock` and `results` are small objects with methods, the
+     same shape `Kit.anim` and `Kit.prompt` have one tier up. The tool that exists to
+     stop the next person rewriting something was silently not listing it. Read the
+     same way `gameShelf` already does. */
   return Object.keys(Kit.round)
-    .filter(k => lookups.indexOf(k) === -1 && typeof Kit.round[k] === 'function')
-    .map(k => signature('game-hub/hub-rounds.js', k));
+    .filter(k => lookups.indexOf(k) === -1 &&
+                 (typeof Kit.round[k] === 'function' ||
+                  (Kit.round[k] && typeof Kit.round[k] === 'object')))
+    .map(k => typeof Kit.round[k] === 'function'
+                ? signature('game-hub/hub-rounds.js', k)
+                : k + ' · ' + Object.keys(Kit.round[k]).join(', '));
 }
 
 function gameShelf(){

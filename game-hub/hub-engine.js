@@ -641,7 +641,10 @@
          way and two roundings that disagree is a card saying one number and a
          scoreboard showing another. */
       worth: () => currentClueValue,
-      speed: () => ({ floor:0.5, step:50 }),
+      /* The board's own unit. Every value Jeopardy produces is a multiple of 50, and
+         `award` already rounds a steal that way — two roundings that disagree is a
+         card saying one number and a scoreboard showing another. */
+      step:  () => 50,
       /* Which of a round's modes suits *this board*, when that differs from the
          round's own first choice. Jeopardy is team-based — a tile is a team's
          answer, not a thumb's — so a multiple choice here waits for the whole
@@ -683,7 +686,7 @@
          is the *square*, which is what wins the game, and no amount of points is
          that. Declared rather than left out so the row exists to be tuned. */
       worth: () => 1,
-      speed: () => ({ floor:0.5, step:1 }),
+      step:  () => 1,
       /* **This board is team-based too, and it had been playing as though it were
          not.** Jeopardy declared this and Blockbusters did not, so every round here
          fell to its own first mode — first tap wins — which on a yellow-versus-blue
@@ -714,7 +717,7 @@
          a different number for each of them. */
       worth: team => M_LADDER[Math.min(mTeamState(team == null ? active : team).rung,
                                        M_LADDER.length - 1)],
-      speed: () => ({ floor:0.5, step:50 }),
+      step:  () => 50,
       /* The class votes on every question now, so the counts exist from the first
          tap. Holding them back is what leaves Ask the class worth spending. */
       hideVotes: () => !mTally,
@@ -751,7 +754,7 @@
       win:  team => { awardRaceRound(team); return 1; },
       /* Same as a hexagon: a word is one point and there is nothing smaller. */
       worth: () => 1,
-      speed: () => ({ floor:0.5, step:1 }),
+      step:  () => 1,
       /* Two people at the screen, and in head-to-head nobody is on turn — so a round
          here is the whole room's, exactly as a Connections tile is. */
       teamMode: true
@@ -773,11 +776,12 @@
       scoreEach: true,
       /* **How long a question runs, and what a slow right answer keeps** — the two
          declared facts a board needs to score by speed, and the only two. The curve
-         itself is shared (`roundValue`), so this skin no longer owns any arithmetic
-         about time; what it owns is the decision that time should matter here.
-         A board saying neither is untimed and pays face value. */
+         itself is a shared rule (`PAY_RULES.clock`), so this skin owns no arithmetic
+         about time at all; what it owns is the decision that time should matter here,
+         which it makes by starting on that rule. A board declaring no clock is
+         untimed, and every rule still works on it. */
       clock: () => kSecs(),
-      speed: () => ({ floor:0.5, step:5 }),
+      step:  () => 5,
       /* What a question is worth here, for a team that is not first. On this board
          nobody is first — there is no slot — so it is what every right answer is
          measured against. */
@@ -786,7 +790,10 @@
          after seeing where the room went is the opposite of what this board is
          measuring — and the speed score has already been decided by then. */
       lockIn: true,
-      win: team => kPay(team),
+      /* The only host that uses what the rule decided: it has no slot, so the rule
+         is the whole payment. The others pay a tile, a hexagon or a rung, which is a
+         number the board itself owns. */
+      win: (team, points) => kPay(team, points),
       /* Counts, not team dots: on a tile the interesting fact is which team went
          where, and here it is how much of the room got it. */
       countVotes: () => true,
@@ -796,45 +803,100 @@
   const ROUND_GAMES = Object.keys(ROUND_HOSTS);
   let roundHost = ROUND_HOSTS.jeopardy;
 
-  /* ---------- what a question is worth, when being quick is worth something ----------
-     **Kahoot's own curve, and it is chosen rather than invented**: full marks for an
-     instant answer, `speed().floor` of it for one that arrives as the clock dies. It
-     rewards knowing over guessing without making a slow right answer worthless,
-     which is the whole reason a class keeps trying after the fast students have
-     answered.
+  /* ---------- how a question's points are split ----------
+     **Four rules, written once each, and a board picks one.** This is the answer to
+     "how does each skin score differently" and the answer is deliberately *not* a
+     function per game: five boards each doing their own arithmetic is the hand-kept
+     list this project has paid for more than any other, and it would leave a teacher
+     unable to try a different feel without somebody editing code. A board names its
+     starting rule, `roundPay` is a settings row, and switching Jeopardy to `equal`
+     mid-lesson for a class that is finding it brutal is two taps in the ⚙ drawer.
 
-     It lives here rather than in a round because **a round may not score** — that is
-     the one rule that keeps a round portable, and a speed curve inside one would put
-     scoring in the round tier and end it. It is not on `Kit` either, for the opposite
-     reason: what a question is worth is the *skin's*, and a game calling a shared
-     helper by hand is five hand-written call sites and the defect this project has
-     paid for most. So the host declares two facts and the shared settle path reads
-     them; no game asks for this and no round knows it happened.
+     **They live here rather than in a round**, because a round may not score — that
+     is the one rule keeping a round portable. And not on `Kit`, because what a
+     question is worth is the *skin's* business.
 
-     **Read at the moment a team settles, never at the end of the question.** What a
-     team is paid is how fast they were; by the time the clock dies everyone who
-     answered would score the same, which is exactly the thing this replaces.
+     `rows` is `Kit.round.results.finished()` — who got there, in order, each carrying
+     how much clock was left when they did. `baseFor(who)` is the host's `worth()`,
+     asked per competitor because a Millionaire rung is a different number for each of
+     them. What comes back is `{ who: points }` and nothing else: no board work, no
+     turns, no tiles.
 
-     **One declared fact, `speed()`, not two.** `floor` is what a right answer keeps
-     when it is as late as it can be; `step` is what the board rounds to, because a
-     scoreboard reading 92 and 87 is arithmetic nobody at the back of a room can
-     follow. They are declared together because neither means anything alone, and a
-     board that says nothing pays face value.
+     **The fifth rule goes in this table.** Not into a game. */
+  const PAY_RULES = {
+    winner: {
+      label:'Winner takes all — only the first to get it scores',
+      pay(rows, baseFor, o){
+        return rows.length ? { [rows[0].who]: payRound(baseFor(rows[0].who), o.step) } : {};
+      }
+    },
+    podium: {
+      /* The rule the whole change was for: until results carried a *position*,
+         nothing anywhere could see that somebody came third. */
+      label:'Podium — first, second and third all score, less each time',
+      pay(rows, baseFor, o){
+        const share = [1, o.second, o.third];
+        const out = {};
+        rows.slice(0, 3).forEach((r, i) => {
+          const v = payRound(baseFor(r.who) * share[i], o.step);
+          if(v > 0) out[r.who] = v;
+        });
+        return out;
+      }
+    },
+    clock: {
+      /* Kahoot's own curve, chosen rather than invented: full marks for an instant
+         answer, `floor` of it for one arriving as the clock dies. It rewards knowing
+         over guessing without making a slow right answer worthless.
 
-     **With no clock running, late is worth the floor, flat.** That is the case on
-     every board but Quickfire: a tile is opened and read out at the teacher's pace,
-     so there is no fraction to decay against — what there is instead is "you got
-     there, but not first", which is exactly what the floor says. */
-  function roundValue(base, host){
+         **With no clock running it pays the floor, flat** — which is every board but
+         Quickfire, where a tile is read out at the teacher's pace and there is no
+         fraction to decay against. What is left to say there is "you got there, but
+         not first", and that is exactly the floor. */
+      label:'By the clock — everyone right scores, and faster is worth more',
+      pay(rows, baseFor, o){
+        const out = {};
+        rows.forEach(r => {
+          const frac = Kit.round.clock.running() ? r.fraction : 0;
+          out[r.who] = payRound(baseFor(r.who) * (o.floor + (1 - o.floor) * frac), o.step);
+        });
+        return out;
+      }
+    },
+    equal: {
+      /* No speed advantage at all. For a class where the race is the thing putting
+         students off answering — which is the case this whole change exists for, and
+         the fastest way to find out whether it is true of a given group. */
+      label:'Everyone right scores the same',
+      pay(rows, baseFor, o){
+        const out = {};
+        rows.forEach(r => { out[r.who] = payRound(baseFor(r.who), o.step); });
+        return out;
+      }
+    }
+  };
+
+  /* Rounded to the board's own unit, because a scoreboard reading 92 and 87 is
+     arithmetic nobody at the back of a room can follow. Never below one unit: a right
+     answer that pays nothing reads as not having counted. */
+  function payRound(v, step){
+    const s = Number(step) || 1;
+    return Math.max(s, Math.round(v / s) * s);
+  }
+
+  /* What each competitor is paid for this question, whichever rule is running. One
+     definition, so the standings screen and the payout can never disagree about a
+     number the room is looking at. */
+  function roundPayout(host){
     const h = host || roundHost;
-    const s = h && h.speed ? (h.speed() || null) : null;
-    if(!s) return base;
-    const floor = Number(s.floor);
-    if(!(floor >= 0 && floor < 1)) return base;
-    const step = Number(s.step) || 1;
-    const frac = Kit.round.clock.running() ? Kit.round.clock.fraction() : 0;
-    const paid = base * (floor + (1 - floor) * frac);
-    return Math.max(step, Math.round(paid / step) * step);
+    const rule = PAY_RULES[S.get('roundPay', h.game)] || PAY_RULES.winner;
+    const baseFor = who => (h.worth ? Number(h.worth(who)) || 0 : 0);
+    return rule.pay(Kit.round.results.finished(), baseFor, {
+      step:   h.step ? (Number(h.step()) || 1) : 1,
+      floor:  Number(S.get('roundPayFloor',  h.game)),
+      second: Number(S.get('roundPaySecond', h.game)),
+      third:  Number(S.get('roundPayThird',  h.game))
+    });
   }
 
   /* One definition of "this board runs its questions against a clock", asked of the
@@ -1046,21 +1108,49 @@
     label:'Winner banner when a round is taken',
     help:'After a team takes a round, a banner names them and what it paid, and lingers a moment — the strip alone was gone before the back of the room could read it.' });
 
+  /* **How a question's points are split, and the whole answer to "custom behaviour
+     per game".** A board names its starting rule through `defaults`, which ranks
+     below a teacher's override and above the master — so Jeopardy opens on the podium
+     and Quickfire on the clock without either holding any arithmetic, and the panel
+     says in as many words that it is the game's own default rather than a control
+     that silently does nothing. The variants are built from `PAY_RULES`, so a fifth
+     rule is a table entry and this row grows on its own. */
+  S.register({ id:'roundPay', group:'Questions', type:'variant', default:'winner',
+    games: ROUND_GAMES,
+    defaults:{ jeopardy:'podium', kahoot:'clock' },
+    label:'How the points are split',
+    variants: Object.keys(PAY_RULES).map(k => ({ value:k, label:PAY_RULES[k].label })),
+    help:'Who scores when more than one team gets it right. The tile, hexagon or rung still goes to whoever was first — this is the points only.' });
+
+  S.register({ id:'roundPaySecond', group:'Questions', type:'range', default:0.6,
+    min:0.1, max:0.9, step:0.1, unit:'×', games:ROUND_GAMES,
+    label:'Second place is worth',
+    help:'A share of what the question pays. Used by the podium.' });
+  S.register({ id:'roundPayThird', group:'Questions', type:'range', default:0.3,
+    min:0.1, max:0.9, step:0.1, unit:'×', games:ROUND_GAMES,
+    label:'Third place is worth',
+    help:'A share of what the question pays. Used by the podium.' });
+  S.register({ id:'roundPayFloor', group:'Questions', type:'range', default:0.5,
+    min:0.1, max:0.9, step:0.1, unit:'×', games:ROUND_GAMES,
+    label:'A last-second right answer is worth',
+    help:'The least a right answer can pay, as a share of the full value. Used by the clock — and with no clock running it is what every answer after the first is worth.' });
+
   /* Offered only to the boards that *have* a slot to lock. Quickfire plays this way
      already and has nothing to switch, so a row there would be a control that reads
      as a choice and is not one. Derived from the host's own declaration, so a
-     seventh board sorts itself. */
-  /* **Off by default, and the suite is why.** It shipped on, and the shared checks
-     said what a paragraph could not: three games encode "a right answer takes the
-     tile *now*" in their own assertions, because that is the beat those boards have
-     always had. Holding the slot back until the question ends is the right shape for
-     the dynamic and it is still a change to a working game — it costs the teacher a
-     press (Reveal, then Close, where a won round used to take itself), and no class
-     has met it. So it is a switch a teacher turns on to try, which is what the ⚙
-     drawer during play is for, rather than a new default nobody asked for mid-lesson.
-     Every existing check passes with it off, which is the evidence that the shared
-     change underneath it is inert until it is wanted. */
-  S.register({ id:'roundOpenToAll', group:'Questions', type:'toggle', default:false,
+     seventh board sorts itself.
+
+     **On, now that there is something for the rest of the room to play for.** It
+     shipped off for one build and the reason was honest then: holding the slot back
+     changes a beat three boards have always had, and a right answer that was not
+     first scored nothing worth having. With the podium and the standings screen there
+     is now a reason to keep working after somebody else has it, which is the whole
+     point of the change.
+
+     It still costs the teacher a press — Reveal, then Close, where a won round used
+     to take itself — and no class has met it. The switch is what puts the old race
+     back, in one tap from the drawer mid-round. */
+  S.register({ id:'roundOpenToAll', group:'Questions', type:'toggle', default:true,
     games: ROUND_GAMES.filter(g => !ROUND_HOSTS[g].scoreEach),
     label:'Everyone finishes, not just the first',
     help:'A right answer stops closing the question. The first team still takes the tile at full value when you reveal; everyone else who gets there still scores, for less. Off is the old race.' });
@@ -2789,6 +2879,10 @@
     if(r.verdict === 'right'){
       def.accept(jGroup.chosen.slice(), jGroup, team, ctx);
       jGroup.chosen = [];
+      /* The teacher's own answer goes on the record too, with no arrival stamp — a
+         click carries none, and sorting last is right: it is a judgement made after
+         the room has had its go. */
+      Kit.round.results.note(team, { done: r.done !== false || !!jGroup.done });
       if(r.done !== false || jGroup.done){ jGroupTake(team); return; }
       jGroup.say = 'Yes — keep going.';
       Sound.play('correct');
@@ -4573,6 +4667,11 @@
     jRoundId = found.id;
     jGroup   = found.state;
     jGroupSettler = Kit.round.settle(jRoundDef().settleMs, jGroupSettle);
+    /* A new question, so a new record of who gets there. Opened here rather than by
+       each host, for the same reason arming moved here: four call sites each
+       responsible for remembering the same thing is the obligation this function
+       exists to delete. */
+    Kit.round.results.open();
     renderJGroup();
     askPhones(currentPhonePrompt(), roundHost.game);
     return jGroup;
@@ -4772,7 +4871,14 @@
   function roundKeepReset(){ roundKeep = null; }
 
   let jGroupSeq = 0;
-  /* **Namespaced, because the state object belongs to the round.** This was
+  /* **This answers "when did each team's answer arrive", which is not the same
+     question as "who got it right".** `Kit.round.results` records the second and
+     consumes the first: several teams can settle inside one tick, so the moment a
+     reply landed and the moment it was judged are different numbers, and only this
+     knows the first one. It stamps every team whose answer changed, right or wrong,
+     because a team that was wrong at 1s and right at 5s arrived at 5s.
+
+     **Namespaced, because the state object belongs to the round.** This was
      `jGroup.at`, and the bingo round uses `s.at` for which call it is reading — so
      the host quietly replaced a number with a map of stamps and the next `s.at++`
      produced NaN, which rendered as "all twelve called" one press in. Nothing warned
@@ -4835,9 +4941,8 @@
        changes is that it is **held back** rather than paid now: the tile, the turn,
        the banner and the ending are the ordinary take beat, run when the question
        actually ends (the teacher reveals, or their own Check decides it). Everybody
-       else who still gets there is paid `roundValue` of what the question is worth —
-       less, and less the longer they took, which is what keeps being first worth
-       something.
+       else who still gets there is paid whatever the running rule says their position
+       is worth — less than the slot, which is what keeps being first worth something.
 
        **Who was first is deliberately not said out loud.** The say line naming them
        would tell thirty handsets that the answer they are still assembling is the
@@ -4847,12 +4952,21 @@
       rights.forEach(v => {
         if(!jGroupSettler.fresh(v.team, 'ok:' + v.set.slice().sort().join('|'))) return;
         def.accept(v.set, jGroup, v.team, ctx);
+        /* **On the record before anything is paid.** `done` is what separates getting
+           a piece right from finishing: an ordering climb is correct once per rung,
+           and a rule paying every correct answer would pay one question five times.
+           `at` is the arrival stamp, so the order is the room's rather than this
+           loop's. */
+        Kit.round.results.note(v.team, { at: jGroupAt(v.team),
+                                        done: v.r.done !== false || !!jGroup.done });
         if(!roundHost.scoreEach && jGroup.hostTook == null){
           jGroup.hostTook = v.team;     // the slot, paid when the question ends
           Sound.play('correct');
           return;
         }
-        const paid = roundHost.scoreEach ? roundHost.win(v.team) : jPayLate(v.team);
+        const paid = roundHost.scoreEach
+                       ? roundHost.win(v.team, roundPayout()[v.team] || 0)
+                       : jPayLate(v.team);
         notePhoneScore(teamName(v.team), v.team, null, paid || 0);
       });
       /* **A wrong answer is still named, and forgetting that was the one real bug in
@@ -4874,6 +4988,10 @@
 
     const won = rights[0];
     if(won){
+      /* On the record here too, so the standings screen can say who got there
+         whichever way the question was played. */
+      Kit.round.results.note(won.team, { at: jGroupAt(won.team),
+                                        done: won.r.done !== false || !!jGroup.done });
       /* Right does not always mean the round is over. A grouping clue ends the
          moment a team has the set; an ordering climb has four more rungs to fill,
          so the round says which happened and this only pays the tile when it is
@@ -4909,16 +5027,16 @@
 
   /* A right answer that was not first. It takes nothing — the slot is somebody
      else's — so it cannot go through `win()`, which is the function that pays *and*
-     clears the tile, advances the line, ends the go. It is paid directly instead,
-     against what the host says the question is worth.
+     clears the tile, advances the line, ends the go. It is paid what the running rule
+     decided instead.
 
      No streak and no `markRun`: a run is about holding the board, and this team has
      not taken anything. Paying a bonus for a second-place answer would also make the
      run multiplier the fastest way to score on a board where nobody is first. */
   function jPayLate(team){
-    const worth = roundHost.worth ? Number(roundHost.worth(team)) || 0 : 0;
-    if(!worth || !teams[team]) return 0;
-    return award(team, roundValue(worth), { streak:false });
+    const points = roundPayout()[team] || 0;
+    if(!points || !teams[team]) return 0;
+    return award(team, points, { streak:false });
   }
 
   function jGroupMiss(team, r){
@@ -6399,17 +6517,18 @@
     hook('tension');
   }
 
-  /* What this skin pays, and the only thing about it that is genuinely new.
-     Called once per team, by the shared settle path, the moment that team's answer
-     settles — so the clock is read at the moment they answered rather than at the
-     end of the question. Returns what it paid, like every other host's `win`. */
-  function kPay(team){
+  /* What this skin pays. Called once per team by the shared settle path the moment
+     that team's answer settles, and **the amount is the running rule's** — this board
+     has no slot, so there is nothing for it to decide beyond passing it on. It starts
+     on `clock`, which is the curve it always had; a teacher can move it to `equal` and
+     the board keeps working. Returns what it paid, like every other host's `win`. */
+  function kPay(team, points){
     if(!kPaid || kPaid[team] != null) return kPaid ? kPaid[team] : 0;
     /* Through `award`, like every other board, so a streak bonus and the scoreboard
        repaint come for free rather than being re-implemented here. `streak:false`:
        every team answers every question, so a "run" would only measure who has been
        right most recently, which is what the points already say. */
-    const paid = award(team, roundValue(kBase()), { streak:false });
+    const paid = award(team, points || 0, { streak:false });
     kPaid[team] = paid;
     renderKahootBoard();
     /* **The no-relay path ends the question here.** With phones in the room several
