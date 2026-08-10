@@ -1315,6 +1315,11 @@ playground's point, that one board can host several:
   - **Not done:** no classroom run. Every number in it is a guess — the 60%/30% podium
     shares, the 50% floor, and above all whether a standings screen after *every*
     question is a good beat or an irritation. That last one is why it is a setting.
+  - `standings, grouping, anagram, qbench, jeopardy, millionaire, turns, competition,
+    card, classic, together, gameshow, fit, phone, registry, lab, scoping, settings,
+    content` **661/2**, and both reds are the pre-existing pair proved by stashing:
+    the ordering climb at 726px on a 720 board, and Classic's wrong-answer deduction
+    not moving the score.
 - **A right answer stops locking the room out, and the clock that decides what an
   answer is worth is one clock now.** Asked for as three things — every skin playable
   solo, points for how fast you were, and everyone able to finish rather than the
@@ -4939,6 +4944,22 @@ playground's point, that one board can host several:
 this is going: skins hosting rounds", and `docs/game-hub-requirements.md` §3.8–§3.10
 for the full version with requirement IDs. The short form, in order:
 
+0aa. **Teach with the open questions and the standings, and settle the guesses.** The
+   whole of the position-and-time work is untested against a class, and it changes the
+   *feel* of every board rather than adding a feature to one. Three things to watch,
+   in order of how likely they are to be wrong:
+   - **Does a standings screen after every question drag?** It is the beat most likely
+     to be an irritation on a fast board. `roundWinBanner` turns it off; the honest
+     answer might be "only on Quickfire" or "only every few questions".
+   - **Is the podium worth having, or does `equal` teach better?** The whole argument
+     for holding a question open is that the room keeps working; if second place at
+     60% still feels like losing, `equal` is one tap away and is the real test of it.
+   - **Does the extra press cost too much?** An open round needs Reveal then Close
+     where a won round used to take itself. `roundOpenToAll` off puts the old race
+     back.
+   **Nothing else here should be built until that lesson has happened** — the numbers
+   (60/30 shares, 0.5 floor) are guesses, and a classroom is the only thing that can
+   say whether they are the right ones.
 0. **Individual play — steps 2 to 5.** Step 1 is done (see Current status): a team
    is a competitor, it carries an id, and `Roster` owns everything that changes the
    list. What is left: the teams/solo switch; building the roster from the joined
