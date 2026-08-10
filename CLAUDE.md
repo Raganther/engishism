@@ -1238,6 +1238,46 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A right answer says so again — recognising one and ending the question are two
+  different things.** Reported from a Jeopardy team-mode board a day after the
+  open-question change shipped: a team answers correctly and nothing anywhere says it
+  was right. The round carried on, which is intended; the recognition had gone.
+  - **The cause is that the two were one function.** `jGroupTake` set the line naming
+    the team, played the sting, *and* paid the tile, stopped the settler and closed
+    the card. Holding the question open meant it no longer ran on a right answer — so
+    stopping the ending stopped the recognition with it. **The agreed change was only
+    ever "don't lock the phones out" plus a shared record of order and timing; the
+    rounds were to be untouched.** Half of one of them was.
+  - **A second decision made it worse, and it was wrong on its own terms.** The branch
+    deliberately suppressed the say line, on the reasoning that naming the winner
+    leaks the answer to teams still working. It does not: no round prints *what* a
+    team answered in a way that naming them adds to, and Connections already puts
+    every team's picked words in its own lane whatever happens.
+  - **How backwards it was:** the *second and later* right answers got a phone-strip
+    note with their points. The **first** — the one taking the tile — got a sound and
+    nothing else.
+  - **Misses are judged before rights now**, so a right answer owns the say line when
+    both settle in the same tick. "Team 2 has it" is the better headline than "Team 3
+    — not that one", and with nothing taken until the teacher ends it the order costs
+    nothing else.
+  - **Quickfire is deliberately excluded.** It never named a team per answer — every
+    competitor answers every question there, so a line and a sting each would be
+    sixteen of them in twenty seconds. Its feedback is the strip and the standings.
+  - **Connections needed a round-level fix; the other four did not.** Its only
+    correctness mark is the four words lighting on the board, gated on `s.done` — the
+    round being *over* — so it could never fire while the question stayed open. It
+    marks the **lane** instead (`tone:'good'`, the same fact `choice` already
+    declares). Marking the board would hand the answer to every team still hunting;
+    a green lane says *they have it* and nothing about what it is. Multiple Choice
+    (lane green), the thermometer (the rung fills) and the two drag rounds (letters
+    and words landing in place) were all still working.
+  - Driven with one handset on the Lab board: `Team 1 has it.` on both a Multiple
+    Choice and a Connections tile, the question still open, the phone still live, one
+    green lane and **zero** lit words. **The suite has not been re-run** — asked for
+    and agreed.
+  - **Still open, deliberately:** the phones. A handset has never had a per-team "you
+    got it" — a taken round simply stood every phone down — so that is new ground
+    rather than a regression, and a real teaching decision.
 - **Position and time are a record, points come from a rule the board picks, and the
   standings are their own screen.** The second half of the open-question change, and
   the three tiers came out clean: the **round** says what a right answer is, one

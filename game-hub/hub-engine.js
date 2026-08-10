@@ -5074,14 +5074,50 @@
        else who still gets there is paid whatever the running rule says their position
        is worth — less than the slot, which is what keeps being first worth something.
 
-       **Who was first is deliberately not said out loud.** The say line naming them
-       would tell thirty handsets that the answer they are still assembling is the
-       one that team just sent. The lanes go on showing who has committed, which is
-       what a teacher needs and what the room already sees. */
+       **Being right and the question being over are two different things, and this
+       branch once conflated them.** They were one function — `jGroupTake` set the
+       line naming the team, played the sting, *and* paid the tile, stopped the
+       settler and closed the card. Holding the question open meant that function no
+       longer ran when a team got it right, so the recognition went with the ending
+       and a correct answer produced nothing but a sound. Reported straight back from
+       a board, and correctly: a round that cannot say "yes, that's it" is not a round
+       any more.
+
+       So the two halves of that function are split here. What a right answer *is* —
+       the line, the sound, the round's own marking — happens every time one lands.
+       What ends the question is the teacher's, and nothing below touches it.
+
+       (There was a second reason given for the silence: that naming the team would
+       leak the answer to the rooms still working. It does not. No round prints *what*
+       a team answered in a way that naming them adds to, and Connections already puts
+       every team's picked words in its own lane.) */
     if(roundHost.scoreEach || jOpenToAll()){
+      /* **Misses first, so a right answer has the last word.** Both can settle in one
+         tick, and whichever runs last owns the say line. "Team 2 has it" is the more
+         useful headline than "Team 3 — not that one", and on a board where nothing is
+         taken until the teacher ends it, the order costs nothing else. */
+      if(!roundHost.scoreEach){
+        verdicts.filter(v => v.r.verdict !== 'right').forEach(v => {
+          if(!jGroupSettler.fresh(v.team, v.set.slice().sort().join('|'))) return;
+          jGroupMiss(v.team, v.r);
+        });
+      }
       rights.forEach(v => {
         if(!jGroupSettler.fresh(v.team, 'ok:' + v.set.slice().sort().join('|'))) return;
         def.accept(v.set, jGroup, v.team, ctx);
+        /* The board says who got it, the moment they do — the same wording and the
+           same stage-aware sound the take beat has always used, so nothing new is
+           invented and the room hears what it has always heard.
+
+           **Only on the boards that lost it.** Quickfire never named a team per
+           answer: every competitor answers every question there, so a line and a
+           sting each would be sixteen of them in twenty seconds. Its feedback is the
+           strip and the standings, and that is unchanged. */
+        if(!roundHost.scoreEach){
+          jGroup.say = teamName(v.team) + ' has it.';
+          Sound.play(document.getElementById(roundHost.stage).classList.contains('lit')
+                     ? 'sting' : 'correct');
+        }
         /* **On the record before anything is paid.** `done` is what separates getting
            a piece right from finishing: an ordering climb is correct once per rung,
            and a rule paying every correct answer would pay one question five times.
@@ -5091,27 +5127,13 @@
                                         done: v.r.done !== false || !!jGroup.done });
         if(!roundHost.scoreEach && jGroup.hostTook == null){
           jGroup.hostTook = v.team;     // the slot, paid when the question ends
-          Sound.play('correct');
-          return;
+          return;                       // said and sounded above, like every other right answer
         }
         const paid = roundHost.scoreEach
                        ? roundHost.win(v.team, roundPayout()[v.team] || 0)
                        : jPayLate(v.team);
         notePhoneScore(teamName(v.team), v.team, null, paid || 0);
       });
-      /* **A wrong answer is still named, and forgetting that was the one real bug in
-         this change.** Paying the right answers and returning skipped the miss loop
-         entirely, so a board holding its question open said nothing at all to a team
-         that had just got it wrong — the shake, the "not that one" and the strip note
-         all silently gone. A `scoreEach` board is the deliberate exception: its clock
-         is about to end the question for everybody, and a verdict per team on the way
-         past is noise rather than teaching. */
-      if(!roundHost.scoreEach){
-        verdicts.filter(v => v.r.verdict !== 'right').forEach(v => {
-          if(!jGroupSettler.fresh(v.team, v.set.slice().sort().join('|'))) return;
-          jGroupMiss(v.team, v.r);
-        });
-      }
       renderJGroup();
       return;                       // the clock or the teacher ends it, not the first right answer
     }

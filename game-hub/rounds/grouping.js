@@ -143,6 +143,21 @@
               if(picks[i]) cells.push({ got: true, text: picks[i], cls: i >= s.need ? 'over' : '' });
               else cells.push({ got: false });
             }
+            /* **This team has the set.** Every other round shows a correct answer in
+               its own lane — a green lane on Multiple Choice, letters landing in
+               place on the drag rounds, a rung filling on the thermometer. This one
+               showed nothing at all while the question stayed open, because its only
+               mark is the four words lighting on the board and that is gated on
+               `s.done` — the round being *over*, which now waits for the teacher.
+
+               Marking the lane rather than the board is the point: the four words are
+               the answer, so lighting them would hand it to every team still hunting,
+               while a green lane says "they have it" and nothing about what it is.
+               Their own four are already printed in their own lane either way. */
+            const has = picks.length === s.need &&
+                        picks.filter(w => s.pick.some(p =>
+                          String(p).toLowerCase() === String(w).toLowerCase())).length === s.need;
+
             let count = picks.length + '/' + s.need + (picks.length > s.need ? ' — too many' : '');
             if(sizes[t]){
               /* "two each" is the rule the teacher has to be able to say out
@@ -150,7 +165,7 @@
               count += ' · ' + sizes[t] + (sizes[t] === 1 ? ' phone, ' : ' phones, ') +
                        K.round.shares(s.need, [sizes[t]])[0] + ' each';
             }
-            return { cells, count };
+            return { cells, count, tone: has ? 'good' : null };
           }
         });
       }
