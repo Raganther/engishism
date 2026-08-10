@@ -233,9 +233,18 @@ still be correct if you swapped the tier below it out?**
 
 | Tier | Owns | Test |
 |---|---|---|
-| **Hub container** | teams, scores, the timer widget, the phone room, settings, the clue card *as a surface*, the phone strip | true whatever game is on screen |
+| **Hub container** | teams, scores, the timer widget, the phone room, settings, the clue card *as a surface*, the standings screen, the phone strip, **the record of who answered and when** | true whatever game is on screen |
 | **Game show skin** | geometry, turns, what a question is worth, what winning is, the ending | true for this board, whatever question is in the slot |
 | **Round** | the card's contents, the phone dynamic, merging several students into one answer, judging | true wherever it is hosted — which is what makes it portable |
+
+**Who got there and when is the container's; what a position is *worth* is the
+skin's.** That split is what makes 3-2-1 scoring expressible at all — `Kit.round.results`
+records the order and the timing for everybody, and `PAY_RULES` turns it into points.
+A round may not score, which is the one rule keeping it portable, so neither half can
+live there. And a skin does not do its own arithmetic either: it **names** one of four
+shared rules and declares two facts (`worth`, `step`). Five boards each writing their
+own sums is the hand-kept list this project has paid for most, and it would put every
+change to how a game feels behind a code edit rather than a settings row.
 
 **The clue card is not inside any stage.** `#clue-modal` is a sibling of every
 `#play-<game>`, which is exactly why `openClueCard` has to set `--tension` on it by
@@ -1229,6 +1238,83 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Position and time are a record, points come from a rule the board picks, and the
+  standings are their own screen.** The second half of the open-question change, and
+  the three tiers came out clean: the **round** says what a right answer is, one
+  **shared record** says who got there and when, and the **skin** says what a position
+  is worth.
+  - **`Kit.round.results` — who got there, in what order, with how much clock left.**
+    Before it the app knew who was first only as a yes/no and measured the time only
+    to spend it immediately, so a board could pay "faster is worth more" and could not
+    pay 3-2-1: **nothing anywhere ever saw that somebody came third.**
+  - **Order comes from a stamp the host supplies, not from call order.** Several teams
+    settle inside one tick, so the moment a reply landed and the moment it was judged
+    are different numbers. The caller does sort before it iterates, so both would work
+    today — and a caller added later that forgot would get silently wrong places,
+    which is the kind of unfairness nobody in the room could ever explain.
+  - **The teacher's own click carries no stamp and sorts *last*.** A plain counter put
+    those clicks ahead of every phone answer, which is the wrong end and invisible
+    until a teacher finishes a question the class had already half-answered.
+  - **`done` separates getting a piece right from finishing**, which is what stops an
+    ordering climb paying one question five times — once per rung.
+  - **A team that must agree is placed by its last student, not its keenest.** That
+    falls out of where `note` is called from — `read()` returns `poll().answers`, and
+    a round only produces one once every member has committed, with the partial in
+    `leading`. Pinned by a check rather than by a comment.
+  - **`PAY_RULES`: winner takes all · podium · by the clock · everyone equal.** Written
+    once each. **This is the answer to "how does each skin score differently", and it
+    is deliberately not a function per game** — five boards each doing their own sums
+    is the hand-kept list this project has paid for most, and it would leave a teacher
+    unable to try a different feel without somebody editing code. A board names its
+    starting rule through `defaults:{}` (Jeopardy podium, Quickfire clock) and holds
+    no arithmetic at all. **A fifth rule goes in the table, never into a game.**
+  - **The prize stays the board's.** `win()` still pays the tile, the hexagon, the
+    rung — the rules decide points only. Quickfire is the one host that uses what the
+    rule handed it, because it has no slot.
+  - **Two host facts, not two mechanisms:** `worth(who)` is the base (per competitor,
+    because a Millionaire rung differs for each of them) and `step()` is the board's
+    own unit. The floor and the podium shares are *settings*, because those are what a
+    teacher tunes and the unit is a property of the board.
+  - **On a $100 tile the podium is 100/50/50**, because Jeopardy rounds every payout
+    to 50 and has no smaller unit. The shares are working; the board cannot express
+    them. Measured 500/300/150 on a $500 tile with three handsets, and 400/400/400 on
+    `equal`.
+  - **The standings screen is a sibling of every stage**, beside the clue card and the
+    result banner — which is exactly what Quickfire's own leaderboard was not, and why
+    it was squeezed and pushed that stage past 720px. Its measured-rows, four-column,
+    "+N more" reasoning moved here and `#k-board` is gone, so every board gets it.
+  - **It replaced the winner banner rather than following it.** One screen that names
+    who took the question *and* shows everybody moving beats two back to back. It
+    waits for the teacher rather than leaving on a timer: a table takes longer to read
+    than a name.
+  - **A running total cannot show movement, which is why this needed new state.** Two
+    snapshots and nothing else — scores as the question opened (for the gain), places
+    as it was last shown (for the arrows). Deliberately not a per-question log: nothing
+    asks "what happened in question four", and a store nobody reads goes stale
+    silently.
+  - **`roundOpenToAll` is on by default now.** It shipped off for one build for an
+    honest reason — a right answer that was not first scored nothing worth having.
+    With the podium and the standings there is a reason to keep working after somebody
+    else has it.
+  - **Three bugs only the running code found.** The grid drew four teams as four
+    *columns* because `grid-auto-flow:column` with no row template makes an implicit
+    column per item — every assertion passed, because they asked what the rows said
+    and not where they were. A backtick inside the injected HTML skeleton closed the
+    template literal. And `standingsOpen` had to be beside `results.open()`, because a
+    second call site is a second thing to forget.
+  - **The standings cover the board, so the suite switches them off where it opens a
+    page** — the same reason `cardFlip` and `intro` are off there. A suite that played
+    a question and then clicked a tile found the click intercepted by a modal it never
+    asked for. `openHub` was not enough: **`grouping` and `anagram` each build their
+    own page** rather than going through it, so they needed the same line.
+  - **The timing rule is proved rather than asserted, and it is the one thing here
+    nothing else would have caught.** Two phones on one team, one tapping early and
+    the other late, against a second team answering outright in between — the team
+    that *agreed* later is placed later. Falsified by switching that round to
+    first-tap-wins, where the order flips and the check goes red. `standings` 16/0.
+  - **Not done:** no classroom run. Every number in it is a guess — the 60%/30% podium
+    shares, the 50% floor, and above all whether a standings screen after *every*
+    question is a good beat or an irritation. That last one is why it is a setting.
 - **A right answer stops locking the room out, and the clock that decides what an
   answer is worth is one clock now.** Asked for as three things — every skin playable
   solo, points for how fast you were, and everyone able to finish rather than the

@@ -1770,62 +1770,107 @@ body.theme-gameshow #clue-actions #hint-btn{ border-color:rgba(255,200,61,0.5); 
 }
 #k-commit:hover, #k-next:hover{ background:var(--sky); }
 
-/* The scoreboard is the point of the skin — the room watches the order change
-   rather than being told the result at the end. */
-/* **A column of rows for a handful of teams, and a wall of them for a class.** Two
-   teams stack down the page and read from the back of a room; twenty-five
-   individuals cannot, and a leaderboard nobody can see is the one thing this board
-   is for. `--kcols` is set by the render from the number of competitors, because CSS
-   cannot count what it is laying out — the same reason `--jcols` exists for a
-   Jeopardy board and `--ana-n` for a row of letter tiles.
+/* ================= the standings, between questions =================
+   **A hub surface, not a stage's.** Quickfire had a leaderboard of its own inside
+   its board, which is what squeezed it and what pushed the stage past 720px whenever
+   the phone chip was up. This is a sibling of every stage — like the clue card and
+   the result banner — so every game gets it and none of them pays for it in board
+   height.
 
-   Column-first fill, so first place is top-left and reading order is down then
-   across, which is how a leaderboard is read. The height is capped so the columns
-   are forced to wrap rather than the board running off the bottom. */
-#k-board{
-  display:grid; grid-auto-flow:column;
-  grid-template-columns:repeat(var(--kcols, 1), minmax(0, 1fr));
-  grid-template-rows:repeat(var(--krows, 1), auto);
-  gap:6px 10px; margin-top:auto; padding-top:14px;
+   It sits over the board rather than replacing the screen, for the same reason the
+   result banner does: what a class wants to see behind "Team 2 takes it" is the tile
+   that just went. */
+#standings-modal{
+  position:fixed; inset:0; z-index:60; display:none;
+  align-items:center; justify-content:center; padding:24px;
+  background:rgba(11,20,40,0.55);
 }
-.k-row{
-  display:grid; grid-template-columns: 2.2rem 1fr auto auto; gap:12px; align-items:center;
-  background:var(--white); border:2px solid var(--line); border-radius:10px; padding:7px 14px;
-  font-family:'Space Grotesk',sans-serif; transition: border-color .25s, background .25s;
+#standings-modal.on{ display:flex; }
+#standings-card{
+  background:var(--white); border:3px solid var(--navy); border-radius:18px;
+  padding:22px 26px; max-width:min(1100px, 94vw); width:100%;
+  max-height:88vh; overflow:auto; text-align:center;
+  font-family:'Space Grotesk',sans-serif;
+}
+#standings-eyebrow{
+  font-family:'IBM Plex Mono',monospace; font-size:0.78rem; letter-spacing:0.09em;
+  text-transform:uppercase; color:var(--muted); margin-bottom:4px;
+}
+#standings-title{ margin:0 0 14px; font-size:1.5rem; }
+#standings-go{
+  margin-top:16px; padding:10px 26px; border:none; border-radius:10px; cursor:pointer;
+  background:var(--navy); color:var(--white); font-family:'Space Grotesk',sans-serif;
+  font-weight:700; font-size:1rem;
+}
+#standings-go:hover{ background:var(--sky); }
+
+/* **A column of rows for a handful, a wall of them for a class.** `--scols` is set
+   by the render from the number of competitors, because CSS cannot count what it is
+   laying out — the same reason `--jcols` exists for a Jeopardy board. Column-first
+   fill, so first place is top-left and reading order is down then across, which is
+   how a leaderboard is read. */
+/* **The row count has to be explicit, not just the column count.** With
+   `grid-auto-flow:column` and only a column template, the browser makes a fresh
+   implicit column per item — four teams drew as four columns across the screen
+   instead of a list down it. Only the screenshot showed that: every assertion passed,
+   because they asked what the rows said and not where they were. */
+#standings-rows{
+  display:grid; grid-auto-flow:column;
+  grid-template-columns:repeat(var(--scols, 1), minmax(0, 1fr));
+  grid-template-rows:repeat(var(--srows, 1), auto);
+  gap:6px 12px; text-align:left;
+}
+.st-row{
+  display:grid; grid-template-columns:2.2rem 1.2rem 1fr auto 3.2rem; gap:10px;
+  align-items:center; background:var(--white); border:2px solid var(--line);
+  border-radius:10px; padding:7px 14px;
 }
 /* A class-sized board pays for the extra rows in type and padding rather than in
-   rows it cannot show. Two columns or more is the tell that this is a room of
-   people rather than a handful of teams. */
-#k-board.crowd .k-row{ padding:4px 9px; gap:7px; font-size:0.86rem; grid-template-columns:1.8rem 1fr auto auto; }
-#k-board.crowd .k-place{ font-size:0.78rem; }
-#k-board.crowd .k-gain{ font-size:0.72rem; }
-/* The tail the board could not fit, counted rather than hidden. */
-.k-more{ align-self:center; font-size:0.8rem; opacity:0.6;
+   rows it cannot show. */
+#standings-rows.crowd .st-row{ padding:4px 9px; gap:7px; font-size:0.86rem;
+  grid-template-columns:1.8rem 1rem 1fr auto 2.6rem; }
+.st-row.scored{ border-color:var(--navy); background:var(--cream); }
+/* Who took the question. A second, louder mark than merely having scored, because
+   on a slot board those are different facts. */
+.st-row.took{ border-color:var(--yellow); box-shadow:0 0 0 3px rgba(247,201,72,0.35); }
+.st-place{ font-family:'IBM Plex Mono',monospace; color:var(--muted); font-size:0.9rem; }
+.st-name{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.st-pts{ font-weight:700; font-variant-numeric:tabular-nums; }
+.st-gain{ font-family:'IBM Plex Mono',monospace; font-size:0.82rem; color:#1E8449;
+  text-align:right; }
+/* Movement, as a shape rather than a number: "third to first" is read off the arrow
+   and nobody at the back of a room is doing subtraction. */
+.st-move{ font-size:0.8rem; text-align:center; }
+.st-move.up{ color:#1E8449; }
+.st-move.down{ color:#C0392B; }
+.st-move.level{ color:var(--line); }
+.st-more{ align-self:center; font-size:0.8rem; opacity:0.6;
   font-family:'IBM Plex Mono',monospace; }
-.k-row.scored{ border-color:var(--navy); background:var(--cream); }
-.k-place{ font-family:'IBM Plex Mono',monospace; color:var(--muted); font-size:0.9rem; }
-.k-name{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.k-pts{ font-weight:700; font-variant-numeric:tabular-nums; }
-.k-gain{ font-family:'IBM Plex Mono',monospace; font-size:0.82rem; color:#1E8449; }
+
+/* **A component cannot assume its host's background** — the trap this project has
+   already paid for twice, on the round card and on Quickfire's own leaderboard,
+   where the rows drew white-on-white on a lit stage and every assertion passed
+   because they asked whether the rows existed rather than whether they read. */
+body.theme-gameshow #standings-card{
+  background:#0B1428; border-color:rgba(255,255,255,0.3); color:#fff;
+}
+body.theme-gameshow .st-row{
+  background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.16); color:#fff;
+}
+body.theme-gameshow .st-row.scored{
+  background:rgba(43,217,196,0.18); border-color:#2BD9C4;
+}
+body.theme-gameshow .st-place{ color:rgba(255,255,255,0.5); }
+body.theme-gameshow .st-gain{ color:#2BD9C4; }
+body.theme-gameshow .st-move.level{ color:rgba(255,255,255,0.25); }
+body.theme-gameshow #standings-eyebrow{ color:rgba(255,255,255,0.6); }
+body.theme-gameshow #standings-go{ background:var(--yellow); color:#0B1428; }
 
 @media(max-width:760px){
   #play-kahoot{ padding: 8px 12px 6px; }
-  #k-board{ margin-top:10px; }
+  #standings-card{ padding:16px 14px; }
 }
 
-/* The scoreboard drew white-on-white under the game show skin, which is the trap
-   this project has already paid for on the round card: **a component cannot assume
-   its host's background.** The base rules above are the DCU light theme; these are
-   the same rows on a lit stage. Only the screenshot showed it — every assertion
-   passed, because they asked whether the rows existed and not whether they read. */
-body.theme-gameshow #play-kahoot.lit .k-row{
-  background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.16); color:#fff;
-}
-body.theme-gameshow #play-kahoot.lit .k-row.scored{
-  background:rgba(43,217,196,0.18); border-color:#2BD9C4;
-}
-body.theme-gameshow #play-kahoot.lit .k-place{ color:rgba(255,255,255,0.5); }
-body.theme-gameshow #play-kahoot.lit .k-gain{ color:#2BD9C4; }
 body.theme-gameshow #play-kahoot.lit #k-count{ color:rgba(255,255,255,0.6); }
 body.theme-gameshow #play-kahoot.lit #k-hint{ color:rgba(255,255,255,0.7); }
 body.theme-gameshow #play-kahoot.lit #k-clock{

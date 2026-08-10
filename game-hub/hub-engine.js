@@ -557,9 +557,11 @@
             sub:'Fifteen questions. No turns. The clock is the opponent.', accent:'#2BD9C4' },
     /* Consumed, not authored — see the note above. */
     hasBank: u => (u.millionaireBank || []).length >= 5,
-    /* A latecomer is a new competitor mid-run, and the leaderboard is the only
-       place this board says who is playing. */
-    onRoster(){ renderKahootBoard(); },
+    /* A latecomer is a new competitor mid-run. Nothing on this stage lists the room
+       any more — the standings screen does, and it is built fresh each time it is
+       shown — so the fit is what needs re-running, because the team bar under the
+       board just got a name taller. */
+    onRoster(){ fitKahoot(); },
     load(u){ KAHOOT_BANK          = u.millionaireBank || [];
              KAHOOT_SECTION_NAMES = u.millionaireSectionNames || {};
              KAHOOT_TOPIC_NAMES   = u.topicNames || {}; },
@@ -1103,10 +1105,14 @@
      `scoreEach` pays every team as it answers and its clock ends the question, so
      there is no single winning moment to announce. Derived from the host's own
      declaration rather than naming the game, so a seventh board sorts itself. */
+  /* **This was the winner banner and is now the standings, so every board gets it** —
+     including the ones with no slot to win, which is why the `scoreEach` filter came
+     off. Quickfire is the board the movement matters most on: fifteen questions and
+     nothing else punctuating them. */
   S.register({ id:'roundWinBanner', group:'Questions', type:'toggle', default:true,
-    games: ROUND_GAMES.filter(g => !ROUND_HOSTS[g].scoreEach),
-    label:'Winner banner when a round is taken',
-    help:'After a team takes a round, a banner names them and what it paid, and lingers a moment — the strip alone was gone before the back of the room could read it.' });
+    games: ROUND_GAMES,
+    label:'Standings between questions',
+    help:'After each question, a screen naming who took it and showing everybody rising and falling. It waits for you rather than leaving on a timer. Off keeps the board on screen and says nothing.' });
 
   /* **How a question's points are split, and the whole answer to "custom behaviour
      per game".** A board names its starting rule through `defaults`, which ranks
@@ -1822,7 +1828,6 @@
             <button id="k-next" style="display:none;">Next question</button>
           </div>
         </div>
-        <div id="k-board"></div>
       </div></div>
     </div>
 
@@ -1853,6 +1858,24 @@
         <h2 id="result-title"></h2>
         <p id="result-sub"></p>
         <div id="result-actions"></div>
+      </div>
+    </div>
+
+    <!-- The standings, between questions. **A sibling of every stage, not inside
+         one** — the same place the clue card, the join lobby and the result banner
+         live, and for the same reason: it is the container's surface that any board
+         borrows. Quickfire's own leaderboard was inside the play-kahoot stage, which
+         is exactly why it was squeezed and ran off a 720px board.
+         (No backticks in here: the skeleton is a template literal, and one closes it.)
+         It replaces the round-winner banner rather than following it: one moment
+         that names who took the question *and* shows everyone else moving beats two
+         screens back to back. -->
+    <div id="standings-modal">
+      <div id="standings-card">
+        <div id="standings-eyebrow"></div>
+        <h2 id="standings-title"></h2>
+        <div id="standings-rows"></div>
+        <button id="standings-go" type="button">Continue</button>
       </div>
     </div>
 
@@ -2369,8 +2392,117 @@
     if(fn) fn();
   }
   document.addEventListener('keydown', e=>{
-    if(e.key==='Escape') hideResult();
+    if(e.key==='Escape'){ hideResult(); hideStandings(); }
   });
+
+  /* ================= the standings, between questions =================
+     **A running total cannot show movement, which is the whole reason this needed
+     new state.** `score` is one number per competitor with no history, so nothing
+     could say a team was third and is now first — and that, rather than the number
+     itself, is what a class watches. The team bar carries the totals all game; this
+     carries the *change*, which is only interesting for a moment and then is not.
+
+     Two snapshots and nothing else: the scores as the question opened, and the
+     ranking as the standings were last shown. Gains come from the first, arrows from
+     the second. Deliberately not a per-question log — nothing yet asks "what happened
+     in question four", and a store nobody reads is a store that goes stale silently.
+
+     **It reads `teams`, exactly as the bottom strip does.** One source of numbers:
+     two scoreboards that count separately will eventually disagree, and the one on
+     the wall is the one thirty students believe. */
+  let standingsBefore = null;      // score per competitor when the question opened
+  let standingsRank   = null;      // place per competitor when last shown
+
+  function standingsOpen(){
+    standingsBefore = teams.map(t => t.score);
+  }
+
+  /* Ordered, with the gain and the movement worked out. Separate from the drawing so
+     a check can ask what the room is being shown without reading the DOM. */
+  function standingsRows(){
+    const was = standingsBefore || [];
+    const rows = teams.map((t, i) => ({ i, name:t.name, pts:t.score,
+                                        gain: t.score - (was[i] == null ? t.score : was[i]) }))
+                      .sort((a, b) => b.pts - a.pts || a.i - b.i)
+                      .map((r, n) => Object.assign(r, { place: n + 1 }));
+    rows.forEach(r => {
+      const before = standingsRank ? standingsRank[r.i] : null;
+      /* No arrow the first time, rather than an arrow claiming everybody rose from
+         nowhere. A competitor who joined mid-run has no previous place either. */
+      r.moved = before == null ? 0 : before - r.place;
+    });
+    return rows;
+  }
+
+  function showStandings(cfg){
+    const o = cfg || {};
+    const rows = standingsRows();
+    const host = document.getElementById('standings-rows');
+    if(!host) return;
+    document.getElementById('standings-eyebrow').textContent = o.eyebrow || '';
+    document.getElementById('standings-title').textContent   = o.title || 'Standings';
+    document.getElementById('standings-go').textContent      = o.action || 'Continue';
+
+    /* **How many fit, measured against the floor that moves** — the same rule
+       Quickfire's own leaderboard already followed and the reason its logic is here
+       rather than there. The bar is taller with sixteen names on it than with two, so
+       `Kit.floorTop()` is asked rather than restated. Columns come out of the rows,
+       capped at four: past that a name is narrower than the names people have. */
+    const rowH   = 38;
+    const room   = Math.max(rowH, Kit.floorTop() - 210);
+    const perCol = Math.max(1, Math.floor(room / rowH));
+    const cols   = Math.max(1, Math.min(4, Math.ceil(rows.length / perCol)));
+    const shown  = Math.min(rows.length, cols * perCol);
+    host.style.setProperty('--scols', String(cols));
+    host.style.setProperty('--srows', String(Math.max(1, Math.ceil(shown / cols))));
+    host.classList.toggle('crowd', cols > 1);
+
+    /* Built rather than templated: a competitor's name is typed by a teacher and
+       `innerHTML` would take whatever they typed literally. */
+    host.innerHTML = '';
+    rows.slice(0, shown).forEach(r => {
+      const row = document.createElement('div');
+      row.className = 'st-row' + (r.gain > 0 ? ' scored' : '') +
+                      (r.i === o.winner ? ' took' : '');
+      const add = (cls, text) => {
+        const el = document.createElement('span');
+        el.className = cls; el.textContent = text; row.appendChild(el);
+        return el;
+      };
+      add('st-place', String(r.place));
+      /* Up, down, or held — as an arrow rather than a number, because "third to
+         first" is read off the shape and nobody at the back is doing subtraction. */
+      const mv = add('st-move', r.moved > 0 ? '▲' : r.moved < 0 ? '▼' : '·');
+      mv.classList.add(r.moved > 0 ? 'up' : r.moved < 0 ? 'down' : 'level');
+      add('st-name', r.name);
+      add('st-pts',  String(r.pts));
+      add('st-gain', r.gain > 0 ? '+' + r.gain : '');
+      host.appendChild(row);
+    });
+    /* When even four columns cannot hold the room, say so rather than hiding the
+       tail — the honest picture, and the one a leaderboard is for anyway. */
+    if(rows.length > shown){
+      const more = document.createElement('div');
+      more.className = 'st-more';
+      more.textContent = '+' + (rows.length - shown) + ' more';
+      host.appendChild(more);
+    }
+
+    standingsRank = {};
+    rows.forEach(r => { standingsRank[r.i] = r.place; });
+    document.getElementById('standings-modal').classList.add('on');
+  }
+
+  function hideStandings(){
+    document.getElementById('standings-modal').classList.remove('on');
+  }
+
+  /* Two competitors is a scoreboard nobody needs a screen for, and on a board with
+     one question every few seconds it is an interruption rather than a moment. Asked
+     here rather than at each call site so the answer cannot differ per board. */
+  function standingsWanted(game){
+    return !!S.get('roundWinBanner', game || activeGame) && teams.length >= 2;
+  }
 
   /* The cards are built from the registry, so a game's icon, copy and badge live
      in its declaration rather than in a block of markup someone has to remember to
@@ -4538,12 +4670,6 @@
      it the room never sees which four it was: the answer and the card leaving would
      land in the same frame. */
   const J_GROUP_TAKE_MS   = 700;
-  /* How long the winner banner lingers before leaving on its own. Long enough to
-     read a team name from the back of a room; short enough that a teacher who
-     never clicks is not held up. A guess until a classroom says otherwise —
-     like the 1.5s it exists to fix. */
-  const ROUND_WIN_LINGER_MS = 4000;
-
   /* Two different questions, and using the wrong one is a live trap. `jGroupClue()`
      is "this clue is a grouping clue", true until the card closes. `jGroupLive()` is
      "the round is still being played", which stops the moment it is taken or
@@ -4672,6 +4798,10 @@
        responsible for remembering the same thing is the obligation this function
        exists to delete. */
     Kit.round.results.open();
+    /* The scores as this question opened, so the standings can show what it changed.
+       Beside the results record because they answer halves of one question and a
+       second call site is a second thing to forget. */
+    standingsOpen();
     renderJGroup();
     askPhones(currentPhonePrompt(), roundHost.game);
     return jGroup;
@@ -5128,19 +5258,17 @@
     const value = currentClueValue;
     const paid = roundHost.win(p.team);
     notePhoneScore(teamName(p.team), p.team, null, paid || value);
-    /* The winner's moment. The strip's note holds a second and a half and the
-       card is already leaving, so from the back of a room a win was over before
-       anybody could read whose it was — the first live class asked for this by
-       name. The shared banner lingers over the board, then leaves by itself;
-       the teacher's click still outranks the timer. */
-    if(S.get('roundWinBanner', roundHost.game)){
-      showResult({ eyebrow: p.label,
-                   title: teamName(p.team),
-                   sub: 'takes it — +' + (paid || value),
-                   tone: 'gold',
-                   actions: [{ label:'Continue', primary:true }] });
-      const mine = resultSeq;
-      setTimeout(()=>{ if(resultSeq === mine) hideResult(); }, ROUND_WIN_LINGER_MS);
+    /* **The winner's moment, which is now the standings.** The strip's note holds a
+       second and a half and the card is already leaving, so from the back of a room a
+       win was over before anybody could read whose it was — the first live class asked
+       for this by name. What replaced the banner is one screen rather than two: it
+       names who took it *and* shows everybody else moving, which is the thing that
+       makes finishing second worth doing. It waits for the teacher rather than
+       leaving by itself, because a table takes longer to read than a name. */
+    if(standingsWanted(roundHost.game)){
+      showStandings({ eyebrow: p.label,
+                      title: teamName(p.team) + ' takes it — +' + (paid || value),
+                      winner: p.team });
     }
   }
 
@@ -6233,6 +6361,10 @@
     if(buzzHost) joinPanelOpen() ? hideJoinPanel() : showJoinPanel();
   });
   document.getElementById('join-close').addEventListener('click', hideJoinPanel);
+  /* The standings wait for the teacher rather than leaving on a timer, because a
+     table takes longer to read than a name — and on a board where the next question
+     is one press away, whoever is reading it is the one deciding when to move on. */
+  document.getElementById('standings-go').addEventListener('click', hideStandings);
   document.getElementById('join-modal').addEventListener('click', e=>{
     if(e.target.id === 'join-modal') hideJoinPanel();      // click the backdrop to dismiss
   });
@@ -6435,7 +6567,6 @@
     kAt = -1; kCurrent = null; kAsked = 0; kOver = false;
     kStopClock();
     document.getElementById('k-next').style.display = 'none';
-    renderKahootBoard();
     nextKahoot();
   }
 
@@ -6513,8 +6644,19 @@
     document.getElementById('k-next').style.display = 'inline-block';
     document.getElementById('k-next').textContent =
       kAt + 1 >= kQueue.length ? 'See the results' : 'Next question';
-    renderKahootBoard();
     hook('tension');
+    /* **This board's whole point is the movement**, and it had a leaderboard of its
+       own inside its stage doing half the job — squeezed under the question, and the
+       thing that pushed it off a 720px board. The shared screen replaces it. Not on
+       the last question: the final results are one beat later and two tables in a row
+       is one too many. */
+    if(standingsWanted('kahoot') && kAt + 1 < kQueue.length){
+      const got = Object.keys(kPaid || {}).length;
+      showStandings({ eyebrow:'Question ' + kAsked + ' of ' + kQueue.length,
+                      title: got ? (got === 1 ? 'One team got it' : got + ' teams got it')
+                                 : 'Nobody got that one',
+                      action:'Next question' });
+    }
   }
 
   /* What this skin pays. Called once per team by the shared settle path the moment
@@ -6530,7 +6672,6 @@
        right most recently, which is what the points already say. */
     const paid = award(team, points || 0, { streak:false });
     kPaid[team] = paid;
-    renderKahootBoard();
     /* **The no-relay path ends the question here.** With phones in the room several
        teams settle independently and the clock decides when the question is over.
        With none, the teacher picks the answer and commits, which runs the shared
@@ -6541,78 +6682,16 @@
     return paid;
   }
 
-  /* A live scoreboard beside the question, ordered, so the room can see the race
-     rather than being told the result at the end. The team bar carries the same
-     numbers; this one carries the *order*, which is what a run of fifteen is about. */
-  function renderKahootBoard(){
-    const host = document.getElementById('k-board');
-    if(!host) return;
-    /* **The board changed height, so the stage owes itself a re-fit.** It used to be
-       the same five rows all game and `fit` at the start was enough; a room of
-       individuals grows as students walk in, mid-run. Same rule as the buzzer chip
-       and the room bench's pane: anything that changes size around a board owes it
-       a re-fit. Deferred to the end, once the rows are actually in the document. */
-    const refit = () => { if(activeGame === 'kahoot') fitKahoot(); };
-    const rows = teams.map((t, i) => ({ i, name:t.name, pts:t.score }))
-                      .sort((a, b) => b.pts - a.pts);
-    /* **How many rows fit, measured — not a number picked in advance.** The first
-       version used a fixed six a column and a class of sixteen ran straight off the
-       bottom of the board: three rows visible, three under the player bar, which is
-       a leaderboard that hides the people it is there to show. What is actually
-       available is the gap between the question and the floor, and the floor moves —
-       the bar is taller with sixteen people on it than with two.
-
-       `Kit.floorTop()` is that floor and is asked rather than restated, the same as
-       every layout rule in this project. Columns come out of the rows, not the other
-       way round, and are capped at four: past that a name is narrower than the names
-       people actually have. */
-    const above = document.getElementById('k-stage');
-    const rowH  = 34;                     // a compacted row plus its gap
-    const room  = Kit.floorTop() - ((above ? above.getBoundingClientRect().bottom : 0) + 20);
-    const perCol = Math.max(1, Math.floor(room / rowH));
-    const cols   = Math.max(1, Math.min(4, Math.ceil(rows.length / perCol)));
-    /* **And when even four columns cannot hold the room, the board says so rather
-       than hiding the tail.** A class of thirty on a short screen shows the top of
-       the table and a count of who is below it — which is the honest picture, and
-       the one a leaderboard is for anyway. */
-    const shown = Math.min(rows.length, cols * perCol);
-    const krows = Math.max(1, Math.ceil(shown / cols));
-    host.style.setProperty('--kcols', String(cols));
-    host.style.setProperty('--krows', String(krows));
-    host.classList.toggle('crowd', cols > 1);
-    /* Built rather than templated, because a team name is typed by a teacher and
-       `innerHTML` would take whatever they typed literally. `renderScorebar` builds
-       its rows the same way for the same reason. */
-    host.innerHTML = '';
-    rows.slice(0, shown).forEach((r, place) => {
-      const gain = kPaid ? kPaid[r.i] : null;
-      const row  = document.createElement('div');
-      row.className = 'k-row' + (gain != null ? ' scored' : '');
-      const add = (cls, text) => {
-        const el = document.createElement('span');
-        el.className = cls; el.textContent = text; row.appendChild(el);
-      };
-      add('k-place', String(place + 1));
-      add('k-name',  r.name);
-      add('k-pts',   String(r.pts));
-      if(gain != null) add('k-gain', '+' + gain);
-      host.appendChild(row);
-    });
-    if(rows.length > shown){
-      const more = document.createElement('div');
-      more.className = 'k-more';
-      more.textContent = '+' + (rows.length - shown) + ' more';
-      host.appendChild(more);
-    }
-    refit();
-  }
-
+  /* **Quickfire's own leaderboard is gone, and its sizing logic is the standings
+     screen's now.** It lived inside this stage, which is what squeezed it and what
+     pushed the board past 720px whenever the phone chip was up — the measured-rows,
+     four-column, "+N more" reasoning it worked out is all still in `showStandings`,
+     where every board gets it instead of one. */
   function finishKahoot(){
     kCurrent = null; kOver = true;
     kStopClock();
     document.getElementById('k-next').style.display = 'none';
     document.getElementById('k-count').textContent = 'Finished';
-    renderKahootBoard();
     const rank = teams.map((t, i) => ({ i, name:t.name, pts:t.score }))
                       .sort((a, b) => b.pts - a.pts);
     const top  = rank[0];

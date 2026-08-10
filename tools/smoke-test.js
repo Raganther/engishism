@@ -59,6 +59,12 @@ async function openHub(browser, viewport){
   });
   await page.goto(BASE + (openHub.shell || '/game-hub.html'));
   await page.waitForTimeout(350);
+  /* **The standings screen covers the board between questions, so it is off here for
+     the same reason `cardFlip` and `intro` are** — it is presentation standing
+     between a check and the thing it is checking, and a suite that played a question
+     and then clicked a tile found the click intercepted by a modal it never asked
+     for. The checks that are *about* the standings turn it back on. */
+  await page.evaluate(() => window.HubSettings.set('roundWinBanner', false)).catch(()=>{});
   return page;
 }
 
@@ -1773,6 +1779,192 @@ async function testIdentsAreDistinct(browser){
 
 /* A cleared Jeopardy board used to do nothing at all — the same gap Blockbusters
    had. This is theme-independent: the banner appears either way. */
+/* ---- the standings, between questions ----
+   The screen that replaced the winner banner. What is worth pinning is not that it
+   draws — that is one selector — but the three things it exists to say: everybody is
+   on it whether they scored or not, the gain is this question's rather than a total,
+   and the arrows are movement rather than decoration. The last one needs a competitor
+   to genuinely overtake another, which the first version of this check forgot to
+   arrange: the same team won twice, nothing moved, and it read as the arrows being
+   broken when they were correct. */
+async function testStandings(browser){
+  section('The standings between questions');
+  const page = await openLabHub(browser);
+  await page.evaluate(() => {
+    const S = window.HubSettings;
+    S.set('intro','off'); S.set('sound',false); S.set('cardFlip','off'); S.set('buzzers', false);
+    S.set('roundWinBanner', true);
+  });
+  await startGame(page, 'Jeopardy', { sections:'all', unit:'Lab' });
+  await page.evaluate(() => window.HubTeams && window.HubTeams.ensure(4));
+  await page.waitForTimeout(300);
+
+  /* The teacher's own path — no phones — so this is also the no-relay case. */
+  const playTile = async () => {
+    const tiles = page.locator('#board .tile:not(.used)');
+    const n = await tiles.count();
+    for (let k = 0; k < n; k++){
+      await tiles.nth(n - 1 - k).click(); await page.waitForTimeout(600);
+      if (await page.locator('#clue-group.round-choice').count()) break;
+      const c = page.locator('#close-btn');
+      if (await c.isVisible().catch(()=>false)){ await c.click(); await page.waitForTimeout(350); }
+    }
+    const right = await page.evaluate(() => {
+      const shown = (document.getElementById('clue-text').textContent||'')
+                      .replace(/\s+/g,' ').trim().toLowerCase();
+      const cats = (window.UNITS||[]).flatMap(u => u.jeopardyCategories||[]);
+      for (const c of cats) for (const cl of (c.clues||[]))
+        if (cl.choice && shown.indexOf(String(cl.q).replace(/\s+/g,' ').trim().toLowerCase().slice(0,28)) !== -1)
+          return cl.choice.answer;
+      return null;
+    });
+    if (!right) return false;
+    await page.locator('#clue-group .mc-opt[data-word="' + right.replace(/"/g,'\\"') + '"]').click();
+    await page.waitForTimeout(200);
+    await page.locator('#group-btn').click(); await page.waitForTimeout(900);
+    const rv = page.locator('#reveal-btn');
+    if (await rv.isVisible().catch(()=>false)){ await rv.click(); await page.waitForTimeout(700); }
+    const cl = page.locator('#close-btn');
+    if (await cl.isVisible().catch(()=>false)){ await cl.click(); await page.waitForTimeout(900); }
+    return true;
+  };
+  const rowsOf = () => page.evaluate(() =>
+    [...document.querySelectorAll('#standings-rows .st-row')].map(r => ({
+      place: r.querySelector('.st-place').textContent.trim(),
+      move:  r.querySelector('.st-move').textContent.trim(),
+      name:  r.querySelector('.st-name').textContent.trim(),
+      pts:   Number(r.querySelector('.st-pts').textContent.trim()),
+      gain:  r.querySelector('.st-gain').textContent.trim(),
+      took:  r.classList.contains('took')
+    })));
+
+  check('a question can be played', await playTile());
+  check('the standings come up on their own',
+        await page.locator('#standings-modal.on').count() === 1);
+  const r1 = await rowsOf();
+  check('every competitor is on it, not only the ones who scored',
+        r1.length === 4, 'n=' + r1.length);
+  check('the one that took it is marked', r1.some(r => r.took));
+  check('and carries what this question paid', r1.some(r => /^\+\d+$/.test(r.gain)));
+  check('no arrows the first time — nobody rose from nowhere',
+        r1.every(r => r.move === '\u00b7'), r1.map(r => r.move).join(''));
+  await page.locator('#standings-go').click(); await page.waitForTimeout(350);
+  check('Continue puts it away',
+        await page.locator('#standings-modal.on').count() === 0);
+
+  /* Somebody has to actually overtake, or the arrows have nothing to say. */
+  const plus = page.locator('#scorebar .team').nth(1).locator('button', { hasText:'+' });
+  for (let i = 0; i < 12; i++){ await plus.click(); await page.waitForTimeout(35); }
+  check('a second question can be played', await playTile());
+  const r2 = await rowsOf();
+  const up = r2.find(r => r.move === '\u25b2'), down = r2.find(r => r.move === '\u25bc');
+  check('the one that was overtaken shows a fall, the one that passed it a rise',
+        !!up && !!down && up.pts > down.pts,
+        r2.map(r => r.name + r.move).join(' '));
+  check('and the gain is this question only, not the running total',
+        !!down && down.gain !== '' && Number(down.gain.slice(1)) < down.pts,
+        JSON.stringify(r2.map(r => ({ n:r.name, p:r.pts, g:r.gain }))));
+  await page.locator('#standings-go').click(); await page.waitForTimeout(300);
+
+  /* Sixteen individuals: the case the old in-stage leaderboard could not hold. */
+  await page.evaluate(() => {
+    window.HubSettings.set('roster','solo');
+    window.HubTeams.ensure(16);
+  });
+  await page.waitForTimeout(400);
+  check('a question with sixteen playing', await playTile());
+  const box = await page.locator('#standings-card').boundingBox();
+  check('the card is on screen at 1280x720 with sixteen',
+        box && box.y >= 0 && box.y + box.height <= 720,
+        JSON.stringify(box && { y:Math.round(box.y), h:Math.round(box.height) }));
+  const drawn = (await rowsOf()).length;
+  check('and everybody is either drawn or counted in the tail',
+        drawn === 16 || (await page.locator('.st-more').count()) === 1,
+        'drawn=' + drawn);
+
+  check('no uncaught errors', page.__errors.length === 0, page.__errors.slice(0,2).join(' | '));
+  await page.close();
+
+  /* ---- a team is placed by its last student, not its keenest ----
+     **The one rule in all of this that nothing else would catch.** In `agree` mode a
+     round only produces a team's answer once every member has committed, so the
+     arrival stamp lands when the team *agreed*. If it landed on the first tap
+     instead, a team with one fast thumb would beat a team of two who genuinely
+     worked it out — which is precisely the behaviour `agree` exists to stop, and it
+     would be invisible on any board with one handset per team.
+
+     Team 1 has two phones and taps first-but-incomplete; Team 2 has one phone and
+     answers outright in between. Team 2 must come first. */
+  const tp = await openLabHub(browser);
+  await tp.evaluate(() => {
+    const S = window.HubSettings;
+    S.set('intro','off'); S.set('sound',false); S.set('cardFlip','off');
+    S.set('buzzers', true); S.set('roundWinBanner', false);
+    S.set('round_choice', 'agree', 'jeopardy');
+  });
+  await startGame(tp, 'Jeopardy', { sections:'all', unit:'Lab' });
+  const tcode = (((await tp.locator('#buzzer-chip').innerText().catch(()=>'')) || '')
+                  .match(/CODE\s+(\d{5})/i) || [])[1];
+  check('a room opens for the timing check', !!tcode, tcode || 'none');
+  if (tcode){
+    const seat = async (name, team) => {
+      const ph = await browser.newPage({ viewport:{ width:390, height:844 } });
+      await ph.goto(BASE + '/join.html'); await ph.waitForTimeout(220);
+      await ph.fill('#code', tcode); await ph.fill('#name', name);
+      await ph.locator('.teams button').nth(team).click();
+      await ph.locator('#join-btn').click(); await ph.waitForTimeout(420);
+      return ph;
+    };
+    const a1 = await seat('Ana', 0), a2 = await seat('Abe', 0), b1 = await seat('Bea', 1);
+    await tp.waitForTimeout(500);
+    const tiles = tp.locator('#board .tile:not(.used)');
+    const tn = await tiles.count();
+    for (let k = 0; k < tn; k++){
+      await tiles.nth(tn - 1 - k).click(); await tp.waitForTimeout(600);
+      if (await tp.locator('#clue-group.round-choice').count()) break;
+      const c = tp.locator('#close-btn');
+      if (await c.isVisible().catch(()=>false)){ await c.click(); await tp.waitForTimeout(340); }
+    }
+    const ans = await tp.evaluate(() => {
+      const shown = (document.getElementById('clue-text').textContent||'')
+                      .replace(/\s+/g,' ').trim().toLowerCase();
+      const cats = (window.UNITS||[]).flatMap(u => u.jeopardyCategories||[]);
+      for (const c of cats) for (const cl of (c.clues||[]))
+        if (cl.choice && shown.indexOf(String(cl.q).replace(/\s+/g,' ').trim().toLowerCase().slice(0,28)) !== -1)
+          return cl.choice.answer;
+      return null;
+    });
+    const tapOpt = async (ph, word) => {
+      const n = await ph.locator('#opts button').count();
+      for (let i = 0; i < n; i++){
+        const t = (await ph.locator('#opts button').nth(i).innerText()).trim();
+        if (t.toLowerCase() === String(word).toLowerCase()){
+          await ph.locator('#opts button').nth(i).click({ timeout:2500 }).catch(()=>{});
+          return true;
+        }
+      }
+      return false;
+    };
+    if (ans){
+      await tapOpt(a1, ans);              // half of Team 1 — not yet an answer
+      await tp.waitForTimeout(1600);
+      await tapOpt(b1, ans);              // Team 2 answers outright
+      await tp.waitForTimeout(1600);
+      await tapOpt(a2, ans);              // Team 1 completes, later
+      await tp.waitForTimeout(1600);
+      const places = await tp.evaluate(() => window.HubKit.round.results.list()
+                       .map(r => ({ who:r.who, place:r.place })));
+      check('the team that agreed later is placed later, however early one member tapped',
+            places.length === 2 && places[0].who === 1 && places[1].who === 0,
+            JSON.stringify(places));
+    } else {
+      check('the timing check found an answer to drive', false, 'no choice clue');
+    }
+    for (const ph of [a1, a2, b1]) await ph.close();
+  }
+  await tp.close();
+}
+
 async function testJeopardyFinish(browser){
   section('Jeopardy — board cleared');
   const page = await openHub(browser);
@@ -5121,6 +5313,11 @@ async function testGroupingClue(browser){
     await page.evaluate(p => {
       window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
       window.HubSettings.set('buzzers', !!p.phones);
+      /* Off for the same reason the two above are: the standings cover the board
+         between questions, and a check that plays a question and then clicks a tile
+         finds the click intercepted by a modal it never asked for. The `standings`
+         suite is where that screen is actually covered. */
+      window.HubSettings.set('roundWinBanner', false);
     }, { phones: !!(opts||{}).phones });
     await page.getByText('Lab', { exact:false }).first().click();
     await page.waitForTimeout(220);
@@ -5660,14 +5857,12 @@ async function testGroupingClue(browser){
      what could break is the wiring at the board — the normalisation carrying the
      round's field across, the host being named before `setup` reads the ctx, and
      the claim chooser standing down while the round owns the verdict. */
-  page = await browser.newPage({ viewport:{ width:1280, height:720 } });
-  page.__errors = []; page.__console = [];
-  page.on('pageerror', e => page.__errors.push(String(e)));
-  page.on('console', m => {
-    if (m.type() === 'error' && !/ERR_CONNECTION_RESET|fonts\.(googleapis|gstatic)/.test(m.text()))
-      page.__console.push(m.text());
-  });
-  await page.goto(BASE + '/game-hub-lab.html'); await page.waitForTimeout(400);
+  /* **Through the shared opener, which is what stops this rotting again.** This block
+     built its own page — a third copy of the same eight lines in one suite — so the
+     preferences the harness switches off never reached it, and the standings screen
+     that arrived between questions covered the board it was about to click. Whatever
+     the harness turns off, it turns off here too, by not being written twice. */
+  page = await openLabHub(browser);
   await page.evaluate(() => {
     window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
     window.HubSettings.set('buzzers', true);
@@ -5708,10 +5903,22 @@ async function testGroupingClue(browser){
      did not close it left the card up, so the first hexagon this clicked did nothing
      and the loop burned an iteration reading the *previous* clue — harmless until the
      day the previous clue happens to match, which would open nothing and report true. */
-  const openHex = async want => {
-    if (await page.locator('#clue-modal:visible').count()){
-      await page.locator('#skip-btn').click({ force:true }); await page.waitForTimeout(300);
+  /* **Close by whichever button is actually there.** Skip is hidden once a round has
+     been won and is waiting for Close — `hideAllActionButtons` takes it away — so
+     reaching for Skip by name threw the moment a card could outlive its own answer.
+     The card is the thing being closed; which button does it is the board's business. */
+  const shutCard = async () => {
+    for (const id of ['#skip-btn', '#close-btn']){
+      if (await page.locator(id + ':visible').count()){
+        await page.locator(id).click({ force:true });
+        await page.waitForTimeout(300);
+        return true;
+      }
     }
+    return false;
+  };
+  const openHex = async want => {
+    if (await page.locator('#clue-modal:visible').count()) await shutCard();
     const total = await page.locator('.hex').count();
     for (let i = 0; i < total; i++){
       const hex = page.locator('.hex').nth(i);
@@ -5719,7 +5926,7 @@ async function testGroupingClue(browser){
                                   h.classList.contains('claimed-silver'))) continue;
       await hex.click({ force:true }); await page.waitForTimeout(320);
       if (new RegExp(want, 'i').test(await textOf(page.locator('#clue-text')))) return true;
-      await page.locator('#skip-btn').click({ force:true }); await page.waitForTimeout(300);
+      await shutCard();
     }
     return false;
   };
@@ -6669,6 +6876,11 @@ async function testAnagramRound(browser){
     await page.evaluate(p => {
       window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
       window.HubSettings.set('buzzers', !!p.phones);
+      /* Off for the same reason the two above are: the standings cover the board
+         between questions, and a check that plays a question and then clicks a tile
+         finds the click intercepted by a modal it never asked for. The `standings`
+         suite is where that screen is actually covered. */
+      window.HubSettings.set('roundWinBanner', false);
     }, { phones: !!(opts||{}).phones });
     await page.getByText('Lab', { exact:false }).first().click();
     await page.waitForTimeout(220);
@@ -8085,7 +8297,7 @@ async function main(){
     settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
     card: testFloatingCard, turns: testTurnsAndPoints, phoneteams: testPhoneTeams,
     strip: testPhoneStrip, bbteams: testBlockbustersTeams, jointeams: testJoinTeams,
-    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, topics: testTopicPicking, defaultlook: testDefaultLook, jfinish: testJeopardyFinish, competition: testCompetition, lab: testLabDrawer, range: testRangeSetting,
+    variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, topics: testTopicPicking, defaultlook: testDefaultLook, jfinish: testJeopardyFinish, standings: testStandings, competition: testCompetition, lab: testLabDrawer, range: testRangeSetting,
     buzzers: testBuzzers, phonemodes: testPhoneModes, teamvote: testTeamVote,
     typetobuzz: testTypeToBuzz, judging: testAnswerJudging,
     degradation: testDegradation, file: testFileProtocol,
