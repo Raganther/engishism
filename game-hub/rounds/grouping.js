@@ -97,6 +97,16 @@
 
       const grid = document.createElement('div');
       grid.className = 'group-words';
+      /* The crowd reveal: an in-group word enough of the room is already holding
+         gets the hint mark — confirmed rather than answered, exactly what a hint
+         does. Big rooms only, never the fourth word; the rules are the shelf's. */
+      const known = (s.hint || []).concat(K.round.crowdKnown(c, {
+        keys: s.pick,
+        count: w => Object.keys(s.picks || {})
+                      .filter(t => (s.picks[t] || []).indexOf(w) !== -1).length,
+        started: Object.keys(s.picks || {}).length,
+        given: s.hint || []
+      }));
       s.words.forEach(w=>{
         const b = document.createElement('button');
         b.type = 'button';
@@ -111,7 +121,7 @@
         /* A hinted word is marked as *in the group* and stays fully playable — it
            narrows the search rather than answering it, and a word that could not
            then be picked would make the hint cost the class a slot. */
-        if(!s.done && (s.hint || []).indexOf(w) !== -1) b.classList.add('hinted');
+        if(!s.done && known.indexOf(w) !== -1) b.classList.add('hinted');
         /* The teacher's own selection is a neutral dashed ring and never a team
            colour: on a round every team is playing at once, nothing the teacher
            clicks belongs to anybody. */

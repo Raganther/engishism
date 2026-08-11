@@ -141,6 +141,15 @@
       // on the mount, not the row: the tray's columns are the same width as the
       // slots' now, so both rows read it
       mount.style.setProperty('--scr-w', (widest + 1) + 'ch');
+      /* The crowd reveal, exactly as Drag the Letters does it: slots enough of the
+         room already has fill in beside the hint's, same mark, same shelf rules. */
+      const known = (s.hint || []).concat(K.round.crowdKnown(c, {
+        keys: Array.from({ length: s.need }, (_, i) => i),
+        count: i => Object.keys(s.got || {}).filter(t =>
+          ((s.got[t] || [])[i] || 0) >= K.round.mustHold(s.mode, c, t)).length,
+        started: Object.keys(s.leading || {}).length,
+        given: s.hint || []
+      }));
       for(let i = 0; i < s.need; i++){
         const b = document.createElement('div');
         b.className = 'scr-slot';
@@ -149,7 +158,7 @@
           b.classList.add('filled');
           b.textContent = bare(tok);
           if(c.onPick && !s.shown) b.addEventListener('click', ()=> c.onPick(tok));
-        }else if((s.hint || []).indexOf(i) !== -1){
+        }else if(known.indexOf(i) !== -1){
           // a given-away word, in an empty slot — see `hint` below
           b.classList.add('hinted');
           b.textContent = s.words[i];

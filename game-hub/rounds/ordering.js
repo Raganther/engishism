@@ -255,6 +255,41 @@
            picture, rungs climbed as counts, finishers in order. Each player's own
            ladder is on their handset. */
         if(teams.length > 5){
+          /* **One shared reference scale, with what the room collectively knows on
+             it.** A ladder fills from the cold end, so the crowd-known rungs are a
+             prefix; each shows its word with the hint mark once enough of the room
+             has climbed past it. The rules — the threshold, never the last rung —
+             are the shelf's. */
+          const knownRungs = K.round.crowdKnown(c, {
+            keys: Array.from({ length: s.need }, (_, i) => i),
+            count: i => teams.filter(t => (s.lanes[t] || []).length > i).length,
+            started: teams.filter(t => (s.lanes[t] || []).length || (s.leading || {})[t]).length,
+            given: []
+          });
+          if(knownRungs.length || s.shown){
+            const lane = document.createElement('div');
+            lane.className = 'ord-lane';
+            const ladder = document.createElement('div');
+            ladder.className = 'ord-ladder';
+            ladder.appendChild(cap(s.high, 'hot'));
+            for(let i = s.need - 1; i >= 0; i--){
+              const rung = document.createElement('div');
+              rung.className = 'ord-rung';
+              if(s.shown || knownRungs.indexOf(i) !== -1){
+                rung.classList.add(s.shown ? 'filled' : 'hinted');
+                const w = document.createElement('span');
+                w.className = 'ord-word'; w.textContent = s.scale[i];
+                rung.appendChild(w);
+              } else {
+                rung.classList.add('empty');
+                rung.innerHTML = '&nbsp;';
+              }
+              ladder.appendChild(rung);
+            }
+            ladder.appendChild(cap(s.low, 'cold'));
+            lane.appendChild(ladder);
+            mount.appendChild(lane);
+          }
           K.round.crowd(mount, c, { entries: teams
             .filter(t => (s.lanes[t] || []).length || (s.leading || {})[t])
             .map(t => ({ who: t,

@@ -223,6 +223,10 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
   opacity:0.85; letter-spacing:0.12em; text-transform:uppercase; }
 .ord-rung.filled{ border-style:solid; border-color:var(--gw-good, #2FA84F);
   background:var(--gw-goodwash, rgba(47,168,79,0.14)); color:var(--gw-goodink, #1B6B32); }
+/* A crowd-revealed rung on the big-room reference ladder — given away, not earned,
+   so it wears the hint's colours and never the right-answer green. */
+.ord-rung.hinted{ border-style:solid; border-color:var(--gw-hint, #D68A10);
+  background:var(--gw-hintwash, rgba(214,138,16,0.18)); color:var(--gw-hintink, inherit); }
 /* A revealed ladder shows what the room actually had, so a rung in the wrong place
    has to look different from one they earned. */
 .ord-rung.filled.wrong{ border-color:#C0392B; background:rgba(192,57,43,0.14);

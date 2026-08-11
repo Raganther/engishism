@@ -1238,6 +1238,36 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The crowd reveal — what the room collectively knows fills in on the card,
+  `Kit.round.crowdKnown`.** The user's own design, asked for after testing the crowd
+  picture with 16 handsets: in team play a team's correct letters are readable off
+  its lane and teams behind learn from teams ahead; above the lane ceiling that
+  dynamic vanished with the lanes, and copying it directly would hand one fast
+  player's answer to fifteen rivals. So the reveal is **collective**: a part of the
+  answer fills in only once **≥X% of competitors who have started** have it — at
+  which point it is nobody's secret. Self-balancing (easy parts surface, hard parts
+  keep their value), and a live diagnostic of what the class does not know.
+  - **Three rules, all in the shelf helper so no round re-derives them.** Big rooms
+    only (>5 competitors — a count, never a mode; ordinary 2–4-team play is
+    untouched, decided with the user). **Never the last part**, the hint button's
+    own rule, and the cap counts hint-given parts too, so hints and the crowd can
+    never jointly spell the whole answer (least-held parts dropped first). The
+    threshold is the host's: `crowdReveal` range setting (Questions group, default
+    40%, 0 = off, tunable mid-lesson from the drawer), lent through `jGroupCtx` as a
+    fraction — **absent means the shelf's default, 0 means off**, which is what
+    lets the bench inherit it with no wiring.
+  - **Four rounds read it at render time; Multiple Choice is excluded
+    structurally** (one part is the whole answer). The drag rounds count a position
+    from `arrangement()`'s `got` against `mustHold`; grouping counts teams currently
+    holding an in-group word; ordering's race counts teams past each rung — its
+    lanes fill sequentially, so the revealed rungs are a prefix, drawn on **one
+    shared reference ladder** above the crowd strip (`.ord-rung.hinted`, amber).
+    Every revealed part wears the existing hint mark — given away, never earned
+    green — so the card keeps one colour vocabulary.
+  - Verified by fabricating a 16-solo state on a real Lab card: 60%- and 50%-held
+    slots revealed, a 20% slot not, a hint's slot counted toward the cap, all-held
+    capped at need−1, and a 4-team room revealing nothing. Screenshot checked.
+    **No live-handset run yet — the user tests on the live site.**
 - **Above the lane ceiling the card draws the crowd — `Kit.round.crowd`.** Reported
   from a 16-individual Drag the Letters on a real board: each finisher's name
   replaced the last on the say line, and five people having the answer left no list

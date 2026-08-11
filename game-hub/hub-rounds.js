@@ -453,6 +453,52 @@
     return wrap;
   }
 
+  /* ---------- the crowd reveal ----------
+     **What the room collectively knows, drawn on the card.** In team play a team's
+     correct letters appear in its lane and rivals read them off it — the copy
+     dynamic: being ahead is visible, and teams behind learn from it. Above the lane
+     ceiling that vanished with the lanes, and copying it directly would be worse
+     than nothing: one fast player's letters on the wall hands their answer to
+     fifteen rivals.
+
+     So the reveal is collective, the user's own design: a part of the answer fills
+     in only once **enough of the room already has it** — at which point it is
+     nobody's secret. Self-balancing (easy parts surface, hard parts keep their
+     value) and a live picture of what the class does and does not know.
+
+     Three rules, all here so no round re-derives them:
+     - **Above the lane ceiling only.** Below it the lanes carry the dynamic and a
+       second copy of the same fact would be noise. A count, never a mode.
+     - **Never the last part** — the hint button's own rule, and the cap counts
+       hint-given parts too (`given`), so hints and the crowd can never jointly
+       spell the whole answer. When too many clear the bar, the least-held go.
+     - **The threshold is the host's** (`ctx.crowdReveal`, a fraction; the
+       `crowdReveal` setting). Absent means the default, 0 means off — so the
+       bench inherits the default with no wiring and a teacher's "off" is off.
+
+       Kit.round.crowdKnown(ctx, {
+         keys,          // every part key: slot indexes, pick words, rung indexes
+         count(key),    // how many competitors hold that part right now
+         started,       // how many competitors have sent anything
+         given          // keys a hint already revealed — count toward the cap
+       }) -> extra keys to draw with the hint mark */
+  function crowdKnown(ctx, opts){
+    const o = opts || {};
+    const th = (ctx && ctx.crowdReveal) == null ? 0.4 : Number(ctx.crowdReveal);
+    const started = Number(o.started) || 0;
+    if(!th || !started) return [];
+    if(laneTeams(ctx).length <= 5) return [];
+    const keys = o.keys || [];
+    const given = o.given || [];
+    const cleared = keys
+      .filter(k => given.indexOf(k) === -1)
+      .map(k => ({ k, n: Number(o.count ? o.count(k) : 0) || 0 }))
+      .filter(e => e.n / started >= th)
+      .sort((a, b) => b.n - a.n);
+    const room = Math.max(0, (keys.length - 1) - given.length);
+    return cleared.slice(0, room).map(e => e.k);
+  }
+
   function lanes(mount, ctx, opts){
     const o = opts || {};
     const teams = laneTeams(ctx, o.progressed);
@@ -965,7 +1011,7 @@
       }
       return null;
     },
-    shares, settle, clock, results, poll, agreement, lanes, placeBadge, crowd, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour,
+    shares, settle, clock, results, poll, agreement, lanes, placeBadge, crowd, crowdKnown, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour,
     /* A comma-separated field as a list. Three rounds' editors parse one, which
        is what puts it here rather than in each of them. */
     list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); }

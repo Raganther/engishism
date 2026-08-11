@@ -137,6 +137,17 @@
          what a Daily Double needs, where the phones are excluded by the game. */
       const held = s.chosen.slice();
 
+      /* The crowd reveal: slots enough of the room already has fill in beside the
+         hint's, wearing the same mark. The rules — big rooms only, never the last
+         part, hints count toward the cap — are the shelf's, not re-derived here. */
+      const known = (s.hint || []).concat(K.round.crowdKnown(c, {
+        keys: Array.from({ length: s.need }, (_, i) => i),
+        count: i => Object.keys(s.got || {}).filter(t =>
+          ((s.got[t] || [])[i] || 0) >= K.round.mustHold(s.mode, c, t)).length,
+        started: Object.keys(s.leading || {}).length,
+        given: s.hint || []
+      }));
+
       const boxes = document.createElement('div');
       boxes.className = 'ana-boxes';
       for(let i = 0; i < s.need; i++){
@@ -147,7 +158,7 @@
           b.classList.add('filled');
           b.textContent = bare(tok);
           if(c.onPick && !s.shown) b.addEventListener('click', ()=> c.onPick(tok));
-        } else if((s.hint || []).indexOf(i) !== -1){
+        } else if(known.indexOf(i) !== -1){
           /* A given-away letter, in its own box. Only in an *empty* box: writing
              over what the teacher has placed would make the card disagree with the
              tray, and the box the hint is about is the one nobody has filled. */

@@ -1161,6 +1161,18 @@
     label:'Everyone finishes, not just the first',
     help:'A right answer stops closing the question. The first team still takes the tile at full value when you reveal; everyone else who gets there still scores, for less. Off is the old race.' });
 
+  /* **The crowd reveal — what the room collectively knows fills in on the card.**
+     Only in a big room (7+ competitors, where the lanes have stood down): a letter,
+     word or rung appears once this share of the players who have started already
+     have it, so nothing on the wall is any one player's answer. In a small room the
+     lanes already show the dynamic — a team's correct letters are readable off its
+     lane — so this stays out of the way there. The rule and the never-the-last-part
+     cap live in `Kit.round.crowdKnown`; this row is only the number. */
+  S.register({ id:'crowdReveal', group:'Questions', type:'range', default:40,
+    min:0, max:90, step:5, unit:'%', games:'*',
+    label:'Reveal what the room knows',
+    help:'In a big room, a part of the answer fills in once this share of active players have it. 0 switches it off. Never the last part — that stays yours to reveal.' });
+
   /* **The card stops leaving on its own when a round is won.** Reported from a real
      board: the four words light up, the tile flips away, and the room is left with
      no answer on screen and no idea who took it. The round pays the moment it is
@@ -4713,6 +4725,10 @@
          instead. Only rounds that can be finished by one competitor while others are
          still working need to read it. */
       openToAll: jOpenToAll(),
+      /* The crowd-reveal threshold as a fraction, lent the same way. 0 is off;
+         the shelf helper treats *absent* as its own default, so the bench needs
+         no wiring — which is why this is `?? 0` and never `|| 0.4`. */
+      crowdReveal: (Number(S.get('crowdReveal', activeGame)) || 0) / 100,
       /* Who is in the room, read fresh like `sizes` — the information gap deals a
          view per player, and a deal cut from a stale roster misses whoever just
          walked in. */
