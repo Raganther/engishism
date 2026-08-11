@@ -1238,6 +1238,32 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Above the lane ceiling the card draws the crowd — `Kit.round.crowd`.** Reported
+  from a 16-individual Drag the Letters on a real board: each finisher's name
+  replaced the last on the say line, and five people having the answer left no list
+  anywhere. Above five competitors the lanes correctly stood down, and what stood
+  in for them was nothing.
+  - **One picture of the room, two lines.** Who has *finished*, in order, wearing
+    the same place pills the lanes wear (`1st Eva · 2nd Ana · 3rd Ben`, capped at
+    five then `+N more done`) — and who is close, as counts
+    (`Finn 5/7 · Gia 4/7 · +3 more`, capped at six). From `results.finished()` and
+    the same `lane(t)` spec the lanes would have drawn, so **no round declares
+    anything**: `lanes()` calls it itself above the ceiling, and ordering's race —
+    sixteen squashed ladders before this — calls it by name in place of them. Two
+    callers, the shelf rule.
+  - **Counts only, never content — the decision made with the user before
+    building.** In team play, reading a rival lane's letters is the copy dynamic;
+    at sixteen individuals it hands the answer to fifteen rivals. So the crowd line
+    says `5/8` and never which five. The other decided-not-built half: nothing
+    special in solo below the ceiling — it is **a count, not a mode**, so three
+    individuals still get real lanes and badges.
+  - **The entry label is derived from the lane spec, not asked of the round**: a
+    positional round (cells with gaps still open) reads `got/total`, a count string
+    lends its first word, and a round with neither is just the name — which for
+    Multiple Choice reads as "who has answered", the honest crowd fact there.
+  - Verified by driving `lanes()` with a fake 16-strong roster on a real Lab card
+    (screenshot, both lines correct). **Not yet driven end-to-end with 16 live
+    handsets — the user is testing that on the live site.**
 - **The card says who finished, in what order — `Kit.round.placeBadge`.** Asked for
   from a real board: the record knew who came first (`Kit.round.results`) and the
   card never said so — the say line names the first team only until the next event

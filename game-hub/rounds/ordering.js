@@ -248,14 +248,28 @@
            team, so they are named once above and below the lanes. Repeating them per
            lane put four copies of "the highest praise there is" across the card,
            which is three copies of noise and the height of another rung. */
-        mount.appendChild(cap(s.high, 'hot'));
-        const lanes = document.createElement('div');
-        lanes.className = 'ord-lanes';
-        Object.keys(s.lanes).map(Number).sort((a,b)=>a-b).forEach(t=>{
-          lanes.appendChild(drawLadder(s.lanes[t], t, false));
-        });
-        mount.appendChild(lanes);
-        mount.appendChild(cap(s.low, 'cold'));
+        const teams = Object.keys(s.lanes).map(Number).sort((a,b)=>a-b);
+        /* **Above the lane ceiling a ladder each is a squished grid you cannot read
+           the words off**, which is worse than no picture. Same rule as the shared
+           lanes — a count, never a mode — and the same replacement: the crowd
+           picture, rungs climbed as counts, finishers in order. Each player's own
+           ladder is on their handset. */
+        if(teams.length > 5){
+          K.round.crowd(mount, c, { entries: teams
+            .filter(t => (s.lanes[t] || []).length || (s.leading || {})[t])
+            .map(t => ({ who: t,
+              label: (c.teamName ? c.teamName(t) : ('Team ' + (t + 1))) +
+                     ' ' + (s.lanes[t] || []).length + '/' + s.need })) });
+        } else {
+          mount.appendChild(cap(s.high, 'hot'));
+          const lanes = document.createElement('div');
+          lanes.className = 'ord-lanes';
+          teams.forEach(t=>{
+            lanes.appendChild(drawLadder(s.lanes[t], t, false));
+          });
+          mount.appendChild(lanes);
+          mount.appendChild(cap(s.low, 'cold'));
+        }
       } else {
         mount.appendChild(drawLadder(s.placed, null, true));
       }

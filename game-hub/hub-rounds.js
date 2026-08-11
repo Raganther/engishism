@@ -392,6 +392,67 @@
     return b;
   }
 
+  /* ---------- the crowd picture ----------
+     **One picture of the room, for when the room is too big to draw a lane each.**
+     Above the lane ceiling the card used to draw nothing at all, so at sixteen
+     individuals the only trace of the question's progress was the say line — which
+     each new finisher overwrites, so "who came first" had no display precisely
+     where the class size makes it interesting.
+
+     Two lines: who has *finished*, in order, with the same place pills the lanes
+     wear — and who is close, as counts. **Counts only, never content**: at sixteen
+     rivals any one player's actual answer on the wall is handed to fifteen others.
+     In team play that leak is the copy dynamic; at room scale it collapses the
+     question, which is why this shows `5/8` and never which five.
+
+     `lanes()` calls it itself above the ceiling, so the five lane rounds inherit
+     it with no declaration; ordering's race calls it by name in place of sixteen
+     unreadably squashed ladders — the second caller. Entries are
+     `{who, label}` for competitors mid-question; the finished line comes straight
+     from `results`, which is the host's record and needs nothing from the round. */
+  function crowd(mount, ctx, opts){
+    const o = opts || {};
+    const c = ctx || {};
+    const name = t => (c.teamName ? c.teamName(t) : ('Team ' + (t + 1)));
+    const wrap = document.createElement('div');
+    wrap.className = 'rcrowd';
+    const fin = results.finished();
+    if(fin.length){
+      const line = document.createElement('div');
+      line.className = 'rcrowd-done';
+      const SHOW = 5;
+      fin.slice(0, SHOW).forEach((f, i)=>{
+        if(i){ const s = document.createElement('span'); s.className = 'rcrowd-sep'; s.textContent = '·'; line.appendChild(s); }
+        const b = document.createElement('small');
+        b.className = 'rl-place'; b.dataset.place = f.place;
+        b.textContent = ordinal(f.place);
+        line.appendChild(b);
+        line.appendChild(document.createTextNode(' ' + name(f.who)));
+      });
+      if(fin.length > SHOW){
+        const more = document.createElement('span');
+        more.className = 'rcrowd-more';
+        more.textContent = ' +' + (fin.length - SHOW) + ' more done';
+        line.appendChild(more);
+      }
+      wrap.appendChild(line);
+    }
+    const done = {};
+    fin.forEach(f => { done[f.who] = true; });
+    const rows = (o.entries || []).filter(e => !done[e.who]);
+    if(rows.length){
+      const line = document.createElement('div');
+      line.className = 'rcrowd-working';
+      const SHOW = 6;
+      line.textContent = rows.slice(0, SHOW).map(e => e.label).join(' · ') +
+                         (rows.length > SHOW ? '  +' + (rows.length - SHOW) + ' more' : '');
+      wrap.appendChild(line);
+    }
+    if(!wrap.childNodes.length) return null;   // nobody has done anything yet — say nothing
+    mount.appendChild(wrap);
+    return wrap;
+  }
+
   function lanes(mount, ctx, opts){
     const o = opts || {};
     const teams = laneTeams(ctx, o.progressed);
@@ -411,8 +472,27 @@
        own height, which is open.
 
        What is lost above the cap is a picture, never a mechanic: the round judges
-       from the replies and does not know whether it was drawn. */
-    if(teams.length > 5) return null;
+       from the replies and does not know whether it was drawn.
+
+       **Above the cap the card draws the crowd picture instead of nothing.** The
+       entries are derived from the same `lane(t)` spec the lanes would have drawn:
+       a positional round (cells with gaps still open) reads as `got/total`, a round
+       whose count string leads with a fraction lends its first word, and a round
+       with neither is just the name — which for Multiple Choice reads as "who has
+       answered", the honest crowd fact there. */
+    if(teams.length > 5){
+      const entries = teams.sort((a, b) => a - b).map(t=>{
+        const spec = o.lane ? (o.lane(t) || {}) : {};
+        const cells = spec.cells || [];
+        const got = cells.filter(x => x.got).length;
+        const nm = (ctx && ctx.teamName) ? ctx.teamName(t) : ('Team ' + (t + 1));
+        let label = nm;
+        if(cells.length > 1 && cells.some(x => !x.got)) label += ' ' + got + '/' + cells.length;
+        else if(spec.count != null) label += ' ' + String(spec.count).split(/\s|·/)[0];
+        return { who: t, label, moved: got > 0 || !!spec.full };
+      }).filter(e => e.moved || (o.progressed || []).map(Number).indexOf(e.who) !== -1);
+      return crowd(mount, ctx, { entries });
+    }
     const colour = i => (window.HubBuzzer && window.HubBuzzer.teamColour)
                         ? window.HubBuzzer.teamColour(i) : '';
     const wrap = document.createElement('div');
@@ -885,7 +965,7 @@
       }
       return null;
     },
-    shares, settle, clock, results, poll, agreement, lanes, placeBadge, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour,
+    shares, settle, clock, results, poll, agreement, lanes, placeBadge, crowd, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour,
     /* A comma-separated field as a list. Three rounds' editors parse one, which
        is what puts it here rather than in each of them. */
     list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); }

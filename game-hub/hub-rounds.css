@@ -719,6 +719,25 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
   background:var(--gw-goodwash, rgba(46,158,79,0.18));
   color:var(--gw-goodink, #1E7A44); opacity:1; font-weight:700;
 }
+/* The crowd picture — what the card draws when the room is too big for a lane
+   each (the same >5 ceiling the lanes measure). One picture of the room: who has
+   finished, in order, then who is close as counts. Counts only, never content —
+   at sixteen individuals any one player's actual answer on the wall is handed to
+   fifteen rivals. */
+.rcrowd{
+  margin-top:12px; display:flex; flex-direction:column; gap:6px; align-items:center;
+  color:var(--gw-fg, #12263F);
+}
+.rcrowd-done{
+  font-size:0.62em; letter-spacing:0.05em; text-transform:uppercase;
+  display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:2px;
+}
+.rcrowd-sep{ opacity:0.4; margin:0 5px; }
+.rcrowd-working{
+  font-family:'IBM Plex Mono',monospace; font-size:0.56em; opacity:0.75;
+  text-align:center; overflow-wrap:anywhere;
+}
+.rcrowd-more{ opacity:0.6; margin-left:4px; }
 .rl-n{
   font-family:'IBM Plex Mono',monospace; font-size:0.58em; opacity:0.7;
   white-space:nowrap; color:var(--gw-fg, #12263F);
