@@ -1238,6 +1238,24 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The suite debt is paid, and the Classic deduction was never broken — its check
+  was.** The full 19-suite set ran for the first time since the standings work:
+  `standings, grouping, anagram, qbench, jeopardy, millionaire, turns, competition,
+  card, classic, together, gameshow, fit, phone, registry, lab, scoping, settings,
+  content` — **661/2**, and neither red is new, so the say-line fix and the ordering
+  lockout fix shipped clean.
+  - **The Classic red was the conversion trap, met a fifth time.** "A wrong answer
+    costs the value" drove a "plain" tile on Unit 5, which is all-rounds now — and on
+    a round clue the deduction *stands down deliberately*, from the same fact the
+    steal does: the whole room was playing, so `missed` is only whoever happened to
+    be on turn, and charging them charges the wrong people. The check is on the Lab
+    board now, the documented home for behaviour that only exists on a plain clue
+    (`turns`, `competition`, `phonemodes` and `jclock` all made the same move).
+    `classic` **37/0**, which proves `jDeduct` fires exactly as registered.
+  - **One red remains and it is the real one**: the ordering climb card at 726px on
+    a 720 board, 6px over with the action strip on. A layout item, already under
+    Next — not a stale test, so it stays red on purpose until the card-height work
+    is done.
 - **One team finishing its ladder is not the round finishing — the lockout had moved
   one tier down.** Two reports from a Word Thermometer race in team mode, one cause
   plus one thing left out.
@@ -1268,7 +1286,9 @@ playground's point, that one board can host several:
     **two students on one team**, where `mustHold` in agree mode lights a word only
     once every member has placed it there; from the front of the room that reads as
     "the last word will not fill". Open question, not a fix.
-  - **The suite has not been re-run since the standings work.** That is the debt.
+  - ~~**The suite has not been re-run since the standings work.** That is the
+    debt.~~ **Paid** — see the bullet at the top of Current status. 661/2, both
+    reds accounted for.
 - **A right answer says so again — recognising one and ending the question are two
   different things.** Reported from a Jeopardy team-mode board a day after the
   open-question change shipped: a team answers correctly and nothing anywhere says it
@@ -1304,8 +1324,8 @@ playground's point, that one board can host several:
     and words landing in place) were all still working.
   - Driven with one handset on the Lab board: `Team 1 has it.` on both a Multiple
     Choice and a Connections tile, the question still open, the phone still live, one
-    green lane and **zero** lit words. **The suite has not been re-run** — asked for
-    and agreed.
+    green lane and **zero** lit words. ~~**The suite has not been re-run**~~ —
+    since re-run, clean; see the top of Current status.
   - **Still open, deliberately:** the phones. A handset has never had a per-team "you
     got it" — a taken round simply stood every phone down — so that is new ground
     rather than a regression, and a real teaching decision.
@@ -1460,8 +1480,10 @@ playground's point, that one board can host several:
     ordering climb at 726px on a 720 board, which already has its own item under Next
     — and a **new one**: `classic` says *a wrong answer costs the value when the rule
     is on* and the score does not move (`500/0 -> 500/0`, clue $100). Either `jDeduct`
-    has stopped firing or the check has gone stale; it is not this change's doing and
-    it is somebody's next job. `grouping, qbench, anagram, jeopardy, millionaire,
+    has stopped firing or the check has gone stale; it is not this change's doing.
+    **Since resolved: the check had gone stale** — it drove a Unit 5 round clue,
+    where the deduction stands down by design; see the top of Current status.
+    `grouping, qbench, anagram, jeopardy, millionaire,
     turns, competition, card, classic, together` 376/2.
   - **Not done, and next:** the scoreboard is still inside `#play-kahoot` rather than
     a sibling of every stage, and `score` is still a running total with no history, so
