@@ -1827,7 +1827,7 @@ body.theme-gameshow #clue-actions #hint-btn{ border-color:rgba(255,200,61,0.5); 
   /* The shuffle: rows open translated to their old slots and glide home when the
      transform clears. `.shuffling` is the placement frame — transitions off so the
      old arrangement appears instantly, never animates into being. */
-  transition:transform 650ms cubic-bezier(0.22, 0.8, 0.25, 1);
+  transition:transform 1400ms cubic-bezier(0.3, 0.7, 0.25, 1);
 }
 #standings-rows.shuffling .st-row{ transition:none; }
 @media (prefers-reduced-motion:reduce){ .st-row{ transition:none; } }

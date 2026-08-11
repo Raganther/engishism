@@ -487,13 +487,20 @@
     const th = (ctx && ctx.crowdReveal) == null ? 0.4 : Number(ctx.crowdReveal);
     const started = Number(o.started) || 0;
     if(!th || !started) return [];
-    if(laneTeams(ctx).length <= 5) return [];
+    const competitors = laneTeams(ctx).length;
+    if(competitors <= 5) return [];
     const keys = o.keys || [];
     const given = o.given || [];
+    /* **The share is of the whole room, not of whoever has started.** Divided by
+       the starters, the first player to touch anything is 1 of 1 — 100% — and
+       their first correct letter went straight on the wall, which is exactly the
+       one-fast-player leak this exists to prevent. Reported from a live 16-phone
+       room on day one. `started` stays as the activity gate only. */
+    const of = Math.max(started, competitors);
     const cleared = keys
       .filter(k => given.indexOf(k) === -1)
       .map(k => ({ k, n: Number(o.count ? o.count(k) : 0) || 0 }))
-      .filter(e => e.n / started >= th)
+      .filter(e => e.n / of >= th)
       .sort((a, b) => b.n - a.n);
     const room = Math.max(0, (keys.length - 1) - given.length);
     return cleared.slice(0, room).map(e => e.k);

@@ -1244,8 +1244,8 @@ playground's point, that one board can host several:
   question, old slot and old place number, then everything slides home.
   - **Pure display, FLIP-style.** The DOM is built in the *new* order as before;
     each row is translated back to its old slot (rects measured off the final
-    layout, so the column flow needs no knowing), held 900ms with transitions off
-    (`#standings-rows.shuffling`), then released onto a 650ms transform transition.
+    layout, so the column flow needs no knowing), held 1000ms with transitions off
+    (`#standings-rows.shuffling`), then released onto a 1400ms transform transition — slowed from 650ms on the user's first look.
     The old slot is the row's position sorted by `standingsRank` — the same record
     the arrows read — so nothing new is stored and nothing downstream can read the
     old arrangement as data. Old place numbers ride in the old slots and flip to
@@ -1273,7 +1273,7 @@ playground's point, that one board can host several:
   its lane and teams behind learn from teams ahead; above the lane ceiling that
   dynamic vanished with the lanes, and copying it directly would hand one fast
   player's answer to fifteen rivals. So the reveal is **collective**: a part of the
-  answer fills in only once **≥X% of competitors who have started** have it — at
+  answer fills in only once **≥X% of the room** has it — at
   which point it is nobody's secret. Self-balancing (easy parts surface, hard parts
   keep their value), and a live diagnostic of what the class does not know.
   - **Three rules, all in the shelf helper so no round re-derives them.** Big rooms
@@ -1293,10 +1293,17 @@ playground's point, that one board can host several:
     shared reference ladder** above the crowd strip (`.ord-rung.hinted`, amber).
     Every revealed part wears the existing hint mark — given away, never earned
     green — so the card keeps one colour vocabulary.
-  - Verified by fabricating a 16-solo state on a real Lab card: 60%- and 50%-held
-    slots revealed, a 20% slot not, a hint's slot counted toward the cap, all-held
-    capped at need−1, and a 4-team room revealing nothing. Screenshot checked.
-    **No live-handset run yet — the user tests on the live site.**
+  - **The share is of the whole room, not of whoever has started — and it shipped
+    wrong for one build.** Divided by the starters, the first player to touch
+    anything is 1 of 1 = 100%, so their first correct letter went straight on the
+    wall — reported from a live 16-phone room within the hour ("Nico presses S and
+    it fills immediately"). The denominator is `max(started, competitors)` now;
+    `started` stays as the activity gate only.
+  - Verified by fabricating a 16-solo state on a real Lab card: a 7/16 slot
+    revealed, a 6/16 slot not, the reported single-starter case revealing nothing,
+    a hint's slot counted toward the cap, all-held capped at need−1, and a 4-team
+    room revealing nothing. **Live-handset verdict pending — the user is testing
+    on the live site.**
 - **Above the lane ceiling the card draws the crowd — `Kit.round.crowd`.** Reported
   from a 16-individual Drag the Letters on a real board: each finisher's name
   replaced the last on the say line, and five people having the answer left no list

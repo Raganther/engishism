@@ -2561,7 +2561,7 @@
           drawn[n].style.transform = '';
           drawn[n].querySelector('.st-place').textContent = String(r.place);
         });
-      }, 900);
+      }, 1000);
     }
   }
   showStandings.seq = 0;
