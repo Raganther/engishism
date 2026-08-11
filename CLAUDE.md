@@ -1238,6 +1238,37 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **One team finishing its ladder is not the round finishing — the lockout had moved
+  one tier down.** Two reports from a Word Thermometer race in team mode, one cause
+  plus one thing left out.
+  - **`done` means two different things to the two tiers, and it is one field on one
+    object.** To a round it is "I have finished"; to the host `jGroupLive()` reads it
+    as "this question is over". Ordering's `accept` set it the moment *one* team's
+    lane filled, so the first finisher froze the card for everybody: replies stopped
+    being read, the hints went, and every other team was locked out of a ladder they
+    were half way up. **Exactly the lockout the open question exists to remove,
+    expressed inside a round.**
+  - **The host lends the rule, the round says which it means.** `ctx.openToAll` is a
+    new fact on the ctx; ordering keeps `won` as the first to get there and simply
+    stops ending the round. Only a round that one competitor can finish while others
+    are still working needs to read it.
+  - **A partial right answer has to re-ask the room, and the open branch forgot to.**
+    The single-winner path always did — that is what refreshes each team's remaining
+    pool — so a word a team had just placed stayed in their list on every handset and
+    the round could not progress. Once after the loop rather than per team: an arm is
+    room-wide and several teams can settle in one tick.
+  - **The slot was being claimed by the first correct *rung*.** Nothing checked `done`
+    before setting `hostTook`, so on an ordering race the tile went to whoever got the
+    first word right rather than to whoever completed a ladder.
+  - Driven with two handsets: five rungs climbed with the placed word leaving the
+    phone each time (5→4→3→2→1 options), the card still open, then the second team
+    climbing three rungs of its own.
+  - **Drag the Words was reported alongside and does not reproduce** — three teams,
+    one phone each, every lane fills and each team is named. The untested case is
+    **two students on one team**, where `mustHold` in agree mode lights a word only
+    once every member has placed it there; from the front of the room that reads as
+    "the last word will not fill". Open question, not a fix.
+  - **The suite has not been re-run since the standings work.** That is the debt.
 - **A right answer says so again — recognising one and ending the question are two
   different things.** Reported from a Jeopardy team-mode board a day after the
   open-question change shipped: a team answers correctly and nothing anywhere says it
