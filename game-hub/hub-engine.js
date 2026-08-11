@@ -1109,7 +1109,7 @@
      including the ones with no slot to win, which is why the `scoreEach` filter came
      off. Quickfire is the board the movement matters most on: fifteen questions and
      nothing else punctuating them. */
-  S.register({ id:'roundWinBanner', group:'Questions', type:'toggle', default:true,
+  S.register({ id:'roundWinBanner', group:'Questions', type:'toggle', default:true, quick:true,
     games: ROUND_GAMES,
     label:'Standings between questions',
     help:'After each question, a screen naming who took it and showing everybody rising and falling. It waits for you rather than leaving on a timer. Off keeps the board on screen and says nothing.' });
@@ -1163,7 +1163,7 @@
      It still costs the teacher a press — Reveal, then Close, where a won round used
      to take itself — and no class has met it. The switch is what puts the old race
      back, in one tap from the drawer mid-round. */
-  S.register({ id:'roundOpenToAll', group:'Questions', type:'toggle', default:true,
+  S.register({ id:'roundOpenToAll', group:'Questions', type:'toggle', default:true, quick:true,
     games: ROUND_GAMES.filter(g => !ROUND_HOSTS[g].scoreEach),
     label:'Everyone finishes, not just the first',
     help:'A right answer stops closing the question. The first team still takes the tile at full value when you reveal; everyone else who gets there still scores, for less. Off is the old race.' });
@@ -1175,7 +1175,7 @@
      lanes already show the dynamic — a team's correct letters are readable off its
      lane — so this stays out of the way there. The rule and the never-the-last-part
      cap live in `Kit.round.crowdKnown`; this row is only the number. */
-  S.register({ id:'crowdReveal', group:'Questions', type:'range', default:40,
+  S.register({ id:'crowdReveal', group:'Questions', type:'range', default:40, quick:true,
     min:0, max:90, step:5, unit:'%', games:'*',
     label:'Reveal what the room knows',
     help:'In a big room, a part of the answer fills in once this share of active players have it. 0 switches it off. Never the last part — that stays yours to reveal.' });
@@ -1375,6 +1375,17 @@
     variants:[{value:'trace', label:'Light up along the route'},
               {value:'pulse', label:'Flash the whole route at once'},
               {value:'off',   label:'Just mark it — no animation'}] });
+
+  /* The tune chip: a small button on the clue card that unfolds the settings that
+     matter for the question on screen — the open round's own mode row, plus any
+     setting that declared itself `quick`. A shortcut to the drawer, not a second
+     settings system: the rows are the drawer's own `buildRow`, and a change is the
+     same per-game override. On by default (the user's call) — the workshop phase is
+     daily; this row hides it for a class that should not watch sliders. */
+  S.register({ id:'roundTune', group:'Questions', type:'toggle', default:true,
+    games:'*',
+    label:'Tune button on the question card',
+    help:'A small Tune button on the clue card opening the settings that matter for the open question. Off hides it for a lesson.' });
 
   S.register({ id:'bbEdges', group:'Blockbusters', type:'toggle', default:true,
     games:['blockbusters'],
@@ -1940,6 +1951,13 @@
       <div id="clue-card">
         <div id="clue-front"><span id="clue-front-text"></span></div>
         <div id="clue-back">
+        <!-- Inside the back face, not on the card: the card is a 3D flip context
+             whose faces carry the counter-rotation, so a child of the card itself
+             renders mirrored. Everything readable lives on a face. -->
+        <div id="clue-tune">
+          <button id="clue-tune-btn" type="button" title="Tune this question">Tune</button>
+          <div id="clue-tune-panel" style="display:none;"></div>
+        </div>
         <div id="clue-topline"></div>
         <div id="clue-section"></div>
         <div id="clue-text"></div>
@@ -5942,9 +5960,31 @@
     card.addEventListener('pointercancel', end);
   })();
 
+  /* ---- the tune chip ----
+     The settings that matter for the question on screen, on the card that shows it:
+     the open round's own mode row first (derived — `round_<id>` exists because the
+     round declared `modes`), then whatever registered itself `quick`. The rows are
+     the drawer's own, rendered through `renderOnce` so the drawer's live-refresh
+     slot is not stolen, and a change made here is the same per-game override the
+     drawer makes — safe to poke mid-lesson, master values untouched. Folded shut on
+     every new clue: the button is for reaching in, not a panel the room reads. */
+  function renderTuneChip(){
+    const box = document.getElementById('clue-tune');
+    if(!box) return;
+    const panel = document.getElementById('clue-tune-panel');
+    panel.style.display = 'none';
+    const on = !!S.get('roundTune', activeGame) && modalMode !== 'review';
+    box.style.display = on ? '' : 'none';
+    if(!on) return;
+    const ids = ['round_' + (jRoundId || 'default')]
+      .concat(S.quickIds(activeGame).filter(id => id !== 'roundTune'));
+    S.renderOnce(panel, activeGame, { only: ids });
+  }
+
   function openClueCard(origin){
     const modal = document.getElementById('clue-modal');
     const card  = document.getElementById('clue-card');
+    renderTuneChip();
     /* A new clue arrives centred. Keeping the last drag would land the flip's
        opening animation somewhere the tile is not, and the offset was a decision
        about the *previous* question. */
@@ -6258,6 +6298,11 @@
     document.getElementById('clue-card').classList.remove('daily-double');
     closeModal(flipMs(FLIP_HOLD_MS), jAfterClue);
     nextTurn();
+  });
+
+  document.getElementById('clue-tune-btn').addEventListener('click', ()=>{
+    const p = document.getElementById('clue-tune-panel');
+    p.style.display = p.style.display === 'none' ? 'block' : 'none';
   });
 
   document.getElementById('close-btn').addEventListener('click', ()=>{

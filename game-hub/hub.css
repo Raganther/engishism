@@ -474,6 +474,30 @@ body.clue-dragging #clue-card{ touch-action:none; user-select:none; }
 /* two faces on one card: the tile's value in front, the clue behind. openClueCard
    grows it out of the clicked tile and turns it over. */
 #clue-card{ position:relative; max-width:720px; width:100%; transform-style: preserve-3d; will-change: transform; }
+/* The tune chip: the drawer's own rows, anchored to the question they tune. The
+   light surface matches every other settings UI, whatever theme the card wears. */
+#clue-tune{ position:absolute; top:-14px; right:-14px; z-index:6; text-align:right; }
+#clue-tune-btn{
+  font:inherit; font-size:0.62rem; font-weight:700; letter-spacing:0.08em;
+  text-transform:uppercase; padding:5px 11px; border-radius:99px;
+  border:1.5px solid var(--line); background:var(--white); color:var(--muted);
+  cursor:pointer;
+}
+#clue-tune-btn:hover{ color:var(--navy); border-color:var(--navy); }
+#clue-tune-panel{
+  width:290px; max-height:340px; overflow:auto; margin-top:6px; margin-left:auto;
+  background:rgba(10,16,38,0.97); border:1.5px solid rgba(255,255,255,0.18);
+  border-radius:12px; padding:4px 14px; text-align:left;
+  box-shadow:0 14px 34px rgba(0,0,0,0.4);
+}
+/* The drawer's dark-surface text rules, because the panel sits inside the card
+   face and would otherwise inherit whatever the theme painted there. */
+#clue-tune-panel .settings-label{ color:#EAF0FF; }
+#clue-tune-panel .settings-help{ color:#8FA6C8; }
+#clue-tune-panel .settings-group{ color:var(--blue); }
+#clue-tune-panel .settings-row{ border-bottom-color:rgba(255,255,255,0.1); flex-direction:column; align-items:stretch; gap:8px; }
+/* A handset has no width for a side panel, and nobody tunes a lesson from one. */
+@media (max-width:760px){ #clue-tune{ display:none; } }
 /* The two faces sit on separate z planes so they cannot z-fight — coplanar faces
    made $500 read as 005. `backface-visibility` used to be the other half of that
    and has been removed: captured frame by frame it culled the *clue* face through

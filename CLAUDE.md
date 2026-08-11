@@ -1238,6 +1238,28 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The tune chip — the settings that matter for the open question, on the card
+  that shows it.** Asked for because the settings view is long and mid-experiment
+  the drawer is a filing cabinet: a small TUNE pill on the clue card unfolds the
+  open round's own mode row plus every setting registered `quick:true`
+  (`roundOpenToAll`, `crowdReveal`, `roundWinBanner` on day one). On by default,
+  the user's call; `roundTune` hides it for a lesson.
+  - **A shortcut to the drawer, not a second settings system.** The rows are the
+    drawer's own `buildRow`, rendered through `S.renderOnce` — added precisely so
+    the chip cannot steal `forMount`, the drawer's live-refresh slot — and a change
+    is the same per-game override. The contents are derived twice over: the mode
+    row is `round_<id>` of whatever round is open, and the rest come from
+    `S.quickIds()` — a setting joins the chip by declaring, never by editing it.
+  - **Inside `#clue-back`, not on `#clue-card`, and it shipped wrong first**: the
+    card is a 3D flip context whose faces carry the counter-rotation, so a child
+    of the card itself renders mirrored — the button read "ƎNUT". Everything
+    readable lives on a face. The panel also carries the drawer's dark-surface
+    text rules, because inside the face it inherits whatever the theme painted
+    there (ghost-white-on-white under the game-show skin, screenshot-caught).
+  - Hidden under 760px — no width, and nobody tunes a lesson from a handset.
+    Verified on the Lab board: the thermometer's card lists its mode row first,
+    and flipping it from the chip stores `round_ordering@jeopardy` exactly as the
+    drawer would.
 - **Blockbusters wears its team edges — `bbEdges`, continuous zig-zag ribbons
   following the hexagons' outer contour.** Asked for as formatting: the legend
   *says* yellow crosses left→right and blue descends, and the board itself never

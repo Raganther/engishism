@@ -478,7 +478,8 @@ window.HubSettings = (function(){
     const o = opts || {};
     mount.innerHTML = '';
     const shown = defs.filter(d => scoped(d) && gamesOf(d).indexOf(game) !== -1 &&
-                                   (!o.groups || o.groups.indexOf(d.group || 'General') !== -1));
+                                   (!o.groups || o.groups.indexOf(d.group || 'General') !== -1) &&
+                                   (!o.only || o.only.indexOf(d.id) !== -1));
     renderRows(mount, game, shown);
     if(!shown.length){
       const none=document.createElement('p');
@@ -519,8 +520,22 @@ window.HubSettings = (function(){
     });
   }
 
+  /* A one-off render that does NOT claim `forMount` — the drawer's live re-render
+     slot. The tune chip on the clue card renders through this, or opening a card
+     would silently stop the drawer updating on changes. */
+  function renderOnce(mount, game, opts){ renderInto(mount, game, opts); }
+
+  /* The settings that declared themselves quick-tunable (`quick:true` on their
+     registration) — what the card's tune chip shows. Derived, never a hand-kept
+     list of ids, for the same reason `games:'*'` asks the registry: a list typed
+     into the chip goes stale the day the next setting matters. */
+  function quickIds(game){
+    return defs.filter(d => d.quick && scoped(d) && gamesOf(d).indexOf(game) !== -1)
+               .map(d => d.id);
+  }
+
   return {
-    renderFor, register, get, set, clearOverride, hasOverride, onChange, variantsFor,
+    renderFor, renderOnce, quickIds, register, get, set, clearOverride, hasOverride, onChange, variantsFor,
            raw, drop, mount, open, close, resetAll, setContext, describePresets,
            get storageAvailable(){ return storageOK; } };
 })();
