@@ -533,7 +533,7 @@
 
     /* Commit a correct answer. Grouping leaves this out — being right *is* the
        ending there — and a climb is the case that needed it: right means progress. */
-    accept(answer, s, team){
+    accept(answer, s, team, ctx){
       const word = (answer || [])[0];
       if(!word) return;
       if(s.mode === 'race' && team != null){
@@ -545,7 +545,20 @@
            goes with it: a lane still reading 4/4 over an empty rung says the team has
            agreed on something when in fact they have not been asked yet. */
         delete s.picks[team]; delete s.leading[team]; delete s.votes[team];
-        if(lane.length >= s.need){ s.done = true; s.won = team; }
+        /* **One team finishing its ladder is not the round finishing.** `done` is read
+           by the host as "this question is over" — it is the same field on the same
+           object — so setting it here froze the card the moment the first team filled
+           their lane: replies stopped being read and every other team was locked out
+           of completing a ladder they were half way up. That is precisely the lockout
+           the open question exists to remove, written one tier down.
+
+           `won` is still the first to get there, and never overwritten: that is who
+           takes the slot. What changes is only whether the rest of the room is allowed
+           to carry on, which is the host's rule and is lent through `ctx`. */
+        if(lane.length >= s.need){
+          if(s.won == null) s.won = team;
+          if(!(ctx && ctx.openToAll)) s.done = true;
+        }
         return;
       }
       s.placed.push(word);

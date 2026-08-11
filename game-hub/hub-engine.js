@@ -4701,6 +4701,18 @@
     return {
       teams:  teams.map((t, i) => teamName(i)),
       sizes,
+      /* **Whether the question stays open after somebody gets it right**, which a
+         round has to know because "I am finished" and "the round is over" are the
+         same field on the same object — `state.done`. Written by a round that meant
+         only the first, it ends the question for everybody: the ordering race set it
+         the moment one team's ladder filled, which froze the card, stopped the replies
+         being read and locked every other team out of finishing theirs. Exactly the
+         lockout this whole change exists to remove, expressed one tier down.
+
+         So the host lends the rule and the round says "this team has finished"
+         instead. Only rounds that can be finished by one competitor while others are
+         still working need to read it. */
+      openToAll: jOpenToAll(),
       /* Who is in the room, read fresh like `sizes` — the information gap deals a
          view per player, and a deal cut from a stale roster misses whoever just
          walked in. */
@@ -5102,6 +5114,7 @@
           jGroupMiss(v.team, v.r);
         });
       }
+      let again = false;              // did any right answer move the question on
       rights.forEach(v => {
         if(!jGroupSettler.fresh(v.team, 'ok:' + v.set.slice().sort().join('|'))) return;
         def.accept(v.set, jGroup, v.team, ctx);
@@ -5123,8 +5136,20 @@
            and a rule paying every correct answer would pay one question five times.
            `at` is the arrival stamp, so the order is the room's rather than this
            loop's. */
-        Kit.round.results.note(v.team, { at: jGroupAt(v.team),
-                                        done: v.r.done !== false || !!jGroup.done });
+        /* **Getting a rung right is not finishing the ladder**, and paying on the
+           first one was a real bug: an ordering race is correct once per word, so the
+           slot went to whoever got the *first word* rather than to whoever completed
+           a ladder. `done` is the round saying which of the two just happened. */
+        const finished = v.r.done !== false || !!jGroup.done;
+        Kit.round.results.note(v.team, { at: jGroupAt(v.team), done: finished });
+        if(!finished){
+          /* A step, not a win. The card already says so; what the room needs is the
+             next question — for an ordering race that is a different set of words per
+             team, because the one just placed has left their pool. */
+          jGroup.say = teamName(v.team) + ' — yes.';
+          again = true;
+          return;
+        }
         if(!roundHost.scoreEach && jGroup.hostTook == null){
           jGroup.hostTook = v.team;     // the slot, paid when the question ends
           return;                       // said and sounded above, like every other right answer
@@ -5134,6 +5159,16 @@
                        : jPayLate(v.team);
         notePhoneScore(teamName(v.team), v.team, null, paid || 0);
       });
+      /* **A partial right answer moves the question on, so the room has to be asked
+         again.** The single-winner path has always done this and the open branch did
+         not, which is what left a placed word still sitting in its team's list on
+         every handset — the round could not progress because the phones were still
+         offering a word that had already been used. Once, after the loop, rather than
+         per team: an arm is room-wide and several teams can settle in one tick. */
+      if(again && buzzHost && currentClueItem){
+        jGroupSettler.reset();       // the question changed; every answer is worth trying again
+        askPhones(currentClueItem.text, roundHost.game);
+      }
       renderJGroup();
       return;                       // the clock or the teacher ends it, not the first right answer
     }
