@@ -702,6 +702,23 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
 }
 .rl-who small{ margin-left:6px; opacity:0.75; font-family:'IBM Plex Mono',monospace; }
 .rl-who.all{ background:var(--gw-goodwash, rgba(46,158,79,0.18)); border-radius:6px; padding:1px 6px; }
+/* Who finished, in what order — `Kit.round.placeBadge`, drawn the moment a
+   competitor's answer is done and standing for the rest of the round. Its own
+   class rather than leaning on `.rl-who small`, because it also sits in
+   ordering's `.ord-who` header — and its own `color`, because that header
+   carries the team colour inline and the badge must not turn team-coloured.
+   First place gets the good pill; later places are quieter ink — "you got
+   there" is the message, and the podium does the arithmetic. */
+.rl-place{
+  font-family:'IBM Plex Mono',monospace; margin-left:6px; padding:1px 6px;
+  border-radius:6px; text-transform:uppercase; white-space:nowrap;
+  background:var(--gw-wash, rgba(18,38,63,0.08)); color:var(--gw-fg, #12263F);
+  opacity:0.85;
+}
+.rl-place[data-place="1"]{
+  background:var(--gw-goodwash, rgba(46,158,79,0.18));
+  color:var(--gw-goodink, #1E7A44); opacity:1; font-weight:700;
+}
 .rl-n{
   font-family:'IBM Plex Mono',monospace; font-size:0.58em; opacity:0.7;
   white-space:nowrap; color:var(--gw-fg, #12263F);

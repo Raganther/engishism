@@ -1238,6 +1238,34 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The card says who finished, in what order — `Kit.round.placeBadge`.** Asked for
+  from a real board: the record knew who came first (`Kit.round.results`) and the
+  card never said so — the say line names the first team only until the next event
+  overwrites it, so the teacher was remembering the order mid-round and
+  reconstructing it from the standings afterwards.
+  - **Display only, one home.** A "1st / 2nd / 3rd" pill on a competitor's lane
+    header the moment they *finish* (`results.finished()`, place among the
+    finished), standing for the rest of the round and into the reveal. No round
+    learned anything: `lanes()` appends it itself, so the five lane rounds got it
+    for free, and ordering's race ladders — the one round drawing its own per-team
+    header — call it by name. Two callers, which is what makes it a shelf.
+  - **Its own class and its own `color`, deliberately**: it also sits in `.ord-who`,
+    which carries the team colour inline, and a badge that turned team-coloured
+    would read as belonging to a different vocabulary. First place gets the good
+    pill; later places are quieter ink.
+  - **Absent, never wrong, where the record is empty** — the question bench stamps
+    no results, so no badge draws there. Wiring `results.open/note` into the bench
+    is a known residual, with the crowd picture below.
+  - Verified with one Playwright look at the Lab board (Multiple Choice, teacher
+    path): `TEAM 1 · 1ST` on the finished lane, the other lane clean, say line
+    intact. **No suite run, at the user's request — they test on the live site.**
+  - **Agreed for the next pass, not built: the crowd picture.** Above five
+    competitors the board stops drawing one picture per player and draws one
+    picture of the room — a "who's close" strip (Drag the Letters: counts only,
+    `Ana 5/7 · +12 more`, deliberately no letters at room scale) and one full-size
+    shared scale with the field marked on it for the thermometer race. Decided
+    with the user: counts-only, and the switch is **by size, above 5** — a count,
+    not a mode, the same rule the lane cap already states.
 - **The suite debt is paid, and the Classic deduction was never broken — its check
   was.** The full 19-suite set ran for the first time since the standings work:
   `standings, grouping, anagram, qbench, jeopardy, millionaire, turns, competition,

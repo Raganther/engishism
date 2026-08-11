@@ -168,6 +168,11 @@
             n.textContent = ag.agreed + '/' + ag.size;
             who.appendChild(n);
           }
+          /* Who finished, in what order — the shared badge the lane standard
+             draws, called by name here because this is the one round with its
+             own per-team header. The record is the host's; the round only asks. */
+          const badge = K.round.placeBadge(team);
+          if(badge) who.appendChild(badge);
           lane.appendChild(who);
         }
         const ladder = document.createElement('div');

@@ -362,6 +362,36 @@
     return (mode === 'agree' && size) ? size : 1;
   }
 
+  /* ---------- the place badge ----------
+     **The record already knew who came first; the card never said so.** `results`
+     holds place, seconds and `done` per competitor — the scoring rules and the
+     standings read it, and the say line names the first team only until the next
+     event overwrites it, so mid-round the teacher was remembering the order and
+     reconstructing it afterwards from the standings. This is the display half:
+     a small "1st / 2nd / 3rd" pill on a competitor's lane header the moment they
+     *finish*, standing for the rest of the round and into the reveal.
+
+     Built here rather than in any round for the same reason the hint button is:
+     the wording and the rule ("finished, placed among the finished") must not be
+     five hand-written copies. `lanes()` appends it itself; ordering's race
+     ladders — the one round drawing its own per-team header — call it by name,
+     which is the second caller that proves the shelf.
+
+     Where `results` was never stamped (the question bench stamps nothing), there
+     are no finished entries and this returns null — absent, never wrong. */
+  function ordinal(n){
+    return n + ({1:'st', 2:'nd', 3:'rd'}[n] || 'th');
+  }
+  function placeBadge(team){
+    const r = results.finished().filter(f => f.who === Number(team))[0];
+    if(!r) return null;
+    const b = document.createElement('small');
+    b.className = 'rl-place';
+    b.dataset.place = r.place;
+    b.textContent = ordinal(r.place);
+    return b;
+  }
+
   function lanes(mount, ctx, opts){
     const o = opts || {};
     const teams = laneTeams(ctx, o.progressed);
@@ -413,6 +443,8 @@
         a.textContent = spec.agree.agreed + '/' + spec.agree.size;
         who.appendChild(a);
       }
+      const badge = placeBadge(t);
+      if(badge) who.appendChild(badge);
       lane.appendChild(who);
 
       const row = document.createElement('span');
@@ -853,7 +885,7 @@
       }
       return null;
     },
-    shares, settle, clock, results, poll, agreement, lanes, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour,
+    shares, settle, clock, results, poll, agreement, lanes, placeBadge, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour,
     /* A comma-separated field as a list. Three rounds' editors parse one, which
        is what puts it here rather than in each of them. */
     list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); }
