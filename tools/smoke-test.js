@@ -7998,28 +7998,43 @@ async function testJeopardyClassic(browser){
   await page.locator('#correct-btn').click(); await page.waitForTimeout(800);
   const scores = await page.evaluate(() => [...document.querySelectorAll('.team .score')].map(e => e.textContent));
   check('the bet is what it pays, not the tile value', scores[0] === '500', scores.join('/'));
-
-  /* The show takes the value off you. Off by default here — a class 500 down in the
-     first two minutes stops trying — but it has to work when it is on. */
-  const before = await page.evaluate(() => [...document.querySelectorAll('.team .score')].map(e => e.textContent));
-  const plain = await page.evaluate(() =>
-    [...document.querySelectorAll('#board .tile')].findIndex(t => !t.classList.contains('used')));
-  await page.locator('#board .tile').nth(plain).click(); await page.waitForTimeout(500);
-  const worth = await page.evaluate(() => {
-    const t = document.getElementById('clue-topline').textContent;
-    const m = t.match(/\$(\d+)/); return m ? Number(m[1]) : 0;
-  });
-  const onTurn = await page.evaluate(() =>
-    [...document.querySelectorAll('.team')].findIndex(e => e.classList.contains('active')));
-  await page.locator('#reveal-btn').click(); await page.waitForTimeout(250);
-  await page.locator('#wrong-btn').click(); await page.waitForTimeout(700);
-  const after = await page.evaluate(() => [...document.querySelectorAll('.team .score')].map(e => e.textContent));
-  check('a wrong answer costs the value when the rule is on',
-        Number(after[onTurn]) === Number(before[onTurn]) - worth,
-        before.join('/') + ' -> ' + after.join('/') + ' (clue $' + worth + ', team ' + onTurn + ')');
-
   checkClean(page);
   await page.close();
+
+  /* The show takes the value off you. Off by default here — a class 500 down in the
+     first two minutes stops trying — but it has to work when it is on. Driven on the
+     Lab board: the class-facing units are all-rounds now, and on a round clue the
+     deduction stands down deliberately (the whole room was playing, so `missed` is
+     only whoever happened to be on turn — the same fact that stands the steal down).
+     A plain clue is the only place this rule can fire. See `openLabHub`. */
+  {
+    const dpg = await openLabHub(browser);
+    await dpg.evaluate(() => {
+      const S = window.HubSettings;
+      S.set('cardFlip','off'); S.set('intro','off'); S.set('sound',false);
+      S.set('jDailyDoubles',0,'jeopardy'); S.set('jDeduct',true,'jeopardy');
+      S.set('jFinalRound',false,'jeopardy'); S.set('stealOnWrong',false,'jeopardy');
+      S.set('round_default','off','jeopardy');
+    });
+    await startGame(dpg, 'Jeopardy', { sections:3, unit:'Lab' });
+    await dpg.waitForTimeout(600);
+    const before = await dpg.evaluate(() => [...document.querySelectorAll('.team .score')].map(e => e.textContent));
+    await dpg.locator('#board .tile:not(.used)').first().click(); await dpg.waitForTimeout(500);
+    const worth = await dpg.evaluate(() => {
+      const t = document.getElementById('clue-topline').textContent;
+      const m = t.match(/\$(\d+)/); return m ? Number(m[1]) : 0;
+    });
+    const onTurn = await dpg.evaluate(() =>
+      [...document.querySelectorAll('.team')].findIndex(e => e.classList.contains('active')));
+    await dpg.locator('#reveal-btn').click(); await dpg.waitForTimeout(250);
+    await dpg.locator('#wrong-btn').click(); await dpg.waitForTimeout(700);
+    const after = await dpg.evaluate(() => [...document.querySelectorAll('.team .score')].map(e => e.textContent));
+    check('a wrong answer costs the value when the rule is on',
+          Number(after[onTurn]) === Number(before[onTurn]) - worth,
+          before.join('/') + ' -> ' + after.join('/') + ' (clue $' + worth + ', team ' + onTurn + ')');
+    checkClean(dpg);
+    await dpg.close();
+  }
 
   /* ---- the final clue ----
      The reason the show never feels decided early: everyone bets what they like, so
