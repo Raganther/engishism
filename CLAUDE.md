@@ -1238,6 +1238,17 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Blockbusters wears its team edges — `bbEdges`, small hexes framing the board.**
+  Asked for as formatting: the legend *says* yellow crosses left→right and blue
+  descends, and the board itself never did. Gold teeth beside both ends of every
+  row, blue teeth above the top row and below the bottom one — positioned by
+  `layoutBlockbustersBoard` from the same measured hex width as the board, so they
+  follow the stagger (a straight bar would cut across the notches) and re-place on
+  every fit. The wrap grows by one tooth of padding all round; teeth are
+  `pointer-events:none` and quieter than a claimed hex (frame, not game state).
+  First cut was 0.4×hex and the bottom row ran under the footer at 1280×720 —
+  0.34×hex with tighter gaps fits with room. Toggle in the Blockbusters group,
+  default on. Screenshot-verified both rows of teeth on the Lab board.
 - **The standings shuffle — the screen opens on the old order and glides to the
   new.** Asked for by name: the arrows *describe* the movement, and what was wanted
   was the movement itself — for a beat the rows sit where they were before the

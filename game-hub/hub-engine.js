@@ -1376,6 +1376,11 @@
               {value:'pulse', label:'Flash the whole route at once'},
               {value:'off',   label:'Just mark it — no animation'}] });
 
+  S.register({ id:'bbEdges', group:'Blockbusters', type:'toggle', default:true,
+    games:['blockbusters'],
+    label:'Team edges around the board',
+    help:'Yellow teeth down the sides and blue along the top and bottom, so which way each team has to connect is on the board itself.' });
+
   /* A skin, not a rewrite. Game show is the default: the app is a classroom
      presentation tool and the lit look is what makes a class sit up, so it should be
      what you get without going and finding a setting. DCU remains one switch away and
@@ -3872,16 +3877,51 @@
     const rowStep = h * 0.75 + gap * 1.1547;
     const boardW  = Math.max(...BB_ROWS) * colStep - gap;
 
+    /* ---- the team edges ----
+       The show's own grammar, drawn rather than only written in the legend: yellow
+       teeth down the two sides (yellow crosses left to right), blue along the top
+       and the bottom (blue descends). Small hexes in the team colours, positioned
+       by the same measurements as the board so they follow the stagger — a strip
+       drawn as a straight bar would cut across the notches. Rebuilt on every
+       layout, because every number here comes from the measured hex width. */
+    wrap.querySelectorAll('.bb-edge').forEach(e => e.remove());
+    const edges = S.get('bbEdges', 'blockbusters');
+    const m   = w * 0.34;                // a tooth is a small hex
+    const mh  = m * 1.1547;
+    const pad = edges ? mh + gap : 0;    // room for the teeth on every side
+
     hexes.forEach(hex=>{
       const r = +hex.dataset.row, c = +hex.dataset.col;
       const rowW   = BB_ROWS[r] * colStep - gap;
       const startX = (boardW - rowW) / 2;
-      hex.style.left = (startX + c*colStep) + 'px';
-      hex.style.top  = (r*rowStep) + 'px';
+      hex.style.left = (pad + startX + c*colStep) + 'px';
+      hex.style.top  = (pad + r*rowStep) + 'px';
     });
 
-    wrap.style.width  = boardW + 'px';
-    wrap.style.height = ((BB_ROWS.length-1)*rowStep + h) + 'px';
+    if(edges){
+      const tooth = (cls, x, y)=>{
+        const t = document.createElement('div');
+        t.className = 'bb-edge ' + cls;
+        t.style.width = m + 'px'; t.style.height = mh + 'px';
+        t.style.left = x + 'px'; t.style.top = y + 'px';
+        wrap.appendChild(t);
+      };
+      BB_ROWS.forEach((size, r)=>{
+        const rowW = size * colStep - gap, startX = (boardW - rowW) / 2;
+        const y = pad + r*rowStep + (h - mh) / 2;
+        tooth('gold', pad + startX - m - gap * 0.7, y);
+        tooth('gold', pad + startX + rowW + gap * 0.7, y);
+      });
+      [0, BB_ROWS.length - 1].forEach(r=>{
+        const size = BB_ROWS[r], rowW = size * colStep - gap, startX = (boardW - rowW) / 2;
+        const y = r === 0 ? pad - mh - gap * 0.7 : pad + r*rowStep + h + gap * 0.7;
+        for(let c = 0; c < size; c++)
+          tooth('blue', pad + startX + c*colStep + (w - m) / 2, y);
+      });
+    }
+
+    wrap.style.width  = (boardW + 2*pad) + 'px';
+    wrap.style.height = ((BB_ROWS.length-1)*rowStep + h + 2*pad) + 'px';
     return true;
   }
 
