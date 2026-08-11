@@ -3878,17 +3878,21 @@
     const boardW  = Math.max(...BB_ROWS) * colStep - gap;
 
     /* ---- the team edges ----
-       The show's own grammar, drawn rather than only written in the legend: yellow
-       teeth down the two sides (yellow crosses left to right), blue along the top
-       and the bottom (blue descends). Small hexes in the team colours, positioned
-       by the same measurements as the board so they follow the stagger — a strip
-       drawn as a straight bar would cut across the notches. Rebuilt on every
-       layout, because every number here comes from the measured hex width. */
-    wrap.querySelectorAll('.bb-edge').forEach(e => e.remove());
+       The show's own grammar, drawn rather than only written in the legend: a
+       yellow band down each side (yellow crosses left to right), a blue band along
+       the top and the bottom (blue descends) — **continuous zig-zag ribbons that
+       follow the outer contour of the hexagons**, not straight bars, because a
+       straight bar cuts across the notches and separate teeth read as decoration.
+       Each band is one div clipped to a polygon traced from the same measured
+       geometry the board is laid out from: the inner path hugs the silhouette a
+       breath off the faces, the outer path is the same points shifted out by the
+       band's thickness. Rebuilt on every layout, because every number here comes
+       from the measured hex width. */
+    wrap.querySelectorAll('.bb-band').forEach(e => e.remove());
     const edges = S.get('bbEdges', 'blockbusters');
-    const m   = w * 0.34;                // a tooth is a small hex
-    const mh  = m * 1.1547;
-    const pad = edges ? mh + gap : 0;    // room for the teeth on every side
+    const bt  = w * 0.18;                // band thickness
+    const bg  = gap * 0.8;               // breathing room off the hex faces
+    const pad = edges ? bt + bg + 2 : 0;
 
     hexes.forEach(hex=>{
       const r = +hex.dataset.row, c = +hex.dataset.col;
@@ -3899,25 +3903,42 @@
     });
 
     if(edges){
-      const tooth = (cls, x, y)=>{
-        const t = document.createElement('div');
-        t.className = 'bb-edge ' + cls;
-        t.style.width = m + 'px'; t.style.height = mh + 'px';
-        t.style.left = x + 'px'; t.style.top = y + 'px';
-        wrap.appendChild(t);
+      const band = (cls, pts)=>{
+        const d = document.createElement('div');
+        d.className = 'bb-band ' + cls;
+        d.style.clipPath = 'polygon(' +
+          pts.map(p => (p[0] + pad).toFixed(1) + 'px ' + (p[1] + pad).toFixed(1) + 'px').join(', ') + ')';
+        wrap.appendChild(d);
       };
-      BB_ROWS.forEach((size, r)=>{
-        const rowW = size * colStep - gap, startX = (boardW - rowW) / 2;
-        const y = pad + r*rowStep + (h - mh) / 2;
-        tooth('gold', pad + startX - m - gap * 0.7, y);
-        tooth('gold', pad + startX + rowW + gap * 0.7, y);
-      });
-      [0, BB_ROWS.length - 1].forEach(r=>{
-        const size = BB_ROWS[r], rowW = size * colStep - gap, startX = (boardW - rowW) / 2;
-        const y = r === 0 ? pad - mh - gap * 0.7 : pad + r*rowStep + h + gap * 0.7;
-        for(let c = 0; c < size; c++)
-          tooth('blue', pad + startX + c*colStep + (w - m) / 2, y);
-      });
+      const sx = r => (boardW - (BB_ROWS[r] * colStep - gap)) / 2;
+      const R  = BB_ROWS.length;
+
+      /* The side silhouette is each row's two left (or right) corners; joining
+         them across the rows gives the diagonals for free, because a staggered
+         row's corner *is* diagonally adjacent to its neighbour's. */
+      const leftIn = [], rightIn = [];
+      for(let r = 0; r < R; r++){
+        const y = r * rowStep;
+        leftIn.push( [sx(r) - bg, y + 0.25*h], [sx(r) - bg, y + 0.75*h]);
+        const X = sx(r) + BB_ROWS[r] * colStep - gap + bg;
+        rightIn.push([X, y + 0.25*h], [X, y + 0.75*h]);
+      }
+      band('gold', leftIn.concat(leftIn.slice().reverse().map(p => [p[0] - bt, p[1]])));
+      band('gold', rightIn.concat(rightIn.slice().reverse().map(p => [p[0] + bt, p[1]])));
+
+      /* Top and bottom trace each boundary hex's point: corner, tip, corner. */
+      const topIn = [], botIn = [];
+      const yb = (R - 1) * rowStep;
+      for(let c = 0; c < BB_ROWS[0]; c++){
+        const x = sx(0) + c * colStep;
+        topIn.push([x, 0.25*h - bg], [x + w/2, -bg], [x + w, 0.25*h - bg]);
+      }
+      for(let c = 0; c < BB_ROWS[R-1]; c++){
+        const x = sx(R-1) + c * colStep;
+        botIn.push([x, yb + 0.75*h + bg], [x + w/2, yb + h + bg], [x + w, yb + 0.75*h + bg]);
+      }
+      band('blue', topIn.concat(topIn.slice().reverse().map(p => [p[0], p[1] - bt])));
+      band('blue', botIn.concat(botIn.slice().reverse().map(p => [p[0], p[1] + bt])));
     }
 
     wrap.style.width  = (boardW + 2*pad) + 'px';

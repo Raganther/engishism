@@ -230,19 +230,19 @@ body.theme-gameshow #roster-mode button.on{ background:var(--gold); color:#02030
 .hex.claimed-gold{ background: var(--yellow); color: var(--navy); cursor:default; }
 .hex.claimed-silver{ background: var(--blue); color: var(--white); cursor:default; }
 .hex.claimed-gold:hover, .hex.claimed-silver:hover{ transform:none; }
-/* The team edges: small hexes in the team colours around the board, saying which
-   way each side has to connect. Quieter than a claimed hex on purpose — they are
-   the frame, not the game state — and never clickable. */
-.bb-edge{
-  position:absolute; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-  pointer-events:none; opacity:0.75;
+/* The team edges: continuous zig-zag ribbons following the outer contour of the
+   hexagons, saying which way each side has to connect. Each is one full-size div
+   clipped to a polygon the layout computes. Quieter than a claimed hex on purpose
+   — they are the frame, not the game state — and never clickable. */
+.bb-band{
+  position:absolute; inset:0; pointer-events:none; opacity:0.85;
 }
-.bb-edge.gold{ background: var(--yellow); }
-.bb-edge.blue{ background: var(--blue); }
-body.theme-gameshow #play-blockbusters.lit .bb-edge.gold{
+.bb-band.gold{ background: var(--yellow); }
+.bb-band.blue{ background: var(--blue); }
+body.theme-gameshow #play-blockbusters.lit .bb-band.gold{
   background: linear-gradient(180deg, #FFD75A 0%, #E2A100 100%);
 }
-body.theme-gameshow #play-blockbusters.lit .bb-edge.blue{
+body.theme-gameshow #play-blockbusters.lit .bb-band.blue{
   background: linear-gradient(180deg, #4FC3FF 0%, #0077B6 100%);
 }
 

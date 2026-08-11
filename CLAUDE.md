@@ -1238,17 +1238,27 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
-- **Blockbusters wears its team edges — `bbEdges`, small hexes framing the board.**
-  Asked for as formatting: the legend *says* yellow crosses left→right and blue
-  descends, and the board itself never did. Gold teeth beside both ends of every
-  row, blue teeth above the top row and below the bottom one — positioned by
-  `layoutBlockbustersBoard` from the same measured hex width as the board, so they
-  follow the stagger (a straight bar would cut across the notches) and re-place on
-  every fit. The wrap grows by one tooth of padding all round; teeth are
-  `pointer-events:none` and quieter than a claimed hex (frame, not game state).
-  First cut was 0.4×hex and the bottom row ran under the footer at 1280×720 —
-  0.34×hex with tighter gaps fits with room. Toggle in the Blockbusters group,
-  default on. Screenshot-verified both rows of teeth on the Lab board.
+- **Blockbusters wears its team edges — `bbEdges`, continuous zig-zag ribbons
+  following the hexagons' outer contour.** Asked for as formatting: the legend
+  *says* yellow crosses left→right and blue descends, and the board itself never
+  did. A yellow band down each side tracing the rows' in-and-out stagger, a blue
+  chevron band along the top and the bottom tracing corner–tip–corner of each
+  boundary hex.
+  - **One div per band, clipped to a polygon the layout computes** — the inner
+    path hugs the silhouette a breath off the faces, the outer path is the same
+    points shifted out by the band thickness (0.18×hex). Traced from the same
+    measured hex width the board is laid out from, so the bands re-place on every
+    fit; `pointer-events:none`, quieter than a claimed hex (frame, not state).
+  - **The first cut was separate teeth — small hexes beside each row — and the
+    user's correction was explicit**: a line following the contours, not discrete
+    markers. The side silhouette needed no geometry beyond each row's two left
+    corners: a staggered row's corner is diagonally adjacent to its neighbour's,
+    so joining the corner list gives the diagonals for free.
+  - Toggle in the Blockbusters group, default on. The wrap grows by one band
+    thickness of padding all round (627px of 720 at 1280×720, screenshot-checked).
+  - **Trap paid on the way**: a `sed` renaming the test's CSS class also renamed
+    its screenshot path, so the "after" look was the *before* image — diagnosed as
+    the fix not working when the fix had never been looked at.
 - **The standings shuffle — the screen opens on the old order and glides to the
   new.** Asked for by name: the arrows *describe* the movement, and what was wanted
   was the movement itself — for a beat the rows sit where they were before the
