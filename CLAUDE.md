@@ -1238,6 +1238,35 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The standings shuffle — the screen opens on the old order and glides to the
+  new.** Asked for by name: the arrows *describe* the movement, and what was wanted
+  was the movement itself — for a beat the rows sit where they were before the
+  question, old slot and old place number, then everything slides home.
+  - **Pure display, FLIP-style.** The DOM is built in the *new* order as before;
+    each row is translated back to its old slot (rects measured off the final
+    layout, so the column flow needs no knowing), held 900ms with transitions off
+    (`#standings-rows.shuffling`), then released onto a 650ms transform transition.
+    The old slot is the row's position sorted by `standingsRank` — the same record
+    the arrows read — so nothing new is stored and nothing downstream can read the
+    old arrangement as data. Old place numbers ride in the old slots and flip to
+    the new ones at release. Arrows and gains stay visible throughout: the before
+    picture annotated with what is about to happen.
+  - **Guards, each one a paid-for lesson**: skipped when nothing moved and on the
+    first showing (no previous ranking — nothing to arrive from);
+    `prefers-reduced-motion` honoured in JS and CSS both; the release is
+    sequence-guarded (the `resultSeq` lesson) so a stale timer cannot release a
+    later shuffle early; and **skipped under `navigator.webdriver`** — the suite
+    reads place numbers off the rows and for 0.9s they are deliberately old.
+    `window.HUB_SHUFFLE_ANYWAY` opts a check in, the `?rack=auto` shape.
+  - `standingsShuffle` toggle (Questions group, default on). Driven on the Lab
+    board: first standings no shuffle (correct — nowhere to arrive from), an
+    overtake shuffles — held frame screenshot shows the old order wearing old
+    numbers with the arrows announcing the move, settled probe shows the new order,
+    transforms cleared. **Found on the way, worth knowing: Close pressed inside the
+    ~700ms take beat skips the payout** (`jGroupTake` defers `jRoundHold` and the
+    timeout's `!jGroup` guard sees a closed card). Drove the check wrong before it
+    drove it right; a teacher clicking Close within a second of the win would hit
+    it too. Not fixed — noted.
 - **The crowd reveal — what the room collectively knows fills in on the card,
   `Kit.round.crowdKnown`.** The user's own design, asked for after testing the crowd
   picture with 16 handsets: in team play a team's correct letters are readable off

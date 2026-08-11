@@ -1114,6 +1114,13 @@
     label:'Standings between questions',
     help:'After each question, a screen naming who took it and showing everybody rising and falling. It waits for you rather than leaving on a timer. Off keeps the board on screen and says nothing.' });
 
+  /* The standings open on the *old* order for a beat, then everybody glides to
+     their new place — the movement itself, not only the arrows describing it. */
+  S.register({ id:'standingsShuffle', group:'Questions', type:'toggle', default:true,
+    games: ROUND_GAMES,
+    label:'Standings shuffle into place',
+    help:'The screen opens showing the order before this question, holds a moment, then the rows slide to the new order. Off shows the new order at once.' });
+
   /* **How a question's points are split, and the whole answer to "custom behaviour
      per game".** A board names its starting rule through `defaults`, which ranks
      below a teacher's override and above the master — so Jeopardy opens on the podium
@@ -2500,10 +2507,64 @@
       host.appendChild(more);
     }
 
+    /* ---- the shuffle: open on the old order, then glide to the new ----
+       **The movement is the picture; the arrows only describe it.** For a beat the
+       rows sit where they were *before* this question — old slot, old place number —
+       then everything slides to where it is now. Pure display: the DOM is already in
+       the new order, each row is translated back to its old slot and released, so
+       nothing downstream can ever read the old arrangement as data.
+
+       The old slot is the row's position sorted by the *previous* ranking — the same
+       `standingsRank` the arrows read — with newcomers holding their new slot (they
+       have nowhere to arrive from). Rects are measured off the final layout, so the
+       columns' flow never needs knowing.
+
+       Skipped under `navigator.webdriver`: the suite reads place numbers off the
+       rows, and for 0.9s they are deliberately the old ones. A check that wants the
+       shuffle sets `window.HUB_SHUFFLE_ANYWAY` first — the same opt-in shape as the
+       room bench's `?rack=auto`. */
+    const drawn = [...host.querySelectorAll('.st-row')];
+    const moving = rows.slice(0, shown).some(r => r.moved !== 0);
+    const wantShuffle = S.get('standingsShuffle', activeGame) && moving &&
+      !window.matchMedia('(prefers-reduced-motion: reduce)').matches &&
+      (!navigator.webdriver || window.HUB_SHUFFLE_ANYWAY);
+
     standingsRank = {};
     rows.forEach(r => { standingsRank[r.i] = r.place; });
     document.getElementById('standings-modal').classList.add('on');
+
+    if(wantShuffle){
+      const seen = rows.slice(0, shown);
+      /* Every shown row's old slot, unique by construction: sort by previous place
+         (new place stands in for a newcomer), new place breaking ties. */
+      const oldOrder = seen.slice().sort((a, b) =>
+        ((a.moved ? a.place + a.moved : a.place) - (b.moved ? b.place + b.moved : b.place)) ||
+        (a.place - b.place));
+      const slotOf = {};
+      oldOrder.forEach((r, n) => { slotOf[r.i] = n; });
+      const rects = drawn.map(el => el.getBoundingClientRect());
+      host.classList.add('shuffling');            // transitions off while placing
+      seen.forEach((r, n) => {
+        const from = rects[slotOf[r.i]], here = rects[n];
+        drawn[n].style.transform =
+          'translate(' + (from.left - here.left) + 'px,' + (from.top - here.top) + 'px)';
+        // the old place number rides in the old slot; the new one arrives with the move
+        drawn[n].querySelector('.st-place').textContent = String(r.place + r.moved);
+      });
+      /* The release is guarded by a sequence, the `resultSeq` lesson: a stale timer
+         from a previous open must not let a later shuffle go early. */
+      const seq = ++showStandings.seq;
+      setTimeout(()=>{
+        if(seq !== showStandings.seq) return;
+        host.classList.remove('shuffling');       // transitions back on — release
+        seen.forEach((r, n) => {
+          drawn[n].style.transform = '';
+          drawn[n].querySelector('.st-place').textContent = String(r.place);
+        });
+      }, 900);
+    }
   }
+  showStandings.seq = 0;
 
   function hideStandings(){
     document.getElementById('standings-modal').classList.remove('on');

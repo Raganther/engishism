@@ -1824,7 +1824,13 @@ body.theme-gameshow #clue-actions #hint-btn{ border-color:rgba(255,200,61,0.5); 
   display:grid; grid-template-columns:2.2rem 1.2rem 1fr auto 3.2rem; gap:10px;
   align-items:center; background:var(--white); border:2px solid var(--line);
   border-radius:10px; padding:7px 14px;
+  /* The shuffle: rows open translated to their old slots and glide home when the
+     transform clears. `.shuffling` is the placement frame — transitions off so the
+     old arrangement appears instantly, never animates into being. */
+  transition:transform 650ms cubic-bezier(0.22, 0.8, 0.25, 1);
 }
+#standings-rows.shuffling .st-row{ transition:none; }
+@media (prefers-reduced-motion:reduce){ .st-row{ transition:none; } }
 /* A class-sized board pays for the extra rows in type and padding rather than in
    rows it cannot show. */
 #standings-rows.crowd .st-row{ padding:4px 9px; gap:7px; font-size:0.86rem;
