@@ -1238,6 +1238,18 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A third coursebook: `ef-2a.js` — English File Unit 2A "Spend or save?", authored
+  from the user's photographed pages for a team-mode class run.** Jeopardy only,
+  deliberately: the unit exists for one lesson's test and a unit only shows the
+  games it has a bank for. Seven categories in section 2A — three plain-form
+  columns (Money Verbs, Bills & the Bank, Perfect or Past? — gap/errorfix/
+  oddoneout mixed) and four round columns (Connections, Drag the Letters, Drag
+  the Words, and The Scam as Multiple Choice, from the "Hi Mum and Dad"
+  WhatsApp-scam reading's own vocabulary). Covers the vocabulary, the grammar
+  focus and both readings; the pronunciation spread has no column yet. Content
+  gate 21/0; driven once in a browser (board builds, kind chips right, a
+  Connections tile plays). **The questions themselves have not been looked at on
+  the bench — the class run is the audit.**
 - **The tune chip — the settings that matter for the open question, on the card
   that shows it.** Asked for because the settings view is long and mid-experiment
   the drawer is a filing cabinet: a small TUNE pill on the clue card unfolds the
