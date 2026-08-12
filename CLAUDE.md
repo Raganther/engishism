@@ -1231,6 +1231,11 @@ playground's point, that one board can host several:
 ## Source material & specs
 - `material/empower-c1-unit-4/`, `material/empower-c1-unit-5/` — Cambridge Empower
   C1 workbook page scans (indexed by page/section) the game content is authored from.
+- `docs/feedback.md` — **the classroom & test log, one entry per real run.** The raw
+  record; this file gets the distilled lessons. When the user reports a run in chat,
+  append the entry there *first* (template at the top), then move bugs and decisions
+  into Current status as they resolve. The runs are the only data no suite can
+  produce — do not let them live only in chat.
 - `docs/game-hub-requirements.md` — the MVP spec (per-game content model, game tier
   analysis, success criteria). The key open metric: realistic authoring time per unit.
 - `docs/design-reference.md` — DCU International Academy brand (navy/sky-blue/yellow/cream).
