@@ -664,12 +664,19 @@
          board already playing the way the board wants. The list this replaced had
          to be added to by hand, with nothing complaining if you missed a round. */
       teamMode: true,
-      /* The one round that is not that shape, so it is still named. Ordering's modes
-         ask *how many ladders*, not *who has to agree* — and on a team-vs-team board
-         a shared climb reads as a single ladder however many teams are playing,
-         which is exactly how it was reported. An explicit default outranks the
-         team-mode ask. */
-      modeDefaults: { ordering:'race' }
+      /* The rounds that are not that shape, so they are still named. Ordering's
+         modes ask *how many ladders*, not *who has to agree* — and on a
+         team-vs-team board a shared climb reads as a single ladder however many
+         teams are playing, which is exactly how it was reported.
+
+         **The drag rounds default to `first`, and a classroom decided it.** In
+         `agree`, every member must independently build the identical word and the
+         card only lights a letter the whole team holds — so a team that split the
+         work "completed the word and it was not displayed", twice in one lesson,
+         and the students named the drag rounds the ones they disliked because
+         they are hard. First-member-with-it keeps the race and lets a team divide
+         the labour; a teacher who wants the argument back has the ⚙ row. */
+      modeDefaults: { ordering:'race', anagram:'first', scramble:'first' }
     },
     blockbusters: {
       game:'blockbusters', stage:'play-blockbusters',
@@ -697,8 +704,10 @@
          objection that put the declaration on Jeopardy; there was no reason for the
          two to differ, only an omission. Ordering is *not* named here the way it is
          on Jeopardy: only one side is at the board at a time, so a shared climb
-         reads as the one ladder it is. */
-      teamMode: true
+         reads as the one ladder it is. The drag rounds default to `first` for the
+         classroom reason recorded on the Jeopardy host. */
+      teamMode: true,
+      modeDefaults: { anagram:'first', scramble:'first' }
     },
     millionaire: {
       game:'millionaire', stage:'play-millionaire',
@@ -1911,6 +1920,21 @@
         <h2 id="standings-title"></h2>
         <div id="standings-rows"></div>
         <button id="standings-go" type="button">Continue</button>
+        <!-- The debugging way into the score report: quiet, but on the screen a
+             teacher is looking at when a number reads wrong. -->
+        <button id="standings-report" type="button">score report</button>
+      </div>
+    </div>
+    <div id="report-modal">
+      <div id="report-card">
+        <h2>Score report</h2>
+        <p class="rp-note">Per question: what each team actually gained against what
+        the payout said it should. A red line is a discrepancy.</p>
+        <div id="report-body"></div>
+        <div class="rp-actions">
+          <button id="report-clear" type="button">Clear ledger</button>
+          <button id="report-close" type="button">Close</button>
+        </div>
       </div>
     </div>
 
@@ -2455,8 +2479,92 @@
   let standingsBefore = null;      // score per competitor when the question opened
   let standingsRank   = null;      // place per competitor when last shown
 
+  /* ---------- the score report ----------
+     **A per-question ledger, for checking that points were given correctly** —
+     asked for after the first ef-2a class paid a team 600 on a 500 card and nobody
+     could say from where. One entry per question: the scores as it opened, the
+     scores when the next one opened, the results record and the expected payout at
+     the moment the slot paid. Actual gain (after minus before) against expected is
+     the whole diagnostic: a discrepancy names the question it happened in.
+
+     Persisted in localStorage so it survives into the staffroom after a lesson;
+     capped, and cleared from the report screen rather than automatically, because
+     the ledger of the game that just went wrong is the one thing not to throw
+     away. Display only — nothing in the app reads it back. */
+  const REPORT_KEY = 'engishism.scoreReport';
+  let scoreReport = [];
+  try{ scoreReport = JSON.parse(localStorage.getItem(REPORT_KEY) || '[]') || []; }catch(e){}
+  function reportSave(){
+    try{ localStorage.setItem(REPORT_KEY, JSON.stringify(scoreReport.slice(-200))); }catch(e){}
+  }
+  function reportCloseEntry(){
+    const e = scoreReport[scoreReport.length - 1];
+    if(e && !e.after){ e.after = teams.map(t => t.score); reportSave(); }
+  }
+  function reportOpenEntry(label){
+    reportCloseEntry();
+    scoreReport.push({ label, when: new Date().toISOString().slice(0, 19),
+                       names: teams.map((t, i) => teamName(i)),
+                       before: teams.map(t => t.score),
+                       after: null, expected: null, results: null });
+    reportSave();
+  }
+  /* Called after the slot pays. Expected = the slot at what it actually paid, plus
+     the payout table's share for every other competitor the record says finished. */
+  function reportPayout(slotTeam, paid){
+    const e = scoreReport[scoreReport.length - 1];
+    if(!e) return;
+    e.results = Kit.round.results.list();
+    const pay = roundPayout();
+    e.expected = teams.map((t, i) =>
+      i === slotTeam ? (paid || 0)
+      : ((Kit.round.results.of(i) || {}).done ? (pay[i] || 0) : 0));
+    reportSave();
+  }
+  window.HubReport = {
+    list(){ return scoreReport.slice(); },
+    clear(){ scoreReport = []; reportSave(); },
+    show(){ renderScoreReport(); }
+  };
+  function renderScoreReport(){
+    reportCloseEntry();
+    const modal = document.getElementById('report-modal');
+    const body  = document.getElementById('report-body');
+    if(!modal || !body) return;
+    body.innerHTML = '';
+    if(!scoreReport.length){
+      body.textContent = 'Nothing recorded yet \u2014 the ledger starts when a question opens.';
+    }
+    scoreReport.slice(-60).forEach(e=>{
+      const row = document.createElement('div');
+      row.className = 'rp-q';
+      const h = document.createElement('div');
+      h.className = 'rp-label'; h.textContent = e.label + '   ' + (e.when || '');
+      row.appendChild(h);
+      const after = e.after || teams.map(t => t.score);
+      (e.names || []).forEach((nm, i)=>{
+        const gain = (after[i] || 0) - (e.before[i] || 0);
+        const exp  = e.expected ? (e.expected[i] || 0) : null;
+        if(!gain && !exp) return;
+        const line = document.createElement('div');
+        line.className = 'rp-team' + (exp != null && exp !== gain ? ' off' : '');
+        const r = (e.results || []).filter(x => x.who === i)[0];
+        line.textContent = nm + ': ' + (gain >= 0 ? '+' : '') + gain +
+          (exp != null ? '  (expected ' + (exp >= 0 ? '+' : '') + exp + ')' : '') +
+          (r ? '  \u00b7 ' + (r.done ? 'finished ' + ordinalReport(r.place) : 'answered') +
+               ' at ' + (r.seconds || 0).toFixed(1) + 's' : '');
+        row.appendChild(line);
+      });
+      body.appendChild(row);
+    });
+    modal.classList.add('on');
+  }
+  function ordinalReport(n){ return n + ({1:'st',2:'nd',3:'rd'}[n] || 'th'); }
+
   function standingsOpen(){
     standingsBefore = teams.map(t => t.score);
+    reportOpenEntry(activeGame + ' \u00b7 ' + ((jRoundDef() || {}).label || 'question') +
+                    (currentClueValue ? ' \u00b7 ' + currentClueValue : ''));
   }
 
   /* Ordered, with the gain and the movement worked out. Separate from the drawing so
@@ -5184,11 +5292,25 @@
      on the same object is a collision only a name can prevent.
      **The rule: anything the host stores on a round's state carries `host` in its
      name.** A round's own fields are the round's to choose freely. */
+  /* The identity of an answer, for the arrival stamp and the settle memory. A set
+     round's answer is the same answer in any order, so it is sorted; a round that
+     declares `ordered` -- the drag rounds, where the order IS the answer -- keys on
+     the sequence itself. **Sorting those erased the difference between a wrong
+     order and the right one**: a team that completed the sentence first-but-wrong
+     kept its early arrival stamp, and when they finally fixed the order the record
+     placed them 1st -- reported from the first ef-2a class, a team badged and paid
+     first that the whole room had watched come last. */
+  function jGroupKeyOf(list){
+    const seq = (list || []).slice();
+    if(!(jRoundDef() || {}).ordered) seq.sort();
+    return seq.join('\u0000');
+  }
+
   function jGroupStamp(){
     if(!jGroup) return;
     const at = jGroup.hostAt || (jGroup.hostAt = {});
     Object.keys(jGroup.picks || {}).forEach(t=>{
-      const key = (jGroup.picks[t] || []).slice().sort().join('\u0000');
+      const key = jGroupKeyOf(jGroup.picks[t]);
       if(!at[t] || at[t].key !== key) at[t] = { key, n: ++jGroupSeq };
     });
   }
@@ -5266,13 +5388,13 @@
          taken until the teacher ends it, the order costs nothing else. */
       if(!roundHost.scoreEach){
         verdicts.filter(v => v.r.verdict !== 'right').forEach(v => {
-          if(!jGroupSettler.fresh(v.team, v.set.slice().sort().join('|'))) return;
+          if(!jGroupSettler.fresh(v.team, jGroupKeyOf(v.set))) return;
           jGroupMiss(v.team, v.r);
         });
       }
       let again = false;              // did any right answer move the question on
       rights.forEach(v => {
-        if(!jGroupSettler.fresh(v.team, 'ok:' + v.set.slice().sort().join('|'))) return;
+        if(!jGroupSettler.fresh(v.team, 'ok:' + jGroupKeyOf(v.set))) return;
         def.accept(v.set, jGroup, v.team, ctx);
         /* The board says who got it, the moment they do — the same wording and the
            same stage-aware sound the take beat has always used, so nothing new is
@@ -5356,7 +5478,7 @@
       return;
     }
     verdicts.forEach(v=>{
-      if(!jGroupSettler.fresh(v.team, v.set.slice().sort().join('|'))) return;
+      if(!jGroupSettler.fresh(v.team, jGroupKeyOf(v.set))) return;
       jGroupMiss(v.team, v.r);
     });
   }
@@ -5408,6 +5530,14 @@
        A beat first, or the four lighting up and the card leaving land in one frame
        and the room never sees which four it was. */
     const label = (jRoundDef() || {}).label || 'Round';
+    /* **Payable from this instant, not from the end of the beat.** The beat is a
+       pause so the room sees which four lit before the card changes — but the win
+       itself must not live inside a timer: a teacher clicking Close within a
+       second of the answer landing used to hit the timeout's `!jGroup` guard and
+       the payout silently never happened. Found by the suite driving exactly that
+       click; a real teacher on a fast board would hit it too. Close already knows
+       how to pay whatever `jRoundWin` holds. */
+    if(jRoundHolds()) jRoundWin = { team, label };
     setTimeout(()=>{
       if(!jGroup) return;                 // the teacher closed the card in the meantime
       if(jRoundHolds()) jRoundHold(team, label);
@@ -5471,6 +5601,7 @@
     const value = currentClueValue;
     const paid = roundHost.win(p.team);
     notePhoneScore(teamName(p.team), p.team, null, paid || value);
+    reportPayout(p.team, paid || value);
     /* **The winner's moment, which is now the standings.** The strip's note holds a
        second and a half and the card is already leaving, so from the back of a room a
        win was over before anybody could read whose it was — the first live class asked
@@ -6605,6 +6736,13 @@
      table takes longer to read than a name — and on a board where the next question
      is one press away, whoever is reading it is the one deciding when to move on. */
   document.getElementById('standings-go').addEventListener('click', hideStandings);
+  document.getElementById('standings-report').addEventListener('click', ()=> renderScoreReport());
+  document.getElementById('report-close').addEventListener('click', ()=>
+    document.getElementById('report-modal').classList.remove('on'));
+  document.getElementById('report-clear').addEventListener('click', ()=>{
+    window.HubReport.clear();
+    renderScoreReport();
+  });
   document.getElementById('join-modal').addEventListener('click', e=>{
     if(e.target.id === 'join-modal') hideJoinPanel();      // click the backdrop to dismiss
   });

@@ -76,6 +76,10 @@
     /* Declared, not only described above, so `tools/question-types.js` can print it. */
     sample: { text:"the decision a jury delivers", anagram:{ word:"verdict" } },
     field: 'anagram',
+    /* The answer is a SEQUENCE: the host's arrival stamp and settle memory key
+       on the order, because for this round a different order is a different
+       answer. Set rounds leave this off and stay order-insensitive. */
+    ordered: true,
 
     /* Two fields, not three — `labelB:null`, the same thing a question form
        says. The editor declares its own shape rather than the bench asking

@@ -1238,6 +1238,39 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The first ef-2a class came back with three bugs; two are fixed, the third has
+  an instrument.** Team mode, Jeopardy, real phones. The reports: a team badged
+  and paid 1st on Drag the Words that the room watched come last (they completed
+  first but *wrong*); a team's completed word never showing on the card, twice;
+  and 600 paid for 2nd place on a 500 card, mechanism unknown.
+  - **The arrival stamp erased the order.** `jGroupStamp` keyed a team's answer on
+    the **sorted** pick set — right for a set round, where re-ordering is the same
+    answer, and exactly wrong for the drag rounds, where the order IS the answer:
+    a wrong-order completion and the right order have the same sorted key, so the
+    early stamp survived the fix and the record placed them 1st. The drag rounds
+    declare **`ordered:true`** now and `jGroupKeyOf` skips the sort for them — the
+    same key also feeds the settle memory, which had the same flaw (a second wrong
+    order was never re-scolded). Proved with two live handsets: wrong-first team
+    badged 2nd, right-first team 1st.
+  - **Close inside the ~700ms take beat no longer skips the payout.** The win is
+    payable the instant it lands (`jRoundWin` set before the beat, not by it); the
+    beat is only the visual hold. The suite's own drive hit the old guard again
+    before the fix did.
+  - **The drag rounds default to `first` on team boards** (`modeDefaults` on the
+    Jeopardy and Blockbusters hosts). In `agree`, every member must independently
+    build the identical word and the card only lights letters the whole team
+    holds — a team that split the work "completed the word and nothing showed",
+    and the students named the drag rounds the ones they disliked. Classroom
+    evidence outranks the theory; the ⚙ row still offers `agree`.
+  - **The score report — `window.HubReport`, and a quiet "score report" button on
+    the standings screen.** One ledger entry per question: scores as it opened,
+    scores as the next opened, the results record and the expected payout when the
+    slot paid. Actual gain vs expected per team, discrepancies in red — built to
+    catch the unexplained 600, which is **still unreproduced**; the next class
+    carries the instrument. Persisted in localStorage (`engishism.scoreReport`,
+    capped 200), cleared only from the report screen. Verified live: the repro
+    lesson's entry reads `Team 2: +100 (expected +100) · finished 1st at 5.6s`,
+    zero discrepancies.
 - **A third coursebook: `ef-2a.js` — English File Unit 2A "Spend or save?", authored
   from the user's photographed pages for a team-mode class run.** Jeopardy only,
   deliberately: the unit exists for one lesson's test and a unit only shows the

@@ -1847,6 +1847,38 @@ body.theme-gameshow #clue-actions #hint-btn{ border-color:rgba(255,200,61,0.5); 
   font-weight:700; font-size:1rem;
 }
 #standings-go:hover{ background:var(--sky); }
+/* The way into the score report: quiet on purpose — a debug door, not a game
+   control. */
+#standings-report{
+  display:block; margin:10px auto 0; background:none; border:none; cursor:pointer;
+  font-family:'IBM Plex Mono',monospace; font-size:0.68rem; letter-spacing:0.08em;
+  text-transform:uppercase; color:var(--muted); opacity:0.6;
+}
+#standings-report:hover{ opacity:1; }
+/* The score report itself: a ledger, styled like one. */
+#report-modal{
+  display:none; position:fixed; inset:0; z-index:70; background:rgba(4,8,20,0.72);
+  align-items:center; justify-content:center;
+}
+#report-modal.on{ display:flex; }
+#report-card{
+  width:min(680px, 92vw); max-height:84vh; overflow:auto; background:var(--white);
+  color:var(--ink); border-radius:14px; padding:22px 26px;
+  box-shadow:0 24px 60px rgba(0,0,0,0.5);
+}
+#report-card h2{ margin:0 0 6px; font-size:1.2rem; }
+.rp-note{ margin:0 0 14px; font-size:0.8rem; color:var(--muted); }
+.rp-q{ border-top:1px solid var(--line); padding:9px 0; }
+.rp-label{ font-family:'IBM Plex Mono',monospace; font-size:0.72rem;
+  letter-spacing:0.05em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+.rp-team{ font-family:'IBM Plex Mono',monospace; font-size:0.85rem; padding:1px 0; }
+.rp-team.off{ color:#C0392B; font-weight:700; }
+.rp-actions{ display:flex; justify-content:space-between; margin-top:14px; }
+.rp-actions button{
+  font:inherit; font-size:0.8rem; padding:8px 14px; border-radius:8px;
+  border:1.5px solid var(--line); background:var(--white); cursor:pointer;
+}
+#report-close{ background:var(--navy); color:var(--white); border-color:var(--navy); }
 
 /* **A column of rows for a handful, a wall of them for a class.** `--scols` is set
    by the render from the number of competitors, because CSS cannot count what it is

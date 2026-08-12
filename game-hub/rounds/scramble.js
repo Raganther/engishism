@@ -63,6 +63,10 @@
     sample: { text:"Put the words in order.",
               scramble:{ sentence:"The jury reached the verdict after four hours" } },
     field: 'scramble',
+    /* The answer is a SEQUENCE: the host's arrival stamp and settle memory key
+       on the order, because for this round a different order is a different
+       answer. Set rounds leave this off and stay order-insensitive. */
+    ordered: true,
 
     editor: {
       labelA:'The sentence in its correct order — this is the answer',
