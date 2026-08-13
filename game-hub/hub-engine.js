@@ -7457,6 +7457,15 @@
     lastPushedTeams = null;  // ...and no team names
     buzzWinner = null;       // the relay's lock died with the room
     classReplies = null;     // so did every collected reply
+    /* ...and so did every solo seat. The recreated room re-registers each phone
+       with its page-load team — 0 for a bench rack — and `seatSoloPlayers` only
+       re-sends a seat when its told-the-room memory disagrees, so leaving that
+       map standing meant the new room was never told the seats at all: every
+       answer from every phone arrived as competitor 0's, live-reported as
+       "Ana has it" whoever answered, after a deploy restarted the relay under a
+       solo rack. The "seat never comes back to the host" trap, met a third time.
+       `soloSeat` (who owns which row) is the host's own record and stays. */
+    Object.keys(soloSeatAt).forEach(k => delete soloSeatAt[k]);
     /* The relay's copy of every bingo card went too. The hands here are the
        originals — the host deals and judges — so give the room the same cards
        back, marks and all, rather than dealing fresh ones mid-game. */

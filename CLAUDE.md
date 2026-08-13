@@ -1243,6 +1243,31 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Solo seats survive a relay restart now — every deploy was silently collapsing
+  a live solo room onto competitor 0.** Reported mid-test as "the card says Ana
+  has it regardless of who gets it", one finisher per question, no late pays —
+  right after a deploy, with the room number still matching (the host recreates
+  its room under the same code).
+  - **The cause was the epoch-recovery path missing one memory.** `roomForgot()`
+    voids every told-the-room record — the last ask, the team names, the replies,
+    the bingo hands — but not `soloSeatAt`, the map of which competitor each phone
+    was last told. Rejoining phones re-register with their page-load team (0 for
+    a bench rack), `seatSoloPlayers` trusts the stale map and re-sends nothing,
+    and every answer from every phone arrives as competitor 0's. The "seat never
+    comes back to the host" trap, met a third time.
+  - **Why it hid**: with *unscored* competitors a mid-resync roster dip trips the
+    drop path, which already clears the map — so the simple repro self-heals. A
+    scored competitor is never dropped, so a room where people have points (any
+    real lesson) has no accidental clear. The repro primes scores first for
+    exactly this reason.
+  - One line in `roomForgot()` (clear `soloSeatAt`; keep `soloSeat`, the host's
+    own record of who owns which row). Proved both ways with a live
+    kill-and-restart under three scored phones: broken build says "Ana has it"
+    to Ben's answer with zero moves; fixed build names Ben and Cara and pays the
+    late 2nd. The rename was innocent — diagnosed against it first.
+  - **Noted, not fixed: the teams-mode analogue.** A phone reconnects with the
+    team from its page-load stream params, not the side it was later moved to;
+    the same audit is owed there.
 - **The round adapter lost its `j` prefix — `jGroup*`/`jRound*` are `round*` now,
   and three misfiled handler blocks went home.** First prequel step of the skins
   split (three-seam plan, stage C). The ~750-line shared adapter every board calls
