@@ -42,8 +42,10 @@ rounds, The Scam (Multiple Choice).
 - A team's **completed word never showed on the card**, twice, in Drag the
   Letters — the `agree` mode only lights letters the whole team independently
   holds, so a team that split the spelling looked like it had done nothing.
-  **Addressed**: drag rounds now default to `first` on team boards; `agree`
-  remains in ⚙.
+  **Addressed**: drag rounds defaulted to `first` on team boards for one day —
+  then reverted (2026-08-13) after the user tested it: one phone lighting the
+  card alone read worse than the invisible-word cost. Default is `agree` again;
+  `first` is one tap away on the card's TUNE pill when a class needs it.
 - **600 paid for 2nd place on a 500 card** — mechanism unknown, not yet
   reproduced. The score report (standings screen → "score report") was built as
   the instrument; the next run carries it. *(Possibly compounded by the stamp bug

@@ -676,7 +676,12 @@
          and the students named the drag rounds the ones they disliked because
          they are hard. First-member-with-it keeps the race and lets a team divide
          the labour; a teacher who wants the argument back has the ⚙ row. */
-      modeDefaults: { ordering:'race', anagram:'first', scramble:'first' }
+      /* The drag rounds carried `first` here for one day, from the ef-2a class
+         report ("a team that split the spelling looked like it had done nothing").
+         The user tested it and chose the agreement dynamic back: one phone's
+         letters lighting the card alone reads worse than the invisible-word cost,
+         which the TUNE pill's mode row can trade away per lesson. */
+      modeDefaults: { ordering:'race' }
     },
     blockbusters: {
       game:'blockbusters', stage:'play-blockbusters',
@@ -704,10 +709,9 @@
          objection that put the declaration on Jeopardy; there was no reason for the
          two to differ, only an omission. Ordering is *not* named here the way it is
          on Jeopardy: only one side is at the board at a time, so a shared climb
-         reads as the one ladder it is. The drag rounds default to `first` for the
-         classroom reason recorded on the Jeopardy host. */
-      teamMode: true,
-      modeDefaults: { anagram:'first', scramble:'first' }
+         reads as the one ladder it is. The drag rounds wore `first` here for one
+         day — reverted with Jeopardy's, the user's call after testing. */
+      teamMode: true
     },
     millionaire: {
       game:'millionaire', stage:'play-millionaire',

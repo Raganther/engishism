@@ -1379,12 +1379,15 @@ playground's point, that one board can host several:
     payable the instant it lands (`jRoundWin` set before the beat, not by it); the
     beat is only the visual hold. The suite's own drive hit the old guard again
     before the fix did.
-  - **The drag rounds default to `first` on team boards** (`modeDefaults` on the
-    Jeopardy and Blockbusters hosts). In `agree`, every member must independently
-    build the identical word and the card only lights letters the whole team
-    holds — a team that split the work "completed the word and nothing showed",
-    and the students named the drag rounds the ones they disliked. Classroom
-    evidence outranks the theory; the ⚙ row still offers `agree`.
+  - ~~**The drag rounds default to `first` on team boards**~~ — **shipped for one
+    day and reverted at the user's decision after testing it.** In `first`, one
+    phone's correct letters light the card immediately, which reads as the round
+    ignoring the team; the user chose the agreement dynamic back as the default
+    and accepts the cost it was traded against (in `agree`, a team that splits
+    the spelling shows nothing until every member holds the whole word — the
+    ef-2a report). Both trades are one tap apart now: the TUNE pill's mode row
+    offers `first` per lesson. Proved back with two handsets on one team: one
+    phone completing alone takes nothing, both completing takes it.
   - **The score report — `window.HubReport`, and a quiet "score report" button on
     the standings screen.** One ledger entry per question: scores as it opened,
     scores as the next opened, the results record and the expected payout when the
