@@ -1230,6 +1230,14 @@
      `drop()` is what makes this run once, before anybody can have chosen a new
      value. Registered above this, or `set` would be writing to an id that does not
      exist yet. */
+  /* The old Classic bundle wrote `jFinalRound:true` into storage on every device
+     that ever picked it — including the accident that ran a final clue at the
+     first ef-2a class. The bundle no longer writes it; this forgets what it wrote,
+     so the final clue is off everywhere until a teacher turns it on knowingly. */
+  (function retireClassicFinal(){
+    S.drop(['jFinalRound'].concat(gameIds().map(g => 'jFinalRound@' + g)));
+  })();
+
   (function migrateRoundSettings(){
     const ids  = Kit.round ? Kit.round.ids() : [];
     const pairs = [['jGroupWho', 'roundWho']]
@@ -1295,7 +1303,7 @@
     label:'Daily Doubles',
     help:'Tiles that hide a wager instead of a value. The team that finds one bets before seeing the clue, and answers it alone.' });
 
-  S.register({ id:'jFinalRound', group:'Jeopardy', type:'toggle', default:false, games:['jeopardy'],
+  S.register({ id:'jFinalQuestion', group:'Jeopardy', type:'toggle', default:false, games:['jeopardy'],
     label:'Final clue',
     help:'When the board clears, every team bets what they like on one last clue. A team in last place can still win, so nobody gives up early.' });
 
@@ -3282,7 +3290,7 @@
      without the mode quietly contradicting them. */
   const J_PRESETS = {
     // the plain game: the teacher marks, the phones sit out
-    hub:     { jDailyDoubles:0, jFinalRound:false, jDeduct:false,
+    hub:     { jDailyDoubles:0, jDeduct:false,
                jTogether:false, jHints:false, round_default:'off',
                stealOnWrong:true, stealFullValue:false, keepControl:true, jAnswerSeconds:0 },
     // the show is a race for the floor, so that is what the handsets are for
@@ -3295,7 +3303,13 @@
        pressuring the class, and the plain hub game has no buzz to start it from. */
     /* The rebound pays in full, as the show plays it: whoever rings in after a miss
        earns what the clue was worth, not a consolation half. */
-    classic: { jDailyDoubles:1, jFinalRound:true,  jDeduct:true,
+    /* `jFinalRound` is deliberately NOT written by Classic any more — deactivated
+       after the first ef-2a class: it confused the room, gave everybody points at
+       the moment the class expected a winner screen, and occupied the end-of-game
+       beat. The toggle stays registered (default off) for a teacher who chooses
+       it knowingly; the migration below clears the value Classic wrote onto
+       devices before this. */
+    classic: { jDailyDoubles:1, jDeduct:true,
                jTogether:false, jHints:false, round_default:'buzz',
                stealOnWrong:true, stealFullValue:true, keepControl:true, jAnswerSeconds:10 },
     /* Everything that sets one team against another is off here, and that is the
@@ -3303,7 +3317,7 @@
        final round to overtake anyone in. What is left is the board and the room —
        and everyone types, because a clue paying what the class produced is the
        cooperative mechanic rather than a race anybody can lose. */
-    together:{ jDailyDoubles:0, jFinalRound:false, jDeduct:false,
+    together:{ jDailyDoubles:0, jDeduct:false,
                jTogether:true,  jHints:true, round_default:'write',
                stealOnWrong:false, stealFullValue:false, keepControl:false, jAnswerSeconds:0 }
   };
@@ -6467,7 +6481,7 @@
     jTension();
     const tiles = [...document.querySelectorAll('#board .tile')];
     if(!tiles.length || tiles.some(t=>!t.classList.contains('used'))) return;
-    if(S.get('jFinalRound', 'jeopardy') && jFinalCanRun()) jStartFinal();
+    if(S.get('jFinalQuestion', 'jeopardy') && jFinalCanRun()) jStartFinal();
     else jFinish();
   }
 

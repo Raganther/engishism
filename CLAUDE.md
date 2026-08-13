@@ -1243,6 +1243,14 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The final question is off Classic's list — `jFinalQuestion`, default off, no
+  bundle writes it.** The first ef-2a class met it by accident (Classic persisted
+  from a test), it confused the room, paid everybody, and swallowed the winner
+  screen. Renamed from `jFinalRound` so the values Classic wrote onto devices die
+  with the old key (`drop`, the replace-a-setting pattern — a live key cannot be
+  force-dropped without clearing a teacher's deliberate choice on every load; the
+  id `jFinalClue` was taken by a function). The feature itself is intact behind
+  the toggle; the suite drives it by setting it explicitly. `classic` 37/0.
 - **The first ef-2a class came back with three bugs; two are fixed, the third has
   an instrument.** Team mode, Jeopardy, real phones. The reports: a team badged
   and paid 1st on Drag the Words that the room watched come last (they completed

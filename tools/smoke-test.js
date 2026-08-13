@@ -7868,14 +7868,20 @@ async function testJeopardyClassic(browser){
   });
   const wrote = await page.evaluate(() => ({
     dd:  window.HubSettings.get('jDailyDoubles','jeopardy'),
-    fin: window.HubSettings.get('jFinalRound','jeopardy'),
+    fin: window.HubSettings.get('jFinalQuestion','jeopardy'),
     ded: window.HubSettings.get('jDeduct','jeopardy')
   }));
   /* The preset *writes* the switches rather than shadowing them, so the rows in ⚙
      always say what is actually going to happen and a teacher can change one
-     afterwards without the preset quietly lying about it. */
-  check('the preset sets the three rules it stands for',
-        wrote.dd === 1 && wrote.fin === true && wrote.ded === true, JSON.stringify(wrote));
+     afterwards without the preset quietly lying about it.
+
+     **The final question is no longer one of them** — deactivated after the first
+     ef-2a class (it confused the room and swallowed the winner screen), so Classic
+     writes the Daily Double and the deduction and leaves `jFinalQuestion` at its
+     own default, off. The feature itself still runs when the toggle is chosen —
+     the final-clue block below drives it by setting it explicitly. */
+  check('the preset sets the rules it stands for, and leaves the final question off',
+        wrote.dd === 1 && !wrote.fin && wrote.ded === true, JSON.stringify(wrote));
   /* ---- what the phones do is part of the mode ----
      It was missing from the bundles at first, and that read from the room as the
      phone setting "overriding" the mode. It was not overriding anything: the mode
@@ -7905,7 +7911,7 @@ async function testJeopardyClassic(browser){
   await page.evaluate(() => window.HubSettings.set('jRules','hub','jeopardy'));
   const back = await page.evaluate(() => ({
     dd:  window.HubSettings.get('jDailyDoubles','jeopardy'),
-    fin: window.HubSettings.get('jFinalRound','jeopardy'),
+    fin: window.HubSettings.get('jFinalQuestion','jeopardy'),
     ded: window.HubSettings.get('jDeduct','jeopardy')
   }));
   check('and the hub preset puts them back',
@@ -7914,7 +7920,7 @@ async function testJeopardyClassic(browser){
   await page.evaluate(() => {
     const S = window.HubSettings;
     S.set('jDailyDoubles',1,'jeopardy'); S.set('jDeduct',true,'jeopardy');
-    S.set('jFinalRound',false,'jeopardy'); S.set('stealOnWrong',false,'jeopardy');
+    S.set('jFinalQuestion',false,'jeopardy'); S.set('stealOnWrong',false,'jeopardy');
   });
   await page.reload(); await page.waitForTimeout(400);
   await startGame(page, 'Jeopardy', { sections:4 });
@@ -8013,7 +8019,7 @@ async function testJeopardyClassic(browser){
       const S = window.HubSettings;
       S.set('cardFlip','off'); S.set('intro','off'); S.set('sound',false);
       S.set('jDailyDoubles',0,'jeopardy'); S.set('jDeduct',true,'jeopardy');
-      S.set('jFinalRound',false,'jeopardy'); S.set('stealOnWrong',false,'jeopardy');
+      S.set('jFinalQuestion',false,'jeopardy'); S.set('stealOnWrong',false,'jeopardy');
       S.set('round_default','off','jeopardy');
     });
     await startGame(dpg, 'Jeopardy', { sections:3, unit:'Lab' });
@@ -8045,6 +8051,7 @@ async function testJeopardyClassic(browser){
     const S = window.HubSettings;
     S.set('intro','off'); S.set('sound',false); S.set('cardFlip','off');
     S.set('jRules','classic','jeopardy');
+    S.set('jFinalQuestion',true,'jeopardy');  // chosen knowingly — Classic no longer writes it
     S.set('jDailyDoubles',0,'jeopardy');      // one thing at a time
     S.set('stealOnWrong',false,'jeopardy');
   });
