@@ -102,6 +102,22 @@ window.HubGames = (function(){
          leaderboard is the first caller — without this a latecomer scored and never
          appeared on it. A no-op for every board that reads `teams` at draw time. */
       onRoster:     NO_OP,
+      /* ---- the room's own beats, for games that hold per-player state ----
+         Bingo forced all three onto the contract: it is the one game whose state
+         the phone layer used to reach by name. `onRoomReady` fires when the
+         relay's room (re)connects — Millionaire repaints Ask-the-class here,
+         Blockbusters its vote button, Bingo deals cards. `onPlayers` fires on
+         every roster push from the room — a student joining mid-round gets a
+         card. `onRoomForgot` fires when the relay restarted and the room's
+         memory died — whatever this game told the room, it must tell again
+         (Bingo re-deals every hand, marks included). `onPhoneReply` sees each
+         raw reply before the shared collect-and-count path; return true to
+         consume it (a bingo tap marks one player's own card and is nobody's
+         team answer). */
+      onRoomReady:  NO_OP,
+      onPlayers:    NO_OP,
+      onRoomForgot: NO_OP,
+      onPhoneReply: function(){ return false; },
       /* ---- declared facts that used to be `activeGame ===` branches ----
          Each of these replaced a by-name switch in shared code. Declared, a game
          registered next month is correct by default. */
