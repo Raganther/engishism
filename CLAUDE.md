@@ -1243,6 +1243,39 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The room bench has the rules board — a tune pane beside the projector.** Asked
+  for by name: the bench is where all testing and tuning happens, and the only
+  tuning entrances were inside the scaled board iframe (⚙, the card's TUNE pill) —
+  small, and only reachable mid-question. The pane shows, for the game being
+  played, every round's mode and the game's quick rules, each row saying whether
+  it is the default or a customization, editable in place.
+  - **The rows are the board's own settings rows**, rendered through the frame by
+    `HubSettings.renderOnce` into bench-side mounts — the `HubTeams` reach-in
+    pattern — so a row here and a row in the ⚙ drawer can never disagree, and a
+    round or quick setting registered next month appears with nothing edited.
+    `renderOnce` deliberately, never `renderFor`: that would steal the Lab
+    drawer's single live-refresh slot.
+  - **What you set here is what a real lesson gets, and that is the point.** The
+    pane writes ordinary per-game overrides into the same stored settings the
+    teaching hub reads, so bench tuning persists across sessions and into class.
+    The pane's label says so. State lines tell "this game's own default" from
+    "set for this game", with reset per row.
+  - **One tab per game, derived from the registry**, with a dot on the one the
+    board is playing; the tab follows the board's game (`HubGames.active()`, a
+    new one-line export — `activeGame` was closure-private), and a hand-picked
+    tab holds until the board changes game.
+  - **The `.settings-*` styles are a declared mirror of hub.css**, scoped under
+    `#tune-pane` — the bench cannot link hub.css whole (it restyles the page
+    body), and the switch track is the load-bearing part: without it a toggle is
+    an invisible checkbox. Same convention as the question bench's card metrics.
+  - Open by default, toggled by a Tune button in the bar, remembered in
+    `engishism.benchTune`. The board refits itself around the pane through the
+    existing `ResizeObserver` — no wiring.
+  - Driven end to end: the pane follows the board to Jeopardy, ordering shows its
+    own default, flipping Drag the Letters to `first` from the pane writes
+    `round_anagram@jeopardy`, flips the state line, and the very next drag card
+    plays first-tap on a live handset; reset restores agree. 10/0 scratch;
+    `bench` suite grew four checks, 48/0.
 - **Solo seats survive a relay restart now — every deploy was silently collapsing
   a live solo room onto competitor 0.** Reported mid-test as "the card says Ana
   has it regardless of who gets it", one finisher per question, no late pays —

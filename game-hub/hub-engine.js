@@ -195,7 +195,10 @@
     get:      id  => GAME_BY_ID[id] || null,
     ids:      ()  => GAMES.map(g => g.id),
     hooksOf:  id  => Object.keys(GAME_BY_ID[id] || {}),
-    renderCards: () => renderGameCards()
+    renderCards: () => renderGameCards(),
+    /* Which game the board is playing right now, or null between games. The room
+       bench's tune pane follows it; nothing inside the hub reads it. */
+    active:   ()  => activeGame
   };
 
   const gameDef  = id => GAME_BY_ID[id === undefined ? activeGame : id] || null;
