@@ -1243,6 +1243,35 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Every point movement says why — the score receipt, second stage of the
+  three-seam plan.** The report used to *diff* scores and infer, which is exactly
+  how an unexplained 600 stays unexplained: five paths bypassed `award()` entirely
+  (the ± buttons, reset, Jeopardy's deduction, the final-clue wager), and the
+  report only opened entries when a *round* opened, so a plain tile or a teacher's
+  correction landed as an unexplained gain on someone else's row.
+  - **`ledgerNote(team, delta, why)`** writes a move into the open report entry;
+    with none open it opens a `between questions · <game>` entry, so nothing ever
+    lands unattributed. **Noted before the score moves, always** — a note that has
+    to open its own entry snapshots `before` as it opens, and a snapshot taken
+    after the movement would swallow it, a false alarm made by the instrument.
+  - **`award()` gained `opts.why`** and notes its own arithmetic — `· steal ½`,
+    `· streak ×2` — because a report reader cannot re-derive a half from settings
+    that may have changed since. The ten call sites name themselves: `tile 400`,
+    `daily double bet`, `hexagon`, `rung 800`, `bingo square · Ana`, `word ·
+    verdict`, and the late pay cites the record — `Podium · 2nd · 3.4s`.
+  - **The five bypass paths note directly** (they stay outside `award`, which
+    never subtracts by design): `teacher correction`, `points reset`, `wrong
+    answer · deduction rule`, `final clue · bet won/lost`.
+  - **The discrepancy check is exact now**: sum of a team's moves against its
+    actual gain, red on mismatch — so anything that still bypasses the ledger
+    names *itself*. Old entries without moves keep the expected-diff fallback.
+    Quickfire's null-expected gap closes for free, since its moves carry the rule.
+  - Driven on the Lab board with two handsets: a plain tile, both ± buttons, a
+    deduction, an MC round paying a slot winner and a late 2nd, a reset — seven
+    receipt lines, zero discrepancies, and a tampered move going red proves the
+    check can fail. 9/9; `classic,standings,jeopardy` 65/0.
+  - **This is the instrument the next class carries.** Clear the ledger before
+    the game; if the 600 recurs, its receipt line names it.
 - **A stale page announces itself — the reload chip, first stage of the agreed
   three-seam plan** (deploy seam · money seam · file seam — the plan came from a
   first-principles review; the receipt and the skins split are the next two).

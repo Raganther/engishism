@@ -2517,6 +2517,29 @@
                        after: null, expected: null, results: null });
     reportSave();
   }
+  /* ---------- every point movement, named ----------
+     The report used to *diff* scores and infer what happened, which is exactly how
+     an unexplained 600 stays unexplained: a movement the diff cannot attribute
+     reads as a mystery rather than as a line item. Every path that touches a score
+     now writes a move — `{t, d, why}` — into the open entry, and the renderer
+     checks the sum of a team's moves against its actual gain, so anything that
+     still bypasses the ledger names itself as a discrepancy instead of hiding.
+
+     **Called before the score moves, always.** A note that has to open its own
+     entry snapshots `before` as it opens, and a snapshot taken after the movement
+     would swallow it — the gain would read 0 against a move that says otherwise,
+     a false alarm manufactured by the instrument itself. */
+  function ledgerNote(team, delta, why){
+    let e = scoreReport[scoreReport.length - 1];
+    if(!e || e.after){
+      /* A movement outside any question — a manual correction, a plain tile, the
+         final clue — still lands somewhere with its name on it. */
+      reportOpenEntry('between questions · ' + (activeGame || 'setup'));
+      e = scoreReport[scoreReport.length - 1];
+    }
+    (e.moves = e.moves || []).push({ t: Number(team), d: delta, why: String(why || '') });
+    reportSave();
+  }
   /* Called after the slot pays. Expected = the slot at what it actually paid, plus
      the payout table's share for every other competitor the record says finished. */
   function reportPayout(slotTeam, paid){
@@ -2551,17 +2574,31 @@
       row.appendChild(h);
       const after = e.after || teams.map(t => t.score);
       (e.names || []).forEach((nm, i)=>{
-        const gain = (after[i] || 0) - (e.before[i] || 0);
-        const exp  = e.expected ? (e.expected[i] || 0) : null;
-        if(!gain && !exp) return;
+        const gain  = (after[i] || 0) - (e.before[i] || 0);
+        const moves = (e.moves || []).filter(m => m.t === i);
+        const sum   = moves.reduce((a, m) => a + (m.d || 0), 0);
+        const exp   = e.expected ? (e.expected[i] || 0) : null;
+        if(!gain && !exp && !moves.length) return;
+        /* With moves the check is exact: the sum of what the ledger says happened
+           against what actually happened. A movement that bypassed the ledger \u2014
+           the class of thing the unexplained 600 was \u2014 shows as the difference.
+           Entries from before the ledger fall back to the old expected diff. */
+        const off = moves.length ? sum !== gain : (exp != null && exp !== gain);
         const line = document.createElement('div');
-        line.className = 'rp-team' + (exp != null && exp !== gain ? ' off' : '');
+        line.className = 'rp-team' + (off ? ' off' : '');
         const r = (e.results || []).filter(x => x.who === i)[0];
         line.textContent = nm + ': ' + (gain >= 0 ? '+' : '') + gain +
-          (exp != null ? '  (expected ' + (exp >= 0 ? '+' : '') + exp + ')' : '') +
+          (moves.length && off ? '  (the moves say ' + (sum >= 0 ? '+' : '') + sum + ')' : '') +
+          (!moves.length && exp != null ? '  (expected ' + (exp >= 0 ? '+' : '') + exp + ')' : '') +
           (r ? '  \u00b7 ' + (r.done ? 'finished ' + ordinalReport(r.place) : 'answered') +
                ' at ' + (r.seconds || 0).toFixed(1) + 's' : '');
         row.appendChild(line);
+        moves.forEach(m=>{
+          const mv = document.createElement('div');
+          mv.className = 'rp-move';
+          mv.textContent = (m.d >= 0 ? '+' : '') + m.d + '  \u00b7 ' + (m.why || 'unlabelled');
+          row.appendChild(mv);
+        });
       });
       body.appendChild(row);
     });
@@ -2812,8 +2849,10 @@
       });
       el.querySelector('.tname').addEventListener('change', e=>{
         t.name = e.target.value; t.auto = false; pushTeamNames(); });
-      el.querySelector('.minus').addEventListener('click', ()=>{ t.score-=step; renderScorebar(); renderClassLine(); });
-      el.querySelector('.plus').addEventListener('click', ()=>{ t.score+=step; renderScorebar(); renderClassLine(); });
+      // noted before the score moves (the ledger's ordering rule) — a teacher's
+      // correction used to be indistinguishable in the report from a scoring bug
+      el.querySelector('.minus').addEventListener('click', ()=>{ ledgerNote(i, -step, 'teacher correction'); t.score-=step; renderScorebar(); renderClassLine(); });
+      el.querySelector('.plus').addEventListener('click', ()=>{ ledgerNote(i, step, 'teacher correction'); t.score+=step; renderScorebar(); renderClassLine(); });
       const delBtn = el.querySelector('.tdel');
       if(delBtn) delBtn.addEventListener('click', ()=> removeTeam(i));
       bar.appendChild(el);
@@ -2826,7 +2865,9 @@
     // and the tooltip still says what it does
     const resetBtn=document.createElement('button'); resetBtn.className='reset-btn';
     resetBtn.textContent='↺'; resetBtn.title='Reset points';
-    resetBtn.addEventListener('click', ()=>{ teams.forEach(t=>{ t.score=0; t.run=0; }); renderScorebar(); renderClassLine(); });
+    resetBtn.addEventListener('click', ()=>{
+      teams.forEach((t, i)=>{ if(t.score) ledgerNote(i, -t.score, 'points reset'); t.score=0; t.run=0; });
+      renderScorebar(); renderClassLine(); });
     bar.appendChild(resetBtn);
     // adding a team, or renaming one, has to reach the phones — this is the one
     // place that runs on any change to the list, and the push skips a no-op
@@ -2912,12 +2953,14 @@
     const t = teams[teamIdx];
     if(!t || !base) return 0;
     const o = opts || {};
-    let value = (o.steal && !S.get('stealFullValue', activeGame)) ? base / 2 : base;
+    const halved = o.steal && !S.get('stealFullValue', activeGame);
+    let value = halved ? base / 2 : base;
     /* The run is counted *before* this answer, so award() is always called before
        markRun(): the first answer of a streak pays face value, the second 1.5x and
        the third double. Marking first made the very first answer pay a bonus for a
        run that had not happened yet. */
-    if(o.streak !== false && S.get('streak', activeGame)) value *= runMultiplier(t.run);
+    const mult = (o.streak !== false && S.get('streak', activeGame)) ? runMultiplier(t.run) : 1;
+    value *= mult;
     /* Round to 50s, not 100s, in the games that score in hundreds. Half of a $100
        tile is 50, and rounding that to the nearest 100 hands back the full value —
        the steal was silently paying the same as answering it correctly. Every value
@@ -2925,6 +2968,13 @@
        is already a multiple of 50, so this rounds nothing away. */
     const step = (activeGame==='jeopardy' || activeGame==='millionaire') ? 50 : 1;
     value = Math.max(step, Math.round(value / step) * step);
+    /* The receipt line carries award's own arithmetic — the *paid* number with what
+       was done to it on the way — because a report reader cannot re-derive a half
+       or a multiplier from settings that may have changed since. */
+    ledgerNote(teamIdx, value,
+      (o.why || 'points') +
+      (o.steal ? (halved ? ' · steal ½' : ' · steal') : '') +
+      (mult > 1 ? ' · streak ×' + mult : ''));
     t.score += value;
     renderScorebar();
     renderClassLine();
@@ -4652,7 +4702,8 @@
     if(i === -1){ buzzHost.nope(r.id, r.value); return true; }
     hand.marked[i] = true;
     buzzHost.mark(r.id, hand.words[i].answer);
-    const paid = award(hand.team, Number(S.get('bingoPoints', 'bingo')) || 1, {}) || 1;
+    const paid = award(hand.team, Number(S.get('bingoPoints', 'bingo')) || 1,
+                       { why:'bingo square · ' + hand.name }) || 1;
     notePhoneScore(hand.name, hand.team, r.value, paid);
     Sound.play('claim');
     const line = bingoHandLine(hand);
@@ -4762,7 +4813,7 @@
     card.marked[ci] = true;
     const el = document.querySelector(`.bingo-cell[data-team="${ti}"][data-cell="${ci}"]`);
     if(el) el.classList.add('marked');
-    const paid = award(ti, Number(S.get('bingoPoints', 'bingo')) || 1, {});
+    const paid = award(ti, Number(S.get('bingoPoints', 'bingo')) || 1, { why:'bingo square' });
     markRun(ti, true);
     Sound.play('claim');
     active = ti; renderScorebar();
@@ -5515,7 +5566,15 @@
   function jPayLate(team){
     const points = roundPayout()[team] || 0;
     if(!points || !teams[team]) return 0;
-    return award(team, points, { streak:false });
+    /* The receipt cites the rule and the record — which pay rule was running, what
+       place the record gave this team and how long they took — because "second at
+       4.3s under podium" is checkable after the lesson and "+150" is not. */
+    const rec   = Kit.round.results.of(team) || {};
+    const place = Kit.round.results.place(team);
+    return award(team, points, { streak:false,
+      why: (PAY_RULES[S.get('roundPay', roundHost.game)] || PAY_RULES.winner).label +
+           (isFinite(place) ? ' · ' + ordinalReport(place) : '') +
+           (rec.seconds != null ? ' · ' + rec.seconds.toFixed(1) + 's' : '') });
   }
 
   function jGroupMiss(team, r){
@@ -6399,7 +6458,8 @@
     if(currentTile){ currentTile.classList.add('used'); }   // keeps its value, faded
     let paid = 0;
     if(teams.length){
-      paid = award(team, value, { steal: !!jSteal && team === jSteal.to });
+      paid = award(team, value, { steal: !!jSteal && team === jSteal.to,
+                                  why: (jDoubleTeam != null) ? 'daily double bet' : 'tile ' + value });
       markRun(team, true);
     }
     jSteal = null; jDoubleTeam = null;
@@ -6433,6 +6493,7 @@
        charging the wrong people — the same reason `keepControl` stands down when
        the whole room answered. */
     if(S.get('jDeduct', 'jeopardy') && teams[missed] && modalMode === 'jeopardy' && !jGroupClue()){
+      ledgerNote(missed, -currentClueValue, 'wrong answer · deduction rule');
       teams[missed].score -= currentClueValue;
       renderScorebar();
     }
@@ -6587,6 +6648,8 @@
       teams[team].name + ' bet $' + (st.bets[team] || 0);
     const mark = (right) => {
       st.marked[team] = right;
+      if(st.bets[team]) ledgerNote(team, (right ? 1 : -1) * st.bets[team],
+                                   right ? 'final clue · bet won' : 'final clue · bet lost');
       teams[team].score += (right ? 1 : -1) * (st.bets[team] || 0);
       markRun(team, right);
       renderScorebar();
@@ -6665,7 +6728,7 @@
       currentTile.classList.add(side===0 ? 'claimed-gold' : 'claimed-silver');
       currentTile.textContent='';
       // a hex taken by the side that wasn't on turn is a steal, and scores as one
-      paid = award(idx, 1, { steal: side !== bbTurn });
+      paid = award(idx, 1, { steal: side !== bbTurn, why:'hexagon' });
       markRun(idx, true);
     }
     // work out the ending now, but let the card land before showing it
@@ -7062,7 +7125,10 @@
        repaint come for free rather than being re-implemented here. `streak:false`:
        every team answers every question, so a "run" would only measure who has been
        right most recently, which is what the points already say. */
-    const paid = award(team, points || 0, { streak:false });
+    const rec = Kit.round.results.of(team) || {};
+    const paid = award(team, points || 0, { streak:false,
+      why: 'quickfire · ' + (PAY_RULES[S.get('roundPay', 'kahoot')] || PAY_RULES.winner).label +
+           (rec.seconds != null ? ' · ' + rec.seconds.toFixed(1) + 's' : '') });
     kPaid[team] = paid;
     /* **The no-relay path ends the question here.** With phones in the room several
        teams settle independently and the clock decides when the question is over.
@@ -7221,7 +7287,8 @@
   function mPayRung(team){
     const st = mTeamState(team);
     const value = M_LADDER[Math.min(st.rung, M_LADDER.length - 1)];
-    const paid = award(team, value, { steal: !!(mCurrent && mCurrent.stolen) });
+    const paid = award(team, value, { steal: !!(mCurrent && mCurrent.stolen),
+                                      why: 'rung ' + value });
     markRun(team, true);
     st.rung += 1;
     document.getElementById('m-hint').textContent = '+' + paid;
@@ -8605,7 +8672,7 @@
      so this is the short version of that path: score, name the student on the strip,
      next sentence. */
   function awardRaceRound(team){
-    award(team, 1);
+    award(team, 1, { why:'race round' });
     raceCurrent = null;
     document.getElementById('race-round').style.display = 'none';
     setTimeout(()=>{ if(raceRunning) nextRacePrompt(); else updateRaceBar(); }, 700);
@@ -8771,7 +8838,7 @@
     if(!hit.w) return;
     hit.w.found = true;
     hit.w.by    = teamIdx;
-    award(teamIdx, 1, {});
+    award(teamIdx, 1, { why:'word · ' + (hit.w.word || '') });
     markRun(teamIdx, true);
     racePending = null;
     hideClaimBar();

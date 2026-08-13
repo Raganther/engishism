@@ -1873,6 +1873,9 @@ body.theme-gameshow #clue-actions #hint-btn{ border-color:rgba(255,200,61,0.5); 
   letter-spacing:0.05em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
 .rp-team{ font-family:'IBM Plex Mono',monospace; font-size:0.85rem; padding:1px 0; }
 .rp-team.off{ color:#C0392B; font-weight:700; }
+/* a receipt line under its team: quiet, indented, one movement each */
+.rp-move{ font-family:'IBM Plex Mono',monospace; font-size:0.72rem; color:var(--muted);
+  padding:0 0 0 22px; }
 .rp-actions{ display:flex; justify-content:space-between; margin-top:14px; }
 .rp-actions button{
   font:inherit; font-size:0.8rem; padding:8px 14px; border-radius:8px;
