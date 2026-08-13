@@ -176,10 +176,11 @@ to say which one they are attacking.
 where the teacher clicks and judges, which is exactly the behaviour needed when the
 skin owns the handsets.
 
-### Two contract additions that are not built
-- **Round state that outlives one question**, for Bingo: a card persists across many
-  calls, and rounds today are set up, played and discarded. The relay already holds
-  per-player state across questions; it is simply not exposed to rounds.
+### Two contract additions — both built now
+- ~~**Round state that outlives one question**~~ — **built** as `ctx.keep`, the
+  host's per-player store, proven by the bingo round (cards and marks surviving
+  across calls and reconnects). The residual is the other direction: the Bingo
+  *skin* has not adopted the bingo round yet.
 - ~~**A round handed the stage as its mount**~~ — **built**, for Millionaire, which
   has no clue card. `mount` is a declared fact in `ROUND_HOSTS`. Race still needs more
   than this: its answers *are* the board, not a panel on it.
@@ -198,10 +199,9 @@ skin owns the handsets.
    the "no contract change" job this list claimed. Millionaire has no clue card, so it
    needed **F3.8.9**, a round mounted somewhere other than the card. See Current
    status. It did delete the private option rendering, as predicted.
-5. **Round state that outlives one question** (the first contract addition above).
-   Most of "what the container makes possible" is blocked on it, and the relay already
-   does the hard half — a bingo card and its marks persist per player across a
-   reconnection. It is simply not exposed to rounds.
+5. ~~**Round state that outlives one question** (the first contract addition
+   above).~~ **Done** — `ctx.keep`, built with the bingo round. See Current status;
+   the category of round designs it unblocks is now open.
 6. ~~**The action strip becomes declarative** (F3.9.1/F3.9.2), so a round may have more
    than one button.~~ **Done** — a round declares `actions`/`press`, the commit button
    stays the host's because committing scores, and `hideAllActionButtons` stopped
@@ -2948,8 +2948,9 @@ playground's point, that one board can host several:
     because that is what survives a reconnect: the same phone gets the same view
     back. Carried unread, exactly as the relay never learns an answer. ~15 lines.
   - **What the build-order item 2 actually turned out to need was smaller than the
-    item.** "Round state that outlives one question" is still unbuilt and still
-    blocks Bingo-shaped ideas — but the info gap only needed a per-player *prompt
+    item.** "Round state that outlives one question" was still unbuilt then
+    (~~and still blocks Bingo-shaped ideas~~ — since built, as `ctx.keep`) — but
+    the info gap only needed a per-player *prompt
     within* one question, and the per-recipient arm path already existed. Check
     what a round needs per player before concluding it is blocked.
   - **`ctx` lends two new things, both hosts:** `roster` (`[{id,name,team}]`, read
@@ -5274,13 +5275,15 @@ for the full version with requirement IDs. The short form, in order:
    **Nothing else here should be built until that lesson has happened** — the numbers
    (60/30 shares, 0.5 floor) are guesses, and a classroom is the only thing that can
    say whether they are the right ones.
-0. **Individual play — steps 2 to 5.** Step 1 is done (see Current status): a team
-   is a competitor, it carries an id, and `Roster` owns everything that changes the
-   list. What is left: the teams/solo switch; building the roster from the joined
-   phones in solo; each game declaring whether solo suits it (three do, three
-   cannot); and nothing at all in the rounds, which is the sign it is the right
-   layer. **Decide first** what "everyone agrees" means when a competitor is one
-   person.
+   **Status: the first team-mode lesson ran (2026-08-12, ef-2a — see
+   `docs/feedback.md`) but the Classic-ruleset accident dominated it**, so none of
+   the three questions above got a clean read. The rerun with ruleset = Hub, the
+   drag rounds on `first` and a cleared score-report ledger is the one that counts.
+0. ~~**Individual play — steps 2 to 5.**~~ **Done, all of it** — the roster
+   switch on the setup screen, the roster built from joined phones, all six boards
+   declared solo (three of the four assumed exclusions were wrong), and the whole
+   solo display layer on top: place badges, the crowd picture, the crowd reveal.
+   See Current status. What remains solo-flavoured is tuning, not building.
 0b. **Convert NEF-1, and audit the ordering scales against the scans.** NEF-1 is the
    one unit still carrying simple questions on Jeopardy and Blockbusters. The audit
    is the more important half: Unit 5 has six scales built from English the unit
@@ -5303,17 +5306,15 @@ for the full version with requirement IDs. The short form, in order:
    −700ms a word, all guesses), and if it earns its place the host work is
    `again()` in `jGroupCtx` plus content. If it does not, delete it — a round
    nobody authors for never meets a class, so the cost of being wrong is zero.
-3. **Round state that outlives one question.** Unblocks roles, hands of cards and
-   personal scorecards — the information gap turned out *not* to need it (a
-   per-player prompt within one question was enough; see Current status), which is
-   worth re-checking against the others before building it. The relay already
-   persists a bingo card per player across a reconnection; it is simply not
-   exposed to rounds.
+3. ~~**Round state that outlives one question.**~~ **Done** — `ctx.keep`, built
+   and proven with the bingo round (see Current status). Roles, hands of cards and
+   personal scorecards are now buildable; the residual is Bingo-the-skin adopting
+   the bingo round.
 4. ~~**The declarative action strip** (F3.9.1/F3.9.2), so a round may have more than
-   one button.~~ **Done** — see Current status. What is left of that item is the
-   **stage-as-mount for Race**, then **Bingo extracted**, then **Race extracted**.
-   A round is no longer limited to one button, so nothing on the list of round
-   designs is blocked outright any more.
+   one button.~~ **Done** — see Current status. ~~The stage-as-mount for Race~~ is
+   also **done** (Race is the fifth host). What is left of the extraction ladder is
+   **Bingo-the-skin onto the bingo round**, then **Race extracted** — working games,
+   last on purpose.
 4a. ~~**`openHex` in the `grouping` suite is a coin toss.**~~ **Done** — and the
    premise was wrong, which is the useful half. LB1 is exactly 18 items and the board
    is exactly 18 hexagons, so every named clue *is* dealt; the note's "18 from the 28
