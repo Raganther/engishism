@@ -1243,6 +1243,26 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The round adapter lost its `j` prefix — `jGroup*`/`jRound*` are `round*` now,
+  and three misfiled handler blocks went home.** First prequel step of the skins
+  split (three-seam plan, stage C). The ~750-line shared adapter every board calls
+  wore Jeopardy's prefix because that is where the clue card grew up, which made
+  shared code read as one game's and would have made every extraction look like it
+  was taking Jeopardy with it.
+  - **Pure rename, no behaviour**: `jGroup`→`roundState`, `jGroupLive`→`roundLive`,
+    `jGroupOf/Open/Ctx/Take/End`→`roundOf/Open/Ctx/Take/End`, `jRoundDef/Id/Cap`→
+    `roundDef/Id/Cap`, `jRoundPayout`→`roundPaySlot` (the name `roundPayout` was
+    taken by the PAY_RULES sum), `jPayLate`→`roundPayLate`, `jOpenToAll`→
+    `openToAllNow`, `renderJGroup(Button)`→`renderRound(Button)`.
+  - **Two string literals deliberately kept**: `'jGroupWho'` and `'jRound_'+id` in
+    `migrateRoundSettings` are *storage keys of old builds* — renaming them would
+    orphan every teacher's saved override, the replace-a-setting trap.
+  - **`roundCommit` moved beside the adapter** (it sat in the Jeopardy region);
+    `#bb-ask` went to Blockbusters, `#k-commit`/`#k-next` to Quickfire, and the
+    two Bingo buttons out of the bottom of the Race block. Function declarations
+    hoist, so motion inside the closure costs nothing.
+  - Skills checked for rot the same hour: `new-game`, `new-mode` and `new-round`
+    all named the old symbols and were updated.
 - **Every point movement says why — the score receipt, second stage of the
   three-seam plan.** The report used to *diff* scores and infer, which is exactly
   how an unexplained 600 stays unexplained: five paths bypassed `award()` entirely
