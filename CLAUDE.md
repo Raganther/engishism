@@ -1243,6 +1243,34 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Quickfire lives in its own file — the first game out of the engine, and the
+  contract an external game lives on exists now.** C0.3-5 + C1 of the skins
+  split, in one ship. `game-hub/games/quickfire.js` is the model to copy; the
+  `new-game` skill says so.
+  - **`game-hub/hub-games.js`** — the registry out of the engine, loading after
+    `hub-settings.js`, before game files, engine last (the `hub-rounds.js` →
+    `rounds/*.js` → engine pattern exactly). By the time the engine's init runs,
+    every registration has happened — which retires the "register before init or
+    the game is invisible" trap for external files. It keeps `active`/`setActive`
+    (the engine's `activeGame` is closure-private; the tune pane reads it) and
+    an **`order`** fact (built-ins 50, Quickfire 60): externals load first and
+    would otherwise jump to the front of every card row and settings tab.
+  - **`window.HubEnv`** — what the engine lends a game outside its closure,
+    called from hooks only (never at parse; the engine loads last). Grown only
+    as an extracted caller proves the need: award + the receipt, the round
+    adapter (`roundOf(item, 'host')` names the host, so no closure state moves),
+    two new windows onto the live round (`revealOpenRound`, `roundDone`),
+    surfaces, content helpers, roster, Sound, timer.
+  - **Two declared facts instead of engine edits**: `stageHTML` (the engine
+    injects it beside the in-skeleton stages at init) and `roundHost` (merged
+    into `ROUND_HOSTS` before the round settings derive from it).
+  - **The one ordering fact an external game's DOM work must respect**: its
+    stage does not exist at parse, so listeners wire on first `load()`.
+  - Proved: a 10-check drive (card still sixth, stage injected, a phone's answer
+    paying through the settle path with the receipt why `quickfire · By the
+    clock · 3.3s`, the clock ending a question, standings, the results banner) —
+    and twelve suites `millionaire,fit,phone,card,turns,gameshow,lab,registry,
+    competition,scoping,phonemodes,settings` **404/0**.
 - **Six declarations replaced eleven `activeGame` branches — C0.2 of the skins
   split.** Shared code stopped asking which game is playing and started asking
   the game itself. New on the `registerGame` contract, each defaulting to the
