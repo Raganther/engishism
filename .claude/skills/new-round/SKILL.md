@@ -296,7 +296,7 @@ blockbusters: {
 
 **Jeopardy and Blockbusters both host rounds, and a third board is an entry in that
 table** — plus the two calls the board itself makes when a clue opens:
-`jGroupOf(item, '<host>')` before `askPhones`, and `jGroupOpen` if it found one.
+`roundOf(item, '<host>')` before `askPhones`, and `roundOpen` if it found one.
 
 You should not need to touch a round to add a host. Blockbusters cost no change to
 any of the five, which is the evidence that the tier is a shelf rather than one

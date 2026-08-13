@@ -44,9 +44,9 @@ myboard: {
 }
 ```
 
-Then two calls where your clue opens: `jGroupOf(item, 'myboard')` **before**
+Then two calls where your clue opens: `roundOf(item, 'myboard')` **before**
 `askPhones` (the host must be named before `setup` reads the ctx, or the round is set
-up against the previous board), and `jGroupOpen(found)` if it found one. Carry the
+up against the previous board), and `roundOpen(found)` if it found one. Carry the
 round's fields across with `Kit.round.fields()` rather than naming them.
 
 `ROUND_HOSTS` lives above the settings block so the round settings' `games` list is
