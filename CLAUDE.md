@@ -1243,6 +1243,35 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Bingo lives in its own file too — and the room's beats are contract hooks
+  now.** C2, the last chunk of the approved refactor. Bingo was the API test on
+  purpose: the only game whose per-player state the *phone layer* reached by
+  name, in four places. Each became a `registerGame` hook, so a future game
+  holding hands, roles or personal scorecards declares them instead of growing
+  new reach-ins:
+  - **`onRoomReady()`** — the relay's room (re)connected; paint what the room
+    feeds. Bingo deals cards, Millionaire repaints Ask-the-class, Blockbusters
+    its vote button — all three were by-name calls in the `ready` handler, each
+    of which had shipped its own bug once.
+  - **`onPlayers(list)`** — every roster push; a latecomer gets a card.
+  - **`onRoomForgot()`** — the relay restarted and the room's memory died;
+    whatever this game told the room, it must tell again. Bingo re-deals every
+    hand, marks included — proved with a live kill-and-restart, the same event
+    as the solo-seat fix.
+  - **`onPhoneReply(reply)`** — see a raw reply before the shared
+    collect-and-count path; return true to consume it (a bingo tap marks one
+    player's own card and is nobody's team answer).
+  - HubEnv grew what the extraction proved it needed: `room()` (the relay host),
+    `setActiveTeam`, `clearFloor`, `syncBuzzRoom`, `reaskPhones`, `inPlay`.
+    Bingo sits at `order: 55` — fifth card, between the built-ins and Quickfire.
+  - Proved: a 7-check drive (cards dealt to two phones, a call, taps heard, the
+    restart re-deal) and thirteen suites `phonebingo,buzzers,reconnect,registry,
+    scoping,millionaire,fit,phone,card,turns,gameshow,lab,competition` **367/0**.
+  - **The engine is ~1,100 lines lighter than this morning**, and the remaining
+    four games follow this exact pattern when next worked on: Race → Millionaire
+    (roster layer splices `mState` — needs a hook) → Blockbusters (`bbTurn` in
+    the shared state block; `claimHex` in clueClaim and skip) → Jeopardy last
+    (interleaved with the shared clue modal).
 - **Quickfire lives in its own file — the first game out of the engine, and the
   contract an external game lives on exists now.** C0.3-5 + C1 of the skins
   split, in one ship. `game-hub/games/quickfire.js` is the model to copy; the
