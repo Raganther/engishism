@@ -869,6 +869,12 @@
     });
     S.register({ id:'round_' + id, type:'variant',
       group: own.group || 'Questions',
+      /* Team rules and whole-class rules are two different lessons, so how a
+         round is played forks by room type: a change made while a solo room is
+         up is the individuals' value, and individuals follow the team-room
+         value until set apart. The storage and the row wording are the
+         registry's (`byRoster` in hub-settings.js); this line only opts in. */
+      byRoster: true,
       default: def.modes[0].value,
       defaults: Object.keys(perGame).length ? perGame : undefined,
       games: own.games || ROUND_GAMES,

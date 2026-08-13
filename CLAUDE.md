@@ -947,7 +947,10 @@ neither, so they keep first-tap-wins.
 
 Storage: `id` is the master, `id@game` is an override. Settings written before scoping
 existed are master values under the same keys, so nothing needed migrating — there is a
-smoke test pinning that.
+smoke test pinning that. A setting that declares `byRoster:true` also keeps a second
+value for rooms of individuals under `…!solo` — a change made while a solo room is up
+writes that key and touches nothing a team room reads, and individuals follow the
+team-room value until explicitly set apart. Every `round_<id>` row declares it.
 
 `type:'select'` takes `options:[{value,label}]`; `type:'range'` takes
 `{min,max,step,unit}` and is what makes a **weight** tunable from the interface rather
@@ -1243,6 +1246,36 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Team rules and individual rules are separate now — how a round is played forks
+  by room type.** Asked from the room bench: flipping Word Thermometer between one
+  ladder and a ladder each in a solo room also rewrote the team game, because the
+  store had one slot per setting per game and no idea what kind of room was up.
+  The room type now scopes the key the way the game already does.
+  - **`byRoster:true` on a setting keeps a second value for rooms of individuals.**
+    A change made while a solo room is up writes `id@game!solo` and touches nothing
+    a team room reads; **individuals follow the team-room value until explicitly
+    set apart** — the same follows-until-overridden shape as game-vs-master, so
+    nothing migrated and old stored values kept their meaning. Every `round_<id>`
+    row declares it in the one registration loop, so a round written next month
+    forks for free; any other setting adopts it with the same word.
+  - **`hasOverride` and `clearOverride` are roster-aware too**, which is what kept
+    `roundModeOf` and the solo stateNote correct with no engine change — and it
+    changes one behaviour deliberately: a teams-room override to "everyone agrees"
+    no longer counts as solo's choice, so a room of individuals downgrades it again
+    unless solo itself picked it. Clearing a solo value returns to *following* the
+    team rules, and the undo button says so.
+  - **Rows say which room's rules they edit** — "Set for rooms of individuals" /
+    "Individuals — following the team-room rules" in a solo room, and a team room
+    whose individuals have gone their own way carries a note naming it, the same
+    silent-mismatch rule the master tab already follows. `resetAll` clears the solo
+    keys. A ruleset picked while a solo room is up writes solo values, which is the
+    same fact from the other side.
+  - **`crowdReveal` needed no fork and got none** — it gates on room size (>5
+    competitors, a count not a mode), so ordinary team play never meets it. Worth
+    knowing before forking a setting: some are already scoped by a live fact.
+  - Proved with a 16-check scratch drive in both directions (solo write lands under
+    `!solo`, teams key untouched, inherit-until-diverged, clear-returns-to-follow,
+    the downgrade interplay, `resetAll`), then `settings,scoping,bench` **88/0**.
 - **Bingo lives in its own file too — and the room's beats are contract hooks
   now.** C2, the last chunk of the approved refactor. Bingo was the API test on
   purpose: the only game whose per-player state the *phone layer* reached by

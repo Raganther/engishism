@@ -54,6 +54,23 @@ window.HubSettings = (function(){
 
   const key = (id, game) => game ? id + '@' + game : id;
 
+  /* ---------- team rooms vs rooms of individuals ----------
+     A setting that declares `byRoster:true` keeps a second value for rooms of
+     individuals, because team rules and whole-class rules are two different
+     lessons being developed separately. The room type scopes the key the way
+     the game already does: a change made while a solo room is up writes `…!solo`
+     and touches nothing a team room reads, and a solo room **follows the
+     team-room value until explicitly set apart** — the same
+     follows-until-overridden shape as game-vs-master, so nothing needed
+     migrating and a setting adopts the fork by declaring one word. The roster
+     is read raw rather than through get() because the `roster` def registers
+     later than this file loads, and raw is correct at every moment. */
+  const SOLO_SUF = '!solo';
+  const soloNow = () => values['roster'] === 'solo';
+  const forked  = d => !!(d && d.byRoster);
+  const liveKey = (d, id, game) =>
+    (forked(d) && soloNow()) ? key(id, game) + SOLO_SUF : key(id, game);
+
   /* `games:'*'` means every game there is, resolved when asked rather than when the
      setting was registered. That distinction is not academic: the settings block
      runs once, near the top of hub-engine.js, and a game registered after it was
@@ -93,6 +110,16 @@ window.HubSettings = (function(){
   function get(id, game){
     const d = byId[id];
     if(!d) return undefined;
+    /* A solo room's own choice outranks everything; with none made, the solo
+       room inherits whatever the team-room chain below resolves to. */
+    if(forked(d) && soloNow()){
+      if(game && scoped(d)){
+        const so = values[key(id, game) + SOLO_SUF];
+        if(so !== undefined && so !== null) return so;
+      }
+      const sm = values[id + SOLO_SUF];
+      if(sm !== undefined && sm !== null) return sm;
+    }
     if(game && scoped(d)){
       const o = values[key(id, game)];
       if(o !== undefined && o !== null) return o;
@@ -105,20 +132,25 @@ window.HubSettings = (function(){
   function set(id, v, game){
     const d = byId[id];
     if(!d) return;
-    values[key(id, game && scoped(d) ? game : null)] = v;
+    values[liveKey(d, id, game && scoped(d) ? game : null)] = v;
     save();
     listeners.forEach(fn=>{ try{ fn(id, v, game || null); }catch(e){} });
   }
 
+  /* Both of these ask about the room type the teacher is standing in: in a solo
+     room a forked setting's "override" is its solo value, so `roundModeOf`'s
+     downgrade and every row's state line stay correct with no caller changed. */
   function clearOverride(id, game){
     if(!game) return;
-    delete values[key(id, game)];
+    delete values[liveKey(byId[id], id, game)];
     save();
     listeners.forEach(fn=>{ try{ fn(id, get(id, game), game); }catch(e){} });
   }
 
   function hasOverride(id, game){
-    return !!game && values[key(id, game)] !== undefined && values[key(id, game)] !== null;
+    if(!game) return false;
+    const v = values[liveKey(byId[id], id, game)];
+    return v !== undefined && v !== null;
   }
 
   /* Variants can name the games they suit, so a hexagon animation is never offered
@@ -149,7 +181,9 @@ window.HubSettings = (function(){
   }
 
   function resetAll(){
-    Object.keys(values).forEach(k=>{ if(k.indexOf('@') !== -1) delete values[k]; });
+    Object.keys(values).forEach(k=>{
+      if(k.indexOf('@') !== -1 || k.indexOf(SOLO_SUF) !== -1) delete values[k];
+    });
     defs.forEach(d=>{ values[d.id] = d.default; });
     save();
     defs.forEach(d=>listeners.forEach(fn=>{ try{ fn(d.id, values[d.id], null); }catch(e){} }));
@@ -343,25 +377,40 @@ window.HubSettings = (function(){
     // on a game's view, say plainly whether this game is following the default
     if(game){
       const ownDefault = !!(d.defaults && d.defaults[game] != null);
+      const soloRow = forked(d) && soloNow();
       const state=document.createElement('div');
       state.className='settings-state';
       if(hasOverride(d.id, game)){
         state.classList.add('overridden');
-        state.textContent='Set for this game · ';
+        state.textContent = soloRow ? 'Set for rooms of individuals · ' : 'Set for this game · ';
         const undo=document.createElement('button');
         undo.type='button'; undo.className='settings-undo';
-        /* Undoing an override returns to whatever ranks next — for a game with a
-           registered default of its own, that is its default, not the master, and
-           the button must not claim otherwise. */
-        undo.textContent = ownDefault ? 'back to this game’s default' : 'match All games';
+        /* Undoing an override returns to whatever ranks next — for a solo-room
+           value that is the team-room rules, for a game with a registered
+           default of its own, its default rather than the master — and the
+           button must not claim otherwise. */
+        undo.textContent = soloRow ? 'back to the team-room rules'
+                         : ownDefault ? 'back to this game’s default' : 'match All games';
         undo.addEventListener('click', ()=>{ clearOverride(d.id, game); render(); });
         state.appendChild(undo);
       } else {
         /* "Matching All games" would be a lie for a game registered with its own
-           default — it is not following the master and never was. */
-        state.textContent = ownDefault ? 'This game’s own default' : 'Matching All games';
+           default — it is not following the master and never was. In a solo room
+           a forked row is following the team-room rules, which is the truer fact
+           than which scope those rules came from. */
+        state.textContent = soloRow ? 'Individuals — following the team-room rules'
+                          : ownDefault ? 'This game’s own default' : 'Matching All games';
       }
       text.appendChild(state);
+      /* The mirror of the line above: a team room whose individuals have gone
+         their own way should say so, or the fork is a silent mismatch — the
+         same trap the master tab already names per game. */
+      if(forked(d) && !soloNow() && values[key(d.id, game) + SOLO_SUF] != null){
+        const rn=document.createElement('div');
+        rn.className='settings-preset-note';
+        rn.textContent='Rooms of individuals have their own value for this.';
+        text.appendChild(rn);
+      }
       /* A row whose stored value is not what the room will actually play — the
          registrar knows why (a solo room downgrading a whole-team mode, say) and
          says so through this hook, evaluated at draw time because the reason is
