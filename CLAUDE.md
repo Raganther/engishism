@@ -1263,6 +1263,10 @@ playground's point, that one board can host several:
     hoist, so motion inside the closure costs nothing.
   - Skills checked for rot the same hour: `new-game`, `new-mode` and `new-round`
     all named the old symbols and were updated.
+  - Proved behaviour-neutral: `grouping,qbench,millionaire,fit,phone,card,turns,
+    gameshow,lab,registry,competition` **499/1**, and the one red is the known
+    ordering-climb overflow (726px on a 720 board), unrelated and deliberately
+    still red.
 - **Every point movement says why — the score receipt, second stage of the
   three-seam plan.** The report used to *diff* scores and infer, which is exactly
   how an unexplained 600 stays unexplained: five paths bypassed `award()` entirely
