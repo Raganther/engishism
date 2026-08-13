@@ -1021,6 +1021,18 @@
     shares, settle, clock, results, poll, agreement, lanes, placeBadge, crowd, crowdKnown, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour,
     /* A comma-separated field as a list. Three rounds' editors parse one, which
        is what puts it here rather than in each of them. */
-    list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); }
+    list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); },
+    /* **The two ways a slot round is played, written once.** Three rounds each
+       hand-wrote their own labels for these same two ideas — "First team to spell
+       it" / "…with the right answer" / "…to order it" — and the wording drifted
+       the day it was written, six strings for two facts. The behaviour was always
+       shared (`poll`/`agreement`, above); now the words are too, so every mode
+       row in ⚙ and on the tune pane reads identically and a teacher learns one
+       vocabulary. A round whose modes are genuinely different things — ordering's
+       one-ladder-or-a-ladder-each — still writes its own. */
+    mode: {
+      first: { value:'first', label:'First team with the right answer takes it' },
+      agree: { value:'agree', label:'A team answers only when all of them agree on the answer' }
+    }
   };
 })();

@@ -1243,6 +1243,31 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **One wording for the two slot-round modes, and a mode row tells the truth in a
+  solo room.** Asked as "shouldn't the defaults change between team and individual
+  mode?" — they already did, at play time (`roundModeOf` downgrades a whole-team
+  mode to the solo one, the teacher's override outranking it); what was wrong was
+  the *display* and the *names*.
+  - **`Kit.round.mode` — the shared pair.** `first`/`agree` appear in three
+    rounds and were six hand-written labels for two ideas, drifted the day they
+    were written ("to spell it" / "with the right answer" / "to order it"). The
+    behaviour was always shared (`poll`/`agreement`); now the words are — choice,
+    anagram and scramble pick `[K.round.mode.first, K.round.mode.agree]`, so
+    every mode row reads identically and a teacher learns one vocabulary.
+    Ordering keeps its own labels: its modes are genuinely different things.
+  - **`stateNote` on a settings def** — an optional hook `buildRow` draws as an
+    advisory line, evaluated at render time because the reason is a live fact
+    about the room. The round rows use it: in a solo room a row stored on the
+    whole-team mode says `A room of individuals — playing as "First team with
+    the right answer takes it"`, mirroring `roundModeOf`'s conditions exactly
+    (including standing down when the teacher explicitly overrode to the team
+    mode, which really does play as agree in solo). Shows everywhere rows show:
+    panel, drawer, TUNE pill, bench pane.
+  - Proved on the bench: three rounds' selects read identically, zero notes in a
+    teams room, three notes in solo naming the resolved mode, and one
+    individual's tap taking an MC tile — the downgrade the note describes. 5/5;
+    `qbench,anagram,settings,scoping,bench` 204/0. No stored value moved: ids
+    (`first`/`agree`) are untouched, only labels changed.
 - **The room bench has the rules board — a tune pane beside the projector.** Asked
   for by name: the bench is where all testing and tuning happens, and the only
   tuning entrances were inside the scaled board iframe (⚙, the card's TUNE pill) —

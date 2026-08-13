@@ -1114,7 +1114,20 @@
       games: own.games || ROUND_GAMES,
       label: own.label || ('How ' + (def.label || id) + ' is played'),
       variants: def.modes.slice(),
-      help: own.help || 'The same question played more than one way. These are different lessons rather than two speeds of the same one, so it is a teaching choice.' });
+      help: own.help || 'The same question played more than one way. These are different lessons rather than two speeds of the same one, so it is a teaching choice.',
+      /* The row says what the room will actually play. In a room of individuals a
+         whole-team mode resolves to the round's solo mode at play time
+         (`roundModeOf` — "everyone agrees" is meaningless for a competitor of
+         one), and a row that went on showing the team wording was the pane
+         quietly disagreeing with the board beside it. Mirrors roundModeOf's
+         conditions exactly, including the teacher's override outranking it. */
+      stateNote: g => {
+        if(!def.teamMode || !Roster.solo()) return null;
+        if(S.get('round_' + id, g) !== def.teamMode) return null;
+        if(S.hasOverride('round_' + id, g)) return null;
+        const solo = def.modes.filter(m => m.value !== def.teamMode)[0];
+        return solo ? 'A room of individuals — playing as “' + solo.label + '”' : null;
+      } });
   });
 
   /* Only the boards where a round has a slot one team takes — Quickfire's

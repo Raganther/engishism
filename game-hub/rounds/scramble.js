@@ -53,10 +53,8 @@
     label: 'Drag the Words',
     blurb: 'A shuffled sentence, and a slot for each word.',
 
-    modes: [
-      { value:'first', label:'First team to order it takes it' },
-      { value:'agree', label:'A team answers only when all of them order it the same' }
-    ],
+    // the shared pair — one wording for the two ideas across every slot round
+    modes: [ K.round.mode.first, K.round.mode.agree ],
     teamMode: 'agree',
 
     /* Declared, not only described above, so `tools/question-types.js` can print it. */

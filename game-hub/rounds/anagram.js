@@ -65,10 +65,8 @@
     label: 'Drag the Letters',
     blurb: 'Scrambled letters, and boxes to drag them into.',
 
-    modes: [
-      { value:'first', label:'First team to spell it takes it' },
-      { value:'agree', label:'A team answers only when all of them spell the same word' }
-    ],
+    // the shared pair — one wording for the two ideas across every slot round
+    modes: [ K.round.mode.first, K.round.mode.agree ],
     /* The whole-team mode, for a board that asks for one — see `teamMode` in
        hub-rounds.js. A tile is a team's answer, not the fastest thumb's. */
     teamMode: 'agree',

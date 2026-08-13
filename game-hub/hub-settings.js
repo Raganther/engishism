@@ -362,6 +362,20 @@ window.HubSettings = (function(){
         state.textContent = ownDefault ? 'This game’s own default' : 'Matching All games';
       }
       text.appendChild(state);
+      /* A row whose stored value is not what the room will actually play — the
+         registrar knows why (a solo room downgrading a whole-team mode, say) and
+         says so through this hook, evaluated at draw time because the reason is
+         a live fact about the room, not a property of the definition. */
+      if(d.stateNote){
+        let note = null;
+        try{ note = d.stateNote(game); }catch(e){}
+        if(note){
+          const ln=document.createElement('div');
+          ln.className='settings-preset-note';
+          ln.textContent=note;
+          text.appendChild(ln);
+        }
+      }
     } else if(scoped(d)){
       /* On the master tab, changing this value silently does nothing for a game
          that already has its own — and there was no way to tell, which is
