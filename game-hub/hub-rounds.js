@@ -506,6 +506,69 @@
     return cleared.slice(0, room).map(e => e.k);
   }
 
+  /* ---------- the reveal meter ----------
+     **One anonymous bar: how close the room is to its next crowd reveal.** A
+     threshold you cannot see approaching is just a surprise; the bar is the
+     anticipation, and it pulls eyes to the projector — which is what the crowd
+     reveal is for. It tracks whichever unrevealed part the room is *closest* to
+     agreeing on, **without ever naming it** — the counts-only rule, because a
+     bar on each word is a live poll and the class would follow it from the
+     first pick, quietly lowering the threshold to "whatever makes a bar move".
+
+     Same opts as crowdKnown, same gates (threshold on, big rooms, somebody has
+     started), plus two of its own:
+     - **Hidden once nothing more can ever light** — the never-the-last-part cap
+       means a bar filling toward a reveal that cannot come would be a lie.
+     - **Damped**: the fill glides from where it last stood (1.4s, CSS), never
+       ticks, and shows no numbers — a bar that jumped the instant one phone
+       picked a word would let a sharp student probe words one at a time and
+       read the answer off the twitch. `sig` tells one question's memory from
+       the next round's, or a fresh card would open gliding down from the last
+       question's bar.
+
+     `ctx.crowdMeter === false` is the host's off-switch (the `crowdMeter`
+     setting); absent means on, so the bench inherits it with no wiring — the
+     same contract as the threshold itself. */
+  let meterMemo = { sig: null, frac: 0 };
+  function crowdMeter(mount, ctx, opts){
+    const o = opts || {};
+    const c = ctx || {};
+    if(c.crowdMeter === false) return null;
+    const th = c.crowdReveal == null ? 0.4 : Number(c.crowdReveal);
+    const started = Number(o.started) || 0;
+    if(!th || !started) return null;
+    const competitors = laneTeams(c).length;
+    if(competitors <= 5) return null;
+    const keys = o.keys || [];
+    const given = o.given || [];
+    const of = Math.max(started, competitors);
+    const rated = keys.filter(k => given.indexOf(k) === -1)
+      .map(k => (Number(o.count ? o.count(k) : 0) || 0) / of);
+    const room = Math.max(0, (keys.length - 1) - given.length);
+    if(room <= 0 || rated.filter(f => f >= th).length >= room) return null;
+    const next = rated.filter(f => f < th).reduce((a, b) => Math.max(a, b), 0);
+    const frac = Math.max(0, Math.min(1, next / th));
+    const wrap = document.createElement('div');
+    wrap.className = 'rmeter';
+    const lab = document.createElement('span');
+    lab.className = 'rmeter-label'; lab.textContent = 'next reveal';
+    const track = document.createElement('span');
+    track.className = 'rmeter-track';
+    const fill = document.createElement('span');
+    fill.className = 'rmeter-fill';
+    const sig = String(o.sig != null ? o.sig : keys.join(''));
+    /* Every reply redraws the whole card, so a transition on a fresh element
+       never runs — the fill starts where the last render left it and moves on
+       the next frame, guarded by isConnected (the discarded-render lesson). */
+    fill.style.width = (meterMemo.sig === sig ? meterMemo.frac : 0) * 100 + '%';
+    window.requestAnimationFrame(()=>{ if(fill.isConnected) fill.style.width = (frac * 100) + '%'; });
+    meterMemo = { sig, frac };
+    track.appendChild(fill);
+    wrap.appendChild(lab); wrap.appendChild(track);
+    mount.appendChild(wrap);
+    return wrap;
+  }
+
   function lanes(mount, ctx, opts){
     const o = opts || {};
     const teams = laneTeams(ctx, o.progressed);
@@ -1018,7 +1081,7 @@
       }
       return null;
     },
-    shares, settle, clock, results, poll, agreement, lanes, placeBadge, crowd, crowdKnown, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour,
+    shares, settle, clock, results, poll, agreement, lanes, placeBadge, crowd, crowdKnown, crowdMeter, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour,
     /* A comma-separated field as a list. Three rounds' editors parse one, which
        is what puts it here rather than in each of them. */
     list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); },

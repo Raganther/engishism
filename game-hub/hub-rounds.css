@@ -742,6 +742,33 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
   text-align:center; overflow-wrap:anywhere;
 }
 .rcrowd-more{ opacity:0.6; margin-left:4px; }
+/* The reveal meter — one anonymous bar filling toward the next crowd reveal.
+   Amber on purpose: it announces a giveaway approaching, so it wears the
+   given-away colour, never the earned green. The 1.4s glide is load-bearing —
+   it is the damping that stops one phone's pick reading as a twitch a student
+   could probe words with. Fallbacks inside each var(), never a declaration
+   block, because the bench sets none of these on its ancestors. */
+.rmeter{
+  margin-top:10px; display:flex; align-items:center; gap:10px; justify-content:center;
+  width:min(420px, 90%); margin-left:auto; margin-right:auto;
+}
+.rmeter-label{
+  font-size:0.55em; letter-spacing:0.14em; text-transform:uppercase;
+  color:var(--gw-fg, #12263F); opacity:0.65; white-space:nowrap;
+}
+.rmeter-track{
+  flex:1; height:8px; border-radius:5px; overflow:hidden;
+  background:var(--gw-hintwash, rgba(214,138,16,0.18));
+  border:1px solid var(--gw-hint, #D68A10);
+}
+.rmeter-fill{
+  display:block; height:100%; width:0;
+  background:var(--gw-hint, #D68A10);
+  transition:width 1.4s ease;
+}
+@media (prefers-reduced-motion: reduce){
+  .rmeter-fill{ transition:none; }
+}
 .rl-n{
   font-family:'IBM Plex Mono',monospace; font-size:0.58em; opacity:0.7;
   white-space:nowrap; color:var(--gw-fg, #12263F);

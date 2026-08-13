@@ -975,6 +975,15 @@
     label:'Reveal what the room knows',
     help:'In a big room, a part of the answer fills in once this share of active players have it. 0 switches it off. Never the last part — that stays yours to reveal.' });
 
+  /* The reveal's companion: one anonymous bar filling toward the next reveal —
+     anticipation the room can watch without learning which part is coming. The
+     rules (never per word, hidden at the cap, damped) live in
+     `Kit.round.crowdMeter`; this row only switches the picture. */
+  S.register({ id:'crowdMeter', group:'Questions', type:'toggle', default:true, quick:true,
+    games:'*',
+    label:'Meter toward the next reveal',
+    help:'A bar on the card filling as the room converges on its next reveal, without saying which part. Hidden when nothing more can reveal. Needs the reveal above to be on.' });
+
   /* **The card stops leaving on its own when a round is won.** Reported from a real
      board: the four words light up, the tile flips away, and the room is left with
      no answer on screen and no idea who took it. The round pays the moment it is
@@ -4237,6 +4246,9 @@
          the shelf helper treats *absent* as its own default, so the bench needs
          no wiring — which is why this is `?? 0` and never `|| 0.4`. */
       crowdReveal: (Number(S.get('crowdReveal', activeGame)) || 0) / 100,
+      /* The meter's switch, lent the same way: the shelf treats absent as on,
+         so only an explicit false stands it down and the bench inherits it. */
+      crowdMeter: S.get('crowdMeter', activeGame) !== false,
       /* Who is in the room, read fresh like `sizes` — the information gap deals a
          view per player, and a deal cut from a stale roster misses whoever just
          walked in. */

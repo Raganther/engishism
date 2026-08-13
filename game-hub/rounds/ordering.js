@@ -260,12 +260,14 @@
              prefix; each shows its word with the hint mark once enough of the room
              has climbed past it. The rules — the threshold, never the last rung —
              are the shelf's. */
-          const knownRungs = K.round.crowdKnown(c, {
+          const cw = {
             keys: Array.from({ length: s.need }, (_, i) => i),
             count: i => teams.filter(t => (s.lanes[t] || []).length > i).length,
             started: teams.filter(t => (s.lanes[t] || []).length || (s.leading || {})[t]).length,
-            given: []
-          });
+            given: [],
+            sig: s.scale.join('|')
+          };
+          const knownRungs = K.round.crowdKnown(c, cw);
           if(knownRungs.length || s.shown){
             const lane = document.createElement('div');
             lane.className = 'ord-lane';
@@ -290,6 +292,9 @@
             lane.appendChild(ladder);
             mount.appendChild(lane);
           }
+          /* The reveal meter — how close the room is to the next rung lighting
+             on the reference ladder, never which team is about to clear it. */
+          if(!s.shown && !s.done) K.round.crowdMeter(mount, c, cw);
           K.round.crowd(mount, c, { entries: teams
             .filter(t => (s.lanes[t] || []).length || (s.leading || {})[t])
             .map(t => ({ who: t,

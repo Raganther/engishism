@@ -100,13 +100,15 @@
       /* The crowd reveal: an in-group word enough of the room is already holding
          gets the hint mark — confirmed rather than answered, exactly what a hint
          does. Big rooms only, never the fourth word; the rules are the shelf's. */
-      const known = (s.hint || []).concat(K.round.crowdKnown(c, {
+      const cw = {
         keys: s.pick,
         count: w => Object.keys(s.picks || {})
                       .filter(t => (s.picks[t] || []).indexOf(w) !== -1).length,
         started: Object.keys(s.picks || {}).length,
-        given: s.hint || []
-      }));
+        given: s.hint || [],
+        sig: s.pick.join('|')
+      };
+      const known = (s.hint || []).concat(K.round.crowdKnown(c, cw));
       s.words.forEach(w=>{
         const b = document.createElement('button');
         b.type = 'button';
@@ -179,6 +181,11 @@
           }
         });
       }
+
+      /* The reveal meter — how close the room is to the next word lighting,
+         never which word. Live rounds only: a bar under a decided answer would
+         promise a reveal that is not coming. */
+      if(!s.done) K.round.crowdMeter(mount, c, cw);
 
       /* Always drawn, empty or not — see `Kit.round.say`. An appearing line was
          what made the card jump on the first hint. */

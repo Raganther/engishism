@@ -145,13 +145,15 @@
       mount.style.setProperty('--scr-w', (widest + 1) + 'ch');
       /* The crowd reveal, exactly as Drag the Letters does it: slots enough of the
          room already has fill in beside the hint's, same mark, same shelf rules. */
-      const known = (s.hint || []).concat(K.round.crowdKnown(c, {
+      const cw = {
         keys: Array.from({ length: s.need }, (_, i) => i),
         count: i => Object.keys(s.got || {}).filter(t =>
           ((s.got[t] || [])[i] || 0) >= K.round.mustHold(s.mode, c, t)).length,
         started: Object.keys(s.leading || {}).length,
-        given: s.hint || []
-      }));
+        given: s.hint || [],
+        sig: s.words.join('|')
+      };
+      const known = (s.hint || []).concat(K.round.crowdKnown(c, cw));
       for(let i = 0; i < s.need; i++){
         const b = document.createElement('div');
         b.className = 'scr-slot';
@@ -298,6 +300,10 @@
           }
         });
       }
+
+      /* The reveal meter — how close the room is to the next slot filling in,
+         never which slot. Live rounds only. */
+      if(!s.shown && !s.done) K.round.crowdMeter(mount, c, cw);
 
       /* Always drawn, empty or not — see `Kit.round.say`. An appearing line was
          what made the card jump on the first hint. */

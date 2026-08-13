@@ -1246,6 +1246,35 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The reveal meter — one anonymous bar filling toward the next crowd reveal,
+  `Kit.round.crowdMeter`.** Asked for as "a visual cue of the 40%": a threshold
+  you cannot see approaching is just a surprise, and the anticipation is what
+  pulls eyes to the projector. The bar tracks whichever unrevealed part the room
+  is *closest* to agreeing on — **without ever naming it**, the counts-never-
+  content rule, because a bar per word is a live poll the class would follow
+  from the first pick, quietly lowering the threshold to "whatever makes a bar
+  move".
+  - **Same gates as `crowdKnown`** (threshold on, >5 competitors, somebody has
+    started) **plus two of its own**: hidden once nothing more can ever light
+    (the never-the-last-part cap, hints counted — a bar filling toward a reveal
+    that cannot come is a lie), and **damped** — the fill glides 1.4s from where
+    it last stood, no numbers, so one phone's pick cannot be read off a twitch
+    by a student probing words one at a time. `sig` on the opts tells one
+    question's memory from the next, or a fresh card would open gliding down
+    from the last question's bar.
+  - **Four rounds call it beside their `crowdKnown` call** (grouping, both drag
+    rounds, ordering's race under its reference ladder), live rounds only. The
+    opts object is built once and passed to both, so the two can never count
+    differently. Amber (`--gw-hint`) — it announces a giveaway approaching, so
+    it wears the given-away colour, never the earned green.
+  - **`crowdMeter` toggle** (Questions, default on, quick — it sits beside the
+    threshold slider in the tune pane), lent as `ctx.crowdMeter` where absent
+    means on, so the bench inherits it with no wiring, the threshold's own
+    contract.
+  - Proved with a 12-check fabricated 16-solo drive on the Lab page (fill maths,
+    reset to next-closest on a reveal, hidden at the cap/small room/no activity/
+    decided round, the off-switches) and a card-metrics screenshot under the
+    game-show palette.
 - **Team rules and individual rules are separate now — how a round is played forks
   by room type.** Asked from the room bench: flipping Word Thermometer between one
   ladder and a ladder each in a solo room also rewrote the team game, because the
