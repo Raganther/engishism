@@ -178,7 +178,29 @@
          its own picture of who is playing has to hear about it. Quickfire's
          leaderboard is the first caller — without this a latecomer scored and never
          appeared on it. A no-op for every board that reads `teams` at draw time. */
-      onRoster:     NO_OP
+      onRoster:     NO_OP,
+      /* ---- declared facts that used to be `activeGame ===` branches ----
+         Each of these replaced a by-name switch in shared code, which is the
+         defect class this project has paid for most: a new game had to be
+         threaded into every one by hand, with nothing complaining if you missed
+         one. Declared, a game registered next month is correct by default. */
+      /* The items this game's content-screen round filter counts over. */
+      bank:         function(){ return []; },
+      /* The unit a manual ± correction moves in, and the unit a payout is
+         rounded to. The two boards that score in hundreds nudge by 100 and pay
+         in 50s — half a $100 tile is 50, and rounding that to the nearest 100
+         handed a steal the full value. Everything else moves in single points. */
+      nudgeStep:    1,
+      payStep:      1,
+      /* A setting changed mid-board that this game wants to react to — repaint
+         a line, re-plant a hidden tile, re-read a clock. Fires only while this
+         game is active, exactly as the hand-written branches guarded. */
+      onSetting:    NO_OP,
+      /* Which team the scorebar highlights as "on turn" (Blockbusters rotates
+         within sides; Race head-to-head has no turn at all → return -1), and
+         any extra markup a team's chip carries (Blockbusters' side-colour dot). */
+      turnTeam:     null,      // null = the shared `active` index
+      teamDecor:    function(){ return ''; }
     }, def);
     GAMES.push(g);
     GAME_BY_ID[g.id] = g;
@@ -227,6 +249,17 @@
     hasBank: u => (u.jeopardyCategories||[]).length > 0,
     load(u){ JEOPARDY_SECTION_LABELS = u.jeopardySectionLabels || {};
              JEOPARDY_CATEGORIES     = u.jeopardyCategories || []; },
+    bank: () => JEOPARDY_CATEGORIES.reduce((a,c)=> a.concat(c.clues||[]), []),
+    // scores in hundreds: corrections nudge by 100, payouts round to 50
+    nudgeStep: 100, payStep: 50,
+    onSetting(id){
+      if(id==='jTogether' || id==='jTarget' || id==='jRules'){ renderClassLine(); hook('onResize'); }
+      /* Changing the ruleset mid-board reaches the board. Planting only among the
+         unplayed tiles is what keeps that honest — see jPlantDailyDoubles. */
+      if((id==='jDailyDoubles' || id==='jRules') &&
+         document.getElementById('screen-play').classList.contains('active')) jPlantDailyDoubles();
+      if(id==='jHints') renderHintButton();
+    },
     renderContent: renderJeopardyContent,
     startButton:   jeopardyStartButton,
     start(){ buildJeopardyBoard(); timerSetDuration(30); },
@@ -298,6 +331,12 @@
     load(u){ BLOCKBUSTERS_BANK          = u.blockbustersBank || [];
              BLOCKBUSTERS_SECTION_NAMES = u.blockbustersSectionNames || {};
              BLOCKBUSTERS_TOPIC_NAMES   = u.topicNames || {}; },
+    bank: () => BLOCKBUSTERS_BANK,
+    /* The *team* on turn — only the side index while there are two teams; with
+       four it rotates within each side. And every chip wears its side's colour,
+       because a hexagon belongs to a side while points belong to a team. */
+    turnTeam: () => bbTeamOnTurn(),
+    teamDecor: i => `<span class="dot" style="background:${bbSideOf(i)===0?'var(--yellow)':'var(--blue)'}"></span>`,
     renderContent: renderBlockbustersContent,
     startButton:   blockbustersStartButton,
     start(){
@@ -356,6 +395,15 @@
     load(u){ RACE_BANK          = u.raceBank || [];
              RACE_SECTION_NAMES = u.raceSectionNames || {};
              RACE_TOPIC_NAMES   = u.topicNames || {}; },
+    bank: () => RACE_BANK,
+    // head-to-head has no "whose turn" — both teams are at the board at once
+    turnTeam: () => raceMode==='h2h' ? -1 : active,
+    onSetting(id){
+      if(id==='raceShowSection' && raceCurrent) setRacePrompt(raceCurrent);
+      if(id==='raceRoundSeconds' && raceMode==='timed' && !raceRunning){
+        timerSetDuration(Number(S.get('raceRoundSeconds', 'race')) || 60);
+      }
+    },
     renderContent: renderRaceContent,
     startButton:   raceStartButton,
     start(){
@@ -414,6 +462,9 @@
     load(u){ MILLIONAIRE_BANK          = u.millionaireBank || [];
              MILLIONAIRE_SECTION_NAMES = u.millionaireSectionNames || {};
              MILLIONAIRE_TOPIC_NAMES   = u.topicNames || {}; },
+    bank: () => MILLIONAIRE_BANK,
+    // scores in hundreds: corrections nudge by 100, payouts round to 50
+    nudgeStep: 100, payStep: 50,
     renderContent: renderMillionaireContent,
     startButton:   millionaireStartButton,
     start(){ buildMillionaire();
@@ -472,6 +523,7 @@
     load(u){ BINGO_BANK          = u.bingoBank || u.blockbustersBank || [];
              BINGO_SECTION_NAMES = u.blockbustersSectionNames || {};
              BINGO_TOPIC_NAMES   = u.topicNames || {}; },
+    bank: () => bingoWordsIn(BINGO_BANK),
     renderContent: renderBingoContent,
     startButton:   bingoStartButton,
     /* Cards on phones needs a room even at `phoneMode: off` — the cards *are* the
@@ -568,6 +620,7 @@
     load(u){ KAHOOT_BANK          = u.millionaireBank || [];
              KAHOOT_SECTION_NAMES = u.millionaireSectionNames || {};
              KAHOOT_TOPIC_NAMES   = u.topicNames || {}; },
+    bank: () => KAHOOT_BANK,
     renderContent: renderKahootContent,
     startButton:   kahootStartButton,
     start(){ startKahoot(); },
@@ -2844,19 +2897,15 @@
        nothing else is worse than not offering it. */
     if(!playing) bar.appendChild(rosterSwitch());
 
-    // head-to-head has no "whose turn" — both teams are at the board at once
-    const hi = !playing ? -1
-             /* the *team* playing this turn, which is only the side index while
-                there are two teams — with four it rotates within each side */
-             : (activeGame==='blockbusters') ? bbTeamOnTurn()
-             : (activeGame==='race' && raceMode==='h2h') ? -1
-             : active;
-    const step = (activeGame==='jeopardy' || activeGame==='millionaire') ? 100 : 1;   // manual +/- correction step
+    /* Who is highlighted as on turn, and what a chip wears, are the game's own
+       facts now — `turnTeam()` and `teamDecor(i)` on the registry, replacing the
+       by-name branches that a new game had to be threaded into by hand. */
+    const g  = playing ? gameDef() : null;
+    const hi = !playing ? -1 : (g && g.turnTeam) ? g.turnTeam() : active;
+    const step = (g && g.nudgeStep) || 1;   // manual +/- correction, in the game's own unit
     teams.forEach((t, i)=>{
       const el=document.createElement('div'); el.className='team'+(i===hi?' active':'');
-      // in Blockbusters every team wears its *side's* colour, not just the first two
-      const dot = (activeGame==='blockbusters')
-        ? `<span class="dot" style="background:${bbSideOf(i)===0?'var(--yellow)':'var(--blue)'}"></span>` : '';
+      const dot = g ? (g.teamDecor(i) || '') : '';
       // two is the floor — every board is built for at least two sides — so the
       // remove button only appears above it, and it never appears on the last two
       // the remove control hides at the floor, so the floor is asked rather than restated
@@ -2981,12 +3030,12 @@
        run that had not happened yet. */
     const mult = (o.streak !== false && S.get('streak', activeGame)) ? runMultiplier(t.run) : 1;
     value *= mult;
-    /* Round to 50s, not 100s, in the games that score in hundreds. Half of a $100
-       tile is 50, and rounding that to the nearest 100 hands back the full value —
-       the steal was silently paying the same as answering it correctly. Every value
-       these two games produce (halves of 100–500 and of the ladder, times 1.5 or 2)
-       is already a multiple of 50, so this rounds nothing away. */
-    const step = (activeGame==='jeopardy' || activeGame==='millionaire') ? 50 : 1;
+    /* Rounded to the game's own declared unit — `payStep`, 50 on the boards that
+       score in hundreds (half a $100 tile is 50, and rounding that to the nearest
+       100 handed a steal the full value), 1 everywhere else. Every value those
+       boards produce is already a multiple of 50, so this rounds nothing away. */
+    const g = gameDef();
+    const step = (g && g.payStep) || 1;
     value = Math.max(step, Math.round(value / step) * step);
     /* The receipt line carries award's own arithmetic — the *paid* number with what
        was done to it on the way — because a report reader cannot re-derive a half
@@ -3457,15 +3506,11 @@
 
      It hides itself below two types: a filter with a single option is a control
      that cannot change anything, and a filter with none is a lie. */
+  /* The game declares its own bank — this was a five-way switch on the game's
+     name, the exact shape the registry exists to remove. */
   function bankForFilter(){
-    const g = gameDef(); if(!g) return [];
-    if(activeGame === 'jeopardy')
-      return JEOPARDY_CATEGORIES.reduce((a,c)=> a.concat(c.clues||[]), []);
-    if(activeGame === 'blockbusters') return BLOCKBUSTERS_BANK;
-    if(activeGame === 'race')         return RACE_BANK;
-    if(activeGame === 'millionaire' || activeGame === 'kahoot') return MILLIONAIRE_BANK;
-    if(activeGame === 'bingo')        return bingoWordsIn(BINGO_BANK);
-    return [];
+    const g = gameDef();
+    return g ? (g.bank() || []) : [];
   }
   function renderRoundFilter(){
     const strip = document.getElementById('round-filter');
@@ -8994,20 +9039,11 @@
        game's tension hook does that: it is the single place that knows whether a
        question is live, and it starts or stops the bed accordingly. */
     if(id==='musicBed' || id==='sound' || id==='soundVolume') hook('tension');
-    if((id==='jTogether' || id==='jTarget' || id==='jRules') && activeGame==='jeopardy'){
-      renderClassLine(); hook('onResize');
-    }
-    /* Changing the ruleset mid-board now reaches the board. Planting only among the
-       unplayed tiles is what keeps that honest — see jPlantDailyDoubles. */
-    if((id==='jDailyDoubles' || id==='jRules') && activeGame==='jeopardy' &&
-       document.getElementById('screen-play').classList.contains('active')){
-      jPlantDailyDoubles();
-    }
-    if(id==='jHints' && activeGame==='jeopardy') renderHintButton();
-    if(id==='raceShowSection' && activeGame==='race' && raceCurrent) setRacePrompt(raceCurrent);
-    if(id==='raceRoundSeconds' && activeGame==='race' && raceMode==='timed' && !raceRunning){
-      timerSetDuration(Number(S.get('raceRoundSeconds', 'race')) || 60);
-    }
+    /* What a game does about its own settings changing mid-board is the game's —
+       `onSetting` on the registry. This was five by-name branches (three
+       Jeopardy, two Race) that a sixth game would have had to join by hand.
+       `hook` fires only for the active game, which is what they all guarded. */
+    hook('onSetting', id);
   });
   if(UNITS.length===1){
     loadUnit(UNITS[0]);
