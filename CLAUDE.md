@@ -1243,6 +1243,22 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Six declarations replaced eleven `activeGame` branches — C0.2 of the skins
+  split.** Shared code stopped asking which game is playing and started asking
+  the game itself. New on the `registerGame` contract, each defaulting to the
+  old behaviour: `bank()` (the content filter's items — was `bankForFilter`'s
+  five-way switch), `nudgeStep`/`payStep` (the ± correction unit and award's
+  rounding unit — was the two `jeopardy||millionaire` branches; both boards
+  declare 100/50), `onSetting(id)` (a game's own reaction to a mid-board setting
+  change — was five by-name branches in the init `S.onChange`, and `hook()`
+  already fires only for the active game, which is what they all guarded),
+  `turnTeam()` (whose chip the scorebar highlights — Blockbusters rotates within
+  sides, Race h2h returns −1), and `teamDecor(i)` (Blockbusters' side-colour
+  dot). 28 → 17 `activeGame` lines; the survivors sit inside games' own code and
+  leave with their extractions. Verified twice: a 5-check seam drive (filter
+  chips, ±100, dots, highlight, h2h none) and the shared set
+  `millionaire,fit,phone,card,turns,gameshow,lab,registry,competition,content`
+  **321/0**.
 - **One wording for the two slot-round modes, and a mode row tells the truth in a
   solo room.** Asked as "shouldn't the defaults change between team and individual
   mode?" — they already did, at play time (`roundModeOf` downgrades a whole-team
