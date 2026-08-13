@@ -1243,6 +1243,38 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A stale page announces itself — the reload chip, first stage of the agreed
+  three-seam plan** (deploy seam · money seam · file seam — the plan came from a
+  first-principles review; the receipt and the skins split are the next two).
+  Twice in one session a "bug" was a browser running an old build in memory: the
+  shell asks for the old `?v=`, gets its own cached assets, and ⚙'s build stamp
+  agrees with the lie because it reports what the shell *asked for*.
+  - **The page checks for itself** — its own stamp read off its script tags
+    against a `cache:'no-store'` fetch of its own HTML. Both sides derived, so
+    there is nothing new to keep in step. Once ~10s after load, then on returning
+    to a visible tab, throttled to five minutes.
+  - **Offers, never forces.** A fixed pill bottom-left: `new version · tap to
+    reload`, the title naming both builds. Fixed-position on purpose — anything
+    occupying layout space above a board owes it a re-fit, and this chip can
+    appear mid-lesson.
+  - **The tap navigates with `fresh=<new stamp>`**, existing params preserved —
+    a *different URL* is what defeats an in-app browser's cache, where a plain
+    reload hands back the same stale copy. The room memory is localStorage and
+    survives untouched.
+  - Lives at the bottom of `hub-buzzer.js` — the one file 9 of the 11 stamped
+    pages load (`phone-bench.html` and `dev.html` are dev-only and skipped).
+    Inert on `file://` (no server to be newer), under the suite
+    (`HUB_BUILDWATCH_ANYWAY` opts in — the `?rack=auto` shape), on an unstamped
+    page (no build to be stale against), and on an unreadable fetch (unknown is
+    not stale).
+  - **check-syntax's stamp check stopped carrying a list.** Four hand-typed
+    shells had already drifted once; it walks every stamped page now (11 found),
+    keeping the date-shaped pattern because `classic.html`'s `?v=picture` is a
+    content selector. Proved both ways — a doctored playground stamp fails by
+    name.
+  - Driven end to end on the relay: stamp bumped on disk under a live page, chip
+    up at the first look, tap navigating with params and room key intact, no chip
+    once the stamps agree. 9/9.
 - **The final question is off Classic's list — `jFinalQuestion`, default off, no
   bundle writes it.** The first ef-2a class met it by accident (Classic persisted
   from a test), it confused the room, paid everybody, and swallowed the winner

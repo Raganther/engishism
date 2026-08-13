@@ -115,12 +115,23 @@ walk('game-hub', '.css').forEach(checkCSS);
   });
 })();
 
-/* ---- the cache stamp: one value, or the phone gets a mix of two builds ---- */
-const shells = ['game-hub.html', 'game-hub-unit4.html', 'game-hub-unit5.html', 'join.html'];
+/* ---- the cache stamp: one value, or the phone gets a mix of two builds ----
+   Found, not listed. This was four hand-typed shells and it had already drifted
+   once: the playground pages sat two days stale outside it, which read as the
+   bench being broken rather than as a stale asset. Every stamped page is found
+   by search now. The date shape in the pattern is load-bearing — classic.html
+   carries ?v=picture and ?v=unit1, which are content selectors, and a looser
+   pattern would drag them in as a false disagreement. */
 const stamps = new Set();
-shells.forEach(f => (fs.readFileSync(path.join(ROOT, f), 'utf8').match(/\?v=[0-9a-z]+/g) || [])
-                      .forEach(v => stamps.add(v)));
-if (stamps.size > 1) problems.push(`cache stamp disagrees across the shells: ${[...stamps].join(' ')}`);
+const stamped = [];
+walk('.', '.html').forEach(rel => {
+  if (rel.indexOf('node_modules') !== -1) return;
+  const hits = fs.readFileSync(path.join(ROOT, rel), 'utf8').match(/\?v=20[0-9]{6}[a-z]*/g) || [];
+  if (hits.length) stamped.push(rel);
+  hits.forEach(v => stamps.add(v));
+});
+if (stamps.size > 1)
+  problems.push(`cache stamp disagrees across ${stamped.length} stamped pages: ${[...stamps].join(' ')}`);
 
 if (problems.length){
   console.error('  ' + problems.length + ' problem' + (problems.length > 1 ? 's' : '') + ':');
