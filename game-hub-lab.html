@@ -32,6 +32,10 @@
 <script src="game-hub/rounds/drop.js?v=20260813h"></script>
 <script src="game-hub/rounds/bingo.js?v=20260813h"></script>
 <script src="game-hub/hub-settings.js?v=20260813h"></script>
+<script src="game-hub/hub-games.js?v=20260813h"></script>
+<!-- Games in their own files register here, before the engine loads and consumes
+     everything registered — the same pattern as rounds/*.js into hub-rounds.js. -->
+<script src="game-hub/games/quickfire.js?v=20260813h"></script>
 <script src="game-hub/hub-engine.js?v=20260813h"></script>
 <script>
 /* The reveal clues have nothing to reveal with hints switched off, and this board

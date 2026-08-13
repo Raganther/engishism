@@ -95,135 +95,17 @@
 
      Hooks run only while their game is the active one, so none of them needs to
      check. Registration order is the order the cards appear on the game screen. */
-  const GAMES = [];
-  const GAME_BY_ID = Object.create(null);
-  const NO_OP = function(){};
-  // the settings panel labels its per-game tabs from this
-  const HUB_GAME_TITLES = {};
-  window.HUB_GAME_TITLES = HUB_GAME_TITLES;
+  /* The registry lives in `hub-games.js` now — loading before the game files and
+     before this engine, the `hub-rounds.js` → `rounds/*.js` → engine pattern. The
+     six built-ins still declare themselves below because their logic shares this
+     closure; an external game file registers into the same registry and the
+     engine, loading last, consumes everything already registered. */
+  if(!window.HubGames) throw new Error('hub-games.js must load before hub-engine.js');
+  const GAMES = window.HubGames.all();
+  const registerGame = def => window.HubGames.register(def);
+  const HUB_GAME_TITLES = window.HUB_GAME_TITLES;
 
-  function registerGame(def){
-    if(!def || !def.id) throw new Error('registerGame: a game needs an id');
-    if(GAME_BY_ID[def.id]) return GAME_BY_ID[def.id];
-    const g = Object.assign({
-      title: def.id,
-      stage: 'play-' + def.id,     // the id of its panel on the play screen
-      card:  { icon:'', blurb:'', badge:'' },
-      intro: null,                 // no ident = no title sequence, and that's fine
-      hasBank: function(){ return false; },
-      // is this board sized to the screen? every one so far is except Blockbusters,
-      // which scales itself around the end-of-round banner instead
-      fitsScreen: true,
-      load: NO_OP, renderContent: NO_OP, startButton: NO_OP,
-      start: NO_OP, fit: NO_OP, deal: NO_OP, tension: NO_OP,
-      onResize: NO_OP, onTimerEnd: NO_OP, onWrong: NO_OP,
-      /* ---- the phone contract ----
-         These six are what a game owes the room, and they are the reason every
-         phone dynamic reaches every board. They were `if (activeGame === …)` chains
-         inside the phone layer until a fifth game proved the point: buzzing,
-         everyone-types, type-then-buzz and the class vote each had to be threaded
-         through four functions by hand, and nothing complained if one was missed.
-         Declare these and a new game inherits all of it, including modes that do
-         not exist yet. Leave them out and its phones are simply idle — a visible,
-         correct state rather than a half-wired one. */
-      expects:      function(){ return ''; },    // what a typed answer is judged against
-      phonePrompt:  function(){ return ''; },    // what the handset shows
-      askingNow:    function(){ return false; }, // is a question open right now
-      buzzEntitled: function(){ return true; },  // false = refuse this buzz, engine re-arms
-      onBuzzTaken:  NO_OP,                       // somebody has the floor
-      onTypedWin:   function(){ return null; },  // typed and correct: score it, return the points
-      /* The vote is the second half of the contract. A vote is not a phone *mode* —
-         it borrows every phone in the room for the few seconds it runs and then
-         gives them back — so a game says whether it ever asks the room something
-         (which is what keeps a room open at `phoneMode:off`), and what to do with
-         the replies as they land. */
-      wantsVote:    function(){ return false; },
-      onVoteReply:  NO_OP,
-      /* What the room chip says when `phoneMode` is off but the game still wants a
-         room. The default is the vote, because that was the only reason to have one
-         — but "votes only" over a game where every phone is holding a bingo card is
-         simply wrong, and the chip is the thing a class reads while deciding
-         whether to bother joining. */
-      roomNote:     function(){ return null; },
-      /* `phoneMode` says what a phone does during a question — buzz, write, type —
-         and that is right for a board every phone is watching. Some games *are* the
-         phone dynamic: Bingo with the cards in their hands has nine words to tap,
-         and a buzzer over the top of that is not a choice between iterations, it is
-         two dynamics fighting. A game returning `{mode, prompt, options}` here owns
-         the round; `null` means the mode decides, which is what four of the five
-         games always want. */
-      phoneRound:   function(){ return null; },
-      /* **How this game's bank item becomes a round**, when the round is derived
-         rather than authored. Millionaire's items carry `{answer, distractors}` and
-         no `choice:` field, so `Kit.round.of()` cannot see a round in the data — the
-         game builds one when the question opens. Declared here, that same knowledge
-         is available to anything else that needs to ask, and the content screen was
-         the first: without it a ladder of rounds read as "Question".
-
-         Identity by default, so a game whose bank carries its round fields outright
-         (Jeopardy, Blockbusters) declares nothing. */
-      asRound:      function(item){ return item; },
-      /* **Whether this board works with one person per competitor.** Not every one
-         does, and it is a fact about the *geometry* rather than about the questions:
-         Millionaire draws a ladder each and thirty ladders is not a board,
-         Blockbusters has exactly two routes across it, and Race is two people
-         physically at the screen. Jeopardy, Bingo and Quickfire are fine with it.
-         Declared rather than discovered, the same shape as `hasBank` — and `false`
-         by default, because teams is what every board here was built for and a new
-         one should have to say it has thought about the other. */
-      solo:         false,
-      /* **The roster changed under a live board.** In team play that only happens
-         when a teacher presses a button between games; in individual play a student
-         walking in late *is* a new competitor, mid-question, and a board that draws
-         its own picture of who is playing has to hear about it. Quickfire's
-         leaderboard is the first caller — without this a latecomer scored and never
-         appeared on it. A no-op for every board that reads `teams` at draw time. */
-      onRoster:     NO_OP,
-      /* ---- declared facts that used to be `activeGame ===` branches ----
-         Each of these replaced a by-name switch in shared code, which is the
-         defect class this project has paid for most: a new game had to be
-         threaded into every one by hand, with nothing complaining if you missed
-         one. Declared, a game registered next month is correct by default. */
-      /* The items this game's content-screen round filter counts over. */
-      bank:         function(){ return []; },
-      /* The unit a manual ± correction moves in, and the unit a payout is
-         rounded to. The two boards that score in hundreds nudge by 100 and pay
-         in 50s — half a $100 tile is 50, and rounding that to the nearest 100
-         handed a steal the full value. Everything else moves in single points. */
-      nudgeStep:    1,
-      payStep:      1,
-      /* A setting changed mid-board that this game wants to react to — repaint
-         a line, re-plant a hidden tile, re-read a clock. Fires only while this
-         game is active, exactly as the hand-written branches guarded. */
-      onSetting:    NO_OP,
-      /* Which team the scorebar highlights as "on turn" (Blockbusters rotates
-         within sides; Race head-to-head has no turn at all → return -1), and
-         any extra markup a team's chip carries (Blockbusters' side-colour dot). */
-      turnTeam:     null,      // null = the shared `active` index
-      teamDecor:    function(){ return ''; }
-    }, def);
-    GAMES.push(g);
-    GAME_BY_ID[g.id] = g;
-    HUB_GAME_TITLES[g.id] = g.title;
-    return g;
-  }
-
-  /* Exposed so a game can eventually live in its own file and register itself,
-     the way units already do with `window.UNITS`. The four built-ins still declare
-     themselves below because their logic shares this closure; moving them out is a
-     mechanical follow-up, not a change of contract. */
-  window.HubGames = {
-    register: def => registerGame(def),
-    get:      id  => GAME_BY_ID[id] || null,
-    ids:      ()  => GAMES.map(g => g.id),
-    hooksOf:  id  => Object.keys(GAME_BY_ID[id] || {}),
-    renderCards: () => renderGameCards(),
-    /* Which game the board is playing right now, or null between games. The room
-       bench's tune pane follows it; nothing inside the hub reads it. */
-    active:   ()  => activeGame
-  };
-
-  const gameDef  = id => GAME_BY_ID[id === undefined ? activeGame : id] || null;
+  const gameDef  = id => window.HubGames.get(id === undefined ? activeGame : id);
   const gameIds  = () => GAMES.map(g => g.id);
   /* Run a hook on the game being played. Every call site used to be an if-chain
      that a new game had to be threaded into by hand. */
@@ -560,89 +442,6 @@
     onResize: fitBingoCards
   });
 
-  /* Quickfire — the sixth game, and the first with no board at all.
-     ==============================================================
-
-     Every other skin is a geometry with a question hidden behind each cell: a tile,
-     a hexagon, a rung, a word on a track, a square on a card. There is nothing to
-     choose here. Fifteen questions go up in a row against a clock, and the only
-     decisions in the room are made on the handsets.
-
-     **It was built as the cheapest possible test of two claims**, and it is worth
-     recording which:
-
-     1. *A skin costs almost nothing now.* It writes no question handling at all —
-        the Multiple Choice round draws the card, arms the phones, merges each
-        team's taps and judges them. What is written here is a sequence, a clock and
-        a scoreboard.
-     2. *A game can consume a bank rather than author one.* It reads
-        `millionaireBank`, which is already `{prompt, answer, distractors}` — exactly
-        a multiple choice question — so **three units gained a sixth game with no
-        content written at all.** Bingo did this first against `blockbustersBank`;
-        this is the second caller, which is what makes it a pattern.
-
-     **What is genuinely this skin's**, and therefore what is actually new code:
-     every team scores, and what they score depends on how fast they were. Nothing
-     else in the app scores by time. `level` is ignored — a ladder needs difficulty,
-     a straight run does not. */
-  let kQueue = [], kAt = -1, kCurrent = null, kAsked = 0;
-  let kPaid = null, kOver = false;
-
-  const kSecs      = () => Number(S.get('kSeconds', 'kahoot')) || 20;
-  const kBase      = () => Number(S.get('kPoints',  'kahoot')) || 100;
-  const kWanted    = () => Number(S.get('kQuestions', 'kahoot')) || 15;
-  /* The clock is `Kit.round.clock` now — the shared one, which is what lets the
-     value below be the shared curve rather than this skin's private arithmetic. */
-  const kLeft      = () => Kit.round.clock.left();
-  const kLive      = () => !!kCurrent && !kOver;
-
-  registerGame({
-    id:'kahoot', title:'Quickfire',
-    /* **The board solo suits best, and it needed no scoring work to say so.**
-       `scoreEach` already pays every competitor for its own answer at its own
-       speed — there is no slot one side takes — which is exactly the individual
-       model. No geometry, no turns, and with one handset per competitor the
-       whole-team-agrees question does not arise. */
-    solo: true,
-    card:{
-      icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="20" cy="21" r="13"/><path d="M20 13 L20 21 L26 25"/><path d="M14 6 L26 6"/><path d="M20 6 L20 8"/></svg>',
-      blurb:'Fifteen questions against the clock. Every team answers every one, and the faster you are the more it pays.',
-      badge:'Best for: fast revision, everyone in at once' },
-    intro:{ eyebrow:'Cambridge Empower C1', title:'QUICKFIRE',
-            sub:'Fifteen questions. No turns. The clock is the opponent.', accent:'#2BD9C4' },
-    /* Consumed, not authored — see the note above. */
-    hasBank: u => (u.millionaireBank || []).length >= 5,
-    /* A latecomer is a new competitor mid-run. Nothing on this stage lists the room
-       any more — the standings screen does, and it is built fresh each time it is
-       shown — so the fit is what needs re-running, because the team bar under the
-       board just got a name taller. */
-    onRoster(){ fitKahoot(); },
-    load(u){ KAHOOT_BANK          = u.millionaireBank || [];
-             KAHOOT_SECTION_NAMES = u.millionaireSectionNames || {};
-             KAHOOT_TOPIC_NAMES   = u.topicNames || {}; },
-    bank: () => KAHOOT_BANK,
-    renderContent: renderKahootContent,
-    startButton:   kahootStartButton,
-    start(){ startKahoot(); },
-    fit:       fitKahoot,
-    onResize:  fitKahoot,
-    /* Rising as the run goes on, so the skin tightens towards the last question
-       rather than sitting at one pitch for fifteen of them. */
-    tension(){ kTension(); },
-    /* The clock is the game, so the header timer running out is not this board's
-       business — its own countdown ends each question. */
-    expects:     () => (kCurrent && kCurrent.answer) || '',
-    phonePrompt: () => (kCurrent && kCurrent.prompt) || '',
-    askingNow:   () => kLive(),
-    /* Every question is a round, and it is always the same one. The engine builds it
-       from the bank the way Millionaire does, so the bank never learns the word
-       "choice" and no content was edited to make this game exist. */
-    asRound:     q => kAsRound(q),
-    phoneRound(){ return roundForPhones(); },
-    wantsVote:   () => roundLive(),
-    onVoteReply(all){ if(roundLive()) roundOnReplies(all); }
-  });
-
   /* ---------- which boards can host a round ----------
      A round is drawn in the shared clue card, so it is literally the same code
      whichever board opened it. What differs is only what the *host* contributes,
@@ -829,48 +628,16 @@
       /* Two people at the screen, and in head-to-head nobody is on turn — so a round
          here is the whole room's, exactly as a Connections tile is. */
       teamMode: true
-    },
-    kahoot: {
-      game:'kahoot', stage:'play-kahoot',
-      /* No clue card here either — the options are the stage, exactly as on the
-         Millionaire board. This is the second caller for F3.8.9, which is what makes
-         the mount a declared fact rather than Millionaire's private exception. */
-      mount: () => document.getElementById('k-options'),
-      commit:'k-commit',
-      live: () => kLive(),
-      turn: () => active,
-      /* **The one thing about this skin that is genuinely new.** Every other board
-         has a slot that one team takes: a tile, a hexagon, a rung. Here the question
-         belongs to nobody, every team answers it, and each is paid for its own
-         answer at its own speed. So the settle path pays each right team as it
-         settles instead of ending on the first — see `scoreEach` below. */
-      scoreEach: true,
-      /* **How long a question runs, and what a slow right answer keeps** — the two
-         declared facts a board needs to score by speed, and the only two. The curve
-         itself is a shared rule (`PAY_RULES.clock`), so this skin owns no arithmetic
-         about time at all; what it owns is the decision that time should matter here,
-         which it makes by starting on that rule. A board declaring no clock is
-         untimed, and every rule still works on it. */
-      clock: () => kSecs(),
-      step:  () => 5,
-      /* What a question is worth here, for a team that is not first. On this board
-         nobody is first — there is no slot — so it is what every right answer is
-         measured against. */
-      worth: () => kBase(),
-      /* The clock is the opponent, so a tap is a commitment. Changing your mind
-         after seeing where the room went is the opposite of what this board is
-         measuring — and the speed score has already been decided by then. */
-      lockIn: true,
-      /* The only host that uses what the rule decided: it has no slot, so the rule
-         is the whole payment. The others pay a tile, a hexagon or a rung, which is a
-         number the board itself owns. */
-      win: (team, points) => kPay(team, points),
-      /* Counts, not team dots: on a tile the interesting fact is which team went
-         where, and here it is how much of the room got it. */
-      countVotes: () => true,
-      commitText: () => 'Lock it in'
     }
   };
+  /* An external game file cannot edit the table above, so it declares its entry —
+     `roundHost` on its registration — and it is merged here, before ROUND_GAMES
+     and the round settings derive from the table. Game files load before this
+     engine (the rounds pattern), so every declaration is already in. */
+  window.HubGames.ids().forEach(g => {
+    const d = window.HubGames.get(g);
+    if(d && d.roundHost && !ROUND_HOSTS[g]) ROUND_HOSTS[g] = d.roundHost;
+  });
   const ROUND_GAMES = Object.keys(ROUND_HOSTS);
   let roundHost = ROUND_HOSTS.jeopardy;
 
@@ -1503,25 +1270,6 @@
              {value:'every', label:'Every round'},
              {value:'off',   label:'Never'}] });
 
-  /* Quickfire's three weights. All of them are classroom questions rather than
-     design ones — how long a C1 class needs to read four options, how many
-     questions is a lesson slot rather than an endurance test, and how hard speed
-     should be rewarded — so they are ranges in ⚙ rather than numbers in the source.
-     Every one is a guess until a class has met them. */
-  S.register({ id:'kQuestions', group:'Quickfire', type:'range', default:15,
-    min:5, max:30, step:1, unit:'', games:['kahoot'],
-    label:'Questions in a run',
-    help:'The run ends after this many. Fewer if the sections you picked hold fewer.' });
-
-  S.register({ id:'kSeconds', group:'Quickfire', type:'range', default:20,
-    min:5, max:60, step:5, unit:'s', games:['kahoot'],
-    label:'Seconds per question',
-    help:'How long the room has to read the question and answer it. The clock is the whole game here.' });
-
-  S.register({ id:'kPoints', group:'Quickfire', type:'range', default:100,
-    min:20, max:500, step:20, unit:'', games:['kahoot'],
-    label:'Points for a right answer',
-    help:'What an instant answer pays. One that arrives as the clock dies pays half, and everything in between scales.' });
 
   S.register({ id:'mLifelines', group:'Millionaire', type:'toggle', default:true, games:['millionaire'],
     label:'Lifelines', help:'50:50, Ask the class, and Confer — one use each per team.' });
@@ -1934,26 +1682,6 @@
         </div>
       </div>
 
-      <!-- Quickfire. The first board with no geometry at all: a straight run of
-           questions against a clock, so there is nothing to choose and nothing to
-           claim. The round mounts into #k-options exactly as it does on the
-           Millionaire stage — F3.8.9 again, and this is the second caller that
-           proves the mount is a declared fact rather than Millionaire's exception. -->
-      <div id="play-kahoot"><div id="k-wrap">
-        <div id="k-bar">
-          <div id="k-count"></div>
-          <div id="k-clock"><span id="k-secs"></span></div>
-        </div>
-        <div id="k-stage">
-          <div id="k-question"></div>
-          <div id="k-options"></div>
-          <div id="k-foot">
-            <span id="k-hint"></span>
-            <button id="k-commit" style="display:none;">Lock it in</button>
-            <button id="k-next" style="display:none;">Next question</button>
-          </div>
-        </div>
-      </div></div>
     </div>
 
     <!-- title sequence. Empty and inert unless a game show themed game opens it. -->
@@ -2093,6 +1821,20 @@
 
   const root = document.getElementById('game-hub-root') || document.body;
   root.innerHTML = SKELETON;
+  /* An external game's stage panel — `stageHTML` on its registration — goes in
+     beside the in-skeleton stages, before anything measures. Only when the
+     skeleton does not already hold the id, so an in-engine game moving to its
+     own file can carry its markup with it without a collision on the way. */
+  window.HubGames.ids().forEach(g => {
+    const d = window.HubGames.get(g);
+    if(!d || !d.stageHTML || document.getElementById(d.stage)) return;
+    const anchor = document.getElementById('play-jeopardy');
+    if(anchor && anchor.parentNode){
+      const t = document.createElement('template');
+      t.innerHTML = d.stageHTML.trim();
+      anchor.parentNode.appendChild(t.content);
+    }
+  });
 
   /* ---- current unit content (set by loadUnit) ---- */
   let UNIT = null;
@@ -2107,12 +1849,6 @@
   let MILLIONAIRE_BANK          = [];
   let MILLIONAIRE_SECTION_NAMES = {};
   let MILLIONAIRE_TOPIC_NAMES   = {};
-  /* Quickfire reads Millionaire's bank rather than owning one — see its registration.
-     Held separately anyway, because `load()` runs per game and a shared variable
-     would tie the two games' content screens together for no gain. */
-  let KAHOOT_BANK               = [];
-  let KAHOOT_SECTION_NAMES      = {};
-  let KAHOOT_TOPIC_NAMES        = {};
 
   // Which games a unit can actually offer — a unit without a bank for a game
   // simply doesn't show that card, so units can adopt new games one at a time.
@@ -2847,12 +2583,15 @@
 
   function chooseGame(id){
     activeGame = id;
+    window.HubGames.setActive(id);
     S.setContext(activeGame);          // ⚙ opens on this game's tab from here on
     document.getElementById('page-title').textContent = HUB_GAME_TITLES[activeGame] || 'Game Hub';
     renderContentScreen();
     showScreen('screen-content-select');
   }
   renderGameCards();
+  // the registry's redraw handle — a game registered after init can still get a card
+  window.HubGames._bindRenderCards(renderGameCards);
 
   document.getElementById('change-unit').addEventListener('click', ()=>{
     document.getElementById('page-title').textContent='Game Hub';
@@ -2866,7 +2605,7 @@
   });
 
   document.getElementById('new-game-btn').addEventListener('click', ()=>{
-    activeGame=null; selectedContent=[]; pool=[]; raceRunning=false;
+    activeGame=null; window.HubGames.setActive(null); selectedContent=[]; pool=[]; raceRunning=false;
     S.setContext(null);
     // park, don't close: the class stays joined on the same code for the next game
     parkBuzzRoom();
@@ -7085,209 +6824,6 @@
      atmosphere — the CSS reads `--tension` to close the spotlight in and pull the
      colour towards red, and the think-music bed uses it for tempo and brightness.
      Nothing here runs unless the game show skin is on. */
-  /* ================= Quickfire =================
-     A sequence, a clock and a scoreboard. Everything about the *question* — the
-     card, the handsets, merging several students into one team answer, judging it —
-     belongs to the Multiple Choice round and none of it is written here. */
-
-  function kAsRound(q){ return mAsRound(q); }   // same bank shape, one definition
-
-  function renderKahootContent(list, help){
-    help.textContent = 'Pick which sections to draw from. Questions are shuffled, and the run stops after the number set in ⚙.';
-    groupCheckboxes(list, KAHOOT_BANK, KAHOOT_TOPIC_NAMES, KAHOOT_SECTION_NAMES);
-  }
-  function kahootStartButton(btn){
-    const n = Math.min(kWanted(), selectedKahoot().length);
-    btn.textContent = n ? 'Start — ' + n + ' questions' : 'Pick at least one section';
-    btn.disabled = !n;
-  }
-  function selectedKahoot(){
-    return KAHOOT_BANK.filter(i => selectedContent.includes(groupOf(i)));
-  }
-
-  function startKahoot(){
-    kQueue = shuffle(selectedKahoot().slice()).slice(0, kWanted());
-    kAt = -1; kCurrent = null; kAsked = 0; kOver = false;
-    kStopClock();
-    document.getElementById('k-next').style.display = 'none';
-    nextKahoot();
-  }
-
-  /* Quickfire's two, filed with their own game (they sat in the Millionaire block
-     once). `k-commit` is the shared round commit — the same button every host
-     declares, for the teacher playing with no relay in the room. `k-next` is the
-     only thing on this board that advances, because there is no tile to click. */
-  document.getElementById('k-commit').addEventListener('click', roundCommit);
-  document.getElementById('k-next').addEventListener('click', ()=>{ nextKahoot(); });
-
-  /* The run ends when the queue does. There is no board to clear and no line to
-     complete, so this is the only ending. */
-  function nextKahoot(){
-    kAt++;
-    if(kAt >= kQueue.length){ finishKahoot(); return; }
-    kCurrent = kQueue[kAt];
-    kAsked++;
-    kPaid = Object.create(null);
-    kOver = false;
-    document.getElementById('k-next').style.display = 'none';
-    document.getElementById('k-hint').textContent = '';
-    document.getElementById('k-count').textContent = 'Question ' + kAsked + ' of ' + kQueue.length;
-
-    /* Name the host before the round is set up, or `setup` reads a ctx scoped to
-       whichever board asked last — the trap `roundOf` carries a note about. */
-    roundEnd();                       // the previous question's handsets stand down
-    const found = roundOf(kAsRound(kCurrent), 'kahoot');
-    document.getElementById('k-question').textContent = '';
-    drawPrompt(document.getElementById('k-question'), kAsRound(kCurrent), 'kahoot');
-    /* Opening the round arms the room — see `roundOpen`. Every question here is a
-       round, so there is no ordinary-question path to fall back to. */
-    if(!(found && roundOpen(found))) askPhones(kCurrent.prompt, 'kahoot');
-
-    kStartClock();
-    hook('tension');
-    fitKahoot();
-  }
-
-  /* The shared clock, painted onto this stage. What is left here is the painting —
-     which is all a host should ever own of a clock, because the number itself is
-     what the value curve reads and there can only be one of those. */
-  function kStartClock(){
-    Kit.round.clock.start({ secs: roundClockSecs(ROUND_HOSTS.kahoot),
-                            onTick: kPaintClock, onEnd: kTimeUp });
-  }
-  function kStopClock(){ Kit.round.clock.stop(); }
-  function kPaintClock(left){
-    const el = document.getElementById('k-secs');
-    if(!el) return;
-    const secs = left == null ? Kit.round.clock.left() : left;
-    el.textContent = Math.ceil(secs);
-    document.getElementById('k-clock').classList.toggle('low', secs <= 5);
-  }
-
-  /* Time up is a fact, not a verdict — the same rule Jeopardy's answer clock
-     follows. The round is ended so thirty handsets stop taking taps, the answer is
-     revealed because nothing else on this board ever would, and the teacher moves
-     on when the room has had a moment to look at it. */
-  function kTimeUp(){
-    if(kOver) return;
-    Sound.play('timeup');
-    kEndQuestion();
-  }
-
-  /* One definition of "this question is over", whoever decided it — the clock, or
-     the teacher committing an answer with no phones in the room. Two paths that end
-     a question differently is the bug that shape invites, and this project has
-     already paid for it once in `lockIn`. */
-  function kEndQuestion(){
-    if(kOver) return;
-    kOver = true;
-    kStopClock();
-    kPaintClock();
-    /* Reveal before ending. On a tile the card flips away and nobody needs telling;
-       here the options stay on screen, so ending without revealing leaves four
-       live-looking options and no answer — the same fix Millionaire needed. */
-    if(roundState && !roundState.shown) roundDef().reveal(roundHost.mount(), roundState, roundCtx());
-    roundEnd();
-    const got = Object.keys(kPaid || {}).length;
-    document.getElementById('k-hint').textContent =
-      got ? (got === 1 ? 'One team got it.' : got + ' teams got it.') : 'Nobody got that one.';
-    document.getElementById('k-next').style.display = 'inline-block';
-    document.getElementById('k-next').textContent =
-      kAt + 1 >= kQueue.length ? 'See the results' : 'Next question';
-    hook('tension');
-    /* **This board's whole point is the movement**, and it had a leaderboard of its
-       own inside its stage doing half the job — squeezed under the question, and the
-       thing that pushed it off a 720px board. The shared screen replaces it. Not on
-       the last question: the final results are one beat later and two tables in a row
-       is one too many. */
-    if(standingsWanted('kahoot') && kAt + 1 < kQueue.length){
-      const got = Object.keys(kPaid || {}).length;
-      showStandings({ eyebrow:'Question ' + kAsked + ' of ' + kQueue.length,
-                      title: got ? (got === 1 ? 'One team got it' : got + ' teams got it')
-                                 : 'Nobody got that one',
-                      action:'Next question' });
-    }
-  }
-
-  /* What this skin pays. Called once per team by the shared settle path the moment
-     that team's answer settles, and **the amount is the running rule's** — this board
-     has no slot, so there is nothing for it to decide beyond passing it on. It starts
-     on `clock`, which is the curve it always had; a teacher can move it to `equal` and
-     the board keeps working. Returns what it paid, like every other host's `win`. */
-  function kPay(team, points){
-    if(!kPaid || kPaid[team] != null) return kPaid ? kPaid[team] : 0;
-    /* Through `award`, like every other board, so a streak bonus and the scoreboard
-       repaint come for free rather than being re-implemented here. `streak:false`:
-       every team answers every question, so a "run" would only measure who has been
-       right most recently, which is what the points already say. */
-    const rec = Kit.round.results.of(team) || {};
-    const paid = award(team, points || 0, { streak:false,
-      why: 'quickfire · ' + (PAY_RULES[S.get('roundPay', 'kahoot')] || PAY_RULES.winner).label +
-           (rec.seconds != null ? ' · ' + rec.seconds.toFixed(1) + 's' : '') });
-    kPaid[team] = paid;
-    /* **The no-relay path ends the question here.** With phones in the room several
-       teams settle independently and the clock decides when the question is over.
-       With none, the teacher picks the answer and commits, which runs the shared
-       take-and-end path — so the round is already finished by the time this is
-       called, and without noticing that the board would sit on a dead question with
-       no way forward. Degradation is the rule, not a fallback. */
-    if(roundState && roundState.done) setTimeout(kEndQuestion, 0);
-    return paid;
-  }
-
-  /* **Quickfire's own leaderboard is gone, and its sizing logic is the standings
-     screen's now.** It lived inside this stage, which is what squeezed it and what
-     pushed the board past 720px whenever the phone chip was up — the measured-rows,
-     four-column, "+N more" reasoning it worked out is all still in `showStandings`,
-     where every board gets it instead of one. */
-  function finishKahoot(){
-    kCurrent = null; kOver = true;
-    kStopClock();
-    document.getElementById('k-next').style.display = 'none';
-    document.getElementById('k-count').textContent = 'Finished';
-    const rank = teams.map((t, i) => ({ i, name:t.name, pts:t.score }))
-                      .sort((a, b) => b.pts - a.pts);
-    const top  = rank[0];
-    const tie  = rank.filter(r => r.pts === top.pts);
-    showResult({
-      eyebrow: kQueue.length + ' questions',
-      title:   tie.length > 1 ? 'A tie' : top.name + ' wins',
-      sub:     tie.length > 1
-                 ? tie.map(r => r.name).join(' and ') + ' — ' + top.pts + ' each'
-                 : top.pts + ' points',
-      tone:    'gold',
-      actions: [{ label:'New run', onClick: startKahoot }]
-    });
-  }
-
-  /* Fit the **wrapper**, not the stage. The scoreboard sits below the stage, so
-     sizing the stage to the floor pushed the board off the bottom of the screen —
-     the numbers all passed and the screenshot showed it immediately. `floor:true`
-     because a handset genuinely cannot fit fifteen-point type, four options and a
-     four-team board, and forcing it collapses the options the way it did on the
-     Millionaire ladder. */
-  function fitKahoot(){
-    const wrap = document.getElementById('k-wrap');
-    if(!wrap || activeGame !== 'kahoot') return;
-    Kit.fitToScreen(wrap, { min:260, gap:18, floor:true });
-  }
-
-  function kTension(){
-    const stage = document.getElementById('play-kahoot');
-    if(!stage) return;
-    const on = themeOf('kahoot') === 'gameshow' && activeGame === 'kahoot';
-    stage.classList.toggle('lit', on);
-    if(!on){ stage.style.removeProperty('--tension'); Sound.bedStop(); return; }
-    /* Two ingredients, like Race: how far through the run we are, and whether a
-       question is actually live this second. A board sitting on a revealed answer
-       should not be as tense as one with four seconds left. */
-    const through = kQueue.length ? kAsked / kQueue.length : 0;
-    const urgent  = kLive() && kSecs() ? 1 - (kLeft() / kSecs()) : 0;
-    const t = Math.min(1, through * 0.6 + urgent * 0.4);
-    stage.style.setProperty('--tension', t.toFixed(3));
-    if(kLive() && motionOK()) Sound.bedStart(t); else Sound.bedStop();
-  }
-
   function mTension(){
     const stage = document.getElementById('play-millionaire');
     const on    = themeOf('millionaire') === 'gameshow' && activeGame === 'millionaire';
@@ -9045,6 +8581,39 @@
        `hook` fires only for the active game, which is what they all guarded. */
     hook('onSetting', id);
   });
+  /* ---------- what the engine lends a game that lives in its own file ----------
+     A game inside this closure reaches everything; one outside it reaches only
+     what is published here, called from inside hooks (never at parse — game files
+     load before this engine, so at their parse time none of this exists yet).
+     **Grown only as an extracted game proves the need** — each member has a
+     caller in `games/*.js`, which is what keeps this a contract rather than a
+     mirror of the whole closure. Quickfire is the first caller. */
+  function revealOpenRound(){
+    if(roundState && !roundState.shown) roundDef().reveal(roundHost.mount(), roundState, roundCtx());
+  }
+  function roundDoneNow(){ return !!(roundState && roundState.done); }
+  window.HubEnv = {
+    // scoring and the receipt
+    award, ledgerNote, markRun,
+    payRuleLabel: g => (PAY_RULES[S.get('roundPay', g)] || PAY_RULES.winner).label,
+    // the round adapter — a host names itself at roundOf, so no closure state moves
+    roundCommit, roundEnd, roundOf, roundOpen, roundClockSecs,
+    roundForPhones, roundLive, roundOnReplies,
+    revealOpenRound, roundDone: roundDoneNow,
+    // surfaces and the room
+    drawPrompt, askPhones, armBuzzers, resetBuzzers,
+    showResult, hideResult, showStandings, standingsWanted,
+    notePhoneScore, notePhoneMiss,
+    // content, roster, presentation
+    groupCheckboxes, sectionHeading, contentRow, groupOf, inPlay, shuffle,
+    selectedContent: () => selectedContent,
+    teams: () => teams, teamName, nextTurn, Roster,
+    activeTeam: () => active,
+    renderScorebar, themeOf, motionOK, Sound,
+    timerSetDuration, timerStart, timerStop, timerReset,
+    asChoiceRound: q => mAsRound(q)
+  };
+
   if(UNITS.length===1){
     loadUnit(UNITS[0]);
     showScreen('screen-game-select');
