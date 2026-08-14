@@ -1012,7 +1012,7 @@ what a teacher set deliberately**, so it must be translated rather than silently
   value, so a later choice can't be overwritten.
 
 ## Skills — the procedures, separated from the history
-`.claude/skills/` holds seven invocable checklists. This file is the project's
+`.claude/skills/` holds eight invocable checklists. This file is the project's
 *memory*; those are its *procedures*, pulled up at the moment they are needed rather
 than remembered from 2,500 lines. **Which one you want follows the tiers**: a skin is
 `new-game`, a question that is played is `new-round`, a way of drawing a prompt is
@@ -1055,6 +1055,12 @@ it had no written home until that skill existed.
   actually paid for — the stuck default, a phone-side setting landing on the *next*
   question because an arm wipes every handset, and `p.team` not being the truth in a
   room of individuals. Carries the second-caller rule for extracting to the shelf.
+- **`ship-it`** — the deploy seam. **Opens by saying the default is *no* test suite**,
+  because the user is watching the real site and their eyes beat four minutes of robot;
+  it names the three cases that stop and ask instead. Then the stamp (and why the date
+  shape in the pattern is load-bearing), the stale-shell tells before anybody debugs a
+  "it didn't deploy", which suite matches what changed, the `| tail` exit-code trap, the
+  one red check that is not yours, and the merge.
 - **`phone-debug`** — the six shapes every phone bug so far has taken, and the one
   question that separates them ("does the phone still show its room number?").
 
@@ -3155,7 +3161,7 @@ playground's point, that one board can host several:
     the directories now. It also asserts `dev.html`'s skills list matches
     `.claude/skills/` in both directions.
   - **`dev.html` leads with the three entry points** — hub, question bench, room
-    bench — then the seven skills (descriptions *fetched from the skill files*, so
+    bench — then the eight skills (descriptions *fetched from the skill files*, so
     the page cannot describe a skill wrongly) and the commands worth keeping.
     Everything else is behind one fold. Its round and form lists were already
     derived and picked up both new rounds on their own.
