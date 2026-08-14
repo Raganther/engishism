@@ -958,7 +958,16 @@
      It still costs the teacher a press — Reveal, then Close, where a won round used
      to take itself — and no class has met it. The switch is what puts the old race
      back, in one tap from the drawer mid-round. */
+  /* **Forked by room type, and this one is not a formality.** Unlike the crowd
+     reveal — which gates on room size, so ordinary team play never meets it — this
+     applies identically in both rooms and the right answer genuinely differs. With
+     three teams the race for the tile *is* the game, and first-takes-it is the beat
+     three boards have always had. With sixteen individuals the same rule locks
+     fifteen people out of a question they are half way through, which is the
+     lockout this setting exists to remove. Individuals follow the team-room value
+     until set apart, so nothing moves for anybody until a solo room chooses. */
   S.register({ id:'roundOpenToAll', group:'Questions', type:'toggle', default:true, quick:true,
+    byRoster: true,
     games: ROUND_GAMES.filter(g => !ROUND_HOSTS[g].scoreEach),
     label:'Everyone finishes, not just the first',
     help:'A right answer stops closing the question. The first team still takes the tile at full value when you reveal; everyone else who gets there still scores, for less. Off is the old race.' });
