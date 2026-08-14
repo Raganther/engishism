@@ -3922,9 +3922,17 @@ async function testPhoneModes(browser){
       await p.waitForTimeout(450);
       return p;
     };
-    const crowd = [];
-    for (const n of ['Ana','Ben','Carla','Dan','Eva','Finn']) crowd.push(await soloJoin(n));
-    await solo.host.waitForTimeout(1200);
+    /* **All at once, and that is the assertion.** The first version of this joined
+       them one at a time and passed on the broken build, which is exactly how the
+       bug got through a fix and a check and was reported a second time. Simultaneous
+       joins fire a roster push each, every push replaces the host's player list
+       wholesale, and a phone whose seat has not yet reached the relay comes back on
+       team 0 with the local write discarded — so the room believes several people
+       share one competitor and each is told half the answer is their share. Ten,
+       because the race needs enough phones in flight to open the gap. */
+    const crowd = await Promise.all(
+      ['Ana','Ben','Carla','Dan','Eva','Finn','Gia','Hugo','Iris','Jo'].map(soloJoin));
+    await solo.host.waitForTimeout(2500);
 
     const col = await solo.host.evaluate(() =>
       [...document.querySelectorAll('#board .cat-header')]

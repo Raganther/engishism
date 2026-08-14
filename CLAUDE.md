@@ -1265,22 +1265,49 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
-- **A cache of somebody else's index needs a stated invalidation point — and there
-  are exactly three of them.** Five bugs over six days had one root, and each was
-  fixed at the reader rather than at the seam, which is why it kept coming back.
-  Written down here as a table rather than as a rule, because the rule people reach
-  for — "an index is never an identity" — is *wrong*: the stable id already exists
-  where it matters (`soloSeat` is playerId → competitor id, and every competitor
-  carries `.id`). What fails is always a **copy** of an index going stale.
+- **`soloSeatAt` is deleted, and deleting it is the answer this bug class actually
+  had.** Six bugs over six days were one root — a **copy of somebody else's index
+  going stale** — and the reflex rule ("an index is never an identity") is wrong:
+  the stable id already exists where it matters (`soloSeat` is playerId → competitor
+  id, and every competitor carries `.id`). What kept failing was one *cache*, and the
+  fix each time was another invalidation point. There were four of them before it was
+  removed, which is three more than a thing should need.
 
   | Cache | Holds | Invalidated when | The bug it caused |
   |---|---|---|---|
-  | `players` in `hub-buzzer.js` | the relay's roster | a roster event — **and now on `seat`** | the share bug below |
-  | `soloSeatAt` (`hub-engine.js`) | the index last *sent* to each phone | a competitor is dropped; `roomForgot()` | 13 Aug — seats collapsed onto competitor 0 after a relay restart |
+  | `players` in `hub-buzzer.js` | the relay's roster | a roster event — **and on `seat`** | the share bug |
   | `teamSeat` (`hub-engine.js`) | the side each student chose | written once, on the way out of teams | 9 Aug — solo→teams scrambled the class |
 
-  **A fourth cache needs a fourth row.** `soloSeat` is the one that has never caused
-  a bug, because an id does not shift.
+  **Ask the room, do not remember what you told it.** `seatSoloPlayers` compares
+  `p.team` — what the relay believes — against the seat it wants, and re-sends on any
+  disagreement. That needs no invalidation at all: after a relay restart, a dropped
+  competitor or a roster swap the phones simply disagree and are put right on the next
+  roster event. **The seam fix is what licenses it** — before `seat` wrote back to the
+  host's own copy, comparing against `p.team` would have re-POSTed forever, which is
+  the trap the note on `seatTeamPlayers` still describes.
+
+  **A third cache needs a third row**, and the question to ask first is whether it
+  needs to exist.
+- **The race that survived a fix, a check and a report: sixteen phones joining at
+  once.** Reported a second time as one student capped at half the answer — the same
+  symptom as the share bug below, and *not* the same cause.
+  - **A roster push replaces the host's player list wholesale**, and sixteen
+    simultaneous joins fire sixteen of them. Any phone whose `seat` had not yet
+    reached the relay came back in the next snapshot still on team 0, discarding the
+    optimistic local write — and `soloSeatAt` then said "already seated", so it was
+    never re-sent. With no further roster events it stayed wrong all lesson.
+  - **A sequential join does not reproduce it**, which is exactly how it got through:
+    the check written that morning joined phones one at a time and passed on the
+    broken build. It joins with `Promise.all` now and fails by name —
+    `caps=4,1,4,4,4,4,4,4,4,4`. **A check that cannot fail on its bug is not a check**,
+    met again, and this time it had already shipped.
+  - **Nor does a plain reload** — the relay tells a seated phone its team and
+    `join.html` remembers it, so a reconnect comes back correct. Worth knowing before
+    diagnosing the next one: the first two hypotheses here were both wrong and both
+    were killed in five minutes by driving them.
+  - Proved both ways at 16 phones (`P00=1` reverted, all four fixed), and the three
+    paths whose bookkeeping was deleted driven live: a relay kill-and-restart under
+    scored competitors, two handsets leaving, and individuals→teams→individuals.
 - **One student could not finish a question, and the fix was four lines at the seam.**
   Reported from the room bench: in a room of individuals one phone could place only
   two words of a four-word Connections answer while everyone else placed four.

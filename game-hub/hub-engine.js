@@ -2050,17 +2050,19 @@
   function swapRoster(to){
     const from = to === 'solo' ? 'teams' : 'solo';
     reseatTeams = to === 'teams';
+    /* Only `soloSeat` — who owns which row — is stashed. There used to be a second
+       map beside it recording the index last sent to each phone, and it had to be
+       stashed, cleared and restored in step with this one; it is gone, because
+       seating now compares against what the room believes rather than against a
+       memory of what it was told. */
     rosterStash[from] = { list: teams.slice(),
-                          seat: Object.assign({}, soloSeat),
-                          at:   Object.assign({}, soloSeatAt) };
+                          seat: Object.assign({}, soloSeat) };
     const back = rosterStash[to];
     teams.length = 0;
     Object.keys(soloSeat).forEach(k => delete soloSeat[k]);
-    Object.keys(soloSeatAt).forEach(k => delete soloSeatAt[k]);
     if(back){
       back.list.forEach(t => teams.push(t));
       Object.assign(soloSeat, back.seat);
-      Object.assign(soloSeatAt, back.at);
     }else{
       /* Two placeholders rather than none: every board is built for at least two
          sides, and in solo the first two students to join claim them rather than
@@ -6520,15 +6522,16 @@
     lastPushedTeams = null;  // ...and no team names
     buzzWinner = null;       // the relay's lock died with the room
     classReplies = null;     // so did every collected reply
-    /* ...and so did every solo seat. The recreated room re-registers each phone
-       with its page-load team — 0 for a bench rack — and `seatSoloPlayers` only
-       re-sends a seat when its told-the-room memory disagrees, so leaving that
-       map standing meant the new room was never told the seats at all: every
-       answer from every phone arrived as competitor 0's, live-reported as
-       "Ana has it" whoever answered, after a deploy restarted the relay under a
-       solo rack. The "seat never comes back to the host" trap, met a third time.
-       `soloSeat` (who owns which row) is the host's own record and stays. */
-    Object.keys(soloSeatAt).forEach(k => delete soloSeatAt[k]);
+    /* **The solo seats need no clearing here any more, and that is the point.**
+       A recreated room re-registers each phone with its page-load team — 0 for a
+       bench rack — and this used to have to void a map of what each phone had
+       last been told, or the new room was never told the seats at all and every
+       answer arrived as competitor 0's ("Ana has it" whoever answered, after a
+       deploy restarted the relay under a solo rack). `seatSoloPlayers` compares
+       against the room's own record now, so those phones simply disagree with
+       their seats and are re-sent on the next roster event, with nothing here
+       having to remember. `soloSeat` — who owns which row — is the host's own
+       record and was never the problem. */
     /* Whatever the active game told the room died with it too — Bingo's dealt
        cards and their marks are the worked example. The game declares the
        re-telling (`onRoomForgot`), because only it knows what it had said. */
@@ -7034,8 +7037,11 @@
      played, and their score is a lesson's work; binning a competitor because a
      handset went quiet would be the same mistake the team bar's confirm exists to
      stop. They come back to the same slot. */
-  const soloSeat   = Object.create(null);   // playerId -> competitor id
-  const soloSeatAt = Object.create(null);   // playerId -> the index last sent to it
+  /* Keyed by player id and holding a competitor **id**, so nothing in it shifts when
+     a row is removed. The map that used to sit beside it held an *index* — what each
+     phone was last told — and every way that could go stale was a separate bug; it is
+     gone, and `seatSoloPlayers` asks the room instead. */
+  const soloSeat = Object.create(null);   // playerId -> competitor id
 
   /* **The other direction, which the roster did not have: a competitor who has gone.**
      The rule above — a phone that leaves keeps its seat — was written for a student
@@ -7063,14 +7069,13 @@
       if(comp && comp.score !== 0) return;      // played and scored: the row is theirs
       const i = comp ? teams.indexOf(comp) : -1;
       if(i >= 0){ teams.splice(i, 1); dropped = true; }
-      delete soloSeat[pid]; delete soloSeatAt[pid];
+      delete soloSeat[pid];
     });
     if(dropped){
-      /* Every seat above the hole has moved, and `seat` never comes back to the host —
-         so the map of what each phone was last told is now a lie about all of them.
-         Cleared, which makes `seatSoloPlayers` re-send every index rather than trust
-         it. The same "send unconditionally after a shift" the roster swap needed. */
-      Object.keys(soloSeatAt).forEach(k => delete soloSeatAt[k]);
+      /* Every seat above the hole has moved. That used to need a second map voided
+         here — what each phone was last told was now a lie about all of them — and
+         it is structural instead: the shifted phones disagree with their new index
+         and `seatSoloPlayers` re-sends them on the next roster event. */
       if(Array.isArray(mState)) mState.length = 0;
       if(active >= teams.length) active = Math.max(0, teams.length - 1);
     }
@@ -7097,10 +7102,30 @@
         changed = true;
       }
       const at = teams.indexOf(comp);
-      /* Told once per move, not once per roster event: `seat` does not come back
-         to the host, so `p.team` here stays stale until the next join and we would
-         re-POST it forever. */
-      if(at >= 0 && soloSeatAt[p.id] !== at){ soloSeatAt[p.id] = at; buzzHost.seat(p.id, at); }
+      /* **Seat whenever the room disagrees with the seat, and keep no memory of
+         what was sent.** This used to compare against a `soloSeatAt` map —
+         playerId → the index last POSTed — because `seat` did not come back to the
+         host and `p.team` was therefore always the join-time value, so comparing
+         against it would have re-POSTed forever. `HubBuzzer.seat` writes the new
+         value into the host's own copy now, which is what makes this terminate:
+         one pass, then the two agree.
+
+         **The map had to go rather than gain a fourth invalidation point.** Every
+         way its record could stop being true was a separate bug — a relay restart
+         (the room forgets, the phones rejoin on their page-load team), a competitor
+         dropped (every index above the hole moves), a roster swap — and each was
+         fixed by remembering to clear it somewhere. The one that survived all of
+         that was a race: sixteen phones joining at once fire sixteen roster pushes,
+         each replacing the host's list wholesale, and any phone whose seat had not
+         yet reached the relay came back on team 0 with the local write discarded.
+         The map then said "already seated", so it was never re-sent, and with no
+         further roster event it stayed wrong all lesson — one student capped at
+         half the answer and unable to finish. Reported twice.
+
+         Comparing against what the room actually believes needs no invalidation at
+         all: after a restart, a drop or a swap the phones simply disagree, and the
+         next roster event puts them right. */
+      if(at >= 0 && Number(p.team) !== at) buzzHost.seat(p.id, at);
     });
     if(changed){ renderScorebar(); renderRosterPick(); hook('onRoster'); }
   }
