@@ -1012,13 +1012,19 @@ what a teacher set deliberately**, so it must be translated rather than silently
   value, so a later choice can't be overwritten.
 
 ## Skills — the procedures, separated from the history
-`.claude/skills/` holds six invocable checklists. This file is the project's
+`.claude/skills/` holds seven invocable checklists. This file is the project's
 *memory*; those are its *procedures*, pulled up at the moment they are needed rather
 than remembered from 2,500 lines. **Which one you want follows the tiers**: a skin is
 `new-game`, a question that is played is `new-round`, a way of drawing a prompt is
 `new-question-form`, a bundle of switches is `new-mode` — and **writing questions in
 the shapes that already exist is `author-content`**, which is the one that gets used
 most, because the machinery is finished and the content is the bottleneck.
+
+**Six of the seven are "make a new thing"; `tune-round` is the one for changing a
+thing that already exists**, which is what most sessions actually do. Every parameter
+added to a round so far — `crowdReveal`, `crowdMeter`, `roundOpenToAll`, the roster
+fork — is the same three-step move (register → lend on `ctx` → read in the round), and
+it had no written home until that skill existed.
 - **`author-content`** — writing questions, not code. Opens by running
   `tools/question-types.js`, because **the skill deliberately holds no list of
   question types**: a list typed into a markdown file goes stale the day a round is
@@ -1042,6 +1048,13 @@ most, because the machinery is finished and the content is the bottleneck.
   and why the gate and the bench read one rulebook, and the two traps the grouping
   round paid for ("is a round clue" vs "is the round still live", and declaring
   `field` so the normaliser carries it).
+- **`tune-round`** — the tier above a bug fix and below a new round: adding a
+  parameter, a threshold, a cooldown or a switch to something that already works.
+  The three steps, the four decisions (which tier owns it · should it fork by room
+  type · is it `quick` · what does *absent* mean), and the traps this project has
+  actually paid for — the stuck default, a phone-side setting landing on the *next*
+  question because an arm wipes every handset, and `p.team` not being the truth in a
+  room of individuals. Carries the second-caller rule for extracting to the shelf.
 - **`phone-debug`** — the six shapes every phone bug so far has taken, and the one
   question that separates them ("does the phone still show its room number?").
 
@@ -3142,7 +3155,7 @@ playground's point, that one board can host several:
     the directories now. It also asserts `dev.html`'s skills list matches
     `.claude/skills/` in both directions.
   - **`dev.html` leads with the three entry points** — hub, question bench, room
-    bench — then the six skills (descriptions *fetched from the skill files*, so
+    bench — then the seven skills (descriptions *fetched from the skill files*, so
     the page cannot describe a skill wrongly) and the commands worth keeping.
     Everything else is behind one fold. Its round and form lists were already
     derived and picked up both new rounds on their own.
