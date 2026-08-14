@@ -483,19 +483,18 @@ window.BenchKit = (function(){
      different racking controls was the other half of it. The strip only says
      what was picked; each bench reconciles its own rack through `apply(n, m)`,
      because the two racks are built differently and re-parenting an iframe
-     reloads it. The last pick is remembered across both benches (one storage
-     key), and 4×4 is the starting default. */
+     reloads it.
+
+     **The strip describes the rack, not a memory.** It used to remember the last
+     division across both benches and each bench replayed it unasked as soon as a
+     room existed — so opening a bench to look at a board dealt you sixteen
+     handsets first. With the replay gone the memory had no reader left, and a
+     highlight showing a stored 4×4 over an empty rack would have been a control
+     disagreeing with the screen. So it starts on **no phones**, which is true,
+     and lights whichever preset was actually applied. */
   const LAYOUTS = [
     { n:2, m:2 }, { n:2, m:4 }, { n:3, m:3 }, { n:4, m:4 }
   ];
-  const LAYOUT_KEY = 'engishism.benchLayout';
-  function layoutStored(){
-    try{
-      const v = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null');
-      if(v && v.n >= 1 && v.m >= 0) return v;
-    }catch(e){}
-    return { n:4, m:4 };
-  }
   function layout(mount, apply){
     /* The strip carries its own look, because it lives on two pages with two
        stylesheets — self-contained the way the room chip is. */
@@ -510,14 +509,17 @@ window.BenchKit = (function(){
     }
     const wrap = document.createElement('span');
     wrap.className = 'bench-layouts';
+    /* What is actually racked, this session — `null` until a preset is clicked,
+       which is the honest state of a bench that has just opened. */
+    let applied = null;
     const paint = ()=>{
-      const cur = layoutStored();
+      const nm = (applied && applied.m) ? applied.n + 'x' + applied.m : 'none';
       wrap.querySelectorAll('button[data-nm]').forEach(b=>{
-        b.classList.toggle('on', b.dataset.nm === cur.n + 'x' + cur.m);
+        b.classList.toggle('on', b.dataset.nm === nm);
       });
     };
     const pick = (n, m)=>{
-      try{ localStorage.setItem(LAYOUT_KEY, JSON.stringify({ n, m })); }catch(e){}
+      applied = { n, m };
       paint();
       apply(n, m);
     };
@@ -534,15 +536,18 @@ window.BenchKit = (function(){
     const clear = document.createElement('button');
     clear.type = 'button';
     clear.className = 'ghost';
+    clear.dataset.nm = 'none';        // so `paint` can light it — it never could before
     clear.textContent = 'no phones';
     clear.title = 'Remove every racked phone';
-    clear.addEventListener('click', ()=> pick(layoutStored().n, 0));
+    /* Keeps whatever division was last applied, so clearing and re-picking does
+       not silently change the number of teams. Falls back to the first preset on
+       a bench where nothing has been picked yet — where it is already true. */
+    clear.addEventListener('click', ()=> pick((applied || LAYOUTS[0]).n, 0));
     wrap.appendChild(clear);
     mount.appendChild(wrap);
     paint();
-    return { current: layoutStored, apply: ()=>{ const c = layoutStored(); apply(c.n, c.m); } };
   }
 
   return { room, settings, teams, clock, mistakes, leading, settle,
-           modeSetting, racing, judge, teamColour, layout, layoutStored, relay: RELAY };
+           modeSetting, racing, judge, teamColour, layout, relay: RELAY };
 })();

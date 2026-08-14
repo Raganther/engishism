@@ -3278,18 +3278,32 @@ playground's point, that one board can host several:
 - **One rack on both benches: layout presets, linked teams, sticky panes.**
   `BenchKit.layout` puts the standard classroom divisions (2×2 · 2×4 · 3×3 ·
   4×4 · no phones) on the question bench and the room bench as one-click
-  presets, remembered across both, 4×4 the starting default; racks reconcile
-  rather than rebuild so a phone in the right place keeps its stream, and the
-  question bench gained the room bench's per-phone ×. A preset wider than the
-  board's team bar grows it through the board's own + Team path
-  (`window.HubTeams.ensure`, same-origin, **grow-only** — removing a team stays
-  a human decision because a team can be holding points). Three traps paid for:
-  a board embedded in the room bench must not auto-rack its own phones (the
-  room doubles); **auto-rack is off under `navigator.webdriver`** (`?rack=auto`
-  opts a test in) because sixteen unasked phones broke four suite checks *and*
-  saturate a plain-http relay's six connections so replies silently stop; and
-  the rack panes are sticky, because anchored panes stayed behind the scroll as
-  a small window over a dead gap.
+  presets; racks reconcile rather than rebuild so a phone in the right place
+  keeps its stream, and the question bench gained the room bench's per-phone ×.
+  A preset wider than the board's team bar grows it through the board's own
+  + Team path (`window.HubTeams.ensure`, same-origin, **grow-only** — removing a
+  team stays a human decision because a team can be holding points).
+  - **Nothing racks itself, and the strip describes the rack rather than a
+    memory.** Both benches used to remember the last division and replay it the
+    moment a room existed, so opening a bench to look at a board dealt you
+    sixteen handsets you had not asked for — reported, and removed. A bench now
+    opens with an empty rack and **no phones** lit; a preset is one click.
+  - **The memory went with it**, because nothing read it any more: `apply()` and
+    `current` had no other caller and `engishism.benchLayout` had no reader
+    outside `bench-kit.js`. A stored 4×4 highlighted over an empty rack would
+    have been a control disagreeing with the screen, which is the silent-mismatch
+    shape the settings panel already paid for once. A stale key left in anyone's
+    browser is harmless.
+  - **`navigator.webdriver` and the `?rack=auto` opt-in are gone with it.** They
+    existed only to keep the auto-rack away from the suite — and **no test ever
+    used the opt-in**, so every check had always run against a bench that opens
+    empty. One fewer difference between what a person sees and what the suite
+    sees. The *reason* still stands and is why this must not come back: sixteen
+    unasked phones broke four checks *and* saturate a plain-http relay's six
+    connections, so replies silently stop arriving.
+  - Two other traps paid for: a board embedded in the room bench must not rack
+    its own phones (the room doubles); and the rack panes are sticky, because
+    anchored panes stayed behind the scroll as a small window over a dead gap.
 - **The lane standard is a shelf now — `Kit.round.lanes`, `mustHold`,
   `arrangement`.** Four rounds (anagram, scramble, infogap, grouping) each
   hand-wrote the team-lanes picture and it cost exactly what hand-copies cost:

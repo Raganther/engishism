@@ -263,7 +263,7 @@
     </div>
   </div>
 
-<script src="bench-kit.js?v=20260814d"></script>
+<script src="bench-kit.js?v=20260814e"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -287,7 +287,6 @@ function openBoard(){
   const pick = $('board-pick').value;
   const url  = pick === 'custom' ? $('board-url').value.trim() : pick;
   if(!url) return;
-  openedBoard = true;
   const box = $('stage-box');
   box.innerHTML = '';
   const f = document.createElement('iframe');
@@ -331,14 +330,16 @@ function pollBoard(){
        which is a different thing from the incidental reload that re-parenting
        causes and that the rack is built to avoid. */
     repointPhones();
-    /* The remembered classroom division racks itself when a board this bench
-       opened first hands over its code — once, and never in the type-a-code
-       mode, where the room belongs to a board running somewhere else and
-       sixteen phones arriving unasked would land in it. Never under automation
-       either, unless a test asks with `?rack=auto` — see the question bench's
-       note on the four checks that failure cost. */
-    const auto = !navigator.webdriver || params.get('rack') === 'auto';
-    if(openedBoard && !laidOut && auto){ laidOut = true; layoutCtl.apply(); }
+    /* **Nothing racks itself.** This used to replay a remembered classroom division
+       the moment a board handed over its code, which meant opening the bench to
+       look at a board gave you sixteen handsets you had not asked for. The presets
+       are one click away and that is close enough.
+
+       The reason not to bring it back is the one the old guards were protecting:
+       sixteen unasked phones saturate a plain-http relay's six connections, so
+       replies silently stop arriving — which failed four checks the day the
+       auto-rack shipped. Those guards (`navigator.webdriver`, the `?rack=auto`
+       opt-in) are gone with it, so a person and the suite now see the same bench. */
   }
   /* The tune pane follows the board's game. Watched here because this loop is
      already the bench's heartbeat into the frame; a hand-picked tab holds until
@@ -568,7 +569,6 @@ function applyLayout(n, m){
    is sent here is overwritten either way and the picker is not on screen to ask. */
 $('add').addEventListener('click', ()=> addPhone(solo ? 0 : (Number($('team-pick').value) || 0)));
 const layoutCtl = BenchKit.layout($('bar-layouts'), applyLayout);
-let laidOut = false, openedBoard = false;
 
 /* ---------------- the tune pane ----------------
    The rules board: the rows are the BOARD's own settings rows, rendered by its
