@@ -191,6 +191,12 @@ window.HubBuzzer = (function(){
       /* The deal of per-player views moved under a live round — same shape as
          `shares`: pushed, never re-armed, so nobody's half-typed word is wiped. */
       prompts:  per    => post(relay, { room:code, type:'prompts', promptByPlayer:per }),
+      /* One pulse on every handset: the board has revealed something, look up.
+         Same shape as `shares` and `prompts` — pushed, never re-armed, so nothing
+         anybody is holding is touched. It carries that it happened and never what
+         was revealed; the thing itself exists only on the wall, which is the whole
+         point of sending this at all. */
+      nudge:    kind   => post(relay, { room:code, type:'nudge', kind }),
       disarm:   ()     => post(relay, { room:code, type:'disarm' }),
       reset:    ()     => post(relay, { room:code, type:'reset' }),
       setTeams: (names, solo) => post(relay, { room:code, type:'teams', teams:names,
@@ -207,7 +213,7 @@ window.HubBuzzer = (function(){
     const src   = stream(relay, { room:code, role:'player', id, name:opts.name||'Player', team:opts.team||0 }, ev);
 
     ['joined','armed','disarmed','locked','reset','teams','judged','card','marked','nope',
-     'shares','kicked','team','prompt'].forEach(name=>{
+     'shares','kicked','team','prompt','nudge'].forEach(name=>{
       src.addEventListener(name, e=>{
         let d = {}; try{ d = JSON.parse(e.data); }catch(_){}
         ev.emit(name, d);

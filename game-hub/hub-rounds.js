@@ -482,6 +482,7 @@
          started,       // how many competitors have sent anything
          given          // keys a hint already revealed — count toward the cap
        }) -> extra keys to draw with the hint mark */
+  let knownMemo = { sig: null, keys: [] };
   function crowdKnown(ctx, opts){
     const o = opts || {};
     const th = (ctx && ctx.crowdReveal) == null ? 0.4 : Number(ctx.crowdReveal);
@@ -503,7 +504,28 @@
       .filter(e => e.n / of >= th)
       .sort((a, b) => b.n - a.n);
     const room = Math.max(0, (keys.length - 1) - given.length);
-    return cleared.slice(0, room).map(e => e.k);
+    const out = cleared.slice(0, room).map(e => e.k);
+    /* **A reveal is a moment, and the room is looking at its phones.** The whole
+       point of the crowd reveal is that it lands on the projector — which is worth
+       nothing if sixteen heads are down. So the set is compared with what it was
+       last render and, the once it grows, the host is asked to pulse the handsets.
+
+       Here rather than in each round for the reason every rule in this block is
+       here: five rounds re-deriving "did that just change" is the hand-kept list
+       one tier down, and two of them would drift within a week. `sig` separates
+       one question's memory from the next exactly as the meter's does, so a fresh
+       card cannot open by announcing the last question's reveals.
+
+       It says only that something landed. What it was is on the wall, deliberately
+       — a phone that named the part would be the leak this whole mechanism exists
+       to avoid, and the room would read it instead of looking up. */
+    const sig = String(o.sig != null ? o.sig : keys.join(''));
+    if(knownMemo.sig !== sig) knownMemo = { sig, keys: [] };
+    if(out.some(k => knownMemo.keys.indexOf(k) === -1)){
+      knownMemo = { sig, keys: out.slice() };
+      if(ctx && typeof ctx.nudge === 'function') ctx.nudge('reveal');
+    }
+    return out;
   }
 
   /* ---------- the reveal meter ----------

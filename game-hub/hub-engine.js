@@ -4249,6 +4249,14 @@
       /* The meter's switch, lent the same way: the shelf treats absent as on,
          so only an explicit false stands it down and the bench inherits it. */
       crowdMeter: S.get('crowdMeter', activeGame) !== false,
+      /* **Look up.** The crowd reveal lands on the projector, which is worth
+         nothing to a room of sixteen reading their own handsets — so when one
+         lands, every phone pulses once. The shelf decides *when* (it is the only
+         thing that knows the revealed set just grew); this decides whether there
+         is a room to tell and whether a question is still open. The second guard
+         matters: `crowdKnown` is also called on the reveal render, when the answer
+         is going up anyway and nobody needs sending anywhere. */
+      nudge: kind => { if(buzzHost && roundLive()) buzzHost.nudge(kind); },
       /* Who is in the room, read fresh like `sizes` — the information gap deals a
          view per player, and a deal cut from a stale roster misses whoever just
          walked in. */
