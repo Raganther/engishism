@@ -7136,6 +7136,11 @@
      driven by `join` and overwrites freely: a student changing side goes through
      "Not you?", which rejoins, which is another join. Skipped in solo, where a
      competitor index means something else entirely. */
+  /* **Still the student's own choice, not a seat the host wrote** — the question a
+     reader will have now that `seat` updates the host's copy. Guarded on `!solo`, and
+     seats are only ever sent in a room of individuals or on the way back into teams,
+     so on the way *out* of teams nothing has overwritten `p.team`: it is the side the
+     student picked when they joined, which is exactly what this has to remember. */
   function rememberSides(p){
     if(Roster.solo() || !p || !p.id) return;
     teamSeat[p.id] = Number(p.team) || 0;
@@ -7147,12 +7152,18 @@
     (list || []).forEach(p=>{
       if(!p || !p.id) return;
       const want = Math.min(teamSeat[p.id] || 0, Math.max(0, teams.length - 1));
-      /* **Sent unconditionally, and the first version's "only if it changed" check
-         was exactly wrong.** `seat` does not come back to the host, so `p.team` here
-         is still the value from the last *join* — which is the same number this is
-         trying to restore. Comparing against it concluded every phone was already
-         right and sent nothing, while every phone sat on its solo index. This runs
-         once per switch, so a handful of extra posts costs nothing. */
+      /* **Sent unconditionally, and it stays that way — but the original reason is
+         no longer the reason.** The first version compared against `p.team` and sent
+         only on a difference, which concluded every phone was already right and sent
+         nothing while every phone sat on its solo index. That was because `seat` did
+         not come back to the host, so `p.team` was the value from the last *join*.
+
+         `HubBuzzer.seat` keeps the host's copy current now (see the note there, and
+         the cache table in CLAUDE.md), so `p.team` here *is* trustworthy and the
+         comparison would work. It is still not worth making: this runs **once per
+         switch**, so a handful of extra posts costs nothing, and a conditional send
+         would buy that nothing in exchange for depending on the local copy being
+         right. Unconditional is the cheaper contract. */
       buzzHost.seat(p.id, want);
     });
   }
