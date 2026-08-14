@@ -2258,9 +2258,24 @@
   function reportOpenEntry(label){
     reportCloseEntry();
     scoreReport.push({ label, when: new Date().toISOString().slice(0, 19),
+                       build: window.HUB_BUILD || null,
                        names: teams.map((t, i) => teamName(i)),
                        before: teams.map(t => t.score),
                        after: null, expected: null, results: null });
+    reportSave();
+  }
+  /* A divider, written when a board starts. The ledger persists across games and
+     across deploys — "Jeopardy" twice in one lesson is two different games the
+     labels alone cannot separate, and which build produced an entry is the first
+     question when a score reads wrongly after a fix. Closed as it is written
+     (`after` set), so ledgerNote can never mistake it for an open question and a
+     movement can never land inside it. */
+  function reportGameStart(){
+    reportCloseEntry();
+    scoreReport.push({ divider: true, label: 'new game · ' + (activeGame || '?'),
+                       when: new Date().toISOString().slice(0, 19),
+                       build: window.HUB_BUILD || null,
+                       names: [], before: [], after: [] });
     reportSave();
   }
   /* ---------- every point movement, named ----------
@@ -2313,10 +2328,23 @@
       body.textContent = 'Nothing recorded yet \u2014 the ledger starts when a question opens.';
     }
     scoreReport.slice(-60).forEach(e=>{
+      if(e.divider){
+        const gh = document.createElement('div');
+        gh.className = 'rp-game';
+        gh.textContent = e.label + '   ' + (e.when || '') +
+                         (e.build ? '   · build ' + e.build : '');
+        body.appendChild(gh);
+        return;
+      }
       const row = document.createElement('div');
       row.className = 'rp-q';
       const h = document.createElement('div');
-      h.className = 'rp-label'; h.textContent = e.label + '   ' + (e.when || '');
+      /* An entry names its build only when it is not this one — a report read
+         after a deploy says which entries predate the fix, and a normal report
+         stays quiet. */
+      h.className = 'rp-label';
+      h.textContent = e.label + '   ' + (e.when || '') +
+        (e.build && e.build !== window.HUB_BUILD ? '   · build ' + e.build : '');
       row.appendChild(h);
       const after = e.after || teams.map(t => t.score);
       (e.names || []).forEach((nm, i)=>{
@@ -3516,6 +3544,7 @@
     document.getElementById(g.stage).style.display='block';
     // a new game is a new lesson: whatever a round was keeping per student goes
     roundKeepReset();
+    reportGameStart();
     g.start();
     syncBuzzRoom();
     showScreen('screen-play');

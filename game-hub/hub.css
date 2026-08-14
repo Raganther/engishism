@@ -1869,6 +1869,10 @@ body.theme-gameshow #clue-actions #hint-btn{ border-color:rgba(255,200,61,0.5); 
 #report-card h2{ margin:0 0 6px; font-size:1.2rem; }
 .rp-note{ margin:0 0 14px; font-size:0.8rem; color:var(--muted); }
 .rp-q{ border-top:1px solid var(--line); padding:9px 0; }
+/* a game boundary: where one game's questions end and the next game's begin */
+.rp-game{ font-family:'IBM Plex Mono',monospace; font-size:0.72rem; font-weight:700;
+  letter-spacing:0.05em; text-transform:uppercase; color:var(--ink);
+  border-top:2px solid var(--navy); margin-top:10px; padding:9px 0 2px; }
 .rp-label{ font-family:'IBM Plex Mono',monospace; font-size:0.72rem;
   letter-spacing:0.05em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
 .rp-team{ font-family:'IBM Plex Mono',monospace; font-size:0.85rem; padding:1px 0; }

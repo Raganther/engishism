@@ -1612,6 +1612,24 @@ playground's point, that one board can host several:
     gameshow,lab,registry,competition` **499/1**, and the one red is the known
     ordering-climb overflow (726px on a 720 board), unrelated and deliberately
     still red.
+- **The ledger knows its game and its build now.** Asked as two questions and both
+  were real gaps: the ledger persists in localStorage across games *and* across
+  deploys, so one report mixed two runs of Jeopardy with no seam between them, and
+  entries from before a fix with entries after it, with nothing saying which.
+  - **A divider entry is written when a board starts** (`reportGameStart`, from the
+    start button) — `new game · jeopardy · <time> · build <stamp>` — and the report
+    draws a heading at each. One persisted ledger, read per game; clearing per game
+    would have thrown away exactly the ledger you read in the staffroom two games
+    later.
+  - **Every entry stamps `window.HUB_BUILD`**, printed only when it differs from
+    the build running — a normal report stays quiet, an old entry announces itself.
+    "Was that on the build before the fix?" is the first question about a wrong
+    score, and the report could not answer it.
+  - **The divider is closed as it is written** (`after` set), so `ledgerNote` can
+    never mistake it for an open question and a movement can never land inside it.
+  - Driven in a browser: divider with build on game start, a seeded old-build entry
+    naming itself, the fresh entry quiet, and a teacher correction opening its own
+    between-questions entry after the divider. 8/8, screenshot checked.
 - **Every point movement says why — the score receipt, second stage of the
   three-seam plan.** The report used to *diff* scores and infer, which is exactly
   how an unexplained 600 stays unexplained: five paths bypassed `award()` entirely
