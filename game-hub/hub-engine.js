@@ -4233,7 +4233,22 @@
   function roundCtx(id){
     const sizes = teams.map(()=>0);
     if(buzzHost) buzzHost.players().forEach(p=>{
-      const t = Number(p.team);
+      /* **In a room of individuals the host seated this phone itself, so its own
+         map is the truth and `p.team` is not.** `seat` never comes back to the
+         host — the comment on `seatSoloPlayers` says so — which means the team on
+         a player here is the value from their *join*, stale until some later
+         roster event happens to refresh it. In solo every phone joins with no
+         team at all, so several of them read as competitor 0 while they are
+         actually sitting on their own rows.
+
+         What that broke is not cosmetic. `sizes` is what a share is computed
+         from, so a competitor the host wrongly counted twice was told its share
+         of a four-word answer was two — and a student who can only ever hold two
+         words cannot finish the question at all. Reported from the room bench as
+         one player being unable to complete the task, and it would have happened
+         in class for the same reason. */
+      const seated = Roster.solo() ? soloSeatAt[p.id] : null;
+      const t = seated == null ? Number(p.team) : seated;
       if(t >= 0 && t < sizes.length) sizes[t]++;
     });
     return {
