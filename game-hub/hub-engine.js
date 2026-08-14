@@ -4231,24 +4231,14 @@
 
   // what the round is lent: the team list, their sizes, and what a click means here
   function roundCtx(id){
+    /* `p.team` is the truth for this, in both kinds of room — `HubBuzzer`'s `seat`
+       keeps the host's own copy current, which it did not always do. See the note
+       there: a stale copy counted two phones onto one competitor and halved that
+       person's share of the answer. Fixed at the seam rather than here, so the
+       three other readers of `players()` are correct too. */
     const sizes = teams.map(()=>0);
     if(buzzHost) buzzHost.players().forEach(p=>{
-      /* **In a room of individuals the host seated this phone itself, so its own
-         map is the truth and `p.team` is not.** `seat` never comes back to the
-         host — the comment on `seatSoloPlayers` says so — which means the team on
-         a player here is the value from their *join*, stale until some later
-         roster event happens to refresh it. In solo every phone joins with no
-         team at all, so several of them read as competitor 0 while they are
-         actually sitting on their own rows.
-
-         What that broke is not cosmetic. `sizes` is what a share is computed
-         from, so a competitor the host wrongly counted twice was told its share
-         of a four-word answer was two — and a student who can only ever hold two
-         words cannot finish the question at all. Reported from the room bench as
-         one player being unable to complete the task, and it would have happened
-         in class for the same reason. */
-      const seated = Roster.solo() ? soloSeatAt[p.id] : null;
-      const t = seated == null ? Number(p.team) : seated;
+      const t = Number(p.team);
       if(t >= 0 && t < sizes.length) sizes[t]++;
     });
     return {

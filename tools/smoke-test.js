@@ -3876,6 +3876,78 @@ async function testPhoneModes(browser){
         await off.locator('#race-prompt .race-sentence').isVisible());
   checkClean(off, 'switched off');
   await off.close();
+
+  /* ---- a room of individuals: every phone is its own competitor ----
+     **The bug this catches made a question unfinishable for one student**, and it
+     recurred because it was fixed at the reader rather than at the seam. `seat` is
+     one-way — the relay updates its record and tells the phone, but pushes no roster
+     to the host — so `players()` went on reporting the team each handset *joined*
+     with. In solo nobody picks a team, so several phones read as competitor 0, and a
+     share is `ceil(need/size)`: the competitor the host double-counted was told two
+     words was its lot, on a four-word answer.
+
+     Joined with no team param on purpose. That is what the solo join screen and the
+     bench rack both do, and passing one would hide the bug entirely. The cap is read
+     off the handset rather than from any internal, because what a student can hold
+     is the thing that actually matters. */
+  /* Built inline rather than through `openRoom`: Connections is the ninth category
+     on the Lab board and `startGame` ticks the first N, so it has to be picked by
+     name. Three is the minimum the board will build from. */
+  const solo = { host: await openLabHub(browser) };
+  await solo.host.evaluate(() => {
+    const S = window.HubSettings;
+    S.set('intro','off'); S.set('cardFlip','off'); S.set('buzzers', true);
+    S.set('roundWinBanner', false); S.set('roster','solo');
+  });
+  await solo.host.getByText('Lab', { exact:false }).first().click();
+  await solo.host.waitForTimeout(220);
+  await solo.host.locator('h3:visible', { hasText:'Jeopardy' }).first().click();
+  await solo.host.waitForTimeout(220);
+  await solo.host.locator('#content-list label', { hasText:'Connections' }).first().locator('input').check();
+  const soloBoxes = solo.host.locator('#content-list label input');
+  for (let i = 0, added = 0; i < await soloBoxes.count() && added < 2; i++){
+    const b = soloBoxes.nth(i);
+    if (!(await b.isChecked())){ await b.check(); added++; }
+  }
+  await solo.host.locator('#start-btn').click();
+  await solo.host.waitForTimeout(800);
+  solo.code = ((await solo.host.locator('#buzzer-chip').innerText().catch(()=>'')).match(/CODE\s+(\d{5})/i)||[])[1];
+
+  check('a room of individuals opens', !!solo.code, solo.code || 'none');
+  if (solo.code){
+    const soloJoin = async name => {
+      const p = await browser.newPage({ viewport:{ width:390, height:844 } });
+      p.__errors = []; p.on('pageerror', e => p.__errors.push(String(e)));
+      await p.goto(BASE + '/join.html?code=' + solo.code + '&name=' + name + '&auto=1');
+      await p.waitForTimeout(450);
+      return p;
+    };
+    const crowd = [];
+    for (const n of ['Ana','Ben','Carla','Dan','Eva','Finn']) crowd.push(await soloJoin(n));
+    await solo.host.waitForTimeout(1200);
+
+    const col = await solo.host.evaluate(() =>
+      [...document.querySelectorAll('#board .cat-header')]
+        .findIndex(h => /Connections/i.test(h.textContent)));
+    await solo.host.locator('#board .tile').nth(col).click();
+    await solo.host.waitForTimeout(900);
+
+    /* Tap everything and see what sticks — the handset says the cap out loud when
+       you go past it, and what it *keeps* is the cap however it was worded. */
+    const caps = [];
+    for (const p of crowd){
+      const opts = p.locator('#opts button');
+      const n = await opts.count();
+      for (let i = 0; i < n; i++){ await opts.nth(i).click(); await p.waitForTimeout(60); }
+      caps.push(await p.locator('#opts button.on, #opts button.picked, #opts button[aria-pressed="true"]').count());
+    }
+    check('every individual can hold the whole answer, not half of it',
+          caps.length > 0 && caps.every(c => c === caps[0]) && caps[0] === 4,
+          'caps=' + caps.join(','));
+    for (const p of crowd){ check('phone had no errors', p.__errors.length === 0, p.__errors[0]); await p.close(); }
+  }
+  checkClean(solo.host, 'individuals');
+  await solo.host.close();
 }
 
 /* ---- type it, then buzz ----

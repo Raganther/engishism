@@ -1265,6 +1265,87 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A cache of somebody else's index needs a stated invalidation point — and there
+  are exactly three of them.** Five bugs over six days had one root, and each was
+  fixed at the reader rather than at the seam, which is why it kept coming back.
+  Written down here as a table rather than as a rule, because the rule people reach
+  for — "an index is never an identity" — is *wrong*: the stable id already exists
+  where it matters (`soloSeat` is playerId → competitor id, and every competitor
+  carries `.id`). What fails is always a **copy** of an index going stale.
+
+  | Cache | Holds | Invalidated when | The bug it caused |
+  |---|---|---|---|
+  | `players` in `hub-buzzer.js` | the relay's roster | a roster event — **and now on `seat`** | the share bug below |
+  | `soloSeatAt` (`hub-engine.js`) | the index last *sent* to each phone | a competitor is dropped; `roomForgot()` | 13 Aug — seats collapsed onto competitor 0 after a relay restart |
+  | `teamSeat` (`hub-engine.js`) | the side each student chose | written once, on the way out of teams | 9 Aug — solo→teams scrambled the class |
+
+  **A fourth cache needs a fourth row.** `soloSeat` is the one that has never caused
+  a bug, because an id does not shift.
+- **One student could not finish a question, and the fix was four lines at the seam.**
+  Reported from the room bench: in a room of individuals one phone could place only
+  two words of a four-word Connections answer while everyone else placed four.
+  - **`seat` is one-way.** The relay updates its own record and tells the phone, but
+    **pushes no roster back to the host** — so `buzzHost.players()` goes on reporting
+    the team each handset *joined* with. In solo nobody picks a team, so several
+    phones read as competitor 0 while sitting on their own rows.
+  - **Not cosmetic, because `sizes` is counted from it** and a share is
+    `ceil(need/size)`. The double-counted competitor was told two words was its lot on
+    a four-word answer, which makes the question unfinishable. **It would have
+    happened in class** — the join screen in a solo room asks for no team either.
+  - **Fixed in `HubBuzzer.seat`, which updates the host's own copy before posting** —
+    correct rather than a patch, since the relay's record *is* right and the next
+    roster event overwrites the local write with the same value.
+  - **Four readers, not one**, which is the argument for the seam: `roundCtx().sizes`,
+    `ctx.roster` (handed to infogap and bingo), `renderJoinRoster()` — which paints
+    each phone in `teamColour(p.team)`, so a solo lobby showed two people in one
+    colour — and `games/bingo.js`. The first fix went in at `sizes` only; it was
+    replaced by this one so there is **one truth rather than two mechanisms**.
+  - Proved both ways twice: the eight-phone drive reports `!! Ana 2/8` reverted and
+    4/8 for all eight fixed, and the lobby shows 4 distinct colours for 5 phones
+    reverted, 5 for 5 fixed. `phonemodes` grew a check that does the same thing —
+    **89/1 on the broken build, `caps=2,4,4,4,4,4`** — and 90/0 fixed.
+- **The stuck default — changing a `default:` in code never reaches a device that
+  already ran the old build.** `register()` seeds every master value into
+  `localStorage` the first time the app loads, and the seed is whatever the default
+  was *then*; afterwards the key is present, so a new default is ignored forever.
+  `roundOpenToAll` shipped `default:false` for one build and was still off on the
+  developer's own laptop weeks later, which read exactly like a bug in the round and
+  cost an afternoon. **Widest blast radius of anything found this week.** Changing a
+  shipped default means migrating it (`S.raw`/`S.drop`) or telling the teacher to
+  flip it once. Proved: a fresh profile reads `true`, a profile seeded `false` by the
+  old build still reads `false` against `default:true` in code.
+- **`roundOpenToAll` forks by room type.** Unlike `crowdReveal` — which gates on room
+  size, so ordinary team play never meets it and a fork would be storage nothing
+  reads — this applies identically in both rooms and the right answer differs: with
+  three teams the race for the tile *is* the game, with sixteen individuals the same
+  rule locks fifteen people out of a question they are half way through. `byRoster`,
+  so individuals follow the team-room value until set apart. **Check for an existing
+  gate before forking a setting** — that is the whole difference between these two.
+- **Look up — the phones get the moment, never the meter.** The crowd reveal lands on
+  the projector, which is worth nothing to a room of sixteen reading their own
+  handsets. So when a reveal lands, every phone pulses once: a fixed amber bar,
+  `navigator.vibrate`, gone in 2.2s.
+  - **The meter itself deliberately stayed off the handset**, and the reason is the
+    damping. On the wall the bar is public and shared; in the hand it would be
+    private and probeable — tap a word, watch your own bar twitch, and a sharp
+    student reads the answer off it one word at a time. So what travels is *that*
+    something landed and never *which part*, which leaves nothing to read.
+  - **A moment, not a gauge.** A bar in the corner is ambient and stops being read by
+    the third question; something that fires rarely keeps its force. And the payoff
+    exists only on the wall, so the cue can do nothing except send eyes there.
+  - **`nudge` on the relay is the third non-arming push**, after `shares` and
+    `prompts`, and for the same reason: an arm clears every handset. Guarded on
+    `room.armed`; the host guards again on `roundLive()`, because `crowdKnown` also
+    runs on the reveal render.
+  - **The decision of *when* is in the shelf**, beside `crowdKnown` — it is the only
+    thing that knows the revealed set just grew — memoised on the same `sig` the
+    meter uses so a fresh card cannot announce the last question's reveals.
+  - **Fixed position on the handset, never in the flow**: a banner taking layout
+    space would push the letter tiles down under a thumb that is mid-drag.
+  - Proved: 7/0 over raw HTTP (including that a nudge leaves held replies alone), 11/0
+    on the shelf and a real `join.html`. **No classroom run** — the 2.2s and the
+    vibrate pattern are guesses, and iOS Safari supports no vibration at all, so
+    there it is a visual cue only.
 - **The reveal meter — one anonymous bar filling toward the next crowd reveal,
   `Kit.round.crowdMeter`.** Asked for as "a visual cue of the 40%": a threshold
   you cannot see approaching is just a surprise, and the anticipation is what
@@ -5850,6 +5931,13 @@ phone can check it immediately. Bump the cache stamp or the phone will not see i
 **Do not pipe it through `tail` in a way that swallows the exit code** — `node … | tail`
 reports the *pipe's* status, so a red run looks green. Redirect to a file instead; you
 also get progress while it runs, which `tail` denies you for 15 minutes.
+
+**`pgrep -f <pattern>` matches the waiting shell itself**, because that process's own
+command line contains the pattern — so `until ! pgrep -f smoke-test.js; do sleep 5; done`
+never finishes, and reports a suite as still running ten minutes after it ended. Use
+`ps -eo args | grep "[s]moke-test"` (the bracket stops the grep matching itself) or wait
+on the task's own exit. The sibling of the `| tail` trap above: **the instrument was
+wrong, not the thing being measured.**
 
 **When a shared behaviour changes, grep for the assumption before re-running.** Three
 separate helpers in the suite compared `#m-question`'s text against the raw prompt, and

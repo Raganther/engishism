@@ -180,8 +180,27 @@ window.HubBuzzer = (function(){
          live class paid a win to a team that no longer existed. */
       remap:    removed => post(relay, { room:code, type:'remap', removed }),
       /* One phone's competitor, named by the host. `remap` renumbers everybody after
-         a removal; this seats one person, which is what individual play is made of. */
-      seat:     (id, team) => post(relay, { room:code, type:'seat', id, team }),
+         a removal; this seats one person, which is what individual play is made of.
+
+         **The local record is updated here, and that line is the whole fix for a bug
+         class that recurred four times.** `seat` is one-way: the relay sets its own
+         copy and tells the phone, but pushes no roster back to the host — so
+         `players()` goes on reporting the team each handset arrived with. In a room
+         of individuals every phone joins as team 0 and is then seated onto its own
+         competitor, so without this the host believes several people share one
+         competitor. That is not cosmetic: `sizes` is counted from it, a share is
+         `ceil(need/size)`, and a student told their share of a four-word answer is
+         two **cannot finish the question**. Reported from the room bench, and it
+         would have happened in class.
+
+         Correct rather than a patch, because the relay's record *is* right: the next
+         genuine roster event overwrites this with the same value. What the local
+         write buys is the gap between the seat and that push. */
+      seat:     (id, team) => {
+        const p = players.find(x => x && x.id === id);
+        if(p) p.team = team;
+        return post(relay, { room:code, type:'seat', id, team });
+      },
       /* How many options one phone may hold, per team. Separate from `arm` on
          purpose: a team's share changes when somebody joins or drops, and a fresh
          arm would clear every handset's picks — throwing away a negotiation in

@@ -104,11 +104,19 @@ immediately. Say which kind it is when you tell the user how to test it.
 so a size the round was told once is a lie by the third question. That is why `read`,
 `judge` and `accept` all take `ctx`.
 
-**In a room of individuals, `p.team` off the relay is not the truth.** The host seats
-each phone itself and `seat` never comes back, so the player list holds the join-time
-team until some later roster event refreshes it. Count from the host's own seat map. This
-one cost a student being told their share of a four-word answer was two — which made the
-question unfinishable for them, in class as well as on the bench.
+**A cache of somebody else's index needs a stated invalidation point.** This is the
+single most expensive rule in the project — five bugs in six days, every one a copy of a
+competitor index going stale, and every one fixed at the reader so the next one came
+back. The reflex fix ("use ids instead") is wrong: the stable id already exists where it
+matters. There are exactly **three** caches — `players` in `hub-buzzer.js`, `soloSeatAt`
+and `teamSeat` in `hub-engine.js` — and `CLAUDE.md` carries the table saying what
+invalidates each. **A fourth cache needs a fourth row.**
+
+The worked example: `seat` is one-way, so the host's player list held each handset's
+*join-time* team. In a solo room nobody picks a team, so several phones read as
+competitor 0, `sizes` double-counted one competitor, and a share of `ceil(need/size)`
+told that student two words was their lot on a four-word answer. **Fix it at the seam,
+not at the reader** — there were four readers, and only one of them had been noticed.
 
 **A gate written in one round is written in four.** `crowdMeter` is a shelf function but
 `if(!s.done) K.round.crowdMeter(…)` is copied into grouping, anagram, scramble and
