@@ -482,6 +482,7 @@
          started,       // how many competitors have sent anything
          given          // keys a hint already revealed — count toward the cap
        }) -> extra keys to draw with the hint mark */
+  let knownMemo = { sig: null, keys: [] };
   function crowdKnown(ctx, opts){
     const o = opts || {};
     const th = (ctx && ctx.crowdReveal) == null ? 0.4 : Number(ctx.crowdReveal);
@@ -503,7 +504,91 @@
       .filter(e => e.n / of >= th)
       .sort((a, b) => b.n - a.n);
     const room = Math.max(0, (keys.length - 1) - given.length);
-    return cleared.slice(0, room).map(e => e.k);
+    const out = cleared.slice(0, room).map(e => e.k);
+    /* **A reveal is a moment, and the room is looking at its phones.** The whole
+       point of the crowd reveal is that it lands on the projector — which is worth
+       nothing if sixteen heads are down. So the set is compared with what it was
+       last render and, the once it grows, the host is asked to pulse the handsets.
+
+       Here rather than in each round for the reason every rule in this block is
+       here: five rounds re-deriving "did that just change" is the hand-kept list
+       one tier down, and two of them would drift within a week. `sig` separates
+       one question's memory from the next exactly as the meter's does, so a fresh
+       card cannot open by announcing the last question's reveals.
+
+       It says only that something landed. What it was is on the wall, deliberately
+       — a phone that named the part would be the leak this whole mechanism exists
+       to avoid, and the room would read it instead of looking up. */
+    const sig = String(o.sig != null ? o.sig : keys.join(''));
+    if(knownMemo.sig !== sig) knownMemo = { sig, keys: [] };
+    if(out.some(k => knownMemo.keys.indexOf(k) === -1)){
+      knownMemo = { sig, keys: out.slice() };
+      if(ctx && typeof ctx.nudge === 'function') ctx.nudge('reveal');
+    }
+    return out;
+  }
+
+  /* ---------- the reveal meter ----------
+     **One anonymous bar: how close the room is to its next crowd reveal.** A
+     threshold you cannot see approaching is just a surprise; the bar is the
+     anticipation, and it pulls eyes to the projector — which is what the crowd
+     reveal is for. It tracks whichever unrevealed part the room is *closest* to
+     agreeing on, **without ever naming it** — the counts-only rule, because a
+     bar on each word is a live poll and the class would follow it from the
+     first pick, quietly lowering the threshold to "whatever makes a bar move".
+
+     Same opts as crowdKnown, same gates (threshold on, big rooms, somebody has
+     started), plus two of its own:
+     - **Hidden once nothing more can ever light** — the never-the-last-part cap
+       means a bar filling toward a reveal that cannot come would be a lie.
+     - **Damped**: the fill glides from where it last stood (1.4s, CSS), never
+       ticks, and shows no numbers — a bar that jumped the instant one phone
+       picked a word would let a sharp student probe words one at a time and
+       read the answer off the twitch. `sig` tells one question's memory from
+       the next round's, or a fresh card would open gliding down from the last
+       question's bar.
+
+     `ctx.crowdMeter === false` is the host's off-switch (the `crowdMeter`
+     setting); absent means on, so the bench inherits it with no wiring — the
+     same contract as the threshold itself. */
+  let meterMemo = { sig: null, frac: 0 };
+  function crowdMeter(mount, ctx, opts){
+    const o = opts || {};
+    const c = ctx || {};
+    if(c.crowdMeter === false) return null;
+    const th = c.crowdReveal == null ? 0.4 : Number(c.crowdReveal);
+    const started = Number(o.started) || 0;
+    if(!th || !started) return null;
+    const competitors = laneTeams(c).length;
+    if(competitors <= 5) return null;
+    const keys = o.keys || [];
+    const given = o.given || [];
+    const of = Math.max(started, competitors);
+    const rated = keys.filter(k => given.indexOf(k) === -1)
+      .map(k => (Number(o.count ? o.count(k) : 0) || 0) / of);
+    const room = Math.max(0, (keys.length - 1) - given.length);
+    if(room <= 0 || rated.filter(f => f >= th).length >= room) return null;
+    const next = rated.filter(f => f < th).reduce((a, b) => Math.max(a, b), 0);
+    const frac = Math.max(0, Math.min(1, next / th));
+    const wrap = document.createElement('div');
+    wrap.className = 'rmeter';
+    const lab = document.createElement('span');
+    lab.className = 'rmeter-label'; lab.textContent = 'next reveal';
+    const track = document.createElement('span');
+    track.className = 'rmeter-track';
+    const fill = document.createElement('span');
+    fill.className = 'rmeter-fill';
+    const sig = String(o.sig != null ? o.sig : keys.join(''));
+    /* Every reply redraws the whole card, so a transition on a fresh element
+       never runs — the fill starts where the last render left it and moves on
+       the next frame, guarded by isConnected (the discarded-render lesson). */
+    fill.style.width = (meterMemo.sig === sig ? meterMemo.frac : 0) * 100 + '%';
+    window.requestAnimationFrame(()=>{ if(fill.isConnected) fill.style.width = (frac * 100) + '%'; });
+    meterMemo = { sig, frac };
+    track.appendChild(fill);
+    wrap.appendChild(lab); wrap.appendChild(track);
+    mount.appendChild(wrap);
+    return wrap;
   }
 
   function lanes(mount, ctx, opts){
@@ -1018,9 +1103,21 @@
       }
       return null;
     },
-    shares, settle, clock, results, poll, agreement, lanes, placeBadge, crowd, crowdKnown, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour,
+    shares, settle, clock, results, poll, agreement, lanes, placeBadge, crowd, crowdKnown, crowdMeter, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour,
     /* A comma-separated field as a list. Three rounds' editors parse one, which
        is what puts it here rather than in each of them. */
-    list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); }
+    list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); },
+    /* **The two ways a slot round is played, written once.** Three rounds each
+       hand-wrote their own labels for these same two ideas — "First team to spell
+       it" / "…with the right answer" / "…to order it" — and the wording drifted
+       the day it was written, six strings for two facts. The behaviour was always
+       shared (`poll`/`agreement`, above); now the words are too, so every mode
+       row in ⚙ and on the tune pane reads identically and a teacher learns one
+       vocabulary. A round whose modes are genuinely different things — ordering's
+       one-ladder-or-a-ladder-each — still writes its own. */
+    mode: {
+      first: { value:'first', label:'First team with the right answer takes it' },
+      agree: { value:'agree', label:'A team answers only when all of them agree on the answer' }
+    }
   };
 })();

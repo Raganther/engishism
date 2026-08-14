@@ -50,10 +50,8 @@
     label: 'Multiple Choice',
     blurb: 'One question, four answers. The room picks one.',
 
-    modes: [
-      { value:'first', label:'First team with the right answer takes it' },
-      { value:'agree', label:'A team answers only when all of them agree' }
-    ],
+    // the shared pair — one wording for the two ideas across every slot round
+    modes: [ K.round.mode.first, K.round.mode.agree ],
     teamMode: 'agree',
 
     /* Declared, not only described above, so `tools/question-types.js` can print it. */

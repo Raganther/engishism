@@ -137,7 +137,7 @@ judges itself.
 
 > Does this assume one team held the floor, or that the teacher decides the verdict?
 
-- **Yes** → it must stand down on a round clue: `if(jGroupClue()) return;`
+- **Yes** → it must stand down on a round clue: `if(roundClue()) return;`
 - **No** → it is safe. Daily Doubles, a final round and hints all pass this.
 
 What it looked like when it was missed:
@@ -152,7 +152,7 @@ Both live guards are in `hub-engine.js` (the steal, and the deduction). `jAnswer
 needs none: it starts on a buzz, and `buzzEntitled` already refuses a buzz while a round
 is live, so it can never start.
 
-**Use `jGroupClue()`, not `jGroupLive()`.** The first is "this clue is a round", true
+**Use `roundClue()`, not `roundLive()`.** The first is "this clue is a round", true
 until the card closes. The second stops the moment the round is taken or revealed — and
 a steal and a deduction both run *after* Reveal, so guarding on the second looks right,
 reads right, and silently lets the rule back in.

@@ -126,6 +126,31 @@
      <strong>who would still be correct if you swapped the tier below it out?</strong></p>
   <div class="tiers" id="tier-table"></div>
 
+  <h2>How a point travels</h2>
+  <p class="note">Five steps, each owned by a different tier — no game does its own arithmetic.
+     <strong>This section is prose, kept by hand</strong> (the payout code lives inside the engine,
+     which this page deliberately does not load) — if it ever disagrees with
+     <code>hub-engine.js</code>, the code is right.</p>
+  <div class="tiers">
+    <div class="tier"><code>1 · judge</code><span class="w">The <strong>round</strong> decides right
+      or wrong — and is banned from knowing anything about points, which is what lets one round run
+      in every game.</span></div>
+    <div class="tier"><code>2 · record</code><span class="w"><strong><code>Kit.round.results</code></strong>
+      (the shelf) writes down who got there, in what order, and how fast. The referee's notebook —
+      it knows nothing about points either.</span></div>
+    <div class="tier"><code>3 · worth</code><span class="w">The <strong>skin</strong> contributes two
+      facts and no maths: what the question is worth in its world (a tile's value, a hexagon = 1),
+      and which payout rule it starts on. Bonus mechanics — the Daily Double, deductions, hint costs
+      — are the skin's to <em>have</em>; their sizes are settings a teacher tunes.</span></div>
+    <div class="tier"><code>4 · rule</code><span class="w"><strong><code>PAY_RULES</code></strong>
+      (shared, written once each): winner-takes-all · podium · by-the-clock · everyone-equal. Takes
+      the notebook plus the worth, hands back a number per team. A game switches rules from ⚙,
+      never by code.</span></div>
+    <div class="tier"><code>5 · pay</code><span class="w"><strong><code>award()</code></strong> is
+      the one place a score actually changes — one cashier, so nothing can disagree. The team bar,
+      the standings screen and the score report all only <em>read</em>; none of them calculate.</span></div>
+  </div>
+
   <h2>How one fix reaches everything</h2>
   <p class="note">Two mechanisms. Both get called "sharing" and they solve opposite problems,
      which is why they are worth separate words.</p>
@@ -224,21 +249,21 @@ git add -A && git commit -m "..." && git push      # live in about 40 seconds</p
 
 <!-- Registries only. These are data-only registrations with no DOM of their own, so
      asking them what exists costs nothing and starts no game. -->
-<script src="game-hub/hub-kit.js?v=20260812b"></script>
+<script src="game-hub/hub-kit.js?v=20260814a"></script>
 <!-- Captured between the two script tags: which forms are in the shipped kit. The
      one moment a kit form and a lab-only one are distinguishable. -->
 <script>window.IN_THE_KIT = (window.HubKit && window.HubKit.prompt.types()) || [];</script>
-<script src="playground/lab-forms.js?v=20260812b"></script>
-<script src="game-hub/hub-rounds.js?v=20260812b"></script>
-<script src="game-hub/rounds/default.js?v=20260812b"></script>
-<script src="game-hub/rounds/grouping.js?v=20260812b"></script>
-<script src="game-hub/rounds/ordering.js?v=20260812b"></script>
-<script src="game-hub/rounds/choice.js?v=20260812b"></script>
-<script src="game-hub/rounds/anagram.js?v=20260812b"></script>
-<script src="game-hub/rounds/scramble.js?v=20260812b"></script>
-<script src="game-hub/rounds/infogap.js?v=20260812b"></script>
-<script src="game-hub/rounds/drop.js?v=20260812b"></script>
-<script src="game-hub/rounds/bingo.js?v=20260812b"></script>
+<script src="playground/lab-forms.js?v=20260814a"></script>
+<script src="game-hub/hub-rounds.js?v=20260814a"></script>
+<script src="game-hub/rounds/default.js?v=20260814a"></script>
+<script src="game-hub/rounds/grouping.js?v=20260814a"></script>
+<script src="game-hub/rounds/ordering.js?v=20260814a"></script>
+<script src="game-hub/rounds/choice.js?v=20260814a"></script>
+<script src="game-hub/rounds/anagram.js?v=20260814a"></script>
+<script src="game-hub/rounds/scramble.js?v=20260814a"></script>
+<script src="game-hub/rounds/infogap.js?v=20260814a"></script>
+<script src="game-hub/rounds/drop.js?v=20260814a"></script>
+<script src="game-hub/rounds/bingo.js?v=20260814a"></script>
 <script>
 (function(){
   'use strict';

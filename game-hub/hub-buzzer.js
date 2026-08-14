@@ -191,6 +191,12 @@ window.HubBuzzer = (function(){
       /* The deal of per-player views moved under a live round — same shape as
          `shares`: pushed, never re-armed, so nobody's half-typed word is wiped. */
       prompts:  per    => post(relay, { room:code, type:'prompts', promptByPlayer:per }),
+      /* One pulse on every handset: the board has revealed something, look up.
+         Same shape as `shares` and `prompts` — pushed, never re-armed, so nothing
+         anybody is holding is touched. It carries that it happened and never what
+         was revealed; the thing itself exists only on the wall, which is the whole
+         point of sending this at all. */
+      nudge:    kind   => post(relay, { room:code, type:'nudge', kind }),
       disarm:   ()     => post(relay, { room:code, type:'disarm' }),
       reset:    ()     => post(relay, { room:code, type:'reset' }),
       setTeams: (names, solo) => post(relay, { room:code, type:'teams', teams:names,
@@ -207,7 +213,7 @@ window.HubBuzzer = (function(){
     const src   = stream(relay, { room:code, role:'player', id, name:opts.name||'Player', team:opts.team||0 }, ev);
 
     ['joined','armed','disarmed','locked','reset','teams','judged','card','marked','nope',
-     'shares','kicked','team','prompt'].forEach(name=>{
+     'shares','kicked','team','prompt','nudge'].forEach(name=>{
       src.addEventListener(name, e=>{
         let d = {}; try{ d = JSON.parse(e.data); }catch(_){}
         ev.emit(name, d);
@@ -234,4 +240,80 @@ window.HubBuzzer = (function(){
   }
 
   return { host, player, newCode, teamColour, TEAM_COLOURS, wordCols };
+})();
+
+/* ---------- is this page the build the server has? ----------
+   A browser can hold a stale shell in memory across deploys: it asks for the old
+   `?v=`, gets its own cached assets, and shows the previous build with no error
+   anywhere — `HUB_BUILD` reports the stamp the shell *asked for*, so even the ⚙
+   footer agrees with the lie. That has cost real debugging rounds, because a
+   stale page and a broken fix look identical from the outside.
+
+   So the page checks for itself: its own stamp (read off its script/link tags,
+   the same derivation HUB_BUILD makes) against the stamp in a freshly fetched
+   copy of its own HTML — nothing new to keep in step, both sides are derived.
+   When they differ, a small fixed pill offers a reload; it never forces one,
+   because the teacher decides. It lives here because this is the one file
+   nearly every stamped page loads, board and handset alike.
+
+   Tapping navigates to the same URL with a changed `fresh=` param — a different
+   URL is what actually defeats an in-app browser's cache, where a plain reload
+   hands back the same stale copy. The room memory is localStorage, so the class
+   stays joined across it. */
+(function buildWatch(){
+  if (location.protocol === 'file:') return;   // no server to be newer, and fetch is blocked
+  // the suite serves exactly what it serves; window.HUB_BUILDWATCH_ANYWAY opts a
+  // check back in, the same shape as ?rack=auto and HUB_SHUFFLE_ANYWAY
+  if (navigator.webdriver && !window.HUB_BUILDWATCH_ANYWAY) return;
+  // the date shape is load-bearing: classic.html carries ?v=picture / ?v=unit1,
+  // which are content selectors, not build stamps
+  const STAMP = /[?&]v=(20[0-9]{6}[a-z]*)/;
+  function stampIn(text){ const m = STAMP.exec(text || ''); return m ? m[1] : ''; }
+  let mine = '';
+  document.querySelectorAll('script[src],link[href]').forEach(el => {
+    if (!mine) mine = stampIn(el.getAttribute('src') || el.getAttribute('href'));
+  });
+  if (!mine) return;                           // an unstamped page has no build to be stale against
+
+  let chip = null, lastLook = 0;
+  function show(server){
+    if (!chip){
+      chip = document.createElement('div');
+      chip.id = 'build-chip';
+      // fixed in a corner on purpose: anything that occupies layout space above a
+      // board owes it a re-fit, and a chip that can appear mid-lesson must not.
+      // Styled inline because the playground pages load none of the hub's CSS.
+      chip.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:300;' +
+        'font-family:ui-monospace,monospace;font-size:0.78rem;letter-spacing:0.04em;' +
+        'text-transform:uppercase;padding:8px 14px;border-radius:999px;cursor:pointer;' +
+        'background:#12263F;color:#fff;border:1px solid rgba(255,255,255,0.35);' +
+        'box-shadow:0 4px 14px rgba(0,0,0,0.25);';
+      chip.addEventListener('click', () => {
+        const u = new URL(location.href);
+        u.searchParams.set('fresh', chip.dataset.server || 'now');
+        location.href = u.href;
+      });
+      document.body.appendChild(chip);
+    }
+    chip.dataset.server = server;
+    chip.textContent = 'new version · tap to reload';
+    chip.title = 'This page is running build ' + mine + '; the site is on ' + server +
+                 '. Tapping loads the new one — the room code is kept.';
+  }
+  function look(){
+    lastLook = Date.now();
+    fetch(location.pathname, { cache:'no-store' })
+      .then(r => r.ok ? r.text() : '')
+      .catch(() => '')
+      .then(html => {
+        const server = stampIn(html);
+        if (!server) return;                   // unknown is not stale
+        if (server !== mine) show(server);
+        else if (chip){ chip.remove(); chip = null; }
+      });
+  }
+  setTimeout(look, 10000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && Date.now() - lastLook > 5 * 60 * 1000) look();
+  });
 })();

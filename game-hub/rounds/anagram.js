@@ -65,10 +65,8 @@
     label: 'Drag the Letters',
     blurb: 'Scrambled letters, and boxes to drag them into.',
 
-    modes: [
-      { value:'first', label:'First team to spell it takes it' },
-      { value:'agree', label:'A team answers only when all of them spell the same word' }
-    ],
+    // the shared pair — one wording for the two ideas across every slot round
+    modes: [ K.round.mode.first, K.round.mode.agree ],
     /* The whole-team mode, for a board that asks for one — see `teamMode` in
        hub-rounds.js. A tile is a team's answer, not the fastest thumb's. */
     teamMode: 'agree',
@@ -144,13 +142,15 @@
       /* The crowd reveal: slots enough of the room already has fill in beside the
          hint's, wearing the same mark. The rules — big rooms only, never the last
          part, hints count toward the cap — are the shelf's, not re-derived here. */
-      const known = (s.hint || []).concat(K.round.crowdKnown(c, {
+      const cw = {
         keys: Array.from({ length: s.need }, (_, i) => i),
         count: i => Object.keys(s.got || {}).filter(t =>
           ((s.got[t] || [])[i] || 0) >= K.round.mustHold(s.mode, c, t)).length,
         started: Object.keys(s.leading || {}).length,
-        given: s.hint || []
-      }));
+        given: s.hint || [],
+        sig: s.word
+      };
+      const known = (s.hint || []).concat(K.round.crowdKnown(c, cw));
 
       const boxes = document.createElement('div');
       boxes.className = 'ana-boxes';
@@ -226,6 +226,10 @@
           }
         });
       }
+
+      /* The reveal meter — how close the room is to the next slot filling in,
+         never which slot. Live rounds only. */
+      if(!s.shown && !s.done) K.round.crowdMeter(mount, c, cw);
 
       /* Always drawn, empty or not — see `Kit.round.say`. An appearing line was
          what made the card jump on the first hint. */

@@ -44,9 +44,9 @@ myboard: {
 }
 ```
 
-Then two calls where your clue opens: `jGroupOf(item, 'myboard')` **before**
+Then two calls where your clue opens: `roundOf(item, 'myboard')` **before**
 `askPhones` (the host must be named before `setup` reads the ctx, or the round is set
-up against the previous board), and `jGroupOpen(found)` if it found one. Carry the
+up against the previous board), and `roundOpen(found)` if it found one. Carry the
 round's fields across with `Kit.round.fields()` rather than naming them.
 
 `ROUND_HOSTS` lives above the settings block so the round settings' `games` list is
@@ -58,13 +58,25 @@ slot is a second, conflicting route to it. Jeopardy hides Correct/Wrong until Re
 Blockbusters hides its team chooser. Whatever yours is, hide it and put it back on
 Reveal — a class that never got there still needs awarding by hand.
 
-## 1. Register it in the cluster, before the settings block
+## 1. Register it — its own file first, the cluster second
 
-`registerGame({...})` calls live together near the top of `game-hub/hub-engine.js`,
-before `S.register(...)` and before init. **This is load-bearing and nothing
-enforces it.**
+**The preferred home for a new game is its own file, `game-hub/games/<id>.js`** —
+Quickfire lives this way and is the model to copy. The file registers into
+`window.HubGames.register({...})`, declares its stage markup as `stageHTML` and
+its ROUND_HOSTS entry as `roundHost` (the engine injects and merges both at
+init), reaches engine machinery through `window.HubEnv` **inside hooks only**
+(the engine loads after your file, so `HubEnv` does not exist at parse), wires
+its DOM listeners on first `load()` (the stage does not exist at parse either),
+and declares `order` (built-ins sit at 50) so it does not jump to the front of
+the card row. Add its `<script>` tag to the four shells between
+`game-hub/hub-games.js` and `hub-engine.js`. Loading before the engine is what
+retires the register-before-init trap for you.
 
-Two silent failures come from getting it wrong, and both have happened:
+The in-engine alternative: `registerGame({...})` calls live together near the
+top of `game-hub/hub-engine.js`, before `S.register(...)` and before init.
+**There, the ordering is load-bearing and nothing enforces it.**
+
+Two silent failures come from getting it wrong in-engine, and both have happened:
 
 - **After `renderGameCards()` runs at init** → the game is in `HubGames.ids()`,
   passes `hasBank`, and simply has no card on the game screen.

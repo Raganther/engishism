@@ -7727,6 +7727,35 @@ async function testPhoneBench(browser){
   check('a classroom-division preset sets the board’s team count exactly, both ways',
         agreed.join(' ') === '3×3:3/3 2×2:2/2 4×4:4/4', agreed.join(' '));
 
+  /* ---- the tune pane: the rules board beside the board ----
+     The rows are the board's own settings rows rendered through the frame
+     (`renderOnce`, the HubTeams reach-in pattern), so a row here and a row in
+     the ⚙ drawer cannot disagree. What the pane itself owes: an edit is a real
+     per-game override, and the state line tells a default from a customization. */
+  check('the tune pane is open with a tab per registered game',
+        await hub.locator('#tune-pane').isVisible() &&
+        await hub.locator('#tune-tabs button').count() ===
+          await hub.evaluate(() => document.getElementById('stage-frame')
+                                    .contentWindow.HubGames.ids().length),
+        (await hub.locator('#tune-tabs button').allInnerTexts()).join(' '));
+  await until(async () =>
+    await hub.locator('#tune-body [data-setting="round_anagram"]').count() === 1, 8000);
+  const tuneRow = hub.locator('#tune-body [data-setting="round_anagram"]')
+    .locator('xpath=ancestor::div[contains(@class,"settings-row")]');
+  await hub.locator('#tune-body [data-setting="round_anagram"]').selectOption('first');
+  await hub.waitForTimeout(700);
+  const overrideNow = () => hub.evaluate(() =>
+    JSON.parse(localStorage.getItem('engishism.gamehub.settings') || '{}')['round_anagram@jeopardy']);
+  check('an edit in the pane is a real per-game override', await overrideNow() === 'first',
+        String(await overrideNow()));
+  check('and its state line says so',
+        /set for this game/i.test(await tuneRow.locator('.settings-state').innerText()),
+        await tuneRow.locator('.settings-state').innerText());
+  await tuneRow.locator('.settings-undo').click();
+  await hub.waitForTimeout(700);
+  check('reset puts the game back on its default', await overrideNow() === undefined,
+        String(await overrideNow()));
+
   check('the hub bench had no errors', hub.__errors.length === 0, hub.__errors[0]);
   await hub.close();
 

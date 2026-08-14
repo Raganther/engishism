@@ -474,6 +474,24 @@ function handleSend(req, res){
         });
         return sendJSON(res, 200, { ok:true });
       }
+      /* **Look up — the board has just filled something in.** The crowd reveal
+         happens on the projector, and a room of sixteen heads bent over their own
+         handsets is exactly the room that misses it. So what travels is a moment,
+         not a picture: every phone pulses once and goes quiet again.
+
+         Deliberately *not* the reveal meter itself. That bar is damped and public
+         on purpose; in the hand it would be private and probeable — tap a word,
+         watch your own bar twitch, and a sharp student reads the answer off it one
+         word at a time. So this carries that something landed and never which part,
+         which leaves nothing here to read.
+
+         Not an `arm`, for the same reason `shares` and `prompts` are not: a fresh
+         arm clears every handset. This touches nothing anybody is holding. */
+      case 'nudge': {
+        if(!room.armed) return sendJSON(res, 200, { ok:true, ignored:'not armed' });
+        toPlayers(room, 'nudge', { kind: String(msg.kind || 'reveal').slice(0,24) });
+        return sendJSON(res, 200, { ok:true });
+      }
       case 'disarm':
         room.armed = false; room.prompt = ''; room.team = null; room.promptByPlayer = null;
         // the rule described that question; it must not survive into the next one

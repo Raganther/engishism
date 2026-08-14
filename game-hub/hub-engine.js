@@ -95,110 +95,17 @@
 
      Hooks run only while their game is the active one, so none of them needs to
      check. Registration order is the order the cards appear on the game screen. */
-  const GAMES = [];
-  const GAME_BY_ID = Object.create(null);
-  const NO_OP = function(){};
-  // the settings panel labels its per-game tabs from this
-  const HUB_GAME_TITLES = {};
-  window.HUB_GAME_TITLES = HUB_GAME_TITLES;
+  /* The registry lives in `hub-games.js` now — loading before the game files and
+     before this engine, the `hub-rounds.js` → `rounds/*.js` → engine pattern. The
+     six built-ins still declare themselves below because their logic shares this
+     closure; an external game file registers into the same registry and the
+     engine, loading last, consumes everything already registered. */
+  if(!window.HubGames) throw new Error('hub-games.js must load before hub-engine.js');
+  const GAMES = window.HubGames.all();
+  const registerGame = def => window.HubGames.register(def);
+  const HUB_GAME_TITLES = window.HUB_GAME_TITLES;
 
-  function registerGame(def){
-    if(!def || !def.id) throw new Error('registerGame: a game needs an id');
-    if(GAME_BY_ID[def.id]) return GAME_BY_ID[def.id];
-    const g = Object.assign({
-      title: def.id,
-      stage: 'play-' + def.id,     // the id of its panel on the play screen
-      card:  { icon:'', blurb:'', badge:'' },
-      intro: null,                 // no ident = no title sequence, and that's fine
-      hasBank: function(){ return false; },
-      // is this board sized to the screen? every one so far is except Blockbusters,
-      // which scales itself around the end-of-round banner instead
-      fitsScreen: true,
-      load: NO_OP, renderContent: NO_OP, startButton: NO_OP,
-      start: NO_OP, fit: NO_OP, deal: NO_OP, tension: NO_OP,
-      onResize: NO_OP, onTimerEnd: NO_OP, onWrong: NO_OP,
-      /* ---- the phone contract ----
-         These six are what a game owes the room, and they are the reason every
-         phone dynamic reaches every board. They were `if (activeGame === …)` chains
-         inside the phone layer until a fifth game proved the point: buzzing,
-         everyone-types, type-then-buzz and the class vote each had to be threaded
-         through four functions by hand, and nothing complained if one was missed.
-         Declare these and a new game inherits all of it, including modes that do
-         not exist yet. Leave them out and its phones are simply idle — a visible,
-         correct state rather than a half-wired one. */
-      expects:      function(){ return ''; },    // what a typed answer is judged against
-      phonePrompt:  function(){ return ''; },    // what the handset shows
-      askingNow:    function(){ return false; }, // is a question open right now
-      buzzEntitled: function(){ return true; },  // false = refuse this buzz, engine re-arms
-      onBuzzTaken:  NO_OP,                       // somebody has the floor
-      onTypedWin:   function(){ return null; },  // typed and correct: score it, return the points
-      /* The vote is the second half of the contract. A vote is not a phone *mode* —
-         it borrows every phone in the room for the few seconds it runs and then
-         gives them back — so a game says whether it ever asks the room something
-         (which is what keeps a room open at `phoneMode:off`), and what to do with
-         the replies as they land. */
-      wantsVote:    function(){ return false; },
-      onVoteReply:  NO_OP,
-      /* What the room chip says when `phoneMode` is off but the game still wants a
-         room. The default is the vote, because that was the only reason to have one
-         — but "votes only" over a game where every phone is holding a bingo card is
-         simply wrong, and the chip is the thing a class reads while deciding
-         whether to bother joining. */
-      roomNote:     function(){ return null; },
-      /* `phoneMode` says what a phone does during a question — buzz, write, type —
-         and that is right for a board every phone is watching. Some games *are* the
-         phone dynamic: Bingo with the cards in their hands has nine words to tap,
-         and a buzzer over the top of that is not a choice between iterations, it is
-         two dynamics fighting. A game returning `{mode, prompt, options}` here owns
-         the round; `null` means the mode decides, which is what four of the five
-         games always want. */
-      phoneRound:   function(){ return null; },
-      /* **How this game's bank item becomes a round**, when the round is derived
-         rather than authored. Millionaire's items carry `{answer, distractors}` and
-         no `choice:` field, so `Kit.round.of()` cannot see a round in the data — the
-         game builds one when the question opens. Declared here, that same knowledge
-         is available to anything else that needs to ask, and the content screen was
-         the first: without it a ladder of rounds read as "Question".
-
-         Identity by default, so a game whose bank carries its round fields outright
-         (Jeopardy, Blockbusters) declares nothing. */
-      asRound:      function(item){ return item; },
-      /* **Whether this board works with one person per competitor.** Not every one
-         does, and it is a fact about the *geometry* rather than about the questions:
-         Millionaire draws a ladder each and thirty ladders is not a board,
-         Blockbusters has exactly two routes across it, and Race is two people
-         physically at the screen. Jeopardy, Bingo and Quickfire are fine with it.
-         Declared rather than discovered, the same shape as `hasBank` — and `false`
-         by default, because teams is what every board here was built for and a new
-         one should have to say it has thought about the other. */
-      solo:         false,
-      /* **The roster changed under a live board.** In team play that only happens
-         when a teacher presses a button between games; in individual play a student
-         walking in late *is* a new competitor, mid-question, and a board that draws
-         its own picture of who is playing has to hear about it. Quickfire's
-         leaderboard is the first caller — without this a latecomer scored and never
-         appeared on it. A no-op for every board that reads `teams` at draw time. */
-      onRoster:     NO_OP
-    }, def);
-    GAMES.push(g);
-    GAME_BY_ID[g.id] = g;
-    HUB_GAME_TITLES[g.id] = g.title;
-    return g;
-  }
-
-  /* Exposed so a game can eventually live in its own file and register itself,
-     the way units already do with `window.UNITS`. The four built-ins still declare
-     themselves below because their logic shares this closure; moving them out is a
-     mechanical follow-up, not a change of contract. */
-  window.HubGames = {
-    register: def => registerGame(def),
-    get:      id  => GAME_BY_ID[id] || null,
-    ids:      ()  => GAMES.map(g => g.id),
-    hooksOf:  id  => Object.keys(GAME_BY_ID[id] || {}),
-    renderCards: () => renderGameCards()
-  };
-
-  const gameDef  = id => GAME_BY_ID[id === undefined ? activeGame : id] || null;
+  const gameDef  = id => window.HubGames.get(id === undefined ? activeGame : id);
   const gameIds  = () => GAMES.map(g => g.id);
   /* Run a hook on the game being played. Every call site used to be an if-chain
      that a new game had to be threaded into by hand. */
@@ -224,6 +131,17 @@
     hasBank: u => (u.jeopardyCategories||[]).length > 0,
     load(u){ JEOPARDY_SECTION_LABELS = u.jeopardySectionLabels || {};
              JEOPARDY_CATEGORIES     = u.jeopardyCategories || []; },
+    bank: () => JEOPARDY_CATEGORIES.reduce((a,c)=> a.concat(c.clues||[]), []),
+    // scores in hundreds: corrections nudge by 100, payouts round to 50
+    nudgeStep: 100, payStep: 50,
+    onSetting(id){
+      if(id==='jTogether' || id==='jTarget' || id==='jRules'){ renderClassLine(); hook('onResize'); }
+      /* Changing the ruleset mid-board reaches the board. Planting only among the
+         unplayed tiles is what keeps that honest — see jPlantDailyDoubles. */
+      if((id==='jDailyDoubles' || id==='jRules') &&
+         document.getElementById('screen-play').classList.contains('active')) jPlantDailyDoubles();
+      if(id==='jHints') renderHintButton();
+    },
     renderContent: renderJeopardyContent,
     startButton:   jeopardyStartButton,
     start(){ buildJeopardyBoard(); timerSetDuration(30); },
@@ -240,7 +158,7 @@
        so a buzz already in flight when the wager opened is refused rather than
        taking a floor that does not exist. A grouping clue refuses for the opposite
        reason — every team is playing it at once, and there is no floor to take. */
-    buzzEntitled: () => jDoubleTeam == null && !jWager && !jGroupLive(),
+    buzzEntitled: () => jDoubleTeam == null && !jWager && !roundLive(),
     /* The final clue is the one beat of Jeopardy where every team answers at once,
        privately, against the clock — that is the whole mechanic, and a buzzer would
        hand it to one thumb. So the game owns the round while it runs, exactly as
@@ -249,7 +167,7 @@
     phoneRound(){
       /* A grouping clue owns the round for the same reason: it *is* the phone
          dynamic, so the mode has nothing to say about eight words to assemble. */
-      if(jGroupLive()) return jGroupRound();
+      if(roundLive()) return roundForPhones();
       if(!jFinalState || !jFinalState.asking) return null;
       return { mode:'write',
                prompt: S.get('phonePrompt', 'jeopardy') ? (jFinalState.clue.q || '') : '' };
@@ -258,9 +176,9 @@
        same shape as Millionaire's Ask the class and Bingo's cards — and the chip has
        to say so, because "idle here" reads as "don't bother joining" to a room that
        is about to be handed eight words. */
-    wantsVote:   () => jGroupLive(),
-    roomNote:    () => jGroupLive() ? 'find the group' : null,
-    onVoteReply(all){ jGroupOnReplies(all); },
+    wantsVote:   () => roundLive(),
+    roomNote:    () => roundLive() ? 'find the group' : null,
+    onVoteReply(all){ roundOnReplies(all); },
     // the buzz decides who answers, so it selects that team: the teacher stops
     // being the one who chooses, which is the whole point of buzzing for a tile
     /* A plain buzz starts the answer clock; a typed one does not — the typed word
@@ -295,6 +213,12 @@
     load(u){ BLOCKBUSTERS_BANK          = u.blockbustersBank || [];
              BLOCKBUSTERS_SECTION_NAMES = u.blockbustersSectionNames || {};
              BLOCKBUSTERS_TOPIC_NAMES   = u.topicNames || {}; },
+    bank: () => BLOCKBUSTERS_BANK,
+    /* The *team* on turn — only the side index while there are two teams; with
+       four it rotates within each side. And every chip wears its side's colour,
+       because a hexagon belongs to a side while points belong to a team. */
+    turnTeam: () => bbTeamOnTurn(),
+    teamDecor: i => `<span class="dot" style="background:${bbSideOf(i)===0?'var(--yellow)':'var(--blue)'}"></span>`,
     renderContent: renderBlockbustersContent,
     startButton:   blockbustersStartButton,
     start(){
@@ -315,20 +239,22 @@
        attack. `openBlockbustersClue` ends the vote before it opens a round, so they
        are mutually exclusive by construction — but the round is asked first anyway,
        because it is the one that owns the card. */
-    wantsVote:   () => jGroupLive() || !!S.get('bbTeamVote', 'blockbusters'),
+    wantsVote:   () => roundLive() || !!S.get('bbTeamVote', 'blockbusters'),
     /* **The replies have to come back in, not just go out.** Arming the phones for a
        round and never routing what they send is silent: the handsets look right, the
        card looks right, and every tap is dropped on the floor. That is exactly what
        shipped when this board became a round host — `phoneRound()` was declared and
        this was not. */
     onVoteReply(all){
-      if(jGroupLive()){ jGroupOnReplies(all); return; }
+      if(roundLive()){ roundOnReplies(all); return; }
       if(bbVote){ bbVote.apply(all); renderBBVote(); }
     },
     /* A hexagon can open a round, and a round owns the handsets while it runs —
        the same reason Jeopardy's tile does. The mode is not consulted, because
        what the phones are put into *is* the question here. */
-    phoneRound(){ return jGroupRound(); },
+    phoneRound(){ return roundForPhones(); },
+    // the vote button names the team on turn, and the room arrives after the board
+    onRoomReady(){ renderBBVote(); },
     fit:      layoutBlockbustersBoard,
     deal:     bbDeal,
     tension(){ bbTension(); },
@@ -353,6 +279,15 @@
     load(u){ RACE_BANK          = u.raceBank || [];
              RACE_SECTION_NAMES = u.raceSectionNames || {};
              RACE_TOPIC_NAMES   = u.topicNames || {}; },
+    bank: () => RACE_BANK,
+    // head-to-head has no "whose turn" — both teams are at the board at once
+    turnTeam: () => raceMode==='h2h' ? -1 : active,
+    onSetting(id){
+      if(id==='raceShowSection' && raceCurrent) setRacePrompt(raceCurrent);
+      if(id==='raceRoundSeconds' && raceMode==='timed' && !raceRunning){
+        timerSetDuration(Number(S.get('raceRoundSeconds', 'race')) || 60);
+      }
+    },
     renderContent: renderRaceContent,
     startButton:   raceStartButton,
     start(){
@@ -368,9 +303,9 @@
     /* **The two wires a phone dynamic needs, and declaring one looks exactly like
        declaring both.** Blockbusters shipped with only the first and every tap was
        dropped on the floor with nothing anywhere saying so. */
-    phoneRound(){ return jGroupRound(); },
-    wantsVote:   () => jGroupLive(),
-    onVoteReply(all){ if(jGroupLive()) jGroupOnReplies(all); },
+    phoneRound(){ return roundForPhones(); },
+    wantsVote:   () => roundLive(),
+    onVoteReply(all){ if(roundLive()) roundOnReplies(all); },
     /* The typed word is the claim here too, and awarding it deals the next sentence
        — so this returns *after* the award and the engine names the student on the
        strip, which outlives the re-arm. */
@@ -411,6 +346,9 @@
     load(u){ MILLIONAIRE_BANK          = u.millionaireBank || [];
              MILLIONAIRE_SECTION_NAMES = u.millionaireSectionNames || {};
              MILLIONAIRE_TOPIC_NAMES   = u.topicNames || {}; },
+    bank: () => MILLIONAIRE_BANK,
+    // scores in hundreds: corrections nudge by 100, payouts round to 50
+    nudgeStep: 100, payStep: 50,
     renderContent: renderMillionaireContent,
     startButton:   millionaireStartButton,
     start(){ buildMillionaire();
@@ -429,162 +367,19 @@
     /* Every question is a round now, so the handsets are the round's for the whole
        of it. Declaring `phoneRound` without `onVoteReply` is the failure that shipped
        on Blockbusters: the room arms correctly and every tap lands on the floor. */
-    phoneRound(){ return jGroupRound(); },
+    phoneRound(){ return roundForPhones(); },
     asRound:     q => mAsRound(q),
-    wantsVote:   () => jGroupLive() || !!S.get('mLifelines', 'millionaire'),
-    roomNote:    () => jGroupLive() ? 'pick an answer' : null,
-    onVoteReply(all){ if(jGroupLive()) jGroupOnReplies(all); },
+    /* Ask the class disables itself with no room to reveal from, and this board
+       deals its first question inside `start()` — before the code has come back.
+       Without this repaint a lesson opening here found the lifeline greyed out
+       for the whole first question. */
+    onRoomReady(){ renderMillionaire(); },
+    wantsVote:   () => roundLive() || !!S.get('mLifelines', 'millionaire'),
+    roomNote:    () => roundLive() ? 'pick an answer' : null,
+    onVoteReply(all){ if(roundLive()) roundOnReplies(all); },
     fit:      fitMillionaire,
     tension(){ mTension(); },
     onResize: fitMillionaire
-  });
-
-  /* Bingo is the fifth game and it was built as a test of the framework: how much
-     of what the other four needed does a new board get for free? It consumes the
-     **Blockbusters bank** rather than one of its own — the answers there are
-     already single words with a clue each, which is exactly a bingo call — so both
-     units gained a fifth game with no authoring at all. That is a preview of the
-     pooled-content idea: a game declaring what it can consume, instead of a bank
-     being written for it. */
-  registerGame({
-    id:'bingo', title:'Bingo',
-    /* This is what bingo actually is: a card each. `bingoCards:'phones'` already
-       deals one per student, so solo is the shape it was reaching for. */
-    solo: true,
-    card:{
-      icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="30" height="30" rx="2"/><path d="M15 5 L15 35 M25 5 L25 35 M5 15 L35 15 M5 25 L35 25"/><path d="M7 17 L13 23 M13 17 L7 23" stroke-width="2.4"/><path d="M27 27 L33 33 M33 27 L27 33" stroke-width="2.4"/></svg>',
-      blurb:'Every team gets a card of words. Read a clue &mdash; the first team to answer marks it off. Three in a row wins.',
-      badge:'Best for: whole-class listening, everyone in at once' },
-    intro:{ eyebrow:'Cambridge Empower C1', title:'BINGO',
-            sub:'Nine words each. Listen for yours. Three in a row.', accent:'#FF7AC8' },
-    /* **Its own bank if the unit has one, Blockbusters' if not.** It began as
-       "the same bank Blockbusters uses", which held for as long as that bank was
-       single-word answers with a clue apiece — exactly what a bingo call is. A
-       unit whose Blockbusters board is all *rounds* has none of those: a round
-       hexagon carries no `answer` at all, so `bingoWordsIn` finds nothing and the
-       game silently leaves the unit. `bingoBank` is where those calls live once
-       the hexagons stop being them, and the fallback keeps every unit that has
-       not been converted working untouched. */
-    hasBank: u => bingoWordsIn(u.bingoBank || u.blockbustersBank || []).length >= BINGO_POOL,
-    load(u){ BINGO_BANK          = u.bingoBank || u.blockbustersBank || [];
-             BINGO_SECTION_NAMES = u.blockbustersSectionNames || {};
-             BINGO_TOPIC_NAMES   = u.topicNames || {}; },
-    renderContent: renderBingoContent,
-    startButton:   bingoStartButton,
-    /* Cards on phones needs a room even at `phoneMode: off` — the cards *are* the
-       dynamic, so the mode has nothing to say about it. Same shape as Millionaire
-       keeping a room open for Ask the class. */
-    wantsVote:   () => bingoOnPhones(),
-    roomNote:    () => bingoOnPhones() ? 'cards on phones' : null,
-    /* With the cards in their hands the phones have a job already, so the mode does
-       not get a say — nine words to tap is the dynamic. With the cards on the board
-       this returns null and buzz / everyone-types / type-then-buzz work exactly as
-       they do in the other games. */
-    phoneRound(){
-      if(!bingoOnPhones() || !bingoCurrent) return null;
-      return { mode:'card',
-               prompt: S.get('phonePrompt', 'bingo') ? (bingoCurrent.clue || bingoCurrent.prompt || '') : '',
-               keepSpent:true };
-    },
-    expects:     () => (bingoCurrent && bingoCurrent.answer) || '',
-    phonePrompt: () => (bingoCurrent && (bingoCurrent.clue || bingoCurrent.prompt)) || '',
-    askingNow:   () => !!bingoCurrent && !bingoWon,
-    /* Typed and correct marks their square, the way it claims a tile elsewhere. A
-       word that is not on their card is still a right answer — the strip says so —
-       but there is nothing to mark, so it pays nothing rather than declining. */
-    onTypedWin(b){
-      const card = bingoCards[b.team];
-      if(!bingoCurrent || !card) return null;
-      const ci = card.words.findIndex((w, i) => !card.marked[i] && w.answer === bingoCurrent.answer);
-      return ci >= 0 ? (markBingoCell(b.team, ci) || 1) : 0;
-    },
-    start(){ startBingo(); },
-    fit:      fitBingoCards,
-    deal:     bingoDeal,
-    tension(){ bingoTension(); },
-    onResize: fitBingoCards
-  });
-
-  /* Quickfire — the sixth game, and the first with no board at all.
-     ==============================================================
-
-     Every other skin is a geometry with a question hidden behind each cell: a tile,
-     a hexagon, a rung, a word on a track, a square on a card. There is nothing to
-     choose here. Fifteen questions go up in a row against a clock, and the only
-     decisions in the room are made on the handsets.
-
-     **It was built as the cheapest possible test of two claims**, and it is worth
-     recording which:
-
-     1. *A skin costs almost nothing now.* It writes no question handling at all —
-        the Multiple Choice round draws the card, arms the phones, merges each
-        team's taps and judges them. What is written here is a sequence, a clock and
-        a scoreboard.
-     2. *A game can consume a bank rather than author one.* It reads
-        `millionaireBank`, which is already `{prompt, answer, distractors}` — exactly
-        a multiple choice question — so **three units gained a sixth game with no
-        content written at all.** Bingo did this first against `blockbustersBank`;
-        this is the second caller, which is what makes it a pattern.
-
-     **What is genuinely this skin's**, and therefore what is actually new code:
-     every team scores, and what they score depends on how fast they were. Nothing
-     else in the app scores by time. `level` is ignored — a ladder needs difficulty,
-     a straight run does not. */
-  let kQueue = [], kAt = -1, kCurrent = null, kAsked = 0;
-  let kPaid = null, kOver = false;
-
-  const kSecs      = () => Number(S.get('kSeconds', 'kahoot')) || 20;
-  const kBase      = () => Number(S.get('kPoints',  'kahoot')) || 100;
-  const kWanted    = () => Number(S.get('kQuestions', 'kahoot')) || 15;
-  /* The clock is `Kit.round.clock` now — the shared one, which is what lets the
-     value below be the shared curve rather than this skin's private arithmetic. */
-  const kLeft      = () => Kit.round.clock.left();
-  const kLive      = () => !!kCurrent && !kOver;
-
-  registerGame({
-    id:'kahoot', title:'Quickfire',
-    /* **The board solo suits best, and it needed no scoring work to say so.**
-       `scoreEach` already pays every competitor for its own answer at its own
-       speed — there is no slot one side takes — which is exactly the individual
-       model. No geometry, no turns, and with one handset per competitor the
-       whole-team-agrees question does not arise. */
-    solo: true,
-    card:{
-      icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="20" cy="21" r="13"/><path d="M20 13 L20 21 L26 25"/><path d="M14 6 L26 6"/><path d="M20 6 L20 8"/></svg>',
-      blurb:'Fifteen questions against the clock. Every team answers every one, and the faster you are the more it pays.',
-      badge:'Best for: fast revision, everyone in at once' },
-    intro:{ eyebrow:'Cambridge Empower C1', title:'QUICKFIRE',
-            sub:'Fifteen questions. No turns. The clock is the opponent.', accent:'#2BD9C4' },
-    /* Consumed, not authored — see the note above. */
-    hasBank: u => (u.millionaireBank || []).length >= 5,
-    /* A latecomer is a new competitor mid-run. Nothing on this stage lists the room
-       any more — the standings screen does, and it is built fresh each time it is
-       shown — so the fit is what needs re-running, because the team bar under the
-       board just got a name taller. */
-    onRoster(){ fitKahoot(); },
-    load(u){ KAHOOT_BANK          = u.millionaireBank || [];
-             KAHOOT_SECTION_NAMES = u.millionaireSectionNames || {};
-             KAHOOT_TOPIC_NAMES   = u.topicNames || {}; },
-    renderContent: renderKahootContent,
-    startButton:   kahootStartButton,
-    start(){ startKahoot(); },
-    fit:       fitKahoot,
-    onResize:  fitKahoot,
-    /* Rising as the run goes on, so the skin tightens towards the last question
-       rather than sitting at one pitch for fifteen of them. */
-    tension(){ kTension(); },
-    /* The clock is the game, so the header timer running out is not this board's
-       business — its own countdown ends each question. */
-    expects:     () => (kCurrent && kCurrent.answer) || '',
-    phonePrompt: () => (kCurrent && kCurrent.prompt) || '',
-    askingNow:   () => kLive(),
-    /* Every question is a round, and it is always the same one. The engine builds it
-       from the bank the way Millionaire does, so the bank never learns the word
-       "choice" and no content was edited to make this game exist. */
-    asRound:     q => kAsRound(q),
-    phoneRound(){ return jGroupRound(); },
-    wantsVote:   () => jGroupLive(),
-    onVoteReply(all){ if(jGroupLive()) jGroupOnReplies(all); }
   });
 
   /* ---------- which boards can host a round ----------
@@ -676,7 +471,12 @@
          and the students named the drag rounds the ones they disliked because
          they are hard. First-member-with-it keeps the race and lets a team divide
          the labour; a teacher who wants the argument back has the ⚙ row. */
-      modeDefaults: { ordering:'race', anagram:'first', scramble:'first' }
+      /* The drag rounds carried `first` here for one day, from the ef-2a class
+         report ("a team that split the spelling looked like it had done nothing").
+         The user tested it and chose the agreement dynamic back: one phone's
+         letters lighting the card alone reads worse than the invisible-word cost,
+         which the TUNE pill's mode row can trade away per lesson. */
+      modeDefaults: { ordering:'race' }
     },
     blockbusters: {
       game:'blockbusters', stage:'play-blockbusters',
@@ -704,10 +504,9 @@
          objection that put the declaration on Jeopardy; there was no reason for the
          two to differ, only an omission. Ordering is *not* named here the way it is
          on Jeopardy: only one side is at the board at a time, so a shared climb
-         reads as the one ladder it is. The drag rounds default to `first` for the
-         classroom reason recorded on the Jeopardy host. */
-      teamMode: true,
-      modeDefaults: { anagram:'first', scramble:'first' }
+         reads as the one ladder it is. The drag rounds wore `first` here for one
+         day — reverted with Jeopardy's, the user's call after testing. */
+      teamMode: true
     },
     millionaire: {
       game:'millionaire', stage:'play-millionaire',
@@ -757,7 +556,7 @@
       game:'race', stage:'play-race',
       mount: () => document.getElementById('race-round'),
       commit:'race-commit',
-      live: () => !!raceCurrent && raceRunning !== false && jGroupClue(),
+      live: () => !!raceCurrent && raceRunning !== false && roundClue(),
       turn: () => active,
       /* A word is worth a point on this board, so a round is worth a point. Paid
          through the same path a touched word is, which is what makes the strip, the
@@ -769,48 +568,16 @@
       /* Two people at the screen, and in head-to-head nobody is on turn — so a round
          here is the whole room's, exactly as a Connections tile is. */
       teamMode: true
-    },
-    kahoot: {
-      game:'kahoot', stage:'play-kahoot',
-      /* No clue card here either — the options are the stage, exactly as on the
-         Millionaire board. This is the second caller for F3.8.9, which is what makes
-         the mount a declared fact rather than Millionaire's private exception. */
-      mount: () => document.getElementById('k-options'),
-      commit:'k-commit',
-      live: () => kLive(),
-      turn: () => active,
-      /* **The one thing about this skin that is genuinely new.** Every other board
-         has a slot that one team takes: a tile, a hexagon, a rung. Here the question
-         belongs to nobody, every team answers it, and each is paid for its own
-         answer at its own speed. So the settle path pays each right team as it
-         settles instead of ending on the first — see `scoreEach` below. */
-      scoreEach: true,
-      /* **How long a question runs, and what a slow right answer keeps** — the two
-         declared facts a board needs to score by speed, and the only two. The curve
-         itself is a shared rule (`PAY_RULES.clock`), so this skin owns no arithmetic
-         about time at all; what it owns is the decision that time should matter here,
-         which it makes by starting on that rule. A board declaring no clock is
-         untimed, and every rule still works on it. */
-      clock: () => kSecs(),
-      step:  () => 5,
-      /* What a question is worth here, for a team that is not first. On this board
-         nobody is first — there is no slot — so it is what every right answer is
-         measured against. */
-      worth: () => kBase(),
-      /* The clock is the opponent, so a tap is a commitment. Changing your mind
-         after seeing where the room went is the opposite of what this board is
-         measuring — and the speed score has already been decided by then. */
-      lockIn: true,
-      /* The only host that uses what the rule decided: it has no slot, so the rule
-         is the whole payment. The others pay a tile, a hexagon or a rung, which is a
-         number the board itself owns. */
-      win: (team, points) => kPay(team, points),
-      /* Counts, not team dots: on a tile the interesting fact is which team went
-         where, and here it is how much of the room got it. */
-      countVotes: () => true,
-      commitText: () => 'Lock it in'
     }
   };
+  /* An external game file cannot edit the table above, so it declares its entry —
+     `roundHost` on its registration — and it is merged here, before ROUND_GAMES
+     and the round settings derive from the table. Game files load before this
+     engine (the rounds pattern), so every declaration is already in. */
+  window.HubGames.ids().forEach(g => {
+    const d = window.HubGames.get(g);
+    if(d && d.roundHost && !ROUND_HOSTS[g]) ROUND_HOSTS[g] = d.roundHost;
+  });
   const ROUND_GAMES = Object.keys(ROUND_HOSTS);
   let roundHost = ROUND_HOSTS.jeopardy;
 
@@ -1102,12 +869,31 @@
     });
     S.register({ id:'round_' + id, type:'variant',
       group: own.group || 'Questions',
+      /* Team rules and whole-class rules are two different lessons, so how a
+         round is played forks by room type: a change made while a solo room is
+         up is the individuals' value, and individuals follow the team-room
+         value until set apart. The storage and the row wording are the
+         registry's (`byRoster` in hub-settings.js); this line only opts in. */
+      byRoster: true,
       default: def.modes[0].value,
       defaults: Object.keys(perGame).length ? perGame : undefined,
       games: own.games || ROUND_GAMES,
       label: own.label || ('How ' + (def.label || id) + ' is played'),
       variants: def.modes.slice(),
-      help: own.help || 'The same question played more than one way. These are different lessons rather than two speeds of the same one, so it is a teaching choice.' });
+      help: own.help || 'The same question played more than one way. These are different lessons rather than two speeds of the same one, so it is a teaching choice.',
+      /* The row says what the room will actually play. In a room of individuals a
+         whole-team mode resolves to the round's solo mode at play time
+         (`roundModeOf` — "everyone agrees" is meaningless for a competitor of
+         one), and a row that went on showing the team wording was the pane
+         quietly disagreeing with the board beside it. Mirrors roundModeOf's
+         conditions exactly, including the teacher's override outranking it. */
+      stateNote: g => {
+        if(!def.teamMode || !Roster.solo()) return null;
+        if(S.get('round_' + id, g) !== def.teamMode) return null;
+        if(S.hasOverride('round_' + id, g)) return null;
+        const solo = def.modes.filter(m => m.value !== def.teamMode)[0];
+        return solo ? 'A room of individuals — playing as “' + solo.label + '”' : null;
+      } });
   });
 
   /* Only the boards where a round has a slot one team takes — Quickfire's
@@ -1188,6 +974,15 @@
     min:0, max:90, step:5, unit:'%', games:'*',
     label:'Reveal what the room knows',
     help:'In a big room, a part of the answer fills in once this share of active players have it. 0 switches it off. Never the last part — that stays yours to reveal.' });
+
+  /* The reveal's companion: one anonymous bar filling toward the next reveal —
+     anticipation the room can watch without learning which part is coming. The
+     rules (never per word, hidden at the cap, damped) live in
+     `Kit.round.crowdMeter`; this row only switches the picture. */
+  S.register({ id:'crowdMeter', group:'Questions', type:'toggle', default:true, quick:true,
+    games:'*',
+    label:'Meter toward the next reveal',
+    help:'A bar on the card filling as the room converges on its next reveal, without saying which part. Hidden when nothing more can reveal. Needs the reveal above to be on.' });
 
   /* **The card stops leaving on its own when a round is won.** Reported from a real
      board: the four words light up, the tile flips away, and the room is left with
@@ -1325,24 +1120,6 @@
 
   /* Registered exactly like every other weight, which is the point: the panel and
      the Lab both grow a row for it without either being edited. */
-  /* Cards on the board or cards in their hands. The board version is two to four
-     cards a class shares and watches; the phone version gives every student their
-     own, which is what bingo actually is — and it is the first dynamic where the
-     room holds state between questions rather than answering one and forgetting it.
-     Board stays the default and the fallback: no relay, no wifi, or phones banned
-     that week and the game still runs. */
-  S.register({ id:'bingoCards', group:'Bingo', type:'variant', default:'board', games:['bingo'],
-    label:'Where the cards live',
-    help:'On the board is one card per team, shared. On the phones is one card per student.',
-    variants:[
-      {value:'board',  label:'On the board — one card per team'},
-      {value:'phones', label:'On the phones — one card each'}
-    ] });
-
-  S.register({ id:'bingoPoints', group:'Bingo', type:'range', default:1,
-    min:1, max:5, step:1, unit:' pts', games:['bingo'],
-    label:'Points per square',
-    help:'What marking a word off is worth. A line ends the round whatever this is.' });
 
   /* `'*'`, not a list: this rides on award(), which every game that scores calls,
      so naming the games that existed when it was written left the fifth one out. */
@@ -1430,25 +1207,6 @@
              {value:'every', label:'Every round'},
              {value:'off',   label:'Never'}] });
 
-  /* Quickfire's three weights. All of them are classroom questions rather than
-     design ones — how long a C1 class needs to read four options, how many
-     questions is a lesson slot rather than an endurance test, and how hard speed
-     should be rewarded — so they are ranges in ⚙ rather than numbers in the source.
-     Every one is a guess until a class has met them. */
-  S.register({ id:'kQuestions', group:'Quickfire', type:'range', default:15,
-    min:5, max:30, step:1, unit:'', games:['kahoot'],
-    label:'Questions in a run',
-    help:'The run ends after this many. Fewer if the sections you picked hold fewer.' });
-
-  S.register({ id:'kSeconds', group:'Quickfire', type:'range', default:20,
-    min:5, max:60, step:5, unit:'s', games:['kahoot'],
-    label:'Seconds per question',
-    help:'How long the room has to read the question and answer it. The clock is the whole game here.' });
-
-  S.register({ id:'kPoints', group:'Quickfire', type:'range', default:100,
-    min:20, max:500, step:20, unit:'', games:['kahoot'],
-    label:'Points for a right answer',
-    help:'What an instant answer pays. One that arrives as the clock dies pays half, and everything in between scales.' });
 
   S.register({ id:'mLifelines', group:'Millionaire', type:'toggle', default:true, games:['millionaire'],
     label:'Lifelines', help:'50:50, Ask the class, and Confer — one use each per team.' });
@@ -1826,17 +1584,6 @@
         </div>
         <div id="race-words"></div>
       </div>
-      <div id="play-bingo">
-        <div id="bingo-prompt"></div>
-        <div id="bingo-bar">
-          <div id="bingo-status"></div>
-          <div class="bingo-actions">
-            <button id="bingo-start">&#9654; First word</button>
-            <button id="bingo-skip" style="display:none;">Nobody had it</button>
-          </div>
-        </div>
-        <div id="bingo-cards"></div>
-      </div>
       <div id="play-millionaire">
         <div id="m-bar">
           <div id="m-turn"></div>
@@ -1861,26 +1608,6 @@
         </div>
       </div>
 
-      <!-- Quickfire. The first board with no geometry at all: a straight run of
-           questions against a clock, so there is nothing to choose and nothing to
-           claim. The round mounts into #k-options exactly as it does on the
-           Millionaire stage — F3.8.9 again, and this is the second caller that
-           proves the mount is a declared fact rather than Millionaire's exception. -->
-      <div id="play-kahoot"><div id="k-wrap">
-        <div id="k-bar">
-          <div id="k-count"></div>
-          <div id="k-clock"><span id="k-secs"></span></div>
-        </div>
-        <div id="k-stage">
-          <div id="k-question"></div>
-          <div id="k-options"></div>
-          <div id="k-foot">
-            <span id="k-hint"></span>
-            <button id="k-commit" style="display:none;">Lock it in</button>
-            <button id="k-next" style="display:none;">Next question</button>
-          </div>
-        </div>
-      </div></div>
     </div>
 
     <!-- title sequence. Empty and inert unless a game show themed game opens it. -->
@@ -2020,6 +1747,20 @@
 
   const root = document.getElementById('game-hub-root') || document.body;
   root.innerHTML = SKELETON;
+  /* An external game's stage panel — `stageHTML` on its registration — goes in
+     beside the in-skeleton stages, before anything measures. Only when the
+     skeleton does not already hold the id, so an in-engine game moving to its
+     own file can carry its markup with it without a collision on the way. */
+  window.HubGames.ids().forEach(g => {
+    const d = window.HubGames.get(g);
+    if(!d || !d.stageHTML || document.getElementById(d.stage)) return;
+    const anchor = document.getElementById('play-jeopardy');
+    if(anchor && anchor.parentNode){
+      const t = document.createElement('template');
+      t.innerHTML = d.stageHTML.trim();
+      anchor.parentNode.appendChild(t.content);
+    }
+  });
 
   /* ---- current unit content (set by loadUnit) ---- */
   let UNIT = null;
@@ -2034,12 +1775,6 @@
   let MILLIONAIRE_BANK          = [];
   let MILLIONAIRE_SECTION_NAMES = {};
   let MILLIONAIRE_TOPIC_NAMES   = {};
-  /* Quickfire reads Millionaire's bank rather than owning one — see its registration.
-     Held separately anyway, because `load()` runs per game and a shared variable
-     would tie the two games' content screens together for no gain. */
-  let KAHOOT_BANK               = [];
-  let KAHOOT_SECTION_NAMES      = {};
-  let KAHOOT_TOPIC_NAMES        = {};
 
   // Which games a unit can actually offer — a unit without a bank for a game
   // simply doesn't show that card, so units can adopt new games one at a time.
@@ -2517,6 +2252,29 @@
                        after: null, expected: null, results: null });
     reportSave();
   }
+  /* ---------- every point movement, named ----------
+     The report used to *diff* scores and infer what happened, which is exactly how
+     an unexplained 600 stays unexplained: a movement the diff cannot attribute
+     reads as a mystery rather than as a line item. Every path that touches a score
+     now writes a move — `{t, d, why}` — into the open entry, and the renderer
+     checks the sum of a team's moves against its actual gain, so anything that
+     still bypasses the ledger names itself as a discrepancy instead of hiding.
+
+     **Called before the score moves, always.** A note that has to open its own
+     entry snapshots `before` as it opens, and a snapshot taken after the movement
+     would swallow it — the gain would read 0 against a move that says otherwise,
+     a false alarm manufactured by the instrument itself. */
+  function ledgerNote(team, delta, why){
+    let e = scoreReport[scoreReport.length - 1];
+    if(!e || e.after){
+      /* A movement outside any question — a manual correction, a plain tile, the
+         final clue — still lands somewhere with its name on it. */
+      reportOpenEntry('between questions · ' + (activeGame || 'setup'));
+      e = scoreReport[scoreReport.length - 1];
+    }
+    (e.moves = e.moves || []).push({ t: Number(team), d: delta, why: String(why || '') });
+    reportSave();
+  }
   /* Called after the slot pays. Expected = the slot at what it actually paid, plus
      the payout table's share for every other competitor the record says finished. */
   function reportPayout(slotTeam, paid){
@@ -2551,17 +2309,31 @@
       row.appendChild(h);
       const after = e.after || teams.map(t => t.score);
       (e.names || []).forEach((nm, i)=>{
-        const gain = (after[i] || 0) - (e.before[i] || 0);
-        const exp  = e.expected ? (e.expected[i] || 0) : null;
-        if(!gain && !exp) return;
+        const gain  = (after[i] || 0) - (e.before[i] || 0);
+        const moves = (e.moves || []).filter(m => m.t === i);
+        const sum   = moves.reduce((a, m) => a + (m.d || 0), 0);
+        const exp   = e.expected ? (e.expected[i] || 0) : null;
+        if(!gain && !exp && !moves.length) return;
+        /* With moves the check is exact: the sum of what the ledger says happened
+           against what actually happened. A movement that bypassed the ledger \u2014
+           the class of thing the unexplained 600 was \u2014 shows as the difference.
+           Entries from before the ledger fall back to the old expected diff. */
+        const off = moves.length ? sum !== gain : (exp != null && exp !== gain);
         const line = document.createElement('div');
-        line.className = 'rp-team' + (exp != null && exp !== gain ? ' off' : '');
+        line.className = 'rp-team' + (off ? ' off' : '');
         const r = (e.results || []).filter(x => x.who === i)[0];
         line.textContent = nm + ': ' + (gain >= 0 ? '+' : '') + gain +
-          (exp != null ? '  (expected ' + (exp >= 0 ? '+' : '') + exp + ')' : '') +
+          (moves.length && off ? '  (the moves say ' + (sum >= 0 ? '+' : '') + sum + ')' : '') +
+          (!moves.length && exp != null ? '  (expected ' + (exp >= 0 ? '+' : '') + exp + ')' : '') +
           (r ? '  \u00b7 ' + (r.done ? 'finished ' + ordinalReport(r.place) : 'answered') +
                ' at ' + (r.seconds || 0).toFixed(1) + 's' : '');
         row.appendChild(line);
+        moves.forEach(m=>{
+          const mv = document.createElement('div');
+          mv.className = 'rp-move';
+          mv.textContent = (m.d >= 0 ? '+' : '') + m.d + '  \u00b7 ' + (m.why || 'unlabelled');
+          row.appendChild(mv);
+        });
       });
       body.appendChild(row);
     });
@@ -2571,7 +2343,7 @@
 
   function standingsOpen(){
     standingsBefore = teams.map(t => t.score);
-    reportOpenEntry(activeGame + ' \u00b7 ' + ((jRoundDef() || {}).label || 'question') +
+    reportOpenEntry(activeGame + ' \u00b7 ' + ((roundDef() || {}).label || 'question') +
                     (currentClueValue ? ' \u00b7 ' + currentClueValue : ''));
   }
 
@@ -2737,12 +2509,15 @@
 
   function chooseGame(id){
     activeGame = id;
+    window.HubGames.setActive(id);
     S.setContext(activeGame);          // ⚙ opens on this game's tab from here on
     document.getElementById('page-title').textContent = HUB_GAME_TITLES[activeGame] || 'Game Hub';
     renderContentScreen();
     showScreen('screen-content-select');
   }
   renderGameCards();
+  // the registry's redraw handle — a game registered after init can still get a card
+  window.HubGames._bindRenderCards(renderGameCards);
 
   document.getElementById('change-unit').addEventListener('click', ()=>{
     document.getElementById('page-title').textContent='Game Hub';
@@ -2756,7 +2531,7 @@
   });
 
   document.getElementById('new-game-btn').addEventListener('click', ()=>{
-    activeGame=null; selectedContent=[]; pool=[]; raceRunning=false;
+    activeGame=null; window.HubGames.setActive(null); selectedContent=[]; pool=[]; raceRunning=false;
     S.setContext(null);
     // park, don't close: the class stays joined on the same code for the next game
     parkBuzzRoom();
@@ -2787,19 +2562,15 @@
        nothing else is worse than not offering it. */
     if(!playing) bar.appendChild(rosterSwitch());
 
-    // head-to-head has no "whose turn" — both teams are at the board at once
-    const hi = !playing ? -1
-             /* the *team* playing this turn, which is only the side index while
-                there are two teams — with four it rotates within each side */
-             : (activeGame==='blockbusters') ? bbTeamOnTurn()
-             : (activeGame==='race' && raceMode==='h2h') ? -1
-             : active;
-    const step = (activeGame==='jeopardy' || activeGame==='millionaire') ? 100 : 1;   // manual +/- correction step
+    /* Who is highlighted as on turn, and what a chip wears, are the game's own
+       facts now — `turnTeam()` and `teamDecor(i)` on the registry, replacing the
+       by-name branches that a new game had to be threaded into by hand. */
+    const g  = playing ? gameDef() : null;
+    const hi = !playing ? -1 : (g && g.turnTeam) ? g.turnTeam() : active;
+    const step = (g && g.nudgeStep) || 1;   // manual +/- correction, in the game's own unit
     teams.forEach((t, i)=>{
       const el=document.createElement('div'); el.className='team'+(i===hi?' active':'');
-      // in Blockbusters every team wears its *side's* colour, not just the first two
-      const dot = (activeGame==='blockbusters')
-        ? `<span class="dot" style="background:${bbSideOf(i)===0?'var(--yellow)':'var(--blue)'}"></span>` : '';
+      const dot = g ? (g.teamDecor(i) || '') : '';
       // two is the floor — every board is built for at least two sides — so the
       // remove button only appears above it, and it never appears on the last two
       // the remove control hides at the floor, so the floor is asked rather than restated
@@ -2812,8 +2583,10 @@
       });
       el.querySelector('.tname').addEventListener('change', e=>{
         t.name = e.target.value; t.auto = false; pushTeamNames(); });
-      el.querySelector('.minus').addEventListener('click', ()=>{ t.score-=step; renderScorebar(); renderClassLine(); });
-      el.querySelector('.plus').addEventListener('click', ()=>{ t.score+=step; renderScorebar(); renderClassLine(); });
+      // noted before the score moves (the ledger's ordering rule) — a teacher's
+      // correction used to be indistinguishable in the report from a scoring bug
+      el.querySelector('.minus').addEventListener('click', ()=>{ ledgerNote(i, -step, 'teacher correction'); t.score-=step; renderScorebar(); renderClassLine(); });
+      el.querySelector('.plus').addEventListener('click', ()=>{ ledgerNote(i, step, 'teacher correction'); t.score+=step; renderScorebar(); renderClassLine(); });
       const delBtn = el.querySelector('.tdel');
       if(delBtn) delBtn.addEventListener('click', ()=> removeTeam(i));
       bar.appendChild(el);
@@ -2826,7 +2599,9 @@
     // and the tooltip still says what it does
     const resetBtn=document.createElement('button'); resetBtn.className='reset-btn';
     resetBtn.textContent='↺'; resetBtn.title='Reset points';
-    resetBtn.addEventListener('click', ()=>{ teams.forEach(t=>{ t.score=0; t.run=0; }); renderScorebar(); renderClassLine(); });
+    resetBtn.addEventListener('click', ()=>{
+      teams.forEach((t, i)=>{ if(t.score) ledgerNote(i, -t.score, 'points reset'); t.score=0; t.run=0; });
+      renderScorebar(); renderClassLine(); });
     bar.appendChild(resetBtn);
     // adding a team, or renaming one, has to reach the phones — this is the one
     // place that runs on any change to the list, and the push skips a no-op
@@ -2912,19 +2687,28 @@
     const t = teams[teamIdx];
     if(!t || !base) return 0;
     const o = opts || {};
-    let value = (o.steal && !S.get('stealFullValue', activeGame)) ? base / 2 : base;
+    const halved = o.steal && !S.get('stealFullValue', activeGame);
+    let value = halved ? base / 2 : base;
     /* The run is counted *before* this answer, so award() is always called before
        markRun(): the first answer of a streak pays face value, the second 1.5x and
        the third double. Marking first made the very first answer pay a bonus for a
        run that had not happened yet. */
-    if(o.streak !== false && S.get('streak', activeGame)) value *= runMultiplier(t.run);
-    /* Round to 50s, not 100s, in the games that score in hundreds. Half of a $100
-       tile is 50, and rounding that to the nearest 100 hands back the full value —
-       the steal was silently paying the same as answering it correctly. Every value
-       these two games produce (halves of 100–500 and of the ladder, times 1.5 or 2)
-       is already a multiple of 50, so this rounds nothing away. */
-    const step = (activeGame==='jeopardy' || activeGame==='millionaire') ? 50 : 1;
+    const mult = (o.streak !== false && S.get('streak', activeGame)) ? runMultiplier(t.run) : 1;
+    value *= mult;
+    /* Rounded to the game's own declared unit — `payStep`, 50 on the boards that
+       score in hundreds (half a $100 tile is 50, and rounding that to the nearest
+       100 handed a steal the full value), 1 everywhere else. Every value those
+       boards produce is already a multiple of 50, so this rounds nothing away. */
+    const g = gameDef();
+    const step = (g && g.payStep) || 1;
     value = Math.max(step, Math.round(value / step) * step);
+    /* The receipt line carries award's own arithmetic — the *paid* number with what
+       was done to it on the way — because a report reader cannot re-derive a half
+       or a multiplier from settings that may have changed since. */
+    ledgerNote(teamIdx, value,
+      (o.why || 'points') +
+      (o.steal ? (halved ? ' · steal ½' : ' · steal') : '') +
+      (mult > 1 ? ' · streak ×' + mult : ''));
     t.score += value;
     renderScorebar();
     renderClassLine();
@@ -3196,64 +2980,6 @@
     }
   }
 
-  /* The teacher's own set, judged by the same function a team's is. Right lights the
-     four and takes the tile for whoever is on turn; wrong shakes them and costs
-     nothing, exactly as it costs a team nothing. */
-  /* The teacher's own answer, judged. A function rather than a button handler,
-     because two buttons reach it now: the clue card's Check, and Millionaire's
-     "Final answer?" — the same beat wearing the show's clothes. */
-  function roundCommit(){
-    /* `jRoundCap()`, not the whole answer: an ordering climb asks for one word at a
-       time, so guarding on the full scale meant the button could be pressed and
-       silently did nothing. */
-    if(!jGroupLive() || jGroup.chosen.length !== jRoundCap()) return;
-    const def = jRoundDef();
-    /* The teacher's own answer, which deliberately does not go through `read()` — so
-       a round that holds a rung until every handset agrees does not hold *this* one.
-       A class with one phone in a drawer has to stay playable, and the teacher is the
-       authority when they click. */
-    const ctx = jGroupCtx();
-    /* Who a teacher's own answer scores for. `active` by default, which is what the
-       two card boards have always done — a round arriving did not change whose
-       answer the teacher was entering. Millionaire needs its own, because after a
-       steal the question belongs to a team that is not `active`, and that is exactly
-       the moment the difference shows. */
-    const team = roundHost.scorer ? roundHost.scorer() : active;
-    const r = def.judge(jGroup.chosen, jGroup, team, ctx);
-    if(r.verdict === 'right'){
-      def.accept(jGroup.chosen.slice(), jGroup, team, ctx);
-      jGroup.chosen = [];
-      /* The teacher's own answer goes on the record too, with no arrival stamp — a
-         click carries none, and sorting last is right: it is a judgement made after
-         the room has had its go. */
-      Kit.round.results.note(team, { done: r.done !== false || !!jGroup.done });
-      if(r.done !== false || jGroup.done){ jGroupTake(team); return; }
-      jGroup.say = 'Yes — keep going.';
-      Sound.play('correct');
-      renderJGroup();
-      if(buzzHost) askPhones(currentClueItem.text, roundHost.game);
-      return;
-    }
-    /* A wrong answer costs nothing on a tile or a hexagon — the other team is the
-       pressure. On a ladder it ends the go, which is the show's whole tension, so
-       the host is asked first and only boards with no opinion fall through. */
-    if(roundHost.miss && roundHost.miss(team, r)) return;
-    jGroup.say = def.saidOf('Not that', r, jGroup).replace(/^Not that: /, '');
-    Sound.play('wrong');
-    /* Shake what they picked, *then* let it go. Leaving the selection standing meant
-       the next click deselected instead of choosing, so the teacher's second attempt
-       silently did nothing — worst on an ordering climb, where one word is the whole
-       answer and the button just sat there disabled. */
-    const shaking = [...roundHost.mount().querySelectorAll('.gword.chosen')];
-    shaking.forEach(el=>{
-      el.classList.add('shake');
-      setTimeout(()=> el.classList.remove('shake'), 380);
-    });
-    setTimeout(()=>{ if(jGroupLive()){ jGroup.chosen = []; renderJGroup(); } }, 380);
-    renderJGroup();
-  }
-  document.getElementById('group-btn').addEventListener('click', roundCommit);
-
   document.getElementById('hint-btn').addEventListener('click', () => {
     if(!currentClueItem) return;
     const cost = jHintCost();
@@ -3445,15 +3171,11 @@
 
      It hides itself below two types: a filter with a single option is a control
      that cannot change anything, and a filter with none is a lie. */
+  /* The game declares its own bank — this was a five-way switch on the game's
+     name, the exact shape the registry exists to remove. */
   function bankForFilter(){
-    const g = gameDef(); if(!g) return [];
-    if(activeGame === 'jeopardy')
-      return JEOPARDY_CATEGORIES.reduce((a,c)=> a.concat(c.clues||[]), []);
-    if(activeGame === 'blockbusters') return BLOCKBUSTERS_BANK;
-    if(activeGame === 'race')         return RACE_BANK;
-    if(activeGame === 'millionaire' || activeGame === 'kahoot') return MILLIONAIRE_BANK;
-    if(activeGame === 'bingo')        return bingoWordsIn(BINGO_BANK);
-    return [];
+    const g = gameDef();
+    return g ? (g.bank() || []) : [];
   }
   function renderRoundFilter(){
     const strip = document.getElementById('round-filter');
@@ -3931,6 +3653,10 @@
      beside the legend. The board's job is to show where that lands: every hexagon
      carrying the leading letter lights up, which is also the honest picture —
      the team said R, there are three, and the teacher picks which. */
+  // its own button, filed with its own game — it sat in the Millionaire block once
+  document.getElementById('bb-ask').addEventListener('click', ()=>{
+    if(bbVoting) bbCloseVote(true); else bbAskTeam();
+  });
   function renderBBVote(){
     const btn = document.getElementById('bb-ask');
     const on  = activeGame === 'blockbusters' && !!buzzHost && !bbWon &&
@@ -4408,477 +4134,6 @@
     bbTension(); bbDeal();
   }
 
-  /* ================= BINGO =================
-     The fifth game, and deliberately the first one written *after* the framework
-     settled — so what it had to reach into is the measure of how well the framework
-     ports. It scores, times, skins, fits, ends and talks to the phones through the
-     shared layer; what it owns is a card, a call and a line.
-
-     Its content is not its own. `blockbustersBank` is already a list of
-     single-word answers with a clue each, which is exactly what a bingo call is,
-     so both units gained this game with no authoring. */
-  let BINGO_BANK = [], BINGO_SECTION_NAMES = {}, BINGO_TOPIC_NAMES = {};
-  const BINGO_SIZE = 3;                 // 3x3 card, so a line is three
-  const BINGO_POOL = 12;                // shared words in play: 9 per card + spares
-  let bingoWords   = [];                // the words in play this round
-  let bingoCards   = [];                // per team: { words:[…], marked:[bool…] }
-  let bingoCurrent = null;              // the call on the table
-  let bingoQueue   = [];
-  let bingoWon     = null;
-  let bingoRunning = false;
-
-  /* A word can only be a bingo call if it is one word and unique in the round —
-     two cells reading the same thing makes "mark it off" ambiguous. Same class of
-     constraint as Race's board, and it lives with the game that needs it rather
-     than in the content. */
-  function bingoWordsIn(bank){
-    const seen = new Set();
-    return bank.filter(c => {
-      const a = String(c.answer || '').trim();
-      if(!a || /\s/.test(a)) return false;
-      const k = a.toLowerCase();
-      if(seen.has(k)) return false;
-      seen.add(k); return true;
-    });
-  }
-
-  function renderBingoContent(list, help){
-    help.textContent = "Pick the topics that feed the cards. Every team gets nine of the same pool of words, so the same clue can be worth marking for more than one of them — the first to answer takes it.";
-    groupCheckboxes(list, bingoWordsIn(BINGO_BANK), BINGO_TOPIC_NAMES, BINGO_SECTION_NAMES);
-  }
-
-  function bingoStartButton(btn){
-    const total = bingoWordsIn(BINGO_BANK).filter(inPlay).length;
-    btn.disabled = selectedContent.length === 0 || total < BINGO_POOL;
-    btn.textContent = selectedContent.length === 0 ? 'Select at least one section'
-      : total < BINGO_POOL ? `Need ${BINGO_POOL} words — ${total} selected, add another topic`
-      : `Deal the cards — ${BINGO_POOL} of ${total} words`;
-  }
-
-  function startBingo(){
-    const pool = shuffle(bingoWordsIn(BINGO_BANK).filter(inPlay));
-    bingoWords = pool.slice(0, BINGO_POOL);
-    dealBingoCards();
-    bingoQueue   = shuffle(bingoWords.slice());
-    bingoCurrent = null;
-    bingoWon     = null;
-    bingoRunning = false;
-    bingoHands = new Map();
-    if(bingoOnPhones()){ bingoDealHands(); renderBingoRoom(); }
-    else buildBingoCards();
-    setBingoMessage(bingoOnPhones()
-      ? 'Cards are on the phones. Press First word when the class is ready.'
-      : 'Press First word when the class is ready.');
-    document.getElementById('bingo-start').style.display = 'inline-block';
-    document.getElementById('bingo-skip').style.display  = 'none';
-    document.getElementById('bingo-prompt').classList.remove('live');
-    document.getElementById('bingo-prompt').textContent = '';
-    syncBuzzRoom();
-    timerSetDuration(30);
-  }
-
-  /* Every team gets nine of the same pool, shuffled — so the cards overlap and a
-     call is usually live for more than one team, which is what makes it a race
-     rather than a set of parallel solitaires. Re-dealt on a team being added or
-     removed, because a card without a team is not a thing. */
-  function dealBingoCards(){
-    bingoCards = teams.map(() => {
-      const words = shuffle(bingoWords.slice()).slice(0, BINGO_SIZE * BINGO_SIZE);
-      return { words, marked: words.map(() => false) };
-    });
-  }
-
-  /* The call goes out as a `card` round: every phone shows its own nine words and
-     taps one. `phonePrompt` still decides whether the clue travels with it — off is
-     arguably the better lesson, because then it is listening rather than reading. */
-  function askBingoCards(w){
-    if(!buzzHost) return;
-    bingoDealHands();
-    // the shared path: `phoneRound` above tells it this is a card round
-    askPhones(w.clue || w.prompt || '', 'bingo');
-  }
-
-  function buildBingoCards(){
-    const wrap = document.getElementById('bingo-cards');
-    wrap.innerHTML = '';
-    if(bingoCards.length !== teams.length) dealBingoCards();
-    teams.forEach((t, ti) => {
-      const card = document.createElement('div');
-      card.className = 'bingo-card';
-      card.dataset.team = ti;
-      const head = document.createElement('div');
-      head.className = 'bingo-name';
-      head.textContent = t.name;
-      const grid = document.createElement('div');
-      grid.className = 'bingo-grid';
-      bingoCards[ti].words.forEach((w, ci) => {
-        const cell = document.createElement('button');
-        cell.className = 'bingo-cell' + (bingoCards[ti].marked[ci] ? ' marked' : '');
-        cell.type = 'button';
-        cell.textContent = w.answer;
-        cell.dataset.team = ti; cell.dataset.cell = ci;
-        cell.addEventListener('click', () => onBingoCell(ti, ci));
-        grid.appendChild(cell);
-      });
-      card.appendChild(head); card.appendChild(grid);
-      wrap.appendChild(card);
-    });
-    fitBingoCards();
-  }
-
-  function setBingoMessage(txt){
-    document.getElementById('bingo-status').textContent = txt;
-  }
-
-  function setBingoPrompt(item){
-    const el = document.getElementById('bingo-prompt');
-    el.innerHTML = '';
-    if(!item){ el.classList.remove('live'); return; }
-    el.classList.add('live');
-    const sec = document.createElement('span'); sec.className = 'bingo-sec';
-    sec.textContent = item.section || '';
-    const body = document.createElement('span'); body.className = 'bingo-clue';
-    // the shared renderer, so a gap fill or an anagram draws here exactly as it
-    // does on the other four boards — this game wrote no prompt code at all
-    drawPrompt(body, { text:item.clue || item.prompt, answer:item.answer, type:item.type }, 'bingo');
-    el.appendChild(sec); el.appendChild(body);
-  }
-
-  /* A call is only worth making while somebody could still mark it — which is the
-     cards on the board, or the cards in their hands, depending on where they are. */
-  function bingoLiveFor(word){
-    const held = bingoOnPhones() ? [...bingoHands.values()] : bingoCards;
-    return held.some(c => c.words.some((w, i) => !c.marked[i] && w.answer === word.answer));
-  }
-
-  /* A word stays in the bag while anybody could still use it, so a call nobody took
-     comes round again rather than being spent. Without this a class of thirty runs
-     out of calls long before anybody has a line. */
-  function bingoRequeue(word){
-    if(word && bingoLiveFor(word) && bingoQueue.indexOf(word) === -1) bingoQueue.push(word);
-  }
-
-  function nextBingoCall(){
-    bingoRequeue(bingoCurrent);
-    while(bingoQueue.length){
-      const w = bingoQueue.shift();
-      if(bingoLiveFor(w)){
-        bingoCurrent = w;
-        bingoRunning = true;
-        setBingoPrompt(w);
-        setBingoMessage('Who has it? Click the word on their card.');
-        document.getElementById('bingo-start').style.display = 'none';
-        document.getElementById('bingo-skip').style.display  = 'inline-block';
-        if(bingoOnPhones()){
-          askBingoCards(w);
-          /* On phones a call is not a race: everybody holding that word marks it,
-             so the call stays open and the teacher moves on when the room has had
-             long enough. On the board it *is* a race — one team gets the square —
-             so there the call closes as soon as somebody takes it. */
-          document.getElementById('bingo-start').style.display = 'inline-block';
-          document.getElementById('bingo-start').textContent   = '▶ Next word';
-          document.getElementById('bingo-skip').style.display  = 'none';
-          setBingoMessage('Everyone who has it, tap it. Next word when you are ready.');
-        } else {
-          askPhones(w.clue || w.prompt || '', 'bingo');
-        }
-        Sound.play('reveal');
-        bingoTension();
-        return;
-      }
-    }
-    // everything on every card is marked and nobody has a line
-    bingoCurrent = null; bingoRunning = false;
-    setBingoPrompt(null);
-    setBingoMessage('Every word has gone and no one has a line.');
-    document.getElementById('bingo-skip').style.display = 'none';
-    bingoFinish({ type:'blocked' });
-  }
-
-  /* ---- cards in their hands ----
-     The board version is two to four cards a class shares and watches; this gives
-     every student their own, which is what bingo actually is and what fixes the
-     weakness it shares with Blockbusters — two people play and the rest watch.
-
-     Three rules it is built on:
-     - **The host deals and the host judges.** The relay stores a card so a phone
-       that drops off the wifi gets it back with its marks, but it is never told
-       which word the clue means, exactly as it is never told a typed answer.
-     - **A tap is a typed answer without the typing**, so it arrives through the
-       same path as `write` and is judged by `Kit.answer.judge` against `expects()`.
-     - **A student's line scores for their team**, so the team bar and everything
-       hanging off it stays true rather than needing a parallel system. */
-  let bingoHands = new Map();   // playerId -> { name, team, words:[…], marked:[…] }
-
-  function bingoOnPhones(){
-    return activeGame === 'bingo' && S.get('bingoCards', 'bingo') === 'phones';
-  }
-
-  function bingoDealHands(){
-    if(!bingoOnPhones() || !buzzHost || !bingoWords.length) return;
-    const roster = buzzHost.players();
-    const out = {};
-    let dealt = 0;
-    roster.forEach(p => {
-      if(bingoHands.has(p.id)){
-        // already holding a card: keep it, or a late joiner would reshuffle the room
-        const h = bingoHands.get(p.id);
-        h.name = p.name; h.team = p.team;
-        return;
-      }
-      const words = shuffle(bingoWords.slice()).slice(0, BINGO_SIZE * BINGO_SIZE);
-      bingoHands.set(p.id, { name:p.name, team:p.team, words, marked:words.map(()=>false) });
-      out[p.id] = words.map(w => w.answer);
-      dealt++;
-    });
-    if(dealt) buzzHost.deal(out);
-    renderBingoRoom();
-  }
-
-  /* A tap, judged. Right marks their square and scores for their team; wrong costs
-     nothing but a moment, the same trade the typing race makes. */
-  function onBingoTap(r){
-    if(!bingoOnPhones() || !bingoCurrent || bingoWon) return false;
-    const hand = bingoHands.get(r.id);
-    if(!hand) return false;
-    const verdict = Kit.answer.judge(r.value, bingoCurrent.answer);
-    const ok = verdict === 'right' || (verdict === 'close' && !S.get('typeStrict', 'bingo'));
-    if(!ok){
-      buzzHost.nope(r.id, r.value);
-      notePhoneMiss(hand.name, hand.team, r.value, verdict);
-      return true;
-    }
-    const i = hand.words.findIndex((w, n) => !hand.marked[n] && w.answer === bingoCurrent.answer);
-    if(i === -1){ buzzHost.nope(r.id, r.value); return true; }
-    hand.marked[i] = true;
-    buzzHost.mark(r.id, hand.words[i].answer);
-    const paid = award(hand.team, Number(S.get('bingoPoints', 'bingo')) || 1, {}) || 1;
-    notePhoneScore(hand.name, hand.team, r.value, paid);
-    Sound.play('claim');
-    const line = bingoHandLine(hand);
-    if(line){ bingoFinishHand(r.id, hand, line); return true; }
-    renderBingoRoom();
-    bingoTension();
-    return true;
-  }
-
-  function bingoHandLine(hand){
-    return bingoLines().find(line => line.every(i => hand.marked[i])) || null;
-  }
-
-  function bingoFinishHand(id, hand, line){
-    bingoWon = { type:'win', player:id, hand, line, team:hand.team };
-    bingoRunning = false;
-    renderBingoRoom();          // the winning card's own progress was a call behind
-    document.getElementById('bingo-skip').style.display  = 'none';
-    document.getElementById('bingo-start').style.display = 'none';
-    /* Disarm, don't reset. A reset clears the cards off every phone — and the first
-       thing that happens after a line is the teacher reading it back off the
-       winner's card, which is hard to do when their phone has just gone blank. The
-       cards clear on New cards, which is where a new round starts. */
-    buzzWinner = null;
-    if(buzzHost) buzzHost.disarm();
-    renderBuzzChip();
-    const lit = document.getElementById('play-bingo').classList.contains('lit');
-    if(lit){ Sound.fanfare(); setTimeout(() => Sound.applause(2400), 620); }
-    else Sound.play('clear');
-    showResult({
-      eyebrow:'Bingo',
-      title: hand.name + ' has a line!',
-      // the teacher reads the card back, which is what bingo has always done and is
-      // a speaking beat rather than dead time
-      sub:   'Playing for ' + (teams[hand.team] ? teams[hand.team].name : 'their team') +
-             ' — check the card: ' + line.map(i => hand.words[i].answer).join(', '),
-      tone:  hand.team === 0 ? 'gold' : 'silver',
-      actions:[{ label:'New cards', primary:true, onPick:bingoPlayAgain },
-               { label:'Leave it up', onPick:function(){} }]
-    });
-  }
-
-  /* With thirty cards there is nothing useful to draw of them, so the board shows
-     what the room needs: how many have it, and who is one square away. */
-  function renderBingoRoom(){
-    const wrap = document.getElementById('bingo-cards');
-    if(!bingoOnPhones()){ return; }
-    wrap.innerHTML = '';
-    const panel = document.createElement('div');
-    panel.className = 'bingo-room';
-    const hands = [...bingoHands.values()];
-    if(!hands.length){
-      panel.innerHTML = '<p class="bingo-room-note">Cards are dealt as students join. ' +
-                        'Nobody has one yet.</p>';
-      wrap.appendChild(panel);
-      return;
-    }
-    const close = hands.map(h => ({ h, best: Math.max.apply(null,
-      bingoLines().map(l => l.filter(i => h.marked[i]).length)) }))
-      .sort((a, b) => b.best - a.best);
-    const head = document.createElement('div');
-    head.className = 'bingo-room-head';
-    head.textContent = hands.length + (hands.length === 1 ? ' card in play' : ' cards in play');
-    panel.appendChild(head);
-    const list = document.createElement('div');
-    list.className = 'bingo-room-list';
-    close.slice(0, 12).forEach(({ h, best }) => {
-      const chip = document.createElement('span');
-      chip.className = 'bingo-room-chip team-' + Math.min(h.team, 3) + (best >= BINGO_SIZE - 1 ? ' hot' : '');
-      chip.textContent = h.name + ' · ' + best + '/' + BINGO_SIZE;
-      list.appendChild(chip);
-    });
-    panel.appendChild(list);
-    wrap.appendChild(panel);
-    fitBingoCards();
-  }
-
-  /* A test hook, not a game feature: the answer to the call is deliberately not in
-     the DOM (the class has to work it out), so a scripted round has no other way to
-     know which square is the right one. */
-  // a test hook: the re-ask path is what a reconnection triggers, and it is the
-  // one that used to replace a card with a buzzer
-  window.__reask = function(){ reaskPhones(); };
-  window.__bingoAnswer = function(){ return bingoCurrent ? bingoCurrent.answer : null; };
-  window.__bingoProbe = function(){
-    if(!bingoCurrent || !bingoCards[0]) return -1;
-    return bingoCards[0].words.findIndex((w, i) => !bingoCards[0].marked[i] && w.answer === bingoCurrent.answer);
-  };
-
-  function onBingoCell(ti, ci){
-    if(bingoWon) return;
-    const card = bingoCards[ti];
-    if(!card || card.marked[ci]) return;
-    if(!bingoCurrent){ setBingoMessage('Press First word to make a call.'); return; }
-    if(card.words[ci].answer !== bingoCurrent.answer){
-      // a wrong square costs nothing — the call stays up and another team can take it
-      const el = document.querySelector(`.bingo-cell[data-team="${ti}"][data-cell="${ci}"]`);
-      if(el){ el.classList.add('wrong'); setTimeout(() => el.classList.remove('wrong'), 420); }
-      Sound.play('wrong');
-      return;
-    }
-    markBingoCell(ti, ci);
-  }
-
-  function markBingoCell(ti, ci){
-    const card = bingoCards[ti];
-    card.marked[ci] = true;
-    const el = document.querySelector(`.bingo-cell[data-team="${ti}"][data-cell="${ci}"]`);
-    if(el) el.classList.add('marked');
-    const paid = award(ti, Number(S.get('bingoPoints', 'bingo')) || 1, {});
-    markRun(ti, true);
-    Sound.play('claim');
-    active = ti; renderScorebar();
-    const line = bingoLine(ti);
-    if(line){ bingoFinish({ type:'win', team:ti, line }); return paid; }
-    bingoCurrent = null; bingoRunning = false;
-    setBingoPrompt(null);
-    setBingoMessage('Marked. Next word when you are ready.');
-    document.getElementById('bingo-start').style.display = 'inline-block';
-    document.getElementById('bingo-start').textContent   = '▶ Next word';
-    document.getElementById('bingo-skip').style.display  = 'none';
-    resetBuzzers();
-    bingoTension();
-    return paid;
-  }
-
-  /* Rows, columns and both diagonals of a BINGO_SIZE square, worked out from the
-     size rather than written down — the same reason Blockbusters' adjacency comes
-     from BB_ROWS. Change the card to 4x4 and the win logic follows. */
-  function bingoLines(){
-    const n = BINGO_SIZE, out = [];
-    for(let r = 0; r < n; r++) out.push(Array.from({length:n}, (_, c) => r*n + c));
-    for(let c = 0; c < n; c++) out.push(Array.from({length:n}, (_, r) => r*n + c));
-    out.push(Array.from({length:n}, (_, i) => i*n + i));
-    out.push(Array.from({length:n}, (_, i) => i*n + (n-1-i)));
-    return out;
-  }
-  function bingoLine(ti){
-    const card = bingoCards[ti];
-    if(!card) return null;
-    return bingoLines().find(line => line.every(i => card.marked[i])) || null;
-  }
-  // how close the nearest team is to a line, as 0..1 — the tension source
-  function bingoBest(){
-    let best = 0;
-    bingoCards.forEach(card => {
-      bingoLines().forEach(line => {
-        const got = line.filter(i => card.marked[i]).length;
-        if(got > best) best = got;
-      });
-    });
-    return best;
-  }
-
-  function bingoFinish(outcome){
-    bingoWon = outcome;
-    bingoRunning = false;
-    document.getElementById('bingo-skip').style.display  = 'none';
-    document.getElementById('bingo-start').style.display = 'none';
-    resetBuzzers();
-    if(outcome.type !== 'win'){
-      Sound.play('end');
-      showResult({ eyebrow:'Bingo', title:'Cards full', sub:'Every word has gone without a line.',
-                   actions:[{ label:'New cards', primary:true, onPick:bingoPlayAgain }] });
-      return;
-    }
-    outcome.line.forEach(i => {
-      const el = document.querySelector(`.bingo-cell[data-team="${outcome.team}"][data-cell="${i}"]`);
-      if(el) el.classList.add('line');
-    });
-    const lit = document.getElementById('play-bingo').classList.contains('lit');
-    if(lit){ Sound.fanfare(); setTimeout(() => Sound.applause(2400), 620); }
-    else Sound.play('clear');
-    showResult({
-      eyebrow:'Bingo',
-      title: ((teams[outcome.team] && teams[outcome.team].name) || 'Team') + ' has a line!',
-      sub:   'Three in a row.',
-      tone:  outcome.team === 0 ? 'gold' : 'silver',
-      actions:[{ label:'New cards', primary:true, onPick:bingoPlayAgain },
-               { label:'Leave it up', onPick:function(){} }]
-    });
-  }
-
-  function bingoPlayAgain(){
-    hideResult();
-    bingoHands = new Map();
-    if(buzzHost) buzzHost.reset();
-    document.querySelectorAll('#bingo-cards .bingo-cell.line').forEach(el => el.classList.remove('line'));
-    document.getElementById('bingo-start').textContent = '▶ First word';
-    startBingo();
-    bingoDeal();
-  }
-
-  function fitBingoCards(){
-    const wrap = document.getElementById('bingo-cards');
-    if(!wrap || !document.getElementById('play-bingo').offsetParent) return;
-    // the shared fit: no per-game measuring of the header and the team bar
-    Kit.fitToScreen(wrap, { min:120, gap:12, floor:true });
-  }
-
-  function bingoDeal(){
-    if(bingoOnPhones()) return;      // nothing on the board to deal in
-    const cells = [...document.querySelectorAll('#bingo-cards .bingo-cell')];
-    cells.forEach(el => { el.style.removeProperty('animation'); void el.offsetWidth; });
-    cells.forEach((el, i) => {
-      const card = +el.dataset.team, cell = +el.dataset.cell;
-      // stagger across the card, not down the DOM: four cards of nine is 36 cells
-      el.style.animation = `bingoDeal .34s ${(card * 40 + cell * 26)}ms both`;
-    });
-  }
-
-  function bingoTension(){
-    const stage = document.getElementById('play-bingo');
-    const on = themeOf('bingo') === 'gameshow' && activeGame === 'bingo';
-    stage.classList.toggle('lit', on);
-    if(!on){ stage.style.removeProperty('--tension'); Sound.bedStop(); return; }
-    // one square off a line is as tense as this board gets
-    const best = bingoOnPhones()
-      ? [...bingoHands.values()].reduce((m, h) => Math.max(m,
-          ...bingoLines().map(l => l.filter(i => h.marked[i]).length)), 0)
-      : bingoBest();
-    const t = Math.max(0, Math.min(1, (best - 1) / (BINGO_SIZE - 1)));
-    stage.style.setProperty('--tension', t.toFixed(3));
-    if(bingoRunning && bingoCurrent && !bingoWon) Sound.bedStart(t); else Sound.bedStop();
-  }
-
   /* ================= SHARED CLUE MODAL ================= */
   let currentTile=null, modalMode=null, currentClueValue=0;
   let currentClueItem=null;      // what the shared renderer needs to answer in place
@@ -4934,8 +4189,8 @@
      A wrong set costs nothing but the time, exactly as it costs nothing in
      Connections' race: the other team is the pressure, and a class that is charged
      for a guess stops guessing. */
-  let jGroup = null;         // the round's own state while a grouping clue is open
-  let jGroupSettler = null;  // its debounce-and-remember, from the shared shelf
+  let roundState = null;         // the round's own state while a grouping clue is open
+  let roundSettler = null;  // its debounce-and-remember, from the shared shelf
 
   /* How long the *card* waits before the tile leaves. The settle delay is the
      round's own business and lives with it; this one is Jeopardy's, because it is
@@ -4943,14 +4198,14 @@
   /* A beat between the four words lighting up and the card flipping away. Without
      it the room never sees which four it was: the answer and the card leaving would
      land in the same frame. */
-  const J_GROUP_TAKE_MS   = 700;
-  /* Two different questions, and using the wrong one is a live trap. `jGroupClue()`
-     is "this clue is a grouping clue", true until the card closes. `jGroupLive()` is
+  const ROUND_TAKE_MS   = 700;
+  /* Two different questions, and using the wrong one is a live trap. `roundClue()`
+     is "this clue is a grouping clue", true until the card closes. `roundLive()` is
      "the round is still being played", which stops the moment it is taken or
      revealed. The steal and the deduction ask the first — they run *after* Reveal,
      so asking the second would have silently let both back in. */
-  function jGroupClue(){ return !!jGroup; }
-  function jGroupLive(){ return !!jGroup && !jGroup.done; }
+  function roundClue(){ return !!roundState; }
+  function roundLive(){ return !!roundState && !roundState.done; }
 
 
   /* ---------- the adapter ----------
@@ -4962,11 +4217,11 @@
      That split is the whole point. A round that knew about tiles could not be
      plugged into a second game, and a game that held the round could not have it
      tuned anywhere but inside itself. */
-  let jRoundId = null;                 // which round this clue is running
-  function jRoundDef(){ return jRoundId ? Kit.round.get(jRoundId) : null; }
+  let roundId = null;                 // which round this clue is running
+  function roundDef(){ return roundId ? Kit.round.get(roundId) : null; }
 
   // what the round is lent: the team list, their sizes, and what a click means here
-  function jGroupCtx(id){
+  function roundCtx(id){
     const sizes = teams.map(()=>0);
     if(buzzHost) buzzHost.players().forEach(p=>{
       const t = Number(p.team);
@@ -4986,11 +4241,22 @@
          So the host lends the rule and the round says "this team has finished"
          instead. Only rounds that can be finished by one competitor while others are
          still working need to read it. */
-      openToAll: jOpenToAll(),
+      openToAll: openToAllNow(),
       /* The crowd-reveal threshold as a fraction, lent the same way. 0 is off;
          the shelf helper treats *absent* as its own default, so the bench needs
          no wiring — which is why this is `?? 0` and never `|| 0.4`. */
       crowdReveal: (Number(S.get('crowdReveal', activeGame)) || 0) / 100,
+      /* The meter's switch, lent the same way: the shelf treats absent as on,
+         so only an explicit false stands it down and the bench inherits it. */
+      crowdMeter: S.get('crowdMeter', activeGame) !== false,
+      /* **Look up.** The crowd reveal lands on the projector, which is worth
+         nothing to a room of sixteen reading their own handsets — so when one
+         lands, every phone pulses once. The shelf decides *when* (it is the only
+         thing that knows the revealed set just grew); this decides whether there
+         is a room to tell and whether a question is still open. The second guard
+         matters: `crowdKnown` is also called on the reveal render, when the answer
+         is going up anyway and nobody needs sending anywhere. */
+      nudge: kind => { if(buzzHost && roundLive()) buzzHost.nudge(kind); },
       /* Who is in the room, read fresh like `sizes` — the information gap deals a
          view per player, and a deal cut from a stale roster misses whoever just
          walked in. */
@@ -5015,7 +4281,7 @@
          a reconnect. What was missing was a way for a round to put one there, which
          is `cardsByPlayer` on the arm. This is the host's half — anything a round
          wants to remember that the phones do not need to see. */
-      keep: roundKeepFor(id || jRoundId),
+      keep: roundKeepFor(id || roundId),
       /* **Individuals, so there is nothing to assemble.** A lane exists to show a
          team building one answer out of several handsets — how many have committed,
          whether they agree. A competitor of one has neither question to answer: they
@@ -5025,7 +4291,7 @@
       prompt: !!S.get('phonePrompt', roundHost.game),
       // `null` is the whole room; a scoped round belongs to the team on turn
       team:   S.get('roundWho', roundHost.game) === 'turn' ? roundHost.turn() : null,
-      mode:   jRoundMode(id || jRoundId),
+      mode:   roundModeOf(id || roundId),
       // which lane the teacher's own clicks act on, when a round gives each team one
       forTeam: roundHost.turn(),
       /* A host may collect votes and not show them yet — Millionaire's Ask the class
@@ -5042,22 +4308,22 @@
       /* How the room's votes read: a count of people, or a dot per team. See the
          note in `choice.js` — it is the same data answering two questions. */
       countVotes: !!(roundHost.countVotes && roundHost.countVotes()),
-      onPick: jGroupTeacherPick
+      onPick: roundTeacherPick
     };
   }
 
   /* Which round this clue wants, asked of the registry rather than named here — so
      a round written next month is playable the day a bank item carries its field,
      with no engine change at all. That is the whole return on the extraction. */
-  /* The host is named here rather than at `jGroupOpen`, because `setup` is handed a
+  /* The host is named here rather than at `roundOpen`, because `setup` is handed a
      `ctx` and the ctx is scoped to whichever board is asking — the mode, who is
      entitled and how many are on that team all read the host. Asking first and
      declaring second would set up the round against the *previous* board. */
-  function jGroupOf(item, host){
+  function roundOf(item, host){
     roundHost = ROUND_HOSTS[host] || ROUND_HOSTS.jeopardy;
     const hit = Kit.round.of(item);
     if(!hit) return null;
-    const st = hit.def.setup(item, jGroupCtx(hit.id));
+    const st = hit.def.setup(item, roundCtx(hit.id));
     return st ? { id:hit.id, state:st } : null;
   }
 
@@ -5071,18 +4337,18 @@
 
      That is the defect class this project keeps paying for — a hand-kept obligation
      where a declaration belongs — so the obligation is gone. A host now arms only
-     when *no* round opened, written as one expression (`if(!jGroupOpen(x)) …`) so it
+     when *no* round opened, written as one expression (`if(!roundOpen(x)) …`) so it
      cannot be half-done the way two separate statements could.
 
      Deliberately not solved by making `askPhones` idempotent: several callers re-arm
      the same question on purpose — a new rung in an ordering climb, a Millionaire
      steal handing the question to another team — and a guard there would silently
      turn those into no-ops. */
-  function jGroupOpen(found){
+  function roundOpen(found){
     if(!found) return null;
-    jRoundId = found.id;
-    jGroup   = found.state;
-    jGroupSettler = Kit.round.settle(jRoundDef().settleMs, jGroupSettle);
+    roundId = found.id;
+    roundState   = found.state;
+    roundSettler = Kit.round.settle(roundDef().settleMs, roundSettle);
     /* A new question, so a new record of who gets there. Opened here rather than by
        each host, for the same reason arming moved here: four call sites each
        responsible for remembering the same thing is the obligation this function
@@ -5092,15 +4358,15 @@
        Beside the results record because they answer halves of one question and a
        second call site is a second thing to forget. */
     standingsOpen();
-    renderJGroup();
+    renderRound();
     askPhones(currentPhonePrompt(), roundHost.game);
-    return jGroup;
+    return roundState;
   }
 
   /* Which way a round is being played, when it offers more than one. The row is
      built from what the round *declares*, so the engine never learns what a mode
      means — and a round added later gets its own row for free. */
-  function jRoundMode(id){
+  function roundModeOf(id){
     const def = id ? Kit.round.get(id) : null;
     if(!def || !def.modes || !def.modes.length) return null;
     const key  = 'round_' + id;
@@ -5128,17 +4394,17 @@
 
   /* The round the phones are put into, read through `phoneRound()` so it reaches the
      relay by the same path Bingo's cards do and the mode is not consulted. */
-  function jGroupRound(){
-    return jGroupLive() ? jRoundDef().arm(jGroup, jGroupCtx()) : null;
+  function roundForPhones(){
+    return roundLive() ? roundDef().arm(roundState, roundCtx()) : null;
   }
 
   /* Somebody joined a team or dropped off one, so the shares have moved. Pushed on
      its own rather than re-armed, because a fresh arm clears every handset's picks
      and a latecomer walking in must not wipe what the rest of the team had just
      agreed on. */
-  function jGroupPushShares(){
-    if(!buzzHost || !jGroupLive()) return;
-    const arm = jRoundDef().arm(jGroup, jGroupCtx());
+  function roundPushShares(){
+    if(!buzzHost || !roundLive()) return;
+    const arm = roundDef().arm(roundState, roundCtx());
     if(arm && arm.multiByTeam) buzzHost.shares(arm.multiByTeam);
     /* Per-player views move with the roster exactly as shares do — the
        information gap recuts its deal, and only the phones whose view changed
@@ -5150,16 +4416,16 @@
   /* The card's own box, inside `#clue-text` the way the hint is — so the class is
      still reading the instruction while they work. `drawPrompt` owns that element
      and clears it, so this always runs after it. */
-  function renderJGroup(){
-    if(!jGroup){
+  function renderRound(){
+    if(!roundState){
       const stale = document.getElementById('clue-group');
       if(stale) stale.remove();
       return;
     }
     const host = roundHost.mount();
     if(!host) return;
-    jRoundDef().render(host, jGroup, jGroupCtx());
-    renderJGroupButton();
+    roundDef().render(host, roundState, roundCtx());
+    renderRoundButton();
   }
 
   /* The no-phones path, and it is not a fallback — a teacher with a dead relay has
@@ -5168,20 +4434,20 @@
   /* The teacher's own working answer. `push` order is load-bearing for a round
      whose answer is a *sequence* — an ordering card numbers them as they are
      clicked — and harmless for one whose answer is a set. */
-  function jGroupTeacherPick(w){
-    if(!jGroupLive()) return;
-    const cap = jRoundCap();
-    const at = jGroup.chosen.indexOf(w);
-    if(at !== -1) jGroup.chosen.splice(at, 1);
-    else if(jGroup.chosen.length < cap) jGroup.chosen.push(w);
+  function roundTeacherPick(w){
+    if(!roundLive()) return;
+    const cap = roundCap();
+    const at = roundState.chosen.indexOf(w);
+    if(at !== -1) roundState.chosen.splice(at, 1);
+    else if(roundState.chosen.length < cap) roundState.chosen.push(w);
     /* **A single pick moves; it does not have to be cleared first.** With a cap of
        one, a full selection used to swallow the click, so choosing B after A did
        nothing at all — you had to click A again to release it. On Millionaire that
        is the "say the letter, then lock it in" beat, where moving the nomination is
        the whole point of the pause. Only at a cap of one: where several are being
        assembled, deselecting to make room is the right gesture. */
-    else if(cap === 1) jGroup.chosen = [w];
-    renderJGroup();
+    else if(cap === 1) roundState.chosen = [w];
+    renderRound();
     /* The host may have chrome of its own that follows the nomination — Millionaire's
        hint line reads "Locked on X". Without this it only refreshed on the next full
        board render, so the line lagged a beat behind the option that was lit. */
@@ -5189,12 +4455,72 @@
     /* Millionaire with "Final answer?" switched off answers on the click, as it
        always did. Declared by the host rather than branched on here, so the two-beat
        pause stays the default everywhere else. */
-    if(roundHost.autoCommit && roundHost.autoCommit() && jGroup.chosen.length === cap) roundCommit();
+    if(roundHost.autoCommit && roundHost.autoCommit() && roundState.chosen.length === cap) roundCommit();
   }
   /* How many the teacher may hold at once. An ordering climb wants one at a time —
      the ladder takes the next rung, not the whole scale. The question bench had
      this written out a second time, so the sum lives on the shelf now. */
-  function jRoundCap(){ return Kit.round.cap(jRoundDef(), jGroup, jGroupCtx()); }
+  function roundCap(){ return Kit.round.cap(roundDef(), roundState, roundCtx()); }
+
+  /* The teacher's own set, judged by the same function a team's is. Right lights the
+     four and takes the tile for whoever is on turn; wrong shakes them and costs
+     nothing, exactly as it costs a team nothing. */
+  /* The teacher's own answer, judged. A function rather than a button handler,
+     because two buttons reach it now: the clue card's Check, and Millionaire's
+     "Final answer?" — the same beat wearing the show's clothes. Adapter code, not
+     any game's: it lived in the Jeopardy region for a year because that is where
+     the clue card grew up, and moved here when the adapter lost its j prefix. */
+  function roundCommit(){
+    /* `roundCap()`, not the whole answer: an ordering climb asks for one word at a
+       time, so guarding on the full scale meant the button could be pressed and
+       silently did nothing. */
+    if(!roundLive() || roundState.chosen.length !== roundCap()) return;
+    const def = roundDef();
+    /* The teacher's own answer, which deliberately does not go through `read()` — so
+       a round that holds a rung until every handset agrees does not hold *this* one.
+       A class with one phone in a drawer has to stay playable, and the teacher is the
+       authority when they click. */
+    const ctx = roundCtx();
+    /* Who a teacher's own answer scores for. `active` by default, which is what the
+       two card boards have always done — a round arriving did not change whose
+       answer the teacher was entering. Millionaire needs its own, because after a
+       steal the question belongs to a team that is not `active`, and that is exactly
+       the moment the difference shows. */
+    const team = roundHost.scorer ? roundHost.scorer() : active;
+    const r = def.judge(roundState.chosen, roundState, team, ctx);
+    if(r.verdict === 'right'){
+      def.accept(roundState.chosen.slice(), roundState, team, ctx);
+      roundState.chosen = [];
+      /* The teacher's own answer goes on the record too, with no arrival stamp — a
+         click carries none, and sorting last is right: it is a judgement made after
+         the room has had its go. */
+      Kit.round.results.note(team, { done: r.done !== false || !!roundState.done });
+      if(r.done !== false || roundState.done){ roundTake(team); return; }
+      roundState.say = 'Yes — keep going.';
+      Sound.play('correct');
+      renderRound();
+      if(buzzHost) askPhones(currentClueItem.text, roundHost.game);
+      return;
+    }
+    /* A wrong answer costs nothing on a tile or a hexagon — the other team is the
+       pressure. On a ladder it ends the go, which is the show's whole tension, so
+       the host is asked first and only boards with no opinion fall through. */
+    if(roundHost.miss && roundHost.miss(team, r)) return;
+    roundState.say = def.saidOf('Not that', r, roundState).replace(/^Not that: /, '');
+    Sound.play('wrong');
+    /* Shake what they picked, *then* let it go. Leaving the selection standing meant
+       the next click deselected instead of choosing, so the teacher's second attempt
+       silently did nothing — worst on an ordering climb, where one word is the whole
+       answer and the button just sat there disabled. */
+    const shaking = [...roundHost.mount().querySelectorAll('.gword.chosen')];
+    shaking.forEach(el=>{
+      el.classList.add('shake');
+      setTimeout(()=> el.classList.remove('shake'), 380);
+    });
+    setTimeout(()=>{ if(roundLive()){ roundState.chosen = []; renderRound(); } }, 380);
+    renderRound();
+  }
+  document.getElementById('group-btn').addEventListener('click', roundCommit);
 
   /* Where a round's own buttons go: beside the host's commit button, whichever
      element that is — the clue card's Check, Millionaire's "Final answer?",
@@ -5214,10 +4540,10 @@
     return box;
   }
 
-  function renderJGroupButton(){
+  function renderRoundButton(){
     const btn = document.getElementById(roundHost.commit);
     if(!btn) return;
-    const on = jGroupLive() && roundHost.live();
+    const on = roundLive() && roundHost.live();
     // minted only once a round is actually live — an ordinary clue's strip is the hub's
     const box = on ? roundActionsMount() : document.getElementById('round-actions');
     btn.style.display = on ? 'inline-block' : 'none';
@@ -5226,7 +4552,7 @@
        the round's. The wording of the host's is still the host's when it has one:
        Millionaire's is the show's "Final answer?", which is the same beat and must
        not read as "Check it". */
-    const list = Kit.round.actions(jRoundDef(), jGroup, jGroupCtx(),
+    const list = Kit.round.actions(roundDef(), roundState, roundCtx(),
                                    { commitText: roundHost.commitText,
                                      hints: !!S.get('roundHints', roundHost.game) });
     if(!list.length) return;
@@ -5250,14 +4576,14 @@
      So a round says which it was: `'card'` for "redraw me, leave the phones alone",
      anything else truthy for "the question moved". */
   function roundPress(id){
-    if(!jGroupLive()) return;
-    const changed = Kit.round.press(jRoundDef(), id, jGroup, jGroupCtx());
+    if(!roundLive()) return;
+    const changed = Kit.round.press(roundDef(), id, roundState, roundCtx());
     if(!changed) return;
     if(changed !== 'card'){
-      jGroup.chosen = [];
+      roundState.chosen = [];
       if(buzzHost && currentClueItem) askPhones(currentClueItem.text, roundHost.game);
     }
-    renderJGroup();
+    renderRound();
   }
 
   /* Replies off the wire. The round works out what each team is holding; this only
@@ -5290,7 +4616,7 @@
   }
   function roundKeepReset(){ roundKeep = null; }
 
-  let jGroupSeq = 0;
+  let roundSeq = 0;
   /* **This answers "when did each team's answer arrive", which is not the same
      question as "who got it right".** `Kit.round.results` records the second and
      consumes the first: several teams can settle inside one tick, so the moment a
@@ -5299,7 +4625,7 @@
      because a team that was wrong at 1s and right at 5s arrived at 5s.
 
      **Namespaced, because the state object belongs to the round.** This was
-     `jGroup.at`, and the bingo round uses `s.at` for which call it is reading — so
+     `roundState.at`, and the bingo round uses `s.at` for which call it is reading — so
      the host quietly replaced a number with a map of stamps and the next `s.at++`
      produced NaN, which rendered as "all twelve called" one press in. Nothing warned
      about it and nothing could: two files writing different meanings into one field
@@ -5314,36 +4640,36 @@
      kept its early arrival stamp, and when they finally fixed the order the record
      placed them 1st -- reported from the first ef-2a class, a team badged and paid
      first that the whole room had watched come last. */
-  function jGroupKeyOf(list){
+  function roundKeyOf(list){
     const seq = (list || []).slice();
-    if(!(jRoundDef() || {}).ordered) seq.sort();
+    if(!(roundDef() || {}).ordered) seq.sort();
     return seq.join('\u0000');
   }
 
-  function jGroupStamp(){
-    if(!jGroup) return;
-    const at = jGroup.hostAt || (jGroup.hostAt = {});
-    Object.keys(jGroup.picks || {}).forEach(t=>{
-      const key = jGroupKeyOf(jGroup.picks[t]);
-      if(!at[t] || at[t].key !== key) at[t] = { key, n: ++jGroupSeq };
+  function roundStamp(){
+    if(!roundState) return;
+    const at = roundState.hostAt || (roundState.hostAt = {});
+    Object.keys(roundState.picks || {}).forEach(t=>{
+      const key = roundKeyOf(roundState.picks[t]);
+      if(!at[t] || at[t].key !== key) at[t] = { key, n: ++roundSeq };
     });
   }
-  const jGroupAt = t => ((jGroup && jGroup.hostAt && jGroup.hostAt[t]) || { n: Infinity }).n;
+  const roundAt = t => ((roundState && roundState.hostAt && roundState.hostAt[t]) || { n: Infinity }).n;
 
-  function jGroupOnReplies(all){
-    if(!jGroupLive()) return;
-    jGroup.picks = jRoundDef().read(all, jGroup, jGroupCtx());
-    jGroupStamp();
-    renderJGroup();
-    jGroupSettler.bump();
+  function roundOnReplies(all){
+    if(!roundLive()) return;
+    roundState.picks = roundDef().read(all, roundState, roundCtx());
+    roundStamp();
+    renderRound();
+    roundSettler.bump();
   }
 
-  function jGroupSettle(){
-    if(!jGroupLive()) return;
-    const def = jRoundDef();
-    const ctx = jGroupCtx();
-    const verdicts = Object.keys(jGroup.picks).map(t => ({
-      team: Number(t), set: jGroup.picks[t], r: def.judge(jGroup.picks[t], jGroup, Number(t), ctx)
+  function roundSettle(){
+    if(!roundLive()) return;
+    const def = roundDef();
+    const ctx = roundCtx();
+    const verdicts = Object.keys(roundState.picks).map(t => ({
+      team: Number(t), set: roundState.picks[t], r: def.judge(roundState.picks[t], roundState, Number(t), ctx)
     })).filter(v => v.r.verdict !== 'incomplete');
     /* The right answer is resolved before any wrong one. Two teams can settle in the
        same tick, and taking them in arrival order puts "not a group" on screen
@@ -5358,11 +4684,11 @@
 
        The settler's per-team memory is what stops a team being paid twice: a right
        answer settles once, and `win()` itself is idempotent per team. */
-    /* Earliest right answer, not lowest index — see `jGroupStamp`. The teacher's own
+    /* Earliest right answer, not lowest index — see `roundStamp`. The teacher's own
        clicks carry no stamp and sort last, which is correct: a click is a judgement
        made after the room has had its go. */
     const rights = verdicts.filter(v => v.r.verdict === 'right')
-                           .sort((a, b) => jGroupAt(a.team) - jGroupAt(b.team));
+                           .sort((a, b) => roundAt(a.team) - roundAt(b.team));
 
     /* **The question does not end because somebody was right.** Two boards' worth of
        reasons, and they are the same reason: the first team to get there locks
@@ -5379,7 +4705,7 @@
        is worth — less than the slot, which is what keeps being first worth something.
 
        **Being right and the question being over are two different things, and this
-       branch once conflated them.** They were one function — `jGroupTake` set the
+       branch once conflated them.** They were one function — `roundTake` set the
        line naming the team, played the sting, *and* paid the tile, stopped the
        settler and closed the card. Holding the question open meant that function no
        longer ran when a team got it right, so the recognition went with the ending
@@ -5395,21 +4721,21 @@
        leak the answer to the rooms still working. It does not. No round prints *what*
        a team answered in a way that naming them adds to, and Connections already puts
        every team's picked words in its own lane.) */
-    if(roundHost.scoreEach || jOpenToAll()){
+    if(roundHost.scoreEach || openToAllNow()){
       /* **Misses first, so a right answer has the last word.** Both can settle in one
          tick, and whichever runs last owns the say line. "Team 2 has it" is the more
          useful headline than "Team 3 — not that one", and on a board where nothing is
          taken until the teacher ends it, the order costs nothing else. */
       if(!roundHost.scoreEach){
         verdicts.filter(v => v.r.verdict !== 'right').forEach(v => {
-          if(!jGroupSettler.fresh(v.team, jGroupKeyOf(v.set))) return;
-          jGroupMiss(v.team, v.r);
+          if(!roundSettler.fresh(v.team, roundKeyOf(v.set))) return;
+          roundMiss(v.team, v.r);
         });
       }
       let again = false;              // did any right answer move the question on
       rights.forEach(v => {
-        if(!jGroupSettler.fresh(v.team, 'ok:' + jGroupKeyOf(v.set))) return;
-        def.accept(v.set, jGroup, v.team, ctx);
+        if(!roundSettler.fresh(v.team, 'ok:' + roundKeyOf(v.set))) return;
+        def.accept(v.set, roundState, v.team, ctx);
         /* The board says who got it, the moment they do — the same wording and the
            same stage-aware sound the take beat has always used, so nothing new is
            invented and the room hears what it has always heard.
@@ -5419,7 +4745,7 @@
            sting each would be sixteen of them in twenty seconds. Its feedback is the
            strip and the standings, and that is unchanged. */
         if(!roundHost.scoreEach){
-          jGroup.say = teamName(v.team) + ' has it.';
+          roundState.say = teamName(v.team) + ' has it.';
           Sound.play(document.getElementById(roundHost.stage).classList.contains('lit')
                      ? 'sting' : 'correct');
         }
@@ -5432,23 +4758,23 @@
            first one was a real bug: an ordering race is correct once per word, so the
            slot went to whoever got the *first word* rather than to whoever completed
            a ladder. `done` is the round saying which of the two just happened. */
-        const finished = v.r.done !== false || !!jGroup.done;
-        Kit.round.results.note(v.team, { at: jGroupAt(v.team), done: finished });
+        const finished = v.r.done !== false || !!roundState.done;
+        Kit.round.results.note(v.team, { at: roundAt(v.team), done: finished });
         if(!finished){
           /* A step, not a win. The card already says so; what the room needs is the
              next question — for an ordering race that is a different set of words per
              team, because the one just placed has left their pool. */
-          jGroup.say = teamName(v.team) + ' — yes.';
+          roundState.say = teamName(v.team) + ' — yes.';
           again = true;
           return;
         }
-        if(!roundHost.scoreEach && jGroup.hostTook == null){
-          jGroup.hostTook = v.team;     // the slot, paid when the question ends
+        if(!roundHost.scoreEach && roundState.hostTook == null){
+          roundState.hostTook = v.team;     // the slot, paid when the question ends
           return;                       // said and sounded above, like every other right answer
         }
         const paid = roundHost.scoreEach
                        ? roundHost.win(v.team, roundPayout()[v.team] || 0)
-                       : jPayLate(v.team);
+                       : roundPayLate(v.team);
         notePhoneScore(teamName(v.team), v.team, null, paid || 0);
       });
       /* **A partial right answer moves the question on, so the room has to be asked
@@ -5458,10 +4784,10 @@
          offering a word that had already been used. Once, after the loop, rather than
          per team: an arm is room-wide and several teams can settle in one tick. */
       if(again && buzzHost && currentClueItem){
-        jGroupSettler.reset();       // the question changed; every answer is worth trying again
+        roundSettler.reset();       // the question changed; every answer is worth trying again
         askPhones(currentClueItem.text, roundHost.game);
       }
-      renderJGroup();
+      renderRound();
       return;                       // the clock or the teacher ends it, not the first right answer
     }
 
@@ -5469,8 +4795,8 @@
     if(won){
       /* On the record here too, so the standings screen can say who got there
          whichever way the question was played. */
-      Kit.round.results.note(won.team, { at: jGroupAt(won.team),
-                                        done: won.r.done !== false || !!jGroup.done });
+      Kit.round.results.note(won.team, { at: roundAt(won.team),
+                                        done: won.r.done !== false || !!roundState.done });
       /* Right does not always mean the round is over. A grouping clue ends the
          moment a team has the set; an ordering climb has four more rungs to fill,
          so the round says which happened and this only pays the tile when it is
@@ -5482,25 +4808,25 @@
          nothing must mean the ordinary case. Defaulting the other way made a
          correct grouping card report "yes, keep going" and never pay out, which is
          exactly the kind of silent wrong-way-round a second caller exists to find. */
-      def.accept(won.set, jGroup, won.team, ctx);
-      if(won.r.done !== false || jGroup.done){ jGroupTake(won.team); return; }
-      jGroup.say = teamName(won.team) + ' — yes.';
-      jGroupSettler.reset();          // the question moved on, so every answer is worth trying again
-      renderJGroup();
+      def.accept(won.set, roundState, won.team, ctx);
+      if(won.r.done !== false || roundState.done){ roundTake(won.team); return; }
+      roundState.say = teamName(won.team) + ' — yes.';
+      roundSettler.reset();          // the question moved on, so every answer is worth trying again
+      renderRound();
       Sound.play('correct');
       askPhones(currentClueItem.text, roundHost.game);  // the next rung is a new question
       return;
     }
     verdicts.forEach(v=>{
-      if(!jGroupSettler.fresh(v.team, jGroupKeyOf(v.set))) return;
-      jGroupMiss(v.team, v.r);
+      if(!roundSettler.fresh(v.team, roundKeyOf(v.set))) return;
+      roundMiss(v.team, v.r);
     });
   }
 
   /* Whether this board keeps a question open after somebody has it right. Only the
      boards with a slot can answer it — Quickfire has none, so it is already true
      there by construction and asking would be a second way to say one thing. */
-  function jOpenToAll(){
+  function openToAllNow(){
     return !roundHost.scoreEach && !!S.get('roundOpenToAll', roundHost.game);
   }
 
@@ -5512,51 +4838,59 @@
      No streak and no `markRun`: a run is about holding the board, and this team has
      not taken anything. Paying a bonus for a second-place answer would also make the
      run multiplier the fastest way to score on a board where nobody is first. */
-  function jPayLate(team){
+  function roundPayLate(team){
     const points = roundPayout()[team] || 0;
     if(!points || !teams[team]) return 0;
-    return award(team, points, { streak:false });
+    /* The receipt cites the rule and the record — which pay rule was running, what
+       place the record gave this team and how long they took — because "second at
+       4.3s under podium" is checkable after the lesson and "+150" is not. */
+    const rec   = Kit.round.results.of(team) || {};
+    const place = Kit.round.results.place(team);
+    return award(team, points, { streak:false,
+      why: (PAY_RULES[S.get('roundPay', roundHost.game)] || PAY_RULES.winner).label +
+           (isFinite(place) ? ' · ' + ordinalReport(place) : '') +
+           (rec.seconds != null ? ' · ' + rec.seconds.toFixed(1) + 's' : '') });
   }
 
-  function jGroupMiss(team, r){
+  function roundMiss(team, r){
     /* Wrong costs nothing but the time. The tile is still on the table, the other
        team is still assembling, and a class charged for a guess stops guessing. */
-    jGroup.say = jRoundDef().saidOf(teamName(team), r, jGroup);
+    roundState.say = roundDef().saidOf(teamName(team), r, roundState);
     Sound.play('wrong');
-    renderJGroup();
-    notePhoneMiss(teamName(team), team, (jGroup.picks[team] || []).join(', '), 'wrong');
+    renderRound();
+    notePhoneMiss(teamName(team), team, (roundState.picks[team] || []).join(', '), 'wrong');
     document.querySelectorAll('#clue-group .gword').forEach(el=>{
-      if((jGroup.picks[team] || []).indexOf(el.dataset.word) === -1) return;
+      if((roundState.picks[team] || []).indexOf(el.dataset.word) === -1) return;
       el.classList.add('shake');
       setTimeout(()=> el.classList.remove('shake'), 380);
     });
   }
 
-  function jGroupTake(team){
-    jGroupSettler.stop();
-    jGroup.done = true;
-    jGroup.say  = teamName(team) + ' has it.';
-    renderJGroup();
+  function roundTake(team){
+    roundSettler.stop();
+    roundState.done = true;
+    roundState.say  = teamName(team) + ' has it.';
+    renderRound();
     Sound.play(document.getElementById(roundHost.stage).classList.contains('lit')
                ? 'sting' : 'correct');
     /* The class produced the answer and the host judged it, so there is nothing left
        for the teacher to confirm — the same rule a typed word has always followed.
        A beat first, or the four lighting up and the card leaving land in one frame
        and the room never sees which four it was. */
-    const label = (jRoundDef() || {}).label || 'Round';
+    const label = (roundDef() || {}).label || 'Round';
     /* **Payable from this instant, not from the end of the beat.** The beat is a
        pause so the room sees which four lit before the card changes — but the win
        itself must not live inside a timer: a teacher clicking Close within a
-       second of the answer landing used to hit the timeout's `!jGroup` guard and
+       second of the answer landing used to hit the timeout's `!roundState` guard and
        the payout silently never happened. Found by the suite driving exactly that
        click; a real teacher on a fast board would hit it too. Close already knows
-       how to pay whatever `jRoundWin` holds. */
-    if(jRoundHolds()) jRoundWin = { team, label };
+       how to pay whatever `roundWin` holds. */
+    if(roundHolds()) roundWin = { team, label };
     setTimeout(()=>{
-      if(!jGroup) return;                 // the teacher closed the card in the meantime
-      if(jRoundHolds()) jRoundHold(team, label);
-      else jRoundPayout({ team, label });
-    }, J_GROUP_TAKE_MS);
+      if(!roundState) return;                 // the teacher closed the card in the meantime
+      if(roundHolds()) roundHold(team, label);
+      else roundPaySlot({ team, label });
+    }, ROUND_TAKE_MS);
   }
 
   /* Whether this board waits for the teacher before taking a won round off screen.
@@ -5564,7 +4898,7 @@
      Quickfire mount on their own stage, where the options are still there after the
      question ends and there is no card to hold. Derived from `mount` rather than
      named per game, so a third card board arrives already correct. */
-  function jRoundHolds(){
+  function roundHolds(){
     return roundHost.mount === CARD_MOUNT &&
            S.get('roundWinClose', roundHost.game) !== 'auto';
   }
@@ -5580,9 +4914,9 @@
      closing loses the points. Close is the only button on screen, so the only way
      there is abandoning the board — which already scores nothing on an ordinary
      clue left open, so it is the behaviour this board has always had. */
-  let jRoundWin = null;
-  function jRoundHold(team, label){
-    jRoundWin = { team, label };
+  let roundWin = null;
+  function roundHold(team, label){
+    roundWin = { team, label };
     /* **The prompt first, then the round — that order is load-bearing.** The round's
        card is mounted *inside* `#clue-text`, and `Kit.prompt.reveal` rewrites that
        element, so revealing the prompt second tore out the card that had just been
@@ -5597,11 +4931,11 @@
        draw and there is no second version of it. Asked of `roundHost.mount()` rather
        than by id, because that is what puts the card back when the prompt has just
        replaced everything inside `#clue-text`. */
-    jRoundDef().reveal(roundHost.mount(), jGroup, jGroupCtx());
+    roundDef().reveal(roundHost.mount(), roundState, roundCtx());
     // `reveal` speaks for the round; who took it is the host's, so it is said after
-    jGroup.say = teamName(team) + ' has it.';
-    renderJGroup();
-    jGroupStandDown();
+    roundState.say = teamName(team) + ' has it.';
+    renderRound();
+    roundStandDown();
     jClockStop();                 // the answer is out; whatever the clock said is over
     hideAllActionButtons();
     const close = document.getElementById('close-btn');
@@ -5611,7 +4945,7 @@
 
   /* Paying a won round out. Reached either straight away (`auto`) or from the Close
      press, and it is the same function both ways so the two cannot drift. */
-  function jRoundPayout(p){
+  function roundPaySlot(p){
     const value = currentClueValue;
     const paid = roundHost.win(p.team);
     notePhoneScore(teamName(p.team), p.team, null, paid || value);
@@ -5634,11 +4968,11 @@
      the card on it. Say the true thing to thirty handsets rather than leaving eight
      words up with a dead button: that is what "not asking them at all" did to the
      Daily Double, and it reads as broken rather than deliberate. */
-  function jGroupEnd(){
-    jRoundWin = null;         // whatever closed the card, nothing is waiting on it now
-    if(!jGroup) return;
-    jGroupStandDown();
-    jGroup = null; jGroupSettler = null; jRoundId = null;
+  function roundEnd(){
+    roundWin = null;         // whatever closed the card, nothing is waiting on it now
+    if(!roundState) return;
+    roundStandDown();
+    roundState = null; roundSettler = null; roundId = null;
     const host = document.getElementById('clue-group');
     if(host) host.remove();
     clearReplies();
@@ -5651,8 +4985,8 @@
      for a question that has been decided, but the card is the whole point of
      waiting. The strip is deliberately not cleared here: who answered is what the
      teacher is about to read out. */
-  function jGroupStandDown(){
-    if(jGroupSettler) jGroupSettler.stop();
+  function roundStandDown(){
+    if(roundSettler) roundSettler.stop();
     if(buzzHost){
       buzzWinner = null;
       lastAsk = { mode:'off', prompt:'' };
@@ -5720,13 +5054,13 @@
        came to show `U` over an answer beginning with I. */
     /* Set up once and keep it: `setup` shuffles, so asking twice would draw one
        order for the answer line and another for the card. */
-    const grp = jGroupOf(currentClueItem, 'jeopardy');
+    const grp = roundOf(currentClueItem, 'jeopardy');
     if(grp) currentClueItem.answer = grp.state.answer;
     drawPrompt(document.getElementById('clue-text'), currentClueItem, 'jeopardy');
     /* Before `askPhones`, which consults `phoneRound()` — and `phoneRound()` cannot
        answer until the round exists. Also after `drawPrompt`, which owns `#clue-text`
        and clears it. */
-    jGroupEnd();
+    roundEnd();
     /* A Daily Double still gets its words — it is only the *phones* that a Daily
        Double excludes, because the clue belongs to the team that found it. Without
        the round the tile would open on an instruction with nothing to pick from,
@@ -5735,7 +5069,7 @@
        `jCorrect` already routes the payout to `jDoubleTeam` whoever is passed in. */
     // A round arms the room as it opens, so this covers the ordinary clues only.
     // A replayed tile asks nobody, and a Daily Double belongs to one team alone.
-    const opened = (!review && grp) ? jGroupOpen(grp) : null;
+    const opened = (!review && grp) ? roundOpen(grp) : null;
     if(!review && !dd && !opened) askPhones(clue.q, 'jeopardy');
     const ansEl=document.getElementById('clue-answer');
     ansEl.textContent = currentClueItem.answer || clue.a || '';
@@ -5754,9 +5088,9 @@
     jHintsUsed = 0;
     renderHintButton();
     /* After `hideAllActionButtons()`, which is the whole reason this is here rather
-       than inside `jGroupOpen` — the round has to exist before `askPhones` asks the
+       than inside `roundOpen` — the round has to exist before `askPhones` asks the
        game what it is, and the buttons are cleared after that. */
-    renderJGroupButton();
+    renderRoundButton();
   }
 
   function openBlockbustersClue(clueObj, hex){
@@ -5780,7 +5114,7 @@
        order for the answer line and another for the card. A round's answer is
        derived from the round rather than authored beside it, because two copies of
        one fact are two things that can drift. */
-    const rnd = jGroupOf(currentClueItem, 'blockbusters');
+    const rnd = roundOf(currentClueItem, 'blockbusters');
     if(rnd) currentClueItem.answer = rnd.state.answer;
     /* Opening a hex answers the vote's question, so it ends there rather than
        waiting for the button — and it must end *before* askPhones, or the arm
@@ -5790,8 +5124,8 @@
     /* After `drawPrompt`, which owns `#clue-text` and clears it, and before
        `askPhones`, which consults `phoneRound()` — and `phoneRound()` cannot say
        what the handsets want until the round exists. */
-    jGroupEnd();
-    if(!(rnd && jGroupOpen(rnd))) askPhones(clueObj.clue, 'blockbusters');
+    roundEnd();
+    if(!(rnd && roundOpen(rnd))) askPhones(clueObj.clue, 'blockbusters');
     const ansEl=document.getElementById('clue-answer'); ansEl.style.display='none';
     ansEl.textContent = currentClueItem.answer || clueObj.answer || '';
     hideAllActionButtons();
@@ -5810,7 +5144,7 @@
     bbSkip.style.display='inline-block';
     /* After `hideAllActionButtons()`, which is the whole reason it is down here:
        the round's Check button is one of the buttons that clears. */
-    renderJGroupButton();
+    renderRoundButton();
     bbTension(true);                 // think music while the clue is on the table
     openClueCard(hex);
   }
@@ -6121,7 +5455,7 @@
     const on = !!S.get('roundTune', activeGame) && modalMode !== 'review';
     box.style.display = on ? '' : 'none';
     if(!on) return;
-    const ids = ['round_' + (jRoundId || 'default')]
+    const ids = ['round_' + (roundId || 'default')]
       .concat(S.quickIds(activeGame).filter(id => id !== 'roundTune'));
     S.renderOnce(panel, activeGame, { only: ids });
   }
@@ -6179,7 +5513,7 @@
      behind the card. */
   function closeModal(hold, then){
     jClockStop();
-    jGroupEnd();
+    roundEnd();
     const modal  = document.getElementById('clue-modal');
     const card   = document.getElementById('clue-card');
     const origin = currentTile;
@@ -6223,7 +5557,7 @@
        to the ordinary take beat rather than to Correct/Wrong: the tile, the turn, the
        banner and the ending are all in there and none of them should have a second
        version. A question nobody got right has no `hostTook` and reveals as always. */
-    if(jGroupLive() && jGroup.hostTook != null){ jGroupTake(jGroup.hostTook); return; }
+    if(roundLive() && roundState.hostTook != null){ roundTake(roundState.hostTook); return; }
     jClockStop();      // the answer is out; whatever the clock was saying is over
     Sound.play('reveal');
     // The word drops into the blank rather than only appearing underneath it —
@@ -6236,10 +5570,10 @@
        stand, which is the thing worth seeing. The answer line still prints them,
        because "which four" and "why those four" are different questions and the
        teacher is about to say the second one out loud. */
-    if(jGroupLive()){
-      if(jGroupSettler) jGroupSettler.stop();   // the answer is out; nothing left to judge
-      jRoundDef().reveal(document.getElementById('clue-group'), jGroup, jGroupCtx());
-      renderJGroupButton();
+    if(roundLive()){
+      if(roundSettler) roundSettler.stop();   // the answer is out; nothing left to judge
+      roundDef().reveal(document.getElementById('clue-group'), roundState, roundCtx());
+      renderRoundButton();
       /* The round has stopped judging, so the hexagon needs a hand to award it
          again. Blockbusters has no Correct button — claiming *is* how that board
          scores — so revealing a round clue has to put the chooser back or the
@@ -6332,7 +5666,7 @@
        misses — but every team was assembling this one at once, and nobody was
        excluded, so there is nothing to offer and nobody to offer it to. It burns
        the tile and passes the turn, as a miss did before the steal existed. */
-    if(jGroupClue()) return false;
+    if(roundClue()) return false;
     if(!S.get('stealOnWrong', 'jeopardy')) return false;
     if(jSteal) return false;                       // one steal per clue, then it's gone
     const others = teams.map((_, i) => i).filter(i => i !== teamIdx);
@@ -6399,7 +5733,8 @@
     if(currentTile){ currentTile.classList.add('used'); }   // keeps its value, faded
     let paid = 0;
     if(teams.length){
-      paid = award(team, value, { steal: !!jSteal && team === jSteal.to });
+      paid = award(team, value, { steal: !!jSteal && team === jSteal.to,
+                                  why: (jDoubleTeam != null) ? 'daily double bet' : 'tile ' + value });
       markRun(team, true);
     }
     jSteal = null; jDoubleTeam = null;
@@ -6432,7 +5767,8 @@
        on turn". Every team was playing it at once, so charging one of them is
        charging the wrong people — the same reason `keepControl` stands down when
        the whole room answered. */
-    if(S.get('jDeduct', 'jeopardy') && teams[missed] && modalMode === 'jeopardy' && !jGroupClue()){
+    if(S.get('jDeduct', 'jeopardy') && teams[missed] && modalMode === 'jeopardy' && !roundClue()){
+      ledgerNote(missed, -currentClueValue, 'wrong answer · deduction rule');
       teams[missed].score -= currentClueValue;
       renderScorebar();
     }
@@ -6454,7 +5790,7 @@
     /* A round that has been won is waiting on this press to pay: the win closes the
        card itself, exactly as it did when it closed it a second after the answer
        landed. Cleared first, so the close it triggers cannot come back round here. */
-    if(jRoundWin){ const p = jRoundWin; jRoundWin = null; jRoundPayout(p); return; }
+    if(roundWin){ const p = roundWin; roundWin = null; roundPaySlot(p); return; }
     closeWager();
     jDoubleTeam = null;
     document.getElementById('clue-card').classList.remove('daily-double');
@@ -6587,6 +5923,8 @@
       teams[team].name + ' bet $' + (st.bets[team] || 0);
     const mark = (right) => {
       st.marked[team] = right;
+      if(st.bets[team]) ledgerNote(team, (right ? 1 : -1) * st.bets[team],
+                                   right ? 'final clue · bet won' : 'final clue · bet lost');
       teams[team].score += (right ? 1 : -1) * (st.bets[team] || 0);
       markRun(team, right);
       renderScorebar();
@@ -6665,7 +6003,7 @@
       currentTile.classList.add(side===0 ? 'claimed-gold' : 'claimed-silver');
       currentTile.textContent='';
       // a hex taken by the side that wasn't on turn is a steal, and scores as one
-      paid = award(idx, 1, { steal: side !== bbTurn });
+      paid = award(idx, 1, { steal: side !== bbTurn, why:'hexagon' });
       markRun(idx, true);
     }
     // work out the ending now, but let the card land before showing it
@@ -6867,9 +6205,9 @@
        the move `jShowClue` makes turning `q` into `text`, so all 52 authored items
        became rounds with no content edit at all. The round shuffles the options. */
     currentClueItem = mAsRound(q);
-    const found = jGroupOf(currentClueItem, 'millionaire');
-    jGroupEnd();
-    const opened = found ? jGroupOpen(found) : null;
+    const found = roundOf(currentClueItem, 'millionaire');
+    roundEnd();
+    const opened = found ? roundOpen(found) : null;
     renderMillionaire();
     /* A new question ends any borrowing: the phones go back to whatever the mode
        says, the same as in the tile games. Voting is not a mode any more, so there
@@ -6879,7 +6217,7 @@
   }
 
   function showMillionaireMessage(text){
-    jGroupEnd();
+    roundEnd();
     document.getElementById('m-question').textContent = text;
     document.getElementById('m-options').innerHTML = '';
     document.getElementById('m-hint').textContent = '';
@@ -6917,7 +6255,7 @@
        `mount` fact in `ROUND_HOSTS`. What was here before was the same question drawn
        a second way: its own A/B/C/D, its own picked state, its own vote counts, none
        of it reachable from any other board. */
-    renderJGroup();
+    renderRound();
 
     mSayHint();
     document.getElementById('m-next').style.display = 'none';
@@ -6925,7 +6263,7 @@
        room for the whole question, so there is no borrowing to hand back. */
     document.getElementById('m-done-count').style.display = 'none';
     /* `m-final` is the round's commit button now, shown and worded by
-       `renderJGroupButton` — setting it here as well is how the two would disagree. */
+       `renderRoundButton` — setting it here as well is how the two would disagree. */
   }
 
   /* ---- how tense it should feel right now ----
@@ -6934,199 +6272,6 @@
      atmosphere — the CSS reads `--tension` to close the spotlight in and pull the
      colour towards red, and the think-music bed uses it for tempo and brightness.
      Nothing here runs unless the game show skin is on. */
-  /* ================= Quickfire =================
-     A sequence, a clock and a scoreboard. Everything about the *question* — the
-     card, the handsets, merging several students into one team answer, judging it —
-     belongs to the Multiple Choice round and none of it is written here. */
-
-  function kAsRound(q){ return mAsRound(q); }   // same bank shape, one definition
-
-  function renderKahootContent(list, help){
-    help.textContent = 'Pick which sections to draw from. Questions are shuffled, and the run stops after the number set in ⚙.';
-    groupCheckboxes(list, KAHOOT_BANK, KAHOOT_TOPIC_NAMES, KAHOOT_SECTION_NAMES);
-  }
-  function kahootStartButton(btn){
-    const n = Math.min(kWanted(), selectedKahoot().length);
-    btn.textContent = n ? 'Start — ' + n + ' questions' : 'Pick at least one section';
-    btn.disabled = !n;
-  }
-  function selectedKahoot(){
-    return KAHOOT_BANK.filter(i => selectedContent.includes(groupOf(i)));
-  }
-
-  function startKahoot(){
-    kQueue = shuffle(selectedKahoot().slice()).slice(0, kWanted());
-    kAt = -1; kCurrent = null; kAsked = 0; kOver = false;
-    kStopClock();
-    document.getElementById('k-next').style.display = 'none';
-    nextKahoot();
-  }
-
-  /* The run ends when the queue does. There is no board to clear and no line to
-     complete, so this is the only ending. */
-  function nextKahoot(){
-    kAt++;
-    if(kAt >= kQueue.length){ finishKahoot(); return; }
-    kCurrent = kQueue[kAt];
-    kAsked++;
-    kPaid = Object.create(null);
-    kOver = false;
-    document.getElementById('k-next').style.display = 'none';
-    document.getElementById('k-hint').textContent = '';
-    document.getElementById('k-count').textContent = 'Question ' + kAsked + ' of ' + kQueue.length;
-
-    /* Name the host before the round is set up, or `setup` reads a ctx scoped to
-       whichever board asked last — the trap `jGroupOf` carries a note about. */
-    jGroupEnd();                       // the previous question's handsets stand down
-    const found = jGroupOf(kAsRound(kCurrent), 'kahoot');
-    document.getElementById('k-question').textContent = '';
-    drawPrompt(document.getElementById('k-question'), kAsRound(kCurrent), 'kahoot');
-    /* Opening the round arms the room — see `jGroupOpen`. Every question here is a
-       round, so there is no ordinary-question path to fall back to. */
-    if(!(found && jGroupOpen(found))) askPhones(kCurrent.prompt, 'kahoot');
-
-    kStartClock();
-    hook('tension');
-    fitKahoot();
-  }
-
-  /* The shared clock, painted onto this stage. What is left here is the painting —
-     which is all a host should ever own of a clock, because the number itself is
-     what the value curve reads and there can only be one of those. */
-  function kStartClock(){
-    Kit.round.clock.start({ secs: roundClockSecs(ROUND_HOSTS.kahoot),
-                            onTick: kPaintClock, onEnd: kTimeUp });
-  }
-  function kStopClock(){ Kit.round.clock.stop(); }
-  function kPaintClock(left){
-    const el = document.getElementById('k-secs');
-    if(!el) return;
-    const secs = left == null ? Kit.round.clock.left() : left;
-    el.textContent = Math.ceil(secs);
-    document.getElementById('k-clock').classList.toggle('low', secs <= 5);
-  }
-
-  /* Time up is a fact, not a verdict — the same rule Jeopardy's answer clock
-     follows. The round is ended so thirty handsets stop taking taps, the answer is
-     revealed because nothing else on this board ever would, and the teacher moves
-     on when the room has had a moment to look at it. */
-  function kTimeUp(){
-    if(kOver) return;
-    Sound.play('timeup');
-    kEndQuestion();
-  }
-
-  /* One definition of "this question is over", whoever decided it — the clock, or
-     the teacher committing an answer with no phones in the room. Two paths that end
-     a question differently is the bug that shape invites, and this project has
-     already paid for it once in `lockIn`. */
-  function kEndQuestion(){
-    if(kOver) return;
-    kOver = true;
-    kStopClock();
-    kPaintClock();
-    /* Reveal before ending. On a tile the card flips away and nobody needs telling;
-       here the options stay on screen, so ending without revealing leaves four
-       live-looking options and no answer — the same fix Millionaire needed. */
-    if(jGroup && !jGroup.shown) jRoundDef().reveal(roundHost.mount(), jGroup, jGroupCtx());
-    jGroupEnd();
-    const got = Object.keys(kPaid || {}).length;
-    document.getElementById('k-hint').textContent =
-      got ? (got === 1 ? 'One team got it.' : got + ' teams got it.') : 'Nobody got that one.';
-    document.getElementById('k-next').style.display = 'inline-block';
-    document.getElementById('k-next').textContent =
-      kAt + 1 >= kQueue.length ? 'See the results' : 'Next question';
-    hook('tension');
-    /* **This board's whole point is the movement**, and it had a leaderboard of its
-       own inside its stage doing half the job — squeezed under the question, and the
-       thing that pushed it off a 720px board. The shared screen replaces it. Not on
-       the last question: the final results are one beat later and two tables in a row
-       is one too many. */
-    if(standingsWanted('kahoot') && kAt + 1 < kQueue.length){
-      const got = Object.keys(kPaid || {}).length;
-      showStandings({ eyebrow:'Question ' + kAsked + ' of ' + kQueue.length,
-                      title: got ? (got === 1 ? 'One team got it' : got + ' teams got it')
-                                 : 'Nobody got that one',
-                      action:'Next question' });
-    }
-  }
-
-  /* What this skin pays. Called once per team by the shared settle path the moment
-     that team's answer settles, and **the amount is the running rule's** — this board
-     has no slot, so there is nothing for it to decide beyond passing it on. It starts
-     on `clock`, which is the curve it always had; a teacher can move it to `equal` and
-     the board keeps working. Returns what it paid, like every other host's `win`. */
-  function kPay(team, points){
-    if(!kPaid || kPaid[team] != null) return kPaid ? kPaid[team] : 0;
-    /* Through `award`, like every other board, so a streak bonus and the scoreboard
-       repaint come for free rather than being re-implemented here. `streak:false`:
-       every team answers every question, so a "run" would only measure who has been
-       right most recently, which is what the points already say. */
-    const paid = award(team, points || 0, { streak:false });
-    kPaid[team] = paid;
-    /* **The no-relay path ends the question here.** With phones in the room several
-       teams settle independently and the clock decides when the question is over.
-       With none, the teacher picks the answer and commits, which runs the shared
-       take-and-end path — so the round is already finished by the time this is
-       called, and without noticing that the board would sit on a dead question with
-       no way forward. Degradation is the rule, not a fallback. */
-    if(jGroup && jGroup.done) setTimeout(kEndQuestion, 0);
-    return paid;
-  }
-
-  /* **Quickfire's own leaderboard is gone, and its sizing logic is the standings
-     screen's now.** It lived inside this stage, which is what squeezed it and what
-     pushed the board past 720px whenever the phone chip was up — the measured-rows,
-     four-column, "+N more" reasoning it worked out is all still in `showStandings`,
-     where every board gets it instead of one. */
-  function finishKahoot(){
-    kCurrent = null; kOver = true;
-    kStopClock();
-    document.getElementById('k-next').style.display = 'none';
-    document.getElementById('k-count').textContent = 'Finished';
-    const rank = teams.map((t, i) => ({ i, name:t.name, pts:t.score }))
-                      .sort((a, b) => b.pts - a.pts);
-    const top  = rank[0];
-    const tie  = rank.filter(r => r.pts === top.pts);
-    showResult({
-      eyebrow: kQueue.length + ' questions',
-      title:   tie.length > 1 ? 'A tie' : top.name + ' wins',
-      sub:     tie.length > 1
-                 ? tie.map(r => r.name).join(' and ') + ' — ' + top.pts + ' each'
-                 : top.pts + ' points',
-      tone:    'gold',
-      actions: [{ label:'New run', onClick: startKahoot }]
-    });
-  }
-
-  /* Fit the **wrapper**, not the stage. The scoreboard sits below the stage, so
-     sizing the stage to the floor pushed the board off the bottom of the screen —
-     the numbers all passed and the screenshot showed it immediately. `floor:true`
-     because a handset genuinely cannot fit fifteen-point type, four options and a
-     four-team board, and forcing it collapses the options the way it did on the
-     Millionaire ladder. */
-  function fitKahoot(){
-    const wrap = document.getElementById('k-wrap');
-    if(!wrap || activeGame !== 'kahoot') return;
-    Kit.fitToScreen(wrap, { min:260, gap:18, floor:true });
-  }
-
-  function kTension(){
-    const stage = document.getElementById('play-kahoot');
-    if(!stage) return;
-    const on = themeOf('kahoot') === 'gameshow' && activeGame === 'kahoot';
-    stage.classList.toggle('lit', on);
-    if(!on){ stage.style.removeProperty('--tension'); Sound.bedStop(); return; }
-    /* Two ingredients, like Race: how far through the run we are, and whether a
-       question is actually live this second. A board sitting on a revealed answer
-       should not be as tense as one with four seconds left. */
-    const through = kQueue.length ? kAsked / kQueue.length : 0;
-    const urgent  = kLive() && kSecs() ? 1 - (kLeft() / kSecs()) : 0;
-    const t = Math.min(1, through * 0.6 + urgent * 0.4);
-    stage.style.setProperty('--tension', t.toFixed(3));
-    if(kLive() && motionOK()) Sound.bedStart(t); else Sound.bedStop();
-  }
-
   function mTension(){
     const stage = document.getElementById('play-millionaire');
     const on    = themeOf('millionaire') === 'gameshow' && activeGame === 'millionaire';
@@ -7192,7 +6337,7 @@
 
   /* What the team has nominated, read off the round rather than kept beside it.
      `mPicked` used to be a second copy of this and the two could disagree. */
-  function mNominated(){ return (jGroup && jGroup.chosen && jGroup.chosen[0]) || null; }
+  function mNominated(){ return (roundState && roundState.chosen && roundState.chosen[0]) || null; }
 
   /* Everything a question ending does to the board, whichever way it ended. */
   function mEndQuestion(){
@@ -7201,7 +6346,7 @@
        without revealing leaves four live-looking options and no answer. `reveal`
        also clears the lock, which is what stops the nomination outliving the
        question it belonged to. */
-    if(jGroup && !jGroup.shown) jRoundDef().reveal(roundHost.mount(), jGroup, jGroupCtx());
+    if(roundState && !roundState.shown) roundDef().reveal(roundHost.mount(), roundState, roundCtx());
     mAnswered = true;
     mVoting = false; mCounting = false;
     document.getElementById('m-done-count').style.display = 'none';
@@ -7221,7 +6366,8 @@
   function mPayRung(team){
     const st = mTeamState(team);
     const value = M_LADDER[Math.min(st.rung, M_LADDER.length - 1)];
-    const paid = award(team, value, { steal: !!(mCurrent && mCurrent.stolen) });
+    const paid = award(team, value, { steal: !!(mCurrent && mCurrent.stolen),
+                                      why: 'rung ' + value });
     markRun(team, true);
     st.rung += 1;
     document.getElementById('m-hint').textContent = '+' + paid;
@@ -7245,7 +6391,7 @@
     if(S.get('stealOnWrong', 'millionaire') && mCurrent && !mCurrent.stolen && others.length){
       mCurrent.stolen = true;
       mCurrent.team   = others[0];
-      if(jGroup) jGroup.chosen = [];
+      if(roundState) roundState.chosen = [];
       document.getElementById('m-hint').textContent =
         (teams[mCurrent.team] ? teams[mCurrent.team].name : 'The other team') +
         ' can steal it for ' + Math.round(M_LADDER[Math.min(st.rung, M_LADDER.length-1)] /
@@ -7253,7 +6399,7 @@
       if(document.getElementById('play-millionaire').classList.contains('lit')){
         Sound.play('klaxon'); mFlash('wrong');
       } else Sound.play('wrong');
-      renderJGroup();
+      renderRound();
       renderScorebar();
       /* The question now belongs to the other team, so the room is asked again —
          a scoped round would otherwise still be entitled to the team that missed. */
@@ -7282,10 +6428,10 @@
       /* Two wrong options out of play. `hidden` is the round's — "narrow the
          choice" is a generic hint mechanic rather than a Millionaire feature — so
          they stay on screen struck through and leave the handsets entirely. */
-      if(jGroup){
-        const wrong = jGroup.options.filter(o => o !== jGroup.answer);
-        jGroup.hidden = shuffle(wrong.slice()).slice(0, 2);
-        renderJGroup();
+      if(roundState){
+        const wrong = roundState.options.filter(o => o !== roundState.answer);
+        roundState.hidden = shuffle(wrong.slice()).slice(0, 2);
+        renderRound();
         if(buzzHost) askPhones(mCurrent.q.prompt, 'millionaire');
       }
       Sound.play('reveal');
@@ -7309,19 +6455,10 @@
     renderMillionaire();
   }
 
-  document.getElementById('bb-ask').addEventListener('click', ()=>{
-    if(bbVoting) bbCloseVote(true); else bbAskTeam();
-  });
-
   document.querySelectorAll('#m-lifelines .lifeline').forEach(btn=>{
     btn.addEventListener('click', ()=>useLifeline(btn.dataset.life));
   });
   document.getElementById('m-final').addEventListener('click', roundCommit);
-  /* Quickfire's two. `k-commit` is the shared round commit — the same button every
-     host declares, for the teacher playing with no relay in the room. `k-next` is
-     the only thing on this board that advances, because there is no tile to click. */
-  document.getElementById('k-commit').addEventListener('click', roundCommit);
-  document.getElementById('k-next').addEventListener('click', ()=>{ nextKahoot(); });
   document.getElementById('m-next').addEventListener('click', ()=>{
     timerStop();
     active = Kit.passTurn(teams.length, active);
@@ -7369,17 +6506,19 @@
     lastPushedTeams = null;  // ...and no team names
     buzzWinner = null;       // the relay's lock died with the room
     classReplies = null;     // so did every collected reply
-    /* The relay's copy of every bingo card went too. The hands here are the
-       originals — the host deals and judges — so give the room the same cards
-       back, marks and all, rather than dealing fresh ones mid-game. */
-    if(buzzHost && bingoHands.size){
-      const out = {};
-      bingoHands.forEach((h, id) => { out[id] = h.words.map(w => w.answer); });
-      buzzHost.deal(out);
-      bingoHands.forEach((h, id) => h.marked.forEach((m, i) => {
-        if(m) buzzHost.mark(id, h.words[i].answer);
-      }));
-    }
+    /* ...and so did every solo seat. The recreated room re-registers each phone
+       with its page-load team — 0 for a bench rack — and `seatSoloPlayers` only
+       re-sends a seat when its told-the-room memory disagrees, so leaving that
+       map standing meant the new room was never told the seats at all: every
+       answer from every phone arrived as competitor 0's, live-reported as
+       "Ana has it" whoever answered, after a deploy restarted the relay under a
+       solo rack. The "seat never comes back to the host" trap, met a third time.
+       `soloSeat` (who owns which row) is the host's own record and stays. */
+    Object.keys(soloSeatAt).forEach(k => delete soloSeatAt[k]);
+    /* Whatever the active game told the room died with it too — Bingo's dealt
+       cards and their marks are the worked example. The game declares the
+       re-telling (`onRoomForgot`), because only it knows what it had said. */
+    hook('onRoomForgot');
   }
 
   function buzzersOn(){ return S.get('buzzers') && window.HubBuzzer; }
@@ -7794,21 +6933,13 @@
                                   if(d.epoch) buzzEpoch = d.epoch;
                                   buzzPlayers=(d.players||[]).length; pushTeamNames();
                                   renderBuzzChip(); renderJoinCount(); reaskPhones();
-                                  bingoDealHands();
-                                  // the room arrives after the board is built, so the
-                                  // button that needs one has to be painted here
-                                  renderBBVote();
-                                  /* Same trap, one game over, and it had been live
-                                     since Ask the class started reading the round's
-                                     counts: the lifeline disables itself when there
-                                     is no room to reveal anything from, and
-                                     Millionaire deals its first question inside
-                                     `start()` — before the code has come back. So a
-                                     lesson that opened on Millionaire found Ask the
-                                     class greyed out for the whole first question,
-                                     saying there were no phones in a room the class
-                                     had just joined. Nothing re-painted it. */
-                                  if(activeGame === 'millionaire') renderMillionaire(); });
+                                  /* The room arrives after the board is built, so
+                                     anything a game paints from the room has to be
+                                     painted here — Bingo's dealt cards, Millionaire's
+                                     Ask-the-class button, Blockbusters' vote button
+                                     all shipped that bug once each, by name. The
+                                     game declares it now. */
+                                  hook('onRoomReady'); });
       /* **Which side a student is on, recorded from the one event that can only be
          their own choice.** See `rememberSides` for why nothing else will do. */
       buzzHost.on('join', p=> rememberSides(p));
@@ -7818,13 +6949,14 @@
                                         is what the roster *is*. */
                                      seatSoloPlayers(list);
                                      renderBuzzChip(); renderJoinCount();
-                                     // a student who joins mid-round gets a card
-                                     bingoDealHands();
+                                     // a game holding per-player state hears every
+                                     // roster push — a latecomer gets a bingo card
+                                     hook('onPlayers', list);
                                      /* …and a team that just grew or shrank gets a
                                         new share of the group. Pushed, never
                                         re-armed: a latecomer must not wipe what the
                                         rest of their team had already agreed on. */
-                                     jGroupPushShares(); renderJGroup();
+                                     roundPushShares(); renderRound();
                                      /* …and what the replies already in hand *mean*
                                         has changed with it. A round that waits for a
                                         whole team is judged against the roster, so a
@@ -8051,10 +7183,10 @@
 
   function onResponse(d){
     if(!d) return;
-    /* A tap on a bingo card arrives as an ordinary response — it is a typed answer
-       without the typing — but it is judged per player and marks that player's own
-       card, so it is handled before the shared collect-and-count path. */
-    if(bingoOnPhones() && d.latest && onBingoTap(d.latest)) return;
+    /* A game may consume a raw reply before the shared collect-and-count path —
+       a tap on a bingo card is a typed answer without the typing, judged per
+       player against that player's own card, and it is nobody's team answer. */
+    if(d.latest && hook('onPhoneReply', d.latest)) return;
     classReplies = { mode:(classReplies && classReplies.mode) || 'answer',
                      tally:d.tally || {}, all:d.all || [], total:d.total || 0, of:d.of || 0 };
     /* Where the numbers go is the game's business — Millionaire paints them on its
@@ -8584,17 +7716,17 @@
     endRaceRound(true);
   }
 
-  /* The two calls a host makes: name yourself at `jGroupOf`, because `setup` is
+  /* The two calls a host makes: name yourself at `roundOf`, because `setup` is
      handed a ctx scoped to whichever board is asking, and then open. */
   function raceOpenRound(item){
-    jGroupEnd();
+    roundEnd();
     /* **The item the round is playing, which every other host sets and this one did
        not.** `roundPress` re-asks the room through `currentClueItem`, so without it a
        round button that moves the question — bingo's next call — redrew the board and
        left thirty handsets on the previous one. */
     currentClueItem = item;
-    const found = jGroupOf(item, 'race');
-    const opened = found ? jGroupOpen(found) : null;
+    const found = roundOf(item, 'race');
+    const opened = found ? roundOpen(found) : null;
     document.getElementById('race-round').style.display = opened ? 'block' : 'none';
     if(opened) hook('onResize');       // the stage just changed height under the board
     return !!opened;
@@ -8605,7 +7737,7 @@
      so this is the short version of that path: score, name the student on the strip,
      next sentence. */
   function awardRaceRound(team){
-    award(team, 1);
+    award(team, 1, { why:'race round' });
     raceCurrent = null;
     document.getElementById('race-round').style.display = 'none';
     setTimeout(()=>{ if(raceRunning) nextRacePrompt(); else updateRaceBar(); }, 700);
@@ -8623,7 +7755,7 @@
     hideClaimBar();
     /* A round outlives nothing here: the clock stopping ends the question, so the
        handsets stand down and the mount goes with them. */
-    jGroupEnd();
+    roundEnd();
     document.getElementById('race-round').style.display = 'none';
     resetBuzzers();
     // the sentence on screen when the clock stopped hasn't been answered — put it
@@ -8771,7 +7903,7 @@
     if(!hit.w) return;
     hit.w.found = true;
     hit.w.by    = teamIdx;
-    award(teamIdx, 1, {});
+    award(teamIdx, 1, { why:'word · ' + (hit.w.word || '') });
     markRun(teamIdx, true);
     racePending = null;
     hideClaimBar();
@@ -8795,7 +7927,7 @@
     /* **A live round owns the verdict**, so this board's own way of awarding stands
        down while one is open — otherwise the chooser is a second way to pay for the
        same question. Blockbusters' team chooser learned this first. */
-    if(jGroupLive()){ hideClaimBar(); return; }
+    if(roundLive()){ hideClaimBar(); return; }
     const allow = teams.map((_, i) => i).filter(raceCanTry);
     raceClaim.show(teams, allow.length ? allow : null);
   }
@@ -8816,19 +7948,6 @@
   // resize by declaring onResize, not by being added to a list here
   window.addEventListener('resize', ()=>{ hook('onResize'); if(labOpen()) fitLab(); });
 
-  document.getElementById('bingo-start').addEventListener('click', nextBingoCall);
-  document.getElementById('bingo-skip').addEventListener('click', () => {
-    // nobody had it: the word goes back in the bag rather than out of the game
-    if(bingoCurrent) bingoQueue.push(bingoCurrent);
-    bingoCurrent = null; bingoRunning = false;
-    setBingoPrompt(null);
-    setBingoMessage('Put back. Next word when you are ready.');
-    document.getElementById('bingo-start').style.display = 'inline-block';
-    document.getElementById('bingo-start').textContent   = '▶ Next word';
-    document.getElementById('bingo-skip').style.display  = 'none';
-    resetBuzzers();
-    bingoTension();
-  });
 
   /* ================= TIMER (teacher-controlled) ================= */
   let tmrDuration=30, tmrLeft=30, tmrTick=null;
@@ -8890,21 +8009,52 @@
        game's tension hook does that: it is the single place that knows whether a
        question is live, and it starts or stops the bed accordingly. */
     if(id==='musicBed' || id==='sound' || id==='soundVolume') hook('tension');
-    if((id==='jTogether' || id==='jTarget' || id==='jRules') && activeGame==='jeopardy'){
-      renderClassLine(); hook('onResize');
-    }
-    /* Changing the ruleset mid-board now reaches the board. Planting only among the
-       unplayed tiles is what keeps that honest — see jPlantDailyDoubles. */
-    if((id==='jDailyDoubles' || id==='jRules') && activeGame==='jeopardy' &&
-       document.getElementById('screen-play').classList.contains('active')){
-      jPlantDailyDoubles();
-    }
-    if(id==='jHints' && activeGame==='jeopardy') renderHintButton();
-    if(id==='raceShowSection' && activeGame==='race' && raceCurrent) setRacePrompt(raceCurrent);
-    if(id==='raceRoundSeconds' && activeGame==='race' && raceMode==='timed' && !raceRunning){
-      timerSetDuration(Number(S.get('raceRoundSeconds', 'race')) || 60);
-    }
+    /* What a game does about its own settings changing mid-board is the game's —
+       `onSetting` on the registry. This was five by-name branches (three
+       Jeopardy, two Race) that a sixth game would have had to join by hand.
+       `hook` fires only for the active game, which is what they all guarded. */
+    hook('onSetting', id);
   });
+  /* ---------- what the engine lends a game that lives in its own file ----------
+     A game inside this closure reaches everything; one outside it reaches only
+     what is published here, called from inside hooks (never at parse — game files
+     load before this engine, so at their parse time none of this exists yet).
+     **Grown only as an extracted game proves the need** — each member has a
+     caller in `games/*.js`, which is what keeps this a contract rather than a
+     mirror of the whole closure. Quickfire is the first caller. */
+  function revealOpenRound(){
+    if(roundState && !roundState.shown) roundDef().reveal(roundHost.mount(), roundState, roundCtx());
+  }
+  function roundDoneNow(){ return !!(roundState && roundState.done); }
+  window.HubEnv = {
+    // scoring and the receipt
+    award, ledgerNote, markRun,
+    payRuleLabel: g => (PAY_RULES[S.get('roundPay', g)] || PAY_RULES.winner).label,
+    // the round adapter — a host names itself at roundOf, so no closure state moves
+    roundCommit, roundEnd, roundOf, roundOpen, roundClockSecs,
+    roundForPhones, roundLive, roundOnReplies,
+    revealOpenRound, roundDone: roundDoneNow,
+    // surfaces and the room
+    drawPrompt, askPhones, armBuzzers, resetBuzzers,
+    showResult, hideResult, showStandings, standingsWanted,
+    notePhoneScore, notePhoneMiss,
+    // content, roster, presentation
+    groupCheckboxes, sectionHeading, contentRow, groupOf, inPlay, shuffle,
+    selectedContent: () => selectedContent,
+    teams: () => teams, teamName, nextTurn, Roster,
+    activeTeam: () => active,
+    setActiveTeam: i => { if(teams[i]) active = i; },
+    /* The live relay host, or null — a game holding per-player state deals and
+       judges through it. The relay still never learns an answer. */
+    room: () => buzzHost,
+    syncBuzzRoom, reaskPhones,
+    // nobody holds the floor any more, and the chip stops saying so
+    clearFloor: () => { buzzWinner = null; renderBuzzChip(); },
+    renderScorebar, themeOf, motionOK, Sound,
+    timerSetDuration, timerStart, timerStop, timerReset,
+    asChoiceRound: q => mAsRound(q)
+  };
+
   if(UNITS.length===1){
     loadUnit(UNITS[0]);
     showScreen('screen-game-select');

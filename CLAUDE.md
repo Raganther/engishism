@@ -176,10 +176,11 @@ to say which one they are attacking.
 where the teacher clicks and judges, which is exactly the behaviour needed when the
 skin owns the handsets.
 
-### Two contract additions that are not built
-- **Round state that outlives one question**, for Bingo: a card persists across many
-  calls, and rounds today are set up, played and discarded. The relay already holds
-  per-player state across questions; it is simply not exposed to rounds.
+### Two contract additions — both built now
+- ~~**Round state that outlives one question**~~ — **built** as `ctx.keep`, the
+  host's per-player store, proven by the bingo round (cards and marks surviving
+  across calls and reconnects). The residual is the other direction: the Bingo
+  *skin* has not adopted the bingo round yet.
 - ~~**A round handed the stage as its mount**~~ — **built**, for Millionaire, which
   has no clue card. `mount` is a declared fact in `ROUND_HOSTS`. Race still needs more
   than this: its answers *are* the board, not a panel on it.
@@ -198,10 +199,9 @@ skin owns the handsets.
    the "no contract change" job this list claimed. Millionaire has no clue card, so it
    needed **F3.8.9**, a round mounted somewhere other than the card. See Current
    status. It did delete the private option rendering, as predicted.
-5. **Round state that outlives one question** (the first contract addition above).
-   Most of "what the container makes possible" is blocked on it, and the relay already
-   does the hard half — a bingo card and its marks persist per player across a
-   reconnection. It is simply not exposed to rounds.
+5. ~~**Round state that outlives one question** (the first contract addition
+   above).~~ **Done** — `ctx.keep`, built with the bingo round. See Current status;
+   the category of round designs it unblocks is now open.
 6. ~~**The action strip becomes declarative** (F3.9.1/F3.9.2), so a round may have more
    than one button.~~ **Done** — a round declares `actions`/`press`, the commit button
    stays the host's because committing scores, and `hideAllActionButtons` stopped
@@ -947,7 +947,10 @@ neither, so they keep first-tap-wins.
 
 Storage: `id` is the master, `id@game` is an override. Settings written before scoping
 existed are master values under the same keys, so nothing needed migrating — there is a
-smoke test pinning that.
+smoke test pinning that. A setting that declares `byRoster:true` also keeps a second
+value for rooms of individuals under `…!solo` — a change made while a solo room is up
+writes that key and touches nothing a team room reads, and individuals follow the
+team-room value until explicitly set apart. Every `round_<id>` row declares it.
 
 `type:'select'` takes `options:[{value,label}]`; `type:'range'` takes
 `{min,max,step,unit}` and is what makes a **weight** tunable from the interface rather
@@ -1243,6 +1246,306 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The reveal meter — one anonymous bar filling toward the next crowd reveal,
+  `Kit.round.crowdMeter`.** Asked for as "a visual cue of the 40%": a threshold
+  you cannot see approaching is just a surprise, and the anticipation is what
+  pulls eyes to the projector. The bar tracks whichever unrevealed part the room
+  is *closest* to agreeing on — **without ever naming it**, the counts-never-
+  content rule, because a bar per word is a live poll the class would follow
+  from the first pick, quietly lowering the threshold to "whatever makes a bar
+  move".
+  - **Same gates as `crowdKnown`** (threshold on, >5 competitors, somebody has
+    started) **plus two of its own**: hidden once nothing more can ever light
+    (the never-the-last-part cap, hints counted — a bar filling toward a reveal
+    that cannot come is a lie), and **damped** — the fill glides 1.4s from where
+    it last stood, no numbers, so one phone's pick cannot be read off a twitch
+    by a student probing words one at a time. `sig` on the opts tells one
+    question's memory from the next, or a fresh card would open gliding down
+    from the last question's bar.
+  - **Four rounds call it beside their `crowdKnown` call** (grouping, both drag
+    rounds, ordering's race under its reference ladder), live rounds only. The
+    opts object is built once and passed to both, so the two can never count
+    differently. Amber (`--gw-hint`) — it announces a giveaway approaching, so
+    it wears the given-away colour, never the earned green.
+  - **`crowdMeter` toggle** (Questions, default on, quick — it sits beside the
+    threshold slider in the tune pane), lent as `ctx.crowdMeter` where absent
+    means on, so the bench inherits it with no wiring, the threshold's own
+    contract.
+  - Proved with a 12-check fabricated 16-solo drive on the Lab page (fill maths,
+    reset to next-closest on a reveal, hidden at the cap/small room/no activity/
+    decided round, the off-switches) and a card-metrics screenshot under the
+    game-show palette.
+- **Team rules and individual rules are separate now — how a round is played forks
+  by room type.** Asked from the room bench: flipping Word Thermometer between one
+  ladder and a ladder each in a solo room also rewrote the team game, because the
+  store had one slot per setting per game and no idea what kind of room was up.
+  The room type now scopes the key the way the game already does.
+  - **`byRoster:true` on a setting keeps a second value for rooms of individuals.**
+    A change made while a solo room is up writes `id@game!solo` and touches nothing
+    a team room reads; **individuals follow the team-room value until explicitly
+    set apart** — the same follows-until-overridden shape as game-vs-master, so
+    nothing migrated and old stored values kept their meaning. Every `round_<id>`
+    row declares it in the one registration loop, so a round written next month
+    forks for free; any other setting adopts it with the same word.
+  - **`hasOverride` and `clearOverride` are roster-aware too**, which is what kept
+    `roundModeOf` and the solo stateNote correct with no engine change — and it
+    changes one behaviour deliberately: a teams-room override to "everyone agrees"
+    no longer counts as solo's choice, so a room of individuals downgrades it again
+    unless solo itself picked it. Clearing a solo value returns to *following* the
+    team rules, and the undo button says so.
+  - **Rows say which room's rules they edit** — "Set for rooms of individuals" /
+    "Individuals — following the team-room rules" in a solo room, and a team room
+    whose individuals have gone their own way carries a note naming it, the same
+    silent-mismatch rule the master tab already follows. `resetAll` clears the solo
+    keys. A ruleset picked while a solo room is up writes solo values, which is the
+    same fact from the other side.
+  - **`crowdReveal` needed no fork and got none** — it gates on room size (>5
+    competitors, a count not a mode), so ordinary team play never meets it. Worth
+    knowing before forking a setting: some are already scoped by a live fact.
+  - Proved with a 16-check scratch drive in both directions (solo write lands under
+    `!solo`, teams key untouched, inherit-until-diverged, clear-returns-to-follow,
+    the downgrade interplay, `resetAll`), then `settings,scoping,bench` **88/0**.
+- **Bingo lives in its own file too — and the room's beats are contract hooks
+  now.** C2, the last chunk of the approved refactor. Bingo was the API test on
+  purpose: the only game whose per-player state the *phone layer* reached by
+  name, in four places. Each became a `registerGame` hook, so a future game
+  holding hands, roles or personal scorecards declares them instead of growing
+  new reach-ins:
+  - **`onRoomReady()`** — the relay's room (re)connected; paint what the room
+    feeds. Bingo deals cards, Millionaire repaints Ask-the-class, Blockbusters
+    its vote button — all three were by-name calls in the `ready` handler, each
+    of which had shipped its own bug once.
+  - **`onPlayers(list)`** — every roster push; a latecomer gets a card.
+  - **`onRoomForgot()`** — the relay restarted and the room's memory died;
+    whatever this game told the room, it must tell again. Bingo re-deals every
+    hand, marks included — proved with a live kill-and-restart, the same event
+    as the solo-seat fix.
+  - **`onPhoneReply(reply)`** — see a raw reply before the shared
+    collect-and-count path; return true to consume it (a bingo tap marks one
+    player's own card and is nobody's team answer).
+  - HubEnv grew what the extraction proved it needed: `room()` (the relay host),
+    `setActiveTeam`, `clearFloor`, `syncBuzzRoom`, `reaskPhones`, `inPlay`.
+    Bingo sits at `order: 55` — fifth card, between the built-ins and Quickfire.
+  - Proved: a 7-check drive (cards dealt to two phones, a call, taps heard, the
+    restart re-deal) and thirteen suites `phonebingo,buzzers,reconnect,registry,
+    scoping,millionaire,fit,phone,card,turns,gameshow,lab,competition` **367/0**.
+  - **The engine is ~1,100 lines lighter than this morning**, and the remaining
+    four games follow this exact pattern when next worked on: Race → Millionaire
+    (roster layer splices `mState` — needs a hook) → Blockbusters (`bbTurn` in
+    the shared state block; `claimHex` in clueClaim and skip) → Jeopardy last
+    (interleaved with the shared clue modal).
+- **Quickfire lives in its own file — the first game out of the engine, and the
+  contract an external game lives on exists now.** C0.3-5 + C1 of the skins
+  split, in one ship. `game-hub/games/quickfire.js` is the model to copy; the
+  `new-game` skill says so.
+  - **`game-hub/hub-games.js`** — the registry out of the engine, loading after
+    `hub-settings.js`, before game files, engine last (the `hub-rounds.js` →
+    `rounds/*.js` → engine pattern exactly). By the time the engine's init runs,
+    every registration has happened — which retires the "register before init or
+    the game is invisible" trap for external files. It keeps `active`/`setActive`
+    (the engine's `activeGame` is closure-private; the tune pane reads it) and
+    an **`order`** fact (built-ins 50, Quickfire 60): externals load first and
+    would otherwise jump to the front of every card row and settings tab.
+  - **`window.HubEnv`** — what the engine lends a game outside its closure,
+    called from hooks only (never at parse; the engine loads last). Grown only
+    as an extracted caller proves the need: award + the receipt, the round
+    adapter (`roundOf(item, 'host')` names the host, so no closure state moves),
+    two new windows onto the live round (`revealOpenRound`, `roundDone`),
+    surfaces, content helpers, roster, Sound, timer.
+  - **Two declared facts instead of engine edits**: `stageHTML` (the engine
+    injects it beside the in-skeleton stages at init) and `roundHost` (merged
+    into `ROUND_HOSTS` before the round settings derive from it).
+  - **The one ordering fact an external game's DOM work must respect**: its
+    stage does not exist at parse, so listeners wire on first `load()`.
+  - Proved: a 10-check drive (card still sixth, stage injected, a phone's answer
+    paying through the settle path with the receipt why `quickfire · By the
+    clock · 3.3s`, the clock ending a question, standings, the results banner) —
+    and twelve suites `millionaire,fit,phone,card,turns,gameshow,lab,registry,
+    competition,scoping,phonemodes,settings` **404/0**.
+- **Six declarations replaced eleven `activeGame` branches — C0.2 of the skins
+  split.** Shared code stopped asking which game is playing and started asking
+  the game itself. New on the `registerGame` contract, each defaulting to the
+  old behaviour: `bank()` (the content filter's items — was `bankForFilter`'s
+  five-way switch), `nudgeStep`/`payStep` (the ± correction unit and award's
+  rounding unit — was the two `jeopardy||millionaire` branches; both boards
+  declare 100/50), `onSetting(id)` (a game's own reaction to a mid-board setting
+  change — was five by-name branches in the init `S.onChange`, and `hook()`
+  already fires only for the active game, which is what they all guarded),
+  `turnTeam()` (whose chip the scorebar highlights — Blockbusters rotates within
+  sides, Race h2h returns −1), and `teamDecor(i)` (Blockbusters' side-colour
+  dot). 28 → 17 `activeGame` lines; the survivors sit inside games' own code and
+  leave with their extractions. Verified twice: a 5-check seam drive (filter
+  chips, ±100, dots, highlight, h2h none) and the shared set
+  `millionaire,fit,phone,card,turns,gameshow,lab,registry,competition,content`
+  **321/0**.
+- **One wording for the two slot-round modes, and a mode row tells the truth in a
+  solo room.** Asked as "shouldn't the defaults change between team and individual
+  mode?" — they already did, at play time (`roundModeOf` downgrades a whole-team
+  mode to the solo one, the teacher's override outranking it); what was wrong was
+  the *display* and the *names*.
+  - **`Kit.round.mode` — the shared pair.** `first`/`agree` appear in three
+    rounds and were six hand-written labels for two ideas, drifted the day they
+    were written ("to spell it" / "with the right answer" / "to order it"). The
+    behaviour was always shared (`poll`/`agreement`); now the words are — choice,
+    anagram and scramble pick `[K.round.mode.first, K.round.mode.agree]`, so
+    every mode row reads identically and a teacher learns one vocabulary.
+    Ordering keeps its own labels: its modes are genuinely different things.
+  - **`stateNote` on a settings def** — an optional hook `buildRow` draws as an
+    advisory line, evaluated at render time because the reason is a live fact
+    about the room. The round rows use it: in a solo room a row stored on the
+    whole-team mode says `A room of individuals — playing as "First team with
+    the right answer takes it"`, mirroring `roundModeOf`'s conditions exactly
+    (including standing down when the teacher explicitly overrode to the team
+    mode, which really does play as agree in solo). Shows everywhere rows show:
+    panel, drawer, TUNE pill, bench pane.
+  - Proved on the bench: three rounds' selects read identically, zero notes in a
+    teams room, three notes in solo naming the resolved mode, and one
+    individual's tap taking an MC tile — the downgrade the note describes. 5/5;
+    `qbench,anagram,settings,scoping,bench` 204/0. No stored value moved: ids
+    (`first`/`agree`) are untouched, only labels changed.
+- **The room bench has the rules board — a tune pane beside the projector.** Asked
+  for by name: the bench is where all testing and tuning happens, and the only
+  tuning entrances were inside the scaled board iframe (⚙, the card's TUNE pill) —
+  small, and only reachable mid-question. The pane shows, for the game being
+  played, every round's mode and the game's quick rules, each row saying whether
+  it is the default or a customization, editable in place.
+  - **The rows are the board's own settings rows**, rendered through the frame by
+    `HubSettings.renderOnce` into bench-side mounts — the `HubTeams` reach-in
+    pattern — so a row here and a row in the ⚙ drawer can never disagree, and a
+    round or quick setting registered next month appears with nothing edited.
+    `renderOnce` deliberately, never `renderFor`: that would steal the Lab
+    drawer's single live-refresh slot.
+  - **What you set here is what a real lesson gets, and that is the point.** The
+    pane writes ordinary per-game overrides into the same stored settings the
+    teaching hub reads, so bench tuning persists across sessions and into class.
+    The pane's label says so. State lines tell "this game's own default" from
+    "set for this game", with reset per row.
+  - **One tab per game, derived from the registry**, with a dot on the one the
+    board is playing; the tab follows the board's game (`HubGames.active()`, a
+    new one-line export — `activeGame` was closure-private), and a hand-picked
+    tab holds until the board changes game.
+  - **The `.settings-*` styles are a declared mirror of hub.css**, scoped under
+    `#tune-pane` — the bench cannot link hub.css whole (it restyles the page
+    body), and the switch track is the load-bearing part: without it a toggle is
+    an invisible checkbox. Same convention as the question bench's card metrics.
+  - Open by default, toggled by a Tune button in the bar, remembered in
+    `engishism.benchTune`. The board refits itself around the pane through the
+    existing `ResizeObserver` — no wiring.
+  - Driven end to end: the pane follows the board to Jeopardy, ordering shows its
+    own default, flipping Drag the Letters to `first` from the pane writes
+    `round_anagram@jeopardy`, flips the state line, and the very next drag card
+    plays first-tap on a live handset; reset restores agree. 10/0 scratch;
+    `bench` suite grew four checks, 48/0.
+- **Solo seats survive a relay restart now — every deploy was silently collapsing
+  a live solo room onto competitor 0.** Reported mid-test as "the card says Ana
+  has it regardless of who gets it", one finisher per question, no late pays —
+  right after a deploy, with the room number still matching (the host recreates
+  its room under the same code).
+  - **The cause was the epoch-recovery path missing one memory.** `roomForgot()`
+    voids every told-the-room record — the last ask, the team names, the replies,
+    the bingo hands — but not `soloSeatAt`, the map of which competitor each phone
+    was last told. Rejoining phones re-register with their page-load team (0 for
+    a bench rack), `seatSoloPlayers` trusts the stale map and re-sends nothing,
+    and every answer from every phone arrives as competitor 0's. The "seat never
+    comes back to the host" trap, met a third time.
+  - **Why it hid**: with *unscored* competitors a mid-resync roster dip trips the
+    drop path, which already clears the map — so the simple repro self-heals. A
+    scored competitor is never dropped, so a room where people have points (any
+    real lesson) has no accidental clear. The repro primes scores first for
+    exactly this reason.
+  - One line in `roomForgot()` (clear `soloSeatAt`; keep `soloSeat`, the host's
+    own record of who owns which row). Proved both ways with a live
+    kill-and-restart under three scored phones: broken build says "Ana has it"
+    to Ben's answer with zero moves; fixed build names Ben and Cara and pays the
+    late 2nd. The rename was innocent — diagnosed against it first.
+  - **Noted, not fixed: the teams-mode analogue.** A phone reconnects with the
+    team from its page-load stream params, not the side it was later moved to;
+    the same audit is owed there.
+- **The round adapter lost its `j` prefix — `jGroup*`/`jRound*` are `round*` now,
+  and three misfiled handler blocks went home.** First prequel step of the skins
+  split (three-seam plan, stage C). The ~750-line shared adapter every board calls
+  wore Jeopardy's prefix because that is where the clue card grew up, which made
+  shared code read as one game's and would have made every extraction look like it
+  was taking Jeopardy with it.
+  - **Pure rename, no behaviour**: `jGroup`→`roundState`, `jGroupLive`→`roundLive`,
+    `jGroupOf/Open/Ctx/Take/End`→`roundOf/Open/Ctx/Take/End`, `jRoundDef/Id/Cap`→
+    `roundDef/Id/Cap`, `jRoundPayout`→`roundPaySlot` (the name `roundPayout` was
+    taken by the PAY_RULES sum), `jPayLate`→`roundPayLate`, `jOpenToAll`→
+    `openToAllNow`, `renderJGroup(Button)`→`renderRound(Button)`.
+  - **Two string literals deliberately kept**: `'jGroupWho'` and `'jRound_'+id` in
+    `migrateRoundSettings` are *storage keys of old builds* — renaming them would
+    orphan every teacher's saved override, the replace-a-setting trap.
+  - **`roundCommit` moved beside the adapter** (it sat in the Jeopardy region);
+    `#bb-ask` went to Blockbusters, `#k-commit`/`#k-next` to Quickfire, and the
+    two Bingo buttons out of the bottom of the Race block. Function declarations
+    hoist, so motion inside the closure costs nothing.
+  - Skills checked for rot the same hour: `new-game`, `new-mode` and `new-round`
+    all named the old symbols and were updated.
+  - Proved behaviour-neutral: `grouping,qbench,millionaire,fit,phone,card,turns,
+    gameshow,lab,registry,competition` **499/1**, and the one red is the known
+    ordering-climb overflow (726px on a 720 board), unrelated and deliberately
+    still red.
+- **Every point movement says why — the score receipt, second stage of the
+  three-seam plan.** The report used to *diff* scores and infer, which is exactly
+  how an unexplained 600 stays unexplained: five paths bypassed `award()` entirely
+  (the ± buttons, reset, Jeopardy's deduction, the final-clue wager), and the
+  report only opened entries when a *round* opened, so a plain tile or a teacher's
+  correction landed as an unexplained gain on someone else's row.
+  - **`ledgerNote(team, delta, why)`** writes a move into the open report entry;
+    with none open it opens a `between questions · <game>` entry, so nothing ever
+    lands unattributed. **Noted before the score moves, always** — a note that has
+    to open its own entry snapshots `before` as it opens, and a snapshot taken
+    after the movement would swallow it, a false alarm made by the instrument.
+  - **`award()` gained `opts.why`** and notes its own arithmetic — `· steal ½`,
+    `· streak ×2` — because a report reader cannot re-derive a half from settings
+    that may have changed since. The ten call sites name themselves: `tile 400`,
+    `daily double bet`, `hexagon`, `rung 800`, `bingo square · Ana`, `word ·
+    verdict`, and the late pay cites the record — `Podium · 2nd · 3.4s`.
+  - **The five bypass paths note directly** (they stay outside `award`, which
+    never subtracts by design): `teacher correction`, `points reset`, `wrong
+    answer · deduction rule`, `final clue · bet won/lost`.
+  - **The discrepancy check is exact now**: sum of a team's moves against its
+    actual gain, red on mismatch — so anything that still bypasses the ledger
+    names *itself*. Old entries without moves keep the expected-diff fallback.
+    Quickfire's null-expected gap closes for free, since its moves carry the rule.
+  - Driven on the Lab board with two handsets: a plain tile, both ± buttons, a
+    deduction, an MC round paying a slot winner and a late 2nd, a reset — seven
+    receipt lines, zero discrepancies, and a tampered move going red proves the
+    check can fail. 9/9; `classic,standings,jeopardy` 65/0.
+  - **This is the instrument the next class carries.** Clear the ledger before
+    the game; if the 600 recurs, its receipt line names it.
+- **A stale page announces itself — the reload chip, first stage of the agreed
+  three-seam plan** (deploy seam · money seam · file seam — the plan came from a
+  first-principles review; the receipt and the skins split are the next two).
+  Twice in one session a "bug" was a browser running an old build in memory: the
+  shell asks for the old `?v=`, gets its own cached assets, and ⚙'s build stamp
+  agrees with the lie because it reports what the shell *asked for*.
+  - **The page checks for itself** — its own stamp read off its script tags
+    against a `cache:'no-store'` fetch of its own HTML. Both sides derived, so
+    there is nothing new to keep in step. Once ~10s after load, then on returning
+    to a visible tab, throttled to five minutes.
+  - **Offers, never forces.** A fixed pill bottom-left: `new version · tap to
+    reload`, the title naming both builds. Fixed-position on purpose — anything
+    occupying layout space above a board owes it a re-fit, and this chip can
+    appear mid-lesson.
+  - **The tap navigates with `fresh=<new stamp>`**, existing params preserved —
+    a *different URL* is what defeats an in-app browser's cache, where a plain
+    reload hands back the same stale copy. The room memory is localStorage and
+    survives untouched.
+  - Lives at the bottom of `hub-buzzer.js` — the one file 9 of the 11 stamped
+    pages load (`phone-bench.html` and `dev.html` are dev-only and skipped).
+    Inert on `file://` (no server to be newer), under the suite
+    (`HUB_BUILDWATCH_ANYWAY` opts in — the `?rack=auto` shape), on an unstamped
+    page (no build to be stale against), and on an unreadable fetch (unknown is
+    not stale).
+  - **check-syntax's stamp check stopped carrying a list.** Four hand-typed
+    shells had already drifted once; it walks every stamped page now (11 found),
+    keeping the date-shaped pattern because `classic.html`'s `?v=picture` is a
+    content selector. Proved both ways — a doctored playground stamp fails by
+    name.
+  - Driven end to end on the relay: stamp bumped on disk under a live page, chip
+    up at the first look, tap navigating with params and room key intact, no chip
+    once the stamps agree. 9/9.
 - **The final question is off Classic's list — `jFinalQuestion`, default off, no
   bundle writes it.** The first ef-2a class met it by accident (Classic persisted
   from a test), it confused the room, paid everybody, and swallowed the winner
@@ -1269,12 +1572,15 @@ playground's point, that one board can host several:
     payable the instant it lands (`jRoundWin` set before the beat, not by it); the
     beat is only the visual hold. The suite's own drive hit the old guard again
     before the fix did.
-  - **The drag rounds default to `first` on team boards** (`modeDefaults` on the
-    Jeopardy and Blockbusters hosts). In `agree`, every member must independently
-    build the identical word and the card only lights letters the whole team
-    holds — a team that split the work "completed the word and nothing showed",
-    and the students named the drag rounds the ones they disliked. Classroom
-    evidence outranks the theory; the ⚙ row still offers `agree`.
+  - ~~**The drag rounds default to `first` on team boards**~~ — **shipped for one
+    day and reverted at the user's decision after testing it.** In `first`, one
+    phone's correct letters light the card immediately, which reads as the round
+    ignoring the team; the user chose the agreement dynamic back as the default
+    and accepts the cost it was traded against (in `agree`, a team that splits
+    the spelling shows nothing until every member holds the whole word — the
+    ef-2a report). Both trades are one tap apart now: the TUNE pill's mode row
+    offers `first` per lesson. Proved back with two handsets on one team: one
+    phone completing alone takes nothing, both completing takes it.
   - **The score report — `window.HubReport`, and a quiet "score report" button on
     the standings screen.** One ledger entry per question: scores as it opened,
     scores as the next opened, the results record and the expected payout when the
@@ -2948,8 +3254,9 @@ playground's point, that one board can host several:
     because that is what survives a reconnect: the same phone gets the same view
     back. Carried unread, exactly as the relay never learns an answer. ~15 lines.
   - **What the build-order item 2 actually turned out to need was smaller than the
-    item.** "Round state that outlives one question" is still unbuilt and still
-    blocks Bingo-shaped ideas — but the info gap only needed a per-player *prompt
+    item.** "Round state that outlives one question" was still unbuilt then
+    (~~and still blocks Bingo-shaped ideas~~ — since built, as `ctx.keep`) — but
+    the info gap only needed a per-player *prompt
     within* one question, and the per-recipient arm path already existed. Check
     what a round needs per player before concluding it is blocked.
   - **`ctx` lends two new things, both hosts:** `roster` (`[{id,name,team}]`, read
@@ -5274,13 +5581,15 @@ for the full version with requirement IDs. The short form, in order:
    **Nothing else here should be built until that lesson has happened** — the numbers
    (60/30 shares, 0.5 floor) are guesses, and a classroom is the only thing that can
    say whether they are the right ones.
-0. **Individual play — steps 2 to 5.** Step 1 is done (see Current status): a team
-   is a competitor, it carries an id, and `Roster` owns everything that changes the
-   list. What is left: the teams/solo switch; building the roster from the joined
-   phones in solo; each game declaring whether solo suits it (three do, three
-   cannot); and nothing at all in the rounds, which is the sign it is the right
-   layer. **Decide first** what "everyone agrees" means when a competitor is one
-   person.
+   **Status: the first team-mode lesson ran (2026-08-12, ef-2a — see
+   `docs/feedback.md`) but the Classic-ruleset accident dominated it**, so none of
+   the three questions above got a clean read. The rerun with ruleset = Hub, the
+   drag rounds on `first` and a cleared score-report ledger is the one that counts.
+0. ~~**Individual play — steps 2 to 5.**~~ **Done, all of it** — the roster
+   switch on the setup screen, the roster built from joined phones, all six boards
+   declared solo (three of the four assumed exclusions were wrong), and the whole
+   solo display layer on top: place badges, the crowd picture, the crowd reveal.
+   See Current status. What remains solo-flavoured is tuning, not building.
 0b. **Convert NEF-1, and audit the ordering scales against the scans.** NEF-1 is the
    one unit still carrying simple questions on Jeopardy and Blockbusters. The audit
    is the more important half: Unit 5 has six scales built from English the unit
@@ -5303,17 +5612,15 @@ for the full version with requirement IDs. The short form, in order:
    −700ms a word, all guesses), and if it earns its place the host work is
    `again()` in `jGroupCtx` plus content. If it does not, delete it — a round
    nobody authors for never meets a class, so the cost of being wrong is zero.
-3. **Round state that outlives one question.** Unblocks roles, hands of cards and
-   personal scorecards — the information gap turned out *not* to need it (a
-   per-player prompt within one question was enough; see Current status), which is
-   worth re-checking against the others before building it. The relay already
-   persists a bingo card per player across a reconnection; it is simply not
-   exposed to rounds.
+3. ~~**Round state that outlives one question.**~~ **Done** — `ctx.keep`, built
+   and proven with the bingo round (see Current status). Roles, hands of cards and
+   personal scorecards are now buildable; the residual is Bingo-the-skin adopting
+   the bingo round.
 4. ~~**The declarative action strip** (F3.9.1/F3.9.2), so a round may have more than
-   one button.~~ **Done** — see Current status. What is left of that item is the
-   **stage-as-mount for Race**, then **Bingo extracted**, then **Race extracted**.
-   A round is no longer limited to one button, so nothing on the list of round
-   designs is blocked outright any more.
+   one button.~~ **Done** — see Current status. ~~The stage-as-mount for Race~~ is
+   also **done** (Race is the fifth host). What is left of the extraction ladder is
+   **Bingo-the-skin onto the bingo round**, then **Race extracted** — working games,
+   last on purpose.
 4a. ~~**`openHex` in the `grouping` suite is a coin toss.**~~ **Done** — and the
    premise was wrong, which is the useful half. LB1 is exactly 18 items and the board
    is exactly 18 hexagons, so every named clue *is* dealt; the note's "18 from the 28

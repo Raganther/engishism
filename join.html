@@ -67,6 +67,19 @@
   }
   .go:disabled{ opacity:0.4; }
   .note{ font-size:0.82rem; color:rgba(251,243,213,0.62); line-height:1.5; }
+  /* **Look up — the board just revealed something.** Fixed, never in the flow: a
+     banner taking layout space would push the question down the screen, and with
+     it the letter tiles under a thumb that is mid-drag. Amber because that is the
+     card's given-away colour, so one vocabulary holds at both ends of the room —
+     and it says nothing about *what* was revealed, which is on the wall. */
+  .lookup{
+    position:fixed; left:0; right:0; top:0; z-index:40; padding:13px 14px;
+    background:var(--yellow); color:var(--navy);
+    font-weight:700; font-size:0.86rem; letter-spacing:0.09em; text-transform:uppercase;
+    transform:translateY(-100%); transition:transform 240ms ease; pointer-events:none;
+  }
+  .lookup.up{ transform:translateY(0); }
+  @media (prefers-reduced-motion: reduce){ .lookup{ transition:none; } }
   .who{ font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase; color:rgba(251,243,213,0.72); }
   .room{
     font-family:'IBM Plex Mono', ui-monospace, monospace;
@@ -297,6 +310,10 @@
   <p class="note">Your teacher has the code on the big screen.</p>
 </div>
 
+<!-- Fires when the projector reveals a part of the answer. Outside every screen
+     because it is fixed and belongs to none of them. -->
+<div class="lookup" id="lookup" aria-live="polite">↑ Look up — something appeared</div>
+
 <div class="screen" id="screen-play">
   <!-- Which room this phone is in, kept on screen. A student who joined on the
        wrong code, or drifted onto a neighbouring class's game, had no way to tell:
@@ -342,7 +359,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260812b"></script>
+<script src="game-hub/hub-buzzer.js?v=20260814a"></script>
 <script>
 (function(){
   'use strict';
@@ -1208,6 +1225,24 @@
        it holding more than its share. That is the honest state: the handset says
        what to drop and refuses to add, and the team settles it by talking, which
        is the whole reason this mode exists. */
+    /* The board has revealed a part of the answer — look up. A moment rather than
+       a meter, deliberately: a bar in the corner is ambient and stops being read by
+       the third question, where something that fires rarely keeps its force. And
+       the thing it points at exists *only* on the wall, so the cue can do nothing
+       except send eyes there.
+
+       The vibrate is the half a projector cannot do — it reaches a phone lying
+       face-down on the desk, which is exactly the phone whose owner has stopped
+       looking at anything. */
+    let lookTimer = 0;
+    client.on('nudge', ()=>{
+      const el = $('lookup');
+      if(!el) return;
+      el.classList.add('up');
+      if(navigator.vibrate) navigator.vibrate([25,45,25]);
+      clearTimeout(lookTimer);
+      lookTimer = setTimeout(()=>el.classList.remove('up'), 2200);
+    });
     client.on('shares', d=>{
       const next = Math.max(1, Number(d && d.multi) || 1);
       if(next === maxPicks || mode !== 'vote') return;
