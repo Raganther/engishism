@@ -1265,6 +1265,27 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The full suite ran for the first time in a while: 1343/11, and none of the 11 is
+  a regression.** Run as a double-check on the ordering-race work; the value turned
+  out to be the *other* nine.
+  - **Nine were proved pre-existing by running the same suites in a worktree at the
+    session's starting commit** — identical failures, identical detail strings.
+    `git worktree add <dir> <sha>` is the tool for this: it needs no stashing, leaves
+    the working tree alone, and takes about a minute.
+  - **One was a load flake**: the morph card animation sampled before it had started,
+    under 68 suites of contention. `variants` alone is **37/0** on the same build. A
+    check that reads a *mid-flight* animation is inherently load-sensitive; worth
+    knowing before anybody chases it.
+  - **One is the known ordering-climb overflow** (726px on a 720 board), red on
+    purpose until the card-height work happens.
+  - **The nine are somebody's next job, and two of them are aborts** — `strip` and
+    `bbteams` each throw on a click and take the rest of their suite with them, which
+    is the pattern this file has already recorded four times: a check written when a
+    clue was plain, still waiting for a buzzer or a claim chooser that a round
+    correctly never shows. The others: Blockbusters' four-team answer card, three
+    `Topic picking` counts, and two game-card icons reporting `0 animated parts`.
+    **None of them has anything to do with the phone layer**, which is what the
+    comparison establishes.
 - **Three faults in one: a right answer was wiping the whole room.** Reported from a
   16-handset Word Thermometer race — answers that did not register, boxes vanishing
   as words were placed, and no sign on the phone of whether what you sent was any
