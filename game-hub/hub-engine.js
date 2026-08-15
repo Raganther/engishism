@@ -4427,6 +4427,7 @@
        Beside the results record because they answer halves of one question and a
        second call site is a second thing to forget. */
     standingsOpen();
+    roundReplies = [];    // nobody has answered *this* question yet
     sendMisses = {};      // a new question starts every phone's escalation from cold
     sendCooling = {};     // and nobody carries a visible wait into it
     renderRound();
@@ -4730,6 +4731,9 @@
 
   function roundOnReplies(all){
     if(!roundLive()) return;
+    /* Kept so a verdict can be addressed at **whoever actually answered**, rather
+       than at everyone the roster happens to place on that competitor. */
+    roundReplies = Array.isArray(all) ? all : [];
     roundState.picks = roundDef().read(all, roundState, roundCtx());
     roundStamp();
     renderRound();
@@ -4940,6 +4944,28 @@
      already reuses: `buzzHost.judge(id, 'wrong', {note, coolMs})` puts that
      phone alone on a displayed countdown. Time, never points — a round may not
      score, and this is the host's fact about pacing, so no round learns it. */
+  let roundReplies = [];
+
+  /* **Who to say this to.** A verdict on one competitor's answer belongs to the
+     phones that produced it — the replies the host has just read — and only falls
+     back to "everyone the roster puts on that competitor" when there are none,
+     which is the teacher answering on the room's behalf.
+
+     Asking the roster first was the bug waiting to happen: `p.team` is what the
+     relay believes, and a phone that has joined or come back but not yet been
+     seated is still reading as competitor 0. In a room of individuals that means
+     one student's wrong Send putting somebody else on a countdown. Reported from a
+     class of sixteen. A reply carries the id of the phone that sent it, so this
+     cannot address the wrong person however stale a seat is. */
+  function roundPhonesOf(team){
+    if(!buzzHost) return [];
+    const t = Number(team);
+    const answered = (roundReplies || []).filter(r => r && Number(r.team) === t);
+    if(answered.length) return answered.map(r => ({ id:r.id, name:r.name, team:t }));
+    return (buzzHost.players() || []).filter(p => Number(p.team) === t)
+             .map(p => ({ id:p.id, name:p.name, team:t }));
+  }
+
   let sendMisses = {};
   /* Who is cooling right now, so the *room* can see it and not only the phone in
      the hand. Keyed by player id — never an index — and question-scoped: cleared
@@ -4958,7 +4984,7 @@
     /* In a solo room a competitor is one phone, and `p.team` is the relay's own
        record — the truth, since the seat seam fix. Ask the room, do not keep a
        copy of what it was told. */
-    (buzzHost.players() || []).filter(p => Number(p.team) === Number(team)).forEach(p=>{
+    roundPhonesOf(team).forEach(p=>{
       const n = (sendMisses[p.id] || 0) + 1;
       sendMisses[p.id] = n;
       const ms = Math.round(secs * 1000 * (ramp ? n : 1));
@@ -4982,9 +5008,7 @@
        saying `done` — so the phone is told rather than left to guess. A round that
        ends on a right answer would otherwise invite the player to keep going. */
     const note = more ? 'Yes — now the next one' : 'Yes — that finishes it';
-    (buzzHost.players() || []).filter(p => Number(p.team) === Number(team)).forEach(p=>{
-      buzzHost.judge(p.id, 'right', { note });
-    });
+    roundPhonesOf(team).forEach(p=>{ buzzHost.judge(p.id, 'right', { note }); });
   }
 
   /* **Push which options are now settled, without arming.** One definition of what

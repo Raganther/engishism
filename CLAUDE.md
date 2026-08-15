@@ -1265,6 +1265,49 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Every per-team list on the relay was capped at eight, so half a class of
+  individuals silently got nothing.** Reported as two things from a sixteen-handset
+  Word Thermometer — "Kira cannot select the first answer" and "wrong answers are
+  activating other players' cooldown" — and the first one is this. It is the most
+  damaging bug found this week and it has been there since per-team lists existed.
+  - **Eight was written when a team was a team.** `optionsByTeam`, `multiByTeam` and
+    the new `doneByTeam` all did `slice(0, 8)`, while the roster is capped at 60 and
+    `seat` clamps to 0–59. A room of *individuals* makes a competitor per student, so
+    from the ninth handset on every per-team value fell through to the room-wide one
+    **with nothing anywhere saying so** — no error, no warning, and correct behaviour
+    for the first eight people in the room.
+  - **What the class actually saw.** Kira was the eleventh handset. She never
+    received the list of words already on her own ladder, so a placed word stayed
+    tappable; she tapped it, Send went dead, and every reply was correctly dropped as
+    a stale tap. From the front of the room that reads exactly as "she cannot select
+    the first answer". **The share half of it (`multiByTeam`) is the same defect**,
+    which is worth checking against the 4×4 Connections report still outstanding.
+  - **Sixty now, matching the roster.** Proved with a sixteen-handset drive that
+    fails by name with the cap back at 8 — `Kira team=14 … no green` — and passes
+    with it at 60.
+  - **A cap that is fine for the shape you had is a bug the day the shape changes**,
+    and the tell is that it degrades *quietly*: a truncated list falls back rather
+    than erroring, so the room splits into people it works for and people it does
+    not. Solo play doubled the competitor count and nothing went looking for the
+    numbers that assumed teams.
+- **A word you have already sent is no longer a dead end.** The commit beat kept
+  Send disabled until the answer *changed* — a second guard on top of the cooldown,
+  meant to stop somebody re-sending the same wrong thing. What it produced was a
+  phone stuck on a word forever whenever a reply went astray rather than coming back
+  wrong, **with the line under the button still saying "Press Send when you are
+  sure"**. Reproduced exactly. Send now follows what is in your hand and the
+  escalating cooldown is the only anti-mash mechanism, which is enough on its own;
+  the message and the button agree in every state.
+- **A verdict is addressed at whoever answered, not at everyone on that index.**
+  `roundSendPenalty` and `roundSendRight` asked the roster for players whose `p.team`
+  matched — and `p.team` is what the *relay* believes, so a phone that has joined or
+  come back but not yet been seated still reads as competitor 0. In a room of
+  individuals that is one student's wrong Send putting somebody else on a countdown,
+  which is the second report. It reads the replies it has just judged instead: a
+  reply carries the id of the phone that sent it, so it cannot address the wrong
+  person however stale a seat is. The roster is still the fallback, for the teacher
+  answering on the room's behalf. *Not reproduced at sixteen — the seating held in
+  every run — so this closes the hazard rather than a demonstrated failure.*
 - **The full suite ran for the first time in a while: 1343/11, and none of the 11 is
   a regression.** Run as a double-check on the ordering-race work; the value turned
   out to be the *other* nine.

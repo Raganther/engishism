@@ -414,11 +414,11 @@ function handleSend(req, res){
         /* Same cap per team as the room-wide list: what fits a hand, not what fits
            a question. A non-array entry falls through to `options` for that team. */
         room.doneByTeam = Array.isArray(msg.doneByTeam)
-          ? msg.doneByTeam.slice(0,8).map(list => Array.isArray(list)
+          ? msg.doneByTeam.slice(0,60).map(list => Array.isArray(list)
               ? list.slice(0,20).map(o => String(o).slice(0,40)) : [])
           : null;
         room.optionsByTeam = Array.isArray(msg.optionsByTeam)
-          ? msg.optionsByTeam.slice(0,8).map(list => Array.isArray(list)
+          ? msg.optionsByTeam.slice(0,60).map(list => Array.isArray(list)
               ? list.slice(0,20).map(o=>String(o).slice(0,80)) : null)
           : null;
         /* Same discipline as the per-team lists: bounded, stringified, carried
@@ -491,7 +491,7 @@ function handleSend(req, res){
       case 'done': {
         if(!room.armed) return sendJSON(res, 200, { ok:true, ignored:'not armed' });
         room.doneByTeam = Array.isArray(msg.doneByTeam)
-          ? msg.doneByTeam.slice(0,8).map(list => Array.isArray(list)
+          ? msg.doneByTeam.slice(0,60).map(list => Array.isArray(list)
               ? list.slice(0,20).map(o => String(o).slice(0,40)) : [])
           : null;
         toEachPlayer(room, 'done', p => ({ done: doneFor(room, p.team) }));
@@ -734,9 +734,18 @@ function tallyOf(room){
 /* Per-team caps off the wire. Null for anything that is not a list, which is what
    restores the room-wide `multi` — so a host can hand shares back as easily as it
    set them. */
+/* **Sixty, not eight.** Every per-team list here was capped at 8, written when a
+   team was a team and four was a big room. A room of *individuals* makes a
+   competitor per student, so the cap silently threw away everybody from the ninth
+   person on: their share, their options and their settled words all fell through to
+   the room-wide value with nothing anywhere saying so. It was reported as "Kira
+   cannot select the first answer" — she was the eleventh handset, never learned
+   which words were already on her own ladder, kept re-tapping one, and every reply
+   was correctly dropped as a stale tap. The roster is capped at 60 and `seat` clamps
+   to 0-59, so 60 is the number these have to agree with. */
 function readShares(v){
   if(!Array.isArray(v) || !v.length) return null;
-  return v.slice(0, 8).map(n => Math.max(1, Math.min(12, Math.floor(Number(n)) || 1)));
+  return v.slice(0, 60).map(n => Math.max(1, Math.min(12, Math.floor(Number(n)) || 1)));
 }
 
 function secsLeft(room){

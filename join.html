@@ -696,10 +696,21 @@
              free — the button lights when the selection differs from what was
              last sent. */
           if(needSend){
-            $('commit').disabled = !myPicks.length || myPicks.join('|') === sentValue;
+            /* **Send follows what is in your hand, not what you last transmitted.**
+               It used to stay dead until the answer *changed* — a second guard on
+               top of the cooldown, meant to stop somebody re-sending the same wrong
+               thing. What it actually produced was a dead end: a word you had sent
+               once could never be sent again, so a phone whose reply was dropped
+               rather than judged was stuck on it for the rest of the question with
+               the line below telling it to press a button that did nothing. Seen in
+               a real class of sixteen and reproduced exactly. The escalating
+               cooldown is the anti-mash mechanism and it is enough on its own. */
+            $('commit').disabled = !myPicks.length || cooling;
             $('commit').textContent = 'Send';
+            /* The message and the button have to agree — that they did not is half
+               of what made the dead end so hard to read from the front of a room. */
             $('state').textContent = maxPicks > 1 ? shareLine()
-              : 'Press Send when you are sure';
+              : ($('commit').disabled ? 'Waiting…' : 'Press Send when you are sure');
             return;
           }
           answered = true;
@@ -846,7 +857,9 @@
        on every placement — which is what stops trying permutations against the
        judge. The button lights only when the boxes differ from what was sent. */
     if(needSend){
-      $('commit').disabled = cooling || arrangeWire() === sentValue;
+      /* Same rule as the vote branch: what is in your hand, never what you last
+         sent — a comparison against history is a dead end when a reply goes astray. */
+      $('commit').disabled = cooling || !arrangeWire();
       return;
     }
     answered = true;
@@ -1093,10 +1106,11 @@
           b.disabled = b.classList.contains('done');
         });
         $('commit').textContent = 'Send';
-        /* Still disabled until the answer *changes* — re-sending the same wrong
-           thing is the mash this whole beat exists to stop. */
-        $('commit').disabled = true;
-        $('state').textContent = 'Try again — change your answer';
+        /* Ready again the moment the wait is over. It used to stay dead until the
+           answer *changed*, which stranded anybody whose reply had gone astray
+           rather than come back wrong. The wait is what a wrong Send costs. */
+        $('commit').disabled = (mode === 'arrange') ? !arrangeWire() : !myPicks.length;
+        $('state').textContent = 'Try again — you can send when you are ready';
         return;
       }
       $('reply').disabled = false;
