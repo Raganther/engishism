@@ -268,7 +268,12 @@
             sig: s.scale.join('|')
           };
           const knownRungs = K.round.crowdKnown(c, cw);
-          if(knownRungs.length || s.shown){
+          /* The reference ladder is drawn from the first render, all rungs
+             empty — it used to appear only once a reveal had landed, which
+             dropped a whole ladder into the card mid-question and shoved
+             everything under it. An empty ladder is the picture of what is
+             being climbed; the reveals fill it in place. */
+          {
             const lane = document.createElement('div');
             lane.className = 'ord-lane';
             const ladder = document.createElement('div');
@@ -293,8 +298,10 @@
             mount.appendChild(lane);
           }
           /* The reveal meter — how close the room is to the next rung lighting
-             on the reference ladder, never which team is about to clear it. */
-          if(!s.shown && !s.done) K.round.crowdMeter(mount, c, cw);
+             on the reference ladder, never which team is about to clear it. A
+             decided round holds the row hidden (`live`) so the card never moves. */
+          cw.live = !s.shown && !s.done;
+          K.round.crowdMeter(mount, c, cw);
           K.round.crowd(mount, c, { entries: teams
             .filter(t => (s.lanes[t] || []).length || (s.leading || {})[t])
             .map(t => ({ who: t,

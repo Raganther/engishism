@@ -302,8 +302,10 @@
       }
 
       /* The reveal meter — how close the room is to the next slot filling in,
-         never which slot. Live rounds only. */
-      if(!s.shown && !s.done) K.round.crowdMeter(mount, c, cw);
+         never which slot. A decided round holds the row hidden (`live`) so the
+         card's shape never moves. */
+      cw.live = !s.shown && !s.done;
+      K.round.crowdMeter(mount, c, cw);
 
       /* Always drawn, empty or not — see `Kit.round.say`. An appearing line was
          what made the card jump on the first hint. */

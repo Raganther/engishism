@@ -1265,6 +1265,33 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Nothing on the card moves when the crowd instruments arrive — appearing is a
+  height change too.** Reported from Connections in a big room: the card jumped to
+  make room for the reveal meter the moment the first pick landed, and the same
+  jump lived in every round drawing the crowd picture — correctly suspected to be
+  the shelf, which is why the fix is three shelf changes and no round logic.
+  **The rule: facts of the question decide whether a row *exists*; live facts
+  decide what it *shows*.** The say line learned this first; the instruments
+  built since had not.
+  - **The reveal meter** returns null only on question-level facts (setting off,
+    small room, one-part answer). Everything that changes mid-question — nobody
+    started yet, every reveal earned, hints eating the last slot, the round
+    decided (`opts.live`, passed by the four callers in place of their old
+    `if(!s.done)` guards) — draws the row anyway; spent hides it with
+    `visibility` (`.rmeter.spent`), space held, nothing promised.
+  - **The crowd strip draws both lines from the first render.** The empty
+    finished line holds a *hidden copy of the pill and a name* rather than a
+    guessed min-height — the pill alone measured 2px short of the real line,
+    and 2px is still a jump. The empty working line is the thermometer's
+    non-breaking-space trick.
+  - **Ordering's reference ladder is drawn empty from the start** — it used to
+    appear only once a reveal landed, dropping a whole ladder into the card.
+  - Proved by measurement both ways: broken build 0→18px on the first pick,
+    18→0 when spent, crowd 0→18→44 as activity landed; fixed, every transition
+    flat (meter 18 throughout, strip 44 throughout). 7/7 scratch checks.
+  - **Still moves, and it is the known one:** the climb ladder's rung gloss —
+    filling a rung is what the climb *does*, documented under the clue-card
+    height item, unchanged here.
 - **`soloSeatAt` is deleted, and deleting it is the answer this bug class actually
   had.** Six bugs over six days were one root — a **copy of somebody else's index
   going stale** — and the reflex rule ("an index is never an identity") is wrong:

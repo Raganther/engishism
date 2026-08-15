@@ -183,9 +183,11 @@
       }
 
       /* The reveal meter — how close the room is to the next word lighting,
-         never which word. Live rounds only: a bar under a decided answer would
-         promise a reveal that is not coming. */
-      if(!s.done) K.round.crowdMeter(mount, c, cw);
+         never which word. Always called: a decided round gets the row hidden
+         rather than removed (`live`), because the meter leaving moved the card
+         at exactly the moment the room looks at it. */
+      cw.live = !s.done;
+      K.round.crowdMeter(mount, c, cw);
 
       /* Always drawn, empty or not — see `Kit.round.say`. An appearing line was
          what made the card jump on the first hint. */

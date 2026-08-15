@@ -752,6 +752,10 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
   margin-top:10px; display:flex; align-items:center; gap:10px; justify-content:center;
   width:min(420px, 90%); margin-left:auto; margin-right:auto;
 }
+/* A meter with nothing left to promise — no reveal can come, or the round is
+   decided — goes invisible, never absent: its row keeps the card's shape, the
+   same rule as the say line. `visibility`, not `display`, is the whole point. */
+.rmeter.spent{ visibility:hidden; }
 .rmeter-label{
   font-size:0.55em; letter-spacing:0.14em; text-transform:uppercase;
   color:var(--gw-fg, #12263F); opacity:0.65; white-space:nowrap;

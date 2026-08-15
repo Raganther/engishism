@@ -416,10 +416,19 @@
     const name = t => (c.teamName ? c.teamName(t) : ('Team ' + (t + 1)));
     const wrap = document.createElement('div');
     wrap.className = 'rcrowd';
+    /* **Both lines are drawn from the first render, empty or not.** This used
+       to say nothing until somebody had done something, and each line then
+       arrived mid-question — the working line on the first tap, the finished
+       line on the first finisher — moving the card twice at exactly the
+       moments the room looks at it. An empty line holds its height the way
+       the say line does; the finished line's placeholder is a hidden copy of
+       the pill it is reserving for, because the pill's padding makes that
+       line taller than bare text and a guessed min-height would drift the
+       day the pill's styling moved. */
     const fin = results.finished();
+    const line = document.createElement('div');
+    line.className = 'rcrowd-done';
     if(fin.length){
-      const line = document.createElement('div');
-      line.className = 'rcrowd-done';
       const SHOW = 5;
       fin.slice(0, SHOW).forEach((f, i)=>{
         if(i){ const s = document.createElement('span'); s.className = 'rcrowd-sep'; s.textContent = '·'; line.appendChild(s); }
@@ -435,20 +444,32 @@
         more.textContent = ' +' + (fin.length - SHOW) + ' more done';
         line.appendChild(more);
       }
-      wrap.appendChild(line);
+    } else {
+      /* The placeholder is a hidden copy of what will land — pill *and* name,
+         because the line's height is whichever of the two is taller: the pill
+         alone measured 2px short of the real line, and 2px is still a jump. */
+      const b = document.createElement('small');
+      b.className = 'rl-place';
+      b.style.visibility = 'hidden';
+      b.textContent = '1st';
+      line.appendChild(b);
+      const t = document.createElement('span');
+      t.style.visibility = 'hidden';
+      t.textContent = ' ';
+      line.appendChild(t);
     }
+    wrap.appendChild(line);
     const done = {};
     fin.forEach(f => { done[f.who] = true; });
     const rows = (o.entries || []).filter(e => !done[e.who]);
-    if(rows.length){
-      const line = document.createElement('div');
-      line.className = 'rcrowd-working';
-      const SHOW = 6;
-      line.textContent = rows.slice(0, SHOW).map(e => e.label).join(' · ') +
-                         (rows.length > SHOW ? '  +' + (rows.length - SHOW) + ' more' : '');
-      wrap.appendChild(line);
-    }
-    if(!wrap.childNodes.length) return null;   // nobody has done anything yet — say nothing
+    const work = document.createElement('div');
+    work.className = 'rcrowd-working';
+    const SHOW = 6;
+    work.textContent = rows.length
+      ? rows.slice(0, SHOW).map(e => e.label).join(' · ') +
+        (rows.length > SHOW ? '  +' + (rows.length - SHOW) + ' more' : '')
+      : ' ';
+    wrap.appendChild(work);
     mount.appendChild(wrap);
     return wrap;
   }
@@ -555,23 +576,37 @@
   function crowdMeter(mount, ctx, opts){
     const o = opts || {};
     const c = ctx || {};
+    /* **Facts of the question decide whether the row exists; live facts decide
+       what it shows.** The gates below are fixed for a question's whole life —
+       the setting, the room size, whether the answer has more than one part —
+       so returning null here can never move a card mid-question. Everything
+       that *changes* while the room plays (nobody has started yet, every
+       reveal already earned, hints eating the last slot, the round decided —
+       `o.live === false`) renders the row anyway and hides its contents with
+       `visibility`, because a bar that appears is a card that jumps — the say
+       line's lesson, paid again by this meter's first build. */
     if(c.crowdMeter === false) return null;
     const th = c.crowdReveal == null ? 0.4 : Number(c.crowdReveal);
-    const started = Number(o.started) || 0;
-    if(!th || !started) return null;
+    if(!th) return null;
     const competitors = laneTeams(c).length;
     if(competitors <= 5) return null;
     const keys = o.keys || [];
+    if(keys.length < 2) return null;   // one part is the whole answer — never lights
+    const started = Number(o.started) || 0;
     const given = o.given || [];
     const of = Math.max(started, competitors);
     const rated = keys.filter(k => given.indexOf(k) === -1)
       .map(k => (Number(o.count ? o.count(k) : 0) || 0) / of);
     const room = Math.max(0, (keys.length - 1) - given.length);
-    if(room <= 0 || rated.filter(f => f >= th).length >= room) return null;
+    /* Spent is one-way within a question: `given` only grows, counts only rise,
+       a decided round stays decided. A hidden bar promises nothing — which is
+       the honest state — while its row keeps the card's shape. */
+    const spent = o.live === false || room <= 0 ||
+                  rated.filter(f => f >= th).length >= room;
     const next = rated.filter(f => f < th).reduce((a, b) => Math.max(a, b), 0);
-    const frac = Math.max(0, Math.min(1, next / th));
+    const frac = spent ? 0 : Math.max(0, Math.min(1, next / th));
     const wrap = document.createElement('div');
-    wrap.className = 'rmeter';
+    wrap.className = 'rmeter' + (spent ? ' spent' : '');
     const lab = document.createElement('span');
     lab.className = 'rmeter-label'; lab.textContent = 'next reveal';
     const track = document.createElement('span');
