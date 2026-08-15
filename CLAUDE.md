@@ -1312,10 +1312,24 @@ playground's point, that one board can host several:
     the fix is that the options stopped diverging; the divergence moved to which of
     them are finished with. Left in the relay rather than removed: it is a working,
     tested capability and taking a wire feature out is riskier than leaving it.
-  - Proved with a 24-check six-handset drive — **falsified at 6 red against the base
+  - Proved with a 25-check six-handset drive — **falsified at 6 red against the base
     build**, which is the report in one line — plus an 8-check raw-HTTP drive of the
     wire itself (arm · non-arming push · reconnect join · re-seat · a round that
-    declares none).
+    declares none). `grouping,qbench,anagram,buzzers,phonemodes,reconnect,teamvote,
+    degradation,bench,millionaire,card` **476/2**, then `bench` 49/0 once its two
+    roster checks were split — so one red, the known climb overflow.
+  - **The relay is the weak seam in all of this, and it is worth saying plainly.**
+    Adding one per-player fact took **seven hand edits** in four places — the room
+    shape, a lookup, the arm payload, the join payload, a push case, and two team-
+    change pushes — and the one easiest to miss is the join, which would have failed
+    only for students whose wifi dropped. `optionsFor`, `doneFor`, `promptFor` and
+    `capFor` are now **the same eight lines four times**, and `shares`/`prompts`/
+    `done` are three near-identical push cases. **`tools/shelf.js` does not look
+    there**, so none of it was flagged: it scans the round files and the three
+    shelves only. The job, when the next round wants a new per-player fact: let the
+    host declare once which arm fields are per-team and which per-player, carry any
+    of them down one path, and derive the join payload from the same place as the
+    arm so the two cannot drift. Point `shelf.js` at the relay in the same change.
   - **A phone leaving mid-question no longer renumbers anybody — fixed, and the
     scare it caused is worth writing down precisely.** Found by the drive: a
     reconnecting handset made the roster go `Ana:0 Ben:1 Cara:2 …` →
@@ -1338,6 +1352,13 @@ playground's point, that one board can host several:
     - Proved both ways in one drive: a handset closed mid-question leaves the
       roster and the round's credit untouched, and the row is gone the moment the
       card closes (`Ana Ben Cara Dan Eva Finn` → `Ana Cara Dan Eva Finn`).
+    - **It is a visible behaviour change on the room bench, and the suite caught
+      it.** `bench` asserted that removing a handset takes its row away *promptly*,
+      and the bench leaves a card open from the buzz check above — so the check went
+      red describing the promptness that was deliberately traded away. It is two
+      checks now, one for each half of the rule: the row stays while the question is
+      open, and goes the moment the card is down. **Pinning the old timing pinned
+      the bug**, which is the same lesson as every other stale check here.
     - **The deeper thing is still true and still unfixed**: an index is not an
       identity, and every round keys its per-team state by one. This makes it
       *unable to bite* rather than making it right. Keying by the competitor id

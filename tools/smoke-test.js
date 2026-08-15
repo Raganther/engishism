@@ -7769,8 +7769,27 @@ async function testPhoneBench(browser){
      checks below, which then compare two different rooms. */
   const added = (await nameOf()).find(n => hadNames.indexOf(n) === -1);
   await hub.locator('.phone').filter({ hasText: added }).locator('.head button').click();
+  /* **It waits for the question to end, and the wait is the point.** A competitor's
+     index is its identity in a live round's per-team state — the ladders, the picks,
+     the agreement counts — so closing the gap under an open question hands one
+     student's ladder to whoever sat below them. Scores are safe either way (they ride
+     the competitor and move with it, and a scored competitor is never dropped), but
+     the round's own state does not move, so the tidy-up waits for the moment that
+     state stops existing. A card is open here, left up by the buzz check above. */
+  await hub.waitForTimeout(2500);
+  check('a phone leaving mid-question keeps its row until the question is over',
+        await barRows() === soloWas + 1, soloWas + 1 + ' → ' + await barRows());
+  const pressInStage = id => hub.evaluate(which => {
+    const w = document.getElementById('stage-frame').contentWindow;
+    const b = w.document.getElementById(which);
+    if(b && b.offsetParent !== null){ b.click(); return true; }
+    return false;
+  }, id);
+  await pressInStage('reveal-btn');
+  await hub.waitForTimeout(700);
+  for(const id of ['close-btn','wrong-btn','skip-btn']) if(await pressInStage(id)) break;
   await until(async () => await barRows() === soloWas, 12000);
-  check('and removing one takes it away again',
+  check('and removing one takes it away again, once the card is down',
         await barRows() === soloWas, soloWas + 1 + ' → ' + await barRows());
 
   await hub.evaluate(() => document.getElementById('stage-frame')
