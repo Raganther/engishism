@@ -15,13 +15,15 @@ ephemeral), so **anything worth keeping must be committed and pushed.** Continui
 end of a work session, update the **Current status** / **Next** sections below and
 commit. No roadmap file, no domain-file discipline required.
 
-**Two hooks, and both exist because a thing that is nobody's job does not happen.**
-`tools/shelf.js` fires before any edit to shared code and says what is already on
-the shelf *and what has been written three times*; `tools/memory-check.js` fires
-before a `git commit` and, **only when this file is not in it**, names what is
-being committed and asks whether it is a memory event. Neither blocks. The silence
-is the design: a reminder that fires every time is one you stop reading, so the
-memory one can only speak when the memory genuinely has not been touched.
+**Three hooks, and each exists because a thing that is nobody's job does not
+happen.** `tools/shelf.js` fires before any edit to shared code and says what is
+already on the shelf *and what has been written three times*; `tools/memory-check.js`
+fires before a `git commit` and, **only when this file is not in it**, names what is
+being committed and asks whether it is a memory event; `tools/suite-check.js` fires
+before a smoke run and, **only when that run is long**, says how many minutes it will
+cost and what would justify it. None of them blocks. The silence is the design: a
+reminder that fires every time is one you stop reading, so each can speak only in the
+case it was written for.
 
 ## How to talk to me
 **Short. Plain words. Say the thing, then why, then stop.**
@@ -6336,6 +6338,24 @@ Everything below is either a known gap or a question a classroom run has to answ
 which is worth it when nobody is watching the screen. But the user *is* watching — on
 the real site, on a real phone. For most changes their eyes are faster and better than
 four minutes of robot. **Small changes taking a long time is the thing this is fixing.**
+
+**The rule, and it is a rule rather than a preference: run no test suite unless
+the user asks for one.** Not "prefer not to" — don't. This was written as a default
+and treated as a suggestion for weeks, and one day's work went: a full suite nobody
+asked for (57 minutes), four twelve-suite passes (~80), and two runs started and then
+voided by editing files underneath them (~30, pure waste). `tools/suite-check.js`
+now says the number out loud before any long run, because a rule in prose loses to
+"let me just be sure" and an hour on a clock does not.
+
+**Three things that are banned outright**, all of which have cost real time: the
+full suite unasked; starting a run and then continuing to edit; and anything over
+five minutes without asking first.
+
+**The one exception worth keeping** is a small hand-written drive for phone work at
+class scale — sixteen handsets, three minutes. That is the only thing the user's own
+eyes genuinely cannot do: the cap-at-eight bug was invisible below nine handsets and
+perfect above none. Everything else — a board, a layout, one game's logic — they see
+faster on a real phone than any of this measures.
 
 **The loop, every time:**
 1. Make the change.
