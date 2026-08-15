@@ -1293,6 +1293,15 @@ playground's point, that one board can host several:
   - **The 40% rule needed no change and got none**: the crowd counts read held
     replies, which now arrive on commit — so the reveal measures deliberate
     answers instead of mash noise, which is the rule getting *more* honest.
+  - **Commit-based counting for the reveal is a decision, asked and kept.** The
+    alternative — counting what players have *selected* but not sent — keeps the
+    wall livelier and was considered after shipping: rejected because selecting
+    is free, so rational play becomes "select, never Send, wait for the wall to
+    confirm, then commit what it told you" — the reveal as a free oracle that
+    guts the penalty. **If the meter proves too static in a real room, the lever
+    is the `crowdReveal` threshold (already on the TUNE pill), not the counting
+    basis.** A selection-counting variant would also need taps streaming to the
+    relay again on a tentative channel — the traffic Send removed.
   - Settings: `roundSend` (on), `roundSendCool` (3s, 0 = no wait), `roundSendRamp`
     (on) — Phones group, quick. New keys, so no stuck-default risk.
   - Proved with a 23-check relay drive (tap reaches nobody · wrong Send judged by
