@@ -14,8 +14,8 @@
      teachable moments instead of one.
    - **`race`** — a ladder each, side by side, and the first team to fill theirs takes
      the question. Each team has placed different words and so has a different set
-     left, which is why this is the one round that asks each team a *different*
-     question (`optionsByTeam`).
+     left — so each side is told which of the words it has already placed, and marks
+     them, rather than being handed a shorter list (`doneByTeam`).
 
    **A sequence is not a set, and that is the whole reason this was built second.**
    Grouping merges a team's phones with a union — four words from four handsets are
@@ -40,6 +40,17 @@
   const K = window.HubKit;
   if(!K || !K.round){ console.error('ordering.js needs hub-rounds.js loaded first'); return; }
 
+
+  /* Which of a phone's options are finished with, per team — the round's own record
+     of each ladder, in the shape the wire wants. Defined out here because two things
+     need it and neither may be the other's side effect: `arm` sends it with the
+     question, and the host pushes it on its own between arms. */
+  function settled(s, ctx){
+    const teams = (ctx && ctx.teams) || [];
+    return s.mode === 'race'
+      ? teams.map((_, i) => (s.lanes[i] || []).slice())
+      : teams.map(() => s.placed.slice());
+  }
 
   K.round.register('ordering', {
     label: 'Word Thermometer',
@@ -520,15 +531,19 @@
        needs nothing the phones do not already do. */
     arm(s, ctx){
       const c = ctx || {};
-      const teams = c.teams || [];
-      const leftFor = placed => s.pool.filter(w => (placed || []).indexOf(w) === -1);
       const label = s.mode === 'race'
         ? 'Which comes next on your ladder?'
         : ('Which comes next? (' + (s.placed.length + 1) + ' of ' + s.need + ')');
       const arm = {
         mode:    'vote',
-        prompt:  c.prompt === false ? label : (s.text || label),
-        options: leftFor(s.mode === 'race' ? [] : s.placed),
+        /* **Every word, always, in the one order the pool was shuffled into.**
+           It used to send only what that side had left, which read as the answer
+           being *taken away*: a class of sixteen found that the box under a thumb
+           moved every time anybody placed anything, and a reconnecting phone came
+           back with a shorter list and no record of its own ladder. What is placed
+           is said by `doneByTeam` instead, so the list never moves and a settled
+           word is marked rather than removed. */
+        options: s.pool.slice(),
         multi:   1,
         /* No per-team share: an order cannot be assembled from pieces the way a set
            can, so splitting it across handsets would produce fragments nothing can
@@ -538,15 +553,36 @@
         rethink: true,
         team:    (c.team === 0 || Number(c.team) > 0) ? Number(c.team) : null
       };
-      /* **A race asks each team a different question**, because each has placed
-         different words and so has a different set left. That is `optionsByTeam` —
-         built for this shape and used by nothing until now. A team not named falls
-         through to the room-wide list, so nothing else in the app is affected. */
-      if(s.mode === 'race'){
-        arm.optionsByTeam = teams.map((_, i) => leftFor(s.lanes[i] || []));
-      }
+      arm.doneByTeam = settled(s, ctx);
       return arm;
     },
+
+    /* **Which of a phone's options are finished with, per team.** A race and a climb
+       differ in whose ladder is whose, not in what is on offer: in a race each side
+       has placed different words, so what is settled is per team; in a climb there is
+       one ladder and everybody has settled the same words. Either way the phone is
+       told which of its own options are done and marks them, rather than being handed
+       a shorter list that moves every box below it.
+
+       Its own hook rather than something read back off `arm()`, because the host
+       pushes this between arms and calling a round's `arm` for its side effects is
+       how a bingo hand would get re-dealt to read one field. One definition either
+       way — `arm` calls it too. */
+    done: settled,
+
+    /* **Does a right answer change what the phones are being asked?** The host
+       re-asks the room after a partial right answer, and an arm wipes every handset
+       — the selection in every hand, and any reply still in flight. That is correct
+       for a climb, where one shared ladder really has moved on for everybody. It is
+       badly wrong for a race: sixteen people each climbing their own ladder means
+       somebody is right every second or two, and each of those was throwing away
+       fifteen other people's half-made answers. Reported as answers that simply did
+       not register, and it got worse the fuller the room.
+
+       Nothing room-wide changes in a race now — the options are the whole pool and
+       what a player has settled is told to that player alone — so there is nothing
+       left for a re-ask to say. */
+    reasks(s){ return s.mode !== 'race'; },
 
     /* **A sequence cannot be merged**, which is what the second round was written
        to find out. Grouping unions a team's phones because four words from four

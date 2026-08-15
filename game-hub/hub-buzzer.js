@@ -210,6 +210,10 @@ window.HubBuzzer = (function(){
       /* The deal of per-player views moved under a live round — same shape as
          `shares`: pushed, never re-armed, so nobody's half-typed word is wiped. */
       prompts:  per    => post(relay, { room:code, type:'prompts', promptByPlayer:per }),
+      /* Which of a phone's options are finished with — the same shape again, and
+         for the same reason. It is also what a reconnecting phone is handed back,
+         so a player's record of their own ladder survives a reload. */
+      done:     per    => post(relay, { room:code, type:'done', doneByTeam:per }),
       /* One pulse on every handset: the board has revealed something, look up.
          Same shape as `shares` and `prompts` — pushed, never re-armed, so nothing
          anybody is holding is touched. It carries that it happened and never what
@@ -232,7 +236,7 @@ window.HubBuzzer = (function(){
     const src   = stream(relay, { room:code, role:'player', id, name:opts.name||'Player', team:opts.team||0 }, ev);
 
     ['joined','armed','disarmed','locked','reset','teams','judged','card','marked','nope',
-     'shares','kicked','team','prompt','nudge'].forEach(name=>{
+     'shares','kicked','team','prompt','nudge','done'].forEach(name=>{
       src.addEventListener(name, e=>{
         let d = {}; try{ d = JSON.parse(e.data); }catch(_){}
         ev.emit(name, d);

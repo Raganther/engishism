@@ -102,6 +102,15 @@ function getRoom(code, create){
              in which each team climbs its own ladder gives each side a different
              set of words still to place. */
           optionsByTeam:null,
+          /* Which of those options are already *settled* for this phone, per team
+             index. Null means none are, which is every round that existed before
+             this. It is the answer to a fault a real class found: an ordering race
+             used to shrink each side's list as they placed words, so the layout
+             moved under a thumb mid-question and a reconnecting phone came back
+             with no record of what it had already done. The list stays whole and
+             this says which entries are finished with. Carried, never read — the
+             relay does not learn what settled means. */
+          doneByTeam:null,
           /* The prompt one phone is shown, per player id. Null means everybody
              reads the room-wide prompt, which is every round that existed before
              this. It is the first thing a round carries that differs by *player*
@@ -150,6 +159,18 @@ function optionsFor(room, team){
     if(Array.isArray(mine)) return mine;
   }
   return room.options;
+}
+
+/* Which of this phone's options are finished with. Empty for any team the host did
+   not name, so a host that knows nothing about settled options behaves exactly as it
+   did before they existed. */
+function doneFor(room, team){
+  const per = room.doneByTeam;
+  if(per){
+    const mine = per[Math.max(0, Number(team) || 0)];
+    if(Array.isArray(mine)) return mine;
+  }
+  return [];
 }
 
 /* What this phone is asked. Falls through to the room-wide prompt for any player
@@ -252,7 +273,7 @@ function openStream(req, res, q){
     id, name, team, teams:room.teams, solo:room.solo,
     armed:room.armed, locked:lockedNow(room),
     mode:room.mode, prompt:promptFor(room, id), note:room.note,
-    options:optionsFor(room, team), turnTeam:room.team,
+    options:optionsFor(room, team), done:doneFor(room, team), turnTeam:room.team,
     spent:[...room.spent],
     rethink: room.rethink, secs: secsLeft(room), multi: capFor(room, team),
     send: !!room.send,
@@ -392,6 +413,10 @@ function handleSend(req, res){
         room.options = Array.isArray(msg.options) ? msg.options.slice(0,20).map(o=>String(o).slice(0,80)) : [];
         /* Same cap per team as the room-wide list: what fits a hand, not what fits
            a question. A non-array entry falls through to `options` for that team. */
+        room.doneByTeam = Array.isArray(msg.doneByTeam)
+          ? msg.doneByTeam.slice(0,8).map(list => Array.isArray(list)
+              ? list.slice(0,20).map(o => String(o).slice(0,40)) : [])
+          : null;
         room.optionsByTeam = Array.isArray(msg.optionsByTeam)
           ? msg.optionsByTeam.slice(0,8).map(list => Array.isArray(list)
               ? list.slice(0,20).map(o=>String(o).slice(0,80)) : null)
@@ -431,6 +456,7 @@ function handleSend(req, res){
         toEachPlayer(room, 'armed', p => ({ prompt: promptFor(room, p.id),
                                    note: room.note,
                                    mode: room.mode, options: optionsFor(room, p.team),
+                                   done: doneFor(room, p.team),
                                    /* `turnTeam`, not `team`: the join payload already
                                       carries the player's own team under that name, and
                                       the phone runs both through the same handler. */
@@ -456,6 +482,21 @@ function handleSend(req, res){
          more than its new share. That is the honest state and the team resolves it
          by talking, which is the point of the mode — the handset says so and
          refuses to add more. */
+      /* Which options are settled has moved — somebody placed a word — without the
+         question itself changing. Deliberately not an `arm`, for exactly the reason
+         `shares` and `prompts` are not: a fresh arm clears every handset, and in a
+         race of sixteen people somebody settles a word every second or two. Only
+         while a round is open, and the stored copy is what a reconnecting phone is
+         given back, which is the half a live-only push would miss. */
+      case 'done': {
+        if(!room.armed) return sendJSON(res, 200, { ok:true, ignored:'not armed' });
+        room.doneByTeam = Array.isArray(msg.doneByTeam)
+          ? msg.doneByTeam.slice(0,8).map(list => Array.isArray(list)
+              ? list.slice(0,20).map(o => String(o).slice(0,40)) : [])
+          : null;
+        toEachPlayer(room, 'done', p => ({ done: doneFor(room, p.team) }));
+        return sendJSON(res, 200, { ok:true });
+      }
       case 'shares': {
         room.multiByTeam = readShares(msg.multiByTeam);
         toEachPlayer(room, 'shares', p => ({ multi: capFor(room, p.team) }));
@@ -585,7 +626,13 @@ function handleSend(req, res){
         const p = room.players.get(String(msg.id || ''));
         if(!p) return sendJSON(res, 200, { ok:true, ignored:'not in room' });
         const n = Math.max(0, Math.min(59, Math.floor(Number(msg.team) || 0)));
-        if(p.team !== n){ p.team = n; pushEvent(p.res, 'team', { team:n }); }
+        /* **A team change invalidates everything scoped to a team**, and which of
+           this phone's options are settled is one of those. It bit on a reconnect:
+           a rejoining handset registers on the team it *loaded* with, is seated a
+           moment later, and was left holding the previous occupant's ladder — the
+           whole of somebody else's, marked as its own. */
+        if(p.team !== n){ p.team = n; pushEvent(p.res, 'team', { team:n });
+                          pushEvent(p.res, 'done', { done: doneFor(room, n) }); }
         return sendJSON(res, 200, { ok:true });
       }
 
@@ -602,7 +649,8 @@ function handleSend(req, res){
           const was = p.team;
           if(p.team === gone) p.team = 0;
           else if(p.team > gone) p.team = p.team - 1;
-          if(p.team !== was) pushEvent(p.res, 'team', { team:p.team });
+          if(p.team !== was){ pushEvent(p.res, 'team', { team:p.team });
+                              pushEvent(p.res, 'done', { done: doneFor(room, p.team) }); }
         });
         /* The host's picture refreshes through the same event a join uses, which
            is what re-deals, re-shares and re-reads everything downstream. */

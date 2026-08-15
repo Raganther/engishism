@@ -167,6 +167,23 @@
   .opts button.picked{
     background:var(--team, #ffc83d); color:#0a0d26; border-color:var(--team, #ffc83d);
   }
+  /* **Settled and wrong, said on the word itself.** A class of sixteen asked for
+     this by describing what was wrong with the alternative: a placed word used to
+     *leave* the list, so the buttons shuffled up under a thumb mid-question and
+     there was nothing anywhere saying whether the last thing you sent had been any
+     good. Green is earned and stays — that word is on your ladder and is not worth
+     tapping again. Red is the wrong Send that is being waited out; it clears the
+     moment the player chooses something else, because it describes one answer
+     rather than the word. */
+  .opts button.done{
+    background:rgba(60,190,120,0.16); color:#8fe6b4; border-color:rgba(60,190,120,0.55);
+    opacity:1;                       /* it is finished, not unavailable */
+  }
+  .opts button.done::after{ content:' ✓'; opacity:0.8; }
+  .opts button.done:disabled{ cursor:default; }
+  .opts button.wrong{
+    background:rgba(224,74,58,0.18); color:#ff9d90; border-color:rgba(224,74,58,0.6);
+  }
   /* ---------- the anagram round ----------
      A tray of letters and the boxes they go into, dragged with pointer events —
      HTML5 drag-and-drop does not exist on touch, so this is press, move, release,
@@ -553,6 +570,11 @@
      `cooling` is a wrong Send being waited out — it gates every input the round
      offers, because a countdown you can tap through is not a penalty. */
   let needSend = false, sentValue = null, cooling = false;
+  /* Which of this phone's options are finished with — its own placed words, sent by
+     the host on the arm and on the join. Held here rather than read off the DOM so a
+     reconnect repaints them: the marks are the player's record of their own ladder,
+     and losing them on a reload was the same bug as losing the answer. */
+  let doneWords = [];
   let canRethink = false, timeUp = false, roundTimer = null;
   /* How many options this phone may hold at once, and which it is holding. One is
      a vote; more is a *selection*, which is what a team assembling a group needs —
@@ -642,9 +664,15 @@
       list.forEach(o=>{
         const b=document.createElement('button');
         b.type='button'; b.textContent=o;
+        /* Finished with: green, and not tappable. It stays on the list because a
+           list that shrinks moves every other box on the screen. */
+        if(doneWords.indexOf(o) !== -1){ b.classList.add('done'); b.disabled = true; }
         b.addEventListener('click', ()=>{
           if(!client) return;
           if(cooling) return;        // a wrong Send is being waited out
+          if(b.classList.contains('done')) return;   // already on your ladder
+          // a new choice retires the last wrong one — the red described that answer
+          [...box.children].forEach(x=>x.classList.remove('wrong'));
           /* A team vote is an argument, not a submission: the point is that they
              talk and move. So while the host allows rethinking, a tap replaces
              this phone's choice instead of locking the handset — the relay keys
@@ -1048,6 +1076,7 @@
         if(commitRound()){
           cooling = true;
           $('opts').querySelectorAll('button').forEach(b=>{ b.disabled = true; });
+
           $('commit').disabled = true;
           $('commit').textContent = 'Wait ' + left + 's';
         } else setBuzzer('off', String(left));
@@ -1057,7 +1086,12 @@
       answered = false;
       if(commitRound()){
         cooling = false;
-        $('opts').querySelectorAll('button').forEach(b=>{ b.disabled = false; });
+        /* Everything except what is already settled — a word on this player's ladder
+           stays green and untappable, and a blanket re-enable would quietly hand it
+           back as a choice. */
+        $('opts').querySelectorAll('button').forEach(b=>{
+          b.disabled = b.classList.contains('done');
+        });
         $('commit').textContent = 'Send';
         /* Still disabled until the answer *changes* — re-sending the same wrong
            thing is the mash this whole beat exists to stop. */
@@ -1231,6 +1265,9 @@
       timeUp = false;
       maxPicks = Math.max(1, Number(d && d.multi) || 1);
       myPicks = [];
+      /* Read before setMode, which is what paints them. Absent means none, which is
+         every round that does not settle its options one at a time. */
+      doneWords = (d && Array.isArray(d.done)) ? d.done : [];
       // the question has always been sent with the arm; it used to be thrown away
       $('qtext').textContent = (d && d.prompt) || '';
       /* Empty for the four shared dynamics and for a round with one way to play —
@@ -1390,6 +1427,36 @@
     client.on('judged', d=>{
       floorClockStop();          // the verdict outranks whatever the clock was saying
       const v = (d && d.verdict) || 'wrong';
+      /* **A commit round hears its verdict on the word it sent.** This phone already
+         knows what it last transmitted, so the host names no word and the wire learns
+         nothing new. Green is kept — that word is on this player's ladder — and red
+         describes the one answer, so the next tap clears it. */
+      /* Only when what was sent *is* one of the options — a round whose answer is a
+         set sends `a|b|c|d`, matches no button, and keeps the wording it always had. */
+      const sentBtn = (mode === 'vote' && sentValue)
+        ? [...$('opts').children].find(x => x.textContent === sentValue) : null;
+      if(sentBtn){
+        const btn = sentBtn;
+        verdictUntil = Date.now() + 1500;   // the verdict outlives the next message
+        if(v === 'wrong'){
+          if(btn){ btn.classList.remove('picked'); btn.classList.add('wrong'); }
+          document.body.dataset.verdict = v;
+          $('state').textContent = (d && d.note) || 'Not that one';
+          if(navigator.vibrate) navigator.vibrate([15,60,15]);
+          coolDown((d && d.until) || Date.now());
+          return;
+        }
+        if(btn){ btn.classList.remove('picked','wrong'); btn.classList.add('done'); btn.disabled = true; }
+        if(doneWords.indexOf(sentValue) === -1) doneWords.push(sentValue);
+        /* Ready for the next one without an arm — which is the whole point: an arm
+           would clear every other handset in the room to tell this one it was right. */
+        myPicks = []; sentValue = null; answered = false; cooling = false;
+        document.body.dataset.verdict = v;
+        $('commit').disabled = true; $('commit').textContent = 'Send';
+        $('state').textContent = (d && d.note) || 'Yes — now the next one';
+        if(navigator.vibrate) navigator.vibrate([30,40,30]);
+        return;
+      }
       /* The verdict has to survive the next sentence arriving. Race re-arms the
          moment a word is claimed, so without this the student who just won sees
          "Yes!" for about a frame and then a fresh empty box — which reads as the
@@ -1408,6 +1475,22 @@
       $('state').textContent = (d && d.note) ||
         (v === 'close' ? 'Close — check your spelling' : 'You got it!');
       if(navigator.vibrate) navigator.vibrate([30,40,30]);
+    });
+
+    /* Which of this phone's options are finished with, moved without a re-arm. The
+       same shape as `shares`: repaint what changed, touch nothing the player is
+       holding. It is also how a reload gets its ladder back, since the relay hands
+       the stored list to a rejoining phone. */
+    client.on('done', d=>{
+      doneWords = (d && Array.isArray(d.done)) ? d.done : [];
+      if(mode !== 'vote') return;
+      myPicks = myPicks.filter(w => doneWords.indexOf(w) === -1);
+      [...$('opts').children].forEach(x=>{
+        const settled = doneWords.indexOf(x.textContent) !== -1;
+        x.classList.toggle('done', settled);
+        if(settled){ x.classList.remove('picked','wrong'); x.disabled = true; }
+        else if(!cooling) x.disabled = false;
+      });
     });
 
     client.on('locked', d=>{

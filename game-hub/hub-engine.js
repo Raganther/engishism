@@ -4570,7 +4570,8 @@
       roundState.say = 'Yes — keep going.';
       Sound.play('correct');
       renderRound();
-      if(buzzHost) askPhones(currentClueItem.text, roundHost.game);
+      roundSendDone();
+      if(buzzHost && roundReasks()) askPhones(currentClueItem.text, roundHost.game);
       return;
     }
     /* A wrong answer costs nothing on a tile or a hexagon — the other team is the
@@ -4807,6 +4808,12 @@
       rights.forEach(v => {
         if(!roundSettler.fresh(v.team, 'ok:' + roundKeyOf(v.set))) return;
         def.accept(v.set, roundState, v.team, ctx);
+        /* Said to the phone that sent it, and only to that phone. Before the
+           finished/not-finished fork, because "your answer landed" is true either
+           way and the last word of a ladder deserves the same green as the first. */
+        const finished = v.r.done !== false || !!roundState.done;
+        roundSendRight(v.team, !finished);
+        roundSendDone();
         /* The board says who got it, the moment they do — the same wording and the
            same stage-aware sound the take beat has always used, so nothing new is
            invented and the room hears what it has always heard.
@@ -4829,7 +4836,6 @@
            first one was a real bug: an ordering race is correct once per word, so the
            slot went to whoever got the *first word* rather than to whoever completed
            a ladder. `done` is the round saying which of the two just happened. */
-        const finished = v.r.done !== false || !!roundState.done;
         Kit.round.results.note(v.team, { at: roundAt(v.team), done: finished });
         if(!finished){
           /* A step, not a win. The card already says so; what the room needs is the
@@ -4856,7 +4862,7 @@
          per team: an arm is room-wide and several teams can settle in one tick. */
       if(again && buzzHost && currentClueItem){
         roundSettler.reset();       // the question changed; every answer is worth trying again
-        askPhones(currentClueItem.text, roundHost.game);
+        if(roundReasks()) askPhones(currentClueItem.text, roundHost.game);
       }
       renderRound();
       return;                       // the clock or the teacher ends it, not the first right answer
@@ -4880,12 +4886,16 @@
          correct grouping card report "yes, keep going" and never pay out, which is
          exactly the kind of silent wrong-way-round a second caller exists to find. */
       def.accept(won.set, roundState, won.team, ctx);
-      if(won.r.done !== false || roundState.done){ roundTake(won.team); return; }
+      const over = won.r.done !== false || !!roundState.done;
+      roundSendRight(won.team, !over);
+      roundSendDone();
+      if(over){ roundTake(won.team); return; }
       roundState.say = teamName(won.team) + ' — yes.';
       roundSettler.reset();          // the question moved on, so every answer is worth trying again
       renderRound();
       Sound.play('correct');
-      askPhones(currentClueItem.text, roundHost.game);  // the next rung is a new question
+      // the next rung is a new question — unless the round says it is not
+      if(roundReasks()) askPhones(currentClueItem.text, roundHost.game);
       return;
     }
     verdicts.forEach(v=>{
@@ -4958,6 +4968,45 @@
     });
     renderPhoneBar();
     return waited;
+  }
+
+  /* **Tell this competitor's phones their commit landed.** The wrong half of this
+     already existed as the Send penalty; the right half never did, because a correct
+     answer used to be followed by a room-wide re-arm that said it implicitly. A round
+     that declines the re-ask (`reasks`) has nothing else to speak with, so the phone
+     is told directly — the same per-player wire the penalty rides, which no other
+     handset hears and which no arm has to clear. */
+  function roundSendRight(team, more){
+    if(!buzzHost) return;
+    /* Whether there is another one to send is the *host's* fact — it is the round
+       saying `done` — so the phone is told rather than left to guess. A round that
+       ends on a right answer would otherwise invite the player to keep going. */
+    const note = more ? 'Yes — now the next one' : 'Yes — that finishes it';
+    (buzzHost.players() || []).filter(p => Number(p.team) === Number(team)).forEach(p=>{
+      buzzHost.judge(p.id, 'right', { note });
+    });
+  }
+
+  /* **Push which options are now settled, without arming.** One definition of what
+     "settled" means — the round's own `arm`, asked for it — so there is no second
+     copy to drift. A round that names no `doneByTeam` pushes nothing, which is every
+     round but the ordering one. The stored copy on the relay is what a reconnecting
+     phone is handed back, so a player's record of their own ladder survives a
+     reload; marking it live off the verdict alone would lose it on the first drop. */
+  function roundSendDone(){
+    const def = roundDef();
+    if(!buzzHost || !roundState || !def || typeof def.done !== 'function') return;
+    const per = def.done(roundState, roundCtx());
+    if(Array.isArray(per)) buzzHost.done(per);
+  }
+
+  /* Whether a partial right answer changes what the phones are being asked. A round
+     that says nothing means yes, which is what every round did before an ordering
+     race asked to be left alone. */
+  function roundReasks(){
+    const def = roundDef();
+    if(!def || !roundState || typeof def.reasks !== 'function') return true;
+    return def.reasks(roundState) !== false;
   }
 
   function roundMiss(team, r){

@@ -1265,6 +1265,73 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Three faults in one: a right answer was wiping the whole room.** Reported from a
+  16-handset Word Thermometer race — answers that did not register, boxes vanishing
+  as words were placed, and no sign on the phone of whether what you sent was any
+  good. They looked like three bugs and were one: **a partial right answer re-asks
+  the room, and an arm clears every handset** — the selection in every hand and any
+  reply still in flight. Fine when it was written, for a climb with one shared
+  ladder. Ruinous in a race of sixteen, where somebody is right every second or two
+  and each of those threw away fifteen other people's half-made answers. **It got
+  worse the fuller the room**, which is why it survived every small test.
+  - **The list never moves.** The arm used to send only what that side had left, so
+    a placed word *left* the phone and every box below it shuffled up under a thumb
+    mid-question. It sends the whole pool now, in the one order it was shuffled into,
+    and what is placed is said separately.
+  - **`reasks(s)` — a round declares whether a right answer changes what the phones
+    are being asked.** Race says no (nothing room-wide moved: the options are the
+    whole pool and what a player settled is that player's own business), climb says
+    yes (one ladder really did move on for everybody). Absent means yes, so no other
+    round changed. That one declaration is what stops the wiping.
+  - **The verdict lands on the word.** Green for settled — it is on your ladder, it
+    stays, and it is not tappable. Red for the wrong Send being waited out, cleared
+    by the next tap because it describes one answer rather than the word. **The
+    phone already knows what it last sent**, so the host names no word and the wire
+    learned nothing; it rides the same per-player `judge` the Send penalty does,
+    which no other handset hears and no arm has to clear.
+  - **`done` is the fourth non-arming push**, after `shares`, `prompts` and `nudge`,
+    and for the same reason. It is also *stored*, which the other three are not:
+    a reconnecting phone is handed it back on the join, so a player's record of
+    their own ladder survives a reload. Marking it live off the verdict alone would
+    have lost it on the first dropped connection.
+  - **A team change re-sends it**, on `seat` and on `remap`. Found by the drive
+    rather than reasoned about: a rejoining handset registers on the team it
+    *loaded* with and is seated a moment later, and it came back holding the
+    previous occupant's ladder — the whole of somebody else's, marked as its own.
+    **Anything scoped to a team is invalidated by a team change**; `multi` has the
+    same exposure and was left alone, because the seat work already settled it and
+    perturbing it without a check would be trading one silent bug for another.
+  - **A cooldown ending must not un-finish a settled word.** The blanket
+    re-enable at the end of a wait handed every green word back as a choice.
+  - **`done(s, ctx)` is the round's own hook, and it is deliberately not read back
+    off `arm()`.** One definition either way — `arm` calls the same function — but
+    the host pushes this *between* arms, and calling a round's `arm` for its return
+    value is how a bingo hand would get re-dealt to read one field. A hook that
+    computes cannot be somebody's side effect.
+  - **`optionsByTeam` now has no caller.** It was built for exactly this round and
+    the fix is that the options stopped diverging; the divergence moved to which of
+    them are finished with. Left in the relay rather than removed: it is a working,
+    tested capability and taking a wire feature out is riskier than leaving it.
+  - Proved with a 24-check six-handset drive — **falsified at 6 red against the base
+    build**, which is the report in one line — plus an 8-check raw-HTTP drive of the
+    wire itself (arm · non-arming push · reconnect join · re-seat · a round that
+    declares none).
+  - **Found and not fixed, and it is the more serious one: a reload renumbers the
+    competitors, and a round's lanes are keyed by index.** A competitor holding no
+    points is dropped when its phone leaves, everything above it shifts down one,
+    and the ladders reattach to the wrong people — measured as
+    `Ana:0 Ben:1 Cara:2 …` becoming `Ana:0 Cara:1 Dan:2 … Ben:5`. **Pre-existing**,
+    and exactly what this file already warns about: *an index cannot match a person
+    to their handset across a reconnect*. The fix is keying round state by the
+    competitor id every competitor already carries, which touches every round that
+    keys by team — a job of its own, not a line in this one.
+  - **A harness fact worth not re-learning: `?auto=1` phones never store a seat**
+    (every racked iframe shares one localStorage), so reloading one is a brand-new
+    player and cannot model a reconnect at all. The drive joins one handset through
+    the real form for that reason; the first version reloaded a simulated one and
+    was quietly testing nothing.
+  - **No classroom run.** The green/red vocabulary is new on the handset and the
+    room has not seen it.
 - **The room can see who is cooling — the commentary the Send penalty was missing.**
   A wrong Send locks one phone on a countdown, and until now that fact lived only in
   that student's hand: the wall said "Ana: not that one" and nothing said she was out,
