@@ -115,6 +115,47 @@ walk('game-hub', '.css').forEach(checkCSS);
   });
 })();
 
+/* ---- the relay tells a joining phone the same things it tells an armed one ----
+   **The bug class this guards has bitten three times.** What reaches a handset is
+   built from a hand-typed list of keys, and it is written out *twice* — once in the
+   `armed` push and once in the `joined` payload a reconnecting or late phone gets.
+   Add a field to one and forget the other and nothing anywhere complains: the round
+   works perfectly for everyone who was in the room when the question opened, and
+   silently misses the students whose wifi dropped. `optionsByTeam` was lost on a
+   re-ask, `promptByPlayer` nearly went the same way, and `done` was one edit from
+   it. A person cannot be relied on to keep two lists in step — this can.
+
+   The two payloads differ on purpose in a few places, and those are named: `reopen`
+   is a fact about *this* arm, and the join carries who you are and what the room is
+   doing, which an arm has no reason to repeat. Anything else appearing in one and
+   not the other is the defect. */
+(function checkRelayPayloads(){
+  const rel = 'tools/buzzer-relay.js';
+  const file = path.join(ROOT, rel);
+  if (!fs.existsSync(file)) return;
+  const src = fs.readFileSync(file, 'utf8');
+  const between = (from, to) => {
+    const a = src.indexOf(from);
+    if (a === -1) return '';
+    const b = src.indexOf(to, a);
+    return b === -1 ? '' : src.slice(a, b);
+  };
+  const arm  = between("toEachPlayer(room, 'armed'", '}));');
+  const join = between("pushEvent(res, 'joined', {", '});');
+  if (!arm || !join) return problems.push(`${rel}: cannot find the armed/joined payloads to compare`);
+  const keys = t => new Set((t.match(/([a-zA-Z]+)\s*:/g) || []).map(k => k.replace(/\s*:$/, '')));
+  const a = keys(arm), j = keys(join);
+  /* Deliberately in one and not the other. Everything else is an oversight. */
+  const armOnly  = new Set(['reopen']);
+  const joinOnly = new Set(['armed','id','locked','solo','teams','yours','name','team']);
+  const missingFromJoin = [...a].filter(k => !j.has(k) && !armOnly.has(k));
+  const missingFromArm  = [...j].filter(k => !a.has(k) && !joinOnly.has(k));
+  if (missingFromJoin.length)
+    problems.push(`${rel}: the arm sends ${missingFromJoin.join(', ')} but a joining phone is never told — a reconnect loses it`);
+  if (missingFromArm.length)
+    problems.push(`${rel}: the join sends ${missingFromArm.join(', ')} but an arm does not — the two payloads have drifted`);
+})();
+
 /* ---- the cache stamp: one value, or the phone gets a mix of two builds ----
    Found, not listed. This was four hand-typed shells and it had already drifted
    once: the playground pages sat two days stale outside it, which read as the

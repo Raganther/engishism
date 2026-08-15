@@ -1318,6 +1318,39 @@ playground's point, that one board can host several:
     declares none). `grouping,qbench,anagram,buzzers,phonemodes,reconnect,teamvote,
     degradation,bench,millionaire,card` **476/2**, then `bench` 49/0 once its two
     roster checks were split — so one red, the known climb overflow.
+  - **The relay does not belong on the shelf, and asking the question found the
+    right fix.** A shelf is what a round or a game *calls*; a round may never call
+    the relay, so putting it there would break the one rule that keeps rounds
+    portable. What was actually wrong is the project's *other* rule — declare,
+    don't keep a list by hand — not applying inside the relay.
+    - **The first attempt was wrong and is worth recording.** `tools/shelf.js` was
+      extended to spot code repeated *within* one file, since its duplication pass
+      only ever compared round files against each other. It found **nothing**, and
+      it was right: `optionsFor`, `doneFor`, `promptFor` and `capFor` are the same
+      *shape*, not the same *text* — two identical lines each, then a different
+      fallback. **A text-duplication tool structurally cannot see a structural
+      repeat.** Backed out rather than tuned until it agreed with the claim, which
+      would have been fitting the instrument to the answer. *This corrects "the
+      same eight lines four times" above — they are four copies of one idea, which
+      is a different and harder thing to catch.*
+    - **What is mechanically checkable is the thing that actually breaks.** What
+      reaches a handset is a hand-typed key list written out **twice** — once in
+      the `armed` push, once in the `joined` payload a reconnecting or late phone
+      gets — and they share 13 keys. Forget one and the round is perfect for
+      everyone who was in the room when the question opened and silently broken for
+      whoever's wifi dropped. `optionsByTeam` was lost this way, `promptByPlayer`
+      nearly, and `done` was one edit from it in this very change.
+      `check-syntax.js` compares the two key sets now, with the handful of
+      deliberate differences named (`reopen` one side; who-you-are and what-the-
+      room-is-doing the other). **Proved by deleting `done` from the join payload:
+      it fails by name.** Two seconds, and it is the check that always runs.
+    - **Still open, and the honest limit on it:** folding the four per-recipient
+      lookups and the three near-identical non-arming pushes into one declared
+      mechanism. Worth doing when the next round wants a new per-player fact. What
+      it will *not* buy is a round inventing a new fact with no code anywhere else
+      — **the handset still has to draw it**, so a genuinely new per-player fact
+      always costs join.html work. The saving is the relay's seven hand edits and
+      the drift, not the phone's.
   - **The relay is the weak seam in all of this, and it is worth saying plainly.**
     Adding one per-player fact took **seven hand edits** in four places — the room
     shape, a lookup, the arm payload, the join payload, a push case, and two team-
