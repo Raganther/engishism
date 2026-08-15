@@ -1284,7 +1284,11 @@ playground's point, that one board can host several:
     which is worth checking against the 4×4 Connections report still outstanding.
   - **Sixty now, matching the roster.** Proved with a sixteen-handset drive that
     fails by name with the cap back at 8 — `Kira team=14 … no green` — and passes
-    with it at 60.
+    with it at 60. Five drives green after it (`done-wire` 8/0, `ordering-repro`
+    25/0, `cooling-drive` 23/0, `mc-right-send` 9/0, `sixteen-repro` 9/0) and
+    `grouping,qbench,anagram,buzzers,phonemodes,reconnect,teamvote,degradation,
+    bench,phonebingo,typetobuzz,playground` **544/1** — the one red the known climb
+    overflow.
   - **A cap that is fine for the shape you had is a bug the day the shape changes**,
     and the tell is that it degrades *quietly*: a truncated list falls back rather
     than erroring, so the room splits into people it works for and people it does
