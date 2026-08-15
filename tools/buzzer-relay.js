@@ -276,7 +276,7 @@ function openStream(req, res, q){
     options:optionsFor(room, team), done:doneFor(room, team), turnTeam:room.team,
     spent:[...room.spent],
     rethink: room.rethink, secs: secsLeft(room), multi: capFor(room, team),
-    send: !!room.send,
+    send: !!room.send, preview: !!room.preview,
     /* what this phone already chose, so a reload comes back with its own vote
        showing rather than looking like it never answered */
     yours: (room.responses.get(id) || {}).value || null,
@@ -449,6 +449,12 @@ function handleSend(req, res){
         if(msg.reopen){ room.cooling.forEach((t,id)=>{ if(t <= now) room.cooling.delete(id); }); }
         else room.cooling = new Map();
         room.prompt = String(msg.prompt||'').slice(0,200);
+        /* **"Tell me what you are looking at, not only what you send."** The host
+           asks for previews when the projector's reveal bar is set to follow the
+           room's thinking. Carried, never read: a preview arrives as an ordinary
+           reply with a marker on the front, and what a value *means* has always been
+           the host's business. */
+        room.preview = !!msg.preview;
         room.note   = String(msg.note||'').slice(0,120);
         /* Built per recipient rather than broadcast, because `multi` is now that
            player's share of the answer and their team decides it. Everything else
@@ -463,7 +469,7 @@ function handleSend(req, res){
                                    turnTeam: room.team,
                                    spent: [...room.spent], reopen: !!msg.reopen,
                                    rethink: room.rethink, secs: room.secs,
-                                   send: !!room.send,
+                                   send: !!room.send, preview: !!room.preview,
                                    multi: capFor(room, p.team),
                                    /* This phone's own card, if the room holds one. On
                                       the arm as well as the join, because a round

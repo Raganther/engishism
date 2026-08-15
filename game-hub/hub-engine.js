@@ -1012,6 +1012,18 @@
     min:0, max:15, step:1, unit:'s', games:'*',
     label:'Wrong answer wait',
     help:'A wrong Send locks that phone alone for this long, with the countdown in their hand. 0 is no wait. Individuals only.' });
+  /* **What the reveal bar follows.** Off, it counts what the room has *committed*,
+     which is what the commit beat made it: a selection costs nothing, so counting
+     selections would turn the bar into a free oracle — choose, watch it twitch, then
+     send what it told you. On, it counts what people currently have *selected*,
+     which is livelier and is how the bar behaved before Send existed. The leak is
+     real and small: the bar is collective and damped, so one person barely moves it.
+     Offered as a switch because which of the two teaches better is a question about
+     a room, not about code. */
+  S.register({ id:'crowdLive', group:'Questions', type:'toggle', default:false,
+    quick:true, byRoster:true, games:'*',
+    label:'Reveal bar follows selections',
+    help:'The bar fills as people choose, before they press Send — livelier, and closer to how it felt without the Send button. Off, it only counts answers that have actually been sent.' });
   S.register({ id:'roundSendRamp', group:'Phones', type:'toggle', default:true,
     games:'*',
     label:'The wait grows',
@@ -4318,6 +4330,10 @@
       /* The meter's switch, lent the same way: the shelf treats absent as on,
          so only an explicit false stands it down and the bench inherits it. */
       crowdMeter: S.get('crowdMeter', activeGame) !== false,
+      /* Whether the reveal counts what the room has *selected* as well as what it
+         has sent. Lent rather than read, so the question bench inherits it with no
+         wiring — the same contract the threshold already follows. */
+      crowdLive: !!S.get('crowdLive', activeGame),
       /* **Look up.** The crowd reveal lands on the projector, which is worth
          nothing to a room of sixteen reading their own handsets — so when one
          lands, every phone pulses once. The shelf decides *when* (it is the only
@@ -7580,6 +7596,10 @@
          dynamics: buzz already is a commit, and write/type have their own Send. */
       if((round.mode === 'vote' || round.mode === 'arrange') &&
          Roster.solo() && S.get('roundSend', game)) round.send = true;
+      /* Previews only mean anything where a tap is *held* — with no Send the tap is
+         already the answer and the bar has always followed it. So this rides on the
+         back of `send` rather than being a second thing to keep in step. */
+      if(round.send && S.get('crowdLive', game)) round.preview = true;
       /* The whole payload, not a key list — same reasoning as `phoneRoundNow`'s
          spread, and it is the same bug paid for at the same moment. The relay
          ignores what it does not know. */

@@ -99,13 +99,23 @@
     const o = opts || {};
     const ok = o.valid || (()=> true);
     const sizes = o.sizes || [];
-    const tally = {}, said = {}, by = {};
+    /* **Two tallies, because a reply can be a thought or an answer.** With the
+       commit beat on, a handset may also send what it currently has *selected* —
+       marked with `HubBuzzer.PREVIEW` — so the board can show the room's thinking
+       before anybody commits. Those count towards `leading` and `votes`, which are
+       what the card draws, and never towards `answers`, which is what gets judged.
+       Read lazily so load order cannot matter, and absent by default: a round that
+       never asks for previews sees exactly what it always saw. */
+    const MARK = (window.HubBuzzer && window.HubBuzzer.PREVIEW) || '\u0001';
+    const tally = {}, firm = {}, said = {}, by = {};
     (replies || []).forEach(r=>{
       const t = Number(r && r.team) || 0;
+      const raw = String((r && r.value) == null ? '' : r.value);
+      const looking = raw.charAt(0) === MARK;
       /* The relay preserves the order taps were made in and joins them with `|`, so
          the first legal word is the one meant — a sequence needs nothing more than
          this, which is why no round has ever needed drag-and-drop. */
-      const pick = String((r && r.value) == null ? '' : r.value)
+      const pick = (looking ? raw.slice(1) : raw)
                      .split('|').filter(Boolean)
                      .find(w => ok(w, t));
       if(pick == null) return;
@@ -114,6 +124,10 @@
       // the relay keys replies by player, so one reply is one person
       said[t] = (said[t] || 0) + 1;
       by[t] = r.name;
+      if(!looking){
+        const fbox = firm[t] || (firm[t] = {});
+        fbox[pick] = (fbox[pick] || 0) + 1;
+      }
     });
     const answers = {}, leading = {}, votes = {};
     Object.keys(tally).forEach(t=>{
@@ -123,8 +137,14 @@
       const agreed = box[lead];
       leading[t] = [lead];
       votes[t]   = { for:box, said:said[t] || 0, agreed };
+      /* Only what has actually been committed can be an answer. With no previews in
+         play `firm` is `tally` entry for entry, so this is the old behaviour. */
+      const fbox = firm[t];
+      if(!fbox) return;
+      const flead = Object.keys(fbox).sort((a,b)=> fbox[b] - fbox[a])[0];
+      if(flead == null) return;
       const size = Number(sizes[t]) || 0;
-      if(!o.unanimous || !size || agreed >= size) answers[t] = [lead];
+      if(!o.unanimous || !size || fbox[flead] >= size) answers[t] = [flead];
     });
     return { answers, leading, votes, by };
   }

@@ -569,7 +569,7 @@
      this phone last transmitted, so Send only lights when the answer changed;
      `cooling` is a wrong Send being waited out — it gates every input the round
      offers, because a countdown you can tap through is not a penalty. */
-  let needSend = false, sentValue = null, cooling = false;
+  let needSend = false, sentValue = null, cooling = false, preview = false;
   /* Which of this phone's options are finished with — its own placed words, sent by
      the host on the arm and on the join. Held here rather than read off the DOM so a
      reconnect repaints them: the marks are the player's record of their own ladder,
@@ -707,6 +707,13 @@
                cooldown is the anti-mash mechanism and it is enough on its own. */
             $('commit').disabled = !myPicks.length || cooling;
             $('commit').textContent = 'Send';
+            /* **A preview, not an answer.** Marked so the host can tell the two
+               apart on one wire, and suppressed while a Send is still waiting for
+               its verdict — a preview overwrites the held reply, so sending one on
+               top of an answer in flight would throw that answer away, which is the
+               "it did not register" bug in a new coat. */
+            if(preview && !sentValue && myPicks.length && window.HubBuzzer)
+              client.respond(window.HubBuzzer.PREVIEW + myPicks.join('|'));
             /* The message and the button have to agree — that they did not is half
                of what made the dead end so hard to read from the front of a room. */
             $('state').textContent = maxPicks > 1 ? shareLine()
@@ -1110,6 +1117,11 @@
            answer *changed*, which stranded anybody whose reply had gone astray
            rather than come back wrong. The wait is what a wrong Send costs. */
         $('commit').disabled = (mode === 'arrange') ? !arrangeWire() : !myPicks.length;
+        /* The verdict on that Send has been and gone, so the record of it stops
+           standing in the way — of sending the same word again if the player still
+           believes it, and of previews, which stay quiet while an answer is in
+           flight. */
+        sentValue = null;
         $('state').textContent = 'Try again — you can send when you are ready';
         return;
       }
@@ -1282,6 +1294,9 @@
       /* Read before setMode, which is what paints them. Absent means none, which is
          every round that does not settle its options one at a time. */
       doneWords = (d && Array.isArray(d.done)) ? d.done : [];
+      /* Whether the board wants to see what this phone is *looking at*, not only
+         what it commits. Absent means no, which is every round before this. */
+      preview = !!(d && d.preview);
       // the question has always been sent with the arm; it used to be thrown away
       $('qtext').textContent = (d && d.prompt) || '';
       /* Empty for the four shared dynamics and for a round with one way to play —

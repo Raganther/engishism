@@ -273,7 +273,18 @@
              are the shelf's. */
           const cw = {
             keys: Array.from({ length: s.need }, (_, i) => i),
-            count: i => teams.filter(t => (s.lanes[t] || []).length > i).length,
+            /* Climbed past this rung — or, when the host is counting selections,
+               standing on it with the right word chosen. That second half is the
+               whole of the "reveal bar follows selections" experiment: nothing about
+               *what* is revealed changes, only how soon the room gets there. */
+            count: i => teams.filter(t => {
+              const lane = s.lanes[t] || [];
+              if(lane.length > i) return true;
+              if(!c.crowdLive || lane.length !== i) return false;
+              const lead = (s.leading || {})[t];
+              return !!lead && String(lead[0]).toLowerCase() ===
+                               String(s.scale[i] || '').toLowerCase();
+            }).length,
             started: teams.filter(t => (s.lanes[t] || []).length || (s.leading || {})[t]).length,
             given: [],
             sig: s.scale.join('|')

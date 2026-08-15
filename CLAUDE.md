@@ -1265,6 +1265,43 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The reveal bar can follow what the room is *thinking*, not only what it has
+  sent — `crowdLive`, off by default.** Asked for as an experiment: the commit beat
+  made the bar wait for Send, and the question is whether the older feel — it moves
+  as people choose — teaches better. Both are now one tap apart, per game and
+  separately for teams and individuals (`byRoster`), on the tune pane and the TUNE
+  pill.
+  - **A preview is a reply with a marker on the front, and that is the whole
+    mechanism.** `HubBuzzer.PREVIEW` lives in the one file the board and the handset
+    both load, beside the team palette and `wordCols`. **The relay needed no new
+    field for it**: it stores one value per player and what that value *means* has
+    always been the host's business, which is exactly the property that made this
+    cheap. What the relay did need was one boolean saying whether to ask for
+    previews at all.
+  - **`Kit.round.poll` keeps two tallies now.** Everything said feeds `leading` and
+    `votes` — what the card draws; only what was *committed* feeds `answers` — what
+    gets judged. With no previews in play the two are identical entry for entry, so
+    every other round is untouched by construction.
+  - **Ordering counts a correct selection on the rung you are standing on**, and
+    nothing else changes: what gets revealed, and the 40% rule, are exactly as they
+    were. Only how soon the room gets there moves.
+  - **A preview never overwrites an answer in flight.** The relay holds one value per
+    player, so a tap after a Send would throw that Send away — the "it did not
+    register" bug in a new coat. Previews stay quiet while a Send is awaiting its
+    verdict, and the record of that Send is retired when its wait ends.
+  - **The leak is real, small, and the reason this is a switch.** A bar that moves on
+    selection is a weak oracle — choose, watch, infer before committing. It is
+    collective and damped, so one person barely moves it. Which of the two teaches
+    better is a question about a room, not about code.
+  - Proved both ways on fresh boards with eight handsets: **off** is `0% → 0% → 0%`
+    with nothing revealed; **on** is `0% → 93.75%` under the threshold with nothing
+    revealed yet, then the rung revealed at six of eight — and in both, selecting
+    commits nothing and Send still does.
+  - **Found on the way, and it is the check's own blind spot:** `preview` reached
+    the relay and never reached a phone, because the armed payload is a hand-typed
+    key list. The parity check added this week compares the arm against the join and
+    so catches a field in *one* of them — it cannot catch one missing from **both**.
+    Worth knowing before trusting it: it guards drift, not omission.
 - **Every per-team list on the relay was capped at eight, so half a class of
   individuals silently got nothing.** Reported as two things from a sixteen-handset
   Word Thermometer — "Kira cannot select the first answer" and "wrong answers are
