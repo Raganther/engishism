@@ -1316,22 +1316,61 @@ playground's point, that one board can host several:
     build**, which is the report in one line — plus an 8-check raw-HTTP drive of the
     wire itself (arm · non-arming push · reconnect join · re-seat · a round that
     declares none).
-  - **Found and not fixed, and it is the more serious one: a reload renumbers the
-    competitors, and a round's lanes are keyed by index.** A competitor holding no
-    points is dropped when its phone leaves, everything above it shifts down one,
-    and the ladders reattach to the wrong people — measured as
-    `Ana:0 Ben:1 Cara:2 …` becoming `Ana:0 Cara:1 Dan:2 … Ben:5`. **Pre-existing**,
-    and exactly what this file already warns about: *an index cannot match a person
-    to their handset across a reconnect*. The fix is keying round state by the
-    competitor id every competitor already carries, which touches every round that
-    keys by team — a job of its own, not a line in this one.
+  - **A phone leaving mid-question no longer renumbers anybody — fixed, and the
+    scare it caused is worth writing down precisely.** Found by the drive: a
+    reconnecting handset made the roster go `Ana:0 Ben:1 Cara:2 …` →
+    `Ana:0 Cara:1 Dan:2 … Ben:5`. **Points were never at risk**, which was the first
+    question asked about it: a score rides its competitor *object* and moves with it
+    when the array closes up, and a competitor holding points is never dropped in the
+    first place. What does not move is anything keyed by **index** and held outside
+    `teams` — and a live round's per-team state is all of it: the ladders, the picks,
+    the agreement counts, `hostTook`, the arrival record. A phone dying mid-question
+    handed its ladder to whoever sat below it.
+    - **The fix is not a remap, it is a wait.** `dropDepartedSolo` stands down while
+      `roundLive()`, and `roundEnd` asks for the tidy the moment the question is
+      over — which is the moment the state it would scramble stops existing. So the
+      indices cannot move underneath anything that is keyed to them, by
+      construction, and no round had to learn a `remap` hook it would have to be
+      added to by hand. A student mid-question is not clutter.
+    - **`mState.length = 0` in the same function is the same problem solved
+      bluntly** for Millionaire's ladders — it is why nothing else needed that
+      treatment, and why the guard belongs here rather than in each round.
+    - Proved both ways in one drive: a handset closed mid-question leaves the
+      roster and the round's credit untouched, and the row is gone the moment the
+      card closes (`Ana Ben Cara Dan Eva Finn` → `Ana Cara Dan Eva Finn`).
+    - **The deeper thing is still true and still unfixed**: an index is not an
+      identity, and every round keys its per-team state by one. This makes it
+      *unable to bite* rather than making it right. Keying by the competitor id
+      every competitor already carries is the real answer, and it touches every
+      round — a job of its own.
   - **A harness fact worth not re-learning: `?auto=1` phones never store a seat**
     (every racked iframe shares one localStorage), so reloading one is a brand-new
     player and cannot model a reconnect at all. The drive joins one handset through
     the real form for that reason; the first version reloaded a simulated one and
     was quietly testing nothing.
+  - **Which rounds this reaches, since it is the obvious question.** *Ordering is
+    the only round with a partial right answer* — `judge` returning `done:false` —
+    so the answer-wiping and the shrinking list were ordering-only faults by
+    construction, not a general defect that happened to be found there. The
+    green/red on the word now works for **any single-pick `vote` round**, which is
+    Multiple Choice and Word Drop as well as this one. It deliberately does not
+    apply to the rest, because they already say it their own way and their reply is
+    not one option: the two drag rounds are `arrange` (letters land in place on the
+    card), grouping sends `a|b|c|d` and matches no button, the information gap is
+    typed and coaches the spelling, and bingo marks its own card. **The handset
+    branch is gated on the sent value *being* one of the options**, which is what
+    keeps all four of those exactly as they were.
+  - **The relay is not on the shelf, and should not be.** `Kit`/`Kit.round`/
+    `BenchKit` are what a round or a game *calls*; the relay is the host's
+    infrastructure. A round cannot send the room anything — it declares what it
+    wants on the arm, and the host carries it. That is what this change had to obey
+    and is why `done` is a hook the round *declares* and the host *pushes*.
   - **No classroom run.** The green/red vocabulary is new on the handset and the
     room has not seen it.
+  - **Seen on the way, unchanged and pre-existing:** the ordering card outgrows a
+    720 board once the crowd picture is up — far enough that the action strip goes
+    below the fold and cannot be clicked. Same item as the climb overflow already
+    under Next, now with a second way of reaching it.
 - **The room can see who is cooling — the commentary the Send penalty was missing.**
   A wrong Send locks one phone on a countdown, and until now that fact lived only in
   that student's hand: the wall said "Ana: not that one" and nothing said she was out,

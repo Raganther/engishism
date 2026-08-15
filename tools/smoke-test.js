@@ -6489,13 +6489,23 @@ async function testQuestionBench(browser){
           await ord.locator('.ord-lane').nth(1).locator('.ord-rung.filled').count() === 1,
           (await ord.locator('.ord-lane').nth(0).locator('.ord-rung.filled').count()) + '/' +
           (await ord.locator('.ord-lane').nth(1).locator('.ord-rung.filled').count()));
-    /* The proof that `optionsByTeam` is doing its job: two handsets in the same room
-       are being offered different words. */
-    check('and each phone is asked about its own team’s remaining words',
-          await fr[0].locator('#opts button').count() === 3 &&
-          await fr[1].locator('#opts button').count() === 4,
+    /* **The list never shrinks, and each phone is told its own settled words.** It
+       used to be the other way round — each side was offered only what it had left —
+       and a class of sixteen found what that costs: every box below a placed word
+       shuffled up under a thumb mid-question, and a reconnecting phone came back
+       with a shorter list and no record of its own ladder. Both handsets hold the
+       whole pool now; what differs is which of them are marked done, which is this
+       team's own progress and nobody else's. */
+    check('the whole pool stays on both handsets, however far each has climbed',
+          await fr[0].locator('#opts button').count() === 5 &&
+          await fr[1].locator('#opts button').count() === 5,
           (await fr[0].locator('#opts button').count()) + ' vs ' +
           (await fr[1].locator('#opts button').count()));
+    check('and each phone is marked with its own team’s placed words',
+          await fr[0].locator('#opts button.done').count() === 2 &&
+          await fr[1].locator('#opts button.done').count() === 1,
+          (await fr[0].locator('#opts button.done').count()) + ' vs ' +
+          (await fr[1].locator('#opts button.done').count()));
     /* The card is the reference list of what is in play — every word stays on it
        while teams climb, because each has placed different ones and removing a word
        because *some* team used it makes the card lie to the rest. */

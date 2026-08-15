@@ -5139,6 +5139,12 @@
     const host = document.getElementById('clue-group');
     if(host) host.remove();
     clearReplies();
+    /* Anybody who left mid-question was held on the roster until now, because
+       renumbering the competitors under a live round reattaches its per-team state
+       to the wrong people. The question is over, so the tidy-up is safe — and it has
+       to be asked for here rather than waited for, since the next roster event might
+       be a whole lesson away. */
+    if(buzzHost) seatSoloPlayers(buzzHost.players());
   }
 
   /* Telling thirty handsets the question is over, *without* taking the card down
@@ -7258,6 +7264,18 @@
      returns to. */
   function dropDepartedSolo(list){
     if(!Roster.solo()) return false;
+    /* **Never while a question is open.** Dropping a competitor closes the gap in
+       `teams`, so every index above it moves — and a live round's per-team state is
+       keyed by index: the ladders, the picks, the agreement counts, who took the
+       slot, the arrival record. A phone that dies mid-question would hand its ladder
+       to whoever sat below it. *Scores are safe either way* — they ride the
+       competitor object and move with it, and a competitor holding points is never
+       dropped at all — but the round's own state does not, and there is no reason it
+       should have to: a student mid-question is not clutter. The tidy-up happens
+       when the question ends, which is the moment the state it would scramble stops
+       existing. `mState.length = 0` below is the same problem solved bluntly for
+       Millionaire's ladders; this is why nothing else needs that treatment. */
+    if(roundLive()) return false;
     const here = Object.create(null);
     (list || []).forEach(p=>{ if(p && p.id) here[p.id] = true; });
     let dropped = false;
