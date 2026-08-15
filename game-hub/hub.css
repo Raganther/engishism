@@ -726,6 +726,17 @@ body.theme-gameshow .settings-range input[type=range]{ accent-color:var(--gold);
 #phone-bar .pb-reply.team-1{ background:var(--blue); color:var(--white); }
 #phone-bar .pb-reply.team-2{ background:#7A5AF8; color:#fff; }
 #phone-bar .pb-reply.team-3{ background:#12876F; color:#fff; }
+/* Who is cooling off a wrong Send, with the seconds still to wait. Amber, because
+   this is the wait-toned fact and it wears the same colour the hint marks do — given
+   time, not earned. Deliberately *not* team-painted: the chip carries the team class
+   for shape, but the penalty only exists in a room of individuals, where a colour
+   would be naming a side that is not there. It sits after whatever headline is up,
+   so the strip's fixed height is unchanged and the chips scroll sideways instead. */
+#phone-bar .pb-cooling{
+  font-family:'Space Grotesk',sans-serif; font-size:0.9rem; text-transform:none; letter-spacing:0;
+  padding:3px 10px; border-radius:999px; font-weight:600;
+  background:#FFF3D6; color:#8a5a00; border:1px solid rgba(196,140,0,0.42);
+}
 /* The strip is transparent, so on a lit stage every navy label in it disappears —
    which is how a student's name once came to be printed in navy on near-black. */
 body.theme-gameshow #phone-bar{ color:rgba(234,240,255,0.6); }
@@ -737,6 +748,11 @@ body.theme-gameshow #phone-bar .pb-reply{ background:rgba(255,255,255,0.08); col
 body.theme-gameshow #phone-bar .pb-reply.team-0{ background:var(--gold); color:#0a0d26; }
 body.theme-gameshow #phone-bar .pb-reply.team-1{ background:#00A0DF; color:#fff; }
 body.theme-gameshow #phone-bar.scored{ border-color:var(--gold); background:rgba(255,200,61,0.14); }
+/* The cream fill and the brown ink are both invisible on the lit stage — the same
+   trap that once printed a student's name in navy on near-black. */
+body.theme-gameshow #phone-bar .pb-cooling{
+  background:rgba(255,200,61,0.16); color:var(--gold); border-color:rgba(255,200,61,0.42);
+}
 
 /* --- Timer widget (teacher-controlled, both games) — lives in the header bar --- */
 /* Takes the width it needs and lets the team bar inside it scroll, rather than

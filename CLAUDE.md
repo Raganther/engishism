@@ -1265,6 +1265,56 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The room can see who is cooling — the commentary the Send penalty was missing.**
+  A wrong Send locks one phone on a countdown, and until now that fact lived only in
+  that student's hand: the wall said "Ana: not that one" and nothing said she was out,
+  or for how long. Built in the shared tier, so every round and every round written
+  later inherits it with nothing declared.
+  - **The say line names the wait once; the strip counts it down.** `roundSendPenalty`
+    returns the seconds it applied and `roundMiss` appends them to the headline —
+    `Ana: not that one. · waiting 6s`. It stays the single overwriting voice: two
+    clocks in one line would have the say line rewriting itself twice a second, which
+    is a gauge, and that line is the last thing that *happened*.
+  - **`sendCooling` is `{name, team, until}` by player id, beside `sendMisses` and
+    cleared in the same breath** — question-scoped, never a roster cache, so there is
+    no invalidation table row to keep in step. The deadline is wall-clock because the
+    strip re-reads it; the phone still counts its own down from the duration it was
+    sent, so no handset agrees a clock with anybody.
+  - **`drawPhoneBar` split in two, and the split is the idea.** The *headline* is five
+    early-returning branches and only one of them can be true, which is right. Cooling
+    is not a sixth branch — it is true **alongside** whichever won — so
+    `phoneBarHeadline` returns the class and the chips are appended after it. That is
+    what makes this commentary rather than another thing competing for the one slot.
+  - **Filtered against the live roster**, so a phone kicked or dropped mid-penalty
+    takes its chip with it — proved by closing a handset mid-wait rather than asserted.
+  - **A ~500ms ticker that is self-stopping by construction**: every tick disarms
+    itself and re-renders, and the render arms it again only while a chip is live. So
+    there is no second place holding an interval that a question ending, a game
+    changing and a room closing would each have to remember to clear.
+  - **Amber, and deliberately not team-painted.** The chip carries the team class for
+    the shape a reply chip has, but the paint says *waiting* — it wears the hint
+    colour, given time rather than earned. It is solo-only by construction, where
+    there are no sides for a colour to name. `body.theme-gameshow` variant, because
+    the strip is transparent on the lit stage and cream-on-navy disappears there.
+  - Strip height measured unchanged at 38px with a chip up, which is the contract.
+  - Proved with a 23-check two-handset relay drive (a tap reaches nobody · a wrong
+    Send raises one chip naming Ana · the other phone untouched · the countdown
+    ticking 3s→2s · gone on expiry · the ramp showing 6s in chip and say line alike ·
+    a phone leaving takes its chip · a new question carries none · a teams room has
+    none), **falsified against the base build at 8 red**, screenshot on the game-show
+    skin. `grouping,phonemodes` 199/1, the one red the known climb overflow.
+  - **Found and not fixed, and it is the thing to decide next: the clue card covers
+    the strip.** At 1280×720 the card is x 280–1000, y 91–629 and the strip sits at
+    y 134 — `elementFromPoint` at its centre returns `clue-topline`. So on Jeopardy
+    and Blockbusters the countdown is behind the card for exactly the seconds it
+    describes, and only appears when the card closes. **Pre-existing and not this
+    change's doing** — it is true of every strip state, including the reply list this
+    file already describes as the picture in solo — but this feature is the first
+    whose whole value is being read *during* a question. The say-line half is on the
+    card and is visible. The precedent for a fix is `#buzzer-chip`, raised to z-index
+    51 over the card's 50 so a phantom phone could be kicked mid-clue; raising the
+    strip the same way would draw it across the card's own topline, so it wants a
+    decision rather than a reflex. Boards with no clue card are unaffected.
 - **Individuals press Send, and a wrong Send costs seconds — the commit beat that
   stops button-mashing.** Asked from the thermometer in solo: a tap was judged the
   instant it landed and a wrong tap cost nothing, so tapping options until one

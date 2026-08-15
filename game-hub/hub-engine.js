@@ -4428,6 +4428,7 @@
        second call site is a second thing to forget. */
     standingsOpen();
     sendMisses = {};      // a new question starts every phone's escalation from cold
+    sendCooling = {};     // and nobody carries a visible wait into it
     renderRound();
     askPhones(currentPhonePrompt(), roundHost.game);
     return roundState;
@@ -4930,28 +4931,45 @@
      phone alone on a displayed countdown. Time, never points — a round may not
      score, and this is the host's fact about pacing, so no round learns it. */
   let sendMisses = {};
+  /* Who is cooling right now, so the *room* can see it and not only the phone in
+     the hand. Keyed by player id — never an index — and question-scoped: cleared
+     wherever `sendMisses` is, so it is the record of one question rather than a
+     roster cache with an invalidation table row. `until` is a wall-clock deadline
+     because the strip re-reads it on a ticker; the phone counts its own down from
+     the duration it was sent, exactly as every other clock here works. */
+  let sendCooling = {};
   function roundSendPenalty(team){
-    if(!Roster.solo() || !buzzHost) return;
-    if(!S.get('roundSend', roundHost.game)) return;
+    if(!Roster.solo() || !buzzHost) return 0;
+    if(!S.get('roundSend', roundHost.game)) return 0;
     const secs = Number(S.get('roundSendCool', roundHost.game)) || 0;
-    if(!secs) return;
+    if(!secs) return 0;
     const ramp = !!S.get('roundSendRamp', roundHost.game);
+    let waited = 0;
     /* In a solo room a competitor is one phone, and `p.team` is the relay's own
        record — the truth, since the seat seam fix. Ask the room, do not keep a
        copy of what it was told. */
     (buzzHost.players() || []).filter(p => Number(p.team) === Number(team)).forEach(p=>{
       const n = (sendMisses[p.id] || 0) + 1;
       sendMisses[p.id] = n;
-      buzzHost.judge(p.id, 'wrong', { note: 'Not that one',
-                                      coolMs: Math.round(secs * 1000 * (ramp ? n : 1)) });
+      const ms = Math.round(secs * 1000 * (ramp ? n : 1));
+      buzzHost.judge(p.id, 'wrong', { note: 'Not that one', coolMs: ms });
+      sendCooling[p.id] = { name: p.name, team: Number(p.team), until: Date.now() + ms };
+      waited = Math.max(waited, Math.round(ms / 1000));
     });
+    renderPhoneBar();
+    return waited;
   }
 
   function roundMiss(team, r){
     /* Wrong costs nothing but the time. The tile is still on the table, the other
        team is still assembling, and a class charged for a guess stops guessing. */
-    roundSendPenalty(team);
-    roundState.say = roundDef().saidOf(teamName(team), r, roundState);
+    /* The say line names the wait *once*, as part of the headline it already owns;
+       the live countdown belongs to the strip. Two clocks in one voice would have
+       the say line overwriting itself every half second, and it is the single
+       overwriting headline — the last thing that happened, not a gauge. */
+    const wait = roundSendPenalty(team);
+    roundState.say = roundDef().saidOf(teamName(team), r, roundState)
+                   + (wait ? ' · waiting ' + wait + 's' : '');
     Sound.play('wrong');
     renderRound();
     notePhoneMiss(teamName(team), team, (roundState.picks[team] || []).join(', '), 'wrong');
@@ -6799,45 +6817,96 @@
     const add=(cls,txt)=>{ const s=document.createElement('span'); s.className=cls; s.textContent=txt; bar.appendChild(s); return s; };
     const teamChip = i => { const s = add('pb-team team-'+Math.min(i,3), teamName(i)); return s; };
 
+    /* Two voices, and they were one function until the commentary arrived. The
+       *headline* is whatever loudest thing is true right now, and it early-returns
+       out of five branches, which is right — only one of them can be the headline.
+       The cooling chips are not a sixth branch: they are true *alongside* whichever
+       won, so they are appended after it rather than competing with it. */
+    bar.className = phoneBarHeadline(add, teamChip);
+    drawCooling(add);
+  }
+
+  function phoneBarHeadline(add, teamChip){
     // 1. somebody has the floor — the loudest thing that can be true
     if(buzzWinner){
-      bar.className = 'won';
       add('pb-name', buzzWinner.name);
       teamChip(buzzWinner.team);
       if(buzzWinner.value != null) add('pb-typed', '\u201C' + buzzWinner.value + '\u201D');
       add('pb-note', buzzWinner.value != null ? 'got it' : 'buzzed in');
-      return;
+      return 'won';
     }
     // 2. the last question was taken by a phone — said plainly, and it stays said
     if(lastScored){
-      bar.className = 'scored';
       add('pb-name', lastScored.name);
       teamChip(lastScored.team);
       if(lastScored.value) add('pb-typed', '\u201C' + lastScored.value + '\u201D');
       add('pb-points', '+' + lastScored.points);
-      return;
+      return 'scored';
     }
     // 3. a miss: who is nearly there, and how, is the most useful thing on screen
     if(lastTyped){
-      bar.className = 'missed';
       add('pb-name', lastTyped.name);
       add('pb-typed', '\u201C' + lastTyped.value + '\u201D');
       add('pb-verdict', lastTyped.verdict === 'close' ? 'check the spelling' : 'not yet');
-      return;
+      return 'missed';
     }
     // 4. the whole room answering — the count, then what they wrote
     if(classReplies && classReplies.all.length){
-      bar.className = 'replies';
       add('pb-count', classReplies.total + ' of ' + (classReplies.of || buzzPlayers || '?'));
       classReplies.all.forEach(r=>{
         const chip = add('pb-reply team-' + Math.min(r.team, 3), r.name + ': ' + r.value);
         chip.title = teamName(r.team);
       });
-      return;
+      return 'replies';
     }
     // 5. nothing yet — but the strip still holds its height, so the board never moves
-    bar.className = 'idle';
     add('pb-idle', phoneBarHint());
+    return 'idle';
+  }
+
+  /* Who is still cooling, soonest free first, with the seconds the room should read.
+     **Filtered against the live roster**, because a phone kicked mid-penalty leaves
+     the room and its chip has to go with it — the same rule a held reply already
+     follows. Expired entries are dropped as they are found, so the map cannot outlive
+     its own deadlines even before `roundOpen` empties it. */
+  function coolingNow(){
+    const now  = Date.now();
+    const here = new Set(((buzzHost && buzzHost.players()) || []).map(p => String(p.id)));
+    const live = [];
+    Object.keys(sendCooling).forEach(id=>{
+      const c = sendCooling[id];
+      if(c.until <= now){ delete sendCooling[id]; return; }
+      if(!here.has(String(id))) return;
+      live.push({ name:c.name, team:c.team, left: Math.ceil((c.until - now) / 1000) });
+    });
+    return live.sort((a,b)=> a.left - b.left);
+  }
+
+  /* Self-stopping by construction: every tick disarms itself and re-renders, and the
+     render arms it again only while a chip is still live. So a finished countdown
+     costs nothing, and there is no second place holding an interval that a question
+     ending, a game changing or a room closing would each have to remember to clear. */
+  let coolTicker = null;
+  function coolTick(){
+    if(coolTicker) return;
+    coolTicker = setInterval(()=>{
+      clearInterval(coolTicker); coolTicker = null;
+      renderPhoneBar();
+    }, 500);
+  }
+
+  function drawCooling(add){
+    const live = coolingNow();
+    if(!live.length) return;
+    live.forEach(c=>{
+      /* The team class rides along so the chip keeps the shape a reply chip has, but
+         the paint is amber and stays amber: what this says is *waiting*, and it is
+         solo-only by construction, where there are no sides for a colour to name. */
+      const chip = add('pb-cooling team-' + Math.min(c.team, 3),
+                       c.name + ' · wait ' + c.left + 's');
+      chip.title = c.name + ' sent a wrong answer — waiting ' + c.left + 's';
+    });
+    coolTick();
   }
 
   function phoneBarHint(){
