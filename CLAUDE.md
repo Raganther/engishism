@@ -1344,13 +1344,28 @@ playground's point, that one board can host several:
       deliberate differences named (`reopen` one side; who-you-are and what-the-
       room-is-doing the other). **Proved by deleting `done` from the join payload:
       it fails by name.** Two seconds, and it is the check that always runs.
-    - **Still open, and the honest limit on it:** folding the four per-recipient
-      lookups and the three near-identical non-arming pushes into one declared
-      mechanism. Worth doing when the next round wants a new per-player fact. What
-      it will *not* buy is a round inventing a new fact with no code anywhere else
-      — **the handset still has to draw it**, so a genuinely new per-player fact
-      always costs join.html work. The saving is the relay's seven hand edits and
-      the drift, not the phone's.
+    - **Decided, so it is not re-litigated: the declared mechanism waits for its
+      second caller.** Folding the four per-recipient lookups and the three
+      near-identical non-arming pushes into one declaration is the obvious tidy-up,
+      and the trigger for doing it is **the next round that wants a new per-player
+      fact** — not before. Two reasons, and the first is this project's own rule.
+      *Extract what is already duplicated, not what might be; the second caller is
+      what proves a shelf.* Designing the API now means shaping it from three
+      callers that already work for a fourth that does not exist, which is a guess,
+      and the odds of getting the shape wrong are the reason that rule exists.
+      Second: **the reliability half of the win has already been taken.** The
+      failure that actually bit — a field reaching an armed phone but not a
+      rejoining one — is caught in two seconds now by a check that always runs. What
+      is left is *maintainability* (seven hand edits become one), which is worth
+      real money the day somebody is paying it and nothing the day nobody is.
+    - **The honest limit, whenever it happens:** it will *not* buy a round inventing
+      a new fact with no code anywhere else — **the handset still has to draw it**,
+      so a genuinely new per-player fact always costs `join.html` work. The saving is
+      the relay's seven hand edits and the drift, never the phone's.
+    - **What it would be:** one declared list of which arm fields are per-team and
+      which per-player, one lookup replacing four, and the join payload derived from
+      the same function as the arm so the two cannot drift by construction — which
+      would retire the parity check by making its defect unexpressible.
   - **The relay is the weak seam in all of this, and it is worth saying plainly.**
     Adding one per-player fact took **seven hand edits** in four places — the room
     shape, a lookup, the arm payload, the join payload, a push case, and two team-
