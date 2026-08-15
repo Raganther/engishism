@@ -1265,6 +1265,51 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **Individuals press Send, and a wrong Send costs seconds — the commit beat that
+  stops button-mashing.** Asked from the thermometer in solo: a tap was judged the
+  instant it landed and a wrong tap cost nothing, so tapping options until one
+  stuck beat thinking. A competitor of one has no agreement friction; this is the
+  friction, and it is the room's rather than the thermometer's — every tap round
+  (choice, grouping, ordering) had the same exploit.
+  - **Taps only select; Send transmits.** The arm carries `send:true` and the
+    handset holds its picks until the button — for `vote` and `arrange` alike,
+    where a drag round's every placement used to stream to the relay. The reply
+    that finally travels is byte-identical to the live path's, so the relay and
+    the host cannot tell the two apart, and the wire learned one boolean.
+  - **A wrong Send locks that phone alone**, countdown on the Send button itself
+    ("Wait 6s"), options dimmed, then "Try again — change your answer" — and Send
+    stays dead until the answer actually changes, because re-sending the same
+    wrong thing is the mash this exists to stop. The wire is the type mode's
+    cooldown (`buzzHost.judge(id,'wrong',{coolMs})`), which the relay already
+    carries across a reconnect — a reload mid-penalty comes back still waiting.
+  - **Escalating: 3s, then 6s, then 9s per question** (`roundSendRamp`, default
+    on), reset when the next question opens. Host-side map by player id, dies
+    with the question — not a roster cache, no invalidation table row.
+  - **Solo only, gated in code rather than forked with `byRoster`** — the roster
+    mode is the existing live gate (the `crowdReveal` rule). In a team room the
+    live taps *are* the negotiation the lanes and agree fractions read, so Send
+    there would starve the picture; team rooms are untouched by construction, and
+    the suite's team pass asserts a tap alone still reaches the board.
+  - **The 40% rule needed no change and got none**: the crowd counts read held
+    replies, which now arrive on commit — so the reveal measures deliberate
+    answers instead of mash noise, which is the rule getting *more* honest.
+  - Settings: `roundSend` (on), `roundSendCool` (3s, 0 = no wait), `roundSendRamp`
+    (on) — Phones group, quick. New keys, so no stuck-default risk.
+  - Proved with a 23-check relay drive (tap reaches nobody · wrong Send judged by
+    name · countdown on that phone only · release requires a changed answer ·
+    right Send takes it · second wrong waits longer · team room has no Send and
+    taps land as before), falsified by flipping `roundSend` off, screenshots both
+    states. **No classroom run — 3s and the ramp are guesses**, which is why all
+    three are quick settings.
+  - **Deliberately not done:** the question bench does not send the penalty (its
+    judging path is its own; the room bench embeds the real hub, so testing there
+    gets the real beat), and the shuffle-into-order thermometer variant is
+    shelved until this has met a class.
+  - **Found on the way, pre-existing and fixed: `phoneteams` had gone stale** —
+    it drove a buzz on Unit 5, where every tile is a round now, and threw on the
+    hidden buzzer, taking its last six checks (proved by stashing: identical on
+    the base build). The Lab board, the same move `turns`, `competition` and
+    `phonemodes` made. 11/0, was aborting at 5.
 - **Nothing on the card moves when the crowd instruments arrive — appearing is a
   height change too.** Reported from Connections in a big room: the card jumped to
   make room for the reveal meter the moment the first pick landed, and the same

@@ -2278,7 +2278,12 @@ async function testTurnsAndPoints(browser){
    to still read "Team 2" on every handset. */
 async function testPhoneTeams(browser){
   section('Phones know the real teams');
-  const host = await openHub(browser);
+  /* The Lab board, the documented home for behaviour that only exists on a plain
+     clue: the buzz this test drives is `round_default`, and Units 4 and 5 are
+     all-rounds now, so a tile there arms the handsets itself and `#buzzer` never
+     shows — the same stale-check class `turns`, `competition` and `phonemodes`
+     already paid for. */
+  const host = await openLabHub(browser);
   await host.evaluate(() => {
     window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
     window.HubSettings.set('buzzers', true); window.HubSettings.set('round_default','buzz','jeopardy');
@@ -2291,7 +2296,7 @@ async function testPhoneTeams(browser){
     await host.locator('.team .tname').nth(i).fill(names[i]);
     await host.locator('.team .tname').nth(i).dispatchEvent('change');
   }
-  await startGame(host, 'Jeopardy', { sections:'all' });
+  await startGame(host, 'Jeopardy', { sections:'all', unit:'Lab' });
   await host.waitForTimeout(900);
   const chip = await host.locator('#buzzer-chip').innerText().catch(()=>'');
   const code = (chip.match(/CODE\s+(\d{5})/i)||[])[1];

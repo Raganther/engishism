@@ -88,7 +88,7 @@ function getRoom(code, create){
           host:null, players:new Map(), teams:[], solo:false, armed:false, locked:null,
           mode:'buzz', prompt:'', options:[], team:null, responses:new Map(),
           spent:new Set(), cooling:new Map(), cards:new Map(), emptiedAt:0,
-          answerSecs:0, rethink:false, secs:0, armedAt:0, multi:1,
+          answerSecs:0, rethink:false, secs:0, armedAt:0, multi:1, send:false,
           /* How many options one phone may hold, per team index — because teams
              are not the same size, and "one player's share of a four-word answer"
              is four words split between however many phones that team has. Null
@@ -255,6 +255,7 @@ function openStream(req, res, q){
     options:optionsFor(room, team), turnTeam:room.team,
     spent:[...room.spent],
     rethink: room.rethink, secs: secsLeft(room), multi: capFor(room, team),
+    send: !!room.send,
     /* what this phone already chose, so a reload comes back with its own vote
        showing rather than looking like it never answered */
     yours: (room.responses.get(id) || {}).value || null,
@@ -368,6 +369,11 @@ function handleSend(req, res){
         /* See the room's own note: a held reply leaves with its phone, a given
            answer does not. */
         room.holds   = !!msg.holds;
+        /* `send` asks each handset to hold its taps until the player presses
+           Send — the commit beat for a room of individuals, where a tap judged
+           the instant it lands makes guessing free. Carried unread, like
+           everything else on the arm: what committing means is the host's. */
+        room.send    = !!msg.send;
         room.secs    = Math.max(0, Math.min(900, Number(msg.secs) || 0));
         room.armedAt = Date.now();
         /* 'card' is a round where each phone answers off its own bingo card. It
@@ -431,6 +437,7 @@ function handleSend(req, res){
                                    turnTeam: room.team,
                                    spent: [...room.spent], reopen: !!msg.reopen,
                                    rethink: room.rethink, secs: room.secs,
+                                   send: !!room.send,
                                    multi: capFor(room, p.team),
                                    /* This phone's own card, if the room holds one. On
                                       the arm as well as the join, because a round

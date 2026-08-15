@@ -340,6 +340,10 @@
     <div id="ana-tray"></div>
     <p id="ana-note"></p>
   </div>
+  <!-- The commit beat for a room of individuals: taps only select, this sends.
+       Shown only when the arm asks for it (`send`), which the host does in solo —
+       in a team room the live taps are the negotiation and this never appears. -->
+  <button class="go" id="commit" style="display:none">Send</button>
   <!-- Bingo: this phone's own card, which is the first thing here that outlives a
        question. Nine words, tap the one the clue is describing. -->
   <div class="card" id="card"></div>
@@ -359,7 +363,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260814h"></script>
+<script src="game-hub/hub-buzzer.js?v=20260814i"></script>
 <script>
 (function(){
   'use strict';
@@ -544,6 +548,11 @@
      a buzzer racing for the floor, a set of options to pick one of, or a box to
      type into. Only one is ever on screen. */
   let mode = 'buzz', answered = false, coolTimer = null, verdictUntil = 0;
+  /* The commit beat. `needSend` is the arm asking for it; `sentValue` is what
+     this phone last transmitted, so Send only lights when the answer changed;
+     `cooling` is a wrong Send being waited out — it gates every input the round
+     offers, because a countdown you can tap through is not a penalty. */
+  let needSend = false, sentValue = null, cooling = false;
   let canRethink = false, timeUp = false, roundTimer = null;
   /* How many options this phone may hold at once, and which it is holding. One is
      a vote; more is a *selection*, which is what a team assembling a group needs —
@@ -607,6 +616,11 @@
     // 'card-idle' is a card on screen between calls: visible, readable, not tappable
     if(mode === 'card-idle') $('buzzer').style.display = 'none';
     $('send').style.display   = mode==='type' ? 'none' : '';   // the buzzer sends it
+    /* A fresh mode retires the last question's commit state with it. */
+    cooling = false; sentValue = null;
+    $('commit').style.display = (needSend && (mode==='vote' || mode==='arrange')) ? '' : 'none';
+    $('commit').disabled = true;
+    $('commit').textContent = 'Send';
     $('screen-play').classList.toggle('mode-type', mode==='type');
     /* Cleared on every round, not only when a vote sets it: it hides the buzzer,
        so a leftover from the previous question would leave a buzz round with no
@@ -630,12 +644,13 @@
         b.type='button'; b.textContent=o;
         b.addEventListener('click', ()=>{
           if(!client) return;
+          if(cooling) return;        // a wrong Send is being waited out
           /* A team vote is an argument, not a submission: the point is that they
              talk and move. So while the host allows rethinking, a tap replaces
              this phone's choice instead of locking the handset — the relay keys
              replies by player, so the tally follows. Without it the first tap was
              final and there was nothing left to negotiate with. */
-          if(answered && !canRethink && maxPicks === 1) return;
+          if(!needSend && answered && !canRethink && maxPicks === 1) return;
           if(timeUp) return;
           blip();
           if(maxPicks > 1){
@@ -647,8 +662,19 @@
           } else {
             myPicks = [o];
           }
-          answered = true;
           paintPicks(box);
+          /* The commit beat: a tap only selects. Nothing leaves this phone until
+             Send, which is what makes a guess cost a decision rather than being
+             free — the button lights when the selection differs from what was
+             last sent. */
+          if(needSend){
+            $('commit').disabled = !myPicks.length || myPicks.join('|') === sentValue;
+            $('commit').textContent = 'Send';
+            $('state').textContent = maxPicks > 1 ? shareLine()
+              : 'Press Send when you are sure';
+            return;
+          }
+          answered = true;
           $('state').textContent = maxPicks > 1 ? shareLine()
             : (canRethink ? 'Tap another to change' : 'Answer sent');
           if(maxPicks === 1 && !canRethink) [...box.children].forEach(x=>{ x.disabled = true; });
@@ -768,7 +794,8 @@
        the wrong thing about what they are holding. */
     const what = $('arrange').classList.contains('words') ? 'word' : 'letter';
     $('ana-note').textContent = timeUp ? 'Time!'
-      : placed === anaSlots.length ? ('Sent — drag a ' + what + ' out to change it')
+      : placed === anaSlots.length ? (needSend ? 'Press Send when you are sure'
+                                              : ('Sent — drag a ' + what + ' out to change it'))
       : ('Drag the ' + what + 's into the boxes · ' + placed + ' of ' + anaSlots.length);
   }
 
@@ -782,12 +809,37 @@
      gets its words back **in the boxes it put them in**. Sending only the filled
      ones lost that — three words with a gap between them came back packed against
      the left, which is a different answer from the one the student built. */
+  function arrangeWire(){
+    return anaSlots.map(i => i == null ? '' : anaTiles[i].ch).join('|');
+  }
   function sendArrange(){
     if(!client) return;
-    const seq = anaSlots.map(i => i == null ? '' : anaTiles[i].ch);
+    /* The commit beat: an arrangement travels when the player presses Send, not
+       on every placement — which is what stops trying permutations against the
+       judge. The button lights only when the boxes differ from what was sent. */
+    if(needSend){
+      $('commit').disabled = cooling || arrangeWire() === sentValue;
+      return;
+    }
     answered = true;
-    client.respond(seq.join('|'));
+    client.respond(arrangeWire());
   }
+
+  /* Send — the commit beat's one button, for vote and arrange alike. What is in
+     hand travels exactly as the live path would have sent it, so the relay and
+     the host cannot tell the two apart. */
+  $('commit').addEventListener('click', ()=>{
+    if(!client || cooling || timeUp) return;
+    const cur = mode === 'arrange' ? arrangeWire() : myPicks.join('|');
+    if(cur === sentValue) return;
+    blip();
+    sentValue = cur;
+    answered = true;
+    client.respond(cur);
+    $('commit').disabled = true;
+    $('commit').textContent = 'Sent';
+    $('state').textContent = 'Answer sent — change it to send again';
+  });
 
   /* Put a phone back where it was. A handset holds its arrangement in memory only,
      so *anything* that rebuilds the page threw it away — a reconnect, the screen
@@ -825,6 +877,8 @@
 
   function anaGrab(e, tile, fromSlot){
     if(timeUp || tile == null || !client) return;
+    if(cooling) return;              // a wrong Send is being waited out
+
     e.preventDefault();
     const el = document.createElement('div');
     el.id = 'ana-drag'; el.className = 'ana-tile filled';
@@ -981,14 +1035,36 @@
   }
 
   /* A wrong answer costs time, never points: this player alone waits out the
-     countdown while everyone else keeps racing. */
+     countdown while everyone else keeps racing. Two shapes, one clock: the typed
+     dynamics count down on the buzzer button, the commit rounds (vote and
+     arrange) count down on the Send button that caused it — with every input the
+     round offers locked, because a penalty you can tap through is not one. */
   function coolDown(until){
     if(coolTimer) clearInterval(coolTimer);
+    const commitRound = ()=> (mode === 'vote' || mode === 'arrange');
     const tick = ()=>{
       const left = Math.ceil((until - Date.now())/1000);
-      if(left > 0){ setBuzzer('off', String(left)); return; }
+      if(left > 0){
+        if(commitRound()){
+          cooling = true;
+          $('opts').querySelectorAll('button').forEach(b=>{ b.disabled = true; });
+          $('commit').disabled = true;
+          $('commit').textContent = 'Wait ' + left + 's';
+        } else setBuzzer('off', String(left));
+        return;
+      }
       clearInterval(coolTimer); coolTimer = null;
       answered = false;
+      if(commitRound()){
+        cooling = false;
+        $('opts').querySelectorAll('button').forEach(b=>{ b.disabled = false; });
+        $('commit').textContent = 'Send';
+        /* Still disabled until the answer *changes* — re-sending the same wrong
+           thing is the mash this whole beat exists to stop. */
+        $('commit').disabled = true;
+        $('state').textContent = 'Try again — change your answer';
+        return;
+      }
       $('reply').disabled = false;
       syncTypeButton();
       $('state').textContent = 'Try again';
@@ -1148,6 +1224,10 @@
         renderCard();
       }
       canRethink = !!(d && d.rethink);
+      /* The commit beat travels on the arm — the host asks for it in a room of
+         individuals. Read before the reopen branch, because a reopen skips
+         setMode and the flag must still be current. */
+      needSend = !!(d && d.send);
       timeUp = false;
       maxPicks = Math.max(1, Number(d && d.multi) || 1);
       myPicks = [];
@@ -1190,15 +1270,26 @@
       if(d && d.yours && mode === 'vote'){
         answered = true;
         myPicks = String(d.yours).split('|').filter(Boolean);
+        /* What the relay holds is what this phone last *sent*, so the commit
+           button comes back saying so rather than offering to send it again. */
+        if(needSend){ sentValue = String(d.yours); $('commit').textContent = 'Sent'; }
         paintPicks();
-        if(!canRethink) [...$('opts').children].forEach(x=>{ x.disabled = true; });
+        if(!needSend && !canRethink) [...$('opts').children].forEach(x=>{ x.disabled = true; });
         if(maxPicks > 1) say(myPicks.length + ' of ' + maxPicks + ' chosen');
       }
       /* The same thing for a dragged arrangement, which never had it. `buildArrange`
          has just run and cleared the boxes, so this has to come after it. */
       if(d && d.yours && mode === 'arrange'){
         answered = true;
+        if(needSend) sentValue = String(d.yours);
         restoreArrange(String(d.yours).split('|'));
+      }
+      /* A reload mid-penalty comes back still on the clock — the relay carries
+         every live cooldown, and a countdown a reload can skip is not one. The
+         reopen path above already does this for the typed dynamics. */
+      if(needSend){
+        const mine = ((d && d.cooling || []).find(c => c.id === client.id) || {}).until || 0;
+        if(mine > Date.now()) coolDown(mine);
       }
       if(mode==='buzz') setBuzzer('armed','Buzz');
       if(mode==='type')  syncTypeButton();

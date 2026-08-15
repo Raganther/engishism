@@ -993,6 +993,30 @@
     label:'Meter toward the next reveal',
     help:'A bar on the card filling as the room converges on its next reveal, without saying which part. Hidden when nothing more can reveal. Needs the reveal above to be on.' });
 
+  /* **The commit beat for a room of individuals.** A competitor of one has no
+     agreement friction, so a tap is judged the instant it lands and a wrong tap
+     costs nothing — which makes button-mashing the winning strategy on any tap
+     round. Send is the friction: taps only select, the answer counts when the
+     player commits it, and a wrong commit puts that phone alone on a countdown.
+
+     **Solo only, gated in code rather than forked with `byRoster`** — the roster
+     mode is already the live gate (the `crowdReveal` rule: check for an existing
+     gate before forking). In a team room the live taps *are* the negotiation the
+     lanes and the agreement fractions read, so Send there would starve the
+     picture the mode exists for. These rows say so. */
+  S.register({ id:'roundSend', group:'Phones', type:'toggle', default:true, quick:true,
+    games:'*',
+    label:'Individuals press Send',
+    help:'In a room of individuals, taps only select — the answer counts when the player presses Send. Stops guess-and-check. Team rooms are never affected.' });
+  S.register({ id:'roundSendCool', group:'Phones', type:'range', default:3, quick:true,
+    min:0, max:15, step:1, unit:'s', games:'*',
+    label:'Wrong answer wait',
+    help:'A wrong Send locks that phone alone for this long, with the countdown in their hand. 0 is no wait. Individuals only.' });
+  S.register({ id:'roundSendRamp', group:'Phones', type:'toggle', default:true,
+    games:'*',
+    label:'The wait grows',
+    help:'Each wrong Send on the same question adds the wait again — 3s, then 6s, then 9s — so the second guess is a real decision. Individuals only.' });
+
   /* **The card stops leaving on its own when a round is won.** Reported from a real
      board: the four words light up, the tile flips away, and the room is left with
      no answer on screen and no idea who took it. The round pays the moment it is
@@ -4403,6 +4427,7 @@
        Beside the results record because they answer halves of one question and a
        second call site is a second thing to forget. */
     standingsOpen();
+    sendMisses = {};      // a new question starts every phone's escalation from cold
     renderRound();
     askPhones(currentPhonePrompt(), roundHost.game);
     return roundState;
@@ -4897,9 +4922,35 @@
            (rec.seconds != null ? ' · ' + rec.seconds.toFixed(1) + 's' : '') });
   }
 
+  /* ---------- the wrong-Send penalty, individuals only ----------
+     How many wrong commits each phone has made *this question*, by player id —
+     not a cache of anybody's index, and it dies with the question (`roundOpen`
+     resets it). The cooldown rides the wire the type mode built and the infogap
+     already reuses: `buzzHost.judge(id, 'wrong', {note, coolMs})` puts that
+     phone alone on a displayed countdown. Time, never points — a round may not
+     score, and this is the host's fact about pacing, so no round learns it. */
+  let sendMisses = {};
+  function roundSendPenalty(team){
+    if(!Roster.solo() || !buzzHost) return;
+    if(!S.get('roundSend', roundHost.game)) return;
+    const secs = Number(S.get('roundSendCool', roundHost.game)) || 0;
+    if(!secs) return;
+    const ramp = !!S.get('roundSendRamp', roundHost.game);
+    /* In a solo room a competitor is one phone, and `p.team` is the relay's own
+       record — the truth, since the seat seam fix. Ask the room, do not keep a
+       copy of what it was told. */
+    (buzzHost.players() || []).filter(p => Number(p.team) === Number(team)).forEach(p=>{
+      const n = (sendMisses[p.id] || 0) + 1;
+      sendMisses[p.id] = n;
+      buzzHost.judge(p.id, 'wrong', { note: 'Not that one',
+                                      coolMs: Math.round(secs * 1000 * (ramp ? n : 1)) });
+    });
+  }
+
   function roundMiss(team, r){
     /* Wrong costs nothing but the time. The tile is still on the table, the other
        team is still assembling, and a class charged for a guess stops guessing. */
+    roundSendPenalty(team);
     roundState.say = roundDef().saidOf(teamName(team), r, roundState);
     Sound.play('wrong');
     renderRound();
@@ -7363,6 +7414,12 @@
          there, so a grouping clue's "not a group" would have sat on the strip over
          the next clue, naming a team for a question that had gone. */
       clearReplies(); lastScored = null; lastTyped = null; buzzWinner = null;
+      /* The commit beat: in a room of individuals a tap round holds its taps
+         until the player presses Send (`roundSend`). Decided here, not by the
+         round — the roster mode is the host's live fact — and only for the tap
+         dynamics: buzz already is a commit, and write/type have their own Send. */
+      if((round.mode === 'vote' || round.mode === 'arrange') &&
+         Roster.solo() && S.get('roundSend', game)) round.send = true;
       /* The whole payload, not a key list — same reasoning as `phoneRoundNow`'s
          spread, and it is the same bug paid for at the same moment. The relay
          ignores what it does not know. */
