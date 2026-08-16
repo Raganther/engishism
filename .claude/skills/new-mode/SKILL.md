@@ -178,7 +178,7 @@ switching a dynamic must not make thirty people rejoin.
 
 A setting that gets replaced leaves values behind under keys nothing reads any more,
 and **a per-game override is exactly what a teacher set deliberately** — so translate
-it rather than ignoring it. `migratePhoneModes` in `hub-engine.js` is the worked
+it rather than ignoring it. `migrateDefaultRound` in `hub-engine.js` is the worked
 example. Two traps it paid for:
 
 - **The old key still being present is the signal that nothing has chosen yet.**

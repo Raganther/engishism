@@ -143,6 +143,66 @@ walk('game-hub', '.css').forEach(checkCSS);
   });
 })();
 
+/* ---- a skill must not name a symbol the code no longer has ----
+   The `covers:` check above catches a *file* being renamed. This catches the other
+   half, which is the one that has actually cost time: a skill naming a function or a
+   setting that has since been renamed away. **Nothing else can catch it** — a skill is
+   a markdown file and nothing reads it but a model, so a stale one is confidently
+   wrong rather than obviously broken.
+
+   The recorded case: `phoneMode` became `round_default` one morning and three skills
+   still named it that afternoon. `phone-debug` was the damaging one, because it hands
+   you `HubSettings.get('phoneMode', …)` as the *first* thing to run when phones
+   misbehave — so the next person gets `undefined` and concludes the setting does not
+   exist, while chasing a phone bug, which is when a wrong lead costs most.
+
+   **How it can be this crude and still be quiet.** A backticked word that appears
+   nowhere in ~30k lines of source is almost never English — it is a dead symbol. Run
+   over the ten skills as written it found exactly two, both real (`jGroupStamp`, lost
+   in the adapter rename; `migratePhoneModes`, folded into `migrateDefaultRound`) and
+   nothing false. If it ever does misfire, the fix is to take the backticks off a word
+   that was never a symbol.
+
+   **Two limits, both stated rather than pretended away.** It asks whether a string
+   appears *anywhere* in the code, so a historical comment naming a symbol that was
+   later renamed will mask it — this file is skipped for exactly that reason, since the
+   paragraph above names two dead symbols as its own examples and passed itself on the
+   first run. And it says nothing about a member that moved: `Kit.round.thing` is judged
+   on `Kit`. */
+(function checkSkillSymbols(){
+  const dir = path.join(ROOT, '.claude/skills');
+  if (!fs.existsSync(dir)) return;
+  /* Every file a skill could plausibly be describing, read once. */
+  const src = [];
+  const SELF = path.resolve(__filename);
+  const walk = d => fs.readdirSync(d, {withFileTypes:true}).forEach(e => {
+    if (e.name === 'node_modules' || e.name === '.git' || e.name === 'material') return;
+    const p = path.join(d, e.name);
+    if (e.isDirectory()) walk(p);
+    else if (/\.(js|css|html)$/.test(e.name) && path.resolve(p) !== SELF)
+      src.push(fs.readFileSync(p, 'utf8'));
+  });
+  walk(ROOT);
+  const all = src.join('\n');
+
+  fs.readdirSync(dir).forEach(name => {
+    const f = path.join(dir, name, 'SKILL.md');
+    if (!fs.existsSync(f)) return;
+    const body = fs.readFileSync(f, 'utf8');
+    const seen = new Set();
+    (body.match(/`[A-Za-z][A-Za-z0-9_.]{3,}`/g) || []).forEach(tok => {
+      const word = tok.slice(1, -1);
+      if (seen.has(word)) return;
+      seen.add(word);
+      /* Compare the root, so `Kit.round.crowdMeter` is judged on `Kit` existing —
+         a member that moved is a different and much noisier question. */
+      const root = word.split('.')[0];
+      if (all.indexOf(root) === -1)
+        problems.push(`.claude/skills/${name} names \`${word}\`, which appears nowhere in the source — renamed, or the skill describes something that no longer exists`);
+    });
+  });
+})();
+
 /* ---- the relay tells a joining phone the same things it tells an armed one ----
    **The bug class this guards has bitten three times.** What reaches a handset is
    built from a hand-typed list of keys, and it is written out *twice* — once in the

@@ -166,9 +166,16 @@ What it does beyond parsing, and why each was added:
   relay's `armed` payload keys against the `joined` payload keys; every literal path in a
   `covers:` list against the filesystem. A one-directional assertion lets a renamed file
   leave a skill silently covering nothing.
-- **Its blind spot is stated rather than assumed.** The payload parity check compares two
-  hand-typed key lists, so it catches a field present in *one* — it cannot catch one
-  missing from **both**. `preview` reached the relay and never reached a phone.
+- **It is the only thing that can catch a skill going stale.** A skill naming a symbol
+  that appears nowhere in the source fails the check — a backticked word absent from
+  ~30k lines is a dead symbol rather than English. This is the closest thing to a skill
+  correcting itself, and it is not close: it catches a **rename**, never wrong advice.
+- **Its blind spots are stated rather than assumed.** The payload parity check compares
+  two hand-typed key lists, so it catches a field present in *one* and cannot catch one
+  missing from **both** — `preview` reached the relay and never reached a phone. The
+  symbol check asks whether a string appears *anywhere*, so a historical comment naming
+  a renamed symbol masks it; the check skips its own file, because the paragraph
+  explaining it names two dead symbols as examples and it passed itself on the first run.
 
 ## 9. Running it, and reporting it honestly
 

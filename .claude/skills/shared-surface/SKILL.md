@@ -82,7 +82,7 @@ The same applies to rounds — `ROUND_HOSTS` is four declared facts per board, a
 `round_<id>` is built from each round's own `modes`.
 
 **One more shape of the same rule.** Anything the *host* stores on a round's state
-carries `host` in its name. `jGroupStamp` wrote itself as `jGroup.at`, the bingo round
+carries `host` in its name. `roundStamp` wrote itself as `s.at`, the bingo round
 already used `s.at` for which call it was reading, and the next `s.at++` produced `NaN`.
 Two files writing different meanings into one field is a collision only a name prevents.
 
@@ -155,7 +155,7 @@ like a bug in the round. Changing a shipped default means migrating it (`S.raw` 
 `S.drop`) or telling the teacher to flip it once.
 
 **Replacing a setting is a migration, not a rename.** A per-game override is what a
-teacher set deliberately. The two traps `migratePhoneModes` and `migrateRoundSettings`
+teacher set deliberately. The two traps `migrateDefaultRound` and `migrateRoundSettings`
 both paid: the **old key being present is itself the signal** that nothing has chosen yet
 (asking whether the new id is unset never fires, because `register()` seeded it), and
 `drop()` is what makes the migration run once. String literals that are *storage keys of

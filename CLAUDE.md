@@ -1042,7 +1042,21 @@ nearly a whole session's changes. Best-effort on the Bash side by nature: a shel
 command is not a structured edit. It says which procedure applies, once per skill
 per session; when **nothing** covers the file it says so instead, once per
 file, because a change with no written procedure is one the user asked to hear
-about before it starts. `check-syntax` asserts every literal path in a `covers:`
+about before it starts.
+
+**A skill cannot correct itself, and only one thing guards it.** Nothing reads a skill
+but a model, so a stale one is *confidently wrong* rather than obviously broken — the
+recorded case is `phoneMode` becoming `round_default` one morning and three skills
+still naming it that afternoon, `phone-debug` worst of all because it hands you that
+setting as the **first** thing to run when phones misbehave. So `check-syntax` fails on
+a skill naming a symbol that appears **nowhere in the source**: a backticked word absent
+from ~30k lines is a dead symbol, not English. Run over the ten skills the day it was
+written it found two and nothing false. **It catches a rename, never wrong advice** —
+that half is still a person noticing. And its blind spot is that a historical comment
+naming a renamed symbol masks it, which is why it skips its own file: the paragraph
+explaining it names two dead symbols as examples and it passed itself on the first run.
+
+`check-syntax` also asserts every literal path in a `covers:`
 list still exists — a renamed file would otherwise leave a skill silently covering
 nothing, and silence there is indistinguishable from "no procedure needed".
 
@@ -1340,6 +1354,37 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **A skill cannot correct itself — asked the question, went looking, and found two
+  live cases in ten seconds.** The question was what happens when a skill's own advice
+  is wrong: does it self-correct, does the bug get patched outside it, how does a skill
+  evolve. The answer is that they are three separate things and only the last is
+  automatic in any sense.
+  - **Fixing a bug and fixing the skill are different edits.** The skill is the
+    checklist you *read* while fixing the app; it is not the thing you change. A skill
+    only changes when the fix taught something **general** — and if what was learned is
+    a fact about this project's state rather than a procedure, it belongs in this file
+    instead. That split is the whole relationship.
+  - **Nothing reads a skill but a model**, so a stale one is *confidently wrong* rather
+    than obviously broken, and no hook fires on a `SKILL.md` edit (`which-skill` skips
+    `.md` by design). Skills were the one tier with no procedure and no guard.
+  - **`check-syntax` now fails on a skill naming a symbol that appears nowhere in the
+    source.** Crude on purpose and quiet because of it: a backticked word absent from
+    ~30k lines is a dead symbol, not English. Ten skills, **two findings, nothing
+    false** — `migratePhoneModes` (folded into `migrateDefaultRound`) named in two
+    skills, and `jGroupStamp` (`roundStamp` since the adapter rename) named in
+    `shared-surface`, **which I had written that morning**, copying a name out of this
+    file's own historical entry.
+  - **The check passed itself on the first run, which is the third time this project
+    has been fooled by its own instrument** (after `| tail` and `pgrep -f`). The
+    paragraph explaining it names both dead symbols as examples, so the source
+    contained them and nothing was reported. It skips its own file now. **The general
+    limit stands and is stated in the code**: it asks whether a string appears
+    *anywhere*, so a historical comment naming a renamed symbol will mask it.
+  - **What it does not do, said plainly: it catches a rename, never wrong advice.** A
+    skill that names every symbol correctly and recommends the wrong thing passes. That
+    half is a person noticing, which is why `phone-debug`'s stale `phoneMode` step is
+    worth re-reading — it was *syntactically* fine and would have sent the next person
+    down a dead end while chasing a phone bug.
 - **`harness` is the tenth skill, and it came out of measuring the other nine rather
   than guessing.** The audit: every commit of the last six days, its real file list
   matched against each skill's own `covers:` — derived, never read off the commit
