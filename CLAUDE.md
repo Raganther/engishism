@@ -525,9 +525,10 @@ that watches the project is `harness`, and a skill itself is `check-a-skill`.
   bug against the skill that covered it — `check-a-skill` is that procedure, and the
   thing it looks for is a skill whose every word is true and which never asks a question
   it should ask.
-- **`which-skill.js` cannot see a skill file.** It skips `.md` before matching, so
-  `check-a-skill` never announces itself the way the other ten do; it is reached by
-  asking for it. Deliberate for now — every other `.md` in the project is notes.
+- **A skill's own file is the one `.md` the procedure hook can see.** `which-skill.js`
+  skips markdown, because every other `.md` here is notes, specs or the classroom log
+  and warning about those is the noise that kills the signal — a skill file is the
+  single exception, derived from where the skills live rather than named.
 
 **`check-syntax` is the one that always runs**, two seconds, every change, no exceptions:
 ```bash

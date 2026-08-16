@@ -57,6 +57,17 @@ const SKILLS = path.join(ROOT, '.claude', 'skills');
 const IGNORE = /(^|\/)(node_modules|\.git|material)\//;
 const NOT_CODE = /\.(md|json|txt|png|jpg|jpeg|svg|webp|ico|woff2?)$/i;
 
+/* ...except a skill's own file, which is markdown by definition. The blanket `.md`
+   skip made `check-a-skill` the one procedure that could never announce itself — this
+   hook silently covering nothing, which is the exact defect it exists to prevent, in
+   the hook. Narrow on purpose and derived from where the skills actually live: every
+   other `.md` here is notes, specs or the classroom log, and letting those through
+   would print "no skill covers this" on a docs edit, which is the noise that kills
+   the signal. */
+const SKILL_FILE = new RegExp('^' +
+  path.relative(ROOT, SKILLS).replace(/\\/g, '/').replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
+  '/[^/]+/SKILL\\.md$');
+
 /* Read every skill's declared territory. Frontmatter is a handful of lines and a
    hand-rolled reader is enough — pulling in a YAML parser for `covers:` would be a
    dependency in a project whose whole point is that it has none. */
@@ -124,7 +135,8 @@ process.stdin.on('end', () => {
   if (!files.length) return process.exit(0);
 
   const rels = files.map(f => path.relative(ROOT, path.resolve(f)))
-    .filter(rel => rel && !rel.startsWith('..') && !IGNORE.test(rel) && !NOT_CODE.test(rel));
+    .filter(rel => rel && !rel.startsWith('..') && !IGNORE.test(rel) &&
+                   (!NOT_CODE.test(rel) || SKILL_FILE.test(rel)));
   if (!rels.length) return process.exit(0);
 
   const all = skills();
