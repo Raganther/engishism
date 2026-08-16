@@ -31,6 +31,15 @@
    Saying it on every edit to `hub-engine.js` would make it wallpaper by lunchtime,
    which is the failure mode this project has already written down twice.
 
+   **Write and Edit are not the only ways a file changes, and assuming they were is
+   the hole this shipped with.** A great deal of the editing here happens through
+   `sed -i` and `python3` heredocs in Bash — multi-line surgery the Edit tool is
+   awkward for — and a hook watching only the two edit tools was silent for the
+   large majority of one session's changes. So it runs on Bash too, looks for a
+   write-ish command, and pulls the project paths out of it. Best-effort by nature:
+   a shell command is not a structured edit, and a sufficiently odd one will slip
+   past. That is worth saying rather than pretending to completeness.
+
    It never blocks. Every other hook here hands back context and trusts the reader;
    a hook that refused an edit would be the first thing in this project to stop
    work rather than inform it. */
@@ -84,20 +93,39 @@ const matches = (glob, rel) => {
   return rx.test(rel);
 };
 
+/* Which project files a shell command appears to *write*. Deliberately blunt: look
+   for a write-ish verb anywhere in the command, then pull out every path that looks
+   like this project's code. A read-only command mentioning the same file says
+   nothing, which is what keeps `grep` and `git log` quiet. */
+function writesIn(cmd){
+  if (!cmd) return [];
+  const writes = /(sed\s+-i|>>?\s|\btee\b|\bmv\b|\bcp\b|writeFileSync|open\([^)]*['"]w['"]|>\s*\$)/;
+  if (!writes.test(cmd)) return [];
+  const hits = cmd.match(/[\w./-]*(?:game-hub|playground|tools|engine)\/[\w./-]+\.(?:js|css|html)|\b[\w-]+\.html\b/g) || [];
+  return [...new Set(hits)].map(h =>
+    path.isAbsolute(h) ? h : path.join(ROOT, h.replace(/^\.\//, '')));
+}
+
 let buf = '';
 process.stdin.on('data', d => buf += d);
 process.stdin.on('end', () => {
   let hook = {};
   try { hook = JSON.parse(buf || '{}'); } catch (e) {}
-  const file = (hook.tool_input || {}).file_path || '';
-  if (!file) return process.exit(0);
+  const input = hook.tool_input || {};
+  /* Two ways in. A structured edit names its file; a shell command has to be read
+     for one — and only when it is actually *writing*, or every `grep` of a round
+     file would announce itself. */
+  const files = input.file_path ? [input.file_path] : writesIn(input.command || '');
+  if (!files.length) return process.exit(0);
 
-  const rel = path.relative(ROOT, path.resolve(file));
-  /* Outside the repo entirely — a scratch drive in the temp dir, most often. */
-  if (!rel || rel.startsWith('..')) return process.exit(0);
-  if (IGNORE.test(rel) || NOT_CODE.test(rel)) return process.exit(0);
+  const rels = files.map(f => path.relative(ROOT, path.resolve(f)))
+    .filter(rel => rel && !rel.startsWith('..') && !IGNORE.test(rel) && !NOT_CODE.test(rel));
+  if (!rels.length) return process.exit(0);
 
   const all = skills();
+  /* One command can touch several files; report the first that has something to
+     say, so a heredoc rewriting three files does not print three notes. */
+  const rel  = rels.find(r => all.some(s => s.globs.some(g => matches(g, r)))) || rels[0];
   const hits = all.filter(s => s.globs.some(g => matches(g, rel)));
 
   /* Said once per skill per session for a covered file, always for an uncovered

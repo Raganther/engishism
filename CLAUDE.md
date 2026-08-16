@@ -35,9 +35,10 @@ being committed and asks whether it is a memory event; `tools/suite-check.js` fi
 before a smoke run and, **only when that run is long**, says how many minutes it will
 cost and what would justify it; `tools/where-are-we.js` runs at session start and
 says where `origin/main` really is, asked of GitHub rather than of the clone; and
-`tools/which-skill.js` fires before an edit and names the skill that covers that
-file — or says **no skill covers it**, which is the case to tell the user about
-before starting. None of them blocks. The silence is the design: a
+`tools/which-skill.js` fires before an edit — through the edit tools **or through
+Bash**, since most surgery here is `sed -i` and heredocs — and names the skill that
+covers that file, or says **no skill covers it**, which is the case to tell the user
+about before starting. None of them blocks. The silence is the design: a
 reminder that fires every time is one you stop reading, so each can speak only in the
 case it was written for.
 
@@ -1034,8 +1035,12 @@ what a teacher set deliberately**, so it must be translated rather than silently
 `covers:` in each skill's own frontmatter is the territory it claims, so a skill
 written next month is picked up with nothing else edited — the same move
 `question-types.js` makes for rounds. `tools/which-skill.js` reads those
-declarations before any Write or Edit and says which procedure applies, once per
-skill per session; when **nothing** covers the file it says so instead, once per
+declarations before any Write or Edit — **and before a Bash command that writes to
+a project file**, because the large majority of editing here is `sed -i` and
+`python3` heredocs, and a hook watching only the two edit tools was silent for
+nearly a whole session's changes. Best-effort on the Bash side by nature: a shell
+command is not a structured edit. It says which procedure applies, once per skill
+per session; when **nothing** covers the file it says so instead, once per
 file, because a change with no written procedure is one the user asked to hear
 about before it starts. `check-syntax` asserts every literal path in a `covers:`
 list still exists — a renamed file would otherwise leave a skill silently covering
