@@ -91,6 +91,23 @@ or an explicit 0 silently becomes the default and a teacher's "off" does nothing
 
 ## 3. Traps, each one paid for
 
+**One word, two tiers: `done`.** To the round it means *this team has finished*; to the
+host it means *this question is over*, and they are the same field on the same object.
+So a round that stamps it the moment one lane fills has told the whole room to stop —
+replies stop being read, the hints go, and the teams still climbing are locked out of a
+ladder they were half way up, which is precisely the lockout the open question exists to
+remove. The round does not get to decide which meaning is in force: the host lends the
+rule as `ctx.openToAll`, and `won` — first to arrive, never overwritten — is the fact the
+round owns on its own.
+
+**The general form, because this is the third field it has bitten:** in any mode where
+teams have independent tracks, *every* fact about progress is per-team. `ordering.js`
+says so in its own comments about `picks`, `leading` and `votes` — collapsing those into
+one field is how a majority quietly starts winning rungs — and then kept completion as a
+single field anyway. Before adding state to a round, ask what it means when two teams
+disagree about it; if the answer is "the first one wins", it is either per-team or it is
+the host's.
+
 **The stuck default.** `register()` seeds every master value into `localStorage` the
 first time a device runs the app. So **changing a `default:` in code never reaches a
 browser that has already run the old build** — the key is present, and the new default

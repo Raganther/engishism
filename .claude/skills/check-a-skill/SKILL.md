@@ -54,6 +54,12 @@ not yet a check*. A skill is a check on a person, so it gets the same treatment.
 - **A reader that finds the right line can still walk away from it.** Watch for the
   moment a diagnosis is abandoned rather than only for the conclusion — that moment is
   the missing step, and it is what the new line has to address.
+- **A fix lands where the code changed, which is not the same as whose job it was.**
+  Matching commits to `covers:` finds candidates, not cases: a phone bug is repaired in
+  the engine and looks like the engine's, and the reader then correctly leaves for the
+  skill that owns phones — a routing table working, not a checklist tested. **Read the
+  symptom and ask which skill a person would open**, and if the answer is a different
+  one, the case is void. Throw it out before spending the run rather than scoring it.
 
 ## What the result means
 
