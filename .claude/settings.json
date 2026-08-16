@@ -41,6 +41,12 @@
           },
           {
             "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/tools/skill-check.js\" 2>/dev/null || true",
+            "timeout": 30,
+            "statusMessage": "Did the procedure hold?…"
+          },
+          {
+            "type": "command",
             "command": "node \"${CLAUDE_PROJECT_DIR:-.}/tools/suite-check.js\" 2>/dev/null || true",
             "timeout": 15,
             "statusMessage": "Is this test run worth the wait?…"

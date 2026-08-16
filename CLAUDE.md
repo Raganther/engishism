@@ -27,7 +27,7 @@ rule behind it is worth keeping even when the hook is not there: to say what is
 deployed, `git ls-remote origin refs/heads/main` or a fresh `git fetch`. `git log
 origin/main` on a fresh clone answers a question about yesterday.
 
-**Five hooks, and each exists because a thing that is nobody's job does not
+**Six hooks, and each exists because a thing that is nobody's job does not
 happen.** `tools/shelf.js` fires before any edit to shared code and says what is
 already on the shelf *and what has been written three times*; `tools/memory-check.js`
 fires before a `git commit` and, **only when this file is not in it**, names what is
@@ -38,7 +38,12 @@ says where `origin/main` really is, asked of GitHub rather than of the clone; an
 `tools/which-skill.js` fires before an edit — through the edit tools **or through
 Bash**, since most surgery here is `sed -i` and heredocs — and names the skill that
 covers that file, or says **no skill covers it**, which is the case to tell the user
-about before starting. None of them blocks. The silence is the design: a
+about before starting; and `tools/skill-check.js` closes that loop at the other end,
+firing on a `git commit` that changed a skill's territory and asking **once per skill
+per session, and never when that skill is already in the commit**, whether the
+checklist actually held — it also runs `check-syntax`, because "the check that always
+runs" was a convention and conventions lose. None of them blocks. The silence is the
+design: a
 reminder that fires every time is one you stop reading, so each can speak only in the
 case it was written for.
 
@@ -1354,6 +1359,51 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **The loop is closed at both ends: `which-skill` hands you the procedure going in,
+  `skill-check` asks whether it held coming out.** The user's ask, in their words: a
+  skill is used, a feature gets built, the implementation produces a bug, the bug is
+  fixed, **and the skill is updated so it never reproduces** — so every fix improves the
+  next build. Correct as a shape, and three things had to be said before building it.
+  - **Not every bug should touch its skill, and getting this wrong would have built the
+    disease into the cure.** If every fix appends a rule, a skill is eight hundred lines
+    of trivia within a month and nobody reads it — the same failure as a reminder that
+    fires every time. The test is one question: **would the checklist, as written, have
+    prevented this?** Yes → change nothing, and that is the *usual* answer. No, and the
+    lesson is general → the skill gains a rule. No, and what was learned is a fact about
+    this project's **state** rather than a procedure → **this file**, not the skill. That
+    third branch carries most of the traffic here, and routing it into skills is exactly
+    how they would rot.
+  - **What is automatic is the question, never the answer.** Judging whether a checklist
+    would have caught a bug is a judgement, and the thing making it is the thing that
+    just made the mistake; a skill rewritten with nobody reading the diff is how wrong
+    advice gets in and never leaves. So the hook makes the question unavoidable at the
+    one moment the answer is known, and a person answers it.
+  - **The fourth case is the one the whole ask was about**, and it gets the loudest
+    wording: the skill **told you to do the thing that caused the bug**. Wrong advice is
+    confidently wrong, no check can find it, and every occurrence looks correct because
+    the checklist blessed it.
+  - **It is not always the skill you used.** A bug met while building a round often
+    lives in the shared layer, so the skill that would have caught it is a different
+    one — and "none of them, so make one" is a legitimate output, which is how
+    `shared-surface` and `harness` both came to exist this week.
+  - **`check-syntax` was never hooked to anything**, so the rename guard shipped that
+    morning was a convention — it ran when somebody remembered to type it. It runs on
+    every `git commit` now, which is what makes the mechanical half a guarantee rather
+    than a habit.
+  - **The first version of that half silently never fired, and only a sentinel found
+    it**: `check-syntax` reports its problems on **stderr**, and the hook was piping
+    stdout and ignoring stderr, so a failing tree produced an empty note. A guard that
+    cannot fire is worse than no guard, and there is no way to see this by reading —
+    which is the fourth time this project has been caught by its own instrument, after
+    `| tail`, `pgrep -f` and the symbol check passing itself.
+  - **`harness` was listing its files by hand and the hook caught it within the
+    minute** — eight named `tools/*.js` paths, so `skill-check.js` was born uncovered
+    and the hook said so on the very Write that created it. It is `tools/*.js` now, with
+    `buzzer-relay.js` named in the skill's own table as `phone-debug`'s, since it sits
+    under `tools/` but is the app.
+  - Proved by driving all five branches: not a commit · nothing staged · a covered
+    commit (speaks) · the same session again (silent) · the skill already in the commit
+    (silent), plus the sentinel for the syntax half.
 - **A skill cannot correct itself — asked the question, went looking, and found two
   live cases in ten seconds.** The question was what happens when a skill's own advice
   is wrong: does it self-correct, does the bug get patched outside it, how does a skill

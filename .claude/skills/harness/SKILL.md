@@ -2,14 +2,7 @@
 name: harness
 description: Write or fix something that watches the project rather than being part of it — a smoke-test check, the syntax check, a Claude Code hook, or one of the derived inventory tools. Use this whenever a suite check goes red and may have gone stale rather than caught a bug, when a check needs adding for a behaviour that just changed, when a suite aborts or reports fewer checks than it holds, when a red needs proving pre-existing, or when adding or tuning anything under .claude/settings.json and tools/. Also use it when a test passes on a build you know is broken.
 covers:
-  - "tools/smoke-test.js"
-  - "tools/check-syntax.js"
-  - "tools/shelf.js"
-  - "tools/question-types.js"
-  - "tools/which-skill.js"
-  - "tools/suite-check.js"
-  - "tools/memory-check.js"
-  - "tools/where-are-we.js"
+  - "tools/*.js"
 ---
 
 # The harness — what watches the project
@@ -19,6 +12,7 @@ covers:
 | You want | Skill |
 |---|---|
 | The relay, `join.html` or `hub-buzzer.js` behaving oddly | `phone-debug` |
+| `tools/buzzer-relay.js` — under `tools/`, but it is the app | `phone-debug` |
 | To decide *whether* to run a suite at all, or to deploy | `ship-it` |
 | A change to something all five games share | `shared-surface` |
 | **To write or fix a check, a hook, or a derived inventory tool** | **this one** |
@@ -147,9 +141,16 @@ Four traps, each paid for:
   Guard on the thing actually being *run*, not on its name appearing.
 - **Derive, never list.** `which-skill` was printing a hand-typed "the eight in
   `.claude/skills/`" — the defect it exists to prevent, in its own output.
+- **A hook that shells out must pipe both streams.** `check-syntax` reports its problems
+  on **stderr**, and the first version of `skill-check` piped stdout and ignored stderr —
+  so a failing tree produced an empty note and the guard silently never fired. There is
+  no way to see that by reading it.
 - **Prove it by sentinel.** Prefix the command with a marker, make a real tool call, read
   the file, strip the marker. Piping JSON in by hand proves the branches; only a live
-  call proves it is wired.
+  call proves it is wired. **Strip the marker with an editor, not with
+  `open(p,'w').write(open(p).read()…)`** — `'w'` truncates before the inner read runs,
+  which emptied a 201-line skill in this very session. `git checkout HEAD -- <file>` is
+  the way back.
 
 ## 8. `check-syntax` is the one that always runs
 
