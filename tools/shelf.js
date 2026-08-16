@@ -235,18 +235,26 @@ const report = [
 ].join('\n');
 
 /* Hook mode: read the tool call on stdin, stay silent unless shared code is
-   being touched, and hand the inventory back as context rather than as noise. */
-if (!process.stdin.isTTY && process.argv.indexOf('--list') === -1) {
+   being touched, and hand the inventory back as context rather than as noise.
+
+   **What decides the mode is a tool call actually arriving, not the terminal.**
+   Keying it on `isTTY` meant the documented command — `node tools/shelf.js` —
+   printed *nothing at all* whenever it was run from a script or by an agent,
+   which is the reader it was written for. It read as "the shelves are empty",
+   which is the worst thing an inventory tool can say. So: parse stdin, and only
+   behave as a hook if what arrived is a tool call. Anything else lists. */
+if (process.stdin.isTTY || process.argv.indexOf('--list') !== -1) {
+  console.log('\n' + report + '\n');
+} else {
   let buf = '';
   process.stdin.on('data', d => buf += d);
   process.stdin.on('end', () => {
-    let file = '';
-    try { file = (JSON.parse(buf || '{}').tool_input || {}).file_path || ''; } catch (e) {}
-    if (!WATCHED.test(file)) process.exit(0);
+    let call = null;
+    try { call = JSON.parse(buf); } catch (e) {}
+    if (!call || !call.tool_input) return console.log('\n' + report + '\n');
+    if (!WATCHED.test(call.tool_input.file_path || '')) process.exit(0);
     process.stdout.write(JSON.stringify({
       hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: report }
     }));
   });
-} else {
-  console.log('\n' + report + '\n');
 }

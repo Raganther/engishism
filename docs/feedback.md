@@ -2,11 +2,10 @@
 
 One entry per real run — a class, or a deliberate test session with real handsets.
 **This file is the raw record.** When a run is reported in chat, the entry is appended
-here *first*. From there: a bug or a decision becomes a line in `CLAUDE.md`'s Current
-status while it is open or while it still constrains somebody's work, and the story of
-fixing it — the evidence, the wrong diagnoses — goes in `docs/log.md`. `CLAUDE.md` is
-the memory, capped and re-read every session; `docs/log.md` is the history and is never
-loaded.
+here *first*. From there: a bug or a decision becomes a line in `CLAUDE.md`'s **Open**
+section while it is unfinished, and leaves that section when it closes. The story of
+fixing it — the evidence, the wrong diagnoses — goes in the commit message. `CLAUDE.md`
+holds only what is true now; git log is the history.
 
 Why it exists: the class runs are the only data this project has that no suite can
 produce — whether a beat drags, whether a round is fun, what students actually do.

@@ -230,11 +230,11 @@ cached JS and CSS. The settings panel footer shows the build, so ⚙ tells you w
 version is actually running. Push to `main`; Render and GitHub Pages follow in ~40s.
 
 Then write it down; the workspace is rebuilt every session, so anything not committed is
-lost. **Two places, and the split matters** — `CLAUDE.md` is the memory and holds only
-what is true now (a line in **Current status**, and the game named wherever the file
-lists what exists), while the story of building it — what broke, the evidence, the suite
-counts — goes in `docs/log.md`, which no session loads. Current status is capped; a long
-entry there is a log entry in the wrong file.
+lost. **`CLAUDE.md` holds only what is true now** — if the game changed a contract, added
+a shelf or opened something unfinished, say that; if it merely exists, the registries
+already say so and the file needs nothing. **The story of building it — what broke, the
+evidence, the suite counts — goes in the commit message**, which is this project's only
+history. A long entry in `CLAUDE.md` is a commit body in the wrong file.
 
 ## The five-minute review
 

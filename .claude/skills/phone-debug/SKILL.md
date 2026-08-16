@@ -203,5 +203,6 @@ phone will not see the fix. Then write
 what you learned in two places. The **rule** — phrased as a rule and not as the
 incident, so the next reader can apply it to a case you did not hit — goes in
 `CLAUDE.md`, and only if it still constrains somebody's work; a bug that is fixed and
-cannot recur constrains nothing. The **incident** — the symptom, the wrong diagnoses,
-what proved it — goes in `docs/log.md`, which no session loads.
+cannot recur constrains nothing, and belongs nowhere in that file. The **incident** —
+the symptom, the wrong diagnoses, what proved it — goes in the commit message, which is
+this project's only history.
