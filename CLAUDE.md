@@ -1057,19 +1057,29 @@ a whole session was spent tuning rounds and deploying without opening `tune-roun
 or `ship-it`, and `ship-it` opens by saying the default is no test suite — which is
 exactly the rule that session spent two and a half hours breaking.
 
-`.claude/skills/` holds eight invocable checklists. This file is the project's
+`.claude/skills/` holds nine invocable checklists. This file is the project's
 *memory*; those are its *procedures*, pulled up at the moment they are needed rather
 than remembered from 2,500 lines. **Which one you want follows the tiers**: a skin is
 `new-game`, a question that is played is `new-round`, a way of drawing a prompt is
-`new-question-form`, a bundle of switches is `new-mode` — and **writing questions in
-the shapes that already exist is `author-content`**, which is the one that gets used
-most, because the machinery is finished and the content is the bottleneck.
+`new-question-form`, a bundle of switches is `new-mode`, something every game inherits
+is `shared-surface` — and **writing questions in the shapes that already exist is
+`author-content`**, which is the one that gets used most, because the machinery is
+finished and the content is the bottleneck.
 
-**Six of the seven are "make a new thing"; `tune-round` is the one for changing a
-thing that already exists**, which is what most sessions actually do. Every parameter
-added to a round so far — `crowdReveal`, `crowdMeter`, `roundOpenToAll`, the roster
-fork — is the same three-step move (register → lend on `ctx` → read in the round), and
-it had no written home until that skill existed.
+**Six of the nine are "make a new thing"; `tune-round` and `shared-surface` are for
+changing things that already exist**, which is what most sessions actually do. Every
+parameter added to a round so far — `crowdReveal`, `crowdMeter`, `roundOpenToAll`, the
+roster fork — is the same three-step move (register → lend on `ctx` → read in the
+round), and it had no written home until that skill existed.
+
+**`shared-surface` closed the largest hole, and the hook is what found it.** Asked
+which skill covered the phone-strip commentator, the hook answered **"no skill covers
+`game-hub/hub-engine.js`"** — the file holding every shared surface in the app, the one
+where a mistake breaks five boards at once. `hub.css` was worse than uncovered: it was
+declared by `ship-it`, so writing CSS handed you the *deploy* checklist. Three other
+changes that same session were layer 1 and had no procedure either (the roster-drop
+guard, addressing a verdict at the replier rather than the roster index, and what the
+reveal bar counts). It is off `ship-it`'s `covers:` now, which stays the shells.
 - **`author-content`** — writing questions, not code. Opens by running
   `tools/question-types.js`, because **the skill deliberately holds no list of
   question types**: a list typed into a markdown file goes stale the day a round is
@@ -1100,6 +1110,16 @@ it had no written home until that skill existed.
   actually paid for — the stuck default, a phone-side setting landing on the *next*
   question because an arm wipes every handset, and `p.team` not being the truth in a
   room of individuals. Carries the second-caller rule for extracting to the shelf.
+- **`shared-surface`** — the tier above both of those: something *every* game inherits,
+  which is `hub-engine.js` outside one game's block and `hub.css`. Opens with the swap
+  test (who is still correct if you replace the tier below?) and the two directions a
+  layer-1 change points — a **service** every game calls, including games not written
+  yet, versus a **hook** every game may now have to answer. Then declare-never-list with
+  the five it has cost, the contract each shared surface owes (the strip's fixed height,
+  anything appearing above a board owing it a re-fit, a component never assuming its
+  host's background, one home per layout fact), the four ways a CSS rule silently loses,
+  and the fact that **this is the one tier where the blast radius earns a suite** — and
+  still not the full one.
 - **`ship-it`** — the deploy seam. **Opens by saying the default is *no* test suite**,
   because the user is watching the real site and their eyes beat four minutes of robot;
   it names the three cases that stop and ask instead. Then the stamp (and why the date
@@ -1310,6 +1330,31 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **`shared-surface` is the ninth skill — the hole was `hub-engine.js`, and the hook
+  found it within a day of being written.** Asked which procedure covered the phone-strip
+  commentator built this week, the answer came back **"no skill covers
+  `game-hub/hub-engine.js`"**, and `hub.css` returned `ship-it` — the *deploy* checklist,
+  which is the wrong answer confidently given. So the tier holding every shared surface
+  in the app, where one mistake breaks five boards at once, had no written procedure at
+  all.
+  - **Four changes this session were layer 1 and none of them had a home**: the
+    commentator, the roster-drop guard, addressing a verdict at the replier rather than
+    the roster index, and what the reveal bar counts. `tune-round` genuinely does not
+    fit — its three steps are register a setting → lend on `ctx` → read in the round, and
+    the commentator did none of the three.
+  - **Drafted from what this file already says about layer 1, not invented.** The swap
+    test, service-versus-hook, declare-never-list with the five it has cost, the
+    surface contracts (fixed-height strip · anything above a board owes it a re-fit ·
+    a component may not assume its host's background · one home per layout fact), the
+    four ways a CSS rule silently loses, and the suite question — this being the one
+    tier where the blast radius earns one, and still not the full suite.
+  - **`hub.css` came off `ship-it`'s `covers:`**, which now claims the shells only. A
+    file declared by the wrong skill is worse than one declared by none: the hook speaks
+    with the same confidence either way.
+  - **`check-syntax` refused the commit until `dev.html` listed it**, in two seconds —
+    the both-directions assertion doing exactly its job. And the hook's own write-up
+    had a hand-typed "the eight in `.claude/skills/`" in the line it prints, which is
+    the defect it exists to prevent, one file over. Derived now.
 - **The reveal bar can follow what the room is *thinking*, not only what it has
   sent — `crowdLive`, off by default.** Asked for as an experiment: the commit beat
   made the bar wait for Send, and the question is whether the older feel — it moves

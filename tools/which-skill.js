@@ -6,7 +6,7 @@
    being touched — and, when **no skill covers it**, says so out loud, because that
    is the case the user asked to be told about before any work starts.
 
-   **Why this exists.** `.claude/skills/` holds eight checklists — the project's
+   **Why this exists.** `.claude/skills/` holds the checklists — the project's
    *procedures*, as CLAUDE.md is its *memory*. Nothing made anyone open one. They
    were used when the task happened to be recognised and skipped when it did not,
    and the cost is not hypothetical: a whole session was spent tuning rounds and
@@ -99,6 +99,11 @@ const matches = (glob, rel) => {
    nothing, which is what keeps `grep` and `git log` quiet. */
 function writesIn(cmd){
   if (!cmd) return [];
+  /* A commit writes no project file, and its message routinely carries both a `>`
+     (the Co-Authored-By address) and the path of whatever was changed — so every
+     `git commit -F -` heredoc tripped this and named a skill for work already
+     finished. `memory-check.js` is the hook that belongs on a commit. */
+  if (/\bgit\s+commit\b/.test(cmd)) return [];
   const writes = /(sed\s+-i|>>?\s|\btee\b|\bmv\b|\bcp\b|writeFileSync|open\([^)]*['"]w['"]|>\s*\$)/;
   if (!writes.test(cmd)) return [];
   const hits = cmd.match(/[\w./-]*(?:game-hub|playground|tools|engine)\/[\w./-]+\.(?:js|css|html)|\b[\w-]+\.html\b/g) || [];
@@ -159,7 +164,7 @@ process.stdin.on('end', () => {
     note = [
       '**No skill covers ' + rel + '.**',
       '',
-      'The eight in `.claude/skills/` are: ' + all.map(s => s.name).sort().join(', ') + '.',
+      'The ' + all.length + ' in `.claude/skills/` are: ' + all.map(s => s.name).sort().join(', ') + '.',
       'None of them declares this file.',
       '',
       '**Tell the user before going further.** They asked to be informed when a',
