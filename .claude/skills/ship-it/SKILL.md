@@ -112,8 +112,8 @@ task's own completion.
 ## The known red
 
 **`ordering on a projector: the whole card is on screen` — 726px on a 720 board**, 6px
-over with the action strip on. It is a real layout item on the Next list, deliberately
-still red. **It is not your change.** Any other red is.
+over with the action strip on. It is a real layout item, listed under **Open** in
+`CLAUDE.md`, deliberately still red. **It is not your change.** Any other red is.
 
 ## Merging
 
@@ -135,7 +135,17 @@ never a force.
 
 ## Last
 
-**Did a decision get made?** Then `CLAUDE.md` gets the entry, in the same push. The
-commit hook asks whenever `CLAUDE.md` is not in the commit, and it is right to. The
-runs and the reasoning are the only things no suite can reproduce — do not leave them
-in chat.
+**Three places, and only one of them is `CLAUDE.md`.**
+
+- **The reasoning** — why this, what broke, what proved it — goes in the **commit
+  message** body. That is this project's only history, and it is the reason the bodies
+  here run twenty lines.
+- **`CLAUDE.md`** gets a line only for what is **true now**: a rule that will constrain
+  the next piece of work, a contract that changed, or an item for **Open**. No fixed
+  bugs, no suite counts, no "we built X" — that is the commit's job, and a long entry in
+  `CLAUDE.md` is a commit body in the wrong file.
+- **A class run** goes in `docs/feedback.md`, one entry, template at the top.
+
+The commit hook asks whenever `CLAUDE.md` is not in the commit, and it is right to —
+but "nothing to add" is a perfectly good answer to it. What must not happen is any of
+the three being left in chat.

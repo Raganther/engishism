@@ -13,7 +13,7 @@ covers:
 |---|---|---|---|
 | **Ruleset** | Classic · Hub · Together | a whole game show | **this one** |
 | **Round mode** | first · agree · climb · race | one question | `new-round` |
-| **Phone mode** | off · buzz · write · type | one ordinary question | neither — it is a registered variant |
+| **Default-round mode** | off · buzz · write · type | one ordinary question | neither — it is `round_default`, built from the default round's own `modes` like any other round's row |
 
 They nest rather than compete: a ruleset **writes** the other two, so `classic` setting
 `round_default: buzz` is the mechanism working, not a conflict. The settings panel already
@@ -202,8 +202,10 @@ correct if it can also be turned off:
 The Classic suite checks that the preset writes all three switches **and that the
 other preset puts them back** — that pair catches a preset that only ever adds.
 
-Bump the cache stamp, push to `main`, and record the decision in the **Current
-status** section of `CLAUDE.md`, including anything you deliberately chose *not* to
-copy from the source material. Jeopardy's negative scoring is off by default because
-a class 500 down in the first two minutes stops trying; that reasoning is worth more
-to the next reader than the code is.
+Bump the cache stamp and push to `main`. Then put the **reasoning** in the commit
+message — including anything you deliberately chose *not* to copy from the source
+material. Jeopardy's negative scoring is off by default because a class 500 down in the
+first two minutes stops trying; that is worth more to the next reader than the code is,
+and the commit body is where this project keeps it. `CLAUDE.md` gets a line only if the
+mode left something **true now** that was not true before — a new switch a teacher has
+to know about, or an item for **Open**.

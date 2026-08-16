@@ -163,12 +163,20 @@ walk('game-hub', '.css').forEach(checkCSS);
    nothing false. If it ever does misfire, the fix is to take the backticks off a word
    that was never a symbol.
 
+   **A trailing `()` is part of the token, and forgetting that was a real hole.** The
+   first version required the whole backticked string to be `[A-Za-z0-9_.]`, so
+   `repliesHost()` — the shape a skill naturally writes a *function* in — did not match
+   the pattern at all and was never checked. It was silently exempting 55 tokens across
+   the ten skills while testing 238, and one of the 55 was dead. A guard with a hole
+   that size in the middle of what it is for is worse than none, because it is trusted.
+
    **Two limits, both stated rather than pretended away.** It asks whether a string
    appears *anywhere* in the code, so a historical comment naming a symbol that was
    later renamed will mask it — this file is skipped for exactly that reason, since the
    paragraph above names two dead symbols as its own examples and passed itself on the
-   first run. And it says nothing about a member that moved: `Kit.round.thing` is judged
-   on `Kit`. */
+   first run. That limit is not hypothetical: `soloSeatAt` was deleted and lives on only
+   in a comment about its deletion, which was enough to hide a stale skill. And it says
+   nothing about a member that moved: `Kit.round.thing` is judged on `Kit`. */
 (function checkSkillSymbols(){
   const dir = path.join(ROOT, '.claude/skills');
   if (!fs.existsSync(dir)) return;
@@ -190,8 +198,10 @@ walk('game-hub', '.css').forEach(checkCSS);
     if (!fs.existsSync(f)) return;
     const body = fs.readFileSync(f, 'utf8');
     const seen = new Set();
-    (body.match(/`[A-Za-z][A-Za-z0-9_.]{3,}`/g) || []).forEach(tok => {
-      const word = tok.slice(1, -1);
+    /* `thing` and `thing()` alike — the parentheses are how a skill writes a function,
+       so excluding them exempted exactly the tokens most likely to be a symbol. */
+    (body.match(/`[A-Za-z][A-Za-z0-9_.]{3,}(?:\(\))?`/g) || []).forEach(tok => {
+      const word = tok.slice(1, -1).replace(/\(\)$/, '');
       if (seen.has(word)) return;
       seen.add(word);
       /* Compare the root, so `Kit.round.crowdMeter` is judged on `Kit` existing —

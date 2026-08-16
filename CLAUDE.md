@@ -102,6 +102,7 @@ them.
 |---|---|
 | `game-hub.html` | **the app.** Loads every content file + the engine. Per-unit deep links: `game-hub-unit4.html`, `game-hub-unit5.html`; the test board is `game-hub-lab.html` |
 | `game-hub/hub-engine.js` | layer 1's shared half **and** the game logic still in-closure (Jeopardy, Blockbusters, Race, Millionaire). Injects the UI skeleton, renders every screen, the team bar, the timer |
+| `game-hub/hub-games.js` | **the game registry.** Its own file, loading before the game files and the engine, which is what retires the register-before-init trap |
 | `game-hub/games/*.js` | games extracted to their own file — `quickfire.js` is the model to copy |
 | `game-hub/hub-kit.js` | **`Kit`** — the shelf every *game* calls, plus the `Kit.prompt` question forms |
 | `game-hub/hub-rounds.js` | **`Kit.round`** — the shelf every *round* calls, and the round registry |
@@ -109,20 +110,29 @@ them.
 | `game-hub/hub-settings.js` | the settings registry and panel. **Loads before `hub-engine.js`**, with `hub-kit.js` — the engine throws without either |
 | `game-hub/hub-buzzer.js` | the phone client, shared by the hub (host) and `join.html` (players) |
 | `game-hub/hub.css` | all shared styling, DCU theme and game-show skin. The one place to restyle |
+| `game-hub/hub-rounds.css` | the round card's own styling. **Not `hub.css`** — a playground page cannot load that without taking the whole hub theme |
+| `game-hub/hub-qr.js` | vendored QR encoder (qrcode-generator, MIT), unmodified. Vendored because the app must run offline with no build step |
 | `game-hub/content/*.js` | data-only banks, one file per unit; each does `window.UNITS.push({…})` |
 | `join.html` | the students' page |
 | `tools/buzzer-relay.js` | zero-dependency Node relay **and** static server. `docs/buzzers.md` |
-| `playground/*.html` | standalone prototypes with phones, outside the hub — see "The playground" |
+| `playground/question-bench.html` | the workshop for rounds *and* forms |
+| `playground/phone-bench.html` | the whole room on one screen — board plus a rack of real handsets |
+| `playground/connections.html`, `thermometer.html`, `story-reveal.html` | standalone prototypes — see "The playground" |
 | `playground/bench-kit.js` | **`BenchKit`** — the shelf a playground page calls |
 | `playground/lab-forms.js` | experimental question forms. **No game ever loads this** |
 | `tools/` | the harness — see "The harness" |
 | `.claude/skills/` | the procedures |
 | `docs/`, `material/` | specs, brand, coursebook scans, the classroom log |
 
+**Load order in the shells is load-bearing**: `hub-games.js` (the registry) → the
+`games/*.js` files (which register into it) → `hub-engine.js` (which consumes
+everything). Same shape as `hub-rounds.js` → `rounds/*.js` → engine.
+
 **The older two generations are kept, not deleted.** `app.html` → `engine/unit-app.js`
-is a paused unit-first rebuild; `classic.html` → `engine/engine.js` is the legacy
-topic-first engine, and it still holds four team-building games (`bunker`,
-`desert-island`, `it-helpdesk`, `scam-or-legit`) that exist nowhere else.
+(with `engine/events.js` and `engine/session.js`) is a paused unit-first rebuild;
+`classic.html` → `engine/engine.js` is the legacy topic-first engine, and it still holds
+four team-building games (`bunker`, `desert-island`, `it-helpdesk`, `scam-or-legit`) that
+exist nowhere else.
 
 **Where the layering leaks, and it is worth knowing before trusting it:**
 `hub-engine.js` holds layer 1 *and* four games in one closure, so that boundary is
@@ -224,25 +234,39 @@ registerGame({
 });
 ```
 Every hook is optional and defaults to a no-op, and hooks only fire while their game is
-active, so none of them checks `activeGame`. **The model to copy is
-`game-hub/games/quickfire.js`** — an extracted game, registry call and declared facts in
-one file; `bingo.js` is the second.
+active, so none of them checks `activeGame`.
 
-**Register before init, or the game is invisible.** `renderGameCards()` runs during init,
-so a later `registerGame` leaves a game that is in `HubGames.ids()`, passes `hasBank`, and
-has no card. Nothing errors. Keep registrations in the cluster at the top of
-`hub-engine.js`. `window.HubGames.register(…)` is exposed so a game can live in its own
-file the way units do.
+**A new game's home is its own file, `game-hub/games/<id>.js`.** `quickfire.js` is the
+model and `bingo.js` the second: the file registers into `window.HubGames.register(…)`,
+declares its stage markup as `stageHTML` and its `ROUND_HOSTS` entry as `roundHost` (the
+engine injects and merges both), reaches engine machinery through `window.HubEnv`
+**inside hooks only**, wires its DOM listeners on first `load()`, and declares `order`.
+Its `<script>` goes in the shells between `game-hub/hub-games.js` and `hub-engine.js`.
+
+**That load order is what retires the register-before-init trap** — the registry
+publishes, game files register, the engine loads last and consumes everything. The trap
+is still live for the four games declared *inside* `hub-engine.js`: a `registerGame` call
+placed after `renderGameCards()` leaves a game that is in `HubGames.ids()`, passes
+`hasBank`, and has no card, with nothing erroring. Those registrations stay in the
+cluster at the top of the file, above the settings block.
 
 | Free, no code | One declaration | Genuinely per-game |
 |---|---|---|
-| skin, team bar, scoring, timer, clue card + flip variants, `showResult()`, every `Sound.*`, every `Kit.*`, the content gate, the phone strip, the layout contract | `card`, `intro`, `hasBank`, `fitsScreen`, the settings `games` arrays via `gameIds()`, the phone contract's six hooks | board logic, stage CSS, `tension()` source, bank shape |
+| skin, team bar, scoring, timer, clue card + flip variants, `showResult()`, every `Sound.*`, every `Kit.*`, the content gate, the phone strip, the layout contract | `card`, `intro`, `hasBank`, `fitsScreen`, `order`, the settings `games` arrays via `gameIds()`, the phone hooks | board logic, stage CSS, `tension()` source, bank shape |
 
-### A game's phones — the six-hook contract
+**Draw the question with `drawPrompt(mount, item, '<gameid>')`**, never `textContent` —
+that is what gets a game gap fills, anagrams, odd-one-out and error correction. A game
+writing its own prompt gets none of them.
+
+### A game's phones — the hook contract
 Phones reach a board through hooks, never through the engine knowing the game's name.
 Declare them and the game inherits buzzing, everyone-types, type-then-buzz, the class
 vote and the activity strip; leave them out and its phones are idle, which is a correct
 state rather than a broken one.
+
+**`hub-games.js` declares every default in one block, and that block is the contract** —
+do not trust a count written anywhere, including here, because the set grows. The core
+of it:
 
 ```js
 expects()        // what a typed answer is judged against
@@ -253,7 +277,13 @@ onBuzzTaken(b)   // somebody has the floor
 onTypedWin(b)    // typed and correct: score it, return the points (null = it didn't)
 wantsVote()      // does this game ever ask the room something
 onVoteReply(all) // where the counts get painted
+roomNote()       // what the chip says when the game wants a room without a mode
+phoneRound()     // the game drives the phones itself; null = the default round
 ```
+Beside those sit the room's own beats — `onRoomReady`, `onPlayers`, `onRoster`,
+`onRoomForgot`, `onPhoneReply`, `asRound` — and the non-phone declarations that replaced
+`activeGame` branches (`bank`, `teamDecor`, `solo`). `HubGames.hooksOf(id)` says what a
+given game actually answers.
 
 **Refusing a buzz is not ignoring one.** The relay locks the room on the *first* buzz
 whoever sent it, so an unentitled phone would hold the lock and the team that is entitled
@@ -261,17 +291,26 @@ could never get in. `buzzEntitled` returning false makes the engine re-arm, whic
 it. **What it re-arms is `phoneRound()`'s answer, not a buzzer** — hard-coding
 `armBuzzers` there would replace a game's own round with the thing it just refused.
 
+**`phoneRound()` is for a game that *is* the phone dynamic.** Return a round and the
+default round gets no say; otherwise two dynamics arm the same handset and fight, which
+is invisible until a reconnect re-asks and replaces one with the other. **What it returns
+past `{mode, prompt, options}` is carried to the relay, not read** — `multi`,
+`multiByTeam`, `holds`, `rethink`, `team` all pass straight through, so a game can use a
+shape the engine has never heard of. It was a whitelist until a multi-pick silently
+became a plain vote.
+
 ### A round — the registry in `hub-rounds.js`
 A round is four things at once, which is why it is a tier and not a helper: the card the
 projector draws, what the handsets are put into, how several students' taps become one
 team answer, and whether that answer is right.
 
-- **`ctx` is handed in and never reached for** — `{teams, sizes, teamName, prompt, team,
-  mode, forTeam, onPick}` — and read **fresh at call time**, which is why `read`, `judge`
-  and `accept` all take it. Students join and drop all lesson; a size the round was told
-  once is a lie by the third question. It is also why the question bench works: it has no
-  team bar, passes its own `ctx`, and no round can tell.
-- **`ctx.keep`** is round state that outlives one question.
+- **`ctx` is handed in and never reached for**, and read **fresh at call time**, which is
+  why `read`, `judge` and `accept` all take it. Students join and drop all lesson; a size
+  the round was told once is a lie by the third question. It is also why the question
+  bench works: it has no team bar, passes its own `ctx`, and no round can tell.
+  **`roundCtx()` in `hub-engine.js` is the field list** — it grows every time a round is
+  tuned, so a copy of it written anywhere else is a copy that will be wrong. `ctx.keep`
+  is the per-player store that outlives one question.
 - **A round declares what it wants beside the commit button** — `actions(state, ctx)` and
   `press(id, state, ctx)`. It never restates the commit button, because **the commit
   button commits *scores*, so it can only ever be the host's**: it pays a tile, a
@@ -378,11 +417,17 @@ if (S.get('myThing', activeGame)) { … }        // always pass the game
   and the panel says so.
 - **Every control carries `data-setting="id"`.** The panel does not need it; anything
   looking *at* the panel does, and without it the only handle on a control is prose.
+- **The stuck default.** `register()` seeds every master value into `localStorage` the
+  first time a device runs the app, so **changing a `default:` in code never reaches a
+  browser that already ran the old build** — the key is present and the new default is
+  ignored forever. It reads exactly like a bug in the feature. Changing a shipped default
+  means migrating it, or telling the teacher to flip it once.
 - **Replacing a setting is a migration, not a deletion.** `S.raw(key)` and `S.drop(keys)`
   exist because a per-game override is something a teacher set deliberately. Two traps:
   **the old key still being present is the signal** that nothing has chosen yet (asking
   whether the new id is unset never fires, because `register()` seeds every master with
-  its default), and **`drop()` is what makes it run once**.
+  its default), and **`drop()` is what makes it run once**. String literals that are
+  storage keys of old builds must survive any rename.
 - **A ruleset is a named bundle that writes the smaller switches**, never a second code
   path and never a value that shadows them. Every row a bundle touches carries an
   advisory note — "Classic sets this to 10s" — beside the control, which stays the truth.
@@ -712,7 +757,15 @@ podium beats `equal`, and whether the extra Reveal-then-Close press costs too mu
   topline, so it wants a decision rather than a reflex.
 - **An index is not an identity.** Every round keys per-team state by index; keying by
   the competitor id every competitor already carries is the real answer, and it touches
-  every round.
+  every round. Related and **not** broken, but the thing to check before adding a third:
+  a cache of somebody else's index needs a stated invalidation point, and there are
+  exactly two. `players` in `hub-buzzer.js` is replaced wholesale by every relay event
+  carrying a roster, so it is only ever as fresh as the last message — and it reports
+  each handset's **join-time** team, which is not the truth in a room of individuals.
+  `teamSeat` in `hub-engine.js` is the side a student chose, written only on `join` and
+  clamped to the current team count when read, so removing a team cannot strand it. A
+  third cache that used to exist was **deleted rather than fixed**, by asking the room
+  instead of remembering what it was told; that is the cheaper answer.
 - **The shell has no `Cache-Control`**, so a stale shell can strand a browser on old
   assets with no error anywhere.
 

@@ -90,8 +90,7 @@ Two files writing different meanings into one field is a collision only a name p
 
 **The phone strip is fixed height.** `#phone-bar` is as tall empty as full — what the
 class does can never resize the board underneath it, and a full class scrolls sideways.
-That contract is exactly what `repliesHost()` (a different parent per game) existed to
-work around before the strip was one element in one place.
+It is one element in one place, so no game supplies its own parent for replies.
 
 **A thing that is true *alongside* the headline is not another branch of it.** The
 headline is five early-returning branches and only one can win. The cooling chips are

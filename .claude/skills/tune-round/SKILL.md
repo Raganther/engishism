@@ -114,9 +114,10 @@ so a size the round was told once is a lie by the third question. That is why `r
 single most expensive rule in the project — five bugs in six days, every one a copy of a
 competitor index going stale, and every one fixed at the reader so the next one came
 back. The reflex fix ("use ids instead") is wrong: the stable id already exists where it
-matters. There are exactly **three** caches — `players` in `hub-buzzer.js`, `soloSeatAt`
-and `teamSeat` in `hub-engine.js` — and `CLAUDE.md` carries the table saying what
-invalidates each. **A fourth cache needs a fourth row.**
+matters. There are exactly **two** caches — `players` in `hub-buzzer.js` and `teamSeat`
+in `hub-engine.js` — and `CLAUDE.md` says what invalidates each. **A third cache needs a
+third row, and the cheapest answer is not to add one:** the third that used to exist was
+deleted rather than fixed, by asking the room instead of remembering what it was told.
 
 The worked example: `seat` is one-way, so the host's player list held each handset's
 *join-time* team. In a solo room nobody picks a team, so several phones read as

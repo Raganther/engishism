@@ -114,10 +114,16 @@ the play screen. Every hook is optional; a game grows by filling them in.
 
 ## 3. Declare the phone contract
 
-Ten hooks, all optional, all defaulting to a no-op. Declare them and the game
-inherits buzzing, everyone-types, type-then-buzz, the class vote, the activity strip
-and automatic scoring. Leave them out and its phones are idle — a correct, visible
-state rather than a half-wired one.
+All optional, all defaulting to a no-op. Declare them and the game inherits buzzing,
+everyone-types, type-then-buzz, the class vote, the activity strip and automatic
+scoring. Leave them out and its phones are idle — a correct, visible state rather than
+a half-wired one.
+
+**`hub-games.js` declares every default in one block and that block is the contract** —
+the set grows, so do not trust a count, here or anywhere. Beside the ten below sit the
+room's beats (`onRoomReady`, `onPlayers`, `onRoster`, `onRoomForgot`, `onPhoneReply`,
+`asRound`) and the declarations that replaced `activeGame` branches (`bank`,
+`teamDecor`, `solo`).
 
 ```js
 expects()        // what a typed answer is judged against
@@ -240,7 +246,8 @@ history. A long entry in `CLAUDE.md` is a commit body in the wrong file.
 
 If you are checking a game someone else wired up, these five catch nearly everything:
 
-1. Is `registerGame` in the cluster, above the settings block?
+1. Its own file: is the `<script>` between `hub-games.js` and `hub-engine.js` in all
+   four shells? In-engine: is `registerGame` in the cluster, above the settings block?
 2. Does any line in the change name games in a literal list?
 3. Does the game answer `expects`, `phonePrompt` and `askingNow` itself?
 4. Does it use `drawPrompt` and `Kit.floorTop()` rather than its own versions?

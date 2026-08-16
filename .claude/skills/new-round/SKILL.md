@@ -67,16 +67,21 @@ belong to the host. Jeopardy pays a tile and passes a turn when the round says a
 team has it; the bench pays nothing at all. A round holding one of them can only
 ever live in one game, which defeats the entire point.
 
-**`ctx` is what the host lends you** — `{teams, sizes, teamName, prompt, team, mode,
-forTeam, onPick, roster, verdict, again}`. It is passed in rather than reached for,
-because the bench has no team bar and the hub does. `roster` is who is in the room
+**`ctx` is what the host lends you**, passed in rather than reached for, because the
+bench has no team bar and the hub does. **`roundCtx()` in `hub-engine.js` is the list** —
+read it there rather than trusting one written here, because it grows every time a round
+is tuned and a copy of it in a markdown file is a copy that will be wrong. The ones worth
+knowing before you look: `teams`, `sizes`, `teamName`, `team`, `mode`, `forTeam`,
+`onPick`, and the four below. `roster` is who is in the room
 (`[{id, name, team}]`, read fresh like `sizes`) — the information gap deals a view
 per player from it. `verdict(id, verdict, note, coolMs)` tells one phone how its
 typed word was received; only `'wrong'` reopens the handset's box, so a retryable
 near-miss is sent as `wrong` with a note and a short cooldown. `again()` is "re-arm
 the phones and redraw me" — for a round that advances on its own clock (Word Drop's
 landing) rather than on a reply; bench-only so far, so guard it and fall back to
-teacher clicks. `arm()` may return null: nothing left to ask, the host disarms.
+teacher clicks. `keep` is the host's per-player store, scoped to your round and surviving
+between questions — Bingo's cards live in it. `arm()` may return null: nothing left to
+ask, the host disarms.
 
 **A round's state must carry `chosen: [], picks: {}, need: 1` even if it uses none
 of them** — the bench's shared plumbing (Check button, teacher pick cap) reads them
@@ -253,13 +258,13 @@ searches *claimed* hexagons and has never read it. Dropping the rule that the an
 begins with the letter cost nothing on the board and unlocked every round; the letter
 is still on every hexagon, because a team has to be able to say which one they want.
 
-**One addition is not built yet**, and a round needing it is blocked: state that
-outlives one question (Bingo's card persists across many calls). Before concluding
-your round needs it, check what it actually needs *per player* — the information
-gap looked blocked on it and only needed a per-player **prompt**, which the arm
-already carries: `promptByPlayer: {id: string}` rides the relay's per-recipient
-payload, keyed by player id so a reconnect keeps its view, built from `ctx.roster`
-in `arm()`. About fifteen relay lines, not a contract change.
+**State that outlives one question is `ctx.keep`** — the host's store, keyed by player
+id and scoped to this round, which is how Bingo's card persists across many calls.
+Before reaching for it, check what your round actually needs *per player*: a per-player
+**prompt** is not state at all, because the arm already carries it. `promptByPlayer:
+{id: string}` rides the relay's per-recipient payload, keyed by player id so a reconnect
+keeps its view, built from `ctx.roster` in `arm()`. That is what the information gap
+turned out to need after looking like it needed `keep`.
 
 ## 3c. `check(item)` — say why, not just no
 
