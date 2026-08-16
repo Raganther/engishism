@@ -43,57 +43,44 @@ photograph taken when the workspace was made. `tools/where-are-we.js` settles it
 session start.
 
 ## The axioms
-The rules that decide things. Everything below in this file is an application of one of
-them.
+**Solve it once, use it anywhere.** That is the whole philosophy; the six below are how
+it is kept, and everything else in this file is an application of one of them.
 
-**Design**
-1. **Declare, don't special-case.** A game, a round, a form, a skill announces itself to
-   a registry; nothing holds a list of them. A `if (activeGame === …)` branch, a
-   hand-typed array of ids, a checklist item that must be remembered — each is the same
-   defect, and each has cost real time here.
-2. **Tag what a human knows, derive what the data knows.** What an item is *about* is
-   authored. What *shape* it is comes from its own fields.
-3. **The swap test decides which tier owns a thing:** who would still be correct if you
-   replaced the tier below? Container, skin, round — see "The tiers".
-4. **Give a fact one home.** The bottom of the board was written down in four places
-   before it became `Kit.floorTop()`. Two copies of a fact are two facts that will
-   disagree.
-5. **Shared code takes parameters and hands back data.** No globals, no assumptions
-   about the host's DOM. `Kit.vote` is the model: you pass it replies, it hands back
-   counts, the transport stays the caller's.
+1. **Ask before you write.** The expensive mistake here is never a hard bug — it is a
+   second copy of something that already exists, and the reason it happens is that nobody
+   looked. `node tools/shelf.js` is the asking, and it runs before any edit to shared
+   code.
+2. **One fact, one home.** The bottom of the board was written down in four places before
+   it became `Kit.floorTop()`. Two copies of a fact are two facts that will disagree.
+3. **Things declare themselves.** A game, a round, a form, a skill announces itself to a
+   registry and nothing holds a list of them. A hand-typed array of ids, an
+   `if (activeGame === …)` branch, a checklist item that must be remembered — each is the
+   same defect, and it is the most repeated bug in this codebase.
+4. **Shared code takes what it needs and hands back an answer.** No globals, no
+   assumptions about the caller's page. `Kit.vote` is the model: you pass it replies, it
+   hands back counts, the transport stays the caller's. That is what lets one piece of
+   code run in a game, on the bench and on a playground page.
+5. **Two callers prove a shared tool**, and the first is rewired in the same change. One
+   caller is a guess about an API. Extract what is already duplicated, never what might
+   be.
 6. **The dependency arrow points one way:** `playground/` → `game-hub/`, never back.
 
-**Building**
-7. **Solve once, use anywhere.** Ask the shelves before writing anything shared. The
-   expensive mistake here is never a hard bug — it is a second copy of something that
-   already exists, and the reason it happens is that nobody looked.
-8. **A second caller is what proves a shelf**, and the first caller is rewired in the
-   same change. One caller is a guess about an API. Extract what is already duplicated,
-   never what might be.
-9. **Every hook is optional and defaults to a no-op.** A thing runs the moment it is
-   registered and grows by filling hooks in, so a checklist cannot be half-finished.
-10. **Every feature gets a switch**, registered once; the settings panel builds its own
-    row. There is no panel markup to edit.
-11. **Anything that changes size around a board owes it a re-fit.**
+**The round is the thing that travels.** A question dynamic works in any game show
+because it knows nothing about scoring, turns or tiles — that is the modularity actually
+paying out, and the direction to keep pushing. A *skin* is a game show itself, so a game
+does not get a skin; it is one.
 
-**Checking**
-12. **A check that cannot fail on the bug it was written for is not a check.** Prove it
-    by reverting the fix and watching it go red.
-13. **Measure the elements, never their container** — a collapsed box reports no
-    collision while its contents overflow past it. And **screenshot it, don't only
-    measure it**: numbers answer the question you asked, not the one you should have.
-14. **A reminder that fires every time is one you stop reading.** Every hook here speaks
-    only in the case it was written for, and none of them blocks.
+### The room — not philosophy, the shape of the place
+Four facts about a classroom that outrank anything above when they conflict.
 
-**The classroom**
-15. **The teacher decides and the teacher clicks.** Students never touch the device;
-    phones are advisory input, and votes land on the board as counts.
-16. **Degradation is non-negotiable.** No relay must leave every page fully playable
-    teacher-only. Absent feature, not broken app.
-17. **The board never scrolls and never runs off the screen** — nobody can scroll a
-    projected image mid-game. A handset in the hand is the deliberate exception.
-18. **Setup stays under 30 seconds.** Anything new that adds a screen before a game
-    starts must remove one somewhere else.
+- **The board never scrolls and never runs off the screen.** Nobody can scroll a
+  projected image mid-game. A handset in the hand is the deliberate exception.
+- **Degradation is non-negotiable.** No relay must leave every page fully playable
+  teacher-only. Absent feature, not broken app.
+- **The teacher decides and the teacher clicks.** Students never touch the device; phones
+  are advisory input, and votes land on the board as counts.
+- **Setup stays under 30 seconds.** Anything new that adds a screen before a game starts
+  must remove one somewhere else.
 
 ## The map — where everything is
 **Three generations coexist**, and `index.html` links all three.
@@ -475,8 +462,8 @@ same two-stage isolation the question forms have. **The round tier is the one a 
 ideas travel on**, which is why nothing in a round may know about scoring, turns or
 tiles.
 
-**`bench-kit.js` is the middle shelf**, governed by axiom 8: extract what is already
-duplicated, not what might be. A playground's value is that pages are allowed to be
+**`bench-kit.js` is the middle shelf**, governed by the two-callers rule: extract what is
+already duplicated, not what might be. A playground's value is that pages are allowed to be
 weird, and abstracting a sandbox too early kills the thing it is for. Ask
 `node tools/shelf.js` for its contents. Two things the second game taught: **a shared
 component must not know about one game's modes** (the team bar takes `showTurn(false)`
@@ -513,8 +500,8 @@ why the bench needs to know nothing about the game. Five rules it is built on:
   phone connected to a room nobody is hosting.
 
 ## The harness — what watches the project
-**Six hooks in `.claude/settings.json`, and none of them blocks** (axiom 14). Each speaks
-only in the case it was written for: `shelf.js` before an edit to shared code;
+**Six hooks in `.claude/settings.json`, and none of them blocks** — a reminder that fires
+every time is one you stop reading. Each speaks only in the case it was written for: `shelf.js` before an edit to shared code;
 `memory-check.js` before a commit, only when this file is not in it; `suite-check.js`
 before a smoke run, only when the run is long; `where-are-we.js` at session start;
 `which-skill.js` before an edit — through the edit tools **or through Bash**, since most
