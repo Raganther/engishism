@@ -15,13 +15,27 @@ ephemeral), so **anything worth keeping must be committed and pushed.** Continui
 end of a work session, update the **Current status** / **Next** sections below and
 commit. No roadmap file, no domain-file discipline required.
 
-**Three hooks, and each exists because a thing that is nobody's job does not
+**Where is the work, actually — ask GitHub, never the local ref.** The workspace is
+re-cloned every session and a clone is a *photograph*: `origin/main` in it is
+whatever the remote said when the snapshot was taken, and it never updates on its
+own. A session opened from a stale snapshot read its own `origin/main`, found an old
+commit, and reported a whole day of shipped work as missing and a fixed-and-deployed
+bug as still live. Nothing was wrong with the repository — it was describing a
+photograph as the view out of the window, confidently, about the one thing a teacher
+acts on. **`tools/where-are-we.js` runs at session start and settles it**, and the
+rule behind it is worth keeping even when the hook is not there: to say what is
+deployed, `git ls-remote origin refs/heads/main` or a fresh `git fetch`. `git log
+origin/main` on a fresh clone answers a question about yesterday.
+
+**Four hooks, and each exists because a thing that is nobody's job does not
 happen.** `tools/shelf.js` fires before any edit to shared code and says what is
 already on the shelf *and what has been written three times*; `tools/memory-check.js`
 fires before a `git commit` and, **only when this file is not in it**, names what is
 being committed and asks whether it is a memory event; `tools/suite-check.js` fires
 before a smoke run and, **only when that run is long**, says how many minutes it will
-cost and what would justify it. None of them blocks. The silence is the design: a
+cost and what would justify it; `tools/where-are-we.js` runs at session start and
+says where `origin/main` really is, asked of GitHub rather than of the clone. None of
+them blocks. The silence is the design: a
 reminder that fires every time is one you stop reading, so each can speak only in the
 case it was written for.
 
