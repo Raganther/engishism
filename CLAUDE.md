@@ -1057,7 +1057,7 @@ a whole session was spent tuning rounds and deploying without opening `tune-roun
 or `ship-it`, and `ship-it` opens by saying the default is no test suite — which is
 exactly the rule that session spent two and a half hours breaking.
 
-`.claude/skills/` holds nine invocable checklists. This file is the project's
+`.claude/skills/` holds ten invocable checklists. This file is the project's
 *memory*; those are its *procedures*, pulled up at the moment they are needed rather
 than remembered from 2,500 lines. **Which one you want follows the tiers**: a skin is
 `new-game`, a question that is played is `new-round`, a way of drawing a prompt is
@@ -1066,8 +1066,9 @@ is `shared-surface` — and **writing questions in the shapes that already exist
 `author-content`**, which is the one that gets used most, because the machinery is
 finished and the content is the bottleneck.
 
-**Six of the nine are "make a new thing"; `tune-round` and `shared-surface` are for
-changing things that already exist**, which is what most sessions actually do. Every
+**Six of the ten are "make a new thing"; `tune-round`, `shared-surface` and `harness`
+are for changing things that already exist**, which is what most sessions actually do.
+Every
 parameter added to a round so far — `crowdReveal`, `crowdMeter`, `roundOpenToAll`, the
 roster fork — is the same three-step move (register → lend on `ctx` → read in the
 round), and it had no written home until that skill existed.
@@ -1120,6 +1121,15 @@ reveal bar counts). It is off `ship-it`'s `covers:` now, which stays the shells.
   host's background, one home per layout fact), the four ways a CSS rule silently loses,
   and the fact that **this is the one tier where the blast radius earns a suite** — and
   still not the full one.
+- **`harness`** — what watches the project rather than being part of it: the smoke
+  suite, `check-syntax`, the hooks, the derived inventory tools. Opens by saying the
+  two things here fail in opposite directions — **a check lies** when it goes stale and
+  describes a picture that was deliberately replaced, **a hook goes unread** when it
+  fires on everything. Then: prove a check by reverting it, the six suites that went
+  stale on a content conversion and why the Lab board is their home, the thirty-second
+  abort that takes a whole suite, polling instead of guessing a number, `git worktree`
+  for proving a red is somebody else's, and the four traps a hook has paid for — match
+  anywhere, a mention is not an invocation, derive never list, prove by sentinel.
 - **`ship-it`** — the deploy seam. **Opens by saying the default is *no* test suite**,
   because the user is watching the real site and their eyes beat four minutes of robot;
   it names the three cases that stop and ask instead. Then the stamp (and why the date
@@ -1330,6 +1340,42 @@ playground's point, that one board can host several:
   activity schemas). Reference only; not required reading.
 
 ## Current status
+- **`harness` is the tenth skill, and it came out of measuring the other nine rather
+  than guessing.** The audit: every commit of the last six days, its real file list
+  matched against each skill's own `covers:` — derived, never read off the commit
+  subjects, which are prose and would have been marking my own homework.
+  - **75 commits, 18 of them memory or docs or stamp-only, 57 doing real code work.**
+    Of those 57: **37 fully covered** (every file touched has a skill), 12 partly, and
+    **8 with nothing covering any file.**
+  - **All eight uncovered commits are harness, not product.** Four hook commits, three
+    fixing suite checks, one adding the payload-parity check. **Every commit that
+    changed the app itself had a skill** — which is the useful half of the answer.
+  - **The busiest by a distance is `shared-surface`, at 39 of 57**, more than double the
+    next (`tune-round` 18, `new-round` 15, `ship-it` 10, `phone-debug` 7). Thirty-eight
+    of those thirty-nine happened with no written procedure at all.
+  - **`tools/smoke-test.js` was the largest hole at 11 commits**, and not a trivial one:
+    those eleven were stale checks going red on behaviour that had been deliberately
+    changed, a check that passed on the broken build and shipped, and two aborts that
+    swallowed sixty checks each. All of that lore was already in this file and none of
+    it was in a skill. One skill for the suite *and* the hooks rather than three small
+    ones — they are the same tier and they share the same two failure modes.
+  - **The stamp sweep nearly ruined the measurement, which is worth knowing before
+    anybody re-runs it.** Counting raw file lists put the five `playground/` pages in 39
+    commits each and made `ship-it` look like it applied to 49 of 75 — because the stamp
+    bump rewrites every stamped page in the repo. Discounting a file whose only added
+    lines carry `?v=20YYMMDD` dropped `ship-it` to its true 10. **A file being in a
+    commit is not the same as work having been done to it.**
+  - **Two hook false positives fixed on the way, both the same defect: a mention is not
+    an invocation.** `git commit -F -` tripped `which-skill`, because a commit message
+    carries both a `>` and the path of whatever was just changed. `git log --
+    tools/smoke-test.js` tripped `suite-check` into announcing an hour of testing
+    nobody had asked for. Guarded, and both proved silent-then-firing.
+  - **Two skills fired for almost nothing in six days**: `new-question-form` zero times
+    and `author-content` once. That is six days of pure engine work, which is the
+    opposite of this file's own claim that content is the bottleneck.
+  - Still uncovered, deliberately: `playground/question-bench.html` and
+    `phone-bench.html` (3 real edits — `tune-round` claims `bench-kit.js` but not the
+    pages) and `tools/buzzer-relay.js`, which is `phone-debug`'s and correctly so.
 - **`shared-surface` is the ninth skill — the hole was `hub-engine.js`, and the hook
   found it within a day of being written.** Asked which procedure covered the phone-strip
   commentator built this week, the answer came back **"no skill covers

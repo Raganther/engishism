@@ -43,9 +43,13 @@ process.stdin.on('end', () => {
   let cmd = '';
   try { cmd = (JSON.parse(buf || '{}').tool_input || {}).command || ''; } catch (e) {}
 
-  /* Only a smoke run. Matched anywhere in the command, not as a prefix, because the
-     way this project actually runs it is `NODE_PATH=$(npm root -g) node tools/…`. */
-  if (!/smoke-test\.js/.test(cmd)) return process.exit(0);
+  /* Only a smoke run, and only one actually being *run*. Matched anywhere in the
+     command rather than as a prefix, because the way this project runs it is
+     `NODE_PATH=$(npm root -g) node tools/…` — but `node` has to be in front of it,
+     or `git log -- tools/smoke-test.js` announces an hour of testing that nobody
+     asked for. A mention is not an invocation, which is the same thing
+     `which-skill.js` had to learn about commit messages. */
+  if (!/\bnode\b[^|;&]*smoke-test\.js/.test(cmd)) return process.exit(0);
   /* Testing a deployed copy is a different job and usually deliberate. */
   if (/--url=/.test(cmd)) return process.exit(0);
 
