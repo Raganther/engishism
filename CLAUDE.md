@@ -509,19 +509,25 @@ surgery here is `sed -i` and heredocs — naming the skill that covers the file 
 **no skill covers it**, which is the case to tell the user about before starting; and
 `skill-check.js` after, asking once per skill per session whether the checklist held.
 
-**Ten skills in `.claude/skills/`, and a skill declares the files it covers.** `covers:`
+**Eleven skills in `.claude/skills/`, and a skill declares the files it covers.** `covers:`
 in its own frontmatter is the territory it claims, so a skill written next month is
 picked up with nothing else edited. Which one you want follows the tiers: a skin is
 `new-game`, a question that is played is `new-round`, a way of drawing a prompt is
 `new-question-form`, a bundle of switches is `new-mode`, something every game inherits is
 `shared-surface`, changing a round that already works is `tune-round`, writing questions
-is `author-content`, the deploy seam is `ship-it`, phones are `phone-debug`, and anything
-that watches the project is `harness`.
+is `author-content`, the deploy seam is `ship-it`, phones are `phone-debug`, anything
+that watches the project is `harness`, and a skill itself is `check-a-skill`.
 - **Quote the globs.** A bare `*.html` in YAML is an alias reference, not a string.
-- **A skill cannot correct itself**, and only one thing guards it: `check-syntax` fails
-  on a skill naming a symbol that appears **nowhere** in the source, because a backticked
-  word absent from ~30k lines is a dead symbol rather than English. **It catches a
-  rename, never wrong advice** — that half is a person noticing.
+- **A skill cannot correct itself**, and only one thing guards it mechanically:
+  `check-syntax` fails on a skill naming a symbol that appears **nowhere** in the source,
+  because a backticked word absent from ~30k lines is a dead symbol rather than English.
+  **It catches a rename, never wrong advice.** The other half is replaying a real past
+  bug against the skill that covered it — `check-a-skill` is that procedure, and the
+  thing it looks for is a skill whose every word is true and which never asks a question
+  it should ask.
+- **`which-skill.js` cannot see a skill file.** It skips `.md` before matching, so
+  `check-a-skill` never announces itself the way the other ten do; it is reached by
+  asking for it. Deliberate for now — every other `.md` in the project is notes.
 
 **`check-syntax` is the one that always runs**, two seconds, every change, no exceptions:
 ```bash
