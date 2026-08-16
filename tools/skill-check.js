@@ -28,8 +28,9 @@
    nobody reads it — the same failure as a reminder that fires every time, and it would
    *cause* the rot it is meant to prevent. Most of what gets learned in this project is
    a fact about its **state** ("Blockbusters hosts rounds now") rather than a
-   **procedure**, and state belongs in CLAUDE.md. So the note routes three ways, and
-   "change nothing" is the expected answer.
+   **procedure**, and state belongs in CLAUDE.md — while the *story* of how it got
+   there belongs in docs/log.md, which no session loads. So the note routes four ways,
+   and "change nothing" is the expected answer.
 
    **It also runs `check-syntax`**, because "the check that always runs" was a
    convention and conventions lose. Two seconds, and it is the only mechanical guard a
@@ -153,7 +154,8 @@ process.stdin.on('end', () => {
       '  · It would have caught this, or there was no bug — **change nothing.** Usual case.',
       '  · It would NOT have caught it and the lesson is *general* — the skill gains a rule.',
       '  · It would NOT have caught it and what you learned is a fact about this project',
-      '    rather than a procedure — that is **CLAUDE.md**, not the skill.',
+      '    rather than a procedure — **CLAUDE.md** if it is the state as it now stands,',
+      '    **docs/log.md** if it is the story of what happened. Never the skill.',
       '',
       'And the fourth, rarest and worth stopping for: **the skill told you to do the thing',
       'that caused the bug.** Wrong advice is confidently wrong and nothing else can find',

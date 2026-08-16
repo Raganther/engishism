@@ -229,8 +229,12 @@ sed -i "s/?v=20[0-9]\{6\}[a-z]*/?v=$(date +%Y%m%d)a/g" $(grep -rl '?v=20[0-9]\{6
 cached JS and CSS. The settings panel footer shows the build, so ⚙ tells you which
 version is actually running. Push to `main`; Render and GitHub Pages follow in ~40s.
 
-Then update the **Current status** section of `CLAUDE.md`. That file is the project's
-memory and the workspace is rebuilt every session; anything not committed is lost.
+Then write it down; the workspace is rebuilt every session, so anything not committed is
+lost. **Two places, and the split matters** — `CLAUDE.md` is the memory and holds only
+what is true now (a line in **Current status**, and the game named wherever the file
+lists what exists), while the story of building it — what broke, the evidence, the suite
+counts — goes in `docs/log.md`, which no session loads. Current status is capped; a long
+entry there is a log entry in the wrong file.
 
 ## The five-minute review
 
