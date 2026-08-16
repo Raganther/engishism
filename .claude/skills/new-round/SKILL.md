@@ -108,6 +108,20 @@ name, the agree chip and the count; your `lane(t)` returns only
 your empty cell needs a different look. Four rounds hand-wrote this before it was
 a shelf and every rule change was a four-file edit — do not start a fifth copy.
 
+**"Present from the moment the round opens" is the card's rule, not the lane's.**
+Everything that fills in while the round runs is drawn on the first frame, empty —
+never appended at the moment it first has something to show. An element that arrives
+late changes the card's height under it, and the board does not scroll, so on a 720
+board the bottom goes off the screen. Hide a spent row with `visibility`, which keeps
+its space; a missing element does not, and neither does `display:none`. This has been
+paid for four separate times in `ordering.js` alone — the say line, the pool's number
+gutter, the reference ladder, the crowd bar — each fixed on its own, each with the
+reason written in a comment beside it, because the rule was recorded as a property of
+`Kit.round.lanes()` rather than of the card. **The one that is easy to miss is a shelf
+helper appending nothing on your behalf**, since your own render then looks compliant
+and the round still jumps. Measure the card's height at open and again after the first
+reply; if the two differ, something is arriving late.
+
 Two companions:
 - `Kit.round.mustHold(mode, ctx, t)` — how many members must hold a thing for it
   to light: any member in a race, the whole team in agree, and a missing roster
