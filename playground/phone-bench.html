@@ -146,8 +146,28 @@
      pattern), so there is exactly one row builder in the app. What has to live
      here is only their styling, because this page loads none of the hub's CSS
      (hub.css restyles the whole page body, which the bench cannot swallow). */
-  #tune-pane{ flex:0 0 320px; position:sticky; top:10px;
-              max-height:calc(100vh - 20px); overflow-y:auto; padding-right:4px; }
+  /* A band under the stage rather than a column beside it, so the rows lay out in
+     as many columns as the width allows instead of one. `auto-fill` and not a
+     count: the bench is opened at every width from a laptop to a second monitor,
+     and a fixed column count is a number that is wrong at one of them. */
+  #tune-pane{ margin-top:16px; border-top:1px solid var(--border); padding-top:12px; }
+  /* Marked with a class rather than matched by position: the open question's rows
+     sit one box deeper than the rest, so `#tune-body > div` styled the list and
+     quietly left the box it was written for in a single column. */
+  /* The columns go on the *rows*, not on the mount. `renderOnce` emits a group
+     heading and a group body as siblings, so gridding the mount put each heading
+     in a column of its own and left two of four columns holding one word. The
+     heading stays a full-width block and its rows below it flow into as many
+     columns as fit. */
+  #tune-pane .tune-grid .settings-groupbody{
+    display:grid; gap:10px 18px; align-items:start;
+    grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); }
+  /* The open question's own rules, lifted out of the list and marked, because the
+     reason to look at this pane mid-round is the question on screen. */
+  #tune-pane .tune-round-now{ border:1px solid var(--accent); border-radius:10px;
+                              padding:10px 12px 12px; margin:0 0 14px;
+                              background:color-mix(in srgb, var(--accent) 7%, transparent); }
+  #tune-pane .tune-round-now .tune-section{ margin-top:0; color:var(--accent); }
   #bar-tune.on{ background:var(--text); color:var(--bg); border-color:var(--text); }
   #tune-tabs{ display:flex; gap:4px; flex-wrap:wrap; margin:0 0 8px; }
   #tune-tabs button{
@@ -250,20 +270,25 @@
     <div id="stage-pane">
       <p class="pane-label">The projector</p>
       <div id="stage-box"><div id="stage-empty">Pick a board and press <b>&nbsp;Open board</b>&nbsp; — its room code arrives here by itself.</div></div>
+      <!-- Under the board, not beside it. A projector is 16:9 and the page is not,
+           so the room below the stage is the widest empty space on this bench, and
+           a rules board 320px wide in a column was showing four rows where the same
+           height under the stage shows twelve. It also puts the control and the
+           thing it changes in one eyeline, which is the whole point of a bench. -->
+      <div id="tune-pane" style="display:none;">
+        <p class="pane-label">The rules — what you set here is what a real lesson gets</p>
+        <div id="tune-tabs"></div>
+        <div id="tune-body"></div>
+        <button id="tune-all" style="display:none;">All settings — the full panel, on the board…</button>
+      </div>
     </div>
     <div id="rack-pane">
       <p class="pane-label">The room's phones</p>
       <div id="rack"></div>
     </div>
-    <div id="tune-pane" style="display:none;">
-      <p class="pane-label">The rules — what you set here is what a real lesson gets</p>
-      <div id="tune-tabs"></div>
-      <div id="tune-body"></div>
-      <button id="tune-all" style="display:none;">All settings — the full panel, on the board…</button>
-    </div>
   </div>
 
-<script src="bench-kit.js?v=20260815a"></script>
+<script src="bench-kit.js?v=20260816a"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -352,6 +377,23 @@ function pollBoard(){
     const g = w && w.HubGames;
     const live = g && g.active ? g.active() : null;
     if(live !== tuneLive || (w && w !== tuneWired)){ tuneLive = live; tunePick = null; renderTune(); }
+    /* A round card opening is the moment this pane is worth looking at, so it
+       opens itself then — the board already knows which round is up, and says so
+       through `roundNow()` rather than the bench guessing from the DOM.
+
+       **Opening is automatic; closing is not.** A pane that shut itself when the
+       card went down would take the rules away at the exact moment you turn to
+       them to decide what to change before the next question. And a teacher who
+       pressed Tune to close it keeps it closed — the auto-open respects a
+       deliberate close for as long as that round is up, or it becomes a pane that
+       will not stay shut. */
+    const now = (w && w.HubSettings && w.HubSettings.roundNow) ? w.HubSettings.roundNow() : null;
+    if(now !== tuneRound){
+      const opened = now && !tuneRound;
+      tuneRound = now;
+      if(opened && !tuneWanted()) setTuneWanted(true);
+      renderTune();
+    }
   }catch(e){}
 }
 setInterval(pollBoard, 1000);
@@ -587,6 +629,7 @@ let tunePick = null;      // a tab picked by hand; null = follow the board
 let tuneLive = null;      // the game the board was last seen playing
 let tuneWired = null;     // the contentWindow whose onChange this pane follows
 let tuneTimer = null;
+let tuneRound = null;     // the round the board has open, or null between questions
 
 function boardWin(){
   const f = $('stage-frame');
@@ -636,22 +679,44 @@ function renderTune(){
     tabs.appendChild(b);
   });
   body.innerHTML = '';
-  const section = (label, ids, optional)=>{
+  const section = (label, ids, optional, into)=>{
     if(!ids || !ids.length) return;
+    const host = into || body;
     const h = document.createElement('p'); h.className = 'tune-section'; h.textContent = label;
-    const m = document.createElement('div');
-    body.appendChild(h); body.appendChild(m);
+    const m = document.createElement('div'); m.className = 'tune-grid';
+    host.appendChild(h); host.appendChild(m);
     try{ S.renderOnce(m, game, { only: ids }); }catch(e){}
     // an optional section with no real rows says nothing, rather than "nothing to tune"
     if(optional && !m.querySelector('.settings-row')){ h.remove(); m.remove(); }
   };
+
+  /* The open question first, in its own box. The same rows as below — this is a
+     shortcut to them, never a second copy — but a teacher watching a card decide
+     something wants the round's own mode and the quick rules together and at the
+     top, not found by eye in a list of thirty. The board is the authority on what
+     is open, and a setting that forks by round says so on its own row, so nothing
+     here has to explain which scope a change lands in. */
+  const openId = S.roundNow ? S.roundNow() : null;
+  if(openId){
+    const def = (K.round.get ? K.round.get(openId) : null) || {};
+    const box = document.createElement('div');
+    box.className = 'tune-round-now';
+    body.appendChild(box);
+    const modeId = (def.modes || []).length ? ['round_' + openId] : [];
+    section('On the card now · ' + (def.label || openId),
+            modeId.concat(S.quickIds(game).filter(id => id !== 'roundTune')), false, box);
+  }
   /* Every round that has more than one way to be played, by declaration — the
      same derivation the settings loop makes, so a ninth round lands here free. */
   const roundIds = K.round.ids()
     .filter(id => ((K.round.get(id) || {}).modes || []).length)
+    .filter(id => id !== openId)          // the open round's mode is in the box above
     .map(id => 'round_' + id);
   section('How each round is played', roundIds);
-  section('Quick rules', S.quickIds(game).filter(id => id !== 'roundTune'));
+  /* With a question open the box above is already these rows, and a pane that
+     printed every quick rule twice was the thing this pane exists to fix — a
+     wall to hunt through — arriving as the fix for it. */
+  if(!openId) section('Quick rules', S.quickIds(game).filter(id => id !== 'roundTune'));
   /* The one preset picker so far. The registry does not say which defs carry
      presets, so this is a named guest — optional, so games without it show
      nothing rather than an empty heading. */
