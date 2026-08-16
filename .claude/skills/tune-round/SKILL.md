@@ -1,6 +1,12 @@
 ---
 name: tune-round
 description: Change how an existing round or game plays — add a parameter, a threshold, a cooldown, a switch, or make something behave differently for teams than for a room of individuals. Use this whenever the user wants to tune, adjust, tweak or experiment with a round that already exists (Connections, Word Thermometer, Multiple Choice, the drag rounds, Bingo), wants a new option in the settings panel, mentions individual vs team defaults, or asks to try a variation without building a new round. Also use it when extracting something two rounds now share onto the shelf.
+covers:
+  - "game-hub/rounds/*.js"
+  - "game-hub/hub-rounds.js"
+  - "game-hub/hub-settings.js"
+  - "game-hub/hub-kit.js"
+  - "playground/bench-kit.js"
 ---
 
 # Tuning a round that already exists

@@ -27,15 +27,17 @@ rule behind it is worth keeping even when the hook is not there: to say what is
 deployed, `git ls-remote origin refs/heads/main` or a fresh `git fetch`. `git log
 origin/main` on a fresh clone answers a question about yesterday.
 
-**Four hooks, and each exists because a thing that is nobody's job does not
+**Five hooks, and each exists because a thing that is nobody's job does not
 happen.** `tools/shelf.js` fires before any edit to shared code and says what is
 already on the shelf *and what has been written three times*; `tools/memory-check.js`
 fires before a `git commit` and, **only when this file is not in it**, names what is
 being committed and asks whether it is a memory event; `tools/suite-check.js` fires
 before a smoke run and, **only when that run is long**, says how many minutes it will
 cost and what would justify it; `tools/where-are-we.js` runs at session start and
-says where `origin/main` really is, asked of GitHub rather than of the clone. None of
-them blocks. The silence is the design: a
+says where `origin/main` really is, asked of GitHub rather than of the clone; and
+`tools/which-skill.js` fires before an edit and names the skill that covers that
+file — or says **no skill covers it**, which is the case to tell the user about
+before starting. None of them blocks. The silence is the design: a
 reminder that fires every time is one you stop reading, so each can speak only in the
 case it was written for.
 
@@ -1028,6 +1030,28 @@ what a teacher set deliberately**, so it must be translated rather than silently
   value, so a later choice can't be overwritten.
 
 ## Skills — the procedures, separated from the history
+**A skill declares the files it covers, and a hook names it before you edit them.**
+`covers:` in each skill's own frontmatter is the territory it claims, so a skill
+written next month is picked up with nothing else edited — the same move
+`question-types.js` makes for rounds. `tools/which-skill.js` reads those
+declarations before any Write or Edit and says which procedure applies, once per
+skill per session; when **nothing** covers the file it says so instead, once per
+file, because a change with no written procedure is one the user asked to hear
+about before it starts. `check-syntax` asserts every literal path in a `covers:`
+list still exists — a renamed file would otherwise leave a skill silently covering
+nothing, and silence there is indistinguishable from "no procedure needed".
+
+**Quote the globs.** A bare `*.html` in YAML is an *alias reference*, not a string:
+it broke `ship-it`'s frontmatter the moment it was written, the description vanished
+and the loader fell back to the file's first heading.
+
+**They are named, not enforced — and that is deliberate.** The hook puts the right
+checklist in front of you; it does not refuse the edit. Every hook here informs
+rather than blocks, and this one is no different. What it removes is the excuse:
+a whole session was spent tuning rounds and deploying without opening `tune-round`
+or `ship-it`, and `ship-it` opens by saying the default is no test suite — which is
+exactly the rule that session spent two and a half hours breaking.
+
 `.claude/skills/` holds eight invocable checklists. This file is the project's
 *memory*; those are its *procedures*, pulled up at the moment they are needed rather
 than remembered from 2,500 lines. **Which one you want follows the tiers**: a skin is

@@ -1,6 +1,8 @@
 ---
 name: author-content
 description: Write questions for the Engishism Game Hub — a new unit from coursebook pages, or more questions for a unit that already exists. Use this whenever the user supplies book pages, scans or photos and asks for content, wants a new unit added, wants more questions in a game, or asks for questions of a particular type. Also use it when checking content somebody else authored before it reaches a class.
+covers:
+  - "game-hub/content/*.js"
 ---
 
 # Authoring content

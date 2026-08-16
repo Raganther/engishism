@@ -1,6 +1,9 @@
 ---
 name: new-game
 description: Build a new game for the Engishism Classroom Game Hub, or wire an existing one into the shared layer properly. Use this whenever the user wants to add a game, a board, or a new activity to the hub (Jeopardy/Blockbusters/Race/Millionaire/Bingo are the existing five), when they ask why a new game behaves differently from the others, or when a game is missing the join code, the settings rows, the phone dynamics or the layout guarantee. Also use it when reviewing a half-finished game before it ships.
+covers:
+  - "game-hub/games/*.js"
+  - "game-hub/hub-games.js"
 ---
 
 # Adding a game to the Game Hub

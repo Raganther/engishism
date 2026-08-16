@@ -1,6 +1,9 @@
 ---
 name: ship-it
 description: Deploy a change to the live Engishism site, or decide whether it needs testing first. Use this whenever the work is finished and about to be committed, pushed, merged or deployed, when choosing which smoke suite to run, when a fix appears not to have shipped, or when the user says a change "didn't work" on the live site or on their phone. Also use it when a test run looks green but may have been truncated.
+covers:
+  - "*.html"
+  - "game-hub/hub.css"
 ---
 
 # Shipping

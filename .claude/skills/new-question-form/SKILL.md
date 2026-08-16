@@ -1,6 +1,9 @@
 ---
 name: new-question-form
 description: Add a question form to the Engishism Game Hub — a new way a question is *asked*, like a gap fill, anagram, odd-one-out, error correction or word bridge. Use this whenever the user wants a new kind of question, a new prompt dynamic, an interactive puzzle inside a clue, or asks why a typed item renders as plain text. Also use it when trying a question idea on the question bench before it reaches the games.
+covers:
+  - "game-hub/hub-kit.js"
+  - "playground/lab-forms.js"
 ---
 
 # Adding a question form

@@ -115,6 +115,34 @@ walk('game-hub', '.css').forEach(checkCSS);
   });
 })();
 
+/* ---- a skill's `covers:` must point at files that exist ----
+   Each skill declares which files are its business, and `tools/which-skill.js`
+   reads those declarations to say whether there is a procedure for what is about to
+   change. A path that gets renamed leaves the skill silently covering nothing — the
+   hook would go quiet on exactly the files it was written for, and quiet is
+   indistinguishable from "no skill needed". Globs are skipped; a literal path is
+   checked. */
+(function checkSkillCovers(){
+  const dir = path.join(ROOT, '.claude/skills');
+  if (!fs.existsSync(dir)) return;
+  fs.readdirSync(dir).forEach(name => {
+    const f = path.join(dir, name, 'SKILL.md');
+    if (!fs.existsSync(f)) return;
+    const fm = fs.readFileSync(f, 'utf8').split(/^---$/m)[1] || '';
+    let inCovers = false;
+    fm.split('\n').forEach(line => {
+      if (/^covers:\s*$/.test(line)) { inCovers = true; return; }
+      if (!inCovers) return;
+      const m = line.match(/^\s+-\s+(.+?)\s*$/);
+      if (!m){ if (line.trim()) inCovers = false; return; }
+      const g = m[1].replace(/^["']|["']$/g, '');
+      if (g.indexOf('*') !== -1) return;                 // a glob covers whatever matches
+      if (!fs.existsSync(path.join(ROOT, g)))
+        problems.push(`.claude/skills/${name} covers ${g}, which does not exist — the skill now covers nothing there`);
+    });
+  });
+})();
+
 /* ---- the relay tells a joining phone the same things it tells an armed one ----
    **The bug class this guards has bitten three times.** What reaches a handset is
    built from a hand-typed list of keys, and it is written out *twice* — once in the

@@ -1,6 +1,10 @@
 ---
 name: phone-debug
 description: Diagnose problems with the Engishism phone layer — buzzers, the join code, students' handsets, the relay, bingo cards, class votes. Use this whenever the user reports that phones are behaving oddly: a buzzer flickering or not appearing, the join code or QR missing, students getting disconnected or thrown out, answers vanishing, a phone showing the wrong thing for the game being played, or a mode that seems to be ignored. Reach for it as soon as a report involves phones, even before reproducing.
+covers:
+  - "join.html"
+  - "game-hub/hub-buzzer.js"
+  - "tools/buzzer-relay.js"
 ---
 
 # Debugging the phone layer

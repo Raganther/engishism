@@ -1,6 +1,10 @@
 ---
 name: new-round
 description: Add a question round to the Engishism Game Hub — a question that is *played* rather than merely drawn, like Connections (find the group) or an ordering scale. Use this whenever the user wants a new question dynamic involving phones, teams assembling an answer together, or judging that happens without the teacher clicking. Also use it when carrying a playground bench game into a game show, or when a question type needs to work in more than one game.
+covers:
+  - "game-hub/rounds/*.js"
+  - "game-hub/hub-rounds.js"
+  - "game-hub/hub-rounds.css"
 ---
 
 # Adding a question round

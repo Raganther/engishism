@@ -1,6 +1,8 @@
 ---
 name: new-mode
 description: Add a game mode or ruleset to the Engishism Game Hub — a named bundle of settings like Jeopardy's "Classic" rules, a team mode, or any variation on how an existing game plays. Use this whenever the user wants a game to play a different way, mentions modes, rulesets, variations, presets, "play it like the show", or asks for a dynamic that changes scoring, turns, or what the phones do. Also use it when a new option needs to appear in the settings panel or the Lab drawer.
+covers:
+  - "game-hub/hub-settings.js"
 ---
 
 # Adding a mode
