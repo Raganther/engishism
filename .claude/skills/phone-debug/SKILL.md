@@ -156,6 +156,28 @@ own schedule — the room opens asynchronously, phones join, buzzers go live.
 **Anything that can occupy vertical space above a board owes it a re-fit**, or the
 board keeps the height it had and the bottom of it is pushed off screen.
 
+## An empty answer is a claim, not a shrug
+
+Every shape above is about finding the wrong code. This one is about **misreading the
+right code**, which is how a diagnosis gets abandoned one step from the end.
+
+When a lookup keyed by player or team finds nothing, look at what it hands back
+*instead*, because the two innocent-looking defaults mean opposite things. `null` says
+"I do not know about this one". `[]` says "this one has nothing" — a confident
+statement, and the phone will act on it. `doneFor` returns `[]` for a competitor the
+per-competitor list does not reach, so the handset is told no word has been placed,
+redraws a word the student already used as available, her tap is correctly dropped as
+stale, and Send goes dead. It presents as a broken phone, not as a missing entry, and
+nothing downstream can tell the difference — which is exactly why it survives being
+looked at.
+
+**So, both halves, and the second is the one that gets skipped:** check the bound
+against what the roster actually allows — a cap written when a competitor was a *team*
+is eight where a room of individuals needs sixty — and then check that the
+fall-through admits ignorance rather than asserting absence. A rehearsal of this
+checklist put its hands on such a cap, saw the mismatch, judged the empty default
+harmless, and went looking somewhere else.
+
 ## Reproducing
 
 Local, with a real relay, two browser contexts:

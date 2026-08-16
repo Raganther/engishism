@@ -70,6 +70,10 @@ S.register({ id:'jDeduct', group:'Jeopardy', type:'toggle', default:false,
 - `type` is `toggle`, `select` (`options:[{value,label}]`), `range`
   (`{min,max,step,unit}`, stores a **number**), `variant`
   (`variants:[{value,label,games?}]`) or `text`.
+- **A `variant`'s value is a name looked up in a registry**, and a variant may name
+  the games it suits, so the panel filters each tab. Whatever resolves it must fall
+  back rather than silently do nothing when a game is set to one it is not offered —
+  `currentFlip()` is the model.
 - `games:'*'` for anything that applies to every board — **never a literal list**
   unless the exclusion is real, and then say why in a comment. A list is a snapshot
   of the games that existed when it was written, and the next game silently misses

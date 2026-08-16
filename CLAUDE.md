@@ -43,57 +43,44 @@ photograph taken when the workspace was made. `tools/where-are-we.js` settles it
 session start.
 
 ## The axioms
-The rules that decide things. Everything below in this file is an application of one of
-them.
+**Solve it once, use it anywhere.** That is the whole philosophy; the six below are how
+it is kept, and everything else in this file is an application of one of them.
 
-**Design**
-1. **Declare, don't special-case.** A game, a round, a form, a skill announces itself to
-   a registry; nothing holds a list of them. A `if (activeGame === …)` branch, a
-   hand-typed array of ids, a checklist item that must be remembered — each is the same
-   defect, and each has cost real time here.
-2. **Tag what a human knows, derive what the data knows.** What an item is *about* is
-   authored. What *shape* it is comes from its own fields.
-3. **The swap test decides which tier owns a thing:** who would still be correct if you
-   replaced the tier below? Container, skin, round — see "The tiers".
-4. **Give a fact one home.** The bottom of the board was written down in four places
-   before it became `Kit.floorTop()`. Two copies of a fact are two facts that will
-   disagree.
-5. **Shared code takes parameters and hands back data.** No globals, no assumptions
-   about the host's DOM. `Kit.vote` is the model: you pass it replies, it hands back
-   counts, the transport stays the caller's.
+1. **Ask before you write.** The expensive mistake here is never a hard bug — it is a
+   second copy of something that already exists, and the reason it happens is that nobody
+   looked. `node tools/shelf.js` is the asking, and it runs before any edit to shared
+   code.
+2. **One fact, one home.** The bottom of the board was written down in four places before
+   it became `Kit.floorTop()`. Two copies of a fact are two facts that will disagree.
+3. **Things declare themselves.** A game, a round, a form, a skill announces itself to a
+   registry and nothing holds a list of them. A hand-typed array of ids, an
+   `if (activeGame === …)` branch, a checklist item that must be remembered — each is the
+   same defect, and it is the most repeated bug in this codebase.
+4. **Shared code takes what it needs and hands back an answer.** No globals, no
+   assumptions about the caller's page. `Kit.vote` is the model: you pass it replies, it
+   hands back counts, the transport stays the caller's. That is what lets one piece of
+   code run in a game, on the bench and on a playground page.
+5. **Two callers prove a shared tool**, and the first is rewired in the same change. One
+   caller is a guess about an API. Extract what is already duplicated, never what might
+   be.
 6. **The dependency arrow points one way:** `playground/` → `game-hub/`, never back.
 
-**Building**
-7. **Solve once, use anywhere.** Ask the shelves before writing anything shared. The
-   expensive mistake here is never a hard bug — it is a second copy of something that
-   already exists, and the reason it happens is that nobody looked.
-8. **A second caller is what proves a shelf**, and the first caller is rewired in the
-   same change. One caller is a guess about an API. Extract what is already duplicated,
-   never what might be.
-9. **Every hook is optional and defaults to a no-op.** A thing runs the moment it is
-   registered and grows by filling hooks in, so a checklist cannot be half-finished.
-10. **Every feature gets a switch**, registered once; the settings panel builds its own
-    row. There is no panel markup to edit.
-11. **Anything that changes size around a board owes it a re-fit.**
+**The round is the thing that travels.** A question dynamic works in any game show
+because it knows nothing about scoring, turns or tiles — that is the modularity actually
+paying out, and the direction to keep pushing. A *skin* is a game show itself, so a game
+does not get a skin; it is one.
 
-**Checking**
-12. **A check that cannot fail on the bug it was written for is not a check.** Prove it
-    by reverting the fix and watching it go red.
-13. **Measure the elements, never their container** — a collapsed box reports no
-    collision while its contents overflow past it. And **screenshot it, don't only
-    measure it**: numbers answer the question you asked, not the one you should have.
-14. **A reminder that fires every time is one you stop reading.** Every hook here speaks
-    only in the case it was written for, and none of them blocks.
+### The room — not philosophy, the shape of the place
+Four facts about a classroom that outrank anything above when they conflict.
 
-**The classroom**
-15. **The teacher decides and the teacher clicks.** Students never touch the device;
-    phones are advisory input, and votes land on the board as counts.
-16. **Degradation is non-negotiable.** No relay must leave every page fully playable
-    teacher-only. Absent feature, not broken app.
-17. **The board never scrolls and never runs off the screen** — nobody can scroll a
-    projected image mid-game. A handset in the hand is the deliberate exception.
-18. **Setup stays under 30 seconds.** Anything new that adds a screen before a game
-    starts must remove one somewhere else.
+- **The board never scrolls and never runs off the screen.** Nobody can scroll a
+  projected image mid-game. A handset in the hand is the deliberate exception.
+- **Degradation is non-negotiable.** No relay must leave every page fully playable
+  teacher-only. Absent feature, not broken app.
+- **The teacher decides and the teacher clicks.** Students never touch the device; phones
+  are advisory input, and votes land on the board as counts.
+- **Setup stays under 30 seconds.** Anything new that adds a screen before a game starts
+  must remove one somewhere else.
 
 ## The map — where everything is
 **Three generations coexist**, and `index.html` links all three.
@@ -219,202 +206,110 @@ games × units with `hasBank()` at each intersection, so a unit offering only tw
 a supported state rather than a gap.
 
 ## The registries — how the project grows
-Six registries. Adding to one is how the project grows without anything being edited to
-know about it.
+Six registries: **games** (`hub-games.js`), **rounds** (`hub-rounds.js`), **question
+forms** (`Kit.prompt`), **settings** (`hub-settings.js`), **variants** (`Kit.anim` and
+its kin), and **skills** (`.claude/skills/`). Adding to one is how the project grows
+without anything being edited to know about it.
 
-### A game — `registerGame`
-```js
-registerGame({
-  id:'bullseye', title:'Bullseye',
-  card:  { icon:'<svg…>', blurb:'…', badge:'Best for: …' },
-  intro: { eyebrow:'…', title:'BULLSEYE', sub:'…', accent:'#39E27A' },
-  hasBank: u => (u.bullseyeBank||[]).length > 0,
-  load(u){…}, renderContent(list, help){…}, startButton(btn){…},
-  start(){…}, fit(){…}, deal(){…}, tension(){…}, onResize(){…}, onTimerEnd(){…}
-});
-```
-Every hook is optional and defaults to a no-op, and hooks only fire while their game is
-active, so none of them checks `activeGame`.
+**The declaration forms are not here.** What fields `registerGame`, `Kit.round.register`,
+`Kit.prompt.register` and `S.register` take is in the skill that covers adding one —
+`new-game`, `new-round`, `new-question-form`, `new-mode` — which is loaded at the moment
+you need it and holds more than a summary could. What follows is what is true about the
+registries whether or not you are adding to one, and the traps that bite from outside.
 
-**A new game's home is its own file, `game-hub/games/<id>.js`.** `quickfire.js` is the
-model and `bingo.js` the second: the file registers into `window.HubGames.register(…)`,
-declares its stage markup as `stageHTML` and its `ROUND_HOSTS` entry as `roundHost` (the
-engine injects and merges both), reaches engine machinery through `window.HubEnv`
-**inside hooks only**, wires its DOM listeners on first `load()`, and declares `order`.
-Its `<script>` goes in the shells between `game-hub/hub-games.js` and `hub-engine.js`.
+### What every registry guarantees
+- **Every hook is optional and defaults to a no-op**, and hooks only fire while their
+  owner is active — which is why no hook checks `activeGame`.
+- **Declaring is the whole wiring.** A game that registers gets the skin, team bar,
+  scoring, timer, clue card, `showResult()`, every `Sound.*`, every `Kit.*`, the content
+  gate and the phone strip for free. It declares `card`, `intro`, `hasBank`, `fitsScreen`,
+  `order` and its phone hooks. Genuinely its own are board logic, stage CSS, its
+  `tension()` source and its bank shape.
+- **A game's home is its own file**, `game-hub/games/<id>.js`; `quickfire.js` is the model
+  and `bingo.js` the second. The four games still declared inside `hub-engine.js` keep
+  their registrations in the cluster at the top of that file — placed after
+  `renderGameCards()` a game is in `HubGames.ids()`, passes `hasBank`, and has no card,
+  with nothing erroring.
+- **Draw a question with `drawPrompt(mount, item, '<gameid>')`**, never `textContent` —
+  that is what gets a game gap fills, anagrams, odd-one-out and error correction. A game
+  writing its own prompt gets none of them.
 
-**That load order is what retires the register-before-init trap** — the registry
-publishes, game files register, the engine loads last and consumes everything. The trap
-is still live for the four games declared *inside* `hub-engine.js`: a `registerGame` call
-placed after `renderGameCards()` leaves a game that is in `HubGames.ids()`, passes
-`hasBank`, and has no card, with nothing erroring. Those registrations stay in the
-cluster at the top of the file, above the settings block.
+### Phones reach a board through hooks, never by name
+Declare them and a game inherits buzzing, everyone-types, type-then-buzz, the class vote
+and the activity strip; leave them out and its phones are idle, which is a correct state
+rather than a broken one. **`hub-games.js` declares every default in one block, and that
+block is the contract** — do not trust a count written anywhere, because the set grows.
+`HubGames.hooksOf(id)` says what a given game actually answers.
 
-| Free, no code | One declaration | Genuinely per-game |
-|---|---|---|
-| skin, team bar, scoring, timer, clue card + flip variants, `showResult()`, every `Sound.*`, every `Kit.*`, the content gate, the phone strip, the layout contract | `card`, `intro`, `hasBank`, `fitsScreen`, `order`, the settings `games` arrays via `gameIds()`, the phone hooks | board logic, stage CSS, `tension()` source, bank shape |
+Two hazards live out here, not in the adding:
+- **Refusing a buzz is not ignoring one.** The relay locks the room on the *first* buzz
+  whoever sent it, so an unentitled phone would hold the lock and the entitled team could
+  never get in. `buzzEntitled` returning false makes the engine re-arm, which clears it —
+  and **what it re-arms is `phoneRound()`'s answer, not a buzzer** — hard-coding
+  `armBuzzers` there would replace a game's own round with the thing it just refused.
+- **`phoneRound()` is for a game that *is* the phone dynamic.** Return a round and the
+  default round gets no say; otherwise two dynamics arm the same handset and fight, which
+  is invisible until a reconnect replaces one with the other. **What it returns past
+  `{mode, prompt, options}` is carried to the relay, not read**, so a game can use a shape
+  the engine has never heard of. It was a whitelist until a multi-pick silently became a
+  plain vote.
 
-**Draw the question with `drawPrompt(mount, item, '<gameid>')`**, never `textContent` —
-that is what gets a game gap fills, anagrams, odd-one-out and error correction. A game
-writing its own prompt gets none of them.
-
-### A game's phones — the hook contract
-Phones reach a board through hooks, never through the engine knowing the game's name.
-Declare them and the game inherits buzzing, everyone-types, type-then-buzz, the class
-vote and the activity strip; leave them out and its phones are idle, which is a correct
-state rather than a broken one.
-
-**`hub-games.js` declares every default in one block, and that block is the contract** —
-do not trust a count written anywhere, including here, because the set grows. The core
-of it:
-
-```js
-expects()        // what a typed answer is judged against
-phonePrompt()    // what the handset shows
-askingNow()      // is a question open right now
-buzzEntitled(b)  // false refuses this buzz — the engine re-arms
-onBuzzTaken(b)   // somebody has the floor
-onTypedWin(b)    // typed and correct: score it, return the points (null = it didn't)
-wantsVote()      // does this game ever ask the room something
-onVoteReply(all) // where the counts get painted
-roomNote()       // what the chip says when the game wants a room without a mode
-phoneRound()     // the game drives the phones itself; null = the default round
-```
-Beside those sit the room's own beats — `onRoomReady`, `onPlayers`, `onRoster`,
-`onRoomForgot`, `onPhoneReply`, `asRound` — and the non-phone declarations that replaced
-`activeGame` branches (`bank`, `teamDecor`, `solo`). `HubGames.hooksOf(id)` says what a
-given game actually answers.
-
-**Refusing a buzz is not ignoring one.** The relay locks the room on the *first* buzz
-whoever sent it, so an unentitled phone would hold the lock and the team that is entitled
-could never get in. `buzzEntitled` returning false makes the engine re-arm, which clears
-it. **What it re-arms is `phoneRound()`'s answer, not a buzzer** — hard-coding
-`armBuzzers` there would replace a game's own round with the thing it just refused.
-
-**`phoneRound()` is for a game that *is* the phone dynamic.** Return a round and the
-default round gets no say; otherwise two dynamics arm the same handset and fight, which
-is invisible until a reconnect re-asks and replaces one with the other. **What it returns
-past `{mode, prompt, options}` is carried to the relay, not read** — `multi`,
-`multiByTeam`, `holds`, `rethink`, `team` all pass straight through, so a game can use a
-shape the engine has never heard of. It was a whitelist until a multi-pick silently
-became a plain vote.
-
-### A round — the registry in `hub-rounds.js`
-A round is four things at once, which is why it is a tier and not a helper: the card the
-projector draws, what the handsets are put into, how several students' taps become one
-team answer, and whether that answer is right.
+### A round is four things at once
+The card the projector draws, what the handsets are put into, how several students' taps
+become one team answer, and whether that answer is right. That is why it is a tier and
+not a helper.
 
 - **`ctx` is handed in and never reached for**, and read **fresh at call time**, which is
   why `read`, `judge` and `accept` all take it. Students join and drop all lesson; a size
   the round was told once is a lie by the third question. It is also why the question
   bench works: it has no team bar, passes its own `ctx`, and no round can tell.
-  **`roundCtx()` in `hub-engine.js` is the field list** — it grows every time a round is
-  tuned, so a copy of it written anywhere else is a copy that will be wrong. `ctx.keep`
-  is the per-player store that outlives one question.
-- **A round declares what it wants beside the commit button** — `actions(state, ctx)` and
-  `press(id, state, ctx)`. It never restates the commit button, because **the commit
-  button commits *scores*, so it can only ever be the host's**: it pays a tile, a
-  hexagon, a rung. A round owns anything that changes its own question.
-- **The hint button is built by the strip, not by each round.** A round says `hint()` and
-  `hintsLeft()`; `Kit.round.actions` makes the button and enforces the rules for all of
-  them — never the last part (that is Reveal), `null` means no button rather than a
-  disabled one, and a hint may not score.
-- **`hideAllActionButtons()` asks the strip** rather than carrying a list of ids.
-- **A round declares its own modes**, and the hub builds the `round_<id>` setting from
-  them. `modeSetting` says how the row should be registered; `internal:true` keeps a
-  round out of `Kit.round.authored()` (the rounds you can write a question for) while
-  leaving it in `ids()`.
-- **The ordinary question is a round too** — `rounds/default.js`, whose four modes are
-  the handset behaviours, registered as `round_default`. It deliberately declares no
-  `field` and no `claims`, so `Kit.round.of(item)` returns null for a gap fill: the
-  content-screen chip, the clue path and the content gate all read `of()`, and a default
-  round that claimed every item would push every gap fill through a `render()` that does
-  not exist. **The card for an ordinary question belongs to `Kit.prompt`.** What this
-  round owns is the room.
+  **`roundCtx()` in `hub-engine.js` is the field list**, and a copy of it written anywhere
+  else is a copy that will be wrong.
+- **The ordinary question is a round too** — `rounds/default.js`, registered as
+  `round_default`. It deliberately declares no `field` and no `claims`, so
+  `Kit.round.of(item)` returns null for a gap fill: the content-screen chip, the clue path
+  and the content gate all read `of()`, and a default round that claimed every item would
+  push every gap fill through a `render()` that does not exist. **The card for an ordinary
+  question belongs to `Kit.prompt`.** What this round owns is the room.
+- **One name per round, and the id is not it.** A round has an **id**, which is code, and
+  a **label**, which is the only name a human should ever see. The label lives in the
+  round's own `register()`, and the category a board draws it in, the Lab heading, the
+  bench menu and any doc copy it exactly — it has drifted three ways at once before,
+  because a category name is a hand-typed string in a content file. Two labels are
+  deliberately unlike their ids: `anagram` and `scramble` are each *also* a question form,
+  and the bench namespaces them (`r:anagram` / `f:anagram`) after the round silently
+  shadowed the form.
 
-**One name per round, and the id is not it.** A round has an **id**, which is code, and a
-**label**, which is the only name a human should ever see. The label lives in one place —
-the round's own `register()` — and the category a board draws it in, the Lab heading, the
-bench menu and any doc copy it exactly. It has drifted three ways at once before, because
-a category name is a hand-typed string in a content file. **Name a new round by what the
-student does** (*Drag the Letters* says more to a teacher scanning a screen than
-*Anagram*), and note that two labels are deliberately unlike their ids: `anagram` and
-`scramble` are each *also* a question form, and the bench namespaces them
-(`r:anagram` / `f:anagram`) after the round silently shadowed the form.
+### A question form is how a prompt is drawn
+No phones, no judging — register one and every game can draw it. **A type names the games
+it suits**, because an anagram in Millionaire is given away by its own four options.
 
-### A question form — `Kit.prompt`
-A question's *form* — gap fill, anagram, odd one out — is how it is **drawn**, with no
-phones and no judging. Register one and every game can draw it:
-
-```js
-Kit.prompt.register('anagram', {
-  games:['jeopardy','blockbusters','race'],    // omit for "suits all"
-  render(mount, item){…}, reveal(mount, item){…}
-});
-```
-
-- **A type names the games it suits.** An anagram in Millionaire is given away by its own
-  four options; odd-one-out in Race is given away by the board. Declare it rather than
-  discover it, and the smoke test asserts both directions.
 - **Untyped items still render.** A prompt containing `___` is recognised as a gap fill
   without being labelled one; anything else falls back to plain text. That is what made
   the forms adoptable rather than a migration.
-- **Declining is the designed failure.** `reveal()` returns how long it runs, or 0 if it
-  declined — the gap form refuses answers over 26 characters, alternatives
-  (`forbidden / not permitted`) and teacher's notes, and those print on the answer line
-  instead. When the blank *did* fill, the answer line stands down rather than showing the
-  same word twice.
-- **The tell for "declined" versus "no form at all" is element children** — a declining
-  form leaves bare text, and `render()` still hands back the type because the form *ran*.
-  The question bench reports which of the three happened.
-- **Items arrive normalised as `{text, answer, type?}`**, so the kit never learns that
-  Jeopardy calls it `q` and Blockbusters calls it `clue`. Adding a form touches no game
-  and no content field — only the authoring convention for its own prompts.
-- **The separators are load-bearing**: `/` between odd-one-out candidates (optional
-  lead-in before a `:`), `*asterisks*` around words to correct, `->` between bridge links
-  with exactly one `___`.
+- **Declining is the designed failure**, so a form that refuses an item leaves bare text
+  and the answer prints on its own line instead.
 - **Two stages, and the isolation is structural.** Experimental forms live in
   `playground/lab-forms.js`, which **no game loads**. Registered in `hub-kit.js` a form is
-  live in every game the moment a bank item carries its type. **Graduating is moving the
-  block between the two files; the code does not change.** Being on a playground page
+  live in every game the moment a bank item carries its type, so **graduating is moving
+  the block between the two files; the code does not change.** Being on a playground page
   does not make a form separate — one was written straight into the kit and was therefore
   shipped, invisible only because no content used it.
 
 ### A setting — the panel builds itself
-```js
-S.register({ id:'myThing', group:'Race to the Board', type:'toggle', default:true,
-             games:['race'], label:'Human-readable name', help:'One line.' });
-if (S.get('myThing', activeGame)) { … }        // always pass the game
-```
+`S.register(...)` and the panel grows the row. Always pass the game when reading one:
+`S.get('myThing', activeGame)`.
+
 - **Naming `games` makes it per-game overridable.** The panel grows an *All games* tab
-  plus one tab per game; a game follows the master until overridden, and each row says
-  which it is doing. `S.setContext` opens ⚙ on the game being played.
-- **A game can carry its own default** (`defaults:{jeopardy:'agree'}`), which ranks below
-  a teacher's override and *above* the master — deliberately, because such a game does
-  not follow the master and pretending it did would make the All-games row a control that
-  silently does nothing. For round modes the **host** declares it, two ways, and the
-  general one is the one to reach for: **`teamMode:true`** asks for whichever mode each
-  round calls its whole-team one, so a round registered next month lands correctly with
-  no host edited; **`modeDefaults:{ordering:'race'}`** names one round for a reason
-  peculiar to it, and outranks the ask.
-- **Types.** `toggle`; `select` with `options:[{value,label}]`; `range` with
-  `{min,max,step,unit}`, which is what makes a **weight** tunable from the interface
-  rather than the source, and stores a **number** — a weight arriving as `"4"` compares
-  and concatenates wrongly everywhere; `variant`, whose value is the name to look up in a
-  registry:
-  ```js
-  Kit.anim.register('cardFlip', 'rise', { open(card, origin, ms, h){…}, close(…){…} });
-  S.register({ id:'cardFlip', type:'variant', default:'grow-turn',
-               variants:[{value:'rise', label:'Rise up — no 3D'}, …] });
-  ```
-  A variant may name the games it suits and the panel filters each tab; `currentFlip()`
-  falls back rather than silently doing nothing if a game is set to one it isn't offered.
+  plus one tab per game; a game follows the master until overridden. `S.setContext` opens
+  ⚙ on the game being played.
+- **A game can carry its own default** (`defaults:{jeopardy:'agree'}`), ranking below a
+  teacher's override and *above* the master — deliberately, because such a game does not
+  follow the master and pretending it did would make the All-games row a control that
+  silently does nothing.
 - **Storage:** `id` is the master, `id@game` an override, and `byRoster:true` keeps a
-  second value for rooms of individuals under `…!solo` — individuals follow the team-room
-  value until explicitly set apart. Every `round_<id>` row declares it. `S.onChange(fn)`
-  is for settings that should change what is already on screen. Values persist in
-  `localStorage` per device; a browser blocking storage on `file://` falls back to memory
-  and the panel says so.
+  second value for rooms of individuals under `…!solo`. Values persist in `localStorage`
+  per device; a browser blocking storage on `file://` falls back to memory and says so.
 - **Every control carries `data-setting="id"`.** The panel does not need it; anything
   looking *at* the panel does, and without it the only handle on a control is prose.
 - **The stuck default.** `register()` seeds every master value into `localStorage` the
@@ -422,30 +317,26 @@ if (S.get('myThing', activeGame)) { … }        // always pass the game
   browser that already ran the old build** — the key is present and the new default is
   ignored forever. It reads exactly like a bug in the feature. Changing a shipped default
   means migrating it, or telling the teacher to flip it once.
-- **Replacing a setting is a migration, not a deletion.** `S.raw(key)` and `S.drop(keys)`
-  exist because a per-game override is something a teacher set deliberately. Two traps:
-  **the old key still being present is the signal** that nothing has chosen yet (asking
-  whether the new id is unset never fires, because `register()` seeds every master with
-  its default), and **`drop()` is what makes it run once**. String literals that are
-  storage keys of old builds must survive any rename.
+- **Replacing a setting is a migration, not a deletion.** A per-game override is something
+  a teacher set deliberately, so `S.raw(key)` and `S.drop(keys)` exist. String literals
+  that are storage keys of old builds must survive any rename.
 - **A ruleset is a named bundle that writes the smaller switches**, never a second code
-  path and never a value that shadows them. Every row a bundle touches carries an
-  advisory note — "Classic sets this to 10s" — beside the control, which stays the truth.
+  path and never a value that shadows them. Every row a bundle touches carries an advisory
+  note — "Classic sets this to 10s" — beside the control, which stays the truth.
 
-**One gear, two forms.** ⚙ outside a game opens the full panel; **during play it opens
-the docked drawer** for that game (`L` toggles it), and a change made there is **an
-override for that game**, never the master — which is what makes trying an idea mid-round
-safe. Both are `buildRow`, so a new setting appears in both by being registered. The
-drawer owes three things, each of which was a bug first: **stop short of the header**
-(`fitLab()` measures both edges — it holds every control a teacher reaches for mid-game);
-**make the board give up the width** (`body.lab-open` insets the screen and
-`hook('onResize')` re-fits, or the drawer hides the options you are trying to watch);
-and **stack its rows** at narrow widths.
+**One gear, two forms.** ⚙ outside a game opens the full panel; **during play it opens the
+docked drawer** for that game (`L` toggles it), and a change made there is **an override
+for that game**, never the master — which is what makes trying an idea mid-round safe.
+Both are `buildRow`, so a new setting appears in both by being registered. The drawer owes
+three things, each of which was a bug first: **stop short of the header** (`fitLab()`
+measures both edges); **make the board give up the width** (`body.lab-open` insets the
+screen and `hook('onResize')` re-fits, or the drawer hides the options you are trying to
+watch); and **stack its rows** at narrow widths.
 
-**Organisation is derived, not listed.** A game's view leads with Ruleset, then the
-game's own groups, then the shared ones in a fixed order (Competition, Questions, Phones,
-Clue card, Presentation, Sound). "Own" means every setting in the group names exactly one
-game — so a sixth game's group sorts itself without being listed anywhere.
+**Organisation is derived, not listed.** A game's view leads with Ruleset, then the game's
+own groups, then the shared ones in a fixed order (Competition, Questions, Phones, Clue
+card, Presentation, Sound). "Own" means every setting in the group names exactly one game
+— so a sixth game's group sorts itself without being listed anywhere.
 
 ### The vocabulary — "mode" means three different things
 Say which one. The interface gets this right (`jRules` is registered with
@@ -571,8 +462,8 @@ same two-stage isolation the question forms have. **The round tier is the one a 
 ideas travel on**, which is why nothing in a round may know about scoring, turns or
 tiles.
 
-**`bench-kit.js` is the middle shelf**, governed by axiom 8: extract what is already
-duplicated, not what might be. A playground's value is that pages are allowed to be
+**`bench-kit.js` is the middle shelf**, governed by the two-callers rule: extract what is
+already duplicated, not what might be. A playground's value is that pages are allowed to be
 weird, and abstracting a sandbox too early kills the thing it is for. Ask
 `node tools/shelf.js` for its contents. Two things the second game taught: **a shared
 component must not know about one game's modes** (the team bar takes `showTurn(false)`
@@ -609,8 +500,8 @@ why the bench needs to know nothing about the game. Five rules it is built on:
   phone connected to a room nobody is hosting.
 
 ## The harness — what watches the project
-**Six hooks in `.claude/settings.json`, and none of them blocks** (axiom 14). Each speaks
-only in the case it was written for: `shelf.js` before an edit to shared code;
+**Six hooks in `.claude/settings.json`, and none of them blocks** — a reminder that fires
+every time is one you stop reading. Each speaks only in the case it was written for: `shelf.js` before an edit to shared code;
 `memory-check.js` before a commit, only when this file is not in it; `suite-check.js`
 before a smoke run, only when the run is long; `where-are-we.js` at session start;
 `which-skill.js` before an edit — through the edit tools **or through Bash**, since most
@@ -618,19 +509,26 @@ surgery here is `sed -i` and heredocs — naming the skill that covers the file 
 **no skill covers it**, which is the case to tell the user about before starting; and
 `skill-check.js` after, asking once per skill per session whether the checklist held.
 
-**Ten skills in `.claude/skills/`, and a skill declares the files it covers.** `covers:`
+**Eleven skills in `.claude/skills/`, and a skill declares the files it covers.** `covers:`
 in its own frontmatter is the territory it claims, so a skill written next month is
 picked up with nothing else edited. Which one you want follows the tiers: a skin is
 `new-game`, a question that is played is `new-round`, a way of drawing a prompt is
 `new-question-form`, a bundle of switches is `new-mode`, something every game inherits is
 `shared-surface`, changing a round that already works is `tune-round`, writing questions
-is `author-content`, the deploy seam is `ship-it`, phones are `phone-debug`, and anything
-that watches the project is `harness`.
+is `author-content`, the deploy seam is `ship-it`, phones are `phone-debug`, anything
+that watches the project is `harness`, and a skill itself is `check-a-skill`.
 - **Quote the globs.** A bare `*.html` in YAML is an alias reference, not a string.
-- **A skill cannot correct itself**, and only one thing guards it: `check-syntax` fails
-  on a skill naming a symbol that appears **nowhere** in the source, because a backticked
-  word absent from ~30k lines is a dead symbol rather than English. **It catches a
-  rename, never wrong advice** — that half is a person noticing.
+- **A skill cannot correct itself**, and only one thing guards it mechanically:
+  `check-syntax` fails on a skill naming a symbol that appears **nowhere** in the source,
+  because a backticked word absent from ~30k lines is a dead symbol rather than English.
+  **It catches a rename, never wrong advice.** The other half is replaying a real past
+  bug against the skill that covered it — `check-a-skill` is that procedure, and the
+  thing it looks for is a skill whose every word is true and which never asks a question
+  it should ask.
+- **A skill's own file is the one `.md` the procedure hook can see.** `which-skill.js`
+  skips markdown, because every other `.md` here is notes, specs or the classroom log
+  and warning about those is the noise that kills the signal — a skill file is the
+  single exception, derived from where the skills live rather than named.
 
 **`check-syntax` is the one that always runs**, two seconds, every change, no exceptions:
 ```bash

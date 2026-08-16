@@ -46,12 +46,21 @@ HubKit.round.register('ordering', {
   saidOf(who, r, s),              // how a wrong answer is described
   modes: [...],                   // the ways it can be played, if more than one
   teamMode: 'agree',              // which of those means "the whole team commits"
+  modeSetting: {...},             // how the hub should register your `round_<id>` row
+  internal: true,                 // keep me out of the "write a question for me" list
   settleMs: 700
 });
 ```
 
 **Everything except `setup` and `render` is optional.** A simple round draws a card
 and stops.
+
+**The hub builds your settings row from `modes`; `modeSetting` only tunes how.** You
+never call `S.register` yourself for it — declaring modes is what makes the row exist,
+and `modeSetting` says what the group, label and help should be. `internal:true` keeps
+you out of `Kit.round.authored()` — the rounds a person can write a bank item for —
+while leaving you in `ids()`, which is what a round wants when a game drives it rather
+than an authored question.
 
 **If you declare `modes`, declare `teamMode` too.** It names whichever of them means
 *the whole team has to commit* — `agree` in every round that has one. A team-based
@@ -98,6 +107,20 @@ name, the agree chip and the count; your `lane(t)` returns only
 `.rlanes` block in `hub-rounds.css`, plus a small `.rlanes-<kind>` modifier if
 your empty cell needs a different look. Four rounds hand-wrote this before it was
 a shelf and every rule change was a four-file edit — do not start a fifth copy.
+
+**"Present from the moment the round opens" is the card's rule, not the lane's.**
+Everything that fills in while the round runs is drawn on the first frame, empty —
+never appended at the moment it first has something to show. An element that arrives
+late changes the card's height under it, and the board does not scroll, so on a 720
+board the bottom goes off the screen. Hide a spent row with `visibility`, which keeps
+its space; a missing element does not, and neither does `display:none`. This has been
+paid for four separate times in `ordering.js` alone — the say line, the pool's number
+gutter, the reference ladder, the crowd bar — each fixed on its own, each with the
+reason written in a comment beside it, because the rule was recorded as a property of
+`Kit.round.lanes()` rather than of the card. **The one that is easy to miss is a shelf
+helper appending nothing on your behalf**, since your own render then looks compliant
+and the round still jumps. Measure the card's height at open and again after the first
+reply; if the two differ, something is arriving late.
 
 Two companions:
 - `Kit.round.mustHold(mode, ctx, t)` — how many members must hold a thing for it
