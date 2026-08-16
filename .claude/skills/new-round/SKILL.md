@@ -46,12 +46,21 @@ HubKit.round.register('ordering', {
   saidOf(who, r, s),              // how a wrong answer is described
   modes: [...],                   // the ways it can be played, if more than one
   teamMode: 'agree',              // which of those means "the whole team commits"
+  modeSetting: {...},             // how the hub should register your `round_<id>` row
+  internal: true,                 // keep me out of the "write a question for me" list
   settleMs: 700
 });
 ```
 
 **Everything except `setup` and `render` is optional.** A simple round draws a card
 and stops.
+
+**The hub builds your settings row from `modes`; `modeSetting` only tunes how.** You
+never call `S.register` yourself for it — declaring modes is what makes the row exist,
+and `modeSetting` says what the group, label and help should be. `internal:true` keeps
+you out of `Kit.round.authored()` — the rounds a person can write a bank item for —
+while leaving you in `ids()`, which is what a round wants when a game drives it rather
+than an authored question.
 
 **If you declare `modes`, declare `teamMode` too.** It names whichever of them means
 *the whole team has to commit* — `agree` in every round that has one. A team-based
