@@ -239,6 +239,28 @@
       return out;
     },
 
+    /* ---------- the green ----------
+       Which of a phone's words are finished with — and here it is all-or-nothing: a
+       team's four go green together the instant its picks *are* the group, and nothing
+       shows before that. A partial or a wrong pick is left plain on purpose, because
+       the whole point of this round is that a guess costs a look at the board rather
+       than a per-word tell on the handset.
+
+       Pushed by the host without a re-arm (`roundSendDone`), so the four light on the
+       phones of whoever found them and on nobody else's — the board still keeps the
+       answer to itself, marking the lane rather than the words. Same array-indexed-by-
+       team shape the ordering round's `settled` returns; a team the roster does not
+       reach gets `[]`, which the phone reads as "nothing settled". */
+    done(s, ctx){
+      const teams = (ctx && ctx.teams) || [];
+      const want  = s.pick.map(w => String(w).toLowerCase());
+      return teams.map((_, t) => {
+        const set  = s.picks[t] || [];
+        const hits = set.filter(w => want.indexOf(String(w).toLowerCase()) !== -1).length;
+        return (set.length === s.need && hits === s.need) ? s.pick.slice() : [];
+      });
+    },
+
     /* ---------- the hint ----------
        One word named as belonging to the group. That is the right size of give-away
        here because the search is combinatorial: eight words with four to find is 70
