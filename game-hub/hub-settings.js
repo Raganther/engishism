@@ -69,61 +69,24 @@ window.HubSettings = (function(){
   const soloNow = () => values['roster'] === 'solo';
   const forked  = d => !!(d && d.byRoster);
 
-  /* ---------- one game, several rounds ----------
-     A setting that declares `byRound:true` keeps a separate value for each round
-     a game hosts, nested inside the game exactly as the game nests inside the
-     master: **a round follows its game's value until set apart**, so declaring
-     the fork moves nothing for anybody and nothing needs migrating. Same
-     shape as the roster fork, and for the same reason — which of two behaviours
-     teaches better is a question about one round, not about the whole board.
+  /* ---------- which round is open ----------
+     Not a scope. **No setting forks by round**: two axes is what a teacher can
+     hold in their head, a third read as complicated the moment it was in front of
+     one, and "every round inherits the game's value" is the rule. Settings are
+     scoped by game and by room type, full stop.
 
-     **The open round is a context the engine sets, not an argument.** `get(id,
-     game)` has call sites all over the engine and inside every round file, and
-     threading a third argument through them would be a hand-kept list of the
-     places that remember to pass it — the defect this project has paid for more
-     than any other. The engine already holds `roundId`; it says so once, at the
-     two seams where that changes, exactly as the roster is read raw here rather
-     than passed in.
-
-     The round segment sits **before** the solo suffix so that suffix stays last
-     and every key written by an older build is byte-for-byte what it was. */
-  const ROUND_SEP = '~';
+     What survives is the *fact*, because something genuinely asks for it: the room
+     bench opens its rules band on the question that is up, and the board is the
+     only thing that knows a card is open. Announced at the two seams where the
+     engine's own `roundId` moves, so this is a report rather than a second copy.
+     Keep it read-only from outside; if a scope is ever wanted again the history
+     holds one that worked. */
   let openRound = null;
-  const byRound = d => !!(d && d.byRound);
-  const roundOf = d => (byRound(d) && openRound) ? ROUND_SEP + openRound : '';
   function setRound(id){ openRound = id || null; }
   function roundNow(){ return openRound; }
 
-  /* The one name a human should ever see for a round lives in the round's own
-     `register()`, so it is asked for rather than kept here — a second copy of a
-     label is the drift this project has had three ways at once. Absent registry
-     (the panel can be drawn on a page with no rounds loaded), the id is a worse
-     name than the label and a better one than nothing. */
-  function roundLabel(id){
-    try{
-      const K = window.HubKit;                 // `Kit` is the engine's local alias, not a global
-      const def = (K && K.round && K.round.get) ? K.round.get(id) : null;
-      if(def && def.label) return def.label;
-    }catch(e){}
-    return String(id || '');
-  }
-
-  /* Which rounds have gone their own way for this setting, read off storage rather
-     than remembered — the same move as asking the game registry for `games:'*'`,
-     and for the same reason: a list held here would be a list to keep in step. */
-  function roundsSetFor(id, game){
-    const pre = key(id, game) + ROUND_SEP;
-    const out = [];
-    Object.keys(values).forEach(k => {
-      if(k.indexOf(pre) !== 0) return;
-      const seg = k.slice(pre.length).split('!')[0];
-      if(seg && out.indexOf(seg) === -1) out.push(seg);
-    });
-    return out;
-  }
-
   const liveKey = (d, id, game) =>
-    key(id, game) + roundOf(d) + ((forked(d) && soloNow()) ? SOLO_SUF : '');
+    (forked(d) && soloNow()) ? key(id, game) + SOLO_SUF : key(id, game);
 
   /* `games:'*'` means every game there is, resolved when asked rather than when the
      setting was registered. That distinction is not academic: the settings block
@@ -166,27 +129,19 @@ window.HubSettings = (function(){
     if(!d) return undefined;
     /* A solo room's own choice outranks everything; with none made, the solo
        room inherits whatever the team-room chain below resolves to. */
-    /* `''` unless this setting forks by round and one is open, so every chain
-       below is exactly what it was for a setting that does not declare it. */
-    const rp = roundOf(d);
-    const at = k => { const v = values[k]; return (v === undefined || v === null) ? undefined : v; };
     if(forked(d) && soloNow()){
       if(game && scoped(d)){
-        if(rp){ const sr = at(key(id, game) + rp + SOLO_SUF); if(sr !== undefined) return sr; }
-        const so = at(key(id, game) + SOLO_SUF);
-        if(so !== undefined) return so;
+        const so = values[key(id, game) + SOLO_SUF];
+        if(so !== undefined && so !== null) return so;
       }
-      if(rp){ const rm = at(id + rp + SOLO_SUF); if(rm !== undefined) return rm; }
-      const sm = at(id + SOLO_SUF);
-      if(sm !== undefined) return sm;
+      const sm = values[id + SOLO_SUF];
+      if(sm !== undefined && sm !== null) return sm;
     }
     if(game && scoped(d)){
-      if(rp){ const ro = at(key(id, game) + rp); if(ro !== undefined) return ro; }
-      const o = at(key(id, game));
-      if(o !== undefined) return o;
+      const o = values[key(id, game)];
+      if(o !== undefined && o !== null) return o;
       if(d.defaults && d.defaults[game] != null) return d.defaults[game];
     }
-    if(rp){ const rv = at(id + rp); if(rv !== undefined) return rv; }
     const v = values[id];
     return (v===undefined || v===null) ? d.default : v;
   }
@@ -235,6 +190,11 @@ window.HubSettings = (function(){
      it can translate; `drop()` clears the dead keys so the translation runs once.
      Neither goes through the registry, because the old id is no longer in it. */
   function raw(k){ return values[k]; }
+  /* Every stored key, for a migration that has to find keys by *shape* rather than
+     by name — a retired scope leaves one per game per round, and listing those by
+     hand would be the list this project keeps paying for. Read-only: `drop` is how
+     they go. */
+  function keys(){ return Object.keys(values); }
   function drop(keys){
     let touched = false;
     keys.forEach(k => { if(k in values){ delete values[k]; touched = true; } });
@@ -440,28 +400,18 @@ window.HubSettings = (function(){
     if(game){
       const ownDefault = !!(d.defaults && d.defaults[game] != null);
       const soloRow = forked(d) && soloNow();
-      /* A round in scope outranks the room type in what this row *says*, because it
-         is the narrower of the two and it is the one a teacher will not expect. A
-         control that silently writes one round's value while reading as the game's
-         is the same defect as a bundle that shadows the switches it sets. */
-      const roundRow = byRound(d) && !!openRound;
       const state=document.createElement('div');
       state.className='settings-state';
       if(hasOverride(d.id, game)){
         state.classList.add('overridden');
-        state.textContent = roundRow ? 'Set for ' + roundLabel(openRound) + ' · '
-                          : soloRow ? 'Set for rooms of individuals · ' : 'Set for this game · ';
+        state.textContent = soloRow ? 'Set for rooms of individuals · ' : 'Set for this game · ';
         const undo=document.createElement('button');
         undo.type='button'; undo.className='settings-undo';
         /* Undoing an override returns to whatever ranks next — for a solo-room
            value that is the team-room rules, for a game with a registered
            default of its own, its default rather than the master — and the
            button must not claim otherwise. */
-        /* For a round row the fall-back is whatever the game resolves to next,
-           which in a solo room is the solo value and otherwise the game's — one
-           phrase that is true in both, rather than a guess that is true in one. */
-        undo.textContent = roundRow ? 'back to the rest of this game'
-                         : soloRow ? 'back to the team-room rules'
+        undo.textContent = soloRow ? 'back to the team-room rules'
                          : ownDefault ? 'back to this game’s default' : 'match All games';
         undo.addEventListener('click', ()=>{ clearOverride(d.id, game); render(); });
         state.appendChild(undo);
@@ -470,26 +420,10 @@ window.HubSettings = (function(){
            default — it is not following the master and never was. In a solo room
            a forked row is following the team-room rules, which is the truer fact
            than which scope those rules came from. */
-        state.textContent = roundRow ? 'Following this game — set here, it is ' +
-                                       roundLabel(openRound) + ' only'
-                          : soloRow ? 'Individuals — following the team-room rules'
+        state.textContent = soloRow ? 'Individuals — following the team-room rules'
                           : ownDefault ? 'This game’s own default' : 'Matching All games';
       }
       text.appendChild(state);
-      /* The mirror of the round line, for the teacher looking at the game's own row
-         with no question open: rounds that have been set apart are invisible from
-         here otherwise, and this row would read as the whole truth when it is not.
-         Same trap the solo note below already names. */
-      if(byRound(d) && !openRound){
-        const apart = roundsSetFor(d.id, game);
-        if(apart.length){
-          const rn=document.createElement('div');
-          rn.className='settings-preset-note';
-          rn.textContent = 'Set apart for ' + apart.map(roundLabel).join(', ') +
-                           ' — this row is every other round.';
-          text.appendChild(rn);
-        }
-      }
       /* The mirror of the line above: a team room whose individuals have gone
          their own way should say so, or the fork is a silent mismatch — the
          same trap the master tab already names per game. */
@@ -687,6 +621,6 @@ window.HubSettings = (function(){
 
   return {
     renderFor, renderOnce, quickIds, register, get, set, clearOverride, hasOverride, onChange, variantsFor,
-           raw, drop, mount, open, close, resetAll, setContext, setRound, roundNow, describePresets,
+           raw, keys, drop, mount, open, close, resetAll, setContext, setRound, roundNow, describePresets,
            get storageAvailable(){ return storageOK; } };
 })();
