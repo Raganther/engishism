@@ -1021,7 +1021,7 @@
      Offered as a switch because which of the two teaches better is a question about
      a room, not about code. */
   S.register({ id:'crowdLive', group:'Questions', type:'toggle', default:false,
-    quick:true, byRoster:true, byRound:true, games:'*',
+    quick:true, byRoster:true, games:'*',
     /* **Reported as broken because the row could not say it was inert.** A preview
        only exists where a tap is *held*, which is the commit beat, which is a room
        of individuals — so in a team room a tap is already the answer, the bar has
@@ -1043,7 +1043,7 @@
       return 'Rides the next arm, so it lands on the following question, not the one open now.';
     },
     label:'Reveal bar follows selections',
-    help:'The bar fills as people choose, before they press Send — livelier, and closer to how it felt without the Send button. Off, it only counts answers that have actually been sent. Set while a question is open, this is that round\'s own value; the game keeps its own for every other round.' });
+    help:'The bar fills as people choose, before they press Send — livelier, and closer to how it felt without the Send button. Off, it only counts answers that have actually been sent. One value per game: every round it hosts follows it.' });
   S.register({ id:'roundSendRamp', group:'Phones', type:'toggle', default:true,
     games:'*',
     label:'The wait grows',
@@ -1156,6 +1156,22 @@
       dead.push('phoneMode' + sfx);
     });
     S.drop(dead);
+  })();
+
+  /* Per-round values were a scope for one afternoon and are gone: every round now
+     follows its game, which is the rule a teacher can hold in their head. The keys
+     they wrote would simply stop being read, and a value sitting in storage that
+     nothing reads is the quiet kind of wrong — it reappears the moment anybody
+     restores the scope and applies a choice made about a different build. So they
+     are cleared rather than orphaned.
+
+     **Nothing is promoted to the game.** A per-round value was set to make one
+     round differ from its game, so lifting it up would apply to every round the
+     opposite of what the teacher meant. `~` is the separator that build used, and
+     it appears in no other key. */
+  (function dropRoundScoped(){
+    const dead = (S.keys ? S.keys() : []).filter(k => k.indexOf('~') !== -1);
+    if(dead.length) S.drop(dead);
   })();
 
   S.register({ id:'jDailyDoubles', group:'Jeopardy', type:'range', default:0,

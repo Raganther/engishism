@@ -307,17 +307,20 @@ it suits**, because an anagram in Millionaire is given away by its own four opti
   teacher's override and *above* the master — deliberately, because such a game does not
   follow the master and pretending it did would make the All-games row a control that
   silently does nothing.
-- **Storage:** `id` is the master, `id@game` an override, `byRound:true` keeps a value
-  per round under `…~round`, and `byRoster:true` keeps a second value for rooms of
-  individuals under `…!solo`. Values persist in `localStorage` per device; a browser
-  blocking storage on `file://` falls back to memory and says so.
-- **Three axes, each following the one above until set apart**, and the round is the
-  narrowest: round → game → the game's own default → master. **The open round is a
-  context the engine sets, not an argument** — `S.setRound` at the two seams where
-  `roundId` moves, read by `get` the way the roster already is, because threading a
-  third argument through every call site would be a hand-kept list of the places that
-  remembered to pass it. A row whose change would land on one round **says so on the
-  row**, and the game's own row names the rounds that have gone their own way.
+- **Storage:** `id` is the master, `id@game` an override, and `byRoster:true` keeps a
+  second value for rooms of individuals under `…!solo`. Values persist in `localStorage`
+  per device; a browser blocking storage on `file://` falls back to memory and says so.
+- **Two axes and deliberately not three.** A per-round scope was built, shipped and
+  retired the same day: it worked, and it read as complicated in front of the person it
+  was for, which is the only test that counts. **Every round inherits its game's value.**
+  What is kept is the *fact* of which round is open — `S.setRound` at the two seams where
+  `roundId` moves, `S.roundNow()` to read it — because the room bench opens its rules
+  band on the question that is up and the board is the only thing that knows. A fact
+  something asks for, not a scope nothing needed.
+- **A retired scope's keys get dropped, not orphaned.** `S.keys()` finds them by shape;
+  a value nothing reads is the quiet kind of wrong, because it comes back the day the
+  scope does and applies a choice made about a different build. Nothing is promoted
+  either — a per-round value existed to make one round *differ*.
 - **Every control carries `data-setting="id"`.** The panel does not need it; anything
   looking *at* the panel does, and without it the only handle on a control is prose.
 - **The stuck default.** `register()` seeds every master value into `localStorage` the
