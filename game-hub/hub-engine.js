@@ -1021,9 +1021,9 @@
      Offered as a switch because which of the two teaches better is a question about
      a room, not about code. */
   S.register({ id:'crowdLive', group:'Questions', type:'toggle', default:false,
-    quick:true, byRoster:true, games:'*',
+    quick:true, byRoster:true, byRound:true, games:'*',
     label:'Reveal bar follows selections',
-    help:'The bar fills as people choose, before they press Send — livelier, and closer to how it felt without the Send button. Off, it only counts answers that have actually been sent.' });
+    help:'The bar fills as people choose, before they press Send — livelier, and closer to how it felt without the Send button. Off, it only counts answers that have actually been sent. Set while a question is open, this is that round\'s own value; the game keeps its own for every other round.' });
   S.register({ id:'roundSendRamp', group:'Phones', type:'toggle', default:true,
     games:'*',
     label:'The wait grows',
@@ -4432,6 +4432,10 @@
   function roundOpen(found){
     if(!found) return null;
     roundId = found.id;
+    /* Settings that fork by round read this rather than taking an argument, so the
+       two places `roundId` moves are the two places it is announced. Said here and
+       in `roundEnd` only — a third caller would be a third thing to forget. */
+    S.setRound(roundId);
     roundState   = found.state;
     roundSettler = Kit.round.settle(roundDef().settleMs, roundSettle);
     /* A new question, so a new record of who gets there. Opened here rather than by
@@ -5176,6 +5180,7 @@
     if(!roundState) return;
     roundStandDown();
     roundState = null; roundSettler = null; roundId = null;
+    S.setRound(null);        // back to the game's own value for anything that forks by round
     const host = document.getElementById('clue-group');
     if(host) host.remove();
     clearReplies();
