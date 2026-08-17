@@ -181,12 +181,7 @@ for is not yet a test. Keep the check, undo the fix, watch it go red.
 **Look at it, do not only measure it.** Numbers said the ladder cleared the options by
 22px; the screenshot showed a value stranded alone on a second row.
 
-Then:
-
-1. `node tools/check-syntax.js` — two seconds, always.
-2. **Bump the cache stamp** if anything under `game-hub/` changed, or the browser serves
-   the old file and the fix looks unshipped.
-3. Run the suite that matches what you touched — a round change is
-   `--only=qbench,grouping,anagram,card,gameshow`. Redirect to a file; **never pipe
-   through `tail`**, which reports the pipe's exit code and makes a red run look green.
-4. Update `CLAUDE.md` if a decision was made. The commit hook asks; it is right.
+Then ship it — **`ship-it` owns the how**: the syntax check, the cache stamp, running a
+suite (redirect to a file, never `tail`), and what goes in the commit body vs.
+`CLAUDE.md`. The one round-specific part: a round change's suite is
+`--only=qbench,grouping,anagram,card,gameshow`.

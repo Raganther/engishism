@@ -129,6 +129,9 @@ itself**, because that process's own command line contains the string. A wait-lo
 written that way never finishes. Use `ps -eo args | grep "[s]moke-test"` or wait on the
 task's own completion.
 
+**Do not edit files while a run is going.** It voids the run and costs it twice — that
+has already burned about half an hour in one day.
+
 ## The known red
 
 **`ordering on a projector: the whole card is on screen` — 726px on a 720 board**, 6px

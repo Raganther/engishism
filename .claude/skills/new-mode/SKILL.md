@@ -206,10 +206,10 @@ correct if it can also be turned off:
 The Classic suite checks that the preset writes all three switches **and that the
 other preset puts them back** — that pair catches a preset that only ever adds.
 
-Bump the cache stamp and push to `main`. Then put the **reasoning** in the commit
-message — including anything you deliberately chose *not* to copy from the source
-material. Jeopardy's negative scoring is off by default because a class 500 down in the
-first two minutes stops trying; that is worth more to the next reader than the code is,
-and the commit body is where this project keeps it. `CLAUDE.md` gets a line only if the
-mode left something **true now** that was not true before — a new switch a teacher has
-to know about, or an item for **Open**.
+Then ship it via `ship-it` (cache stamp, push to `main`, commit body vs. `CLAUDE.md`).
+One mode-specific note for the commit body: record anything you deliberately chose *not*
+to copy from the source — Jeopardy's negative scoring is off by default because a class
+500 down in the first two minutes stops trying, and that reasoning is worth more to the
+next reader than the code. `CLAUDE.md` gets a line only if the mode left something **true
+now** that was not before — a new switch a teacher must know about, or an item for
+**Open**.

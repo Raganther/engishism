@@ -209,9 +209,8 @@ NODE_PATH=$(npm root -g) node tools/smoke-test.js \
 ```
 
 Add `,buzzers,phonemodes,reconnect,degradation,bench` if the change reaches the phones.
-**Never pipe through `tail`** — that reports the pipe's exit code and makes a red run look
-green. And **do not edit files while a run is going**: it voids the run and costs it
-twice, which has already happened.
+Run it the way `ship-it` describes — redirect to a file, never `tail`, and do not edit
+while it runs.
 
 Two things about reds at this tier:
 
@@ -240,12 +239,7 @@ handsets in the room and silently wrong for everyone after, with no error anywhe
 22px; the screenshot showed a value stranded alone on a second row. Under both themes,
 at 1280×720 and at 390×844.
 
-Then:
-
-1. `node tools/check-syntax.js` — two seconds, always.
-2. **Bump the cache stamp** — anything under `game-hub/` needs it, or the browser serves
-   the old file and the fix looks unshipped. The pattern and the reason the date shape is
-   load-bearing are in `ship-it`.
-3. Push, and **say plainly what went untested**.
-4. Update `CLAUDE.md` if a decision was made — at this tier one usually was. The commit
-   hook asks; it is right.
+Then ship it — the syntax check, cache stamp, push and commit-body-vs-`CLAUDE.md` rule
+are all in `ship-it`. The one thing this tier owes on top: **say plainly what went
+untested**, because a shared change often degrades quietly rather than erroring — and at
+this tier a decision usually did get made, so `CLAUDE.md` usually earns a line.

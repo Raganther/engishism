@@ -122,11 +122,8 @@ prompt, a letter that does not match its answer, a rung with no question behind 
 a section label whose count has drifted. It runs every round's own `check()`, so a
 round added next month audits its content for free.
 
-Then **bump the cache stamp** — every page, found by search, never a list:
-
-```bash
-sed -i "s/?v=20[0-9]\{6\}[a-z]*/?v=$(date +%Y%m%d)a/g" $(grep -rl '?v=20[0-9]\{6\}' --include=*.html . | grep -v node_modules)
-```
+Then **bump the cache stamp** — content lives under `game-hub/content/`, so a change
+needs one. The command (and why the date shape is load-bearing) is in `ship-it`.
 
 Finally, say what cannot be checked: **nobody has looked at the questions.** Point
 the user at the question bench, which draws a real card at board size with real

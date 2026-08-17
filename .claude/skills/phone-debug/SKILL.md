@@ -219,12 +219,9 @@ join. If a change makes the join code conditional again, it is a regression — 
 NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=buzzers,phonemodes,teamvote,phoneteams,degradation,reconnect,strip,joinbar,phonebingo
 ```
 
-Bump the cache stamp in **every** file that carries one — the four hub shells,
-`join.html` and the playground pages (`grep -rl '?v=' --include=*.html .`) — or the
-phone will not see the fix. Then write
-what you learned in two places. The **rule** — phrased as a rule and not as the
-incident, so the next reader can apply it to a case you did not hit — goes in
-`CLAUDE.md`, and only if it still constrains somebody's work; a bug that is fixed and
-cannot recur constrains nothing, and belongs nowhere in that file. The **incident** —
-the symptom, the wrong diagnoses, what proved it — goes in the commit message, which is
-this project's only history.
+Bump the cache stamp — and for phones remember it covers **`join.html` and the
+playground pages**, not just the hub shells, or the handset keeps the old build. The
+command and the rest of the ship steps are in `ship-it`. When you write it down, keep the
+phone rule **phrased as a rule** — so the next reader can apply it to a case you did not
+hit — and put it in `CLAUDE.md` only if it still constrains somebody's work; the incident
+itself goes in the commit body.

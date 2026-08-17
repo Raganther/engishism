@@ -224,23 +224,12 @@ changes.
 
 ## 8. Ship it
 
-```bash
-# Find the pages, never list them — a hand-kept list here missed the four playground
-# pages for two days. The 20YYMMDD shape is load-bearing: classic.html carries
-# ?v=picture and ?v=unit1, which are content selectors, and a looser pattern breaks it.
-sed -i "s/?v=20[0-9]\{6\}[a-z]*/?v=$(date +%Y%m%d)a/g" $(grep -rl '?v=20[0-9]\{6\}' --include=*.html . | grep -v node_modules)
-```
-
-**Bump the stamp or the fix looks like it never shipped** — browsers keep serving
-cached JS and CSS. The settings panel footer shows the build, so ⚙ tells you which
-version is actually running. Push to `main`; Render and GitHub Pages follow in ~40s.
-
-Then write it down; the workspace is rebuilt every session, so anything not committed is
-lost. **`CLAUDE.md` holds only what is true now** — if the game changed a contract, added
-a shelf or opened something unfinished, say that; if it merely exists, the registries
-already say so and the file needs nothing. **The story of building it — what broke, the
-evidence, the suite counts — goes in the commit message**, which is this project's only
-history. A long entry in `CLAUDE.md` is a commit body in the wrong file.
+**`ship-it` owns this** — the cache-stamp command (and why the `20YYMMDD` shape is
+load-bearing), pushing to `main`, and what goes in the commit body vs. `CLAUDE.md`. A new
+game touches files under `game-hub/`, so the stamp bump is not optional. The one
+game-specific line for `CLAUDE.md`: if the game changed a contract, added a shelf or
+opened something unfinished, say so; if it merely exists, the registries already say it
+and the file needs nothing.
 
 ## The five-minute review
 

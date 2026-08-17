@@ -180,20 +180,13 @@ What it does beyond parsing, and why each was added:
 
 ## 9. Running it, and reporting it honestly
 
-Read `ship-it` first for whether to run anything at all. When you do:
+**`ship-it` owns how to run a suite** — redirecting instead of `tail`, the wait-loop trap
+(a process-name match catches the waiting shell itself), not editing during a run,
+reading a partial total. Read it first for whether to run anything at all. Two things
+that bite *this* skill in particular:
 
-```bash
-NODE_PATH=$(npm root -g) node tools/smoke-test.js --only=… > /tmp/run.txt
-```
-
-- **Never pipe through `tail`** — that reports the *pipe's* exit code, so a red run looks
-  green. Redirect to a file; you also get progress while it runs.
 - **`; echo "exit: $?"` after the runner reports the echo's status**, not node's. Read the
-  printed total.
-- **`pgrep -f smoke-test.js` matches the waiting shell itself**, so an `until ! pgrep`
-  loop never finishes. Use `ps -eo args | grep "[s]moke-test"`.
-- **Do not edit files while a run is going.** It voids the run and costs it twice; that
-  has already happened for about thirty minutes in one day.
+  printed total, not the exit code.
 - **When a shared behaviour changes, grep for the assumption before re-running.** Three
   helpers compared a rendered prompt against the raw string and all three broke together;
   they were found one at a time across three full runs, which one grep would have done.
