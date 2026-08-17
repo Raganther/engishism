@@ -231,13 +231,6 @@
     grid-template-columns:repeat(var(--ana-cols, 4), minmax(0, var(--ana-slot-w, 1fr)));
   }
   #arrange.words .gridded > *{ width:100%; min-width:0; }
-  /* The boxes get their own column count, because there are not always as many of
-     them as there are tiles: four boxes laid out in an eight-column grid sit in the
-     left half of the row with a hole beside them. The column *width* stays shared,
-     which is the part that has to match — see `--ana-slot-w` in buildArrange. */
-  #arrange.words #ana-slots.gridded{
-    grid-template-columns:repeat(var(--ana-scols, var(--ana-cols, 4)), minmax(0, var(--ana-slot-w, 1fr)));
-  }
   /* `--ana-fit` is 1 unless four columns of the longest word are wider than the
      screen. Only the type scales — the padding here is px, not em — which is why
      the fit is worked out against the word inside the box in `buildArrange`. */
@@ -272,20 +265,6 @@
   /* The box the finger is currently over. Without it a drag is a guess about where
      the letter will land. */
   .ana-slot.over{ border-color:var(--blue); border-style:solid; background:rgba(0,160,223,0.25); }
-  /* **Settled and wrong, said on the boxes** — the same green and red as the tap
-     list, for the same reasons, but on *every* filled box at once because what was
-     judged is the whole arrangement rather than any one word in it. For a round that
-     asks for a selection that is also the teaching point: naming which of the four
-     is wrong would hand the answer over, so the student has to look back at the
-     board. Red clears on the first touch after the wait; green is the end. */
-  .ana-slot.done{
-    background:rgba(60,190,120,0.16); color:#8fe6b4;
-    border-color:rgba(60,190,120,0.55); border-style:solid;
-  }
-  .ana-slot.wrong{
-    background:rgba(224,74,58,0.18); color:#ff9d90;
-    border-color:rgba(224,74,58,0.6); border-style:solid;
-  }
   .ana-tile{
     min-width:0; border-radius:12px; padding:0;
     display:inline-flex; align-items:center; justify-content:center;
@@ -401,7 +380,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260816e"></script>
+<script src="game-hub/hub-buzzer.js?v=20260816f"></script>
 <script>
 (function(){
   'use strict';
@@ -752,12 +731,7 @@
         box.appendChild(b);
       });
     }
-    /* `maxPicks` is the arm's `multi`, already read a few lines above the call that
-       gets here — the same number, so the boxes and a vote's cap cannot disagree.
-       Reaching for the arm payload itself does not work: this function is handed the
-       options and nothing else, and naming the payload here threw a ReferenceError
-       that showed up as an empty drag surface with no error anywhere visible. */
-    if(mode==='arrange') buildArrange(opts || [], maxPicks);
+    if(mode==='arrange') buildArrange(opts || []);
     if(mode==='answer'){ $('reply').value=''; $('reply').disabled=false; $('send').disabled=false; }
     if(mode==='type'){
       $('reply').value=''; $('reply').disabled=false;
@@ -778,20 +752,8 @@
   let anaSlots = [];        // slot -> tray index, or null
   let anaDrag  = null;      // the in-flight drag, if any
 
-  function buildArrange(list, want){
+  function buildArrange(list){
     const tray = $('ana-tray'), slots = $('ana-slots');
-    /* **How many boxes, which is not always how many tiles.** `multi` is what a vote
-       calls "how many to pick": the relay already resolves it per phone and it already
-       carries each player's share of a team's answer, so a round wanting four boxes
-       from eight words asks in the field that machinery exists for and nothing new
-       rides the wire. Drag the Letters and Drag the Words send `multi` equal to their
-       tile count, so they get one box per tile exactly as before. */
-    const n = Math.max(1, Math.min(list.length, Number(want) || list.length));
-    /* **Fewer boxes than tiles means the round wants a selection, not an order.** A
-       numbered box would tell a student the order matters when it does not, so the
-       numbers go. Derived rather than declared, because there is no round yet that
-       wants an *ordered* subset; one would need a flag of its own. */
-    slots.classList.toggle('pick', n < list.length);
     // the column count, which CSS cannot work out for itself
     $('arrange').style.setProperty('--ana-n', String(list.length || 1));
     /* Letters or words, decided by looking rather than by being told — the arm
@@ -810,7 +772,7 @@
     const stray = document.getElementById('ana-drag');
     if(stray) stray.remove();
     tray.innerHTML = ''; slots.innerHTML = '';
-    anaTiles = []; anaSlots = new Array(n).fill(null); anaDrag = null;
+    anaTiles = []; anaSlots = list.map(()=> null); anaDrag = null;
     list.forEach((ch, i)=>{
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'ana-tile'; b.textContent = ch;
@@ -819,13 +781,13 @@
       tray.appendChild(b);
       anaTiles.push({ ch, el:b });
     });
-    for(let s = 0; s < n; s++){
+    list.forEach((_, s)=>{
       const d = document.createElement('div');
       d.className = 'ana-slot'; d.dataset.slot = String(s);
       d.dataset.n = String(s + 1);
       d.addEventListener('pointerdown', e => anaGrab(e, anaSlots[s], s));
       slots.appendChild(d);
-    }
+    });
     /* One column width for both rows, taken from the widest tray tile — same word,
        same font, same padding, so the measure is exact. Fixed here, once, is what
        keeps the grid of boxes identical on every phone whatever each has placed;
@@ -839,11 +801,6 @@
       const cols = (window.HubBuzzer && window.HubBuzzer.wordCols)
                      ? window.HubBuzzer.wordCols(list.length) : list.length;
       a.style.setProperty('--ana-cols', String(cols));
-      /* Same helper, asked about the boxes' own count. Equal to `cols` whenever
-         there is a box per tile, so the two drag rounds are unchanged. */
-      const scols = (window.HubBuzzer && window.HubBuzzer.wordCols)
-                      ? window.HubBuzzer.wordCols(n) : n;
-      a.style.setProperty('--ana-scols', String(scols));
       /* **Four columns of a long word can be wider than the phone.** The columns
          give way first, and the type after them: the padding here is px, so only
          the word inside the box scales, and the fit is worked out against the word
@@ -874,8 +831,7 @@
          a blank box, because there the boxes spell the word and a row of digits
          would be noise. */
       d.textContent = t != null ? anaTiles[t].ch
-        : ($('arrange').classList.contains('words') &&
-           !$('ana-slots').classList.contains('pick') ? d.dataset.n : '');
+        : ($('arrange').classList.contains('words') ? d.dataset.n : '');
     });
     anaTiles.forEach((t, i) => t.el.classList.toggle('used', anaSlots.indexOf(i) !== -1));
     const placed = anaSlots.filter(x => x != null).length;
@@ -970,10 +926,6 @@
   function anaGrab(e, tile, fromSlot){
     if(timeUp || tile == null || !client) return;
     if(cooling) return;              // a wrong Send is being waited out
-    /* The red described that whole arrangement, so the first touch after the wait
-       clears all of it — the same rule the tap list follows, where choosing
-       something else clears the red because it was never about the word. */
-    [...$('ana-slots').children].forEach(b => b.classList.remove('wrong'));
 
     e.preventDefault();
     const el = document.createElement('div');
@@ -1531,32 +1483,6 @@
         document.body.dataset.verdict = v;
         $('commit').disabled = true; $('commit').textContent = 'Send';
         $('state').textContent = (d && d.note) || 'Yes — now the next one';
-        if(navigator.vibrate) navigator.vibrate([30,40,30]);
-        return;
-      }
-      /* **A drag round hears its verdict on the boxes it filled.** Keyed by slot and
-         never by text, for the same reason everything else here is: SENTENCE has
-         three Es, and matching the letter would light all three. Every filled box
-         carries it together, because the thing judged was the arrangement — and the
-         host names no word, so which part was wrong is not on the wire to leak. */
-      if(mode === 'arrange'){
-        const boxes = [...$('ana-slots').children].filter(x => x.classList.contains('filled'));
-        verdictUntil = Date.now() + 1500;
-        document.body.dataset.verdict = v;
-        if(v === 'wrong'){
-          boxes.forEach(x => x.classList.add('wrong'));
-          $('ana-note').textContent = (d && d.note) || 'Not that one — look at the board';
-          if(navigator.vibrate) navigator.vibrate([15,60,15]);
-          coolDown((d && d.until) || Date.now());
-          return;
-        }
-        boxes.forEach(x => { x.classList.remove('wrong'); x.classList.add('done'); });
-        /* Nothing more to send, so the button says so — the tap path already does
-           this and a right answer that still invites another one reads as not having
-           counted. The words stay where they are: they are the answer now. */
-        $('commit').disabled = true;
-        $('state').textContent = '';
-        $('ana-note').textContent = (d && d.note) || 'Yes — that is it';
         if(navigator.vibrate) navigator.vibrate([30,40,30]);
         return;
       }

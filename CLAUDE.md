@@ -280,19 +280,6 @@ not a helper.
   and the bench namespaces them (`r:anagram` / `f:anagram`) after the round silently
   shadowed the form.
 
-- **`arrange` reads `multi` as how many *boxes*, not how many tiles.** So a drag round
-  can ask for a **selection** — four boxes from eight words, which is Connections in
-  drag mode — and the relay needed no new field, because `multi` and `multiByTeam`
-  already carry a per-player share. Fewer boxes than tiles is taken to mean order does
-  not matter, so the boxes lose their numbers; an *ordered* subset would need a flag of
-  its own. Drag the Letters and Drag the Words send `multi` equal to their tile count,
-  so a box per tile is what they still get.
-- **A verdict lands on the boxes, keyed by slot and never by text** — three Es in
-  SENTENCE is why. All the filled boxes carry it together, because what was judged is
-  the arrangement; and since the host names no word, which part was wrong is not on the
-  wire to leak. That is what makes "no clue which of the four is wrong" structural
-  rather than a choice someone could undo.
-
 ### A question form is how a prompt is drawn
 No phones, no judging — register one and every game can draw it. **A type names the games
 it suits**, because an anagram in Millionaire is given away by its own four options.
