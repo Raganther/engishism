@@ -32,6 +32,27 @@
     label: 'Connections',
     blurb: 'Eight words, four that belong together. The room assembles them from their phones.',
 
+    /* Two ways to hand four words in, offered to whatever is hosting rather than
+       chosen here — the bench draws a dropdown, the hub registers the row. Tapping
+       is first and therefore the default, so nothing moves until a teacher picks the
+       other one.
+
+       **Both send the same four words**, so `read`, `judge` and the card know nothing
+       about which was used: the reply is a `|`-joined set either way and this round's
+       reader has always treated it as a set rather than a sequence. That is the whole
+       reason dragging cost this file two lines.
+
+       The row forks by room type on its own (`byRoster` on every `round_<id>`), so a
+       class of individuals can drag while team rooms keep tapping. */
+    modes: [
+      { value:'tap',  label:'Tap the words to choose them' },
+      { value:'drag', label:'Drag the words into boxes' }
+    ],
+    /* Neither is "the whole team commits" — they are two ways of holding the same
+       four words, not two rules about who settles, so a team board naming `teamMode`
+       gets no say here. Same shape as ordering's climb and race. */
+    teamMode: null,
+
     /* An item carries a `group`, or it is not this round. Asked this way so a host
        never has to learn the field name. */
     /* The item field this round owns. The normaliser copies it across on its own,
@@ -203,8 +224,12 @@
        round can ask for a shape the engine has never heard of. */
     arm(s, ctx){
       const c = ctx || {};
+      /* `arrange` reads `multi` as how many *boxes* to draw, which is the same number
+         a vote reads it as how many to pick — so the share below serves both and the
+         relay needed no new field. Everything past `mode` is identical between them,
+         which is the point: one round, two ways to hold it. */
       return {
-        mode:    'vote',
+        mode:    c.mode === 'drag' ? 'arrange' : 'vote',
         /* A label, not a sentence, when the host is not sending the question: eight
            options already fill a handset and every line of instruction is a line of
            words pushed off the screen. */
