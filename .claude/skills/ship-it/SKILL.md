@@ -36,6 +36,26 @@ choose — never test by habit, and never silently:
 Everything else — one game's board, one stage's CSS, a new setting, docs, `CLAUDE.md` —
 just push.
 
+## A breakage you cannot reproduce is not one to ship a fix for
+
+**If a report does not reproduce, say so and ask for the one fact that would place
+it. Do not push a change to the path it named.** A fix aimed at a failure nobody has
+seen is a guess landing on working code, and the next report is then about two
+things at once — which is how a bench that needed one thing understood ended up
+reverted whole.
+
+The reflex to resist is the helpful one: *these are the two places that could fail
+quietly, so harden both.* Hardening reads as progress and costs nothing to write,
+and it is the same move as fixing at the reader rather than at the seam. It also
+adds a second live change to a page whose first change is still under suspicion.
+
+What to do instead, in order: **state plainly that it does not reproduce** on a
+clean profile, name **which copy** you tested (the relay's or the Pages one, and
+Pages has no relay behind it at all), and ask for the **one** thing that
+distinguishes the paths — a status line, a build number in ⚙, the address in the
+bar. One answer usually ends it. And if a revert is on the table, prefer it to a
+second guess: the build that worked is a known quantity and a guess is not.
+
 ## The cache stamp
 
 **Bump it whenever a file under `game-hub/` changes**, or Chrome keeps serving the
