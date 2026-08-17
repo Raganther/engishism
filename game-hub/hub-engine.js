@@ -1022,6 +1022,26 @@
      a room, not about code. */
   S.register({ id:'crowdLive', group:'Questions', type:'toggle', default:false,
     quick:true, byRoster:true, byRound:true, games:'*',
+    /* **Reported as broken because the row could not say it was inert.** A preview
+       only exists where a tap is *held*, which is the commit beat, which is a room
+       of individuals — so in a team room a tap is already the answer, the bar has
+       always followed it, and this switch has nothing left to turn on. Toggling it
+       there changes precisely nothing, correctly, and silently. Proved with six
+       handsets: `preview` on the arm is false in a team room with the switch on and
+       true in a solo room with the switch on.
+
+       Said through `stateNote` rather than in `help` because it is a fact about the
+       room in front of the teacher, not a property of the setting — and the third
+       line is the one that catches everybody, since anything riding the arm cannot
+       reach the question already on screen. */
+    stateNote(game){
+      if(!Roster.solo())
+        return 'A team room has no Send, so a tap is already the answer and the bar ' +
+               'always follows it — this switch only does something for a room of individuals.';
+      if(!S.get('roundSend', game))
+        return 'Needs “Individuals press Send” on — without Send a tap is already the answer.';
+      return 'Rides the next arm, so it lands on the following question, not the one open now.';
+    },
     label:'Reveal bar follows selections',
     help:'The bar fills as people choose, before they press Send — livelier, and closer to how it felt without the Send button. Off, it only counts answers that have actually been sent. Set while a question is open, this is that round\'s own value; the game keeps its own for every other round.' });
   S.register({ id:'roundSendRamp', group:'Phones', type:'toggle', default:true,
