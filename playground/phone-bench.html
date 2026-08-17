@@ -288,7 +288,7 @@
     </div>
   </div>
 
-<script src="bench-kit.js?v=20260816d"></script>
+<script src="bench-kit.js?v=20260816e"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -344,6 +344,20 @@ function pollBoard(){
   if(!f || !f.contentWindow) return;
   let host = null;
   try{ host = f.contentWindow.HubHost; }catch(e){ return; }   // cross-origin custom URL
+  /* **Two ways to learn the room, because one of them can be a build behind.**
+     `HubHost.code` is the convention and is what this asks first. But the board is
+     an unstamped shell in an iframe, so a browser can hold an older one than the
+     page around it, and a bench that could only read the handle sat there with an
+     empty code box and no way to say why. The chip's text is prose and a poor
+     handle — as a *fallback* it is better than a person retyping a number that is
+     on screen two inches away. */
+  if(!host || !host.code){
+    try{
+      const chip = f.contentDocument && f.contentDocument.getElementById('buzzer-chip');
+      const seen = chip && (chip.innerText || '').match(/(\d{5})/);
+      if(seen) host = { code: seen[1] };
+    }catch(e){}
+  }
   if(host && host.code && $('code').value.trim() !== String(host.code)){
     $('code').value = String(host.code);
     loadTeams(true);
@@ -387,6 +401,16 @@ function pollBoard(){
        pressed Tune to close it keeps it closed — the auto-open respects a
        deliberate close for as long as that round is up, or it becomes a pane that
        will not stay shut. */
+    /* **Ask the board what the room is, rather than waiting to be told.** Teams or
+       individuals used to reach the rack only through the relay's reply to
+       `/buzzer/room`, which means it needs the host to have pushed the roster and
+       the fetch to have come back — so a rack could sit in team shape over a board
+       plainly showing Solo, with nothing saying which of the two was wrong. The
+       board's own setting is the truth and it is one property away. The relay path
+       stays: it is what a bench pointed at a room on another machine has. */
+    try{
+      if(w && w.HubSettings) setSolo(w.HubSettings.get('roster') === 'solo');
+    }catch(e){}
     const now = (w && w.HubSettings && w.HubSettings.roundNow) ? w.HubSettings.roundNow() : null;
     if(now !== tuneRound){
       const opened = now && !tuneRound;
