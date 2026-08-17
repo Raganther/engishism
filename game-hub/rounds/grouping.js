@@ -166,11 +166,17 @@
                the answer, so lighting them would hand it to every team still hunting,
                while a green lane says "they have it" and nothing about what it is.
                Their own four are already printed in their own lane either way. */
-            const has = picks.length === s.need &&
-                        picks.filter(w => s.pick.some(p =>
-                          String(p).toLowerCase() === String(w).toLowerCase())).length === s.need;
+            const correct = picks.filter(w => s.pick.some(p =>
+                              String(p).toLowerCase() === String(w).toLowerCase())).length;
+            const has = picks.length === s.need && correct === s.need;
 
-            let count = picks.length + '/' + s.need + (picks.length > s.need ? ' — too many' : '');
+            /* **The count is how many they have right, not how many they picked.** It
+               tells a player they are close without ever saying which word is the wrong
+               one — the group stays a puzzle, the board just says how far off. Safe to
+               show on the shared board because a lane only moves on a *sent* answer
+               (previews are off unless the teacher turns on crowdLive), so it cannot be
+               toggled one word at a time to binary-search the four. */
+            let count = correct + '/' + s.need + ' right' + (picks.length > s.need ? ' · too many' : '');
             if(sizes[t]){
               /* "two each" is the rule the teacher has to be able to say out
                  loud, and it moves on its own whenever somebody joins or drops. */

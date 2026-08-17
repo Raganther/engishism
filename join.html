@@ -380,7 +380,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260817a"></script>
+<script src="game-hub/hub-buzzer.js?v=20260817b"></script>
 <script>
 (function(){
   'use strict';
@@ -705,7 +705,7 @@
                the line below telling it to press a button that did nothing. Seen in
                a real class of sixteen and reproduced exactly. The escalating
                cooldown is the anti-mash mechanism and it is enough on its own. */
-            $('commit').disabled = !myPicks.length || cooling;
+            $('commit').disabled = cooling || !voteReady();
             $('commit').textContent = 'Send';
             /* **A preview, not an answer.** Marked so the host can tell the two
                apart on one wire, and suppressed while a Send is still waiting for
@@ -1009,7 +1009,18 @@
   function shareLine(){
     if(myPicks.length > maxPicks)
       return 'Drop ' + (myPicks.length - maxPicks) + ' — it is ' + maxPicks + ' each now';
+    if(maxPicks > 1 && voteReady())
+      return 'All ' + maxPicks + ' chosen — press Send';
     return myPicks.length + ' of ' + maxPicks + ' chosen';
+  }
+  /* **Send waits for the full allotment.** A single-pick vote (`maxPicks` 1) sends on
+     its one choice, as it always has; a multi-pick — Connections is the only one — goes
+     only once all of them are chosen, so a half-built group cannot be sent and the
+     player must complete a set before the board judges it. `maxPicks` is the phone's
+     share, so in a room of individuals that is all four, and on a team it is that
+     phone's part of the four. */
+  function voteReady(){
+    return maxPicks > 1 ? myPicks.length >= maxPicks : myPicks.length > 0;
   }
 
   /* Which of this phone's options are currently held. Kept as a function because
@@ -1116,7 +1127,7 @@
         /* Ready again the moment the wait is over. It used to stay dead until the
            answer *changed*, which stranded anybody whose reply had gone astray
            rather than come back wrong. The wait is what a wrong Send costs. */
-        $('commit').disabled = (mode === 'arrange') ? !arrangeWire() : !myPicks.length;
+        $('commit').disabled = (mode === 'arrange') ? !arrangeWire() : !voteReady();
         /* The verdict on that Send has been and gone, so the record of it stops
            standing in the way — of sending the same word again if the player still
            believes it, and of previews, which stay quiet while an answer is in
