@@ -658,6 +658,31 @@ standings after *every* question drags (`roundWinBanner` turns it off), whether 
 podium beats `equal`, and whether the extra Reveal-then-Close press costs too much
 (`roundOpenToAll` off restores the race).
 
+**Being chased right now — the room bench hosts no room.** Four symptoms, all
+downstream of one thing: the board mints no code, so the bench's box stays empty and
+has to be typed; a typed code names a room nobody is hosting, so the phones never
+leave `#screen-join` — which is the team picker, hence "stuck on a team selection
+screen"; no host means no roster push, so teams-or-individuals never reaches them;
+and the bench's own names never arrive because its phones join by URL only after it
+has a code.
+
+**It is not the code that shipped today.** `main` was reverted whole to the build
+before the Connections work and the symptoms stayed, which eliminates both that and
+the two bench reads after it. Nor does it reproduce: a clean Chromium against a
+locally-run relay with **Phone buzzers on** auto-fills the code, racks a phone,
+carries names, and flips the rack the moment the board's team bar goes Solo.
+
+So the difference is the environment, and there are three candidates, likeliest
+first. **The relay is not answering** — Render's free instance sleeps when idle and
+every push restarts it, and six went out in one afternoon. **The wrong copy** —
+GitHub Pages has no relay behind it at all, so phones can never work there. **Phone
+buzzers switched off** on that device — `openBuzzRoom` returns immediately without
+it and the board hosts nothing, silently.
+
+Three answers settle it, and no more work should be guessed at until they are in:
+what `/buzzer/health` says on the same address the bench is opened from, what build
+⚙ reports, and whether the board's own chip shows five digits.
+
 **Known broken:**
 - The ordering climb card is 726px on a 720 board with the action strip on.
 - **The clue card covers the phone strip** — on Jeopardy and Blockbusters the cooling
