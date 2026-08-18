@@ -76,6 +76,7 @@
         chosen: [],     // what the teacher has clicked, with no phones in the room
         hint:   [],     // words given away as belonging to the group, one per press
         picks:  {},     // team index -> the union of that team's players' picks
+        verdictBy: {},  // team index -> its last verdict, for the lane / feed to draw
         say:    '',
         done:   false
       };
@@ -183,6 +184,12 @@
               count += ' · ' + sizes[t] + (sizes[t] === 1 ? ' phone, ' : ' phones, ') +
                        K.round.shares(s.need, [sizes[t]])[0] + ' each';
             }
+            /* In lane mode the verdict rides this player's own line, where it stays
+               until their next try instead of flashing past on a shared headline. Never
+               on a lane that already has the set — a green "4/4 right" beside "one away"
+               reads as a contradiction. */
+            if(c.commentary === 'lane' && !has && s.verdictBy && s.verdictBy[t])
+              count += ' · ' + s.verdictBy[t].text;
             return { cells, count, tone: has ? 'good' : null };
           }
         });
@@ -326,8 +333,14 @@
       return bad;
     },
 
+    /* The verdict on its own, with no name — the handset and the player's lane both
+       already know whose it is. `saidOf` builds the headline from it, so "one away"
+       lives in one place and cannot drift between the two. */
+    missNote(r, s){
+      return r.hits === s.need - 1 ? 'One away…' : 'Not a group.';
+    },
     saidOf(who, r, s){
-      return who + (r.hits === s.need - 1 ? ': one away…' : ': not a group.');
+      return who + ': ' + this.missNote(r, s).toLowerCase();
     },
 
     settleMs: 700

@@ -1078,6 +1078,22 @@
               { value:'turn', label:'Only the team on turn' }],
     help:'A round asks the room to assemble an answer on their phones. It can be a race between every team, or belong to the team whose turn it is like any other clue.' });
 
+  /* ---- how a wrong answer is announced ----
+     The `say` line is one overwriting headline: right for a team room where one team
+     answers at a time, a blur in a room of individuals where a dozen misses a second
+     thrash it. So where a verdict lands is a switch, kept per room type because the
+     headline is only a problem in the solo room. The count already says how close a
+     player is, which is why "off" is a real choice and not a loss of information. */
+  S.register({ id:'roundCommentary', group:'Questions', type:'variant', default:'headline',
+    games:ROUND_GAMES, byRoster:true, quick:true, label:'Where a verdict shows',
+    variants:[{ value:'headline', label:'One headline on top of the card — the last thing that happened' },
+              { value:'lane',     label:'On the player’s own lane, where it stays until their next try' },
+              { value:'off',      label:'Nowhere — the "3/4 right" count already says how close they are' }],
+    help:'A "one away" / "not a group" can share one headline (fine for teams, a blur for sixteen individuals), sit on each player’s own row where it stays put, or stay off the board and leave the running count to say it.' });
+  S.register({ id:'roundHintPhone', group:'Phones', type:'toggle', default:false,
+    games:ROUND_GAMES, byRoster:true, quick:true, label:'Tell the phone how close',
+    help:'On, a wrong Connections answer tells the handset "One away…" or "Not a group" instead of a plain "Not that one". It never says which word is wrong — only how far off.' });
+
   /* Rounds were Jeopardy's alone for the first three, so their switches were named
      and grouped as Jeopardy's: `jGroupWho`, and `jRound_<id>` per round. A second
      board hosts rounds now, and a shared setting carrying one game's initial in its
@@ -4370,6 +4386,10 @@
          has sent. Lent rather than read, so the question bench inherits it with no
          wiring — the same contract the threshold already follows. */
       crowdLive: !!S.get('crowdLive', activeGame),
+      /* Where a round's wrong-answer verdict is announced — a headline, each player's
+         own lane, or nowhere (the running count already says how close they are). Lent
+         so the round owns the presentation and the bench inherits the default. */
+      commentary: S.get('roundCommentary', activeGame) || 'headline',
       /* **Look up.** The crowd reveal lands on the projector, which is worth
          nothing to a room of sixteen reading their own handsets — so when one
          lands, every phone pulses once. The shelf decides *when* (it is the only
@@ -5030,7 +5050,7 @@
      because the strip re-reads it on a ticker; the phone counts its own down from
      the duration it was sent, exactly as every other clock here works. */
   let sendCooling = {};
-  function roundSendPenalty(team){
+  function roundSendPenalty(team, note){
     if(!Roster.solo() || !buzzHost) return 0;
     if(!S.get('roundSend', roundHost.game)) return 0;
     const secs = Number(S.get('roundSendCool', roundHost.game)) || 0;
@@ -5044,7 +5064,7 @@
       const n = (sendMisses[p.id] || 0) + 1;
       sendMisses[p.id] = n;
       const ms = Math.round(secs * 1000 * (ramp ? n : 1));
-      buzzHost.judge(p.id, 'wrong', { note: 'Not that one', coolMs: ms });
+      buzzHost.judge(p.id, 'wrong', { note: note || 'Not that one', coolMs: ms });
       sendCooling[p.id] = { name: p.name, team: Number(p.team), until: Date.now() + ms };
       waited = Math.max(waited, Math.round(ms / 1000));
     });
@@ -5092,13 +5112,28 @@
   function roundMiss(team, r){
     /* Wrong costs nothing but the time. The tile is still on the table, the other
        team is still assembling, and a class charged for a guess stops guessing. */
-    /* The say line names the wait *once*, as part of the headline it already owns;
-       the live countdown belongs to the strip. Two clocks in one voice would have
-       the say line overwriting itself every half second, and it is the single
-       overwriting headline — the last thing that happened, not a gauge. */
-    const wait = roundSendPenalty(team);
-    roundState.say = roundDef().saidOf(teamName(team), r, roundState)
-                   + (wait ? ' · waiting ' + wait + 's' : '');
+    const def = roundDef();
+    const mode = S.get('roundCommentary', roundHost.game) || 'headline';
+    /* The verdict, name-free, for the handset and the lane — both already know whose
+       it is. A round that does not describe its own misses falls back to the plain
+       note, so this stays correct for every round, not only the ones that opt in. */
+    const rich = (typeof def.missNote === 'function') ? def.missNote(r, roundState) : 'Not that one';
+    const wait = roundSendPenalty(team, S.get('roundHintPhone', roundHost.game) ? rich : 'Not that one');
+    /* Stored per team so a lane or a feed can draw it; kept in every mode so flipping
+       the setting mid-question has something to show. */
+    roundState.verdictBy = roundState.verdictBy || {};
+    roundState.verdictBy[team] = { text: rich, ok:false, at: Date.now() };
+    /* The say line names the wait *once*, as part of the headline; the live countdown
+       belongs to the strip. But that single overwriting headline is a blur in a room
+       of individuals, so it is written only when the verdict is *meant* for it: in
+       headline mode always, and in lane mode only for a round that cannot show its own
+       miss (grouping can, and leaves the headline free for hints). Off writes nothing
+       and leans on the running count. */
+    const ownLane = (mode === 'lane') && (typeof def.missNote === 'function');
+    if(mode === 'headline' || (mode === 'lane' && !ownLane)){
+      roundState.say = def.saidOf(teamName(team), r, roundState)
+                     + (wait ? ' · waiting ' + wait + 's' : '');
+    }
     Sound.play('wrong');
     renderRound();
     notePhoneMiss(teamName(team), team, (roundState.picks[team] || []).join(', '), 'wrong');
