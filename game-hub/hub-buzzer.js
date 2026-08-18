@@ -237,14 +237,6 @@ window.HubBuzzer = (function(){
      because it is the one file the board and the handset both load, the same reason
      the team palette and `wordCols` do. Read lazily everywhere, so load order
      cannot matter. */
-  /* **"This is only what I am looking at."** A reply carrying this prefix is a
-     *preview* — the word a player currently has selected, sent before they commit.
-     It exists so the projector's reveal bar can follow what the room is thinking
-     rather than only what it has finished. The relay never learns any of it: it
-     stores one value per player and what that value *means* has always been the
-     host's business, which is exactly why this needed no wire change at all. It
-     lives here because this is the one file the board and the handset both load —
-     the same reason the team palette and `wordCols` do. */
   const PREVIEW = '\u0001';
 
   function player(opts){
