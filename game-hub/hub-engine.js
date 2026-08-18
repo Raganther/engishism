@@ -1546,6 +1546,7 @@
         <h1 id="page-title">Game Hub</h1>
       </div>
       <div class="header-right">
+        <span id="build-tag" title="App version — the settings cog moved to the room bench, so the build shows here">Build ${window.HUB_BUILD || 'dev'}</span>
         <div id="timer-widget">
           <button id="tmr-minus" title="−15 seconds">−</button>
           <span id="tmr-display">0:30</span>
