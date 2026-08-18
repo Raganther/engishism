@@ -906,6 +906,15 @@
              ? window.HubBuzzer.teamColour(i) : '';
   }
 
+  /* One home for the drag rounds' tile/chip token — `text#index`. The index is only
+     an identity: the card never reads it back, but it lets the relay carry duplicate
+     letters or words as distinct picks. `dragTag` builds the token and `bare` strips
+     it back to the text the handset and the teacher both speak — `#` can never appear
+     in a letter or word, so the two are unambiguous in both directions. One home so a
+     builder and a stripper can never disagree about the delimiter. */
+  function dragTag(text, i){ return String(text) + '#' + i; }
+  function bare(x){ return String(x == null ? '' : x).replace(/#\d+$/, ''); }
+
   /* **The end of a round, which five rounds had written out separately — and which
      produced a bug in three of them at once.** Being revealed or being won means
      the same three things every time: the round is over, the answer is out, and the
@@ -1158,7 +1167,7 @@
       }
       return null;
     },
-    shares, settle, clock, results, poll, agreement, lanes, placeBadge, crowd, crowdKnown, crowdMeter, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour,
+    shares, settle, clock, results, poll, agreement, lanes, placeBadge, crowd, crowdKnown, crowdMeter, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour, dragTag, bare,
     /* A comma-separated field as a list. Three rounds' editors parse one, which
        is what puts it here rather than in each of them. */
     list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); },

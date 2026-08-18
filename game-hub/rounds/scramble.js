@@ -27,7 +27,7 @@
   const K = window.HubKit;
   if(!K || !K.round){ console.error('scramble.js needs hub-rounds.js loaded first'); return; }
 
-  const bare = x => String(x == null ? '' : x).replace(/#\d+$/, '');
+  const bare = K.round.bare;
   const norm = x => bare(x).trim().toLowerCase();
   const MIN = 3;
   /* The relay caps `multi` at 12, so a longer sentence could not be armed — and
@@ -81,7 +81,7 @@
       const sentence = String(sc.sentence || '').trim();
       const words = wordsOf(sentence);
       if(words.length < MIN || words.length > MAX) return null;
-      const chips = words.map((w, i) => ({ w, id: w + '#' + i }));
+      const chips = words.map((w, i) => ({ w, id: K.round.dragTag(w, i) }));
       /* Re-shuffled until it is not the sentence itself. On a short sentence the
          shuffle lands on the answer often enough to be worth the loop, and a
          "scramble" that is already in order is not a puzzle. */

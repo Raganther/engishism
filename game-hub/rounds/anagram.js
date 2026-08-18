@@ -55,7 +55,7 @@
      directions. The handset sends bare letters, which `bare()` leaves alone: that
      is what lets the teacher's clicks and the room's drags arrive as one shape
      without the phone ever learning the token format. */
-  const bare = x => String(x == null ? '' : x).replace(/#\d+$/, '');
+  const bare = K.round.bare;
   const MIN = 3;
   /* The relay caps `multi` at 12, so a longer word could not be armed anyway — and
      twelve scrambled letters is already past what a class reads off a projector. */
@@ -100,7 +100,7 @@
       /* Tokens carry the tile's original position, which is only an identity — the
          card never reads the number back, and the scramble below moves the tiles
          around it. */
-      const tiles = letters.map((ch, i) => ({ ch, id: ch + '#' + i }));
+      const tiles = letters.map((ch, i) => ({ ch, id: K.round.dragTag(ch, i) }));
       /* Re-scrambled until it is not the word itself. A one-letter-off "scramble"
          that happens to come out as the answer is not a puzzle, and with a short
          word it comes up often enough to be worth the loop. */
