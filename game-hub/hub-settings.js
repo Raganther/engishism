@@ -239,7 +239,6 @@ window.HubSettings = (function(){
   let panel=null, body=null, tabsEl=null, activeTab='master';
   const collapsed = new Set();   // groups folded shut, per session — not worth persisting
   const advOpen   = new Set();   // which groups have their Advanced fold open, per session
-  let forMount = null;           // the drawer's mount, so a change re-renders it too
 
   // every game any registered setting mentions, in first-registered order
   function gameTabs(){
@@ -592,19 +591,8 @@ window.HubSettings = (function(){
 
   function render(){
     renderTabs(); renderBody();
-    // the drawer shows the same rows, so a change made anywhere repaints it too
-    if(forMount && forMount.mount && forMount.mount.isConnected)
-      renderInto(forMount.mount, forMount.game, forMount.opts);
   }
 
-  /* Render one game's settings into any element — used by the in-game drawer,
-     which deliberately shows *only* the game being played. The full panel exists
-     to see everything at once; this exists to change one thing mid-round without
-     hunting through tabs for other games' switches. */
-  function renderFor(mount, game, opts){
-    forMount = { mount, game, opts };
-    renderInto(mount, game, opts);
-  }
   function renderInto(mount, game, opts){
     if(!mount) return;
     const o = opts || {};
@@ -640,42 +628,23 @@ window.HubSettings = (function(){
   }
   function close(){ if(panel) panel.style.display='none'; }
 
-  /* Adds the gear button to `container` and the panel to <body>. Called by the
-     engine once its skeleton is in the DOM (the skeleton overwrites innerHTML,
-     so the button can't be created before that). `onClick` lets the engine route
-     the button — during play it opens the docked drawer instead of the panel, so
-     there is one settings entrance whose form suits the moment. */
-  function mount(container, onClick){
-    if(!panel) buildPanel();
-    if(container && !container.querySelector('#settings-btn')){
-      const btn=document.createElement('button');
-      btn.id='settings-btn'; btn.type='button';
-      btn.title='Settings'; btn.setAttribute('aria-label','Settings');
-      btn.textContent='⚙';
-      btn.addEventListener('click', onClick || open);
-      container.insertBefore(btn, container.firstChild);
-    }
-    document.addEventListener('keydown', e=>{
-      if(e.key==='Escape' && panel && panel.style.display==='flex') close();
-    });
-  }
-
-  /* A one-off render that does NOT claim `forMount` — the drawer's live re-render
-     slot. The tune chip on the clue card renders through this, or opening a card
-     would silently stop the drawer updating on changes. */
+  /* Render one game's settings into any element (game == null → the whole
+     registry). The room bench is the only caller: it renders each game's slice
+     into its own pane rather than opening the full panel. Distinct from the panel
+     because it writes into a host the caller owns, not <body>. */
   function renderOnce(mount, game, opts){ renderInto(mount, game, opts); }
 
   /* The settings that declared themselves quick-tunable (`quick:true` on their
-     registration) — what the card's tune chip shows. Derived, never a hand-kept
-     list of ids, for the same reason `games:'*'` asks the registry: a list typed
-     into the chip goes stale the day the next setting matters. */
+     registration) — the room bench's per-game quick view shows these first.
+     Derived, never a hand-kept list of ids, for the same reason `games:'*'` asks
+     the registry: a list typed out goes stale the day the next setting matters. */
   function quickIds(game){
     return defs.filter(d => d.quick && scoped(d) && gamesOf(d).indexOf(game) !== -1)
                .map(d => d.id);
   }
 
   return {
-    renderFor, renderOnce, quickIds, register, get, set, clearOverride, hasOverride, onChange, variantsFor,
-           raw, keys, drop, mount, open, close, resetAll, setContext, setRound, roundNow, describePresets,
+    renderOnce, quickIds, register, get, set, clearOverride, hasOverride, onChange, variantsFor,
+           raw, keys, drop, open, close, resetAll, setContext, setRound, roundNow, describePresets,
            get storageAvailable(){ return storageOK; } };
 })();

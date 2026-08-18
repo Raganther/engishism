@@ -1494,7 +1494,7 @@ async function testGameRegistry(browser){
     const out = {};
     window.HubGames.ids().forEach(g => {
       const host = document.createElement('div');
-      window.HubSettings.renderFor(host, g);
+      window.HubSettings.renderOnce(host, g);
       out[g] = list.filter(id => !!host.querySelector('[data-setting="' + id + '"]'));
     });
     return out;
@@ -2999,7 +2999,7 @@ async function testLabDrawer(browser){
      phone dynamic is one picker — rendered into a host, not read off any on-board UI. */
   const view = await page.evaluate(() => {
     const host = document.createElement('div'); document.body.appendChild(host);
-    window.HubSettings.renderFor(host, 'race');
+    window.HubSettings.renderOnce(host, 'race');
     const labels = [...host.querySelectorAll('.settings-row')].map(r => r.textContent).join(' | ');
     const modeSel = host.querySelectorAll('[data-setting="round_default"]');
     const out = {
@@ -3029,7 +3029,7 @@ async function testLabDrawer(browser){
   const rules = await page.evaluate(() => {
     window.HubSettings.set('jRules','classic','jeopardy');
     const host = document.createElement('div'); document.body.appendChild(host);
-    window.HubSettings.renderFor(host, 'jeopardy');
+    window.HubSettings.renderOnce(host, 'jeopardy');
     const out = {
       first:  (host.querySelector('.settings-group')||{textContent:''}).textContent,
       note10: /Classic sets this to 10s/.test(host.textContent),
@@ -3047,7 +3047,7 @@ async function testLabDrawer(browser){
      host, so the fold works with no on-board panel. */
   const fold = await page.evaluate(() => {
     const host = document.createElement('div'); document.body.appendChild(host);
-    window.HubSettings.renderFor(host, 'jeopardy');
+    window.HubSettings.renderOnce(host, 'jeopardy');
     const sel = '.settings-groupbody';
     const open0 = host.querySelectorAll(sel + ':not(.closed)').length;
     const header = host.querySelector('.settings-group.foldable');
@@ -7978,7 +7978,7 @@ async function testJeopardyClassic(browser){
      they can still change it afterwards without the mode contradicting them. */
   const shown = await page.evaluate(() => {
     const host = document.createElement('div');
-    window.HubSettings.renderFor(host, 'jeopardy');
+    window.HubSettings.renderOnce(host, 'jeopardy');
     const el = host.querySelector('[data-setting="round_default"]');
     return el ? (el.value || '') : 'no row';
   });
