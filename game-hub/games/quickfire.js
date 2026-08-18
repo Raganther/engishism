@@ -313,7 +313,7 @@
                  ? tie.map(r => r.name).join(' and ') + ' — ' + top.pts + ' each'
                  : top.pts + ' points',
       tone:    'gold',
-      actions: [{ label:'New run', onClick: startKahoot }]
+      actions: [{ label:'New run', onPick: startKahoot }]
     });
   }
 
