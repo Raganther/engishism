@@ -479,6 +479,22 @@ function ctx(){
   return {
     teams: TEAMS.slice(),
     sizes: sizes(),
+    /* The bench has no settings panel, so it lends the *default room's* values — the
+       same numbers a game shows before a teacher changes anything. Keeping this in
+       step with roundCtx() (hub-engine.js) is what stops the bench quietly playing a
+       round differently than a game would: `openToAll` absent made the ordering race
+       set `done` on the first finisher and lock everyone else out — exactly the bug
+       the field was added to prevent. */
+    openToAll: true,                                   // roundOpenToAll default
+    crowdReveal: 0.4,                                  // crowdReveal default 40%
+    crowdMeter: true,
+    crowdLive: false,
+    commentary: 'headline',                            // roundCommentary default
+    nudge: kind => { if(host && host.nudge) host.nudge(kind); },
+    solo: false,                                       // the bench plays teams
+    hideVotes: false,
+    lockIn: false,
+    countVotes: false,
     keep: KEEP,
     /* Who is in the room, read fresh like `sizes` — the information gap deals a
        view per player, and a deal cut from a stale roster misses whoever just
