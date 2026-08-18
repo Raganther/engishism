@@ -1092,6 +1092,15 @@ const UNIT_AUDIT = () => {
       const secs = cats.map(c => c.section);
       secs.forEach((s, i) => { if(i && s !== secs[i-1] && secs.slice(0, i).indexOf(s) !== -1)
         out.push({kind:'jeopardy', msg:id + ': jeopardy section ' + s + ' is not contiguous'}); });
+      /* Every category must show a name: its own, or — for a round category — the
+         round's label, which the engine derives (categoryName) so the redundant copies
+         can be dropped from content. A category that resolves to neither renders a
+         blank heading, which is how a stripped name would fail silently. */
+      cats.forEach(c => {
+        const hit = c.clues && c.clues[0] ? ROUNDS.of(c.clues[0]) : null;
+        if(!(c.name || (hit && hit.def && hit.def.label)))
+          out.push({kind:'jeopardy', msg:id + ': category ' + c.id + ' has no name and no round to derive one'});
+      });
 
       /* Blockbusters, the same two-part split the Jeopardy block above makes: a
          round is asked its own rules, and this bank's own tidiness stays here.

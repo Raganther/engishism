@@ -49,7 +49,7 @@ window.UNITS.push({
       {v:400, q:"Correct it: We *didn't pay* the house insurance yet.", a:"haven't paid", type:"errorfix"},
       {v:500, q:"Which does NOT go with the present perfect: just / already / yet / ago", a:"ago — it says exactly when, so it takes the past simple", type:"oddoneout"},
     ]},
-    { id:'ef2a-connections', section:'2A', name:'Connections', clues:[
+    { id:'ef2a-connections', section:'2A', clues:[
       {v:100, q:"Four of these are ways money can ARRIVE. Find the four.",
         group:{ pick:["earn","inherit","win","borrow"],
                 with:["spend","waste","lend","donate"] }},
@@ -66,7 +66,7 @@ window.UNITS.push({
         group:{ pick:["gas","electricity","broadband","rent"],
                 with:["takeaway","taxi","cinema","haircut"] }},
     ]},
-    { id:'ef2a-drag-letters', section:'2A', name:'Drag the Letters', clues:[
+    { id:'ef2a-drag-letters', section:'2A', clues:[
       {v:100, q:"to take money that you must pay back",
         anagram:{ word:"borrow" }},
       {v:200, q:"to have enough money for something",
@@ -78,7 +78,7 @@ window.UNITS.push({
       {v:500, q:"describes a message that makes you feel something is wrong",
         anagram:{ word:"suspicious" }},
     ]},
-    { id:'ef2a-drag-words', section:'2A', name:'Drag the Words', clues:[
+    { id:'ef2a-drag-words', section:'2A', clues:[
       {v:100, q:"Rebuild the question:",
         scramble:{ sentence:"Have you paid the phone bill yet" }},
       {v:200, q:"Rebuild the sentence:",

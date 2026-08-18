@@ -187,7 +187,7 @@
        Unlike every other category on this board these clues are worth the same
        whatever the tile — a set of four is a set of four — so the difficulty is in
        how close the two groups sit, not in how much is being asked for. */
-    { id:'lab-group', section:'L4', name:'Connections', clues:[
+    { id:'lab-group', section:'L4', clues:[
       {v:100, q:"Four of these mean the same as “very angry”. Find the four.",
         group:{ pick:["livid","furious","incensed","irate"],
                 with:["grateful","content","serene","cautious"] }},
@@ -223,7 +223,7 @@
 
        Five words a rung, deliberately: four is too easy to guess by elimination and
        six will not fit a clue card above the buttons. */
-    { id:'lab-order', section:'L5', name:'Word Thermometer', clues:[
+    { id:'lab-order', section:'L5', clues:[
       {v:100, q:"Put these in order — mildest first.",
         order:{ scale:["annoyed","irritated","angry","livid","furious"],
                 low:"mildly bothered", high:"absolutely raging",
@@ -283,7 +283,7 @@
        ones make a question that tests nothing; every decoy here is a word a C1
        student might genuinely reach for, which is what makes the choice a piece of
        language work rather than a coin toss. */
-    { id:'lab-choice', section:'L6', name:'Multiple Choice', clues:[
+    { id:'lab-choice', section:'L6', clues:[
       {v:100, q:"Which verb goes with 'a sentence', when a judge delivers one?",
         choice:{ options:["pass","make","do","give"], answer:"pass" }},
       {v:200, q:"Which one means a decision has been overturned on appeal?",
@@ -309,7 +309,7 @@
        $400 and $500 carry **repeated letters** deliberately: three Es and a double
        S are the case both ends of this round are built around, and a board with
        only distinct-letter words would never exercise it. */
-    { id:'lab-anagram-round', section:'L7', name:'Drag the Letters', clues:[
+    { id:'lab-anagram-round', section:'L7', clues:[
       {v:100, q:"the decision a jury delivers", anagram:{ word:'verdict' }},
       {v:200, q:"money paid so somebody can be released before a trial",
         anagram:{ word:'bail' }},
@@ -331,7 +331,7 @@
        repeated word is what breaks a picker keyed by text, and a bank of sentences
        that all happened to have distinct words would never exercise it. The prompt
        must never quote the sentence; the round's `check` says so. */
-    { id:'lab-scramble-round', section:'L8', name:'Drag the Words', clues:[
+    { id:'lab-scramble-round', section:'L8', clues:[
       {v:100, q:"Put the words in order.",
         scramble:{ sentence:'The jury reached the verdict after four hours' }},
       {v:200, q:"Order the words to make a sentence.",

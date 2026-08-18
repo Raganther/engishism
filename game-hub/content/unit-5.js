@@ -44,7 +44,7 @@
      a scale by nature, so it is the Thermometer. */
   jeopardyCategories: [
     /* ================= 5A · crime, justice and relative clauses ================= */
-    { id:'5a-connections', section:'5A', name:'Connections', clues:[
+    { id:'5a-connections', section:'5A', clues:[
       {v:100, q:"Four of these are people you find in a courtroom. Find the four.",
         group:{ pick:["jury","witness","defendant","judge"],
                 with:["tenant","surgeon","applicant","referee"] }},
@@ -61,7 +61,7 @@
         group:{ pick:["arrested","charged","remanded","questioned"],
                 with:["convicted","sentenced","imprisoned","released"] }},
     ]},
-    { id:'5a-thermometer', section:'5A', name:'Word Thermometer', clues:[
+    { id:'5a-thermometer', section:'5A', clues:[
       {v:100, q:"Put these in order — least certain first.",
         order:{ scale:["gossip","suspicion","allegation","charge","conviction"],
                 low:"just talk", high:"proved in court",
@@ -106,7 +106,7 @@
     /* Grammar Focus 5A (p146). A four-way choice is the right shape for relative
        pronouns because the book's own exercise b is already written as one — the
        distractors are the pronouns a C1 student actually reaches for by mistake. */
-    { id:'5a-choice', section:'5A', name:'Multiple Choice', clues:[
+    { id:'5a-choice', section:'5A', clues:[
       {v:100, q:"'The juror ___ fell asleep during the trial was replaced.'",
         choice:{ options:["who","which","whose","whom"], answer:"who" }},
       {v:200, q:"'The elderly woman ___ bag was taken has come forward.'",
@@ -121,7 +121,7 @@
     /* Only a word-order round asks the thing p146 is actually about: where the
        clause interrupts the main clause, whether the preposition fronts, and where
        the commas fall. A gap fill hands you the finished sentence. */
-    { id:'5a-scramble', section:'5A', name:'Drag the Words', clues:[
+    { id:'5a-scramble', section:'5A', clues:[
       {v:100, q:"Put the words in order — a defining clause with 'that'.",
         scramble:{ sentence:"The law that was recently passed makes no sense" }},
       {v:200, q:"Put the words in order — the clause interrupts the main clause.",
@@ -133,7 +133,7 @@
       {v:500, q:"Put the words in order — 'of which' in formal writing.",
         scramble:{ sentence:"The prison, the walls of which are covered in art" }},
     ]},
-    { id:'5a-anagram', section:'5A', name:'Drag the Letters', clues:[
+    { id:'5a-anagram', section:'5A', clues:[
       {v:100, q:"the decision a jury delivers", anagram:{ word:"verdict" }},
       {v:200, q:"where you are held before your trial begins", anagram:{ word:"custody" }},
       {v:300, q:"a claim that you were somewhere else at the time", anagram:{ word:"alibi" }},
@@ -142,7 +142,7 @@
     ]},
 
     /* ================= 5B · employment, pay and obligation ================= */
-    { id:'5b-connections', section:'5B', name:'Connections', clues:[
+    { id:'5b-connections', section:'5B', clues:[
       {v:100, q:"Four of these are sectors of the economy. Find the four.",
         group:{ pick:["financial","retail","construction","agricultural"],
                 with:["flexitime","sabbatical","paternity","overtime"] }},
@@ -159,7 +159,7 @@
         group:{ pick:["degree","diploma","certificate","apprenticeship"],
                 with:["salary","bonus","commission","wages"] }},
     ]},
-    { id:'5b-thermometer', section:'5B', name:'Word Thermometer', clues:[
+    { id:'5b-thermometer', section:'5B', clues:[
       {v:100, q:"Put these in order — least obligation first.",
         order:{ scale:["optional","advisable","expected","required","compulsory"],
                 low:"entirely up to you", high:"no choice at all",
@@ -203,7 +203,7 @@
     ]},
     /* Grammar Focus 5B (p147) — must imposes the obligation yourself, have to
        describes one somebody else imposed, and must has no past. */
-    { id:'5b-choice', section:'5B', name:'Multiple Choice', clues:[
+    { id:'5b-choice', section:'5B', clues:[
       {v:100, q:"Which one describes a rule that somebody ELSE imposed on you?",
         choice:{ options:["have to","must","ought to","had better"], answer:"have to" }},
       {v:200, q:"'Must' has no past. Put it in the past: 'I must go on a business trip.'",
@@ -215,7 +215,7 @@
       {v:500, q:"'Visitors are ___ to bring food into the building' — a formal refusal.",
         choice:{ options:["forbidden","required","expected","obliged"], answer:"forbidden" }},
     ]},
-    { id:'5b-scramble', section:'5B', name:'Drag the Words', clues:[
+    { id:'5b-scramble', section:'5B', clues:[
       {v:100, q:"Put the words in order — a modal takes no 'to'.",
         scramble:{ sentence:"You must wear a helmet on this site" }},
       {v:200, q:"Put the words in order — 'obliged' takes 'to'.",
@@ -227,7 +227,7 @@
       {v:500, q:"Put the words in order — what the rules say.",
         scramble:{ sentence:"The director is supposed to authorise all major spending" }},
     ]},
-    { id:'5b-anagram', section:'5B', name:'Drag the Letters', clues:[
+    { id:'5b-anagram', section:'5B', clues:[
       {v:100, q:"the money paid for a week's work", anagram:{ word:"wages" }},
       {v:200, q:"a long paid career break, often six months", anagram:{ word:"sabbatical" }},
       {v:300, q:"the benefit that lets you choose your own hours", anagram:{ word:"flexitime" }},
@@ -236,7 +236,7 @@
     ]},
 
     /* ================= 5C · recalling and speculating ================= */
-    { id:'5c-connections', section:'5C', name:'Connections', clues:[
+    { id:'5c-connections', section:'5C', clues:[
       {v:100, q:"Four of these are about remembering. The others are about guessing.",
         group:{ pick:["recall","remember","recollect","reminisce"],
                 with:["speculate","presume","assume","suppose"] }},
@@ -253,7 +253,7 @@
         group:{ pick:["guess","estimate","reckon","suppose"],
                 with:["confirm","verify","prove","establish"] }},
     ]},
-    { id:'5c-thermometer', section:'5C', name:'Word Thermometer', clues:[
+    { id:'5c-thermometer', section:'5C', clues:[
       {v:100, q:"Put these in order — least certain first.",
         order:{ scale:["possibly","probably","presumably","definitely","undoubtedly"],
                 low:"a wild guess", high:"no doubt at all",
@@ -295,7 +295,7 @@
                         knew:"you had no doubt.",
                         witnessed:"you saw it happen yourself." } }},
     ]},
-    { id:'5c-choice', section:'5C', name:'Multiple Choice', clues:[
+    { id:'5c-choice', section:'5C', clues:[
       {v:100, q:"'If my memory ___ me correctly…'",
         choice:{ options:["serves","helps","holds","keeps"], answer:"serves" }},
       {v:200, q:"'I'd ___ a guess that she already knew.'",
@@ -307,7 +307,7 @@
       {v:500, q:"Which one shows the speaker is SURE?",
         choice:{ options:["no doubt","I'd hazard a guess","roughly speaking","I'm not certain"], answer:"no doubt" }},
     ]},
-    { id:'5c-scramble', section:'5C', name:'Drag the Words', clues:[
+    { id:'5c-scramble', section:'5C', clues:[
       {v:100, q:"Put the words in order — recalling, with slight uncertainty.",
         scramble:{ sentence:"If my memory serves me correctly we met before" }},
       {v:200, q:"Put the words in order — speculating.",
@@ -319,7 +319,7 @@
       {v:500, q:"Put the words in order — admitting you forgot.",
         scramble:{ sentence:"The whole thing has completely slipped my mind" }},
     ]},
-    { id:'5c-anagram', section:'5C', name:'Drag the Letters', clues:[
+    { id:'5c-anagram', section:'5C', clues:[
       {v:100, q:"to bring a past event back to mind", anagram:{ word:"recall" }},
       {v:200, q:"a feeling about something, with no evidence behind it", anagram:{ word:"hunch" }},
       {v:300, q:"to guess about something you cannot be sure of", anagram:{ word:"speculate" }},
@@ -328,7 +328,7 @@
     ]},
 
     /* ================= 5D · opinion essays and linking ================= */
-    { id:'5d-connections', section:'5D', name:'Connections', clues:[
+    { id:'5d-connections', section:'5D', clues:[
       {v:100, q:"Four of these add a point. The others contrast. Find the four that add.",
         group:{ pick:["moreover","furthermore","besides","additionally"],
                 with:["however","nevertheless","whereas","conversely"] }},
@@ -345,7 +345,7 @@
         group:{ pick:["privacy","discrimination","transparency","fairness"],
                 with:["salary","overtime","bonus","pension"] }},
     ]},
-    { id:'5d-thermometer', section:'5D', name:'Word Thermometer', clues:[
+    { id:'5d-thermometer', section:'5D', clues:[
       {v:100, q:"Put these in order — first paragraph to last.",
         order:{ scale:["introduction","argument","counterargument","evaluation","conclusion"],
                 low:"opens the essay", high:"closes the essay",
@@ -387,7 +387,7 @@
                         certainly:"you are committing to it.",
                         undeniably:"the strongest of the five — use it rarely." } }},
     ]},
-    { id:'5d-choice', section:'5D', name:'Multiple Choice', clues:[
+    { id:'5d-choice', section:'5D', clues:[
       {v:100, q:"Which paragraph gives your balanced opinion of both sides?",
         choice:{ options:["the conclusion","the introduction","paragraph two","paragraph three"], answer:"the conclusion" }},
       {v:200, q:"Which of these must NOT appear in a conclusion?",
@@ -399,7 +399,7 @@
       {v:500, q:"'___ addition, they complain that companies go trawling.'",
         choice:{ options:["In","On","By","With"], answer:"In" }},
     ]},
-    { id:'5d-scramble', section:'5D', name:'Drag the Words', clues:[
+    { id:'5d-scramble', section:'5D', clues:[
       {v:100, q:"Put the words in order — adding a point.",
         scramble:{ sentence:"In addition employers now routinely check social media" }},
       {v:200, q:"Put the words in order — your most important argument.",
@@ -411,7 +411,7 @@
       {v:500, q:"Put the words in order — what the writer concludes.",
         scramble:{ sentence:"Clear guidelines are needed to restrict what employers research" }},
     ]},
-    { id:'5d-anagram', section:'5D', name:'Drag the Letters', clues:[
+    { id:'5d-anagram', section:'5D', clues:[
       {v:100, q:"the paragraph that closes an essay", anagram:{ word:"conclusion" }},
       {v:200, q:"the paragraph that opens one", anagram:{ word:"introduction" }},
       {v:300, q:"open, and easy for anyone to see into", anagram:{ word:"transparent" }},

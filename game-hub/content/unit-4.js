@@ -48,7 +48,7 @@
      time expressions with the book's own three-way split (p53 3e). */
   jeopardyCategories: [
     /* ================= 4A · instinct, reason and doubt ================= */
-    { id:'4a-connections', section:'4A', name:'Connections', clues:[
+    { id:'4a-connections', section:'4A', clues:[
       {v:100, q:"Four of these are about acting without thinking it through. Find the four.",
         group:{ pick:["impulse","whim","instinct","gut"],
                 with:["rational","objective","logical","considered"] }},
@@ -65,7 +65,7 @@
         group:{ pick:["sight","hearing","touch","smell"],
                 with:["instinct","intuition","hunch","premonition"] }},
     ]},
-    { id:'4a-thermometer', section:'4A', name:'Word Thermometer', clues:[
+    { id:'4a-thermometer', section:'4A', clues:[
       {v:100, q:"Put these in order — least thought first.",
         order:{ scale:["on a whim","on impulse","gut feeling","weighing up","rational analysis"],
                 low:"no thought at all", high:"worked through step by step",
@@ -109,7 +109,7 @@
     ]},
     /* Vocabulary 4A exercise 2b (p44): each bold expression is replaced by a word
        or phrase from the box, so the pairs are the book's own. */
-    { id:'4a-choice', section:'4A', name:'Multiple Choice', clues:[
+    { id:'4a-choice', section:'4A', clues:[
       {v:100, q:"'It's important to be rational.' Which word from the box replaces it?",
         choice:{ options:["objective","deep down","on a whim","consider"], answer:"objective" }},
       {v:200, q:"'On impulse, I applied for a new job.' Which phrase replaces it?",
@@ -121,7 +121,7 @@
       {v:500, q:"'You're left with a nagging ___ that all is not quite as it seems.'",
         choice:{ options:["doubt","feeling","pattern","anxiety"], answer:"doubt" }},
     ]},
-    { id:'4a-scramble', section:'4A', name:'Drag the Words', clues:[
+    { id:'4a-scramble', section:'4A', clues:[
       {v:100, q:"Put the words in order — a doubt you cannot shake.",
         scramble:{ sentence:"You are left with a nagging doubt about it" }},
       {v:200, q:"Put the words in order — the book's phrase for knowing without evidence.",
@@ -133,7 +133,7 @@
       {v:500, q:"Put the words in order — what the unit is about.",
         scramble:{ sentence:"Most doctors will admit to following their gut instincts" }},
     ]},
-    { id:'4a-anagram', section:'4A', name:'Drag the Letters', clues:[
+    { id:'4a-anagram', section:'4A', clues:[
       {v:100, q:"based on logic and evidence rather than feeling", anagram:{ word:"rational" }},
       {v:200, q:"not influenced by your own feelings about it", anagram:{ word:"objective" }},
       {v:300, q:"below the level you are aware of", anagram:{ word:"subconscious" }},
@@ -144,7 +144,7 @@
     /* ================= 4B · have, get and memory ================= */
     /* Grammar 4B (p47 1d): six sentences, four uses. The uses are the book's own
        wording, which is what makes this a grammar question rather than a guess. */
-    { id:'4b-connections', section:'4B', name:'Connections', clues:[
+    { id:'4b-connections', section:'4B', clues:[
       {v:100, q:"Four of these are memory collocations from the unit. Find the four.",
         group:{ pick:["vague","vivid","lasting","distant"],
                 with:["rational","objective","uneasy","groundless"] }},
@@ -161,7 +161,7 @@
         group:{ pick:["comes to mind","cast your mind back","slipped my mind","trigger a memory"],
                 with:["weigh up","deep down","on a whim","beg to differ"] }},
     ]},
-    { id:'4b-thermometer', section:'4B', name:'Word Thermometer', clues:[
+    { id:'4b-thermometer', section:'4B', clues:[
       {v:100, q:"Put these in order — faintest memory first.",
         order:{ scale:["forgotten","vague","distant","vivid","photographic"],
                 low:"nothing is left", high:"perfect recall",
@@ -203,7 +203,7 @@
                         'line-up':"the witness is invited to identify the perpetrator.",
                         court:"by now, time has elapsed." } }},
     ]},
-    { id:'4b-choice', section:'4B', name:'Multiple Choice', clues:[
+    { id:'4b-choice', section:'4B', clues:[
       {v:100, q:"'My parents were having the kitchen renovated.' Which use is it?",
         choice:{ options:["they paid somebody to do a job","their possessions were harmed",
                           "they caused somebody to do something","they caused what happened to them"],
@@ -225,7 +225,7 @@
                  answer:"a photographic memory" }},
     ]},
     /* The book's own pronunciation sentences (p47 2a), put back out of order. */
-    { id:'4b-scramble', section:'4B', name:'Drag the Words', clues:[
+    { id:'4b-scramble', section:'4B', clues:[
       {v:100, q:"Put the words in order — something was done to me.",
         scramble:{ sentence:"I had my bike stolen outside the station" }},
       {v:200, q:"Put the words in order — she caused me to do it.",
@@ -237,7 +237,7 @@
       {v:500, q:"Put the words in order — somebody else caused it.",
         scramble:{ sentence:"My brother got me punished quite unfairly" }},
     ]},
-    { id:'4b-anagram', section:'4B', name:'Drag the Letters', clues:[
+    { id:'4b-anagram', section:'4B', clues:[
       {v:100, q:"unclear — the book's word for a memory with no detail", anagram:{ word:"vague" }},
       {v:200, q:"with clear sensations, so you can still feel it", anagram:{ word:"vivid" }},
       {v:300, q:"the person who actually committed the crime", anagram:{ word:"perpetrator" }},
@@ -247,7 +247,7 @@
 
     /* ================= 4C · tact, idioms and homophones ================= */
     /* Useful Language 4C (p50 2a): seven expressions, three uses, all the book's. */
-    { id:'4c-connections', section:'4C', name:'Connections', clues:[
+    { id:'4c-connections', section:'4C', clues:[
       {v:100, q:"Four of these soften a disagreement. Find the four.",
         group:{ pick:["differ","respect","offence","personally"],
                 with:["stolen","renovated","punished","locked"] }},
@@ -264,7 +264,7 @@
         group:{ pick:["Well","Look","Actually","Honestly"],
                 with:["Subsequently","Gradually","Shortly","Immediately"] }},
     ]},
-    { id:'4c-thermometer', section:'4C', name:'Word Thermometer', clues:[
+    { id:'4c-thermometer', section:'4C', clues:[
       {v:100, q:"Put these in order — most tactful first.",
         order:{ scale:["I see where you're coming from","I do take your point","I beg to differ",
                        "That's not the way I see it","With all due respect"],
@@ -308,7 +308,7 @@
                         "I'm afraid I have to say":"you present it as something you must say.",
                         'With all due respect':"the strongest warning of all." } }},
     ]},
-    { id:'4c-choice', section:'4C', name:'Multiple Choice', clues:[
+    { id:'4c-choice', section:'4C', clues:[
       {v:100, q:"Which expression softens a strong or unpopular opinion?",
         choice:{ options:["I'm afraid I have to say","I beg to differ",
                           "I see where you're coming from","Tell me about it"],
@@ -324,7 +324,7 @@
       {v:500, q:"Complete the idiom: 'You've ___ the nail on the head!'",
         choice:{ options:["hit","struck","banged","knocked"], answer:"hit" }},
     ]},
-    { id:'4c-scramble', section:'4C', name:'Drag the Words', clues:[
+    { id:'4c-scramble', section:'4C', clues:[
       {v:100, q:"Put the words in order — asking permission to criticise.",
         scramble:{ sentence:"Well if you don't mind me saying so" }},
       {v:200, q:"Put the words in order — accepting their view, then differing.",
@@ -336,7 +336,7 @@
       {v:500, q:"Put the words in order — the politest warning there is.",
         scramble:{ sentence:"With all due respect I don't think so" }},
     ]},
-    { id:'4c-anagram', section:'4C', name:'Drag the Letters', clues:[
+    { id:'4c-anagram', section:'4C', clues:[
       {v:100, q:"the skill of saying a hard thing without wounding", anagram:{ word:"tact" }},
       {v:200, q:"willing to say what you think without being asked", anagram:{ word:"forthcoming" }},
       {v:300, q:"criticism meant to help rather than to wound", anagram:{ word:"constructive" }},
@@ -348,7 +348,7 @@
     /* Writing 4D (p53 3e/3f): the book sorts its time expressions into three
        groups — immediately, after a short time, some time later — which is
        exactly a scale, and it is the book's own. */
-    { id:'4d-connections', section:'4D', name:'Connections', clues:[
+    { id:'4d-connections', section:'4D', clues:[
       {v:100, q:"Four of these mean 'immediately'. Find the four.",
         group:{ pick:["the moment","the instant","no sooner","as soon as"],
                 with:["subsequently","gradually","in time","before long"] }},
@@ -365,7 +365,7 @@
         group:{ pick:["quotes","background","achievements","plans"],
                 with:["verdict","testimony","line-up","sentence"] }},
     ]},
-    { id:'4d-thermometer', section:'4D', name:'Word Thermometer', clues:[
+    { id:'4d-thermometer', section:'4D', clues:[
       {v:100, q:"Put these in order — soonest first.",
         order:{ scale:["the instant","shortly afterwards","before long","subsequently","gradually"],
                 low:"immediately", high:"over a long stretch of time",
@@ -407,7 +407,7 @@
                         achievements:"what she has done since.",
                         plans:"what comes next — where a profile ends." } }},
     ]},
-    { id:'4d-choice', section:'4D', name:'Multiple Choice', clues:[
+    { id:'4d-choice', section:'4D', clues:[
       {v:100, q:"'___ had I started singing than I realised what I wanted.'",
         choice:{ options:["No sooner","Not until","The instant","Before long"], answer:"No sooner" }},
       {v:200, q:"'___ many years later did she become famous.'",
@@ -421,7 +421,7 @@
                           "the tense is wrong","it is a question"],
                  answer:"the subject and verb are inverted" }},
     ]},
-    { id:'4d-scramble', section:'4D', name:'Drag the Words', clues:[
+    { id:'4d-scramble', section:'4D', clues:[
       {v:100, q:"Put the words in order — some time later.",
         scramble:{ sentence:"They moved first to Bristol and subsequently to London" }},
       {v:200, q:"Put the words in order — after a short time.",
@@ -433,7 +433,7 @@
       {v:500, q:"Put the words in order — the article's closing idea.",
         scramble:{ sentence:"Her popularity shows no sign of waning any time soon" }},
     ]},
-    { id:'4d-anagram', section:'4D', name:'Drag the Letters', clues:[
+    { id:'4d-anagram', section:'4D', clues:[
       {v:100, q:"the moment everything changed for her", anagram:{ word:"breakthrough" }},
       {v:200, q:"some time later — the article's formal word", anagram:{ word:"subsequently" }},
       {v:300, q:"slowly, over a period rather than at one moment", anagram:{ word:"gradually" }},

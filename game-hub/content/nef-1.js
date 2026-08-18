@@ -72,7 +72,7 @@ window.UNITS.push({
       {v:400, q:"'Have' changes meaning: 'I ___ lunch at the moment' is fine, but 'I ___ a car' is not.", a:"am having / am having"},
       {v:500, q:"Why is 'I'm loving this' acceptable in the interview but not in an exam?", a:"it is a deliberate, informal use of a non-action verb"},
     ]},
-    { id:'nef1-connections-1a', section:'1A', name:'Connections', clues:[
+    { id:'nef1-connections-1a', section:'1A', clues:[
       {v:100, q:"Four of these are ways of cooking food. The others happen before it. Find the four.",
         group:{ pick:["grilled","steamed","roasted","fried"],
                 with:["chopped","sliced","peeled","grated"] }},
@@ -89,7 +89,7 @@ window.UNITS.push({
         group:{ pick:["know","believe","own","prefer"],
                 with:["chew","chop","swallow","stir"] }},
     ]},
-    { id:'nef1-thermometer-1a', section:'1A', name:'Word Thermometer', clues:[
+    { id:'nef1-thermometer-1a', section:'1A', clues:[
       {v:100, q:"Put these in order — mildest first.",
         order:{ scale:["mild","warm","hot","spicy","fiery"],
                 low:"a baby could eat it", high:"you need a glass of milk",
@@ -136,7 +136,7 @@ window.UNITS.push({
        questions or mixed with the read-out ones. Drag the Letters needs a word with
        no space or hyphen in it and a clue that does not contain the answer — the
        round checks both, and the second is the one a reader misses. */
-    { id:'nef1-drag-letters-1a', section:'1A', name:'Drag the Letters', clues:[
+    { id:'nef1-drag-letters-1a', section:'1A', clues:[
       {v:100, q:"Slice this purple vegetable and it stains everything it touches.",
         anagram:{ word:"beetroot" }},
       {v:200, q:"Minced meat in skins, fried or grilled for breakfast.",
@@ -152,7 +152,7 @@ window.UNITS.push({
        repeated word is the case this round is really built around, because every
        pick in the app is keyed by its text and the first copy would otherwise stand
        for all of them. */
-    { id:'nef1-drag-words-1a', section:'1A', name:'Drag the Words', clues:[
+    { id:'nef1-drag-words-1a', section:'1A', clues:[
       {v:100, q:"Put the words in order — someone describing their diet.",
         scramble:{ sentence:"I eat a lot of vegetables and a lot of fruit" }},
       {v:200, q:"Put the words in order — why she cannot come to the phone.",
@@ -164,7 +164,7 @@ window.UNITS.push({
       {v:500, q:"Put the words in order — a morning habit.",
         scramble:{ sentence:"He always drinks his coffee before he eats anything" }},
     ]},
-    { id:'nef1-choice-1a', section:'1A', name:'Multiple Choice', clues:[
+    { id:'nef1-choice-1a', section:'1A', clues:[
       {v:100, q:"Which one is a way of cooking rather than a way of preparing?",
         choice:{ options:["roasting","chopping","peeling","grating"], answer:"roasting" }},
       {v:200, q:"Which sentence is correct English?",
@@ -184,7 +184,7 @@ window.UNITS.push({
        the people beside you. Targets are single words with no apostrophes: the
        spelling tolerance is zero under five letters, so "won't" would mark a
        student wrong for the apostrophe rather than the English. */
-    { id:'nef1-infogap-1a', section:'1A', name:'Information Gap', clues:[
+    { id:'nef1-infogap-1a', section:'1A', clues:[
       {v:100, q:"A morning habit — ask your team for your missing words.",
         infogap:{ sentence:"I always *drink* a black *coffee* before I eat anything" }},
       {v:200, q:"Food she avoids — ask your team for your missing words.",
@@ -224,7 +224,7 @@ window.UNITS.push({
       {v:400, q:"Neither agree nor disagree: 'I think it ___.'", a:"depends"},
       {v:500, q:"Soften a refusal before you give it: '___, I'd rather not.'", a:"I'm sorry"},
     ]},
-    { id:'nef1-connections-1b', section:'1B', name:'Connections', clues:[
+    { id:'nef1-connections-1b', section:'1B', clues:[
       {v:100, q:"Four of these are family by marriage rather than by blood. Find the four.",
         group:{ pick:["stepmother","stepson","mother-in-law","brother-in-law"],
                 with:["nephew","niece","cousin","grandson"] }},
@@ -241,7 +241,7 @@ window.UNITS.push({
         group:{ pick:["siblings","brothers","sisters","twins"],
                 with:["cousins","in-laws","ancestors","descendants"] }},
     ]},
-    { id:'nef1-thermometer-1b', section:'1B', name:'Word Thermometer', clues:[
+    { id:'nef1-thermometer-1b', section:'1B', clues:[
       {v:100, q:"Put these in order — youngest first.",
         order:{ scale:["baby","toddler","child","teenager","adult"],
                 low:"cannot walk yet", high:"can vote",
@@ -283,7 +283,7 @@ window.UNITS.push({
                         marriage:"the legal commitment.",
                         divorce:"the legal end of it." } }},
     ]},
-    { id:'nef1-drag-letters-1b', section:'1B', name:'Drag the Letters', clues:[
+    { id:'nef1-drag-letters-1b', section:'1B', clues:[
       {v:100, q:"Children who share the same two parents.",
         anagram:{ word:"siblings" }},
       {v:200, q:"The son of your brother or of your sister.",
@@ -295,7 +295,7 @@ window.UNITS.push({
       {v:500, q:"Everybody born at roughly the same time as each other.",
         anagram:{ word:"generation" }},
     ]},
-    { id:'nef1-drag-words-1b', section:'1B', name:'Drag the Words', clues:[
+    { id:'nef1-drag-words-1b', section:'1B', clues:[
       {v:100, q:"Put the words in order — an arrangement for the weekend.",
         scramble:{ sentence:"I am seeing my cousin and my aunt on Sunday" }},
       {v:200, q:"Put the words in order — news about the family.",
@@ -307,7 +307,7 @@ window.UNITS.push({
       {v:500, q:"Put the words in order — refusing a question politely.",
         scramble:{ sentence:"I would rather not talk about that if you do not mind" }},
     ]},
-    { id:'nef1-choice-1b', section:'1B', name:'Multiple Choice', clues:[
+    { id:'nef1-choice-1b', section:'1B', clues:[
       {v:100, q:"Which one is family by marriage rather than by blood?",
         choice:{ options:["mother-in-law","niece","cousin","grandson"], answer:"mother-in-law" }},
       {v:200, q:"Which sentence describes an arrangement rather than a plan?",
@@ -324,7 +324,7 @@ window.UNITS.push({
       {v:500, q:"'Look at that queue — we ___ be waiting an hour.' Which fits best?",
         choice:{ options:["are going to","will have","shall","would"], answer:"are going to" }},
     ]},
-    { id:'nef1-infogap-1b', section:'1B', name:'Information Gap', clues:[
+    { id:'nef1-infogap-1b', section:'1B', clues:[
       {v:100, q:"Who is in the family — ask your team for your missing words.",
         infogap:{ sentence:"My *siblings* are older than me, but my *cousin* is younger" }},
       {v:200, q:"Visitors — ask your team for your missing words.",
