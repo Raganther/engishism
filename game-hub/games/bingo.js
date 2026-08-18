@@ -203,10 +203,9 @@
 
   function bingoStartButton(btn){
     const total = bingoWordsIn(BINGO_BANK).filter(E().inPlay).length;
-    btn.disabled = E().selectedContent().length === 0 || total < BINGO_POOL;
-    btn.textContent = E().selectedContent().length === 0 ? 'Select at least one section'
-      : total < BINGO_POOL ? `Need ${BINGO_POOL} words — ${total} selected, add another topic`
-      : `Deal the cards — ${BINGO_POOL} of ${total} words`;
+    E().startGate(btn, { picked: E().selectedContent().length > 0, total, need: BINGO_POOL,
+      short: `Need ${BINGO_POOL} words`,
+      ready: `Deal the cards — ${BINGO_POOL} of ${total} words` });
   }
 
   function startBingo(){

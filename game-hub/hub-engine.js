@@ -3587,6 +3587,24 @@
     if(g) g.startButton(btn);
   }
 
+  /* The start button for a board that fills from a shuffled pool: disabled until a
+     section is picked and the pool is deep enough, carrying the label that says which.
+     `short` is the board's own "Need N …" line and `ready` its "Build …"/"Deal …" one;
+     the empty prompt and the "— N selected, add another topic" tail are identical for
+     every such board, which is what this owns. (Jeopardy counts categories, Millionaire
+     needs a full ladder and Quickfire just needs one section — each a different gate,
+     so none of those three is one of these.) On HubEnv for the external games. */
+  function startGate(btn, o){
+    if(!o.picked){ btn.disabled = true; btn.textContent = 'Select at least one section'; return; }
+    if(o.total < o.need){
+      btn.disabled = true;
+      btn.textContent = `${o.short} — ${o.total} selected, add another topic`;
+      return;
+    }
+    btn.disabled = false;
+    btn.textContent = o.ready;
+  }
+
   function jeopardyStartButton(btn){
     btn.disabled = selectedContent.length < 3;
     btn.textContent = selectedContent.length < 3
@@ -3596,10 +3614,9 @@
 
   function blockbustersStartButton(btn){
     const total = BLOCKBUSTERS_BANK.filter(inPlay).length;
-    btn.disabled = selectedContent.length===0 || total < BB_TOTAL;
-    btn.textContent = selectedContent.length===0 ? 'Select at least one section'
-      : total < BB_TOTAL ? `Need ${BB_TOTAL} clues for a full board — ${total} selected, add another topic`
-      : `Build board — ${BB_TOTAL} of ${total} clues, shuffled`;
+    startGate(btn, { picked: selectedContent.length > 0, total, need: BB_TOTAL,
+      short: `Need ${BB_TOTAL} clues for a full board`,
+      ready: `Build board — ${BB_TOTAL} of ${total} clues, shuffled` });
   }
 
   function millionaireStartButton(btn){
@@ -3614,10 +3631,9 @@
 
   function raceStartButton(btn){
     const total = RACE_BANK.filter(inPlay).length;
-    btn.disabled = total < RACE_MIN_WORDS;
-    btn.textContent = selectedContent.length===0 ? 'Select at least one section'
-      : total < RACE_MIN_WORDS ? `Need ${RACE_MIN_WORDS} words for a board — ${total} selected, add another topic`
-      : `Build board — ${Math.min(total, RACE_MAX_WORDS)} of ${total} words, shuffled`;
+    startGate(btn, { picked: selectedContent.length > 0, total, need: RACE_MIN_WORDS,
+      short: `Need ${RACE_MIN_WORDS} words for a board`,
+      ready: `Build board — ${Math.min(total, RACE_MAX_WORDS)} of ${total} words, shuffled` });
   }
 
   function shuffle(arr){
@@ -8340,7 +8356,7 @@
     syncBuzzRoom, reaskPhones,
     // nobody holds the floor any more, and the chip stops saying so
     clearFloor: () => { buzzWinner = null; renderBuzzChip(); },
-    renderScorebar, themeOf, motionOK, Sound, stageTension,
+    renderScorebar, themeOf, motionOK, Sound, stageTension, startGate,
     timerSetDuration, timerStart, timerStop, timerReset,
     asChoiceRound: q => mAsRound(q)
   };
