@@ -223,7 +223,7 @@
     startButton:   blockbustersStartButton,
     start(){
       pool = shuffle(BLOCKBUSTERS_BANK.filter(inPlay));
-      pool = pool.slice(0, 18);          // classic 5/4/5/4 board holds 18
+      pool = pool.slice(0, BB_TOTAL);
       buildBlockbustersBoard();
       bbTurn=0; bbSideAt=[0,0]; renderBBTurn(); bbClearOutcome();
       bbVote=null; bbVoting=false; renderBBVote();
@@ -3569,10 +3569,10 @@
 
   function blockbustersStartButton(btn){
     const total = BLOCKBUSTERS_BANK.filter(inPlay).length;
-    btn.disabled = selectedContent.length===0 || total < 18;
+    btn.disabled = selectedContent.length===0 || total < BB_TOTAL;
     btn.textContent = selectedContent.length===0 ? 'Select at least one section'
-      : total < 18 ? `Need 18 clues for a full board — ${total} selected, add another topic`
-      : `Build board — 18 of ${total} clues, shuffled`;
+      : total < BB_TOTAL ? `Need ${BB_TOTAL} clues for a full board — ${total} selected, add another topic`
+      : `Build board — ${BB_TOTAL} of ${total} clues, shuffled`;
   }
 
   function millionaireStartButton(btn){
@@ -3629,7 +3629,8 @@
   });
 
   /* ================= BLOCKBUSTERS ================= */
-  const BB_ROWS = [5,4,5,4];       // the classic board
+  const BB_ROWS  = [5,4,5,4];                        // the classic board
+  const BB_TOTAL = BB_ROWS.reduce((a,b)=>a+b,0);    // how many clues fill it — derive, never re-type
 
   /* ---- more than two teams on a two-sided board ----
      The board is structurally two-sided: yellow connects left→right, blue connects
@@ -4228,7 +4229,7 @@
   // games and units by design, so a new board shouldn't wipe it either.
   function bbPlayAgain(){
     bbClearOutcome();
-    pool = shuffle(BLOCKBUSTERS_BANK.filter(inPlay)).slice(0, 18);
+    pool = shuffle(BLOCKBUSTERS_BANK.filter(inPlay)).slice(0, BB_TOTAL);
     buildBlockbustersBoard();
     bbTurn=0; bbSideAt=[0,0]; renderBBTurn();
     bbVote=null; bbVoting=false; renderBBVote();
