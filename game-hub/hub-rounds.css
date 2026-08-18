@@ -516,7 +516,7 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
   min-width:1.7em; padding:0.2em 0.3em; border-radius:10px;
   font-weight:700; text-transform:uppercase; line-height:1.1; font-size:1.15em;
   background:var(--gw-bg, #fff); color:var(--gw-ink, #12263F);
-  border:2px solid var(--gw-line, #00A0DF); cursor:pointer;
+  border:2px solid var(--gw-line, var(--blue, #00A0DF)); cursor:pointer;
 }
 /* A letter already in a box. It stays on the card rather than disappearing — the
    tray is the reference list of what the word is made of, and letters vanishing
@@ -531,7 +531,7 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
   min-width:1.7em; height:2.05em; border-radius:10px;
   display:inline-flex; align-items:center; justify-content:center;
   font-weight:700; text-transform:uppercase; font-size:1.15em; line-height:1;
-  border:2px dashed var(--gw-line, #00A0DF); color:var(--gw-ink, #12263F);
+  border:2px dashed var(--gw-line, var(--blue, #00A0DF)); color:var(--gw-ink, #12263F);
   background:transparent;
 }
 .round-anagram .ana-box.filled{
@@ -599,7 +599,7 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
 .round-scramble .scr-chip{
   padding:0.14em 0.6em; border-radius:10px; font-weight:600; line-height:1.25;
   background:var(--gw-bg, #fff); color:var(--gw-ink, #12263F);
-  border:2px solid var(--gw-line, #00A0DF); cursor:pointer;
+  border:2px solid var(--gw-line, var(--blue, #00A0DF)); cursor:pointer;
 }
 .round-scramble .scr-chip.spent{ opacity:0.3; cursor:default; }
 
@@ -612,7 +612,7 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
 .round-scramble .scr-slot{
   min-width:var(--scr-w, 1.8em); padding:0.14em 0.55em; border-radius:10px; line-height:1.25;
   display:inline-flex; align-items:center; justify-content:center; font-weight:600;
-  border:2px dashed var(--gw-line, #00A0DF); color:var(--gw-ink, #12263F);
+  border:2px dashed var(--gw-line, var(--blue, #00A0DF)); color:var(--gw-ink, #12263F);
 }
 /* The number is a position marker, not a word — quieter, so a half-built sentence
    reads as the words in it rather than as a row of digits. **Quieter by opacity and
@@ -655,7 +655,7 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
 .round-infogap .ig-slot{
   min-width:2.4em; padding:0.12em 0.55em; border-radius:10px; line-height:1.25;
   display:inline-flex; align-items:center; justify-content:center; font-weight:600;
-  border:2px dashed var(--gw-line, #00A0DF); color:var(--gw-ink, #12263F);
+  border:2px dashed var(--gw-line, var(--blue, #00A0DF)); color:var(--gw-ink, #12263F);
   background:var(--gw-bg, #fff);
 }
 .round-infogap .ig-slot.empty{ opacity:0.55; font-size:0.8em; font-weight:500; cursor:pointer; }
@@ -792,7 +792,7 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
 /* Letters: equal mini boxes, because the boxes spell the word's shape. */
 .rlanes-ana .rl-cell{
   min-width:1.5em; height:1.5em; border-radius:6px; opacity:1;
-  border:1.5px solid var(--gw-line, #00A0DF);
+  border:1.5px solid var(--gw-line, var(--blue, #00A0DF));
   display:inline-flex; align-items:center; justify-content:center;
   font-weight:700; font-size:0.72em;
 }
@@ -816,10 +816,10 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
    letter box, so the two do not read as the same thing at a glance. */
 .rlanes-mc .rl-cell{
   width:1.15em; height:1.15em; border-radius:5px; opacity:1;
-  border:1.5px solid var(--gw-line, #00A0DF);
+  border:1.5px solid var(--gw-line, var(--blue, #00A0DF));
 }
 .rlanes-mc .rl-cell.gap{ width:1.15em; height:1.15em; border-bottom-width:1.5px; opacity:0.35; }
-.rlanes-mc .rl-cell.got{ background:var(--gw-line, #00A0DF); }
+.rlanes-mc .rl-cell.got{ background:var(--gw-line, var(--blue, #00A0DF)); }
 
 /* ================= The word drop round ================= */
 /* A playfield, not a list: the tile falls through open space toward the bins.
@@ -832,7 +832,7 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
 }
 .round-drop .drop-field{
   position:relative; width:100%; height:min(300px, 38vh);
-  border:2px solid var(--gw-line, #00A0DF); border-radius:14px;
+  border:2px solid var(--gw-line, var(--blue, #00A0DF)); border-radius:14px;
   background:var(--gw-bg, rgba(255,255,255,0.05)); overflow:hidden;
 }
 .round-drop .drop-tile{
@@ -848,7 +848,7 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
 .round-drop .drop-bin{
   flex:1; min-width:0; padding:0.5em 0.4em; border-radius:10px; cursor:pointer;
   font:inherit; font-weight:700; text-align:center;
-  border:2px dashed var(--gw-line, #00A0DF);
+  border:2px dashed var(--gw-line, var(--blue, #00A0DF));
   background:transparent; color:var(--gw-ink, #12263F);
   display:flex; align-items:center; justify-content:center; gap:0.5em;
 }
@@ -1016,7 +1016,7 @@ body.theme-gameshow .round-actions button.round-action{
   display:flex; align-items:center; gap:7px; font-size:0.7em; line-height:1.3;
   padding:3px 9px; border-radius:8px;
   border:1.5px solid var(--gw-line, rgba(18,38,63,0.22));
-  border-left:4px solid var(--team, var(--gw-line, #00A0DF));
+  border-left:4px solid var(--team, var(--gw-line, var(--blue, #00A0DF)));
   color:var(--gw-ink, #12263F);
 }
 .bg-player span{ font-family:'IBM Plex Mono',monospace; opacity:0.7; }

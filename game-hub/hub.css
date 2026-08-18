@@ -571,7 +571,7 @@ body.theme-gameshow .settings-range input[type=range]{ accent-color:var(--gold);
   display:inline-flex; align-items:center; gap:6px; padding:4px 6px 4px 12px;
   border-radius:999px; font-family:'IBM Plex Sans',sans-serif; font-size:0.85rem;
   color:#eaf0fc; background:rgba(255,255,255,0.08);
-  border-left:5px solid var(--team, #00A0DF);
+  border-left:5px solid var(--team, var(--blue));
 }
 #join-roster .join-player b{ font-weight:600; }
 #join-roster .join-player button{
@@ -654,7 +654,7 @@ body.theme-gameshow #phone-bar .pb-points{ background:var(--gold); color:#0A0A14
 body.theme-gameshow #phone-bar .pb-verdict{ background:rgba(255,200,61,0.18); color:var(--gold); }
 body.theme-gameshow #phone-bar .pb-reply{ background:rgba(255,255,255,0.08); color:var(--paper); border-color:rgba(255,255,255,0.2); }
 body.theme-gameshow #phone-bar .pb-reply.team-0{ background:var(--gold); color:#0a0d26; }
-body.theme-gameshow #phone-bar .pb-reply.team-1{ background:#00A0DF; color:#fff; }
+body.theme-gameshow #phone-bar .pb-reply.team-1{ background:var(--blue); color:#fff; }
 body.theme-gameshow #phone-bar.scored{ border-color:var(--gold); background:rgba(255,200,61,0.14); }
 /* The cream fill and the brown ink are both invisible on the lit stage — the same
    trap that once printed a student's name in navy on near-black. */
