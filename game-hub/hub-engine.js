@@ -2833,6 +2833,22 @@
   /* ================= JEOPARDY ================= */
   let jeoRows = 0;
 
+  /* The name a category shows. A category that plays a round takes that round's label
+     as its default name — the single home for it, so the board heading, the content
+     screen and the clue topline can't drift from what the round calls itself (a
+     category name hand-typed in content has drifted three ways before now). An
+     explicit `name` still wins, because a category may override the generic label
+     with a coursebook topic ("The Scam" over "Multiple Choice"). Most categories just
+     re-type the label — those redundant names are what a later pass strips, leaving
+     this derivation as the one source. An ordinary category has no round, so its
+     `name` is all there is. */
+  function categoryName(cat){
+    if(cat && cat.name) return cat.name;
+    const clue = cat && cat.clues && cat.clues[0];
+    const hit  = (clue && Kit.round && Kit.round.of) ? Kit.round.of(clue) : null;
+    return (hit && hit.def && hit.def.label) || '';
+  }
+
   function buildJeopardyBoard(){
     const cats = JEOPARDY_CATEGORIES.filter(c=>selectedContent.includes(c.id) && catAllowed(c));
     const board = document.getElementById('board');
@@ -2844,7 +2860,7 @@
     board.innerHTML='';
     cats.forEach(cat=>{
       const h=document.createElement('div');
-      h.className='cat-header'; h.textContent=cat.name;
+      h.className='cat-header'; h.textContent=categoryName(cat);
       board.appendChild(h);
     });
     jeoRows = Math.max(...cats.map(c=>c.clues.length));
@@ -3552,7 +3568,7 @@
         lastSection=cat.section;
       }
       contentRow(list, { value:cat.id, section:cat.section,
-                         label:stripSection(cat.name, cat.section), items:cat.clues });
+                         label:stripSection(categoryName(cat), cat.section), items:cat.clues });
     });
   }
 
@@ -5328,8 +5344,8 @@
   function jShowClue(cat, clue, tile, review){
     const dd = jDoubleTeam != null;
     document.getElementById('clue-topline').textContent =
-      dd ? ('DAILY DOUBLE · ' + cat.name + ' · $' + currentClueValue)
-         : (cat.name + ' · $' + clue.v + (review ? '  ·  review' : ''));
+      dd ? ('DAILY DOUBLE · ' + categoryName(cat) + ' · $' + currentClueValue)
+         : (categoryName(cat) + ' · $' + clue.v + (review ? '  ·  review' : ''));
     document.getElementById('clue-section').textContent = cat.section;
     /* `reveal` and `group` ride along with the normalised shape. The normalisation
        exists so the kit never learns that Jeopardy calls a prompt `q` — but it is a
