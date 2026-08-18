@@ -283,18 +283,49 @@ window.HubKit = (function(){
     return letters.join('') === word && word.length > 1 ? scramble(word) : letters.join('');
   };
 
+  /* A leading `.prompt-lead` span — the plain-text stem a shaped prompt sits after
+     (an anagram's clue, an odd-one-out's "which is…:"). The caller decides what the
+     stem is; an empty one appends nothing. */
+  function promptLead(mount, text){
+    if(!text) return;
+    const lead = document.createElement('span');
+    lead.className = 'prompt-lead';
+    lead.textContent = text;
+    mount.appendChild(lead);
+  }
+
+  /* FLIP for a reveal: `els` are a row's current children and `ordered` is the same
+     elements in the order they should land in. Snapshot where each is, reorder them in
+     the DOM, then animate each from where it was to where it now is — animating the
+     final positions directly would fight the layout. `axis:'x'` for a single row of
+     letters (no vertical travel), `'xy'` when items can wrap lines (words). Honours
+     reduced motion, which the stylesheet cannot reach because the Web Animations API
+     drives the move. Returns the total animation ms, or 1 when motion is suppressed. */
+  function flipReorder(row, els, ordered, opts){
+    const axis = opts.axis, duration = opts.duration, stagger = opts.stagger;
+    const before = els.map(e => e.getBoundingClientRect());
+    ordered.forEach(e => row.appendChild(e));
+    const still = window.matchMedia &&
+                  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    ordered.forEach((e, i) => {
+      e.classList.add('landed');
+      if(still) return;
+      const was = before[els.indexOf(e)], now = e.getBoundingClientRect();
+      const dx = was.left - now.left, dy = axis === 'xy' ? was.top - now.top : 0;
+      if(!dx && !dy) return;
+      e.animate([{ transform:`translate(${dx}px, ${dy}px)` }, { transform:'none' }],
+                { duration, delay: i * stagger, easing:'cubic-bezier(.2,.85,.3,1)', fill:'both' });
+    });
+    return still ? 1 : duration + els.length * stagger;
+  }
+
   prompt.register('anagram', {
     games:['jeopardy','blockbusters'],
     render(mount, item){
       const answer = String((item && item.answer) || '').trim();
       const text   = String((item && item.text) || '');
       if(!/^[A-Za-z'-]{2,14}$/.test(answer)){ mount.textContent = text; return; }
-      if(text){
-        const lead = document.createElement('span');
-        lead.className = 'prompt-lead';
-        lead.textContent = text;
-        mount.appendChild(lead);
-      }
+      promptLead(mount, text);
       const row = document.createElement('span');
       row.className = 'prompt-anagram';
       scramble(answer).split('').forEach(ch => {
@@ -314,29 +345,14 @@ window.HubKit = (function(){
       const tiles = [...row.children];
       if(tiles.length !== answer.length) return 0;
 
-      /* FLIP: measure, reorder, then animate each tile from where it was to where
-         it now is. Animating positions directly would fight the layout. */
-      const before = tiles.map(t => t.getBoundingClientRect().left);
+      // reorder the letters into the answer, matching each by its landing letter
       const pool = tiles.slice();
       const ordered = answer.toLowerCase().split('').map(ch => {
         const i = pool.findIndex(t => t.dataset.ch === ch);
         return i === -1 ? null : pool.splice(i, 1)[0];
       });
       if(ordered.some(t => !t)) return 0;
-      ordered.forEach(t => row.appendChild(t));
-      // the tiles move via the Web Animations API, which the stylesheet's
-      // reduced-motion block cannot reach — so honour it here instead
-      const still = window.matchMedia &&
-                    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if(still){ ordered.forEach(t => t.classList.add('landed')); return 1; }
-      ordered.forEach((t, i) => {
-        const delta = before[tiles.indexOf(t)] - t.getBoundingClientRect().left;
-        t.classList.add('landed');
-        if(!delta) return;
-        t.animate([{ transform:`translateX(${delta}px)` }, { transform:'none' }],
-                  { duration: 620, delay: i * 26, easing:'cubic-bezier(.2,.85,.3,1)', fill:'both' });
-      });
-      return 620 + tiles.length * 26;
+      return flipReorder(row, tiles, ordered, { axis:'x', duration:620, stagger:26 });
     }
   });
 
@@ -356,12 +372,7 @@ window.HubKit = (function(){
       const text   = String((item && item.text) || '');
       const words  = answer.split(/\s+/).filter(Boolean);
       if(words.length < 3 || words.length > 14){ mount.textContent = text; return; }
-      if(text){
-        const lead = document.createElement('span');
-        lead.className = 'prompt-lead';
-        lead.textContent = text;
-        mount.appendChild(lead);
-      }
+      promptLead(mount, text);
       const row = document.createElement('span');
       row.className = 'prompt-scramble';
       // shuffle, and never hand back the sentence already in order
@@ -389,27 +400,14 @@ window.HubKit = (function(){
       const words = answer.split(/\s+/).filter(Boolean);
       if(chips.length !== words.length) return 0;
 
-      // same FLIP as the anagram, one level up: measure, reorder, animate the gap
-      const before = chips.map(c => c.getBoundingClientRect());
+      // same FLIP as the anagram, one level up: words can wrap lines, so 'xy'
       const pool = chips.slice();
       const ordered = words.map(w=>{
         const i = pool.findIndex(c => c.dataset.w === w);
         return i === -1 ? null : pool.splice(i, 1)[0];
       });
       if(ordered.some(c => !c)) return 0;
-      ordered.forEach(c => row.appendChild(c));
-      const still = window.matchMedia &&
-                    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      ordered.forEach((c, i)=>{
-        c.classList.add('landed');
-        if(still) return;
-        const was = before[chips.indexOf(c)], now = c.getBoundingClientRect();
-        const dx = was.left - now.left, dy = was.top - now.top;
-        if(!dx && !dy) return;
-        c.animate([{ transform:`translate(${dx}px, ${dy}px)` }, { transform:'none' }],
-                  { duration: 640, delay: i * 28, easing:'cubic-bezier(.2,.85,.3,1)', fill:'both' });
-      });
-      return still ? 1 : 640 + chips.length * 28;
+      return flipReorder(row, chips, ordered, { axis:'xy', duration:640, stagger:28 });
     }
   });
 
@@ -428,12 +426,8 @@ window.HubKit = (function(){
       const text  = String((item && item.text) || '');
       const parts = oddCandidates(text);
       if(!parts){ mount.textContent = text; return; }
-      if(text.indexOf(':') !== -1){
-        const lead = document.createElement('span');
-        lead.className = 'prompt-lead';
-        lead.textContent = text.slice(0, text.indexOf(':') + 1);
-        mount.appendChild(lead);
-      }
+      const colon = text.indexOf(':');
+      promptLead(mount, colon !== -1 ? text.slice(0, colon + 1) : '');
       const row = document.createElement('span');
       row.className = 'prompt-odd';
       parts.forEach(p => {
