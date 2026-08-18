@@ -1273,11 +1273,6 @@
      settings system: the rows are the drawer's own `buildRow`, and a change is the
      same per-game override. On by default (the user's call) — the workshop phase is
      daily; this row hides it for a class that should not watch sliders. */
-  S.register({ id:'roundTune', group:'Questions', adv:true, type:'toggle', default:true,
-    games:'*',
-    label:'Tune button on the question card',
-    help:'A small Tune button on the clue card opening the settings that matter for the open question. Off hides it for a lesson.' });
-
   S.register({ id:'bbEdges', group:'Blockbusters', adv:true, type:'toggle', default:true,
     games:['blockbusters'],
     label:'Team edges around the board',
@@ -1331,6 +1326,10 @@
      for and is a new beat rather than this switch. That stays open — see Next. */
   (function dropBuzzRole(){
     S.drop([''].concat(gameIds().map(g => '@' + g)).map(sfx => 'mBuzzRole' + sfx));
+  })();
+  (function dropRoundTune(){
+    // the clue-card Tune pill is gone — settings live in the room bench now, so its switch retires
+    S.drop([''].concat(gameIds().map(g => '@' + g)).map(sfx => 'roundTune' + sfx));
   })();
 
   S.register({ id:'mConferSeconds', group:'Millionaire', under:'mLifelines', type:'select', default:30, games:['millionaire'],
@@ -1770,20 +1769,6 @@
       </div>
     </div>
 
-    <!-- The docked form of settings: the current game's controls, reachable
-         without leaving the round. Same registry, same rows as the panel — this
-         is ⚙'s shape while a game is being played. -->
-    <div id="lab-drawer">
-      <div id="lab-head">
-        <span id="lab-title">Settings</span>
-        <span>
-          <button id="lab-all" type="button">All games</button>
-          <button id="lab-close" type="button">Close</button>
-        </span>
-      </div>
-      <div id="lab-body"></div>
-      <div id="lab-foot">Changes apply to this game only, and take effect on the next question.</div>
-    </div>
 
     <!-- the join lobby: thrown on the projector so a class can scan in -->
     <div id="join-modal">
@@ -1810,10 +1795,6 @@
         <!-- Inside the back face, not on the card: the card is a 3D flip context
              whose faces carry the counter-rotation, so a child of the card itself
              renders mirrored. Everything readable lives on a face. -->
-        <div id="clue-tune">
-          <button id="clue-tune-btn" type="button" title="Tune this question">Tune</button>
-          <div id="clue-tune-panel" style="display:none;"></div>
-        </div>
         <div id="clue-topline"></div>
         <div id="clue-section"></div>
         <div id="clue-text"></div>
@@ -2072,7 +2053,6 @@
     document.getElementById(id).classList.add('active');
     hideResult();                       // a banner belongs to the round that raised it
     document.getElementById('new-game-btn').style.display = (id==='screen-play') ? 'inline-block' : 'none';
-    if(id!=='screen-play') closeLab();
     document.getElementById('timer-widget').style.display = (id==='screen-play') ? 'flex' : 'none';
     // these boards size themselves around the team bar, so they don't need the body
     // padding that keeps the bar clear of the other screens
@@ -5724,31 +5704,10 @@
     card.addEventListener('pointercancel', end);
   })();
 
-  /* ---- the tune chip ----
-     The settings that matter for the question on screen, on the card that shows it:
-     the open round's own mode row first (derived — `round_<id>` exists because the
-     round declared `modes`), then whatever registered itself `quick`. The rows are
-     the drawer's own, rendered through `renderOnce` so the drawer's live-refresh
-     slot is not stolen, and a change made here is the same per-game override the
-     drawer makes — safe to poke mid-lesson, master values untouched. Folded shut on
-     every new clue: the button is for reaching in, not a panel the room reads. */
-  function renderTuneChip(){
-    const box = document.getElementById('clue-tune');
-    if(!box) return;
-    const panel = document.getElementById('clue-tune-panel');
-    panel.style.display = 'none';
-    const on = !!S.get('roundTune', activeGame) && modalMode !== 'review';
-    box.style.display = on ? '' : 'none';
-    if(!on) return;
-    const ids = ['round_' + (roundId || 'default')]
-      .concat(S.quickIds(activeGame).filter(id => id !== 'roundTune'));
-    S.renderOnce(panel, activeGame, { only: ids });
-  }
 
   function openClueCard(origin){
     const modal = document.getElementById('clue-modal');
     const card  = document.getElementById('clue-card');
-    renderTuneChip();
     /* A new clue arrives centred. Keeping the last drag would land the flip's
        opening animation somewhere the tile is not, and the offset was a decision
        about the *previous* question. */
@@ -6066,11 +6025,6 @@
     nextTurn();
   });
 
-  document.getElementById('clue-tune-btn').addEventListener('click', ()=>{
-    const p = document.getElementById('clue-tune-panel');
-    p.style.display = p.style.display === 'none' ? 'block' : 'none';
-  });
-
   document.getElementById('close-btn').addEventListener('click', ()=>{
     /* A round that has been won is waiting on this press to pay: the win closes the
        card itself, exactly as it did when it closed it a second after the answer
@@ -6314,56 +6268,8 @@
      hex unclaimed; Jeopardy now uses it to decline a steal, which it must have —
      offering the question with no way to say "nobody wants it" strands the teacher
      on a card with every other button hidden. */
-  /* The Lab: only the game being played, changeable mid-round. ⚙ still shows
-     everything at once; this exists so trying a different dynamic is two taps
-     rather than a hunt through other games' tabs. */
-  /* The drawer stops short of the header and the team bar rather than covering
-     them. That is not tidiness: both hold controls a teacher reaches for *while*
-     the drawer is open — New game, the timer, ⚙, and the ± score buttons — and a
-     full-height panel swallowed every one of them. Both edges are measured
-     because the header wraps at narrow widths and the team bar grows a row when
-     a team is added, so neither height is a constant. */
-  function fitLab(){
-    const d = document.getElementById('lab-drawer');
-    if(!d) return;
-    const band = document.querySelector('.geo-band');
-    const bar  = document.getElementById('scorebar');
-    const top  = band ? Math.max(0, band.getBoundingClientRect().bottom) : 0;
-    const barFixed = bar && getComputedStyle(bar).position === 'fixed';
-    const bottom = barFixed
-      ? Math.max(0, window.innerHeight - bar.getBoundingClientRect().top) : 0;
-    d.style.top = top + 'px';
-    d.style.bottom = bottom + 'px';
-  }
-
-  function openLab(){
-    if(!activeGame) return;
-    document.getElementById('lab-title').textContent =
-      ((window.HUB_GAME_TITLES && window.HUB_GAME_TITLES[activeGame]) || 'Game') + ' settings';
-    S.renderFor(document.getElementById('lab-body'), activeGame);
-    fitLab();
-    document.getElementById('lab-drawer').classList.add('on');
-    document.body.classList.add('lab-open');
-    hook('onResize');
-  }
-  function closeLab(){
-    document.getElementById('lab-drawer').classList.remove('on');
-    document.body.classList.remove('lab-open');
-    hook('onResize');
-  }
-  function labOpen(){ return document.getElementById('lab-drawer').classList.contains('on'); }
-
-  document.getElementById('lab-close').addEventListener('click', closeLab);
-  // the rare cross-game edit mid-round: the drawer hands over to the full panel
-  document.getElementById('lab-all').addEventListener('click', ()=>{ closeLab(); S.open(); });
-  document.addEventListener('keydown', e=>{
-    if(e.key === 'Escape' && labOpen()){ closeLab(); return; }   // it is settings now
-    if(e.key !== 'l' && e.key !== 'L') return;
-    if(e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
-    if(document.getElementById('screen-play').classList.contains('active')){
-      e.preventDefault(); labOpen() ? closeLab() : openLab();
-    }
-  });
+  /* The docked settings drawer ("Lab") and its L-key toggle are gone — a game's
+     settings are changed from the room bench now, not on the board. */
 
   document.getElementById('buzzer-chip').addEventListener('click', ()=>{
     if(buzzHost) joinPanelOpen() ? hideJoinPanel() : showJoinPanel();
@@ -8338,7 +8244,7 @@
 
   // one listener for every board, now and later — a new game gets re-fitted on
   // resize by declaring onResize, not by being added to a list here
-  window.addEventListener('resize', ()=>{ hook('onResize'); if(labOpen()) fitLab(); });
+  window.addEventListener('resize', ()=>{ hook('onResize'); });
 
 
   /* ================= TIMER (teacher-controlled) ================= */
@@ -8381,17 +8287,13 @@
   /* ================= INIT ================= */
   document.querySelector('.eyebrow').textContent = 'Cambridge Empower C1 · Classroom games';
   document.getElementById('change-unit').style.display = (UNITS.length>1) ? 'inline-block' : 'none';
-  /* One settings entrance, whose form suits the moment: mid-game the gear opens
-     the docked drawer for the game being played (the board gives up the width, so
-     a rule can be changed and the next question watched under it); everywhere
-     else it opens the full panel. The drawer's "All games" button reaches the
-     panel for the rare cross-game edit mid-round. */
-  S.mount(document.querySelector('.header-right'), ()=>{
-    const playing = activeGame &&
-      document.getElementById('screen-play').classList.contains('active');
-    if(playing){ labOpen() ? closeLab() : openLab(); }
-    else S.open();
-  });
+  /* **The board carries no settings UI of its own** — no gear, no clue-card Tune pill,
+     no docked drawer. Every setting is edited from the room bench's one panel, which
+     reaches this board's registry through the frame (`win.HubSettings`). The registry
+     still lives here and every value still applies; only the on-board way to *open* it
+     is gone, so there is one place to change anything and it cannot disagree with
+     itself. `HubSettings` is initialised by loading — `mount` is what added the gear,
+     and it is the one thing not called. */
   renderScorebar();   // team bar visible from the very first screen
 
   // settings that change what's already on screen take effect without a restart
