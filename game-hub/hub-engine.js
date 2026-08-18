@@ -1965,6 +1965,11 @@
     renderScorebar();
     hook('onRoster');   // the active board repaints anything that names teams
     hook('onResize');
+    /* Last, after the phones have been renumbered and the board repainted: a live
+       round recorded its answers under the team numbers that just shifted, so it is
+       re-put on the new roster rather than left to pay the wrong side. A no-op when
+       no clue is open, which is every removal but a mid-question one. */
+    roundRebuildForRoster();
   }
 
   /* The roster: whoever is competing for points, persisting across games AND unit
@@ -4588,6 +4593,27 @@
        hear about it. */
     if(arm && arm.promptByPlayer && Object.keys(arm.promptByPlayer).length)
       buzzHost.prompts(arm.promptByPlayer);
+  }
+
+  /* **A team removed mid-question re-numbers every team after it, and the live
+     round recorded its answers under the old numbers** — the arrival stamps
+     (`hostAt`), the slot it had decided (`hostTook`), the round's own committed
+     per-team state (a climb's lanes, a Connections verdict), and the placement
+     record settlement pays from. Left alone, the next settle pays the side now
+     sitting where a scored one used to — the exact index-shift bug `remap` fixes
+     one layer down for the phones. Rather than splice six differently-shaped maps
+     by hand — a field list that rots the day a round adds a seventh — the question
+     is simply re-put on the new roster: `setup` hands back clean state,
+     `roundOpen` reopens the who-answered record and the standings baseline, and
+     the just-remapped phones re-read into it. What is lost is only the current,
+     *unfinished* question's phone progress, and only when a teacher deletes a team
+     mid-clue — already a rare, deliberate, confirm-gated act (the preset roster
+     shrink refuses outright while a game is running). Asking the room beats
+     remembering a number that has moved. */
+  function roundRebuildForRoster(){
+    if(!roundLive() || !currentClueItem) return;
+    const found = roundOf(currentClueItem, roundHost.game);
+    if(found) roundOpen(found);
   }
 
   /* The card's own box, inside `#clue-text` the way the hint is — so the class is
