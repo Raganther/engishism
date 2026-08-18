@@ -475,7 +475,7 @@
          report ("a team that split the spelling looked like it had done nothing").
          The user tested it and chose the agreement dynamic back: one phone's
          letters lighting the card alone reads worse than the invisible-word cost,
-         which the TUNE pill's mode row can trade away per lesson. */
+         which the room bench's mode row can trade away per lesson. */
       modeDefaults: { ordering:'race' }
     },
     blockbusters: {
@@ -588,7 +588,7 @@
      list this project has paid for more than any other, and it would leave a teacher
      unable to try a different feel without somebody editing code. A board names its
      starting rule, `roundPay` is a settings row, and switching Jeopardy to `equal`
-     mid-lesson for a class that is finding it brutal is two taps in the ⚙ drawer.
+     mid-lesson for a class that is finding it brutal is two taps on the room bench.
 
      **They live here rather than in a round**, because a round may not score — that
      is the one rule keeping a round portable. And not on `Kit`, because what a
@@ -823,8 +823,8 @@
      dynamic and the reason the clue is worth having; the team on turn alone is the
      ordinary Jeopardy contract, and is the right answer for a class where one team
      is running away with it. Written as a switch because a choice between
-     iterations is exactly what a variant is for, and the drawer is where a teacher
-     tries the other one between rounds. */
+     iterations is exactly what a variant is for, and the room bench is where a
+     teacher tries the other one between rounds. */
   /* One row per round that offers ways to be played, built from what each round
      declares. The engine never learns what a mode *means* — it hands the chosen
      value back through `ctx.mode` and the round does the rest. Registered here with
@@ -957,7 +957,7 @@
 
      It still costs the teacher a press — Reveal, then Close, where a won round used
      to take itself — and no class has met it. The switch is what puts the old race
-     back, in one tap from the drawer mid-round. */
+     back, in one tap on the room bench. */
   /* **Forked by room type, and this one is not a formality.** Unlike the crowd
      reveal — which gates on room size, so ordinary team play never meets it — this
      applies identically in both rooms and the right answer genuinely differs. With
@@ -1267,12 +1267,6 @@
               {value:'pulse', label:'Flash the whole route at once'},
               {value:'off',   label:'Just mark it — no animation'}] });
 
-  /* The tune chip: a small button on the clue card that unfolds the settings that
-     matter for the question on screen — the open round's own mode row, plus any
-     setting that declared itself `quick`. A shortcut to the drawer, not a second
-     settings system: the rows are the drawer's own `buildRow`, and a change is the
-     same per-game override. On by default (the user's call) — the workshop phase is
-     daily; this row hides it for a class that should not watch sliders. */
   S.register({ id:'bbEdges', group:'Blockbusters', adv:true, type:'toggle', default:true,
     games:['blockbusters'],
     label:'Team edges around the board',
@@ -2090,7 +2084,7 @@
      because half of them are no longer on offer, and the team bar, because its add
      button and its remove tooltips are named after what a competitor is. Neither is
      rebuilt on a timer, so a setting read once at build time is a setting the
-     drawer cannot change — the Daily Double paid for that lesson. */
+     panel cannot change live — the Daily Double paid for that lesson. */
   /* **Each mode keeps its own roster, and switching swaps between them.**
      Reported as "it won't switch back", and the picker was innocent: the setting,
      the radio and the bar all flipped: what did not change was the *list*, so teams
@@ -2651,12 +2645,11 @@
     const bar=document.getElementById('scorebar'); bar.innerHTML='';
     const playing = document.getElementById('screen-play').classList.contains('active');
 
-    /* ---------- who is competing, on the bar rather than three clicks into ⚙ ----------
-       It lived in the settings panel first and that was the wrong home twice over: it
-       is on the *All games* tab, because it is a room-wide fact rather than a per-game
-       one, and ⚙ during play opens the **drawer**, which is filtered to one game and so
-       never showed it at all. A teacher mid-lesson had to open the drawer, press
-       All games, find Competition, and change it there.
+    /* ---------- who is competing, on the bar rather than three clicks into settings ----------
+       It lived in the settings panel first and that was the wrong home: it sits on the
+       *All games* tab, because it is a room-wide fact rather than a per-game one, so a
+       teacher had to leave the board, find the All games tab, hunt down Competition and
+       change it there — for the one fact that the bar already *is*.
 
        The bar is where it belongs because the bar *is* the roster — add, rename,
        remove and reset all live here, it is on every screen, and switching it changes
@@ -8292,8 +8285,8 @@
      reaches this board's registry through the frame (`win.HubSettings`). The registry
      still lives here and every value still applies; only the on-board way to *open* it
      is gone, so there is one place to change anything and it cannot disagree with
-     itself. `HubSettings` is initialised by loading — `mount` is what added the gear,
-     and it is the one thing not called. */
+     itself. `HubSettings` needs no init on the board — nothing here opens the panel;
+     the room bench builds it on demand through the frame. */
   renderScorebar();   // team bar visible from the very first screen
 
   // settings that change what's already on screen take effect without a restart

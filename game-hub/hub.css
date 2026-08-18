@@ -18,7 +18,7 @@ body{
 }
 body.play-fit{ padding-bottom:0; overflow:hidden; }   /* boards that measure their own fit */
 .eyebrow{ font-family:'IBM Plex Mono', monospace; letter-spacing:0.14em; text-transform:uppercase; font-size:0.72rem; color: var(--blue); }
-/* The header carries the teacher's instruments — timer, Lab, ⚙, New game. The team
+/* The header carries the teacher's instruments — the timer and New game. The team
    bar is not one of those: it is the game's state and the room reads it, so it sits
    under the board. `align-items:center` rather than flex-end: the cluster is
    instruments of different heights and a shared baseline made the tallest one
@@ -669,7 +669,7 @@ body.theme-gameshow #phone-bar .pb-cooling{
    Growing made the cluster claim the full header width, which left no room beside
    it for the title and wrapped the whole strip onto two rows — 130px where 72 does. */
 .header-right{ display:flex; align-items:center; gap:9px; flex:0 0 auto; min-width:0; flex-wrap:nowrap; justify-content:flex-end; }
-/* The timer, Lab and New game each gave up a few pixels to make room for the team
+/* The timer and New game each gave up a few pixels to make room for the team
    bar — the brief was a bar that stops covering the board, at no cost in strip height. */
 #timer-widget{ display:none; align-items:center; gap:4px; background:var(--navy); border:2px solid var(--yellow); border-radius:12px; padding:4px 6px; flex:0 0 auto; }
 #timer-widget button{ background:var(--navy3); color:var(--white); border:none; width:26px; height:26px; border-radius:6px; cursor:pointer; font-size:0.95rem; line-height:1; font-family:'Space Grotesk',sans-serif; }
@@ -1384,8 +1384,8 @@ body.theme-gameshow #buzzer-chip .buzz-verdict{ background:rgba(255,200,61,0.18)
 .settings-groupbody.closed{ display:none; }
 @media (prefers-reduced-motion: reduce){ .settings-group.foldable::after{ transition:none; } }
 /* A child setting sits indented under its parent, on a neutral rule that reads on
-   both the light panel and the dark drawer, and greys out (non-interactive) while its
-   parent is switched off — a slider whose effect cannot be seen is what read as noise. */
+   the settings panel, and greys out (non-interactive) while its parent is switched
+   off — a slider whose effect cannot be seen is what read as noise. */
 .settings-child{ margin-left:20px; border-left:2px solid rgba(127,127,127,0.28); padding-left:14px; }
 .settings-inert{ opacity:0.45; }
 .settings-inert input, .settings-inert select, .settings-inert button, .settings-inert .switch-track{ pointer-events:none; }
@@ -1511,14 +1511,12 @@ body.theme-gameshow .settings-preset-note{ color:var(--gold); }
   .m-rung-n{ display:none; }
 }
 
-/* Small handsets (an iPhone SE is 375px): the gear, the five-button timer and
-   New game together overflow, and .header-right wraps them onto three lines,
-   which costs more height than the timer saves. Shrink the timer instead. */
+/* Small handsets (an iPhone SE is 375px): the five-button timer and New game
+   can overflow .header-right and wrap onto a second line, which costs more height
+   than the timer saves. Shrink the timer instead — it is the biggest single item,
+   so it gives up the pixels. (The header once also carried the gear and Lab, which
+   is why the squeeze was tighter before they moved to the room bench.) */
 @media (max-width: 480px){
-  /* Measured, not guessed: at 360px the right-hand group has 332px to play with,
-     and gear + timer + Lab + New game came to 353 — so it wrapped to a second row
-     and cost 34px of board. The timer is the biggest single item, so it gives up
-     the pixels. */
   .header-right{ gap:5px; }
   #timer-widget{ padding:3px 4px; gap:2px; }
   #timer-widget button{ width:20px; height:20px; font-size:0.75rem; }
