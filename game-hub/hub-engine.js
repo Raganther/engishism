@@ -6342,12 +6342,11 @@
   let mState   = [];     // per team: {rung, used:Set<prompt>, lifelines:{}}
   let mCurrent = null;   // {q, options[], team}
   let mAnswered = false;
-  /* The vote itself (Kit.vote), once Ask the class has run — and `mTally` is its
-     counts, kept as a name because the board renders them. One implementation now
-     serves this and Blockbusters' hexagon vote; what differs between them is who
-     may vote and what the numbers are drawn on, which is all the kit takes. */
-  let mVote    = null;
-  let mTally   = null;   // option -> vote count, once Ask the class has run
+  /* Ask the class runs on this board's own state, not Kit.vote — the counts are
+     painted straight from the phone replies as they arrive. `mTally` is a boolean:
+     true once the class has voted, which spends the lifeline and keeps its counts on
+     the options. (Blockbusters' hexagon vote is the one that uses Kit.vote.) */
+  let mTally   = null;   // true once Ask the class has run — the lifeline is spent
   /* Counting is not the same thing as having counts. While the teacher is tapping
      hands, a click on an option adds a hand; once the count is in, a click has to
      answer the question — otherwise the round dead-ends with the votes on screen
@@ -6380,7 +6379,7 @@
   }
 
   function buildMillionaire(){
-    mState = []; mCurrent = null; mAnswered = false; mVote = null; mTally = null; mCounting = false;
+    mState = []; mCurrent = null; mAnswered = false; mTally = null; mCounting = false;
     mVoting = false; mPicked = null;
     teams.forEach((t,i)=>mTeamState(i));
     active = 0;
@@ -6398,7 +6397,7 @@
   }
 
   function nextMillionaireQuestion(){
-    mAnswered = false; mVote = null; mTally = null; mCounting = false; mVoting = false; mPicked = null;
+    mAnswered = false; mTally = null; mCounting = false; mVoting = false; mPicked = null;
     const st = mTeamState(active);
 
     if(st.rung >= M_LADDER.length){       // this team has topped out

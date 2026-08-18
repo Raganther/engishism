@@ -654,10 +654,11 @@ window.HubKit = (function(){
   };
 
   /* ---------- asking the room to choose ----------
-     Millionaire's Ask the class was the first vote, and everything about it that
-     is not Millionaire is here: a fixed set of options, a live count against each,
-     and the question of who is entitled to vote. The transport is not — that is the
-     engine's room — so this takes replies as a parameter and returns numbers.
+     Blockbusters' hexagon vote is the one caller: a fixed set of options, a live
+     count against each, and the question of who is entitled to vote. The transport
+     is not here — that is the engine's room — so this takes replies as a parameter
+     and returns numbers. (Millionaire's Ask the class is *not* one of these — it
+     runs on the board's own mVoting/mTally, painting counts straight off the wire.)
 
        const v = Kit.vote.open({ options:['A','B'], team:1 });
        v.apply(replies);        // [{name, team, value}] straight off the wire
