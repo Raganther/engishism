@@ -183,10 +183,6 @@
     font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent);
     margin:16px 0 2px; border-bottom:2px solid var(--border); padding-bottom:3px;
   }
-  #tune-all{
-    font:inherit; font-size:0.78rem; padding:7px 12px; border-radius:999px; margin-top:14px;
-    border:1px solid var(--border); background:var(--btn-bg); color:var(--muted); cursor:pointer;
-  }
 
   /* A MIRROR of hub.css's .settings-* rules, scoped to this pane — the same
      declared-mirror convention the question bench uses for the clue card's
@@ -227,6 +223,13 @@
   #tune-pane .settings-group.foldable.closed::after{ transform:rotate(-90deg); }
   #tune-pane .settings-groupbody.closed{ display:none; }
   #tune-pane .settings-ruleset{ border-bottom:2px solid #E8C547; padding-bottom:3px; }
+  /* Nesting + the Advanced fold, mirrored from hub.css for this pane. */
+  #tune-pane .settings-child{ margin-left:16px; border-left:2px solid var(--border); padding-left:12px; }
+  #tune-pane .settings-inert{ opacity:0.45; }
+  #tune-pane .settings-inert input, #tune-pane .settings-inert select, #tune-pane .settings-inert button, #tune-pane .settings-inert .settings-switch{ pointer-events:none; }
+  #tune-pane .settings-advanced{ font-family:ui-monospace,monospace; font-size:0.62rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); margin:12px 0 6px; cursor:pointer; user-select:none; }
+  #tune-pane .settings-advanced::after{ content:'▾'; margin-left:6px; display:inline-block; }
+  #tune-pane .settings-advanced.closed::after{ transform:rotate(-90deg); }
   #tune-pane .settings-preset-note{ font-family:ui-monospace,monospace; font-size:0.66rem;
     letter-spacing:0.03em; color:#B8860B; margin-top:3px; }
 </style>
@@ -279,7 +282,6 @@
         <p class="pane-label">The rules — what you set here is what a real lesson gets</p>
         <div id="tune-tabs"></div>
         <div id="tune-body"></div>
-        <button id="tune-all" style="display:none;">All settings — the full panel, on the board…</button>
       </div>
     </div>
     <div id="rack-pane">
@@ -288,7 +290,7 @@
     </div>
   </div>
 
-<script src="bench-kit.js?v=20260817e"></script>
+<script src="bench-kit.js?v=20260817f"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -645,7 +647,7 @@ function renderTune(){
   const win = boardWin();
   const tabs = $('tune-tabs'), body = $('tune-body');
   if(!win){
-    tabs.innerHTML = ''; $('tune-all').style.display = 'none';
+    tabs.innerHTML = '';
     body.innerHTML = '<p class="tune-note">Open a hub board — playground pages carry no hub settings to tune.</p>';
     return;
   }
@@ -661,72 +663,56 @@ function renderTune(){
   if(!G || !K || !S){ body.innerHTML = '<p class="tune-note">This board has no settings registry.</p>'; return; }
   const games = G.ids();
   const live  = G.active ? G.active() : null;
-  const game  = (tunePick && games.indexOf(tunePick) !== -1) ? tunePick : (live || games[0]);
-  /* One tab per game, derived from the registry — a game registered next month
-     appears here with nothing edited. The dot marks the one the board is
-     actually playing; a hand-picked tab holds until the board changes game. */
+  /* `master` is the All-games tab — the globals (teams-or-individuals, Phone buzzers,
+     the relay address) and every shared rule. Otherwise a game id. Defaults to the game
+     the board is playing, so a teacher lands on what is live. */
+  const sel  = (tunePick === 'master') ? 'master'
+             : (tunePick && games.indexOf(tunePick) !== -1) ? tunePick
+             : (live || games[0]);
+  const game = (sel === 'master') ? null : sel;
+  /* One tab per game plus All games, derived from the registry — a game registered
+     next month appears here with nothing edited. The dot marks the one being played. */
   tabs.innerHTML = '';
-  games.forEach(g=>{
+  const mkTab = (id, label, isLive)=>{
     const b = document.createElement('button');
-    b.className = g === game ? 'on' : '';
-    b.textContent = (win.HUB_GAME_TITLES || {})[g] || g;
-    if(g === live){
+    b.className = id === sel ? 'on' : '';
+    b.textContent = label;
+    if(isLive){
       const s = document.createElement('span');
       s.className = 'live'; s.textContent = ' ●'; s.title = 'being played on the board';
       b.appendChild(s);
     }
-    b.addEventListener('click', ()=>{ tunePick = g; renderTune(); });
+    b.addEventListener('click', ()=>{ tunePick = id; renderTune(); });
     tabs.appendChild(b);
-  });
-  body.innerHTML = '';
-  const section = (label, ids, optional, into)=>{
-    if(!ids || !ids.length) return;
-    const host = into || body;
-    const h = document.createElement('p'); h.className = 'tune-section'; h.textContent = label;
-    const m = document.createElement('div'); m.className = 'tune-grid';
-    host.appendChild(h); host.appendChild(m);
-    try{ S.renderOnce(m, game, { only: ids }); }catch(e){}
-    // an optional section with no real rows says nothing, rather than "nothing to tune"
-    if(optional && !m.querySelector('.settings-row')){ h.remove(); m.remove(); }
   };
+  mkTab('master', 'All games', false);
+  games.forEach(g => mkTab(g, (win.HUB_GAME_TITLES || {})[g] || g, g === live));
 
-  /* The open question first, in its own box. The same rows as below — this is a
-     shortcut to them, never a second copy — but a teacher watching a card decide
-     something wants the round's own mode and the quick rules together and at the
-     top, not found by eye in a list of thirty. The board is the authority on what
-     is open, and a setting that forks by round says so on its own row, so nothing
-     here has to explain which scope a change lands in. */
+  body.innerHTML = '';
+  /* The open question first, in its own box — the round's own mode and the quick rules
+     together and on top, so a teacher watching a card decide something is not hunting
+     for them in the full list below. A shortcut to those rows, never a second copy.
+     Only on a real game tab; the All-games view has no card. */
   const openId = S.roundNow ? S.roundNow() : null;
-  if(openId){
+  if(openId && game){
     const def = (K.round.get ? K.round.get(openId) : null) || {};
-    const box = document.createElement('div');
-    box.className = 'tune-round-now';
-    body.appendChild(box);
+    const box = document.createElement('div'); box.className = 'tune-round-now';
+    const h = document.createElement('p'); h.className = 'tune-section';
+    h.textContent = 'On the card now · ' + (def.label || openId);
+    const m = document.createElement('div'); m.className = 'tune-grid';
+    box.appendChild(h); box.appendChild(m); body.appendChild(box);
     const modeId = (def.modes || []).length ? ['round_' + openId] : [];
-    section('On the card now · ' + (def.label || openId),
-            modeId.concat(S.quickIds(game).filter(id => id !== 'roundTune')), false, box);
+    try{ S.renderOnce(m, game, { only: modeId.concat(S.quickIds(game).filter(id => id !== 'roundTune')) }); }catch(e){}
   }
-  /* Every round that has more than one way to be played, by declaration — the
-     same derivation the settings loop makes, so a ninth round lands here free. */
-  const roundIds = K.round.ids()
-    .filter(id => ((K.round.get(id) || {}).modes || []).length)
-    .filter(id => id !== openId)          // the open round's mode is in the box above
-    .map(id => 'round_' + id);
-  section('How each round is played', roundIds);
-  /* With a question open the box above is already these rows, and a pane that
-     printed every quick rule twice was the thing this pane exists to fix — a
-     wall to hunt through — arriving as the fix for it. */
-  if(!openId) section('Quick rules', S.quickIds(game).filter(id => id !== 'roundTune'));
-  /* The one preset picker so far. The registry does not say which defs carry
-     presets, so this is a named guest — optional, so games without it show
-     nothing rather than an empty heading. */
-  section('Ruleset', ['jRules'], true);
-  $('tune-all').style.display = '';
+  /* Every setting for this tab, categorised — Ruleset, the game's own groups, then the
+     shared ones — with the nesting and Advanced folds the panel already builds. On the
+     All-games tab (`game` null) this is the globals and the shared rules. One render, so
+     there is one place to change anything and it can never disagree with the board. */
+  const full = document.createElement('div'); full.className = 'tune-grid tune-full';
+  body.appendChild(full);
+  try{ S.renderOnce(full, game, {}); }catch(e){}
 }
 $('bar-tune').addEventListener('click', ()=>{ setTuneWanted(!tuneWanted()); renderTune(); });
-$('tune-all').addEventListener('click', ()=>{
-  const w = boardWin(); if(w){ try{ w.HubSettings.open(); }catch(e){} }
-});
 
 renderTeamPick();     // the default pair until a room says otherwise — never empty
 loadTeams();

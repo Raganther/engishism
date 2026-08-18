@@ -609,9 +609,13 @@ window.HubSettings = (function(){
     if(!mount) return;
     const o = opts || {};
     mount.innerHTML = '';
-    const shown = defs.filter(d => scoped(d) && gamesOf(d).indexOf(game) !== -1 &&
-                                   (!o.groups || o.groups.indexOf(d.group || 'General') !== -1) &&
-                                   (!o.only || o.only.indexOf(d.id) !== -1));
+    /* `game == null` is the All-games / master view — every setting, the globals
+       included, the same set `renderBody` shows on its master tab. So the room bench
+       can render the whole registry into its own pane, not only a game's slice. */
+    const shown = defs.filter(d =>
+      (game == null ? true : (scoped(d) && gamesOf(d).indexOf(game) !== -1)) &&
+      (!o.groups || o.groups.indexOf(d.group || 'General') !== -1) &&
+      (!o.only || o.only.indexOf(d.id) !== -1));
     renderRows(mount, game, shown);
     if(!shown.length){
       const none=document.createElement('p');
