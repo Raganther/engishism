@@ -604,7 +604,7 @@ async function testBoardFitAcrossScreens(browser){
 async function testSettings(browser){
   section('Settings');
   const page = await openHub(browser);
-  await page.locator('#settings-btn').click(); await page.waitForTimeout(250);
+  await page.evaluate(() => window.HubSettings.open()); await page.waitForTimeout(250);
   check('panel opens', await page.locator('#settings-modal').isVisible());
   check('rows are generated from the registry', await page.locator('.settings-row').count() >= 5);
 
@@ -620,7 +620,7 @@ async function testSettings(browser){
     window.HubSettings.set('phonePrompt', false);
     window.HubSettings.set('phonePrompt', true, 'millionaire');
   });
-  await page.locator('#settings-btn').click(); await page.waitForTimeout(250);
+  await page.evaluate(() => window.HubSettings.open()); await page.waitForTimeout(250);
   await page.locator('.settings-tab', { hasText:'All games' }).click(); await page.waitForTimeout(150);
   const masterRow = page.locator('.settings-row', { hasText:'Show the question on the phones' });
   /* **Asserted on the marker and the game's name, not on the sentence.** This asked
@@ -646,7 +646,7 @@ async function testSettings(browser){
         !/overridden/i.test(await masterRow.innerText()));
   await page.keyboard.press('Escape'); await page.waitForTimeout(150);
 
-  await page.locator('#settings-btn').click(); await page.waitForTimeout(200);
+  await page.evaluate(() => window.HubSettings.open()); await page.waitForTimeout(200);
   await page.locator('#settings-reset').click(); await page.waitForTimeout(250);
   check('reset restores the default', await page.evaluate(() => window.HubSettings.get('sound')) === true);
 
@@ -671,7 +671,7 @@ async function testPerGameSettings(browser){
   section('Per-game settings');
   const page = await openHub(browser);
 
-  await page.locator('#settings-btn').click(); await page.waitForTimeout(250);
+  await page.evaluate(() => window.HubSettings.open()); await page.waitForTimeout(250);
   const tabs = await page.locator('.settings-tab').allInnerTexts();
   check('a tab per game plus All games', tabs.length >= 5, tabs.join('|'));
   const masterRows = await page.locator('.settings-row').count();
@@ -706,18 +706,6 @@ async function testPerGameSettings(browser){
 
   await page.evaluate(() => window.HubSettings.clearOverride('cardFlip', 'blockbusters'));
   check('clearing an override falls back to master', await read('blockbusters') === master);
-
-  // ⚙ during play opens the drawer for that game; the panel is one click further
-  await startGame(page, 'Jeopardy', { sections:3 });
-  await page.locator('#settings-btn').click(); await page.waitForTimeout(300);
-  check('gear during play opens the drawer for the game being played',
-        await page.locator('#lab-drawer.on').count() === 1 &&
-        /jeopardy/i.test(await page.locator('#lab-title').innerText()),
-        await page.locator('#lab-title').innerText());
-  await page.locator('#lab-all').click(); await page.waitForTimeout(250);
-  check('and its All games button lands the panel on that game\'s tab',
-        /jeopardy/i.test(await page.locator('.settings-tab.on').innerText()));
-  await page.locator('#settings-close').click();
 
   checkClean(page);
   await page.close();
@@ -1400,7 +1388,7 @@ async function testDefaultLook(browser){
   await page.locator('h3:visible', { hasText:'Jeopardy' }).first().click();
   await page.waitForTimeout(250);
   check('the section-picking screen stays skinned', await themed());
-  await page.locator('#settings-btn').click(); await page.waitForTimeout(250);
+  await page.evaluate(() => window.HubSettings.open()); await page.waitForTimeout(250);
   check('the settings panel is skinned too',
         await page.evaluate(() => getComputedStyle(document.getElementById('settings-card')).backgroundColor)
           !== 'rgb(255, 255, 255)');
@@ -2985,122 +2973,62 @@ async function testSettingsMigration(browser){
   await page.close();
 }
 
-/* ---- the Lab drawer ----
-   Settings for one game, reachable without leaving the board. The point is
-   comparing iterations *between rounds*, so the thing to assert is that it shows
-   the active game's switches and nothing else, that changing one there writes a
-   per-game override rather than the master, and that it cannot be left open over
-   a screen it does not belong to. */
+/* The board carries no settings UI of its own any more — the gear, the clue-card
+   Tune pill and the docked drawer were removed when settings moved to the room
+   bench. The registry stays (the bench edits it through the frame); this asserts
+   the on-board entrances are gone, and that the panel *logic* the bench renders is
+   still correct — tested by rendering a game's view into a throwaway host with
+   `renderFor`, the same call the bench makes. */
 async function testLabDrawer(browser){
-  section('Settings drawer — one gear, whose form suits the moment');
+  section('The board has no settings UI — the panel logic lives in the bench');
   const page = await openHub(browser);
-  await page.evaluate(() => window.HubSettings.set('intro','off'));
-
-  /* One entrance. Before a game the gear is the full panel; during play it is the
-     docked drawer for the game being played — same registry, same rows. The
-     separate Lab button is gone. */
-  check('there is no separate Lab button any more',
-        await page.locator('#lab-btn').count() === 0);
-  await page.locator('#settings-btn').click(); await page.waitForTimeout(250);
-  check('before a game, the gear opens the full panel',
-        await page.locator('#settings-modal').isVisible() &&
-        await page.locator('#lab-drawer.on').count() === 0);
-  await page.keyboard.press('Escape'); await page.waitForTimeout(150);
+  check('no gear button on the board', await page.locator('#settings-btn').count() === 0);
+  check('no docked drawer', await page.locator('#lab-drawer').count() === 0);
+  check('no separate Lab button', await page.locator('#lab-btn').count() === 0);
+  check('no Tune pill on the clue card', await page.locator('#clue-tune').count() === 0);
 
   await startGame(page, 'Race to the Board', { sections:'all' });
-  await page.waitForTimeout(400);
-
-  await page.locator('#settings-btn').click(); await page.waitForTimeout(300);
-  check('during play, the same gear opens the docked drawer',
-        await page.locator('#lab-drawer.on').count() === 1 &&
+  await page.waitForTimeout(300);
+  // the L key used to toggle the drawer; it must do nothing now
+  await page.keyboard.press('l'); await page.waitForTimeout(150);
+  check('the L key opens nothing',
+        await page.locator('#lab-drawer').count() === 0 &&
         !(await page.locator('#settings-modal').isVisible()));
-  check('titled with the game being played',
-        /race to the board/i.test(await page.locator('#lab-title').innerText()),
-        await page.locator('#lab-title').innerText());
 
-  const rows = await page.locator('#lab-body .settings-row').count();
-  check('it carries that game\'s switches', rows > 0, String(rows));
-  const labels = (await page.locator('#lab-body .settings-row').allInnerTexts()).join(' | ');
-  check('including one this game has and another game does not',
-        /re-scatter|round length/i.test(labels), labels.slice(0,160));
-  check('and not one that belongs to a different game only',
-        !/lifelines/i.test(labels), labels.slice(0,160));
+  /* A game's view carries that game's switches and not another game's, and the
+     phone dynamic is one picker — rendered into a host, not read off any on-board UI. */
+  const view = await page.evaluate(() => {
+    const host = document.createElement('div'); document.body.appendChild(host);
+    window.HubSettings.renderFor(host, 'race');
+    const labels = [...host.querySelectorAll('.settings-row')].map(r => r.textContent).join(' | ');
+    const modeSel = host.querySelectorAll('[data-setting="round_default"]');
+    const out = {
+      rows: host.querySelectorAll('.settings-row').length,
+      hasOwn: /re-scatter|round length/i.test(labels),
+      notOther: !/lifelines/i.test(labels),
+      onePicker: modeSel.length === 1 && modeSel[0].tagName === 'SELECT'
+    };
+    host.remove();
+    return out;
+  });
+  check('a game view carries that game\'s switches', view.rows > 0 && view.hasOwn, String(view.rows));
+  check('and not one that belongs to another game only', view.notOther);
+  check('the phone dynamic is one picker, not a row of switches', view.onePicker);
 
-  /* Changing it here is an override for this game, not a change to every game —
-     otherwise trying an idea mid-round quietly rewrites the other three. */
+  /* A change through the registry is an override scoped to that game, not the others. */
   const before = await page.evaluate(() => window.HubSettings.get('round_default'));
-  const modeSel = page.locator('#lab-body [data-setting="round_default"]');
-  check('the phone dynamic is one picker, not a row of switches',
-        await modeSel.count() === 1 && await modeSel.evaluate(e => e.tagName) === 'SELECT',
-        String(await modeSel.count()));
-  await modeSel.selectOption('write'); await page.waitForTimeout(200);
-  check('a change in the lab is scoped to this game',
+  await page.evaluate(() => window.HubSettings.set('round_default','write','race'));
+  check('a change is scoped to this game',
         await page.evaluate(() => window.HubSettings.get('round_default','race')) === 'write');
   check('and leaves every other game alone',
         await page.evaluate(() => window.HubSettings.get('round_default')) === before,
         String(await page.evaluate(() => window.HubSettings.get('round_default'))));
 
-  /* A drawer you cannot see past is a drawer you cannot use mid-round: the header
-     holds New game, the timer and ⚙, the team bar holds the ± score buttons, and
-     a full-height panel covered all of them. This failed the first time it ran. */
-  const clear = async (sel) => {
-    const [box, drawer] = await Promise.all([
-      page.locator(sel).boundingBox(), page.locator('#lab-drawer').boundingBox()
-    ]);
-    return !!box && !!drawer && (box.y + box.height <= drawer.y + 1 || box.y >= drawer.y + drawer.height - 1);
-  };
-  check('the header stays reachable with the drawer open', await clear('#new-game-btn'));
-  check('so does the timer', await clear('#timer-widget'));
-  check('and the team bar', await clear('#scorebar'));
-
-  /* And the board gives up the width rather than hiding under the panel — the
-     first version covered two of Millionaire's four options, which makes the
-     drawer useless for the thing it is for: changing a rule and watching the
-     next question play under it. Measured on the stage the registry names, and
-     on its contents, because a stage whose box stops at the drawer can still
-     have children overflowing past it. */
-  const drawerBox = await page.locator('#lab-drawer').boundingBox();
-  const over = await page.evaluate(edge => {
-    const stage = window.HubGames.get('race').stage;   // an element id, not a selector
-    const root = document.getElementById(stage);
-    if(!root) return ['no stage'];
-    return [root, ...root.querySelectorAll('*')]
-      .filter(el => { const r = el.getBoundingClientRect();
-                      return r.width > 4 && r.height > 4 && r.right > edge + 2; })
-      .slice(0,3).map(el => el.className + ' ' + Math.round(el.getBoundingClientRect().right));
-  }, drawerBox.x);
-  check('the board re-fits into what is left, rather than hiding under it',
-        over.length === 0, over.join(' | '));
-
-  await page.keyboard.press('l'); await page.waitForTimeout(250);
-  check('L closes it', await page.locator('#lab-drawer.on').count() === 0);
-  await page.keyboard.press('l'); await page.waitForTimeout(250);
-  check('and opens it again', await page.locator('#lab-drawer.on').count() === 1);
-
-  /* The rare cross-game edit mid-round: the drawer hands over to the full panel,
-     already on this game's tab. */
-  await page.locator('#lab-all').click(); await page.waitForTimeout(250);
-  check('"All games" hands over to the full panel',
-        await page.locator('#settings-modal').isVisible() &&
-        await page.locator('#lab-drawer.on').count() === 0);
-  check('landing on the tab for the game being played',
-        /race/i.test(await page.locator('.settings-tab.on').innerText()),
-        await page.locator('.settings-tab.on').innerText());
-  await page.keyboard.press('Escape'); await page.waitForTimeout(150);
-
-  /* Leaving the board must take the drawer with it — a panel about Race hanging
-     over the game-select screen is a bug the user would meet immediately. */
-  await page.keyboard.press('l'); await page.waitForTimeout(250);
-  await page.locator('#new-game-btn').click(); await page.waitForTimeout(400);
-  check('leaving the play screen closes it', await page.locator('#lab-drawer.on').count() === 0);
-
-  /* The ruleset leads a game's settings, and every row a bundle touches says what
-     the chosen mode set it to — advisory beside the control, which stays the
-     truth. Checked on Jeopardy, the game that has a ruleset. */
+  /* The ruleset leads a game's settings and every row a bundle touches says what the
+     chosen mode set it to — checked on Jeopardy, the game that has a ruleset. */
   const rules = await page.evaluate(() => {
     window.HubSettings.set('jRules','classic','jeopardy');
-    const host = document.createElement('div');
-    document.body.appendChild(host);
+    const host = document.createElement('div'); document.body.appendChild(host);
     window.HubSettings.renderFor(host, 'jeopardy');
     const out = {
       first:  (host.querySelector('.settings-group')||{textContent:''}).textContent,
@@ -3115,18 +3043,23 @@ async function testLabDrawer(browser){
   check('and rows the ruleset governs say what it set them to',
         rules.note10 && rules.noteOn, JSON.stringify(rules));
 
-  /* Folding: a group header closes its rows and opens them again. */
-  await page.locator('#settings-btn').click(); await page.waitForTimeout(250);
-  const firstFold = page.locator('#settings-body .settings-group.foldable').first();
-  const bodySel = '#settings-body .settings-groupbody';
-  const openBodies = await page.locator(bodySel + ':not(.closed)').count();
-  await firstFold.click(); await page.waitForTimeout(150);
-  check('a group header folds its rows away',
-        await page.locator(bodySel + ':not(.closed)').count() === openBodies - 1);
-  await firstFold.click(); await page.waitForTimeout(150);
-  check('and unfolds them again',
-        await page.locator(bodySel + ':not(.closed)').count() === openBodies);
-  await page.keyboard.press('Escape');
+  /* Folding: a group header closes its rows and opens them again — exercised in a
+     host, so the fold works with no on-board panel. */
+  const fold = await page.evaluate(() => {
+    const host = document.createElement('div'); document.body.appendChild(host);
+    window.HubSettings.renderFor(host, 'jeopardy');
+    const sel = '.settings-groupbody';
+    const open0 = host.querySelectorAll(sel + ':not(.closed)').length;
+    const header = host.querySelector('.settings-group.foldable');
+    header.click();
+    const open1 = host.querySelectorAll(sel + ':not(.closed)').length;
+    header.click();
+    const open2 = host.querySelectorAll(sel + ':not(.closed)').length;
+    host.remove();
+    return { open0, open1, open2 };
+  });
+  check('a group header folds its rows away', fold.open1 === fold.open0 - 1, JSON.stringify(fold));
+  check('and unfolds them again', fold.open2 === fold.open0);
 
   await page.evaluate(() => window.HubSettings.clearOverride('round_default','race'));
   checkClean(page);
@@ -3145,7 +3078,7 @@ async function testRangeSetting(browser){
     return window.HubSettings.get('__testWeight');
   });
   check('a range setting reads its default', has === 2, String(has));
-  await page.locator('#settings-btn').click(); await page.waitForTimeout(300);
+  await page.evaluate(() => window.HubSettings.open()); await page.waitForTimeout(300);
   const box = page.locator('[data-setting="__testWeight"]');
   const input = box.locator('input[type=range]');
   check('it renders as a slider', await input.count() === 1);

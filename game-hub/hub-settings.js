@@ -626,6 +626,10 @@ window.HubSettings = (function(){
   }
 
   function open(){
+    /* The board no longer mounts a gear, so the panel is not built at load. It is
+       still available on demand — the room bench and the tests reach it this way —
+       so build it the first time it is opened. */
+    if(!panel) buildPanel();
     if(!panel) return;
     // land on the tab for whatever is being played, so ⚙ during a game shows that
     // game's settings without hunting for them
