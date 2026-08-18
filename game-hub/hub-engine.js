@@ -190,6 +190,17 @@
     fit:      fitJeopardyBoard,
     deal:     jDeal,
     tension(){ jTension(); },
+    /* **How hot this game's clue card arrives**, 0–1, so the shared card reuses the
+       same `--tension` contract the boards do without knowing whose values these are.
+       A $500 clue opens hotter than a $100. Declared here rather than branched on
+       `activeGame` inside `openClueCard`, and read off the game (not the round host,
+       which the Daily-Double path has not named yet when the card opens). A game with
+       no glow says nothing and the card opens cold. */
+    cardGlow(){
+      if(!currentClueValue) return 0;
+      const { lo, hi } = jValueRange();
+      return hi > lo ? (currentClueValue - lo) / (hi - lo) : 1;
+    },
     onResize: fitJeopardyBoard,
     onWrong:  jOfferSteal
   });
@@ -5790,14 +5801,13 @@
     document.getElementById('clue-front-text').textContent =
       origin ? (origin.dataset.face || origin.textContent) : '';
     /* The card lives outside the stage, so it cannot inherit --tension the way the
-       boards do. Feed it the same number: a $500 clue arrives hotter than a $100,
-       reusing the contract rather than inventing a second one. */
-    let stake = 0;
-    if(activeGame === 'jeopardy' && currentClueValue){
-      const { lo, hi } = jValueRange();
-      stake = hi > lo ? (currentClueValue - lo) / (hi - lo) : 1;
-    }
-    card.style.setProperty('--tension', stake.toFixed(3));
+       boards do. Feed it the same number, and let the game say how hot its clue is:
+       `cardGlow` is a declared fact on the game rather than a branch on its name here,
+       so a card game added later heats its own card without editing this shared
+       opener. A game that declares none opens the card cold. */
+    const glow = gameDef(activeGame);
+    card.style.setProperty('--tension',
+      ((glow && glow.cardGlow) ? glow.cardGlow() : 0).toFixed(3));
     modal.style.display = 'flex';
     /* The board is visible again but it is not *live*: every action while a clue is
        open belongs to the card, and the 90% scrim used to be what stopped a stray
