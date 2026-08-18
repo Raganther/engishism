@@ -800,8 +800,7 @@ body.theme-gameshow .geo-band{
   animation: bandRun 1.4s steps(3) infinite;   /* ~2 bulbs a second */
 }
 @keyframes bandRun{ to{ background-position:54px 0; } }
-body.theme-gameshow #new-game-btn,
-body.theme-gameshow #settings-btn{ background:rgba(255,255,255,0.06); color:var(--paper); border-color:rgba(255,255,255,0.3); }
+body.theme-gameshow #new-game-btn{ background:rgba(255,255,255,0.06); color:var(--paper); border-color:rgba(255,255,255,0.3); }
 body.theme-gameshow #new-game-btn:hover{ background:var(--gold); color:#000; border-color:var(--gold); }
 body.theme-gameshow #timer-widget{ background:rgba(0,0,0,0.5); border-color:var(--gold); }
 
@@ -1348,12 +1347,7 @@ body.theme-gameshow #buzzer-chip .buzz-join{ color:var(--paper); }
 body.theme-gameshow #buzzer-chip .buzz-typed{ color:var(--paper); }
 body.theme-gameshow #buzzer-chip .buzz-verdict{ background:rgba(255,200,61,0.18); color:var(--gold); }
 
-/* --- Settings (gear in the header + panel; rows are generated from the registry) --- */
-#settings-btn{
-  background: var(--white); color: var(--navy); border:2px solid var(--navy); border-radius:8px;
-  width:40px; height:40px; font-size:1.15rem; line-height:1; cursor:pointer;
-}
-#settings-btn:hover{ background: var(--navy); color: var(--white); }
+/* --- Settings panel (opened from the room bench; rows generated from the registry) --- */
 #settings-modal{
   display:none; position:fixed; inset:0; background: rgba(18,38,63,0.90);
   align-items:center; justify-content:center; z-index:60; padding:24px;
@@ -1472,7 +1466,6 @@ body.theme-gameshow .settings-preset-note{ color:var(--gold); }
   #timer-widget{ padding:4px 6px; gap:4px; }
   #timer-widget button{ width:26px; height:26px; font-size:0.9rem; }
   #tmr-display{ font-size:1.15rem; }
-  #settings-btn{ width:34px; height:34px; font-size:1rem; }
   #new-game-btn{ padding:6px 10px; font-size:0.66rem; }
   /* two teams on one row instead of three stacked rows */
   .team{ gap:6px; padding:4px 7px; }
