@@ -255,6 +255,9 @@
     phoneRound(){ return roundForPhones(); },
     // the vote button names the team on turn, and the room arrives after the board
     onRoomReady(){ renderBBVote(); },
+    // the turn indicator and the vote button both name teams, so a roster change
+    // (a team removed mid-board, or the room bench growing it) has to repaint them
+    onRoster(){ renderBBTurn(); renderBBVote(); },
     fit:      layoutBlockbustersBoard,
     deal:     bbDeal,
     tension(){ bbTension(); },
@@ -1960,7 +1963,7 @@
        answers with a roster refresh that re-deals, re-shares and re-reads. */
     if(buzzHost) buzzHost.remap(i);
     renderScorebar();
-    if(activeGame === 'blockbusters'){ renderBBTurn(); renderBBVote(); }
+    hook('onRoster');   // the active board repaints anything that names teams
     hook('onResize');
   }
 
