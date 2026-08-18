@@ -2,7 +2,7 @@
    One place to add a feature switch. A feature registers itself:
 
      HubSettings.register({
-       id:'sound', group:'Sound', type:'toggle', default:true,
+       id:'sound', group:'Sound', type:'toggle', default:false,
        games:['jeopardy','blockbusters','race','millionaire'],
        label:'Sound effects', help:'Short tones for right and wrong answers.'
      });
