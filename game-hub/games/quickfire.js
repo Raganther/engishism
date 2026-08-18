@@ -327,18 +327,13 @@
   }
 
   function kTension(){
-    const stage = document.getElementById('play-kahoot');
-    if(!stage) return;
-    const on = E().themeOf('kahoot') === 'gameshow' && window.HubGames.active() === 'kahoot';
-    stage.classList.toggle('lit', on);
-    if(!on){ stage.style.removeProperty('--tension'); E().Sound.bedStop(); return; }
-    /* Two ingredients, like Race: how far through the run, and whether a question
-       is live this second — a board sitting on a revealed answer should not be as
-       tense as one with four seconds left. */
-    const through = kQueue.length ? kAsked / kQueue.length : 0;
-    const urgent  = kLive() && kSecs() ? 1 - (kLeft() / kSecs()) : 0;
-    const t = Math.min(1, through * 0.6 + urgent * 0.4);
-    stage.style.setProperty('--tension', t.toFixed(3));
-    if(kLive() && E().motionOK()) E().Sound.bedStart(t); else E().Sound.bedStop();
+    E().stageTension('kahoot', () => {
+      /* Two ingredients, like Race: how far through the run, and whether a question
+         is live this second — a board sitting on a revealed answer should not be as
+         tense as one with four seconds left. */
+      const through = kQueue.length ? kAsked / kQueue.length : 0;
+      const urgent  = kLive() && kSecs() ? 1 - (kLeft() / kSecs()) : 0;
+      return { t: Math.min(1, through * 0.6 + urgent * 0.4), live: !!kLive() };
+    });
   }
 })();

@@ -620,18 +620,15 @@
   }
 
   function bingoTension(){
-    const stage = document.getElementById('play-bingo');
-    const on = E().themeOf('bingo') === 'gameshow' && window.HubGames.active() === 'bingo';
-    stage.classList.toggle('lit', on);
-    if(!on){ stage.style.removeProperty('--tension'); E().Sound.bedStop(); return; }
-    // one square off a line is as tense as this board gets
-    const best = bingoOnPhones()
-      ? [...bingoHands.values()].reduce((m, h) => Math.max(m,
-          ...bingoLines().map(l => l.filter(i => h.marked[i]).length)), 0)
-      : bingoBest();
-    const t = Math.max(0, Math.min(1, (best - 1) / (BINGO_SIZE - 1)));
-    stage.style.setProperty('--tension', t.toFixed(3));
-    if(bingoRunning && bingoCurrent && !bingoWon) E().Sound.bedStart(t); else E().Sound.bedStop();
+    E().stageTension('bingo', () => {
+      // one square off a line is as tense as this board gets
+      const best = bingoOnPhones()
+        ? [...bingoHands.values()].reduce((m, h) => Math.max(m,
+            ...bingoLines().map(l => l.filter(i => h.marked[i]).length)), 0)
+        : bingoBest();
+      return { t: Math.max(0, Math.min(1, (best - 1) / (BINGO_SIZE - 1))),
+               live: !!(bingoRunning && bingoCurrent && !bingoWon) };
+    });
   }
 
 })();

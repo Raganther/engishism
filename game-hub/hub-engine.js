@@ -2895,28 +2895,42 @@
       .forEach(c=>c.clues.forEach(cl=>vals.push(cl.v)));
     return vals.length ? { lo:Math.min(...vals), hi:Math.max(...vals) } : { lo:0, hi:1 };
   }
-  function jTension(atStake){
-    const stage = document.getElementById('play-jeopardy');
-    const on = themeOf('jeopardy')==='gameshow' && activeGame==='jeopardy';
+  /* The shared stage-tension gate. Every game show heats its board the same way:
+     light the stage under the game-show skin, write a 0–1 `--tension` the CSS reads,
+     and run the think-music bed while a question is live. Only two things are the
+     game's own — the tension value and whether the bed should play — so a game hands
+     those back from `compute(stage)`, which runs **only while the stage is lit** (the
+     same early-out every copy had, so a game still computes nothing when it is off
+     screen). Returns whether the stage is lit, for a game with extra lit-only work
+     (Race toggles `.running`). A game whose stage markup is absent — an external file
+     loaded before its board — is a safe no-op. Exposed on HubEnv for the external
+     games, which reach `themeOf`/`activeGame`/`Sound`/`motionOK` only through it. */
+  function stageTension(id, compute){
+    const stage = document.getElementById('play-' + id);
+    if(!stage) return false;
+    const on = themeOf(id) === 'gameshow' && activeGame === id;
     stage.classList.toggle('lit', on);
-    if(!on){ stage.style.removeProperty('--tension'); Sound.bedStop(); return; }
-
-    const tiles = [...document.querySelectorAll('#board .tile')];
-    const done  = tiles.filter(t=>t.classList.contains('used')).length;
-    const floor = tiles.length ? done/tiles.length : 0;
-
-    let stake = 0;
-    if(atStake){
-      const { lo, hi } = jValueRange();
-      stake = hi > lo ? (atStake - lo)/(hi - lo) : 1;
-    }
-    const t = Math.min(1, 0.45*floor + 0.55*stake);
+    if(!on){ stage.style.removeProperty('--tension'); Sound.bedStop(); return false; }
+    const { t, live } = compute(stage);
     stage.style.setProperty('--tension', t.toFixed(3));
+    if(live && motionOK()) Sound.bedStart(t); else Sound.bedStop();
+    return true;
+  }
 
-    // think music while a clue is on the table and unanswered — the show's own
-    // habit, and the reason a class stops talking and starts thinking
-    if(atStake && motionOK()) Sound.bedStart(t);
-    else Sound.bedStop();
+  function jTension(atStake){
+    stageTension('jeopardy', () => {
+      const tiles = [...document.querySelectorAll('#board .tile')];
+      const done  = tiles.filter(t=>t.classList.contains('used')).length;
+      const floor = tiles.length ? done/tiles.length : 0;
+      let stake = 0;
+      if(atStake){
+        const { lo, hi } = jValueRange();
+        stake = hi > lo ? (atStake - lo)/(hi - lo) : 1;
+      }
+      // think music while a clue is on the table and unanswered — the show's own
+      // habit, and the reason a class stops talking and starts thinking
+      return { t: Math.min(1, 0.45*floor + 0.55*stake), live: !!atStake };
+    });
   }
 
   /* The whole board has to be reachable without scrolling — a teacher can't scroll
@@ -4054,21 +4068,15 @@
   }
 
   function bbTension(clueOpen){
-    const stage = document.getElementById('play-blockbusters');
-    const on = themeOf('blockbusters')==='gameshow' && activeGame==='blockbusters';
-    stage.classList.toggle('lit', on);
-    if(!on){ stage.style.removeProperty('--tension'); Sound.bedStop(); return; }
-
-    // the shortest line anyone could ever need: blue's four rows beats yellow's five
-    const shortest = Math.min(BB_WIDEST, BB_ROWS.length);
-    const need = Math.min(bbStepsToWin(0), bbStepsToWin(1));
-    const t = !isFinite(need) ? 0
-            : need >= shortest ? 0
-            : (shortest - need) / (shortest - 1);
-    stage.style.setProperty('--tension', Math.max(0, Math.min(1, t)).toFixed(3));
-
-    if(clueOpen && motionOK()) Sound.bedStart(t);
-    else Sound.bedStop();
+    stageTension('blockbusters', () => {
+      // the shortest line anyone could ever need: blue's four rows beats yellow's five
+      const shortest = Math.min(BB_WIDEST, BB_ROWS.length);
+      const need = Math.min(bbStepsToWin(0), bbStepsToWin(1));
+      const raw = !isFinite(need) ? 0
+                : need >= shortest ? 0
+                : (shortest - need) / (shortest - 1);
+      return { t: Math.max(0, Math.min(1, raw)), live: !!clueOpen };
+    });
   }
 
   /* The honeycomb builds itself rather than appearing. Staggered on row+col, the
@@ -6458,19 +6466,13 @@
      colour towards red, and the think-music bed uses it for tempo and brightness.
      Nothing here runs unless the game show skin is on. */
   function mTension(){
-    const stage = document.getElementById('play-millionaire');
-    const on    = themeOf('millionaire') === 'gameshow' && activeGame === 'millionaire';
-    stage.classList.toggle('lit', on);
-    if(!on){ stage.style.removeProperty('--tension'); Sound.bedStop(); return; }
-
-    const st = mTeamState(active);
-    const t  = Math.min(st.rung, M_LADDER.length-1) / (M_LADDER.length-1);
-    stage.style.setProperty('--tension', t.toFixed(3));
-
-    // the bed plays under a live question and stops the moment one is answered, so
-    // it never runs under the teacher reading out the result
-    if(mCurrent && !mAnswered && motionOK()) Sound.bedStart(t);
-    else Sound.bedStop();
+    stageTension('millionaire', () => {
+      const st = mTeamState(active);
+      // the bed plays under a live question and stops the moment one is answered, so
+      // it never runs under the teacher reading out the result
+      return { t: Math.min(st.rung, M_LADDER.length-1) / (M_LADDER.length-1),
+               live: !!(mCurrent && !mAnswered) };
+    });
   }
 
   /* A short light wash over the stage — the show's "lights change on the answer".
@@ -8115,20 +8117,13 @@
   }
 
   function rTension(){
-    const stage = document.getElementById('play-race');
-    const on = themeOf('race')==='gameshow' && activeGame==='race';
-    stage.classList.toggle('lit', on);
-    if(!on){ stage.style.removeProperty('--tension'); Sound.bedStop(); return; }
-
-    const done  = raceWords.filter(w=>w.found).length;
-    const clear = raceWords.length ? done/raceWords.length : 0;
-    const live  = !!(raceRunning && raceCurrent);
-    const t = Math.min(1, 0.6*clear + (live ? 0.4 : 0));
-    stage.style.setProperty('--tension', t.toFixed(3));
-    stage.classList.toggle('running', live);
-
-    if(live && motionOK()) Sound.bedStart(t);
-    else Sound.bedStop();
+    stageTension('race', (stage) => {
+      const done  = raceWords.filter(w=>w.found).length;
+      const clear = raceWords.length ? done/raceWords.length : 0;
+      const live  = !!(raceRunning && raceCurrent);
+      stage.classList.toggle('running', live);
+      return { t: Math.min(1, 0.6*clear + (live ? 0.4 : 0)), live };
+    });
   }
 
   /* Who has already missed the sentence currently up. Head-to-head re-opened the
@@ -8338,7 +8333,7 @@
     syncBuzzRoom, reaskPhones,
     // nobody holds the floor any more, and the chip stops saying so
     clearFloor: () => { buzzWinner = null; renderBuzzChip(); },
-    renderScorebar, themeOf, motionOK, Sound,
+    renderScorebar, themeOf, motionOK, Sound, stageTension,
     timerSetDuration, timerStart, timerStop, timerReset,
     asChoiceRound: q => mAsRound(q)
   };
