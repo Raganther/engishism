@@ -1481,6 +1481,18 @@ body.theme-gameshow #buzzer-chip .buzz-verdict{ background:rgba(255,200,61,0.18)
 .settings-group.foldable.closed::after{ transform:rotate(-90deg); }
 .settings-groupbody.closed{ display:none; }
 @media (prefers-reduced-motion: reduce){ .settings-group.foldable::after{ transition:none; } }
+/* A child setting sits indented under its parent, on a neutral rule that reads on
+   both the light panel and the dark drawer, and greys out (non-interactive) while its
+   parent is switched off — a slider whose effect cannot be seen is what read as noise. */
+.settings-child{ margin-left:20px; border-left:2px solid rgba(127,127,127,0.28); padding-left:14px; }
+.settings-inert{ opacity:0.45; }
+.settings-inert input, .settings-inert select, .settings-inert button, .settings-inert .switch-track{ pointer-events:none; }
+/* The Advanced fold — the everyday settings lead, the fine-tuning is one click down.
+   Subtler than a group header, same caret so it reads as the same kind of control. */
+.settings-advanced{ font-family:'IBM Plex Mono',monospace; font-size:0.62rem; letter-spacing:0.1em; text-transform:uppercase; color:rgba(127,127,127,0.75); margin:12px 0 6px; cursor:pointer; user-select:none; }
+.settings-advanced::after{ content:'▾'; margin-left:6px; display:inline-block; transition:transform .15s; }
+.settings-advanced.closed::after{ transform:rotate(-90deg); }
+@media (prefers-reduced-motion: reduce){ .settings-advanced::after{ transition:none; } }
 /* The ruleset section leads a game's settings and does not fold — it is the one
    choice everything under it hangs off. */
 .settings-ruleset{ color:var(--navy); border-bottom:2px solid var(--yellow); padding-bottom:4px; }

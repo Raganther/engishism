@@ -617,12 +617,12 @@ async function testSettings(browser){
      a game kept its own value of On, and there was no way to see why short of
      clicking through every tab. The master row must name the game and jump to it. */
   await page.evaluate(() => {
-    window.HubSettings.set('musicBed', 'off');
-    window.HubSettings.set('musicBed', 'normal', 'millionaire');
+    window.HubSettings.set('phonePrompt', false);
+    window.HubSettings.set('phonePrompt', true, 'millionaire');
   });
   await page.locator('#settings-btn').click(); await page.waitForTimeout(250);
   await page.locator('.settings-tab', { hasText:'All games' }).click(); await page.waitForTimeout(150);
-  const masterRow = page.locator('.settings-row', { hasText:'Think-music drone' });
+  const masterRow = page.locator('.settings-row', { hasText:'Show the question on the phones' });
   /* **Asserted on the marker and the game's name, not on the sentence.** This asked
      for the words "overridden in millionaire" and had been red since that line was
      deliberately reworded — a game can differ because a teacher set it *or* because
@@ -639,7 +639,7 @@ async function testSettings(browser){
   check('clicking the name jumps straight to that game\'s tab',
         (await page.locator('.settings-tab.on').innerText()).toLowerCase() === 'millionaire');
   check('and the row there confirms the override, matching what the master claimed',
-        /set for this game/i.test(await page.locator('.settings-row', { hasText:'Think-music drone' }).innerText()));
+        /set for this game/i.test(await page.locator('.settings-row', { hasText:'Show the question on the phones' }).innerText()));
   await page.locator('.settings-undo', { hasText:/match all games/i }).click(); await page.waitForTimeout(200);
   await page.locator('.settings-tab', { hasText:'All games' }).click(); await page.waitForTimeout(150);
   check('clearing the override removes the master-row warning',

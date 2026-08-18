@@ -238,6 +238,7 @@ window.HubSettings = (function(){
   /* ---------- panel ---------- */
   let panel=null, body=null, tabsEl=null, activeTab='master';
   const collapsed = new Set();   // groups folded shut, per session — not worth persisting
+  const advOpen   = new Set();   // which groups have their Advanced fold open, per session
   let forMount = null;           // the drawer's mount, so a change re-renders it too
 
   // every game any registered setting mentions, in first-registered order
@@ -491,6 +492,52 @@ window.HubSettings = (function(){
      game's own when everything in it belongs to exactly one game — so a sixth
      game's group sorts itself without appearing in any list here. Headers fold,
      because thirty-nine rows is a wall whichever order they come in. */
+  /* Within a group the shape is derived from the defs, never listed:
+     - a row that declares `under:'parentId'` is a child — drawn indented right after
+       its parent and greyed (`settings-inert`) while the parent is off, zero, or set
+       to something other than its `when` value. A slider whose effect a teacher cannot
+       see is exactly what made the panel read as noise.
+     - a row that declares `adv:true` sinks below a foldable "Advanced" divider, so the
+       everyday settings lead and the fine-tuning is one click away, not a wall.
+     A new setting joins the shape by declaring one of those words. */
+  function parentLive(child, game){
+    const pv = get(child.under, game);
+    if(child.when != null) return String(pv) === String(child.when);
+    return pv !== false && pv !== 'off' && pv !== 0 && pv !== '' && pv != null;
+  }
+  function emitRows(box, list, all, game){
+    list.forEach(d=>{
+      box.appendChild(buildRow(d, game));
+      all.filter(c => c.under === d.id).forEach(c=>{
+        const row = buildRow(c, game);
+        row.classList.add('settings-child');
+        if(!parentLive(c, game)) row.classList.add('settings-inert');
+        box.appendChild(row);
+      });
+    });
+  }
+  function emitGroup(wrap, rows, gName, game){
+    const ids = new Set(rows.map(d => d.id));
+    // an orphan child (its parent scoped out of this view) falls back to a top-level row
+    const topLevel = rows.filter(d => !d.under || !ids.has(d.under));
+    emitRows(wrap, topLevel.filter(d => !d.adv), rows, game);
+    const adv = topLevel.filter(d => d.adv);
+    if(!adv.length) return;
+    const open = advOpen.has(gName);
+    const h = document.createElement('div');
+    h.className = 'settings-advanced foldable' + (open ? '' : ' closed');
+    h.textContent = 'Advanced';
+    const box = document.createElement('div');
+    box.className = 'settings-groupbody' + (open ? '' : ' closed');
+    h.addEventListener('click', ()=>{
+      advOpen.has(gName) ? advOpen.delete(gName) : advOpen.add(gName);
+      h.classList.toggle('closed'); box.classList.toggle('closed');
+    });
+    wrap.appendChild(h);
+    emitRows(box, adv, rows, game);
+    wrap.appendChild(box);
+  }
+
   const SHARED_GROUP_ORDER = ['Competition','Questions','Phones','Clue card','Presentation','Sound'];
 
   function renderRows(mount, game, shown){
@@ -523,7 +570,7 @@ window.HubSettings = (function(){
         h.classList.toggle('closed'); wrap.classList.toggle('closed');
       });
       mount.appendChild(h);
-      shown.filter(d=>(d.group||'General')===g).forEach(d=> wrap.appendChild(buildRow(d, game)));
+      emitGroup(wrap, shown.filter(d=>(d.group||'General')===g), g, game);
       mount.appendChild(wrap);
     });
   }

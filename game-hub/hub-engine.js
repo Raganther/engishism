@@ -697,7 +697,7 @@
      so it is the one a teacher may want gone while keeping the cues. Volume alone
      could not do that — turning it down takes the right-answer tone with it. */
   S.register({ id:'musicBed', group:'Sound', type:'select', default:'normal', games:'*',
-    label:'Think-music drone', help:'The low pulse under an unanswered question. Off leaves every other sound alone.',
+    adv:true, label:'Background music', help:'Music that plays under a question nobody has answered yet. Off leaves every other sound alone.',
     options:[{value:'normal',label:'On'},{value:'quiet',label:'On, quieter'},{value:'off',label:'Off'}] });
 
   /* ---- phones: one mode, not four switches ----
@@ -724,12 +724,12 @@
   /* Two weights for the typing race, both here rather than in the source because
      the right numbers are a classroom question. A wrong answer costs *time*, never
      points — long enough to hurt, short enough that they stay in the round. */
-  S.register({ id:'typeCooldown', group:'Phones', type:'range', default:3,
+  S.register({ id:'typeCooldown', group:'Phones', adv:true, type:'range', default:3,
     min:0, max:10, step:0.5, unit:'s', games:'*',
-    label:'Wait after a wrong answer',
+    label:'Wait after a wrong buzz',
     help:'How long that phone is out before it can buzz again. Nobody loses points; they lose the race.' });
 
-  S.register({ id:'typeStrict', group:'Phones', type:'toggle', default:false,
+  S.register({ id:'typeStrict', group:'Phones', adv:true, type:'toggle', default:false,
     games:'*',
     label:'Spelling has to be exact',
     help:'Off: a near miss takes the floor and the phone is told to check its spelling. On: only the exact word counts.' });
@@ -770,7 +770,7 @@
 
   /* Only the two games that score in values: a Blockbusters hex is one point and a
      Race word is one word, so halving them has nothing to halve. */
-  S.register({ id:'stealFullValue', group:'Competition', type:'toggle', default:false,
+  S.register({ id:'stealFullValue', group:'Competition', under:'stealOnWrong', type:'toggle', default:false,
     games:['jeopardy','millionaire'],
     label:'Steal pays the full value',
     help:'As the show plays the rebound — a stolen question earns everything it was worth. Off: a steal pays half, so the miss still cost something.' });
@@ -803,16 +803,16 @@
     label:'The class plays as one',
     help:'Every team\'s points count toward a single class total, and the round ends against a target rather than by ranking the teams.' });
 
-  S.register({ id:'jTarget', group:'Jeopardy', type:'range', default:60,
+  S.register({ id:'jTarget', group:'Jeopardy', under:'jTogether', type:'range', default:60,
     min:0, max:100, step:5, unit:'%', games:['jeopardy'],
     label:'Target to beat',
     help:'How much of the board the class is aiming for. 0 turns the target off and the class simply collects what it can.' });
 
   S.register({ id:'jHints', group:'Jeopardy', type:'toggle', default:false, games:['jeopardy'],
-    label:'The class can ask for a hand',
+    label:'Class can buy a hint',
     help:'A stuck class can buy the first letter, then the length. Each hint costs part of what the clue is worth — progress traded, not points taken.' });
 
-  S.register({ id:'jHintCost', group:'Jeopardy', type:'range', default:30,
+  S.register({ id:'jHintCost', group:'Jeopardy', under:'jHints', type:'range', default:30,
     min:10, max:50, step:10, unit:'%', games:['jeopardy'],
     label:'What a hint costs',
     help:'Each hint takes this much off the value of the clue it is used on.' });
@@ -911,7 +911,7 @@
 
   /* The standings open on the *old* order for a beat, then everybody glides to
      their new place — the movement itself, not only the arrows describing it. */
-  S.register({ id:'standingsShuffle', group:'Questions', type:'toggle', default:true,
+  S.register({ id:'standingsShuffle', group:'Questions', under:'roundWinBanner', type:'toggle', default:true,
     games: ROUND_GAMES,
     label:'Standings shuffle into place',
     help:'The screen opens showing the order before this question, holds a moment, then the rows slide to the new order. Off shows the new order at once.' });
@@ -930,18 +930,18 @@
     variants: Object.keys(PAY_RULES).map(k => ({ value:k, label:PAY_RULES[k].label })),
     help:'Who scores when more than one team gets it right. The tile, hexagon or rung still goes to whoever was first — this is the points only.' });
 
-  S.register({ id:'roundPaySecond', group:'Questions', type:'range', default:0.6,
+  S.register({ id:'roundPaySecond', group:'Questions', under:'roundPay', when:'podium', type:'range', default:0.6,
     min:0.1, max:0.9, step:0.1, unit:'×', games:ROUND_GAMES,
     label:'Second place is worth',
-    help:'A share of what the question pays. Used by the podium.' });
-  S.register({ id:'roundPayThird', group:'Questions', type:'range', default:0.3,
+    help:"Second place scores this share of the question's value." });
+  S.register({ id:'roundPayThird', group:'Questions', under:'roundPay', when:'podium', type:'range', default:0.3,
     min:0.1, max:0.9, step:0.1, unit:'×', games:ROUND_GAMES,
     label:'Third place is worth',
-    help:'A share of what the question pays. Used by the podium.' });
-  S.register({ id:'roundPayFloor', group:'Questions', type:'range', default:0.5,
+    help:"Third place scores this share of the question's value." });
+  S.register({ id:'roundPayFloor', group:'Questions', under:'roundPay', when:'clock', type:'range', default:0.5,
     min:0.1, max:0.9, step:0.1, unit:'×', games:ROUND_GAMES,
     label:'A last-second right answer is worth',
-    help:'The least a right answer can pay, as a share of the full value. Used by the clock — and with no clock running it is what every answer after the first is worth.' });
+    help:"The least a right answer can score, as a share of the full value — and with no clock running, what every answer after the first is worth." });
 
   /* Offered only to the boards that *have* a slot to lock. Quickfire plays this way
      already and has nothing to switch, so a row there would be a control that reads
@@ -979,7 +979,7 @@
      lanes already show the dynamic — a team's correct letters are readable off its
      lane — so this stays out of the way there. The rule and the never-the-last-part
      cap live in `Kit.round.crowdKnown`; this row is only the number. */
-  S.register({ id:'crowdReveal', group:'Questions', type:'range', default:40, quick:true,
+  S.register({ id:'crowdReveal', group:'Questions', type:'range', default:40, quick:true, adv:true,
     min:0, max:90, step:5, unit:'%', games:'*',
     label:'Reveal what the room knows',
     help:'In a big room, a part of the answer fills in once this share of active players have it. 0 switches it off. Never the last part — that stays yours to reveal.' });
@@ -989,7 +989,7 @@
      rules (never per word, hidden at the cap, damped) live in
      `Kit.round.crowdMeter`; this row only switches the picture. */
   S.register({ id:'crowdMeter', group:'Questions', type:'toggle', default:true, quick:true,
-    games:'*',
+    games:'*', under:'crowdReveal',
     label:'Meter toward the next reveal',
     help:'A bar on the card filling as the room converges on its next reveal, without saying which part. Hidden when nothing more can reveal. Needs the reveal above to be on.' });
 
@@ -1009,7 +1009,7 @@
     label:'Individuals press Send',
     help:'In a room of individuals, taps only select — the answer counts when the player presses Send. Stops guess-and-check. Team rooms are never affected.' });
   S.register({ id:'roundSendCool', group:'Phones', type:'range', default:3, quick:true,
-    min:0, max:15, step:1, unit:'s', games:'*',
+    min:0, max:15, step:1, unit:'s', games:'*', under:'roundSend',
     label:'Wrong answer wait',
     help:'A wrong Send locks that phone alone for this long, with the countdown in their hand. 0 is no wait. Individuals only.' });
   /* **What the reveal bar follows.** Off, it counts what the room has *committed*,
@@ -1021,7 +1021,7 @@
      Offered as a switch because which of the two teaches better is a question about
      a room, not about code. */
   S.register({ id:'crowdLive', group:'Questions', type:'toggle', default:false,
-    quick:true, byRoster:true, games:'*',
+    quick:true, byRoster:true, games:'*', under:'crowdReveal',
     /* **Reported as broken because the row could not say it was inert.** A preview
        only exists where a tap is *held*, which is the commit beat, which is a room
        of individuals — so in a team room a tap is already the answer, the bar has
@@ -1043,8 +1043,8 @@
       return 'Rides the next arm, so it lands on the following question, not the one open now.';
     },
     label:'Reveal bar follows selections',
-    help:'The bar fills as people choose, before they press Send — livelier, and closer to how it felt without the Send button. Off, it only counts answers that have actually been sent. One value per game: every round it hosts follows it.' });
-  S.register({ id:'roundSendRamp', group:'Phones', type:'toggle', default:true,
+    help:'The bar fills as people choose, before they press Send — livelier, and closer to how it felt without the Send button. Off, it only counts answers that have actually been sent.' });
+  S.register({ id:'roundSendRamp', group:'Phones', under:'roundSend', type:'toggle', default:true,
     games:'*',
     label:'The wait grows',
     help:'Each wrong Send on the same question adds the wait again — 3s, then 6s, then 9s — so the second guess is a real decision. Individuals only.' });
@@ -1057,7 +1057,7 @@
      read", and those are different. The teacher closes it now; the payout and the
      winner banner ride on that press, so the beat is one thing rather than two.
      Every round on a card board inherits it, because the wait is the host's. */
-  S.register({ id:'roundWinClose', group:'Questions', type:'variant', default:'teacher',
+  S.register({ id:'roundWinClose', group:'Questions', adv:true, type:'variant', default:'teacher',
     games: ROUND_GAMES.filter(g => ROUND_HOSTS[g].mount === CARD_MOUNT),
     label:'When a round is won',
     variants:[{ value:'teacher', label:'Keep the card up — the answer stays on screen until you close it' },
@@ -1090,9 +1090,9 @@
               { value:'lane',     label:'On the player’s own lane, where it stays until their next try' },
               { value:'off',      label:'Nowhere — the "3/4 right" count already says how close they are' }],
     help:'A "one away" / "not a group" can share one headline (fine for teams, a blur for sixteen individuals), sit on each player’s own row where it stays put, or stay off the board and leave the running count to say it.' });
-  S.register({ id:'roundHintPhone', group:'Phones', type:'toggle', default:false,
+  S.register({ id:'roundHintPhone', group:'Questions', type:'toggle', default:false,
     games:ROUND_GAMES, byRoster:true, quick:true, label:'Tell the phone how close',
-    help:'On, a wrong Connections answer tells the handset "One away…" or "Not a group" instead of a plain "Not that one". It never says which word is wrong — only how far off.' });
+    help:'On, a wrong answer tells the handset how close it was — "One away…" or "Not a group" — instead of a plain "Not that one". It never says which word is wrong, only how far off.' });
 
   /* Rounds were Jeopardy's alone for the first three, so their switches were named
      and grouped as Jeopardy's: `jGroupWho`, and `jRound_<id>` per round. A second
@@ -1190,20 +1190,20 @@
     if(dead.length) S.drop(dead);
   })();
 
-  S.register({ id:'jDailyDoubles', group:'Jeopardy', type:'range', default:0,
+  S.register({ id:'jDailyDoubles', group:'Jeopardy', adv:true, type:'range', default:0,
     min:0, max:3, step:1, unit:' hidden', games:['jeopardy'],
     label:'Daily Doubles',
     help:'Tiles that hide a wager instead of a value. The team that finds one bets before seeing the clue, and answers it alone.' });
 
-  S.register({ id:'jFinalQuestion', group:'Jeopardy', type:'toggle', default:false, games:['jeopardy'],
+  S.register({ id:'jFinalQuestion', group:'Jeopardy', adv:true, type:'toggle', default:false, games:['jeopardy'],
     label:'Final clue',
     help:'When the board clears, every team bets what they like on one last clue. A team in last place can still win, so nobody gives up early.' });
 
-  S.register({ id:'jDeduct', group:'Jeopardy', type:'toggle', default:false, games:['jeopardy'],
+  S.register({ id:'jDeduct', group:'Jeopardy', adv:true, type:'toggle', default:false, games:['jeopardy'],
     label:'Wrong answers cost the value',
     help:'As the show does it — and scores can go negative. Off by default: a class that goes 500 down early stops trying.' });
 
-  S.register({ id:'jAnswerSeconds', group:'Jeopardy', type:'range', default:0,
+  S.register({ id:'jAnswerSeconds', group:'Jeopardy', adv:true, type:'range', default:0,
     min:0, max:30, step:5, unit:'s', games:['jeopardy'],
     label:'Answer clock',
     help:'Seconds to answer once a team takes the floor (buzzes in). Time up is a klaxon, not a verdict — the teacher still marks it. 0 = no clock.' });
@@ -1220,7 +1220,7 @@
 
   /* `'*'`, not a list: this rides on award(), which every game that scores calls,
      so naming the games that existed when it was written left the fifth one out. */
-  S.register({ id:'streak', group:'Competition', type:'toggle', default:false,
+  S.register({ id:'streak', group:'Competition', adv:true, type:'toggle', default:false,
     games:'*',
     label:'Streak bonus',
     help:'Two in a row scores 1.5×, three or more scores 2×. A wrong answer resets it.' });
@@ -1240,7 +1240,7 @@
               {value:'turn-only', label:'Turn on the spot'},
               {value:'rise',      label:'Rise up — no 3D'}] });
 
-  S.register({ id:'flipSpeed', group:'Clue card', type:'select', default:'normal',
+  S.register({ id:'flipSpeed', group:'Clue card', under:'cardFlip', type:'select', default:'normal',
     games:['jeopardy','blockbusters'],
     label:'Flip speed', help:'How long the card takes to turn over and come back.',
     options:[{value:'relaxed',label:'Relaxed'},{value:'normal',label:'Normal'},{value:'snappy',label:'Snappy'}] });
@@ -1260,7 +1260,7 @@
     label:'The team picks its hexagon on their phones',
     help:'Adds a button that asks the team on turn which letter to attack. Their votes land beside the legend and the hexagons light up; you still click the one that plays. Works alongside whatever the phones are doing during a clue. Needs a room; with no phones the button stays hidden.' });
 
-  S.register({ id:'bbWinRoute', group:'Blockbusters', type:'variant', default:'trace',
+  S.register({ id:'bbWinRoute', group:'Blockbusters', adv:true, type:'variant', default:'trace',
     games:['blockbusters'],
     label:'Winning route', help:'How the completed line is shown when a team connects its two edges.',
     variants:[{value:'trace', label:'Light up along the route'},
@@ -1273,12 +1273,12 @@
      settings system: the rows are the drawer's own `buildRow`, and a change is the
      same per-game override. On by default (the user's call) — the workshop phase is
      daily; this row hides it for a class that should not watch sliders. */
-  S.register({ id:'roundTune', group:'Questions', type:'toggle', default:true,
+  S.register({ id:'roundTune', group:'Questions', adv:true, type:'toggle', default:true,
     games:'*',
     label:'Tune button on the question card',
     help:'A small Tune button on the clue card opening the settings that matter for the open question. Off hides it for a lesson.' });
 
-  S.register({ id:'bbEdges', group:'Blockbusters', type:'toggle', default:true,
+  S.register({ id:'bbEdges', group:'Blockbusters', adv:true, type:'toggle', default:true,
     games:['blockbusters'],
     label:'Team edges around the board',
     help:'Yellow teeth down the sides and blue along the top and bottom, so which way each team has to connect is on the board itself.' });
@@ -1297,7 +1297,7 @@
     variants:[{value:'gameshow', label:'Game show — lights, music, intro'},
               {value:'dcu',      label:'DCU — school colours'}] });
 
-  S.register({ id:'intro', group:'Presentation', type:'select', default:'once',
+  S.register({ id:'intro', group:'Presentation', adv:true, type:'select', default:'once',
     games:'*',
     label:'Title sequence', help:'The lights-and-logo opening. Any key or click skips it.',
     options:[{value:'once',  label:'Once per session'},
@@ -1333,7 +1333,7 @@
     S.drop([''].concat(gameIds().map(g => '@' + g)).map(sfx => 'mBuzzRole' + sfx));
   })();
 
-  S.register({ id:'mConferSeconds', group:'Millionaire', type:'select', default:30, games:['millionaire'],
+  S.register({ id:'mConferSeconds', group:'Millionaire', under:'mLifelines', type:'select', default:30, games:['millionaire'],
     label:'Confer time', help:'How long a team gets to consult when they use Confer.',
     options:[{value:30,label:'30 seconds'},{value:45,label:'45 seconds'},{value:60,label:'60 seconds'}] });
 
@@ -1354,16 +1354,16 @@
 
   S.register({ id:'buzzers', group:'Phones', type:'toggle', default:false,
     label:'Phone buzzers', help:'Students join on their phones and buzz to win the right to answer. Needs a relay — this will not work from the GitHub Pages copy. See docs/buzzers.md.' });
-  S.register({ id:'buzzerRelay', group:'Phones', type:'text', default:'',
+  S.register({ id:'buzzerRelay', group:'Phones', adv:true, type:'text', default:'',
     label:'Relay address', placeholder:'same site as this page',
-    help:'Leave empty when the page is being served by the relay itself — which is the simplest setup. Otherwise the https address of a hosted relay.' });
+    help:'Leave blank unless you run your own relay server elsewhere — then put its https address here.' });
 
   S.register({ id:'raceRescatter', group:'Race to the Board', type:'toggle', default:true, games:['race'],
     label:'Re-scatter after every claim', help:'Moves the words each time one is won, so nobody wins on memory alone.' });
   S.register({ id:'raceRoundSeconds', group:'Race to the Board', type:'select', default:60, games:['race'],
     label:'Timed round length', help:'Only used in timed team rounds.',
     options:[{value:45,label:'45 seconds'},{value:60,label:'60 seconds'},{value:90,label:'90 seconds'}] });
-  S.register({ id:'raceShowSection', group:'Race to the Board', type:'toggle', default:true, games:['race'],
+  S.register({ id:'raceShowSection', group:'Race to the Board', adv:true, type:'toggle', default:true, games:['race'],
     label:'Show the section tag', help:'The small 5A / 5B label above the sentence.' });
 
   /* ---- sound: synthesised, so it needs no audio files and still works offline ---- */

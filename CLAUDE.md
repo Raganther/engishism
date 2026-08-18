@@ -347,7 +347,11 @@ watch); and **stack its rows** at narrow widths.
 **Organisation is derived, not listed.** A game's view leads with Ruleset, then the game's
 own groups, then the shared ones in a fixed order (Competition, Questions, Phones, Clue
 card, Presentation, Sound). "Own" means every setting in the group names exactly one game
-— so a sixth game's group sorts itself without being listed anywhere.
+— so a sixth game's group sorts itself without being listed anywhere. **Within a group the
+shape is derived too:** a setting that declares `under:'parentId'` (optionally `when:value`)
+nests indented under its parent and greys while the parent is off or unmatched; one that
+declares `adv:true` sinks below a foldable Advanced divider. A dependent slider whose
+effect a teacher cannot see is what read as noise — the field is how it stops.
 
 ### The vocabulary — "mode" means three different things
 Say which one. The interface gets this right (`jRules` is registered with
