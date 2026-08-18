@@ -438,10 +438,10 @@
          way and two roundings that disagree is a card saying one number and a
          scoreboard showing another. */
       worth: () => currentClueValue,
-      /* The board's own unit. Every value Jeopardy produces is a multiple of 50, and
-         `award` already rounds a steal that way — two roundings that disagree is a
-         card saying one number and a scoreboard showing another. */
-      step:  () => 50,
+      /* The board's payout unit, read from the game's own `payStep` rather than
+         re-typed here — so this and `award` (which rounds through the same
+         `payStep`) can never disagree about a number the room is looking at. */
+      step:  () => gameDef('jeopardy').payStep,
       /* Which of a round's modes suits *this board*, when that differs from the
          round's own first choice. Jeopardy is team-based — a tile is a team's
          answer, not a thumb's — so a multiple choice here waits for the whole
@@ -527,7 +527,8 @@
          a different number for each of them. */
       worth: team => M_LADDER[Math.min(mTeamState(team == null ? active : team).rung,
                                        M_LADDER.length - 1)],
-      step:  () => 50,
+      // the board's payout unit, read from the game's own payStep (see Jeopardy's host)
+      step:  () => gameDef('millionaire').payStep,
       /* The class votes on every question now, so the counts exist from the first
          tap. Holding them back is what leaves Ask the class worth spending. */
       hideVotes: () => !mTally,
