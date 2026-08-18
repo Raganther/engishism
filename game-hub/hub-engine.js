@@ -2868,19 +2868,32 @@
      stagger is a CSS variable per cell, so there is no JS animation to keep in
      step — and like every other board measurement here, it can only run once the
      play screen is actually visible. */
+  /* The shared deal-in stagger for every board that reveals its cells with the
+     `.dealing` class and a per-cell `--i` the keyframe reads. Does nothing unless the
+     board is lit and motion is allowed — a class waiting on a re-triggered animation
+     is what this guards. The game's `stagger(container)` runs only after that guard,
+     and sets `--i` on its own cells however it selects them; `ms` is how long the
+     class stays on and MUST match the CSS animation length. (Bingo deals a different
+     way — inline `animation` strings per cell — so it is not one of these.) */
+  function dealStagger(stageId, container, stagger, ms){
+    const stage = document.getElementById(stageId);
+    if(!container || !stage || !stage.classList.contains('lit') || !motionOK()) return;
+    stagger(container);
+    container.classList.remove('dealing'); void container.offsetWidth;
+    container.classList.add('dealing');
+    setTimeout(()=>container.classList.remove('dealing'), ms);
+  }
+
   function jDeal(){
-    const board = document.getElementById('board');
-    if(!document.getElementById('play-jeopardy').classList.contains('lit') || !motionOK()) return;
-    // stagger on the diagonal, not on DOM order: a 12x6 board is 72 cells, so a flat
-    // stagger takes 3 seconds and the class is waiting on it. Row+column caps the
-    // wave at rows+columns steps — under a second — and reads as a sweep across the
-    // board rather than a queue.
-    const cols = Math.max(1, board.querySelectorAll('.cat-header').length);
-    [...board.children].forEach((el, i)=>
-      el.style.setProperty('--i', Math.floor(i/cols) + (i % cols)));
-    board.classList.remove('dealing'); void board.offsetWidth;
-    board.classList.add('dealing');
-    setTimeout(()=>board.classList.remove('dealing'), 1600);
+    dealStagger('play-jeopardy', document.getElementById('board'), board => {
+      // stagger on the diagonal, not on DOM order: a 12x6 board is 72 cells, so a flat
+      // stagger takes 3 seconds and the class is waiting on it. Row+column caps the
+      // wave at rows+columns steps — under a second — and reads as a sweep across the
+      // board rather than a queue.
+      const cols = Math.max(1, board.querySelectorAll('.cat-header').length);
+      [...board.children].forEach((el, i)=>
+        el.style.setProperty('--i', Math.floor(i/cols) + (i % cols)));
+    }, 1600);
   }
 
   /* ---- Jeopardy's tension curve ----
@@ -4082,13 +4095,10 @@
   /* The honeycomb builds itself rather than appearing. Staggered on row+col, the
      same diagonal wave Jeopardy deals with, so it reads as the board assembling. */
   function bbDeal(){
-    const wrap = document.getElementById('hexwrap');
-    if(!document.getElementById('play-blockbusters').classList.contains('lit') || !motionOK()) return;
-    [...wrap.querySelectorAll('.hex')].forEach(hex=>
-      hex.style.setProperty('--i', (+hex.dataset.row) + (+hex.dataset.col)));
-    wrap.classList.remove('dealing'); void wrap.offsetWidth;
-    wrap.classList.add('dealing');
-    setTimeout(()=>wrap.classList.remove('dealing'), 1600);
+    dealStagger('play-blockbusters', document.getElementById('hexwrap'), wrap => {
+      [...wrap.querySelectorAll('.hex')].forEach(hex=>
+        hex.style.setProperty('--i', (+hex.dataset.row) + (+hex.dataset.col)));
+    }, 1600);
   }
 
   /* ---- lighting up the route ----
@@ -8108,12 +8118,9 @@
      and the next sentence a dozen times a game. The re-scatter instead glides, which
      the CSS does for free once `.lit` puts a transition on left/top. */
   function rDeal(){
-    const wrap = document.getElementById('race-words');
-    if(!document.getElementById('play-race').classList.contains('lit') || !motionOK()) return;
-    [...wrap.querySelectorAll('.race-word')].forEach((el, i)=> el.style.setProperty('--i', i));
-    wrap.classList.remove('dealing'); void wrap.offsetWidth;
-    wrap.classList.add('dealing');
-    setTimeout(()=>wrap.classList.remove('dealing'), 1800);
+    dealStagger('play-race', document.getElementById('race-words'), wrap => {
+      [...wrap.querySelectorAll('.race-word')].forEach((el, i)=> el.style.setProperty('--i', i));
+    }, 1800);
   }
 
   function rTension(){
