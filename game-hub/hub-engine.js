@@ -201,6 +201,22 @@
       const { lo, hi } = jValueRange();
       return hi > lo ? (currentClueValue - lo) / (hi - lo) : 1;
     },
+    /* **On reveal this board shows Correct/Wrong**, because a tile is scored by hand:
+       the buzz won the floor, the reveal shows the answer, the teacher says whether it
+       was right. Declared here so the shared reveal handler does not branch on the
+       game's name. The Final settles team-by-team and returns before this ever runs. */
+    onClueReveal(){
+      document.getElementById('reveal-btn').style.display='none';
+      document.getElementById('close-btn').style.display='none';
+      const cb=document.getElementById('correct-btn');
+      cb.textContent = '✓ Correct +$' + currentClueValue;
+      cb.style.display='inline-block';
+      document.getElementById('wrong-btn').style.display='inline-block';
+    },
+    /* The shared claim chooser is this board's steal picker too: picking a team takes
+       the steal for them, or — no steal live — falls through to the ordinary claim,
+       which is the same route Blockbusters uses by declaring nothing here. */
+    onClaimPick(i){ return jSteal ? jTakeSteal(i) : claimHex(i); },
     onResize: fitJeopardyBoard,
     onWrong:  jOfferSteal
   });
@@ -272,6 +288,12 @@
     fit:      layoutBlockbustersBoard,
     deal:     bbDeal,
     tension(){ bbTension(); },
+    /* **Revealing a round clue on this board re-offers the claim chooser.** A round
+       stops judging the moment it is revealed, and Blockbusters has no Correct button —
+       claiming *is* how it scores — so without the chooser a hexagon opened by a round
+       could only be left unclaimed. Declared here so the shared reveal handler names no
+       game; it fires only while a round is live, which is the only time it is needed. */
+    onRoundReveal(){ clueClaim.show(teams, teams.map((_, i) => i)); },
     onResize: layoutBlockbustersBoard
   });
 
@@ -4313,12 +4335,15 @@
 
   // Blockbusters' board is structurally two-team — yellow crosses, blue descends —
   // so the shared chooser is deliberately restricted rather than generalised here.
-  /* One chooser, two callers: Blockbusters claims a hex with it, and Jeopardy now
-     offers a steal with it. Route on the mode rather than giving Jeopardy a second
-     instance — each instance registers its own document keydown listener. */
+  /* One chooser, two callers: Blockbusters claims a hex with it, and Jeopardy offers a
+     steal with it. One instance rather than two — each would register its own document
+     keydown listener — and the pick routes through the active game's declared
+     `onClaimPick`, so this shared chooser no longer branches on the game's name.
+     Blockbusters declares none and falls to the ordinary claim. */
   const clueClaim = Kit.claimTeam({
     mount:  document.getElementById('clue-claim'),
-    onPick: i => (modalMode === 'jeopardy' && jSteal) ? jTakeSteal(i) : claimHex(i)
+    onPick: i => { const g = gameDef(activeGame);
+                   return (g && g.onClaimPick) ? g.onClaimPick(i) : claimHex(i); }
   });
 
   /* Everything in the strip goes away; each opener then shows what it wants. The
@@ -5903,11 +5928,12 @@
       if(roundSettler) roundSettler.stop();   // the answer is out; nothing left to judge
       roundDef().reveal(document.getElementById('clue-group'), roundState, roundCtx());
       renderRoundButton();
-      /* The round has stopped judging, so the hexagon needs a hand to award it
-         again. Blockbusters has no Correct button — claiming *is* how that board
-         scores — so revealing a round clue has to put the chooser back or the
-         square can only be left unclaimed. */
-      if(modalMode === 'blockbusters') clueClaim.show(teams, teams.map((_, i) => i));
+      /* The round has stopped judging, so a board that scores by claiming needs the
+         chooser put back — declared as `onRoundReveal` on the game rather than named
+         here, so a card game added later says for itself whether a revealed round still
+         needs awarding by hand. */
+      const rr = gameDef(activeGame);
+      if(rr && rr.onRoundReveal) rr.onRoundReveal();
     }
     /* The final settles team by team rather than once, so revealing it hands over
        to that sequence instead of showing a single pair of buttons. */
@@ -5918,14 +5944,11 @@
       jFinalSettle();
       return;
     }
-    if(modalMode==='jeopardy'){
-      document.getElementById('reveal-btn').style.display='none';
-      document.getElementById('close-btn').style.display='none';
-      const cb=document.getElementById('correct-btn');
-      cb.textContent = '✓ Correct +$' + currentClueValue;
-      cb.style.display='inline-block';
-      document.getElementById('wrong-btn').style.display='inline-block';
-    }
+    /* What a revealed clue then offers — Correct/Wrong on a hand-scored tile — is the
+       game's, declared as `onClueReveal` rather than switched on the game's name here.
+       A board that scores another way (Blockbusters claims) declares none. */
+    const cr = gameDef(activeGame);
+    if(cr && cr.onClueReveal) cr.onClueReveal();
   });
 
   // Jeopardy: award the tile's value to the selected team, then pass the turn.

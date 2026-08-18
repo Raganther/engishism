@@ -66,10 +66,27 @@ Add its `<script>` between hub-games.js and hub-engine.js in all four shells.
 array, so likely *no* onTeamsChanged coupling — may be the genuinely cleanest.
 
 **Blockbusters/Jeopardy** gated on B4. They co-own the ~400-line clue-card flip machinery
-(5492-5871) and the `modalMode`/`clueClaim`-dispatch (clueClaim.onPick branches
-jeopardy→jTakeSteal vs claimHex; reveal/wrong/close/skip handlers branch on modalMode).
-B4 turns those branches into declared host methods, after which each game's opener/claim
-moves with it.
+(5492-5871) and the `modalMode`/`clueClaim`-dispatch. B4 turns those branches into declared
+host methods, after which each game's opener/claim moves with it.
+
+### B4 progress (what is done, what remains)
+
+Done and shipped on this branch — the review-independent clue-card leaks are off `activeGame`
+name branches and onto declared game hooks: `cardGlow()` (the card's --tension), `onClueReveal()`
+(Jeopardy's Correct/Wrong on reveal), `onRoundReveal()` (Blockbusters re-offering the claim
+chooser), and the shared `clueClaim.onPick` now routes through the active game's `onClaimPick`.
+All read `gameDef(activeGame)`, which is always current (unlike `roundHost`, stale in the
+Daily-Double path). Verified green: competition,jeopardy,blockbusters,card,turns,gameshow.
+
+Remaining `modalMode` branches, deliberately left for the extraction / a screen:
+- `close-btn` (~6144): `modalMode==='jeopardy' || 'review'` — genuinely needs the **review**
+  distinction, which `activeGame`/`roundHost` do not carry. Give 'review' its own declared
+  treatment (a `reviewMode` boolean, or a host that knows it) before swapping this.
+- wrong-btn deduct (~6122) and skip-during-steal (~6402): jeopardy-only, review-safe, but part
+  of the wrong/steal handlers that move wholesale with the Jeopardy extraction.
+- `jHints` (~3161) and `claimHex`-internal (~6347): already inside a game's own code; they
+  travel with the game, not shared leaks.
+- ROUND_HOSTS `live()` (467/520): a host's own declaration, not a leak.
 
 ## Per-game footprints (recon)
 
