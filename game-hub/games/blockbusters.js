@@ -39,7 +39,11 @@
      draws its round into the shared clue card, so its mount is the shared card box. */
   const HOST = {
     game:'blockbusters', stage:'play-blockbusters',
-    mount: () => E().cardMount(), commit:'group-btn',
+    /* Draws its round into the shared clue card — declared as a fact (`onCard`) rather
+       than inferred from `mount` identity, since an external file's mount is a wrapper
+       and never the engine's `CARD_MOUNT` reference. Tells the engine a won round waits
+       on the card here. */
+    mount: () => E().cardMount(), onCard: true, commit:'group-btn',
     live: () => E().modalMode() === 'blockbusters',
     /* Whose turn it is here is the team whose *side* is up — with four teams the round
        belongs to whoever is actually at the board rather than to `active`. */

@@ -1,24 +1,36 @@
-# Game extraction — status and handoff
+# Game extraction — done
 
-**Where we are:** four of the four originals were the goal; **three are done**
-(Millionaire, Race, Blockbusters), **Jeopardy is the last one left in `hub-engine.js`.**
-Everything below is written so a fresh context window can finish Jeopardy.
+**All four originals are extracted.** Jeopardy — the last, and the game the shared clue
+card was built around — now lives in `game-hub/games/jeopardy.js`. `hub-engine.js` is
+layer 1 only; it registers no games. The pattern below is kept because it is how the next
+card game gets built, not because anything is left to move.
 
-## Done and live on `main`
+`hub-engine.js`: **8455 → ~5490 lines.** Every game is in its own file: `jeopardy.js`,
+`blockbusters.js`, `race.js`, `millionaire.js`, `quickfire.js`, `bingo.js`.
 
-Session commits (all merged to main, all verified green before merge):
+## What the Jeopardy extraction added to the shared layer
 
-| Commit | What |
-|---|---|
-| `8847982` | #1 mispay fix — re-put a live round on the roster when a team is removed mid-question (the `roundRebuildForRoster` in removeTeam) |
-| `87887ca` `149bab4` | B4 — clue-card `activeGame`/`modalMode` name-branches → declared game hooks (`cardGlow`, `onClueReveal`, `onRoundReveal`, `onClaimPick`) |
-| `01d8617` | Millionaire → `game-hub/games/millionaire.js` |
-| `b7e8758` | Race → `game-hub/games/race.js` |
-| `e68ea4f` | CLAUDE.md — dropped the "nothing else until a class has met it" gate |
-| `8ac9b14` | Blockbusters → `game-hub/games/blockbusters.js` |
-
-`hub-engine.js`: **8455 → 6618 lines.** Games now in their own files: bingo, quickfire,
-millionaire, race, blockbusters. Card stamp is at `20260818j`.
+- **The clue card's buttons stay the engine's; their behaviour is the game's.** Reveal,
+  Correct, Wrong, Close and Skip route to `onClueReveal` / `onClueCorrect` /
+  `onClueWrong` / `onClueClose` / `onClaimPick(null)` — a card game with no such button
+  (Blockbusters has no Correct/Wrong) declares none, and Close falls back to shutting the
+  card.
+- **`onFloorClear`** stops whatever answer clock a game runs (Jeopardy's `jAnswerSeconds`),
+  called from `roundHold`, the reveal button, `closeModal` and `armBuzzers`.
+- **`onScoreShown`** fires at the end of `renderScorebar`, so a game repaints anything it
+  hangs off the scores (Jeopardy's Together class-total line) with no score-changing path
+  remembering to call it.
+- **`floorSeconds()`** — the answer-clock duration the relay hands the phone that takes
+  the floor, declared by the game rather than switched on its name in `armBuzzers`.
+- **`onCard: true`** on a card game's `roundHost`. This replaced two `roundHost.mount ===
+  CARD_MOUNT` reference checks (`roundHolds`, the `roundWinClose` games list). An external
+  file's `mount` is a wrapper around `E().cardMount()`, never the engine's own
+  `CARD_MOUNT` reference, so the identity check silently failed — a won round auto-paid
+  instead of waiting on the card. **The Blockbusters extraction had already tripped this
+  latent; the same `onCard` fix repairs both card games.**
+- **`currentClueValue`** stays engine-held (the standings report labels an entry with it)
+  and is written by the game through `E().setClueValue`. `modalMode`'s `'review'` is just
+  another Jeopardy-owned value on the shared string — the engine never branches on it.
 
 ## The extraction pattern (followed by all three)
 

@@ -114,114 +114,6 @@
     return (g && typeof g[name] === 'function') ? g[name](...args) : undefined;
   }
 
-  /* The four games. Hooks call functions defined further down the file — they run
-     at play time, not at registration, so the ordering is fine and each game's
-     declaration can sit here where all four can be compared side by side. */
-  registerGame({
-    id:'jeopardy', title:'Jeopardy',
-    /* A tile is answered by whoever is on turn, and one person is as good a turn
-       as four — nothing on this board assumes several handsets behind a name. */
-    solo: true,
-    card:{
-      icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="9" height="7" rx="1"/><rect x="15.5" y="6" width="9" height="7" rx="1"/><rect x="27" y="6" width="9" height="7" rx="1"/><rect x="4" y="16.5" width="9" height="7" rx="1"/><rect x="15.5" y="16.5" width="9" height="7" rx="1"/><rect x="27" y="16.5" width="9" height="7" rx="1"/><rect x="4" y="27" width="9" height="7" rx="1"/><rect x="15.5" y="27" width="9" height="7" rx="1"/><rect x="27" y="27" width="9" height="7" rx="1"/></svg>',
-      blurb:'Category board, five point values each. Teams pick a tile, answer, bank the points.',
-      badge:'Best for: mixed vocab &amp; grammar' },
-    intro:{ eyebrow:'Cambridge Empower C1', title:'JEOPARDY',
-            sub:'Pick your category. Pick your price. Answer it.', accent:'#4FC3FF' },
-    hasBank: u => (u.jeopardyCategories||[]).length > 0,
-    load(u){ JEOPARDY_SECTION_LABELS = u.jeopardySectionLabels || {};
-             JEOPARDY_CATEGORIES     = u.jeopardyCategories || []; },
-    bank: () => JEOPARDY_CATEGORIES.reduce((a,c)=> a.concat(c.clues||[]), []),
-    // scores in hundreds: corrections nudge by 100, payouts round to 50
-    nudgeStep: 100, payStep: 50,
-    onSetting(id){
-      if(id==='jTogether' || id==='jTarget' || id==='jRules'){ renderClassLine(); hook('onResize'); }
-      /* Changing the ruleset mid-board reaches the board. Planting only among the
-         unplayed tiles is what keeps that honest — see jPlantDailyDoubles. */
-      if((id==='jDailyDoubles' || id==='jRules') &&
-         document.getElementById('screen-play').classList.contains('active')) jPlantDailyDoubles();
-      if(id==='jHints') renderHintButton();
-    },
-    renderContent: renderJeopardyContent,
-    startButton:   jeopardyStartButton,
-    start(){ buildJeopardyBoard(); timerSetDuration(30); },
-    /* The clue card is the question in both tile games, so both answer these the
-       same way — shared by coincidence of mechanism, not by inheritance. */
-    expects:     () => (currentClueItem && currentClueItem.answer) || '',
-    phonePrompt: () => (currentClueItem && currentClueItem.text) || '',
-    /* A Daily Double belongs to the team that found it — no race, no phones — and a
-       wager is being placed on the board rather than answered in the room. Saying so
-       here is what stops a reconnection re-arming the buzzers mid-bet: `askingNow`
-       is the one place that decides whether a question is open to the room. */
-    askingNow:   () => clueIsOpen() && jDoubleTeam == null && !jWager,
-    /* A Daily Double is answered by the team that found it, alone: no race to win,
-       so a buzz already in flight when the wager opened is refused rather than
-       taking a floor that does not exist. A grouping clue refuses for the opposite
-       reason — every team is playing it at once, and there is no floor to take. */
-    buzzEntitled: () => jDoubleTeam == null && !jWager && !roundLive(),
-    /* The final clue is the one beat of Jeopardy where every team answers at once,
-       privately, against the clock — that is the whole mechanic, and a buzzer would
-       hand it to one thumb. So the game owns the round while it runs, exactly as
-       Bingo owns it while the cards are in their hands, and `phoneMode` picks up
-       again afterwards. */
-    phoneRound(){
-      /* A grouping clue owns the round for the same reason: it *is* the phone
-         dynamic, so the mode has nothing to say about eight words to assemble. */
-      if(roundLive()) return roundForPhones();
-      if(!jFinalState || !jFinalState.asking) return null;
-      return { mode:'write',
-               prompt: S.get('phonePrompt', 'jeopardy') ? (jFinalState.clue.q || '') : '' };
-    },
-    /* A room is worth having open for a grouping clue even at `phoneMode: off`, the
-       same shape as Millionaire's Ask the class and Bingo's cards — and the chip has
-       to say so, because "idle here" reads as "don't bother joining" to a room that
-       is about to be handed eight words. */
-    wantsVote:   () => roundLive(),
-    roomNote:    () => roundLive() ? 'find the group' : null,
-    onVoteReply(all){ roundOnReplies(all); },
-    // the buzz decides who answers, so it selects that team: the teacher stops
-    // being the one who chooses, which is the whole point of buzzing for a tile
-    /* A plain buzz starts the answer clock; a typed one does not — the typed word
-       has already been judged by the time the floor is taken, so there is nothing
-       left to time. */
-    onBuzzTaken(b){ if(teams[b.team]){ active = b.team; renderScorebar(); }
-                    if(b.value == null) jClockStart(); },
-    onTypedWin(b){ return currentClueItem ? (jCorrect(b.team) || 1) : null; },
-    fit:      fitJeopardyBoard,
-    deal:     jDeal,
-    tension(){ jTension(); },
-    /* **How hot this game's clue card arrives**, 0–1, so the shared card reuses the
-       same `--tension` contract the boards do without knowing whose values these are.
-       A $500 clue opens hotter than a $100. Declared here rather than branched on
-       `activeGame` inside `openClueCard`, and read off the game (not the round host,
-       which the Daily-Double path has not named yet when the card opens). A game with
-       no glow says nothing and the card opens cold. */
-    cardGlow(){
-      if(!currentClueValue) return 0;
-      const { lo, hi } = jValueRange();
-      return hi > lo ? (currentClueValue - lo) / (hi - lo) : 1;
-    },
-    /* **On reveal this board shows Correct/Wrong**, because a tile is scored by hand:
-       the buzz won the floor, the reveal shows the answer, the teacher says whether it
-       was right. Declared here so the shared reveal handler does not branch on the
-       game's name. The Final settles team-by-team and returns before this ever runs. */
-    onClueReveal(){
-      document.getElementById('reveal-btn').style.display='none';
-      document.getElementById('close-btn').style.display='none';
-      const cb=document.getElementById('correct-btn');
-      cb.textContent = '✓ Correct +$' + currentClueValue;
-      cb.style.display='inline-block';
-      document.getElementById('wrong-btn').style.display='inline-block';
-    },
-    /* The shared claim chooser is this board's steal picker too: picking a team takes
-       the steal for them. A steal is the only time Jeopardy shows the chooser, so with
-       no steal live there is nothing to pick — Blockbusters declares its own claim. */
-    onClaimPick(i){ return jSteal ? jTakeSteal(i) : null; },
-    onResize: fitJeopardyBoard,
-    onWrong:  jOfferSteal
-  });
-
-
   /* ---------- which boards can host a round ----------
      A round is drawn in the shared clue card, so it is literally the same code
      whichever board opened it. What differs is only what the *host* contributes,
@@ -264,71 +156,19 @@
     }
     return host;
   };
-  const ROUND_HOSTS = {
-    jeopardy: {
-      game:'jeopardy', stage:'play-jeopardy',
-      mount: CARD_MOUNT, commit:'group-btn',
-      live: () => modalMode === 'jeopardy',
-      turn: () => active,
-      win:  team => jCorrect(team),
-      /* **What the question is worth to a team that was not first** — see
-         `roundOpenToAll`. The tile is the slot and the slot pays in full; this is
-         what is left for everybody else who still got there. Rounded to 50 like
-         everything else on this board, because `award` already rounds a steal that
-         way and two roundings that disagree is a card saying one number and a
-         scoreboard showing another. */
-      worth: () => currentClueValue,
-      /* The board's payout unit, read from the game's own `payStep` rather than
-         re-typed here — so this and `award` (which rounds through the same
-         `payStep`) can never disagree about a number the room is looking at. */
-      step:  () => gameDef('jeopardy').payStep,
-      /* Which of a round's modes suits *this board*, when that differs from the
-         round's own first choice. Jeopardy is team-based — a tile is a team's
-         answer, not a thumb's — so a multiple choice here waits for the whole
-         team to agree rather than paying the fastest tap, and the ordering
-         ladder is a ladder *each*: on a board where teams compete for a tile,
-         one shared ladder reads as a single ladder however many teams there are.
-         Declared facts, not stored values: the teacher's ⚙ row still overrides
-         them, and the panel says they are this board's own defaults. */
-      /* **This board is team-based, so every round it hosts waits for the whole
-         team.** A tile is a team's answer rather than a thumb's: with first-tap-wins
-         the fastest student takes it and the other three never have to commit to
-         anything, which is the opposite of the lesson. Asked for as one fact rather
-         than named per round — each round declares which of its modes is the
-         whole-team one (`teamMode`), so a round written next month arrives on this
-         board already playing the way the board wants. The list this replaced had
-         to be added to by hand, with nothing complaining if you missed a round. */
-      teamMode: true,
-      /* The rounds that are not that shape, so they are still named. Ordering's
-         modes ask *how many ladders*, not *who has to agree* — and on a
-         team-vs-team board a shared climb reads as a single ladder however many
-         teams are playing, which is exactly how it was reported.
-
-         **The drag rounds default to `first`, and a classroom decided it.** In
-         `agree`, every member must independently build the identical word and the
-         card only lights a letter the whole team holds — so a team that split the
-         work "completed the word and it was not displayed", twice in one lesson,
-         and the students named the drag rounds the ones they disliked because
-         they are hard. First-member-with-it keeps the race and lets a team divide
-         the labour; a teacher who wants the argument back has the ⚙ row. */
-      /* The drag rounds carried `first` here for one day, from the ef-2a class
-         report ("a team that split the spelling looked like it had done nothing").
-         The user tested it and chose the agreement dynamic back: one phone's
-         letters lighting the card alone reads worse than the invisible-word cost,
-         which the room bench's mode row can trade away per lesson. */
-      modeDefaults: { ordering:'race' }
-    },
-  };
-  /* An external game file cannot edit the table above, so it declares its entry —
-     `roundHost` on its registration — and it is merged here, before ROUND_GAMES
-     and the round settings derive from the table. Game files load before this
-     engine (the rounds pattern), so every declaration is already in. */
+  /* **Every board's host entry is declared in its own game file now** — `roundHost` on
+     its registration — and merged here, before ROUND_GAMES and the round settings
+     derive from the table. Game files load before this engine (the rounds pattern), so
+     every declaration is already in by the time this runs; the table starts empty and
+     nothing here names a game. */
+  const ROUND_HOSTS = {};
   window.HubGames.ids().forEach(g => {
     const d = window.HubGames.get(g);
     if(d && d.roundHost && !ROUND_HOSTS[g]) ROUND_HOSTS[g] = d.roundHost;
   });
   const ROUND_GAMES = Object.keys(ROUND_HOSTS);
-  let roundHost = ROUND_HOSTS.jeopardy;
+  // the first-registered host is the resting default until a clue names its own board
+  let roundHost = ROUND_HOSTS[ROUND_GAMES[0]] || null;
 
   /* ---------- how a question's points are split ----------
      **Four rules, written once each, and a board picks one.** This is the answer to
@@ -523,48 +363,6 @@
     games:['jeopardy','millionaire'],
     label:'Steal pays the full value',
     help:'As the show plays the rebound — a stolen question earns everything it was worth. Off: a steal pays half, so the miss still cost something.' });
-
-  /* ---- Jeopardy's classic rules ----
-     The TV game has three things this board never had: a hidden tile you bet on
-     before seeing the clue, a final clue everyone wagers on, and a wrong answer
-     that costs you. They are separate switches because they are separately useful
-     — but `jRules` sets all three at once, because "play it like the show" is one
-     decision a teacher makes, not three. */
-  S.register({ id:'jRules', group:'Jeopardy', type:'variant', default:'hub', games:['jeopardy'],
-    label:'Rules',
-    help:'A whole way of playing, including what the phones do. Picking one writes the switches below — so they always say what will actually happen, and you can still change any of them afterwards.',
-    variants:[
-      {value:'hub',      label:'Hub — nothing is ever taken away'},
-      {value:'classic',  label:'Classic — as the show plays it'},
-      {value:'together', label:'Together — the class against the board'}
-    ] });
-
-  /* ---- Together: the class against the board ----
-     Every other ruleset here sets teams against each other. This one sets the room
-     against a number, which is a different feeling in a classroom and suits a group
-     that competition makes anxious rather than sharp. Three switches, each useful on
-     its own:
-
-     - the scores pool, so nobody is behind;
-     - there is a target to beat, so it is still a game;
-     - the class can buy help, so being stuck has a way out that is not failure. */
-  S.register({ id:'jTogether', group:'Jeopardy', type:'toggle', default:false, games:['jeopardy'],
-    label:'The class plays as one',
-    help:'Every team\'s points count toward a single class total, and the round ends against a target rather than by ranking the teams.' });
-
-  S.register({ id:'jTarget', group:'Jeopardy', under:'jTogether', type:'range', default:60,
-    min:0, max:100, step:5, unit:'%', games:['jeopardy'],
-    label:'Target to beat',
-    help:'How much of the board the class is aiming for. 0 turns the target off and the class simply collects what it can.' });
-
-  S.register({ id:'jHints', group:'Jeopardy', type:'toggle', default:false, games:['jeopardy'],
-    label:'Class can buy a hint',
-    help:'A stuck class can buy the first letter, then the length. Each hint costs part of what the clue is worth — progress traded, not points taken.' });
-
-  S.register({ id:'jHintCost', group:'Jeopardy', under:'jHints', type:'range', default:30,
-    min:10, max:50, step:10, unit:'%', games:['jeopardy'],
-    label:'What a hint costs',
-    help:'Each hint takes this much off the value of the clue it is used on.' });
 
   /* A grouping clue is the one clue every team can genuinely play at the same time,
      and whether they should is a teaching decision rather than a number to tune —
@@ -807,7 +605,7 @@
      winner banner ride on that press, so the beat is one thing rather than two.
      Every round on a card board inherits it, because the wait is the host's. */
   S.register({ id:'roundWinClose', group:'Questions', adv:true, type:'variant', default:'teacher',
-    games: ROUND_GAMES.filter(g => ROUND_HOSTS[g].mount === CARD_MOUNT),
+    games: ROUND_GAMES.filter(g => ROUND_HOSTS[g].onCard),
     label:'When a round is won',
     variants:[{ value:'teacher', label:'Keep the card up — the answer stays on screen until you close it' },
               { value:'auto',    label:'Close the card straight away' }],
@@ -938,24 +736,6 @@
     const dead = (S.keys ? S.keys() : []).filter(k => k.indexOf('~') !== -1);
     if(dead.length) S.drop(dead);
   })();
-
-  S.register({ id:'jDailyDoubles', group:'Jeopardy', adv:true, type:'range', default:0,
-    min:0, max:3, step:1, unit:' hidden', games:['jeopardy'],
-    label:'Daily Doubles',
-    help:'Tiles that hide a wager instead of a value. The team that finds one bets before seeing the clue, and answers it alone.' });
-
-  S.register({ id:'jFinalQuestion', group:'Jeopardy', adv:true, type:'toggle', default:false, games:['jeopardy'],
-    label:'Final clue',
-    help:'When the board clears, every team bets what they like on one last clue. A team in last place can still win, so nobody gives up early.' });
-
-  S.register({ id:'jDeduct', group:'Jeopardy', adv:true, type:'toggle', default:false, games:['jeopardy'],
-    label:'Wrong answers cost the value',
-    help:'As the show does it — and scores can go negative. Off by default: a class that goes 500 down early stops trying.' });
-
-  S.register({ id:'jAnswerSeconds', group:'Jeopardy', adv:true, type:'range', default:0,
-    min:0, max:30, step:5, unit:'s', games:['jeopardy'],
-    label:'Answer clock',
-    help:'Seconds to answer once a team takes the floor (buzzes in). Time up is a klaxon, not a verdict — the teacher still marks it. 0 = no clock.' });
 
   // the two games with a turn that can be *kept*: Race and Bingo have no pick to
   // hand over, and Millionaire's ladder rotates by design
@@ -1357,19 +1137,6 @@
            different on every board and moved the board while it did it. Fixed
            height, so what it says can never reflow the game. -->
       <div id="phone-bar" style="display:none;"></div>
-      <div id="play-jeopardy">
-        <!-- Together mode: one number for the whole room, and how far it has to go.
-             Hidden entirely otherwise, so the competitive game is untouched. -->
-        <div id="j-class" style="display:none;">
-          <div id="j-class-line">
-            <span id="j-class-score"></span>
-            <span id="j-class-target"></span>
-          </div>
-          <div id="j-class-bar"><div id="j-class-fill"></div></div>
-        </div>
-        <div id="board"></div>
-      </div>
-
     </div>
 
     <!-- title sequence. Empty and inert unless a game show themed game opens it. -->
@@ -1495,21 +1262,23 @@
      beside the in-skeleton stages, before anything measures. Only when the
      skeleton does not already hold the id, so an in-engine game moving to its
      own file can carry its markup with it without a collision on the way. */
+  /* Anchored on `#phone-bar`, the last fixed sibling before the stages, because every
+     board is external now — including Jeopardy, whose `#play-jeopardy` used to be the
+     in-skeleton anchor. Stages are appended in registration order, so Jeopardy (order
+     50) lands first, right after the phone bar, exactly where it sat before. */
   window.HubGames.ids().forEach(g => {
     const d = window.HubGames.get(g);
     if(!d || !d.stageHTML || document.getElementById(d.stage)) return;
-    const anchor = document.getElementById('play-jeopardy');
-    if(anchor && anchor.parentNode){
+    const host = document.getElementById('phone-bar');
+    if(host && host.parentNode){
       const t = document.createElement('template');
       t.innerHTML = d.stageHTML.trim();
-      anchor.parentNode.appendChild(t.content);
+      host.parentNode.appendChild(t.content);
     }
   });
 
   /* ---- current unit content (set by loadUnit) ---- */
   let UNIT = null;
-  let JEOPARDY_SECTION_LABELS   = {};
-  let JEOPARDY_CATEGORIES       = [];
 
   // Which games a unit can actually offer — a unit without a bank for a game
   // simply doesn't show that card, so units can adopt new games one at a time.
@@ -2355,8 +2124,8 @@
         t.name = e.target.value; t.auto = false; pushTeamNames(); });
       // noted before the score moves (the ledger's ordering rule) — a teacher's
       // correction used to be indistinguishable in the report from a scoring bug
-      el.querySelector('.minus').addEventListener('click', ()=>{ ledgerNote(i, -step, 'teacher correction'); t.score-=step; renderScorebar(); renderClassLine(); });
-      el.querySelector('.plus').addEventListener('click', ()=>{ ledgerNote(i, step, 'teacher correction'); t.score+=step; renderScorebar(); renderClassLine(); });
+      el.querySelector('.minus').addEventListener('click', ()=>{ ledgerNote(i, -step, 'teacher correction'); t.score-=step; renderScorebar(); });
+      el.querySelector('.plus').addEventListener('click', ()=>{ ledgerNote(i, step, 'teacher correction'); t.score+=step; renderScorebar(); });
       const delBtn = el.querySelector('.tdel');
       if(delBtn) delBtn.addEventListener('click', ()=> removeTeam(i));
       bar.appendChild(el);
@@ -2371,8 +2140,12 @@
     resetBtn.textContent='↺'; resetBtn.title='Reset points';
     resetBtn.addEventListener('click', ()=>{
       teams.forEach((t, i)=>{ if(t.score) ledgerNote(i, -t.score, 'points reset'); t.score=0; t.run=0; });
-      renderScorebar(); renderClassLine(); });
+      renderScorebar(); });
     bar.appendChild(resetBtn);
+    /* The active game repaints anything it hangs off the scores — Jeopardy's Together
+       class-total line. Fires wherever the bar redraws, so no score-changing path has
+       to remember it by hand (it was four hand-kept `renderClassLine()` calls). */
+    hook('onScoreShown');
     // adding a team, or renaming one, has to reach the phones — this is the one
     // place that runs on any change to the list, and the push skips a no-op
     pushTeamNames();
@@ -2481,7 +2254,6 @@
       (mult > 1 ? ' · streak ×' + mult : ''));
     t.score += value;
     renderScorebar();
-    renderClassLine();
     return value;
   }
 
@@ -2498,62 +2270,6 @@
     teams.forEach((t, i)=>{ t.run = (i === teamIdx) ? t.run + 1 : 0; });
   }
 
-  /* ================= JEOPARDY ================= */
-  let jeoRows = 0;
-
-  /* The name a category shows. A category that plays a round takes that round's label
-     as its default name — the single home for it, so the board heading, the content
-     screen and the clue topline can't drift from what the round calls itself (a
-     category name hand-typed in content has drifted three ways before now). An
-     explicit `name` still wins, because a category may override the generic label
-     with a coursebook topic ("The Scam" over "Multiple Choice"). Most categories just
-     re-type the label — those redundant names are what a later pass strips, leaving
-     this derivation as the one source. An ordinary category has no round, so its
-     `name` is all there is. */
-  function categoryName(cat){
-    if(cat && cat.name) return cat.name;
-    const clue = cat && cat.clues && cat.clues[0];
-    const hit  = (clue && Kit.round && Kit.round.of) ? Kit.round.of(clue) : null;
-    return (hit && hit.def && hit.def.label) || '';
-  }
-
-  function buildJeopardyBoard(){
-    const cats = JEOPARDY_CATEGORIES.filter(c=>selectedContent.includes(c.id) && catAllowed(c));
-    const board = document.getElementById('board');
-    /* The count goes in a custom property and the stylesheet owns the track size.
-       Writing `repeat(n, 1fr)` inline meant no media query could change it — a
-       handset needs a fixed column width and a board that scrolls sideways, and
-       an inline style cannot be overridden from CSS without !important. */
-    board.style.setProperty('--jcols', cats.length);
-    board.innerHTML='';
-    cats.forEach(cat=>{
-      const h=document.createElement('div');
-      h.className='cat-header'; h.textContent=categoryName(cat);
-      board.appendChild(h);
-    });
-    jeoRows = Math.max(...cats.map(c=>c.clues.length));
-    for(let r=0;r<jeoRows;r++){
-      cats.forEach(cat=>{
-        const clue=cat.clues[r];
-        const tile=document.createElement('div');
-        tile.className='tile'; tile.textContent='$'+clue.v;
-        tile.dataset.row = r;
-        tile.addEventListener('click', ()=> openJeopardyClue(cat, clue, tile));
-        board.appendChild(tile);
-      });
-    }
-    jPlantDailyDoubles();
-    // captured now: tiles keep their value when used, but a rebuilt board may differ
-    jBoardTotal = jBoardWorth();
-    renderClassLine();
-    fitJeopardyBoard();
-    jTension();
-  }
-
-  /* In the lit theme the board deals itself in rather than simply appearing. The
-     stagger is a CSS variable per cell, so there is no JS animation to keep in
-     step — and like every other board measurement here, it can only run once the
-     play screen is actually visible. */
   /* The shared deal-in stagger for every board that reveals its cells with the
      `.dealing` class and a per-cell `--i` the keyframe reads. Does nothing unless the
      board is lit and motion is allowed — a class waiting on a re-triggered animation
@@ -2570,30 +2286,6 @@
     setTimeout(()=>container.classList.remove('dealing'), ms);
   }
 
-  function jDeal(){
-    dealStagger('play-jeopardy', document.getElementById('board'), board => {
-      // stagger on the diagonal, not on DOM order: a 12x6 board is 72 cells, so a flat
-      // stagger takes 3 seconds and the class is waiting on it. Row+column caps the
-      // wave at rows+columns steps — under a second — and reads as a sweep across the
-      // board rather than a queue.
-      const cols = Math.max(1, board.querySelectorAll('.cat-header').length);
-      [...board.children].forEach((el, i)=>
-        el.style.setProperty('--i', Math.floor(i/cols) + (i % cols)));
-    }, 1600);
-  }
-
-  /* ---- Jeopardy's tension curve ----
-     Millionaire has a ladder; Jeopardy's equivalent is what's at stake on the tile
-     in play, with a slow floor that rises as the board empties. So a $500 clue
-     late in a game is the brightest, hottest moment on the board, and an opening
-     $100 is the coolest — which is what the show's lighting actually does.
-     Same `--tension` contract as Millionaire, so the CSS is shared. */
-  function jValueRange(){
-    const vals = [];
-    JEOPARDY_CATEGORIES.filter(c=>selectedContent.includes(c.id) && catAllowed(c))
-      .forEach(c=>c.clues.forEach(cl=>vals.push(cl.v)));
-    return vals.length ? { lo:Math.min(...vals), hi:Math.max(...vals) } : { lo:0, hi:1 };
-  }
   /* The shared stage-tension gate. Every game show heats its board the same way:
      light the stage under the game-show skin, write a 0–1 `--tension` the CSS reads,
      and run the think-music bed while a question is live. Only two things are the
@@ -2615,365 +2307,6 @@
     if(live && motionOK()) Sound.bedStart(t); else Sound.bedStop();
     return true;
   }
-
-  function jTension(atStake){
-    stageTension('jeopardy', () => {
-      const tiles = [...document.querySelectorAll('#board .tile')];
-      const done  = tiles.filter(t=>t.classList.contains('used')).length;
-      const floor = tiles.length ? done/tiles.length : 0;
-      let stake = 0;
-      if(atStake){
-        const { lo, hi } = jValueRange();
-        stake = hi > lo ? (atStake - lo)/(hi - lo) : 1;
-      }
-      // think music while a clue is on the table and unanswered — the show's own
-      // habit, and the reason a class stops talking and starts thinking
-      return { t: Math.min(1, 0.45*floor + 0.55*stake), live: !!atStake };
-    });
-  }
-
-  /* The whole board has to be reachable without scrolling — a teacher can't scroll
-     the projected image mid-game. Tiles used to take their height from a fixed 3:2
-     aspect ratio, so the fewer categories you picked the taller they grew and the
-     board ran off the bottom. Height is now driven by the space actually available
-     and the rows share what's left; the type scales to whatever row height results. */
-  function fitJeopardyBoard(){
-    const board = document.getElementById('board');
-    if(!board.children.length || !jeoRows) return;
-    if(!Kit.fitToScreen(board)) return;        // play screen not visible yet
-    board.style.gridTemplateRows = `auto repeat(${jeoRows}, minmax(0, 1fr))`;
-
-    const tile = board.querySelector('.tile');
-    if(tile){
-      const th = tile.getBoundingClientRect().height;
-      board.style.setProperty('--jt', Math.max(0.5, Math.min(1.3, th/84)).toFixed(3));
-    }
-    fitCategoryHeadings(board);
-  }
-
-  /* A category name has to fit the column it sits in, not the viewport. The type
-     was sized with `1.05vw`, which holds it at 13px however narrow the column
-     gets, so a 16-category board at 1280px gave each heading 51px of room and cut
-     "Employment & Sectors" off mid-word — on the projected screen, where the
-     heading is how the class knows what the column is.
-
-     The longest *word* is the constraint: spaces can wrap, a word cannot break
-     without becoming unreadable. Measured on a canvas rather than by growing the
-     text and re-reading the layout, so it costs no reflow. If the webfont hasn't
-     loaded (offline, which is a supported way to run this) the fallback face
-     measures slightly differently, hence the 0.96 margin. */
-  function fitCategoryHeadings(board){
-    const heads = [...board.querySelectorAll('.cat-header')];
-    if(!heads.length) return;
-    const cs   = getComputedStyle(heads[0]);
-    const ctx  = fitCategoryHeadings._ctx ||
-                (fitCategoryHeadings._ctx = document.createElement('canvas').getContext('2d'));
-    ctx.font = `${cs.fontWeight} 100px ${cs.fontFamily}`;
-    /* Letter-spacing is em-based (the game show skin triples it to 0.09em) and
-       canvas does not apply it, so add it back per character. Across a ten-letter
-       word that is 0.9em — a fifth of a 51px column, the difference between
-       fitting and clipping rather than a rounding detail. Being em-based it
-       scales with the answer, so the ratio holds whatever size we land on. */
-    const fs      = parseFloat(cs.fontSize) || 12;
-    const trackEm = (parseFloat(cs.letterSpacing) || 0) / fs;
-    let widest = 1;
-    heads.forEach(h => h.textContent.trim().toUpperCase().split(/\s+/).forEach(w => {
-      widest = Math.max(widest, ctx.measureText(w).width + w.length * trackEm * 100);
-    }));
-    const padding = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
-    const avail   = Math.max(10, heads[0].clientWidth - padding);
-    /* The floor is a legibility floor, not a fitting one. Sizing purely to make
-       the longest word fit reached 8px on a 16-category board — not clipped, and
-       not readable from the back of a room either, which is the requirement that
-       actually matters. Below 10.5px the word is allowed to break instead
-       (overflow-wrap in the stylesheet), because two readable lines beat one
-       unreadable one. A board this crowded is a sign to pick fewer sections. */
-    const px = (avail / (widest / 100)) * 0.96;
-    board.style.setProperty('--jch', Math.max(10.5, Math.min(14.1, px)).toFixed(2) + 'px');
-  }
-
-  /* ================= TOGETHER: THE CLASS AGAINST THE BOARD =================
-     The scores still belong to teams — the team bar is the app's spine and every
-     game feeds it — but the *game* is played against a number. Pooling at the
-     display and at the ending, rather than changing how award() works, is what
-     keeps this a mode rather than a second scoring system. */
-  function jTogether(){ return activeGame === 'jeopardy' && !!S.get('jTogether', 'jeopardy'); }
-
-  function jClassTotal(){ return teams.reduce((n, t) => n + (t.score || 0), 0); }
-
-  // what the whole board is worth, so a target can be a share of it rather than a
-  // number a teacher has to invent
-  function jBoardWorth(){
-    return [...document.querySelectorAll('#board .tile')]
-      .reduce((n, t) => n + (Number((t.dataset.face || t.textContent).replace(/\D/g, '')) || 0), 0);
-  }
-  let jBoardTotal = 0;      // captured at build time: tiles keep their value when used
-
-  function jTargetScore(){
-    const pct = Number(S.get('jTarget', 'jeopardy')) || 0;
-    return pct ? Math.round(jBoardTotal * pct / 100) : 0;
-  }
-
-  function renderClassLine(){
-    const box = document.getElementById('j-class');
-    if(!box) return;
-    if(!jTogether()){ box.style.display = 'none'; return; }
-    box.style.display = 'block';
-    const got = jClassTotal(), target = jTargetScore();
-    document.getElementById('j-class-score').textContent = 'Class $' + got;
-    document.getElementById('j-class-target').textContent =
-      target ? ('target $' + target) : ('board $' + jBoardTotal);
-    const pct = target ? Math.min(100, Math.round(got / target * 100))
-                       : (jBoardTotal ? Math.round(got / jBoardTotal * 100) : 0);
-    const fill = document.getElementById('j-class-fill');
-    fill.style.width = pct + '%';
-    fill.classList.toggle('done', !!target && got >= target);
-  }
-
-  /* ---- asking the board for a hand ----
-     A cooperative round needs a way to be stuck that is not failure. Each hint takes
-     a slice off what the clue is worth, so the class is spending its own progress
-     rather than being punished — and the decision to spend it is itself a
-     conversation, which is the point. */
-  let jHintsUsed = 0;
-
-  /* A hint is either **authored** or generated. An item carrying `reveal:[…]` says
-     what its next layer is — a definition, then the word in use, then its shape —
-     which is the question bench's Story Reveal dynamic inside a tile: the clue opens
-     terse and each layer costs a slice of what the tile pays. Anything without
-     `reveal` falls back to the spelling hints, so 589 authored items are untouched
-     and an author opts in per item rather than per bank. */
-  function jHintLayers(item){
-    const list = (item && Array.isArray(item.reveal)) ? item.reveal.filter(Boolean) : [];
-    return list;
-  }
-  function jHintText(n, item){
-    const layers = jHintLayers(item);
-    if(layers.length) return layers[n - 1] || '';
-    const word = String((item && item.answer) || '').trim();
-    if(!word) return '';
-    if(n === 1) return 'It starts with ' + word[0].toUpperCase() + '.';
-    return word[0].toUpperCase() + ' ' + '_ '.repeat(Math.max(0, word.length - 1)).trim() +
-           '  (' + word.length + ' letters)';
-  }
-  /* How many hints this clue has left. Two for a generated pair; an authored item
-     has exactly as many as it was written with, so a reveal clue is never offered a
-     layer that does not exist — the button standing there doing nothing is worse
-     than it not being there. */
-  function jHintsLeft(item){
-    const layers = jHintLayers(item);
-    return (layers.length ? layers.length : 2) - jHintsUsed;
-  }
-
-  /* On the same 50 grid the scoring uses. `award()` rounds Jeopardy values to 50s so
-     that half of a $100 tile is worth 50 rather than being handed back in full — so
-     a hint that leaves $49 on the card and then pays $50 is the card telling the room
-     something untrue. Costing in 50s keeps shown and paid identical. */
-  function jHintCost(){
-    const pct = Number(S.get('jHintCost', 'jeopardy')) || 30;
-    return Math.max(50, Math.round(currentClueValue * pct / 100 / 50) * 50);
-  }
-
-  function renderHintButton(){
-    const btn = document.getElementById('hint-btn');
-    if(!btn) return;
-    /* Hints were built for `together`, where spending a slice of a clue is the
-       cooperative mechanic and the hint itself is a crutch generated from the
-       spelling. An **authored** reveal is a different thing: it is how the clue was
-       written — a definition, then the word in use, then its shape — so it belongs
-       to the clue rather than to a ruleset, and a competitive board should be able
-       to offer it too. Still behind `jHints`, so a teacher can switch the whole
-       idea off; and items without `reveal` are exactly as gated as before. */
-    const authored = jHintLayers(currentClueItem).length > 0;
-    const on = (jTogether() || authored) && S.get('jHints', 'jeopardy') && modalMode === 'jeopardy' &&
-               currentClueItem && jHintsLeft(currentClueItem) > 0 && !jWager && currentClueValue > 50;
-    btn.style.display = on ? 'inline-block' : 'none';
-    if(on){
-      btn.textContent = (jHintsUsed === 0 ? 'Need a hand? (−$' : 'One more? (−$') + jHintCost() + ')';
-    }
-  }
-
-  document.getElementById('hint-btn').addEventListener('click', () => {
-    if(!currentClueItem) return;
-    const cost = jHintCost();
-    jHintsUsed++;
-    currentClueValue = Math.max(50, currentClueValue - cost);
-    const hint = document.createElement('div');
-    hint.className = 'clue-hint';
-    hint.textContent = jHintText(jHintsUsed, currentClueItem);
-    document.getElementById('clue-text').appendChild(hint);
-    // the topline is where the value lives, so it has to say what the clue is worth now
-    const top = document.getElementById('clue-topline');
-    top.textContent = top.textContent.replace(/\$\d+/, '$' + currentClueValue);
-    Sound.play('reveal');
-    renderHintButton();
-  });
-
-  /* ================= JEOPARDY: THE CLASSIC RULES =================
-     Three things the show has that this board never did. Each is its own switch;
-     `jRules` is the preset that sets all three, because "play it like the show" is
-     one decision rather than three. Choosing a preset *writes* the switches rather
-     than shadowing them, so the rows underneath always say what is actually going
-     to happen — and a teacher can then change one without leaving the preset in a
-     state that lies. */
-  /* **What the phones do is part of the mode, not a separate decision.** It was
-     missing from these bundles at first, and the result read as the phone setting
-     "overriding" the mode — it was not overriding anything, the mode simply had no
-     opinion, so the row kept whatever it had last. A mode that describes how the
-     round is played and says nothing about thirty handsets is only describing half
-     of it.
-
-     Writing it here rather than special-casing the phone layer keeps the property
-     that makes presets debuggable: **the row in ⚙ always shows what will actually
-     happen**, and a teacher who wants a different dynamic can change it afterwards
-     without the mode quietly contradicting them. */
-  const J_PRESETS = {
-    // the plain game: the teacher marks, the phones sit out
-    hub:     { jDailyDoubles:0, jDeduct:false,
-               jTogether:false, jHints:false, round_default:'off',
-               stealOnWrong:true, stealFullValue:false, keepControl:true, jAnswerSeconds:0 },
-    // the show is a race for the floor, so that is what the handsets are for
-    /* The show opens a missed clue to the other contestants and lets a correct
-       answer keep the board, so the ruleset says both rather than leaving them to
-       whatever was set last. */
-    /* The show gives you seconds on the floor, and so does this — started by the
-       buzz, ended by a klaxon the teacher can overrule. It is here and not in the
-       other two bundles' spirit: a cooperative round should not have a countdown
-       pressuring the class, and the plain hub game has no buzz to start it from. */
-    /* The rebound pays in full, as the show plays it: whoever rings in after a miss
-       earns what the clue was worth, not a consolation half. */
-    /* `jFinalRound` is deliberately NOT written by Classic any more — deactivated
-       after the first ef-2a class: it confused the room, gave everybody points at
-       the moment the class expected a winner screen, and occupied the end-of-game
-       beat. The toggle stays registered (default off) for a teacher who chooses
-       it knowingly; the migration below clears the value Classic wrote onto
-       devices before this. */
-    classic: { jDailyDoubles:1, jDeduct:true,
-               jTogether:false, jHints:false, round_default:'buzz',
-               stealOnWrong:true, stealFullValue:true, keepControl:true, jAnswerSeconds:10 },
-    /* Everything that sets one team against another is off here, and that is the
-       whole mode: no hidden wager to find first, no steal, nothing deducted, no
-       final round to overtake anyone in. What is left is the board and the room —
-       and everyone types, because a clue paying what the class produced is the
-       cooperative mechanic rather than a race anybody can lose. */
-    together:{ jDailyDoubles:0, jDeduct:false,
-               jTogether:true,  jHints:true, round_default:'write',
-               stealOnWrong:false, stealFullValue:false, keepControl:false, jAnswerSeconds:0 }
-  };
-  /* Hand the bundles to the panel: the picker gets its own "Ruleset" section at
-     the top of Jeopardy's settings, and every row a bundle touches says what the
-     chosen mode set it to — so a teacher can see which switches belong to the
-     mode without the mode owning them. */
-  S.describePresets('jRules', J_PRESETS);
-  let jApplyingPreset = false;
-  S.onChange(id => {
-    if(id !== 'jRules' || jApplyingPreset) return;
-    const preset = J_PRESETS[S.get('jRules', 'jeopardy')];
-    if(!preset) return;
-    jApplyingPreset = true;
-    Object.keys(preset).forEach(k => S.set(k, preset[k], 'jeopardy'));
-    jApplyingPreset = false;
-  });
-
-  /* ---- Daily Doubles ----
-     Hidden at build time and never drawn differently, because the whole point is
-     that nobody knows where they are. `dataset` rather than a class, so no
-     stylesheet can accidentally give one away. */
-  /* Re-plantable, and it has to be. The modes only appear in the Lab, which only
-     exists once a game is running — so picking Classic mid-board set the switch to 1
-     and the board still had none, because planting happened at build time. Reported
-     from a full playthrough: "no Daily Double ever appeared."
-
-     Planting among the tiles **still unplayed** is what makes this safe: a Daily
-     Double is hidden, so one that appears on an unplayed tile is indistinguishable
-     from one that was always there — and a tile already answered must not become
-     one, or a clue the room has seen would pay a wager. */
-  function jPlantDailyDoubles(){
-    const want = Math.min(Number(S.get('jDailyDoubles', 'jeopardy')) || 0, 3);
-    const all  = [...document.querySelectorAll('#board .tile')];
-    all.forEach(t => delete t.dataset.dd);
-    const tiles = all.filter(t => !t.classList.contains('used'));
-    if(!want || !tiles.length) return;
-    /* Weighted towards the bottom of the board, as the show does it: a Daily Double
-       on a $100 clue is worth nothing to find. Two passes of a shuffle biased by
-       row keeps it simple without ever being predictable. */
-    const pool = shuffle(tiles.slice()).sort((a, b) =>
-      (Number(b.dataset.row) || 0) - (Number(a.dataset.row) || 0));
-    pool.slice(0, Math.max(1, Math.min(want, Math.ceil(tiles.length / 4))))
-        .forEach(t => { t.dataset.dd = '1'; });
-  }
-
-  let jWager = null;      // { team, amount, min, max, then } while a bet is being placed
-
-  function jMaxWager(team){
-    // the show: your score, or the biggest clue on the board, whichever is greater
-    const hi = jValueRange().hi || 0;
-    return Math.max(hi, (teams[team] && teams[team].score) || 0);
-  }
-
-  function renderWager(){
-    if(!jWager) return;
-    const t = teams[jWager.team];
-    document.getElementById('wager-who').textContent =
-      (t ? t.name : 'Team') + ' — ' + (t ? '$' + t.score : '');
-    document.getElementById('wager-amount').textContent = '$' + jWager.amount;
-    document.getElementById('wager-range').textContent =
-      'anything from $' + jWager.min + ' to $' + jWager.max;
-  }
-
-  function setWager(v){
-    if(!jWager) return;
-    jWager.amount = Math.max(jWager.min, Math.min(jWager.max, Math.round(v)));
-    renderWager();
-  }
-
-  /* The teacher places the bet, like every other click in this app — students never
-     touch the device. The buttons are the amounts a room actually says out loud. */
-  function openWager(team, opts){
-    const max = opts.max != null ? opts.max : jMaxWager(team);
-    jWager = { team, min: opts.min || 0, max, amount: opts.start != null ? opts.start : Math.min(max, 200),
-               then: opts.then };
-    document.getElementById('wager-panel').style.display = 'block';
-    document.getElementById('clue-text').style.display = 'none';
-    document.getElementById('clue-answer').style.display = 'none';
-    hideAllActionButtons();
-    document.getElementById('wager-ok').style.display = 'inline-block';
-
-    const steps = document.getElementById('wager-steps');
-    steps.innerHTML = '';
-    [-500, -100, +100, +500].forEach(d => {
-      const b = document.createElement('button');
-      b.type = 'button'; b.className = 'wager-step';
-      b.textContent = (d > 0 ? '+' : '−') + Math.abs(d);
-      b.addEventListener('click', () => setWager(jWager.amount + d));
-      steps.appendChild(b);
-    });
-    const quick = document.getElementById('wager-quick');
-    quick.innerHTML = '';
-    [['Nothing', () => jWager.min], ['Half', () => Math.round(jWager.max / 2)],
-     ['Everything', () => jWager.max]].forEach(([label, fn]) => {
-      const b = document.createElement('button');
-      b.type = 'button'; b.className = 'wager-quick-btn';
-      b.textContent = label;
-      b.addEventListener('click', () => setWager(fn()));
-      quick.appendChild(b);
-    });
-    renderWager();
-  }
-
-  function closeWager(){
-    jWager = null;
-    document.getElementById('wager-panel').style.display = 'none';
-    document.getElementById('clue-text').style.display = '';
-    document.getElementById('wager-ok').style.display = 'none';
-  }
-
-  document.getElementById('wager-ok').addEventListener('click', () => {
-    if(!jWager) return;
-    const bet = jWager.amount, then = jWager.then;
-    closeWager();
-    if(then) then(bet);
-  });
 
   /* ================= CONTENT SCREEN ================= */
   /* The round-type filter, above the list and on every board. Built from the round
@@ -3226,21 +2559,6 @@
     });
   }
 
-  function renderJeopardyContent(list, help){
-    help.textContent = "Pick which categories to include — the board builds itself from your selection (choose at least 3).";
-    let lastSection=null;
-    JEOPARDY_CATEGORIES.forEach(cat=>{
-      if(!catAllowed(cat)) return;
-      if(cat.section!==lastSection){
-        sectionHeading(list, JEOPARDY_SECTION_LABELS[cat.section] || cat.section);
-        lastSection=cat.section;
-      }
-      contentRow(list, { value:cat.id, section:cat.section,
-                         label:stripSection(categoryName(cat), cat.section), items:cat.clues });
-    });
-  }
-
-
   function onContentToggle(){
     selectedContent = [...document.querySelectorAll('#content-list input:checked')].map(i=>i.value);
     updateStartButton();
@@ -3272,16 +2590,6 @@
     btn.disabled = false;
     btn.textContent = o.ready;
   }
-
-  function jeopardyStartButton(btn){
-    btn.disabled = selectedContent.length < 3;
-    btn.textContent = selectedContent.length < 3
-      ? `Select at least 3 categories to build the board (${selectedContent.length} chosen)`
-      : `Build board with ${selectedContent.length} categories`;
-  }
-
-
-
 
   function shuffle(arr){
     for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
@@ -3521,7 +2829,7 @@
      entitled and how many are on that team all read the host. Asking first and
      declaring second would set up the round against the *previous* board. */
   function roundOf(item, host){
-    roundHost = ROUND_HOSTS[host] || ROUND_HOSTS.jeopardy;
+    roundHost = ROUND_HOSTS[host] || ROUND_HOSTS[ROUND_GAMES[0]];
     const hit = Kit.round.of(item);
     if(!hit) return null;
     const st = hit.def.setup(item, roundCtx(hit.id));
@@ -4253,12 +3561,14 @@
   }
 
   /* Whether this board waits for the teacher before taking a won round off screen.
-     Only the two boards that put a round on the clue card can: Millionaire and
+     Only the boards that put a round on the shared clue card can: Millionaire and
      Quickfire mount on their own stage, where the options are still there after the
-     question ends and there is no card to hold. Derived from `mount` rather than
-     named per game, so a third card board arrives already correct. */
+     question ends and there is no card to hold. Read from the host's declared `onCard`
+     rather than by comparing its `mount` to `CARD_MOUNT` — an external game file's mount
+     is a wrapper around `E().cardMount()`, never that reference — so a third card board
+     arrives already correct by declaring the fact. */
   function roundHolds(){
-    return roundHost.mount === CARD_MOUNT &&
+    return !!roundHost.onCard &&
            S.get('roundWinClose', roundHost.game) !== 'auto';
   }
 
@@ -4295,7 +3605,7 @@
     roundState.say = teamName(team) + ' has it.';
     renderRound();
     roundStandDown();
-    jClockStop();                 // the answer is out; whatever the clock said is over
+    hook('onFloorClear');         // the answer is out; whatever answer clock a game runs is over
     hideAllActionButtons();
     const close = document.getElementById('close-btn');
     close.textContent = 'Close — ' + teamName(team) + ' takes it';
@@ -4359,104 +3669,6 @@
       buzzHost.disarm();
       renderBuzzChip();
     }
-  }
-
-  function openJeopardyClue(cat, clue, tile){
-    const review = tile.classList.contains('used');
-    currentTile=tile; modalMode = review ? 'review' : 'jeopardy'; currentClueValue=clue.v;
-    jSteal = null;
-    jDoubleTeam = null;
-    /* A Daily Double is a bet placed before the clue is seen, so the card opens on
-       the wager and the clue is not drawn until it is locked in. Only the team that
-       found it may answer — no buzzers, no steal — which is why the phones are not
-       asked and the steal path is closed off below. */
-    if(!review && tile.dataset.dd){
-      delete tile.dataset.dd;
-      jDoubleTeam = active;
-      /* Tell the phones the room is not being asked. Not asking them at all was the
-         first version and it left the *previous* question on every handset with a
-         dead button — which reads as broken rather than deliberate, and left a phone
-         still armed from that clue able to buzz in mid-wager. Disarming says the
-         true thing: nothing is open to you, this one belongs to one team. */
-      if(buzzHost){ buzzWinner = null; lastAsk = { mode:'off', prompt:'' };
-                    buzzHost.disarm(); renderBuzzChip(); renderPhoneBar(); }
-      openClueCard(tile);
-      document.getElementById('clue-topline').textContent = 'DAILY DOUBLE';
-      document.getElementById('clue-section').textContent = cat.section;
-      document.getElementById('clue-card').classList.add('daily-double');
-      if(document.getElementById('play-jeopardy').classList.contains('lit')) Sound.play('sting');
-      else Sound.play('claim');
-      openWager(active, { max: jMaxWager(active),
-                          then: bet => { currentClueValue = bet; jShowClue(cat, clue, tile, false); } });
-      return;
-    }
-    jShowClue(cat, clue, tile, review);
-    openClueCard(tile);
-  }
-
-  // everything that was openJeopardyClue's body, so the Daily Double can run it
-  // *after* its bet rather than duplicating it
-  function jShowClue(cat, clue, tile, review){
-    const dd = jDoubleTeam != null;
-    document.getElementById('clue-topline').textContent =
-      dd ? ('DAILY DOUBLE · ' + categoryName(cat) + ' · $' + currentClueValue)
-         : (categoryName(cat) + ' · $' + clue.v + (review ? '  ·  review' : ''));
-    document.getElementById('clue-section').textContent = cat.section;
-    /* `reveal` and `group` ride along with the normalised shape. The normalisation
-       exists so the kit never learns that Jeopardy calls a prompt `q` — but it is a
-       whitelist, so anything an author adds to an item is invisible downstream
-       until it is named here. That is the real friction in carrying a question
-       dynamic across from the bench: `reveal` was silently dropped once and the
-       hint button simply never appeared, with nothing anywhere saying why. */
-    currentClueItem = { text:clue.q, answer:clue.a, type:clue.type, reveal:clue.reveal };
-    /* Whatever field a registered round claims, carried across by asking the
-       registry rather than by naming them here. Naming them is what silently
-       dropped `reveal` when Story Reveal shipped and `order` the day the second
-       round was written — the symptom both times being the feature simply never
-       appearing. */
-    Kit.round.fields().forEach(f => { if(clue[f] !== undefined) currentClueItem[f] = clue[f]; });
-    /* A grouping clue's answer *is* its set, so it is derived rather than authored —
-       two copies of one fact are two things that can drift, which is how a hexagon
-       came to show `U` over an answer beginning with I. */
-    /* Set up once and keep it: `setup` shuffles, so asking twice would draw one
-       order for the answer line and another for the card. */
-    const grp = roundOf(currentClueItem, 'jeopardy');
-    if(grp) currentClueItem.answer = grp.state.answer;
-    drawPrompt(document.getElementById('clue-text'), currentClueItem, 'jeopardy');
-    /* Before `askPhones`, which consults `phoneRound()` — and `phoneRound()` cannot
-       answer until the round exists. Also after `drawPrompt`, which owns `#clue-text`
-       and clears it. */
-    roundEnd();
-    /* A Daily Double still gets its words — it is only the *phones* that a Daily
-       Double excludes, because the clue belongs to the team that found it. Without
-       the round the tile would open on an instruction with nothing to pick from,
-       and the wager would be unanswerable. The team names their four out loud and
-       the teacher clicks them, which is the no-relay path doing a second job;
-       `jCorrect` already routes the payout to `jDoubleTeam` whoever is passed in. */
-    // A round arms the room as it opens, so this covers the ordinary clues only.
-    // A replayed tile asks nobody, and a Daily Double belongs to one team alone.
-    const opened = (!review && grp) ? roundOpen(grp) : null;
-    if(!review && !dd && !opened) askPhones(clue.q, 'jeopardy');
-    const ansEl=document.getElementById('clue-answer');
-    ansEl.textContent = currentClueItem.answer || clue.a || '';
-    hideAllActionButtons();
-    if(review){
-      // already played — show everything, score nothing
-      ansEl.style.display =
-        Kit.prompt.reveal(document.getElementById('clue-text'), currentClueItem) ? 'none' : 'block';
-      document.getElementById('close-btn').style.display='inline-block';
-    } else {
-      ansEl.style.display='none';
-      document.getElementById('reveal-btn').style.display='inline-block';
-      document.getElementById('close-btn').style.display='inline-block';
-    }
-    jTension(review ? 0 : (dd ? Math.max(clue.v, currentClueValue) : clue.v));
-    jHintsUsed = 0;
-    renderHintButton();
-    /* After `hideAllActionButtons()`, which is the whole reason this is here rather
-       than inside `roundOpen` — the round has to exist before `askPhones` asks the
-       game what it is, and the buttons are cleared after that. */
-    renderRoundButton();
   }
 
   /* ---- the card flip ----------------------------------------------------------
@@ -4800,7 +4012,7 @@
      after a clue (Blockbusters lighting up a winning route) would otherwise do it
      behind the card. */
   function closeModal(hold, then){
-    jClockStop();
+    hook('onFloorClear');   // a game's answer clock, if it runs one, stops with the card
     roundEnd();
     const modal  = document.getElementById('clue-modal');
     const card   = document.getElementById('clue-card');
@@ -4846,7 +4058,7 @@
        banner and the ending are all in there and none of them should have a second
        version. A question nobody got right has no `hostTook` and reveals as always. */
     if(roundLive() && roundState.hostTook != null){ roundTake(roundState.hostTook); return; }
-    jClockStop();      // the answer is out; whatever the clock was saying is over
+    hook('onFloorClear');      // the answer is out; whatever answer clock a game runs is over
     Sound.play('reveal');
     // The word drops into the blank rather than only appearing underneath it —
     // the sentence completing itself is the moment a class actually watches. When
@@ -4869,202 +4081,27 @@
       const rr = gameDef(activeGame);
       if(rr && rr.onRoundReveal) rr.onRoundReveal();
     }
-    /* The final settles team by team rather than once, so revealing it hands over
-       to that sequence instead of showing a single pair of buttons. */
-    if(jFinalState){
-      timerStop();
-      document.getElementById('reveal-btn').style.display='none';
-      document.getElementById('close-btn').style.display='none';
-      jFinalSettle();
-      return;
-    }
     /* What a revealed clue then offers — Correct/Wrong on a hand-scored tile — is the
        game's, declared as `onClueReveal` rather than switched on the game's name here.
-       A board that scores another way (Blockbusters claims) declares none. */
+       A board that scores another way (Blockbusters claims) declares none. Jeopardy's
+       own reveal also carries the Final's team-by-team settle, which used to be a
+       `jFinalState` branch here. */
     const cr = gameDef(activeGame);
     if(cr && cr.onClueReveal) cr.onClueReveal();
   });
 
-  // Jeopardy: award the tile's value to the selected team, then pass the turn.
-  /* ---------- the steal ----------
-     A missed clue used to burn the tile and pass the turn, so a team had no reason
-     to listen while the other one answered. Now the card stays open, the answer
-     stays hidden, and the room is offered the question for half the points. The
-     team that just missed it is excluded — `allow` on the shared chooser exists for
-     exactly this kind of restriction.
-
-     Returns true when it has taken the beat, which tells the shared wrong-answer
-     path to stand down; false means "close it as before" and covers the switch
-     being off, a two-team board where nobody is left to offer, and the second miss. */
-  let jSteal = null;               // { from, to } while a stolen clue is live
-  let jDoubleTeam = null;          // the team that found a Daily Double, while it is live
-
-  /* ---------- the answer clock ----------
-     Starts when a team takes the floor — the buzz, not the clue opening, because
-     the teacher reads the clue aloud at their own pace and the pressure belongs on
-     the team that claimed the right to answer. Its own countdown on the clue card
-     rather than the header timer: that widget is the teacher's instrument, and a
-     clock that reset it on every buzz would overwrite whatever they had set.
-
-     Time up is a fact the room hears, not a verdict: klaxon, red pulse, and the
-     buttons stay exactly as they were. The teacher controls everything is the
-     app's constraint, and auto-marking wrong mid-sentence would fight it.
-
-     **It runs on `Kit.round.clock` now, and that is the point of the shelf.** This
-     and Quickfire's question clock were the same thirty lines written twice, and
-     only one of them could ever have been read by a value curve. What is left here
-     is what genuinely belongs to this board: where the number is painted, and that
-     running out of time changes nothing. */
-  function jClockStop(){
-    Kit.round.clock.stop();
-    const el = document.getElementById('clue-clock');
-    if(el) el.remove();
-    document.getElementById('clue-card').classList.remove('overtime');
-  }
-  function jClockStart(){
-    jClockStop();
-    const secs = Number(S.get('jAnswerSeconds', 'jeopardy')) || 0;
-    if(!secs || activeGame !== 'jeopardy' || !clueIsOpen()) return;
-    const el = document.createElement('span');
-    el.id = 'clue-clock';
-    document.getElementById('clue-topline').appendChild(el);
-    Kit.round.clock.start({
-      secs,
-      onTick(left){
-        const n = Math.ceil(left);
-        el.textContent = String(n);
-        el.classList.toggle('urgent', n <= 3);
-      },
-      /* The clock is stopped by the time this runs, so the mark it leaves has to be
-         painted here rather than by a tick that will not come again. */
-      onEnd(){
-        el.textContent = '0';
-        el.classList.add('urgent');
-        document.getElementById('clue-card').classList.add('overtime');
-        Sound.play('klaxon');
-      }
-    });
-  }
-
-  function jOfferSteal(teamIdx){
-    /* A grouping clue has no rebound, because it had no floor. The steal exists so
-       a team that was shut out of a question gets it when the team holding it
-       misses — but every team was assembling this one at once, and nobody was
-       excluded, so there is nothing to offer and nobody to offer it to. It burns
-       the tile and passes the turn, as a miss did before the steal existed. */
-    if(roundClue()) return false;
-    if(!S.get('stealOnWrong', 'jeopardy')) return false;
-    if(jSteal) return false;                       // one steal per clue, then it's gone
-    const others = teams.map((_, i) => i).filter(i => i !== teamIdx);
-    if(!others.length) return false;
-    jSteal = { from: teamIdx, to: others[0] };
-
-    /* Put the answer away again. Correct/Wrong only appear *after* Reveal, so by the
-       time a miss is recorded the answer is on screen — offering the steal from
-       there just invites the other team to read it out. Redraw the question
-       unanswered; the stealing team gets the same question the first team had. */
-    drawPrompt(document.getElementById('clue-text'), currentClueItem, 'jeopardy');
-    document.getElementById('clue-answer').style.display = 'none';
-
-    hideAllActionButtons();
-    const line = document.getElementById('clue-topline');
-    // what the card offers has to be what award() will pay — shown and paid must agree
-    line.textContent = line.textContent.replace(/ · steal.*$/, '') + '  ·  steal for ' +
-                       Math.round(currentClueValue / (S.get('stealFullValue','jeopardy') ? 1 : 2));
-    clueClaim.show(teams, others);
-    const skip = document.getElementById('skip-btn');
-    skip.textContent = 'No steal / close';
-    skip.style.display = 'inline-block';
-    return true;
-  }
-
-  /* Nobody wanted it: burn the tile and pass the turn, exactly as a miss did before
-     any of this existed. */
-  function jDeclineSteal(){
-    jSteal = null;
-    if(currentTile) currentTile.classList.add('used');
-    clueClaim.hide();
-    closeModal(0, jAfterClue);
-    nextTurn();
-  }
-
-  /* Someone claimed the steal: that team now owns the question, so re-open the
-     normal reveal path with them on the hook. */
-  function jTakeSteal(teamIdx){
-    jSteal.to = teamIdx;
-    clueClaim.hide();
-    document.getElementById('reveal-btn').style.display = 'inline-block';
-    document.getElementById('close-btn').style.display  = 'inline-block';
-    jClockStart();     // the stealing team is on the floor now, same rule as a buzz
-  }
-
-  /* Paying a tile out, as a function rather than only as a button handler: a typed
-     answer judged right on the host is the same event as the teacher pressing
-     ✓ Correct, and the two must not drift. `to` names the team when something other
-     than the turn decides it — a steal, or the phone that produced the word. */
-  function jCorrect(to){
-    const showy = document.getElementById('play-jeopardy').classList.contains('lit');
-    const value = currentClueValue;
-    // a Daily Double belongs to whoever found it, whatever the turn has done since
-    const team  = (jDoubleTeam != null) ? jDoubleTeam
-                : (to != null) ? to : (jSteal ? jSteal.to : active);
-    Sound.bedStop();
-    if(showy){
-      Sound.play('sting'); jFlash('right');
-      // the top of the board is worth a round of applause
-      if(value >= jValueRange().hi) setTimeout(()=>Sound.applause(1500), 260);
-    } else {
-      Sound.play('correct');
-    }
-    if(currentTile){ currentTile.classList.add('used'); }   // keeps its value, faded
-    let paid = 0;
-    if(teams.length){
-      paid = award(team, value, { steal: !!jSteal && team === jSteal.to,
-                                  why: (jDoubleTeam != null) ? 'daily double bet' : 'tile ' + value });
-      markRun(team, true);
-    }
-    jSteal = null; jDoubleTeam = null;
-    document.getElementById('clue-card').classList.remove('daily-double');
-    closeModal(flipMs(FLIP_HOLD_MS), jAfterClue);
-    /* A team that answers keeps the board, and steal is what stops that running
-       away — but "keep the board" is a reward for winning the question, and in
-       `write` there is no winning it: the whole room answered. Nobody has earned
-       the next pick, so the turn rotates and everyone gets one. */
-    if(!S.get('keepControl', 'jeopardy') || everyoneAnswers()) nextTurn();
-    return paid;
-  }
+  /* Correct, Wrong and Close are the shared clue card's buttons, but what they *do* is
+     the game's — a tile scored by hand, the deduction, the steal, the board's own
+     lighting restored on close. Declared as `onClueCorrect`/`onClueWrong`/`onClueClose`
+     rather than switched on the game's name here; a board that scores another way
+     (Blockbusters claims) declares none, and Close falls back to just shutting the card. */
   document.getElementById('correct-btn').addEventListener('click', ()=>{
-    if(jFinalState && jFinalMark){ const f = jFinalMark; jFinalMark = null; f(true); return; }
-    jCorrect(null);
+    const g = gameDef(activeGame);
+    if(g && g.onClueCorrect) g.onClueCorrect();
   });
   document.getElementById('wrong-btn').addEventListener('click', ()=>{
-    if(jFinalState && jFinalMark){ const f = jFinalMark; jFinalMark = null; f(false); return; }
-    const showy = document.getElementById('play-jeopardy').classList.contains('lit');
-    Sound.bedStop();
-    if(showy){ Sound.play('klaxon'); jFlash('wrong'); }
-    else Sound.play('wrong');
-    const missed = (jDoubleTeam != null) ? jDoubleTeam : (jSteal ? jSteal.to : active);
-    markRun(missed, false);
-    /* The show takes the value off you, and a Daily Double takes the bet. Off by
-       default here: a class that goes 500 down in the first two minutes stops
-       trying, which is the opposite of what any of this is for. Scores may go
-       negative — that is the rule, not an accident. */
-    /* …but not on a grouping clue, where `missed` is only "whoever happened to be
-       on turn". Every team was playing it at once, so charging one of them is
-       charging the wrong people — the same reason `keepControl` stands down when
-       the whole room answered. */
-    if(S.get('jDeduct', 'jeopardy') && teams[missed] && modalMode === 'jeopardy' && !roundClue()){
-      ledgerNote(missed, -currentClueValue, 'wrong answer · deduction rule');
-      teams[missed].score -= currentClueValue;
-      renderScorebar();
-    }
-    // a Daily Double is answered by one team alone, so there is no steal to open
-    if(jDoubleTeam == null && hook('onWrong', missed)) return;
-    if(currentTile){ currentTile.classList.add('used'); }   // keeps its value, faded
-    jSteal = null; jDoubleTeam = null;
-    document.getElementById('clue-card').classList.remove('daily-double');
-    closeModal(flipMs(FLIP_HOLD_MS), jAfterClue);
-    nextTurn();
+    const g = gameDef(activeGame);
+    if(g && g.onClueWrong) g.onClueWrong();
   });
 
   document.getElementById('close-btn').addEventListener('click', ()=>{
@@ -5072,203 +4109,9 @@
        card itself, exactly as it did when it closed it a second after the answer
        landed. Cleared first, so the close it triggers cannot come back round here. */
     if(roundWin){ const p = roundWin; roundWin = null; roundPaySlot(p); return; }
-    closeWager();
-    jDoubleTeam = null;
-    document.getElementById('clue-card').classList.remove('daily-double');
-    const wasJeopardy = modalMode==='jeopardy' || modalMode==='review';
-    closeModal(0, wasJeopardy ? ()=>jTension() : null);
+    const g = gameDef(activeGame);
+    if(g && g.onClueClose) g.onClueClose(); else closeModal(0);
   });
-
-  /* A slow wash over the board on the result — same 1.5Hz ceiling and the same
-     reduced-motion opt-out as Millionaire's. */
-  function jFlash(kind){
-    const stage = document.getElementById('play-jeopardy');
-    if(!stage.classList.contains('lit') || !motionOK()) return;
-    stage.classList.remove('flash-right','flash-wrong');
-    void stage.offsetWidth;
-    stage.classList.add(kind==='right' ? 'flash-right' : 'flash-wrong');
-    setTimeout(()=>stage.classList.remove('flash-right','flash-wrong'), 900);
-  }
-
-  /* Once the card is back on its tile: reset the lights to the board's own level,
-     and if that was the last tile, call the game. A cleared board used to do
-     nothing at all — the same gap Blockbusters had. */
-  function jAfterClue(){
-    if(activeGame !== 'jeopardy') return;
-    jTension();
-    const tiles = [...document.querySelectorAll('#board .tile')];
-    if(!tiles.length || tiles.some(t=>!t.classList.contains('used'))) return;
-    if(S.get('jFinalQuestion', 'jeopardy') && jFinalCanRun()) jStartFinal();
-    else jFinish();
-  }
-
-  /* ================= THE FINAL CLUE =================
-     The reason the show never feels decided early: everyone bets what they like, so
-     last place can win from there and nobody has mentally left the room by the last
-     five minutes. Three beats — bet, answer, settle — and the teacher drives all
-     three, as with everything else here.
-
-     A team on nothing or less cannot bet, which is the show's rule and also the
-     sensible one: there is nothing to wager with. */
-  let jFinalState = null;
-  let jFinalWasPlayed = false;
-
-  function jFinalPlayers(){
-    return teams.map((t, i) => i).filter(i => teams[i] && teams[i].score > 0);
-  }
-  function jFinalClue(){
-    /* Prefer a clue the room has *not* seen: the categories that were left off the
-       board. Only if the teacher picked everything does it fall back to a played
-       one, which is worth knowing rather than pretending. */
-    const onBoard = new Set(selectedContent);
-    const spare = JEOPARDY_CATEGORIES.filter(c => !onBoard.has(c.id));
-    const from  = spare.length ? spare : JEOPARDY_CATEGORIES.filter(c => onBoard.has(c.id));
-    const cat   = from[Math.floor(Math.random() * from.length)];
-    if(!cat || !cat.clues || !cat.clues.length) return null;
-    const clue = cat.clues[Math.floor(Math.random() * cat.clues.length)];
-    return { cat, clue, unseen: spare.length > 0 };
-  }
-  function jFinalCanRun(){
-    return jFinalPlayers().length > 0 && !!jFinalClue();
-  }
-
-  function jStartFinal(){
-    const picked = jFinalClue();
-    if(!picked){ jFinish(); return; }
-    jFinalState = { cat:picked.cat, clue:picked.clue, unseen:picked.unseen,
-                    order:jFinalPlayers(), bets:{}, at:0, marked:{} };
-    if(document.getElementById('play-jeopardy').classList.contains('lit')) Sound.play('sting');
-    showResult({
-      eyebrow:'Jeopardy · the final clue',
-      title:'One more clue',
-      sub:'The category is ' + jFinalState.cat.name + '. Every team bets what it likes — ' +
-          'a team in last can still win.',
-      actions:[{ label:'Take the bets', primary:true, onPick:jFinalNextBet }]
-    });
-  }
-
-  /* Each team in turn, on the card the rest of the game already uses. The bet is
-     placed knowing only the category, which is the whole tension of it. */
-  function jFinalNextBet(){
-    if(!jFinalState) return;
-    if(jFinalState.at >= jFinalState.order.length){ jFinalAsk(); return; }
-    const team = jFinalState.order[jFinalState.at];
-    modalMode = 'jeopardy';
-    currentTile = null;
-    jSteal = null; jDoubleTeam = null;
-    document.getElementById('clue-topline').textContent = 'FINAL · ' + jFinalState.cat.name;
-    document.getElementById('clue-section').textContent = jFinalState.cat.section;
-    document.getElementById('clue-card').classList.add('daily-double');
-    openClueCard(null);
-    openWager(team, { max: teams[team].score, then: bet => {
-      jFinalState.bets[team] = bet;
-      jFinalState.at++;
-      closeModal(0, jFinalNextBet);
-    } });
-  }
-
-  function jFinalAsk(){
-    const st = jFinalState;
-    if(!st) return;
-    st.asking = true;          // from here the room writes, whatever the mode says
-    currentClueValue = 0;
-    currentTile = null;
-    modalMode = 'jeopardy';
-    document.getElementById('clue-card').classList.remove('daily-double');
-    document.getElementById('clue-topline').textContent = 'FINAL CLUE · ' + st.cat.name;
-    document.getElementById('clue-section').textContent = st.cat.section;
-    currentClueItem = { text:st.clue.q, answer:st.clue.a, type:st.clue.type };
-    drawPrompt(document.getElementById('clue-text'), currentClueItem, 'jeopardy');
-    document.getElementById('clue-text').style.display = '';
-    const ans = document.getElementById('clue-answer');
-    ans.textContent = st.clue.a; ans.style.display = 'none';
-    hideAllActionButtons();
-    document.getElementById('reveal-btn').style.display = 'inline-block';
-    openClueCard(null);
-    askPhones(st.clue.q, 'jeopardy');     // every team writes this one
-    timerSetDuration(30); timerStart();
-    jTension(jValueRange().hi);
-  }
-
-  /* Settling it: each team that bet is marked right or wrong, lowest score first as
-     the show does it, and the bet is added or taken away. */
-  function jFinalSettle(){
-    const st = jFinalState;
-    if(!st) return;
-    st.asking = false;         // answers are in; the phones go back to the mode
-    const pending = st.order.filter(i => st.marked[i] == null);
-    if(!pending.length){ jFinalState = null; jFinalWasPlayed = true; jFinish(); return; }
-    const team = pending.sort((a, b) => teams[a].score - teams[b].score)[0];
-    hideAllActionButtons();
-    document.getElementById('clue-topline').textContent =
-      teams[team].name + ' bet $' + (st.bets[team] || 0);
-    const mark = (right) => {
-      st.marked[team] = right;
-      if(st.bets[team]) ledgerNote(team, (right ? 1 : -1) * st.bets[team],
-                                   right ? 'final clue · bet won' : 'final clue · bet lost');
-      teams[team].score += (right ? 1 : -1) * (st.bets[team] || 0);
-      markRun(team, right);
-      renderScorebar();
-      Sound.play(right ? 'correct' : 'wrong');
-      jFinalSettle();
-    };
-    const ok = document.getElementById('correct-btn');
-    const no = document.getElementById('wrong-btn');
-    ok.style.display = 'inline-block'; no.style.display = 'inline-block';
-    ok.textContent = '✓ ' + teams[team].name + ' +$' + (st.bets[team] || 0);
-    no.textContent = '✗ ' + teams[team].name + ' −$' + (st.bets[team] || 0);
-    jFinalMark = mark;
-  }
-  let jFinalMark = null;
-
-  function jFinish(){
-    const wasFinal = jFinalWasPlayed;
-    jFinalWasPlayed = false;
-    closeModal(0, null);
-    /* Together: there is nobody to rank. The class either reached the number or it
-       did not, and either way the sentence is about what the room did. */
-    if(jTogether()){ jFinishTogether(); return; }
-    const ranked = teams.map((t,i)=>({ t, i })).sort((a,b)=>b.t.score - a.t.score);
-    const top    = ranked[0];
-    if(!top) return;
-    const drawn  = ranked.length > 1 && ranked[1].t.score === top.t.score;
-    if(document.getElementById('play-jeopardy').classList.contains('lit')){
-      Sound.fanfare(); setTimeout(()=>Sound.applause(2400), 700);
-    } else {
-      Sound.play('clear');
-    }
-    showResult({
-      eyebrow: wasFinal ? 'Jeopardy · after the final clue' : 'Jeopardy · board cleared',
-      title: drawn ? 'It\'s a tie!' : (top.t.name + ' wins!'),
-      sub: drawn ? ranked.filter(r=>r.t.score===top.t.score).map(r=>r.t.name).join(' and ') +
-                   ' finish level on $' + top.t.score + '.'
-                 : 'Final score $' + top.t.score + '.',
-      tone: !drawn && top.i < 2 ? (top.i===0 ? 'gold' : 'silver') : null,
-      actions:[{ label:'Close', primary:true, onPick:function(){} }]
-    });
-  }
-
-  function jFinishTogether(){
-    const got = jClassTotal(), target = jTargetScore();
-    const beat = target > 0 && got >= target;
-    const lit  = document.getElementById('play-jeopardy').classList.contains('lit');
-    if(beat || !target){
-      if(lit){ Sound.fanfare(); setTimeout(()=>Sound.applause(2400), 700); } else Sound.play('clear');
-    } else {
-      Sound.play('clear');
-    }
-    showResult({
-      eyebrow:'Jeopardy · together',
-      title: !target ? ('The class scored $' + got)
-           : beat    ? 'Target beaten!'
-                     : ('$' + (target - got) + ' short'),
-      sub: !target ? 'Board cleared.'
-         : ('The class took $' + got + ' of a $' + target + ' target, from a board worth $' +
-            jBoardTotal + '.'),
-      tone: beat ? 'gold' : null,
-      actions:[{ label:'Close', primary:true, onPick:function(){} }]
-    });
-  }
 
   /* Skip belongs to whichever game put the card up. Blockbusters uses it to leave a
      hex unclaimed; Jeopardy now uses it to decline a steal, which it must have —
@@ -5297,8 +4140,8 @@
   });
 
   document.getElementById('skip-btn').addEventListener('click', ()=>{
-    if(modalMode === 'jeopardy' && jSteal){ jDeclineSteal(); return; }
-    // a card game's own "nobody claimed it" — Blockbusters routes null through its claim
+    // a card game's own "nobody claimed it" — Blockbusters leaves the hex unclaimed,
+    // Jeopardy declines a steal. Both route null through their own onClaimPick.
     const g = gameDef(activeGame);
     if(g && g.onClaimPick) g.onClaimPick(null);
   });
@@ -5735,6 +4578,20 @@
     if(buzzHost) buzzHost.disarm();
     renderBuzzChip();
     hook('onRoomSync');   // the active game repaints room-facing chrome (Blockbusters' vote button)
+  }
+
+  /* **Nothing is open to the room — disarm and say so.** Jeopardy's Daily Double belongs
+     to one team alone, so the handsets are stood down as its wager opens; without this a
+     phone still armed from the previous clue could buzz into a bet. A narrower cousin of
+     `parkBuzzRoom`: it disarms and repaints but keeps the room and the roster, because
+     the room is still the lesson's — only this one question excludes it. Lent to a card
+     game through HubEnv. */
+  function standDownPhones(){
+    buzzWinner = null;
+    lastAsk = { mode:'off', prompt:'' };
+    if(buzzHost) buzzHost.disarm();
+    renderBuzzChip();
+    renderPhoneBar();
   }
 
   /* The code outlives the *page*, not just the game. Reloading the hub — which is
@@ -6318,16 +5175,17 @@
      typing. */
   function armBuzzers(prompt, opts){
     buzzWinner=null;
-    jClockStop();      // the floor is open again, so nobody is on the clock
+    hook('onFloorClear');   // the floor is open again, so a game's answer clock stops
     // a reopen is the same question, so the miss that caused it stays on the chip —
     // clearing it here wiped the one piece of information the teacher wanted
     if(!(opts && opts.reopen)) lastTyped=null;
     /* The answer clock travels with the arm so the relay can hand it to whichever
-       phone takes the floor — and to the room watching them. Jeopardy-only: it is
-       that game's rule, started by its buzz, and a typing race needs no clock on
-       the floor because the typed word is judged the instant it arrives. */
-    const answerSecs = (activeGame === 'jeopardy' && !typingRace())
-      ? (Number(S.get('jAnswerSeconds', 'jeopardy')) || 0) : 0;
+       phone takes the floor — and to the room watching them. How long the floor lasts
+       is the game's own rule, declared as `floorSeconds()` rather than switched on the
+       game's name here (Jeopardy's is `jAnswerSeconds`). A typing race needs no clock —
+       the typed word is judged the instant it arrives — so it is gated out here, which
+       is a shared truth about floors rather than any one game's setting. */
+    const answerSecs = typingRace() ? 0 : (Number(hook('floorSeconds')) || 0);
     if(buzzHost) buzzHost.arm(prompt||'', Object.assign(
       { mode: typingRace() ? 'type' : 'buzz', answerSecs: answerSecs || undefined }, opts||{}));
     renderBuzzChip('armed');
@@ -6569,6 +5427,16 @@
     floorWinner: () => buzzWinner,
     // content, roster, presentation
     groupCheckboxes, sectionHeading, contentRow, groupOf, inPlay, shuffle,
+    /* The content-screen helpers a card game's own renderer reaches for: `catAllowed`
+       filters a Jeopardy category by the round-type chips, `stripSection` trims a
+       redundant "5A" off a row label. */
+    catAllowed: c => catAllowed(c), stripSection,
+    /* Whether the whole room answered this question (`write` mode), so a board that
+       keeps control on a correct answer knows nobody earned the next pick. */
+    everyoneAnswers,
+    /* Nothing is open to the room right now — disarm the handsets and repaint, keeping
+       the room and roster (Jeopardy's Daily Double belongs to one team alone). */
+    standDownPhones,
     selectedContent: () => selectedContent,
     teams: () => teams, teamName, nextTurn, Roster,
     activeTeam: () => active,
@@ -6596,6 +5464,15 @@
     setModalMode: m => { modalMode = m; },
     currentTile: () => currentTile,
     setCurrentTile: t => { currentTile = t; },
+    /* **What the tile in play is worth.** Held in the engine because the standings
+       report labels an entry with it (`standingsOpen`); written by the card game whose
+       clue is up. A board with no dollar value (Blockbusters) simply leaves it 0. */
+    clueValue: () => currentClueValue,
+    setClueValue: v => { currentClueValue = v; },
+    /* Is a grouping clue open (true until the card closes), distinct from `roundLive`
+       (true only while it is still being played) — Jeopardy's steal and deduction ask
+       the first, because they run after Reveal. */
+    roundClue: () => roundClue(),
     clueItem: () => currentClueItem,
     clueClaimShow: (t, allow) => clueClaim.show(t, allow),
     clueClaimHide: () => clueClaim.hide(),

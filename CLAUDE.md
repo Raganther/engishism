@@ -88,9 +88,9 @@ Four facts about a classroom that outrank anything above when they conflict.
 | Path | What it owns |
 |---|---|
 | `game-hub.html` | **the app.** Loads every content file + the engine. Per-unit deep links: `game-hub-unit4.html`, `game-hub-unit5.html`; the test board is `game-hub-lab.html` |
-| `game-hub/hub-engine.js` | layer 1's shared half **and** the game logic still in-closure (Jeopardy, Blockbusters, Race, Millionaire). Injects the UI skeleton, renders every screen, the team bar, the timer |
+| `game-hub/hub-engine.js` | **layer 1 alone now** — no game logic left in-closure. Injects the UI skeleton, renders every screen, the team bar, the timer, the shared clue card and its buttons (which route to the active game through hooks) |
 | `game-hub/hub-games.js` | **the game registry.** Its own file, loading before the game files and the engine, which is what retires the register-before-init trap |
-| `game-hub/games/*.js` | games extracted to their own file — `quickfire.js` is the model to copy |
+| `game-hub/games/*.js` | **every game lives here now** — one file each: `jeopardy.js`, `blockbusters.js`, `race.js`, `millionaire.js`, `quickfire.js`, `bingo.js`. `quickfire.js` is the model to copy |
 | `game-hub/hub-kit.js` | **`Kit`** — the shelf every *game* calls, plus the `Kit.prompt` question forms |
 | `game-hub/hub-rounds.js` | **`Kit.round`** — the shelf every *round* calls, and the round registry |
 | `game-hub/rounds/*.js` | one file per round. `default.js` is the ordinary question |
@@ -121,11 +121,15 @@ everything). Same shape as `hub-rounds.js` → `rounds/*.js` → engine.
 four team-building games (`bunker`, `desert-island`, `it-helpdesk`, `scam-or-legit`) that
 exist nowhere else.
 
-**Where the layering leaks, and it is worth knowing before trusting it:**
-`hub-engine.js` holds layer 1 *and* four games in one closure, so that boundary is
-conceptual rather than physical. Parts of layer 1 were generalised *from* one game and
-still show it — `showResult()`'s `tone` is gold/silver, `Kit.claimTeam`'s `allow` exists
-for Blockbusters' two-team geometry. Read layer 1 as "what happens to be shared so far".
+**Where the layering leaks, and it is worth knowing before trusting it:** every game is
+its own file now, but the shared clue card was built *around* Jeopardy, so layer 1 still
+carries Jeopardy-shaped surfaces the games reach through hooks — the card's
+reveal/correct/wrong/close/skip buttons route to `onClueReveal`/`onClueCorrect`/
+`onClueWrong`/`onClueClose`/`onClaimPick`, the answer clock stops via `onFloorClear`, the
+Together class-line repaints via `onScoreShown`. Parts of layer 1 were generalised *from*
+one game and still show it — `showResult()`'s `tone` is gold/silver, `Kit.claimTeam`'s
+`allow` exists for Blockbusters' two-team geometry. Read layer 1 as "what happens to be
+shared so far".
 
 **Docs worth knowing by name:**
 - `docs/game-hub-requirements.md` — the spec. **The agreed direction (§3.8–§3.10), the
@@ -225,11 +229,12 @@ registries whether or not you are adding to one, and the traps that bite from ou
   gate and the phone strip for free. It declares `card`, `intro`, `hasBank`, `fitsScreen`,
   `order` and its phone hooks. Genuinely its own are board logic, stage CSS, its
   `tension()` source and its bank shape.
-- **A game's home is its own file**, `game-hub/games/<id>.js`; `quickfire.js` is the model
-  and `bingo.js` the second. The four games still declared inside `hub-engine.js` keep
-  their registrations in the cluster at the top of that file — placed after
-  `renderGameCards()` a game is in `HubGames.ids()`, passes `hasBank`, and has no card,
-  with nothing erroring.
+- **A game's home is its own file**, `game-hub/games/<id>.js`; `quickfire.js` is the model.
+  Every game is extracted now — `hub-engine.js` registers none — so a new game is a new
+  file plus a `<script>` between `hub-games.js` and `hub-engine.js` in the four shells,
+  and nothing about the engine is edited. A card game (one that opens the shared clue
+  card) declares `roundHost` with `onCard: true` and reaches the card's buttons through
+  the `onClue*` hooks; `jeopardy.js` and `blockbusters.js` are the two.
 - **Draw a question with `drawPrompt(mount, item, '<gameid>')`**, never `textContent` —
   that is what gets a game gap fills, anagrams, odd-one-out and error correction. A game
   writing its own prompt gets none of them.
@@ -650,7 +655,9 @@ unverifiable.**
 ## Open
 What is true and unfinished. Not a changelog — an item leaves when it closes.
 
-**Build `20260815a`.** Three coursebooks, ~760 authored items, six games, nine rounds.
+**Build `20260819a`.** Three coursebooks, ~760 authored items, six games, nine rounds.
+Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
+only.
 
 **Open-question tuning is guessed, not measured.** The open-question work — a right
 answer no longer locks the room out, position and time recorded, standings after every
