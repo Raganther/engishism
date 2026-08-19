@@ -297,72 +297,6 @@
     onResize: layoutBlockbustersBoard
   });
 
-  registerGame({
-    id:'race', title:'Race to the Board',
-    /* Two people at the screen is what this board *is*, so individuals suit it
-       better than teams do. The one rough edge is the claim chooser — with sixteen
-       people the teacher picks from sixteen chips — and phones in `type` mode remove
-       it outright, because a typed word already carries who produced it. */
-    solo: true,
-    card:{
-      icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="13" height="6" rx="1.5"/><rect x="21" y="9" width="15" height="6" rx="1.5"/><rect x="5" y="20" width="15" height="6" rx="1.5"/><rect x="24" y="24" width="12" height="6" rx="1.5"/><path d="M13 36 L20 30 L27 36"/></svg>',
-      blurb:'Target words scattered on screen. Read the sentence aloud &mdash; a student runs up and touches the missing word.',
-      badge:'Best for: getting them out of their seats' },
-    intro:{ eyebrow:'Cambridge Empower C1', title:'RACE TO THE BOARD',
-            sub:'On your marks. Listen for the gap. Get there first.',
-            accent:'#3DFFA8', titleVw:'6.4vw' },
-    hasBank: u => (u.raceBank||[]).length > 0,
-    load(u){ RACE_BANK          = u.raceBank || [];
-             RACE_SECTION_NAMES = u.raceSectionNames || {};
-             RACE_TOPIC_NAMES   = u.topicNames || {}; },
-    bank: () => RACE_BANK,
-    // head-to-head has no "whose turn" — both teams are at the board at once
-    turnTeam: () => raceMode==='h2h' ? -1 : active,
-    onSetting(id){
-      if(id==='raceShowSection' && raceCurrent) setRacePrompt(raceCurrent);
-      if(id==='raceRoundSeconds' && raceMode==='timed' && !raceRunning){
-        timerSetDuration(Number(S.get('raceRoundSeconds', 'race')) || 60);
-      }
-    },
-    renderContent: renderRaceContent,
-    startButton:   raceStartButton,
-    start(){
-      buildRaceBoard();
-      syncBuzzRoom();
-      timerSetDuration(Number(S.get('raceRoundSeconds', 'race')) || 60);
-    },
-    expects:     () => (raceCurrent && raceCurrent.answer) || '',
-    phonePrompt: () => (raceCurrent && raceCurrent.prompt) || '',
-    askingNow:   () => !!raceCurrent,
-    // a team that has already missed this sentence cannot buzz back in on it
-    buzzEntitled: b => raceCanTry(b.team),
-    /* **The two wires a phone dynamic needs, and declaring one looks exactly like
-       declaring both.** Blockbusters shipped with only the first and every tap was
-       dropped on the floor with nothing anywhere saying so. */
-    phoneRound(){ return roundForPhones(); },
-    wantsVote:   () => roundLive(),
-    onVoteReply(all){ if(roundLive()) roundOnReplies(all); },
-    /* The typed word is the claim here too, and awarding it deals the next sentence
-       — so this returns *after* the award and the engine names the student on the
-       strip, which outlives the re-arm. */
-    onTypedWin(b){
-      if(!raceCurrent) return null;
-      const w = raceWords.find(x => x.word === raceCurrent.answer);
-      if(!w || w.found) return null;
-      const el = [...document.querySelectorAll('#race-words .race-word')]
-                   .find(n => n.textContent === w.word) || null;
-      Sound.play(document.getElementById('play-race').classList.contains('lit') ? 'sting' : 'correct');
-      racePending = { w, el };
-      awardRaceWord(b.team, el);
-      return 1;
-    },
-    fit:      scatterRaceWords,
-    deal:     rDeal,
-    tension(){ rTension(); },
-    onResize(){ if(raceWords.length) scatterRaceWords(); },
-    onTimerEnd(){ if(raceMode==='timed' && raceRunning) endRaceRound(false); }
-  });
-
   /* ---------- which boards can host a round ----------
      A round is drawn in the shared clue card, so it is literally the same code
      whichever board opened it. What differs is only what the *host* contributes,
@@ -489,34 +423,6 @@
          day — reverted with Jeopardy's, the user's call after testing. */
       teamMode: true
     },
-    /* **The fifth host, and the one the build order kept last for a reason.** Race
-       owns the *card* — the scattered words are the answer surface — so a round
-       here cannot open a clue over the board the way Jeopardy's tile does. It gets
-       the prompt strip as its mount instead, which is the same declared fact
-       Millionaire and Quickfire use, and the board sits idle for that one question.
-
-       That is the honest shape of it: a Race bank can hold both kinds. An ordinary
-       item puts its answer on the board as a tile and a student runs to touch it; a
-       round item has no single answer, so it contributes no tile and is played on
-       the handsets instead. Mixing them is a teaching decision — a burst of running
-       broken by a question the whole room assembles — and nothing here forces it. */
-    race: {
-      game:'race', stage:'play-race',
-      mount: () => document.getElementById('race-round'),
-      commit:'race-commit',
-      live: () => !!raceCurrent && raceRunning !== false && roundClue(),
-      turn: () => active,
-      /* A word is worth a point on this board, so a round is worth a point. Paid
-         through the same path a touched word is, which is what makes the strip, the
-         streak and the scoreboard all follow without this knowing about any of it. */
-      win:  team => { awardRaceRound(team); return 1; },
-      /* Same as a hexagon: a word is one point and there is nothing smaller. */
-      worth: () => 1,
-      step:  () => 1,
-      /* Two people at the screen, and in head-to-head nobody is on turn — so a round
-         here is the whole room's, exactly as a Connections tile is. */
-      teamMode: true
-    }
   };
   /* An external game file cannot edit the table above, so it declares its entry —
      `roundHost` on its registration — and it is merged here, before ROUND_GAMES
@@ -1289,13 +1195,8 @@
     label:'Relay address', placeholder:'same site as this page',
     help:'Leave blank unless you run your own relay server elsewhere — then put its https address here.' });
 
-  S.register({ id:'raceRescatter', group:'Race to the Board', type:'toggle', default:true, games:['race'],
-    label:'Re-scatter after every claim', help:'Moves the words each time one is won, so nobody wins on memory alone.' });
-  S.register({ id:'raceRoundSeconds', group:'Race to the Board', type:'select', default:60, games:['race'],
-    label:'Timed round length', help:'Only used in timed team rounds.',
-    options:[{value:45,label:'45 seconds'},{value:60,label:'60 seconds'},{value:90,label:'90 seconds'}] });
-  S.register({ id:'raceShowSection', group:'Race to the Board', adv:true, type:'toggle', default:true, games:['race'],
-    label:'Show the section tag', help:'The small 5A / 5B label above the sentence.' });
+  /* Race's own settings (raceRescatter, raceRoundSeconds, raceShowSection) moved with
+     the game into game-hub/games/race.js. */
 
   /* ---- sound: synthesised, so it needs no audio files and still works offline ---- */
   const Sound = (function(){
@@ -1590,29 +1491,6 @@
         </div>
         <div id="hexwrap"></div>
       </div>
-      <div id="play-race">
-        <div id="race-prompt"></div>
-        <!-- Where a round draws, when the bank hands this board one. Under the
-             prompt and above the bar, so the question reads top to bottom exactly as
-             it does on a clue card; empty and out of the flow the rest of the time. -->
-        <div id="race-round" style="display:none;"></div>
-        <div id="race-bar">
-          <div id="race-status"></div>
-          <div id="race-claim">
-            <span class="claim-q">Who touched it first?</span>
-            <div id="race-claim-teams"></div>
-          </div>
-          <div class="race-actions">
-            <button id="race-start">&#9654; Start</button>
-            <button id="race-skip" style="display:none;">Skip this one</button>
-            <!-- The round's commit button, beside this board's own controls the way
-                 Millionaire's "Final answer?" sits beside its ladder. Hidden until a
-                 round opens; the round declares anything else it wants. -->
-            <button id="race-commit" style="display:none;">Check</button>
-          </div>
-        </div>
-        <div id="race-words"></div>
-      </div>
 
     </div>
 
@@ -1757,9 +1635,6 @@
   let BLOCKBUSTERS_BANK         = [];
   let BLOCKBUSTERS_SECTION_NAMES= {};
   let BLOCKBUSTERS_TOPIC_NAMES  = {};
-  let RACE_BANK                 = [];
-  let RACE_SECTION_NAMES        = {};
-  let RACE_TOPIC_NAMES          = {};
 
   // Which games a unit can actually offer — a unit without a bank for a game
   // simply doesn't show that card, so units can adopt new games one at a time.
@@ -2554,7 +2429,7 @@
   });
 
   document.getElementById('new-game-btn').addEventListener('click', ()=>{
-    activeGame=null; window.HubGames.setActive(null); selectedContent=[]; pool=[]; raceRunning=false;
+    activeGame=null; window.HubGames.setActive(null); selectedContent=[]; pool=[];
     S.setContext(null);
     // park, don't close: the class stays joined on the same code for the next game
     parkBuzzRoom();
@@ -3499,13 +3374,6 @@
   }
 
 
-  function renderRaceContent(list, help){
-    document.getElementById('race-rules').style.display='block';
-    document.getElementById('race-mode').style.display='block';
-    renderRaceRules();
-    help.textContent = "Pick the topics that feed the board \u2014 the vocabulary and the grammar of each section are separate, so you can drill just what you taught. Every word on screen is a target word from your selection.";
-    groupCheckboxes(list, RACE_BANK, RACE_TOPIC_NAMES, RACE_SECTION_NAMES);
-  }
 
   function onContentToggle(){
     selectedContent = [...document.querySelectorAll('#content-list input:checked')].map(i=>i.value);
@@ -3554,12 +3422,6 @@
   }
 
 
-  function raceStartButton(btn){
-    const total = RACE_BANK.filter(inPlay).length;
-    startGate(btn, { picked: selectedContent.length > 0, total, need: RACE_MIN_WORDS,
-      short: `Need ${RACE_MIN_WORDS} words for a board`,
-      ready: `Build board — ${Math.min(total, RACE_MAX_WORDS)} of ${total} words, shuffled` });
-  }
 
   function shuffle(arr){
     for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
@@ -7426,426 +7288,6 @@
     }
   }
 
-  /* ================= RACE TO THE BOARD =================
-     Target words sit on screen; the teacher reads a gapped sentence and a student
-     runs to the projector screen and touches the word. The screen isn't a
-     touchscreen, so the teacher clicks the word the student touched.
-     One team plays at a time against the clock, which keeps scoring unambiguous —
-     the engine can't tell who tapped, but it always knows whose round it is. */
-  const RACE_MIN_WORDS     = 10;   // §3.4: playable from a single lesson section
-  const RACE_MAX_WORDS     = 18;   // beyond this the words stop being readable at distance
-  const RACE_ROUND_SECONDS = 60;
-
-  let raceMode    = 'h2h';  // 'h2h' = both teams race the same word; 'timed' = one team per round
-  let raceWords   = [];     // [{word, section, found, by}] — what's on the board
-  let raceQueue   = [];     // prompts still to ask; a missed one goes to the back
-  let raceCurrent = null;
-  let raceRunning = false;
-  let racePending = null;   // {w, el} — correct word clicked, waiting on "who got it?"
-
-  const RACE_MODE_RULES = {
-    h2h: `Both teams send a student to the board at the same time. Read the sentence aloud &mdash; the
-          <strong>first student to touch the right word wins the point</strong>.<br>
-          The projector screen isn't a touchscreen, so <strong>you click the word they touched</strong>, then
-          say who got there first (click the team, or just press <strong>1</strong> or <strong>2</strong>).<br>
-          A wrong touch flashes red and costs nothing &mdash; the sentence stays up, so the other team can steal it.
-          No clock: the game ends when the board is cleared.`,
-    timed:`One team is up at a time. Press <strong>Start</strong> and read the sentence aloud &mdash;
-          a student runs to the screen and <strong>touches the missing word</strong>.<br>
-          The projector screen isn't a touchscreen, so <strong>you click the word they touched</strong> on your laptop:
-          right = it lights up and scores +1, wrong = a red flash and the sentence comes back later.<br>
-          Keep going until the timer runs out, then the next team is up. The game ends when the board is cleared.`
-  };
-
-  function renderRaceRules(){
-    document.getElementById('race-rules').innerHTML = RACE_MODE_RULES[raceMode];
-  }
-
-  document.querySelectorAll('#race-mode input[name="racemode"]').forEach(r=>{
-    r.addEventListener('change', ()=>{ raceMode = r.value; renderRaceRules(); });
-  });
-
-  function buildRaceBoard(){
-    const chosen = RACE_BANK.filter(inPlay);
-    /* **The board is built from the words, the queue from everything.** An ordinary
-       item puts its answer on the board as a tile a student runs to touch; a round
-       item has no single answer, so it contributes no tile and is simply a question
-       in the queue. Splitting them here is what lets one bank hold both without the
-       board trying to scatter a Connections set. */
-    const words  = shuffle(chosen.filter(c => !raceIsRound(c))).slice(0, RACE_MAX_WORDS);
-    const rounds = chosen.filter(raceIsRound);
-    const picked = words;
-    raceWords   = picked.map(p=>({ word:p.answer, section:p.section, found:false, by:-1 }));
-    raceQueue   = shuffle(picked.concat(rounds));
-    raceCurrent = null;
-    raceRunning = false;
-    racePending = null;
-    hideClaimBar();
-    renderRaceWords();
-    setRacePrompt(null);
-    updateRaceBar();
-  }
-
-  function renderRaceWords(){
-    const wrap=document.getElementById('race-words');
-    wrap.innerHTML='';
-    raceWords.forEach(w=>{
-      const el=document.createElement('button');
-      el.className='race-word'+(w.found?' found team-'+Math.min(w.by,3):'');
-      el.textContent=w.word;
-      el.addEventListener('click', ()=>onRaceWordClick(w, el));
-      wrap.appendChild(el);
-    });
-    scatterRaceWords();
-  }
-
-  /* Spread the words over the whole field rather than a centred block, so students
-     genuinely have to cross the room. A jittered grid is used instead of random
-     placement because it can never overlap — unreadable words are worse than tidy ones.
-     The top strip is left free: on a wall-mounted projector the very top of the image
-     is out of reach for shorter students, and that's where the sentence lives anyway. */
-  function scatterRaceWords(){
-    const field = document.getElementById('race-words');
-    const tiles = [...field.querySelectorAll('.race-word')];
-    if(!tiles.length) return;
-
-    field.style.setProperty('--rs', 1);            // reset any previous down-scaling
-    const W = field.clientWidth;
-    // nothing is measurable while the play screen is still hidden — the caller
-    // re-runs this once the screen is up
-    const avail = W < 50 ? 0 : Kit.fitToScreen(field, { min:240, gap:10 });
-    if(!avail) return;
-
-    /* Shrink the type until the grid genuinely fits, then place one word per cell.
-       Two things make "one per cell" insufficient on its own, and both bit at
-       1280x720 with the longest words in the bank:
-
-       - **The tilt grows the box.** Each word is rotated up to TILT degrees, and a
-         rotated element occupies more room than its layout size — a 288px-wide tile
-         at 1.5 degrees is about 8px taller. That is proportional to the tile's
-         *width*, so it is the long words that collide vertically.
-       - **The jitter can eat the whole margin.** Placing anywhere in the cell means
-         one word can sit hard against the right edge of its cell and the next hard
-         against the left edge of the next, leaving nothing between them.
-
-       So: size the cells to the *grown* box, and keep a gutter the jitter can't
-       spend. */
-    const TILT = 1.5, SIN_T = Math.sin(TILT * Math.PI / 180), GUTTER = 12;
-    let cols=1, rows=tiles.length, maxW=0, maxH=0, scale=1;
-    for(let attempt=0; attempt<7; attempt++){
-      field.style.setProperty('--rs', scale.toFixed(3));
-      maxW = Math.max(...tiles.map(t=>t.offsetWidth));
-      maxH = Math.max(...tiles.map(t=>t.offsetHeight));
-      const boxW = maxW + maxH*SIN_T + GUTTER + 8;
-      const boxH = maxH + maxW*SIN_T + GUTTER + 6;
-      cols = Math.min(tiles.length, Math.max(1, Math.floor(W / boxW)));
-      rows = Math.ceil(tiles.length / cols);
-      if(rows * boxH <= avail || scale <= 0.6) break;
-      scale = Math.max(0.6, scale * Math.sqrt(avail / (rows * boxH)) * 0.97);
-    }
-
-    const cellW = W / cols, cellH = avail / rows;
-    const slots = [];
-    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) slots.push({r,c});
-    shuffle(slots);
-
-    tiles.forEach((el, i)=>{
-      const s = slots[i]; if(!s) return;
-      const tw = el.offsetWidth, th = el.offsetHeight;
-      // the tilt is about the centre, so half its growth hangs off each side
-      const padX = (th * SIN_T) / 2, padY = (tw * SIN_T) / 2;
-      const freeX = Math.max(0, cellW - tw - GUTTER - 2*padX);
-      const freeY = Math.max(0, cellH - th - GUTTER - 2*padY);
-      const x = s.c*cellW + GUTTER/2 + padX + Math.random()*freeX;
-      const y = s.r*cellH + GUTTER/2 + padY + Math.random()*freeY;
-      el.style.left = Math.round(Math.max(padX, Math.min(W - tw - padX, x))) + 'px';
-      el.style.top  = Math.round(Math.max(padY, Math.min(avail - th - padY, y))) + 'px';
-      el.style.transform = `rotate(${(Math.random()*2*TILT - TILT).toFixed(2)}deg)`;
-    });
-  }
-
-  function setRaceMessage(text){
-    const el=document.getElementById('race-prompt');
-    el.classList.remove('live');
-    el.innerHTML='';
-    const s=document.createElement('span'); s.className='race-idle'; s.textContent=text;
-    el.appendChild(s);
-  }
-
-  function setRacePrompt(item){
-    if(!item){ setRaceMessage('Press Start round when the team is ready.'); return; }
-    const el=document.getElementById('race-prompt');
-    el.classList.add('live');
-    el.innerHTML='';
-    const sec=document.createElement('span'); sec.className='race-sec';
-    sec.textContent = S.get('raceShowSection', 'race') ? item.section : '';
-    const sent=document.createElement('span'); sent.className='race-sentence';
-    // this used to build its own gap span — the shared renderer is that idea
-    // generalised, so every game draws a blank the same way. Never revealed here:
-    // the answer is a word on the board for a student to find.
-    drawPrompt(sent, { text:item.prompt, answer:item.answer, type:item.type }, 'race');
-    el.appendChild(sec); el.appendChild(sent);
-  }
-
-  /* A round item has no single answer, so it puts no word on the board and the
-     tile-matching loop above would drop it. Recognised before that loop rather than
-     inside it, because "is this a round" is a question about the item and "is its
-     word still on the board" is a question about the board. */
-  const raceIsRound = item => !!Kit.round.of(item);
-
-  function nextRacePrompt(){
-    while(raceQueue.length){
-      const item = raceQueue.shift();
-      if(raceIsRound(item)){
-        raceCurrent = item; raceFailed = new Set();
-        setRacePrompt(item); updateRaceBar();
-        /* Opening the round arms the room, exactly as it does on every other host —
-           written as one expression so the two can never be half-done. A round that
-           fails to set up falls through to the ordinary path. */
-        if(!raceOpenRound(item)) askPhones(item.prompt, 'race');
-        rTension();
-        return;
-      }
-      const w = raceWords.find(x=>x.word===item.answer);
-      if(w && !w.found){
-        raceCurrent=item; raceFailed = new Set(); setRacePrompt(item); updateRaceBar();
-        /* Through askPhones, not armBuzzers: Race used to arm a buzzer directly,
-           which meant `phoneMode` had no effect here at all — picking "everyone
-           types" for Race silently kept giving the room a buzzer. */
-        /* Timed rounds ask the room too. This was `if(raceMode==='h2h')`, so half of
-           Race ignored `phoneMode` entirely — pick "everyone types" for a timed round
-           and the phones sat idle with nothing saying why. One team is on the clock
-           rather than two racing, so a buzz from anyone else is refused below; what
-           the phones are *for* here is typing the word before the runner finds it. */
-        askPhones(item.prompt, 'race');
-        // the sentence going up is the starting gun — that is the moment they run
-        if(document.getElementById('play-race').classList.contains('lit')) Sound.crack();
-        rTension();
-        return;
-      }
-    }
-    raceCurrent=null;
-    endRaceRound(true);
-  }
-
-  /* The two calls a host makes: name yourself at `roundOf`, because `setup` is
-     handed a ctx scoped to whichever board is asking, and then open. */
-  function raceOpenRound(item){
-    roundEnd();
-    /* **The item the round is playing, which every other host sets and this one did
-       not.** `roundPress` re-asks the room through `currentClueItem`, so without it a
-       round button that moves the question — bingo's next call — redrew the board and
-       left thirty handsets on the previous one. */
-    currentClueItem = item;
-    const found = roundOf(item, 'race');
-    const opened = found ? roundOpen(found) : null;
-    document.getElementById('race-round').style.display = opened ? 'block' : 'none';
-    if(opened) hook('onResize');       // the stage just changed height under the board
-    return !!opened;
-  }
-
-  /* A round pays a point, the same as a touched word, and then the board moves on —
-     which is what `awardRaceWord` does for a word. There is no tile to colour here,
-     so this is the short version of that path: score, name the student on the strip,
-     next sentence. */
-  function awardRaceRound(team){
-    award(team, 1, { why:'race round' });
-    raceCurrent = null;
-    document.getElementById('race-round').style.display = 'none';
-    setTimeout(()=>{ if(raceRunning) nextRacePrompt(); else updateRaceBar(); }, 700);
-  }
-
-  function startRaceRound(){
-    if(!raceWords.some(w=>!w.found)) return;
-    raceRunning=true;
-    if(raceMode==='timed'){ timerReset(); timerStart(); }
-    nextRacePrompt();
-  }
-
-  function endRaceRound(cleared){
-    raceRunning=false;
-    hideClaimBar();
-    /* A round outlives nothing here: the clock stopping ends the question, so the
-       handsets stand down and the mount goes with them. */
-    roundEnd();
-    document.getElementById('race-round').style.display = 'none';
-    resetBuzzers();
-    // the sentence on screen when the clock stopped hasn't been answered — put it
-    // back in the queue, or its word could never be claimed and the board never clears
-    if(raceCurrent){
-      const w = raceWords.find(x=>x.word===raceCurrent.answer);
-      if(w && !w.found) raceQueue.push(raceCurrent);
-    }
-    raceCurrent=null;
-    timerStop();
-    const showy = document.getElementById('play-race').classList.contains('lit');
-    Sound.bedStop();
-    if(cleared){
-      if(showy){ Sound.fanfare(); setTimeout(()=>Sound.applause(2400), 640); }
-      else Sound.play('clear');
-      setRaceMessage('Board cleared — final scores are in the team bar.');
-    } else {
-      Sound.play(showy ? 'klaxon' : 'end');
-      nextTurn();                       // timed mode: hand the board to the next team
-      setRacePrompt(null);
-    }
-    updateRaceBar();
-    rTension();
-  }
-
-  function updateRaceBar(){
-    const status   = document.getElementById('race-status');
-    const startBtn = document.getElementById('race-start');
-    const skipBtn  = document.getElementById('race-skip');
-    const left     = raceWords.filter(w=>!w.found).length;
-    const teamName = (teams[active] && teams[active].name) || 'Team';
-    if(raceMode==='h2h'){
-      status.textContent = left ? `First touch wins · ${left} word${left===1?'':'s'} left` : 'All words found';
-      startBtn.textContent = '▶ Start';
-    } else {
-      status.textContent = left ? `${teamName} is up · ${left} word${left===1?'':'s'} left` : 'All words found';
-      startBtn.textContent = `▶ Start round — ${teamName}`;
-    }
-    startBtn.style.display = (!raceRunning && left) ? 'inline-block' : 'none';
-    skipBtn.style.display  = (raceRunning && left) ? 'inline-block' : 'none';
-  }
-
-  /* ---- Race's tension curve ----
-     The other three read a rung, a tile's value and the distance to a line. This
-     game has none of those, but it has two things that matter at once: **how much
-     of the board is gone**, and **whether a race is actually happening right now**.
-     A sentence going up is the moment students leave their chairs, so it counts for
-     nearly as much as a nearly-empty board — and the last word on the board with a
-     sentence live is the loudest this game gets, which is exactly right.
-
-     Deliberately the same in both modes. Timed rounds already have the header
-     clock going red under ten seconds; driving the stage off the clock as well
-     would mean the lights say something different from the number beside them. */
-  /* The words fly in — but only on the opening scatter. Race re-scatters after every
-     claim, and a full fly-in each time would put an animation between the teacher
-     and the next sentence a dozen times a game. The re-scatter instead glides, which
-     the CSS does for free once `.lit` puts a transition on left/top. */
-  function rDeal(){
-    dealStagger('play-race', document.getElementById('race-words'), wrap => {
-      [...wrap.querySelectorAll('.race-word')].forEach((el, i)=> el.style.setProperty('--i', i));
-    }, 1800);
-  }
-
-  function rTension(){
-    stageTension('race', (stage) => {
-      const done  = raceWords.filter(w=>w.found).length;
-      const clear = raceWords.length ? done/raceWords.length : 0;
-      const live  = !!(raceRunning && raceCurrent);
-      stage.classList.toggle('running', live);
-      return { t: Math.min(1, 0.6*clear + (live ? 0.4 : 0)), live };
-    });
-  }
-
-  /* Who has already missed the sentence currently up. Head-to-head re-opened the
-     buzzers after a wrong touch but recorded nothing, so the team that had just got
-     it wrong could buzz straight back in and try again — which is not a steal, it is
-     a retry, and it left the other team with nothing to win. */
-  let raceFailed = new Set();
-
-  function raceCanTry(teamIdx){
-    /* In a timed round only the team whose round it is may buzz. Head-to-head is the
-       mode where both teams are at the board at once; timed is explicitly one team
-       against the clock, so a buzz from the bench would steal a word off someone
-       else's score. */
-    if(raceMode === 'timed' && teamIdx !== active) return false;
-    return !S.get('stealOnWrong', 'race') || !raceFailed.has(teamIdx);
-  }
-
-  function onRaceWordClick(w, el){
-    if(!raceRunning || !raceCurrent || w.found || racePending) return;
-    const showy = document.getElementById('play-race').classList.contains('lit');
-    if(w.word === raceCurrent.answer){
-      Sound.play(showy ? 'sting' : 'correct');
-      el.classList.remove('wrong');
-      if(raceMode==='h2h'){
-        if(buzzWinner && teams[buzzWinner.team]){
-          // a phone already told us who got in first — no need to ask
-          racePending = { w, el };
-          awardRaceWord(buzzWinner.team, el);
-          return;
-        }
-        // nobody buzzed (or no buzzers at all) — fall back to asking, minus anyone
-        // who has already had their shot at this sentence
-        racePending = { w, el };
-        el.classList.add('pending');
-        showClaimBar();
-      } else {
-        awardRaceWord(active, el);
-      }
-    } else {
-      Sound.play(showy ? 'klaxon' : 'wrong');
-      el.classList.add('wrong');
-      setTimeout(()=>el.classList.remove('wrong'), 600);
-      if(raceMode==='timed'){
-        // keep the pace up: no penalty, but move on — the sentence returns later
-        raceQueue.push(raceCurrent);
-        nextRacePrompt();
-      } else {
-        /* h2h: the sentence stays up so the other team can steal it. Only record a
-           failure when a phone actually told us who it was — head-to-head has no
-           team on turn (both are at the board at once, which is why the engine asks
-           after a correct touch). Blaming `active` here would invent a fact the app
-           does not have and lock a team out of a sentence they may never have tried. */
-        if(buzzWinner && teams[buzzWinner.team]) raceFailed.add(buzzWinner.team);
-        // only the racing modes have a floor to hand back; in 'write' the whole
-        // class is answering and there is nothing to re-open
-        if(buzzHost && phoneRaces()) armBuzzers(raceCurrent.prompt);
-      }
-    }
-  }
-
-  // Award the pending (or, in timed mode, the just-clicked) word to a team.
-  function awardRaceWord(teamIdx, elOverride){
-    const hit = racePending || { w: raceWords.find(x=>x.word===raceCurrent.answer), el:elOverride||null };
-    if(!hit.w) return;
-    hit.w.found = true;
-    hit.w.by    = teamIdx;
-    award(teamIdx, 1, { why:'word · ' + (hit.w.word || '') });
-    markRun(teamIdx, true);
-    racePending = null;
-    hideClaimBar();
-    resetBuzzers();
-    renderScorebar();
-    if(S.get('raceRescatter', 'race')){
-      renderRaceWords();   // re-scatter, so nobody wins on remembering where a word sat
-    } else if(hit.el){
-      hit.el.classList.remove('pending');
-      hit.el.classList.add('found', 'team-'+Math.min(teamIdx,3));
-    }
-    rTension();
-    nextRacePrompt();
-  }
-
-  const raceClaim = Kit.claimTeam({
-    mount:  document.getElementById('race-claim'),
-    onPick: i => awardRaceWord(i)
-  });
-  function showClaimBar(){
-    /* **A live round owns the verdict**, so this board's own way of awarding stands
-       down while one is open — otherwise the chooser is a second way to pay for the
-       same question. Blockbusters' team chooser learned this first. */
-    if(roundLive()){ hideClaimBar(); return; }
-    const allow = teams.map((_, i) => i).filter(raceCanTry);
-    raceClaim.show(teams, allow.length ? allow : null);
-  }
-  function hideClaimBar(){
-    raceClaim.hide();
-    if(racePending && racePending.el) racePending.el.classList.remove('pending');
-  }
-
-  document.getElementById('race-start').addEventListener('click', startRaceRound);
-  document.getElementById('race-skip').addEventListener('click', ()=>{
-    if(!raceRunning || !raceCurrent) return;
-    if(racePending){ racePending.el.classList.remove('pending'); racePending=null; hideClaimBar(); }
-    raceQueue.push(raceCurrent);
-    nextRacePrompt();
-  });
-
   // one listener for every board, now and later — a new game gets re-fitted on
   // resize by declaring onResize, not by being added to a list here
   window.addEventListener('resize', ()=>{ hook('onResize'); });
@@ -7945,6 +7387,13 @@
     drawPrompt, askPhones, armBuzzers, resetBuzzers,
     showResult, hideResult, showStandings, standingsWanted,
     notePhoneScore, notePhoneMiss,
+    /* The shared deal-in stagger (Jeopardy, Blockbusters and Race all fly their board
+       in the same way) and the phone-mode query Race reads to decide whether a wrong
+       touch re-arms the buzzers. */
+    dealStagger, phoneRaces,
+    /* Who holds the floor right now, or null — Race reads it to award a head-to-head
+       touch to whoever buzzed in first. Distinct from clearFloor, which drops it. */
+    floorWinner: () => buzzWinner,
     // content, roster, presentation
     groupCheckboxes, sectionHeading, contentRow, groupOf, inPlay, shuffle,
     selectedContent: () => selectedContent,
