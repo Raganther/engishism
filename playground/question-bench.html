@@ -226,8 +226,12 @@
       <button id="add-phone" class="ghost" disabled
               title="No relay is reachable, so there is no room for a phone to join.">
         + phone — no relay</button>
-      <!-- One click to a standard classroom division — teams × phones each. The
-           same strip the room bench carries, from bench-kit. -->
+      <!-- Teams, or a room of individuals — the same two the hub's team bar offers.
+           At the head of the room-shape controls, because it decides what the phone
+           presets to its right mean: teams × phones, or that many players. -->
+      <span id="roster-seg"></span>
+      <!-- One click to a standard classroom division — teams × phones each, or in
+           solo that many individual players. The same strip the room bench carries. -->
       <span id="bar-layouts"></span>
       <select id="for-team" style="display:none" title="Which team the teacher is playing for"></select>
     </div>
@@ -339,6 +343,15 @@ const Kit = window.HubKit;
    stops being readable. Names only: there is no score here on purpose. */
 const MAX_TEAMS = 4;
 let TEAMS = ['Team 1', 'Team 2'];
+
+/* **Teams, or a room of individuals** — the same switch the hub's team bar carries
+   (the `roster` setting there, `Roster.solo()`). A round reads none of this by a flag:
+   what makes it play solo is that `TEAMS` becomes one entry per person and `sizes`
+   becomes `[1,1,…]` (a competitor of one), and a whole-team `mode` resolves to the
+   round's solo one. The hub re-seats the whole room server-side; the bench keeps its
+   own little room, so `setSolo` does the reseating here — each phone gets its own
+   competitor index, which is the only thing that makes each a competitor of its own. */
+let SOLO = false;
 
 /* Assigned below rather than here: the namespacing helpers are `const`, so naming
    one at this point is a temporal-dead-zone error — which threw before the menu was
@@ -491,7 +504,7 @@ function ctx(){
     crowdLive: false,
     commentary: 'headline',                            // roundCommentary default
     nudge: kind => { if(host && host.nudge) host.nudge(kind); },
-    solo: false,                                       // the bench plays teams
+    solo: SOLO,                                        // lent for parity; no round reads it
     hideVotes: false,
     lockIn: false,
     countVotes: false,
@@ -539,7 +552,9 @@ function ctx(){
 /* Only a race has a team to choose — a shared ladder is one board. */
 function fillTeamPick(){
   const sel = $('for-team');
-  const racing = $('mode-pick').value === 'race';
+  /* "Playing for" is the teacher standing in for one team with no phones — a team
+     idea. In a room of individuals the phones are the players, so it stands down. */
+  const racing = $('mode-pick').value === 'race' && !SOLO;
   sel.innerHTML = '';
   sel.style.display = racing ? '' : 'none';
   if(!racing) return;
@@ -555,7 +570,11 @@ function fillModes(){
   const sel = $('mode-pick');
   /* A form is played one way — drawn, then revealed — so it declares no modes and
      gets no picker, which is the same rule a one-mode round already follows. */
-  const modes = (def && def.modes) || [];
+  let modes = (def && def.modes) || [];
+  /* A whole-team mode is nonsense for a room of individuals — `agree` is satisfied
+     the instant anybody taps. The hub resolves it away (`roundModeOf`); the bench
+     simply does not offer it in solo, so the picker shows the truth of what plays. */
+  if(SOLO && def && def.teamMode) modes = modes.filter(m => m.value !== def.teamMode);
   sel.innerHTML = '';
   sel.style.display = modes.length ? '' : 'none';
   modes.forEach(m=>{
@@ -1009,6 +1028,16 @@ function ask(){
   }
   if(!state) return;
   const arm = roundDef().arm(state, ctx());
+  /* The solo commit beat, exactly as `askPhones` adds it in the hub
+     (hub-engine.js): in a room of individuals a tap round holds its taps until the
+     player presses Send, and the live preview rides on the back of that. It is a
+     host fact, not the round's — set on the arm here, or the bench's solo would let
+     a tap be the answer and would not be the room a class actually meets. Treated as
+     on because `roundSend` defaults on; the bench has no panel to turn it off. */
+  if(SOLO && (arm.mode === 'vote' || arm.mode === 'arrange')){
+    arm.send = true;
+    if(ctx().crowdLive) arm.preview = true;
+  }
   host.arm(arm.prompt, arm);          // carried to the relay unread, exactly as a game show does
 }
 
@@ -1297,12 +1326,13 @@ function nextTeam(){
 
 function refreshRackChrome(){
   const btn = $('add-phone');
+  const noun = SOLO ? 'player' : 'phone';
   if(PHONES.length >= RACK_MAX){
     btn.disabled = true;
-    btn.textContent = RACK_MAX + ' phones max';
+    btn.textContent = RACK_MAX + ' ' + noun + 's max';
   } else if(host){
     btn.disabled = false;
-    btn.textContent = PHONES.length ? '+ phone (' + PHONES.length + ')' : '+ phone';
+    btn.textContent = PHONES.length ? '+ ' + noun + ' (' + PHONES.length + ')' : '+ ' + noun;
   }
   /* Say which situation you are in rather than which number is true. Over plain
      http a browser runs out of connections at six per origin — the board's stream
@@ -1343,8 +1373,13 @@ function removePhone(p){
 
 function addPhone(team){
   if(!host || PHONES.length >= RACK_MAX) return;
-  const t = (team == null) ? nextTeam() : Number(team);
   const name = NAMES[seat++ % NAMES.length];
+  /* In solo each phone is its own competitor, named by the player — the bench's
+     stand-in for the hub's `seatSoloPlayers` (one `Roster.add` per phone, its own
+     seat index). In teams a phone joins an existing side. */
+  let t;
+  if(SOLO){ TEAMS.push(name); t = TEAMS.length - 1; }
+  else    { t = (team == null) ? nextTeam() : Number(team); }
   const row = rackRow(t);
   const label = row.parentNode.querySelector('.rack-label .none');
   if(label) label.remove();
@@ -1377,11 +1412,31 @@ function addPhone(team){
   setTimeout(()=>{ draw(); fitAll(); }, 900);   // the share moves when a team grows
 }
 
+/* Tear the whole rack down — every phone iframe (its stream drops, and the relay
+   runs the same leave a dying phone does) and every competitor row. Callers set
+   `TEAMS` to the new shape and re-add. Used where the competitors change wholesale:
+   the mode toggle, and a solo preset. */
+function clearRack(){
+  PHONES.slice().forEach(p => p.el.remove());
+  PHONES.length = 0;
+  $('rack').querySelectorAll('[id^="rack-team-"]').forEach(b => b.remove());
+  refreshRackChrome();
+}
+
 /* One click to a standard classroom division — n teams of m phones. The rack is
    reconciled rather than rebuilt: phones already in the right place stay, so
    their streams are never dropped for the sake of a layout. */
 function applyLayout(n, m){
   if(!host) return;
+  /* The same preset buttons, reinterpreted in solo: n×m is simply that many
+     individual players (4×4 is sixteen either way — only the grouping differs). */
+  if(SOLO){
+    const total = Math.max(0, Math.min(RACK_MAX, (Number(n) || 0) * (Number(m) || 0)));
+    clearRack(); TEAMS = []; seat = 0;
+    for(let i = 0; i < total; i++) addPhone();
+    fillTeamPick(); build(); pushTeams(); ask(); fitAll();
+    return;
+  }
   n = Math.max(1, Math.min(MAX_TEAMS, Number(n) || 1));
   m = Math.max(0, Number(m) || 0);
   PHONES.slice().filter(p => p.team >= n).forEach(removePhone);
@@ -1408,9 +1463,71 @@ function applyLayout(n, m){
 }
 
 function pushTeams(){ if(host) host.setTeams(TEAMS.slice()); }
+
+/* **The Teams / Individuals switch — the hub's team-bar toggle, done locally.** A
+   round reads no flag for this: what makes it play solo is a `TEAMS` of one entry per
+   person and `sizes` of `[1,…]`, which only happens if every phone sits on its own
+   competitor index. The hub re-seats the room server-side; here the toggle rebuilds
+   the rack — every phone is dropped and re-added on its own index — because the
+   bench pins a phone's competitor in its join URL (`&team=`) and never re-parents an
+   iframe, so a competitor can only change by reloading it. A deliberate switch, like
+   the hub's own re-seat, so the reload is the honest cost. */
+function setSolo(on){
+  if(SOLO === on) return;
+  const keep = PHONES.length;                    // carry the class size across
+  clearRack();
+  SOLO = on; seat = 0;
+  TEAMS = on ? [] : ['Team 1', 'Team 2'];
+  if(!on) TEAMS.forEach((_, t) => rackRow(t));   // team rows exist before their phones
+  const want = on ? (keep || 4) : keep;          // a fresh solo room opens with a few
+  for(let i = 0; i < want && PHONES.length < RACK_MAX; i++)
+    addPhone(on ? undefined : (i % TEAMS.length));
+  $('add-team').style.display = on ? 'none' : '';   // no teams to add in a solo room
+  paintRosterSeg();
+  /* Refill the mode picker for the new room: a whole-team mode leaves the menu in
+     solo and returns in teams, so the picker keeps showing the truth of what plays. */
+  fillModes();
+  fillTeamPick();
+  build(); if(host){ pushTeams(); ask(); } fitAll();
+}
+
+function paintRosterSeg(){
+  const seg = $('roster-seg'); if(!seg) return;
+  seg.querySelectorAll('button').forEach(b =>
+    b.classList.toggle('on', (b.dataset.mode === 'solo') === SOLO));
+}
+function buildRosterSeg(){
+  const seg = $('roster-seg'); if(!seg) return;
+  if(!document.getElementById('roster-seg-css')){
+    const css = document.createElement('style');
+    css.id = 'roster-seg-css';
+    css.textContent =
+      '#roster-seg{ display:inline-flex; gap:5px; align-items:center; }' +
+      '#roster-seg button{ font-family:"IBM Plex Mono",monospace; font-size:0.72rem; }' +
+      '#roster-seg button.on{ outline:2px solid currentColor; opacity:1; }';
+    document.head.appendChild(css);
+  }
+  [['teams', 'Teams'], ['solo', 'Individuals']].forEach(([val, label])=>{
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'ghost'; b.textContent = label; b.dataset.mode = val;
+    b.title = val === 'solo'
+      ? 'Everyone against everyone — each phone is its own competitor'
+      : 'A name is a group of students; phones join a side';
+    b.addEventListener('click', ()=> setSolo(val === 'solo'));
+    seg.appendChild(b);
+  });
+  paintRosterSeg();
+}
+
 $('add-team').addEventListener('click', addTeam);
-$('add-phone').addEventListener('click', ()=> addPhone());
+/* Adding a phone in solo is adding a competitor, so the round must be re-set-up the
+   way a new team already forces — in teams a phone just joins a side, no re-deal. */
+$('add-phone').addEventListener('click', ()=>{
+  addPhone();
+  if(SOLO){ build(); pushTeams(); ask(); }
+});
 BenchKit.layout($('bar-layouts'), applyLayout);
+buildRosterSeg();
 
 /* The room bench's handle when this page is its board — grow-only, exactly as
    the hub's team bar exposes. */
