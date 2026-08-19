@@ -252,3 +252,8 @@ If you are checking a game someone else wired up, these five catch nearly everyt
 3. Does the game answer `expects`, `phonePrompt` and `askingNow` itself?
 4. Does it use `drawPrompt` and `Kit.floorTop()` rather than its own versions?
 5. Does the join code appear in it with the phone mode off?
+6. Where the game *calls* a shared service — not answers a hook — does it hand over the
+   key that service actually reads? A service reads one named field off what you pass and
+   ignores the rest, so a plausible synonym is a silent no-op with no error anywhere:
+   `showResult`'s end-of-run buttons fire `onPick`, never a DOM-style onClick. Checks 1–5
+   are all about hooks the engine calls *back*; a call going the other way is the blind spot.
