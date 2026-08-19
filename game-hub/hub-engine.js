@@ -214,88 +214,13 @@
       document.getElementById('wrong-btn').style.display='inline-block';
     },
     /* The shared claim chooser is this board's steal picker too: picking a team takes
-       the steal for them, or — no steal live — falls through to the ordinary claim,
-       which is the same route Blockbusters uses by declaring nothing here. */
-    onClaimPick(i){ return jSteal ? jTakeSteal(i) : claimHex(i); },
+       the steal for them. A steal is the only time Jeopardy shows the chooser, so with
+       no steal live there is nothing to pick — Blockbusters declares its own claim. */
+    onClaimPick(i){ return jSteal ? jTakeSteal(i) : null; },
     onResize: fitJeopardyBoard,
     onWrong:  jOfferSteal
   });
 
-  registerGame({
-    id:'blockbusters', title:'Blockbusters',
-    /* **Two routes across the board, and any number of people on them.** `bbSideOf`
-       is index parity and has split four teams into two alliances since the day this
-       board seated more than two — individuals need nothing new. Points stay yours;
-       the line belongs to your half of the room, which is the one place on any board
-       where solo and team play are the same game. */
-    solo: true,
-    card:{
-      icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4 L33 11.5 L33 26.5 L20 34 L7 26.5 L7 11.5 Z"/><path d="M20 13 L26 16.5 L26 23.5 L20 27 L14 23.5 L14 16.5 Z"/></svg>',
-      blurb:'Hexagon board. Yellow connects left&rarr;right, Blue connects top&rarr;bottom, by answering letter clues.',
-      badge:'Best for: single-word / short-answer vocab' },
-    intro:{ eyebrow:'Cambridge Empower C1', title:'BLOCKBUSTERS',
-            sub:'Yellow goes across. Blue goes down. Build your line.', accent:'#C77DFF' },
-    hasBank: u => (u.blockbustersBank||[]).length > 0,
-    fitsScreen: false,        // this board scales around the banner rather than fitting
-    load(u){ BLOCKBUSTERS_BANK          = u.blockbustersBank || [];
-             BLOCKBUSTERS_SECTION_NAMES = u.blockbustersSectionNames || {};
-             BLOCKBUSTERS_TOPIC_NAMES   = u.topicNames || {}; },
-    bank: () => BLOCKBUSTERS_BANK,
-    /* The *team* on turn — only the side index while there are two teams; with
-       four it rotates within each side. And every chip wears its side's colour,
-       because a hexagon belongs to a side while points belong to a team. */
-    turnTeam: () => bbTeamOnTurn(),
-    teamDecor: i => `<span class="dot" style="background:${bbSideOf(i)===0?'var(--yellow)':'var(--blue)'}"></span>`,
-    renderContent: renderBlockbustersContent,
-    startButton:   blockbustersStartButton,
-    start(){
-      pool = shuffle(BLOCKBUSTERS_BANK.filter(inPlay));
-      pool = pool.slice(0, BB_TOTAL);
-      buildBlockbustersBoard();
-      bbTurn=0; bbSideAt=[0,0]; renderBBTurn(); bbClearOutcome();
-      bbVote=null; bbVoting=false; renderBBVote();
-      timerSetDuration(30);
-    },
-    expects:     () => (currentClueItem && currentClueItem.answer) || '',
-    phonePrompt: () => (currentClueItem && currentClueItem.text) || '',
-    askingNow:   () => clueIsOpen(),
-    onBuzzTaken(b){ if(teams[b.team]){ active = b.team; renderScorebar(); } },
-    onTypedWin(b){ return currentClueItem ? (claimHex(b.team) || 1) : null; },
-    /* Two completely different questions can be open on these handsets, and only one
-       at a time: the round in the clue card, or the team choosing which hexagon to
-       attack. `openBlockbustersClue` ends the vote before it opens a round, so they
-       are mutually exclusive by construction — but the round is asked first anyway,
-       because it is the one that owns the card. */
-    wantsVote:   () => roundLive() || !!S.get('bbTeamVote', 'blockbusters'),
-    /* **The replies have to come back in, not just go out.** Arming the phones for a
-       round and never routing what they send is silent: the handsets look right, the
-       card looks right, and every tap is dropped on the floor. That is exactly what
-       shipped when this board became a round host — `phoneRound()` was declared and
-       this was not. */
-    onVoteReply(all){
-      if(roundLive()){ roundOnReplies(all); return; }
-      if(bbVote){ bbVote.apply(all); renderBBVote(); }
-    },
-    /* A hexagon can open a round, and a round owns the handsets while it runs —
-       the same reason Jeopardy's tile does. The mode is not consulted, because
-       what the phones are put into *is* the question here. */
-    phoneRound(){ return roundForPhones(); },
-    // the vote button names the team on turn, and the room arrives after the board
-    onRoomReady(){ renderBBVote(); },
-    // the turn indicator and the vote button both name teams, so a roster change
-    // (a team removed mid-board, or the room bench growing it) has to repaint them
-    onRoster(){ renderBBTurn(); renderBBVote(); },
-    fit:      layoutBlockbustersBoard,
-    deal:     bbDeal,
-    tension(){ bbTension(); },
-    /* **Revealing a round clue on this board re-offers the claim chooser.** A round
-       stops judging the moment it is revealed, and Blockbusters has no Correct button —
-       claiming *is* how it scores — so without the chooser a hexagon opened by a round
-       could only be left unclaimed. Declared here so the shared reveal handler names no
-       game; it fires only while a round is live, which is the only time it is needed. */
-    onRoundReveal(){ clueClaim.show(teams, teams.map((_, i) => i)); },
-    onResize: layoutBlockbustersBoard
-  });
 
   /* ---------- which boards can host a round ----------
      A round is drawn in the shared clue card, so it is literally the same code
@@ -392,36 +317,6 @@
          letters lighting the card alone reads worse than the invisible-word cost,
          which the room bench's mode row can trade away per lesson. */
       modeDefaults: { ordering:'race' }
-    },
-    blockbusters: {
-      game:'blockbusters', stage:'play-blockbusters',
-      mount: CARD_MOUNT, commit:'group-btn',
-      live: () => modalMode === 'blockbusters',
-      /* Whose turn it is here is the team whose *side* is up. A four-team class
-         plays as two alliances, so the round belongs to whoever is actually at the
-         board rather than to `active`, which follows the last buzz. */
-      turn: () => bbTeamOnTurn(),
-      /* A hexagon is worth what the board says a hexagon is worth — the floor is
-         there because a round that paid nothing would read as not having counted. */
-      win:  team => claimHex(team) || 1,
-      /* A hexagon is one point, and a point is the smallest thing this board has —
-         so a team that gets there second is paid the same 1. That is not the floor
-         failing, it is the board having no smaller unit: what being first buys here
-         is the *square*, which is what wins the game, and no amount of points is
-         that. Declared rather than left out so the row exists to be tuned. */
-      worth: () => 1,
-      step:  () => 1,
-      /* **This board is team-based too, and it had been playing as though it were
-         not.** Jeopardy declared this and Blockbusters did not, so every round here
-         fell to its own first mode — first tap wins — which on a yellow-versus-blue
-         board means the fastest thumb on the side that is up answers while the rest
-         of their alliance never has to commit to anything. That is the exact
-         objection that put the declaration on Jeopardy; there was no reason for the
-         two to differ, only an omission. Ordering is *not* named here the way it is
-         on Jeopardy: only one side is at the board at a time, so a shared climb
-         reads as the one ladder it is. The drag rounds wore `first` here for one
-         day — reverted with Jeopardy's, the user's call after testing. */
-      teamMode: true
     },
   };
   /* An external game file cannot edit the table above, so it declares its entry —
@@ -1114,17 +1009,9 @@
     label:'The team picks its hexagon on their phones',
     help:'Adds a button that asks the team on turn which letter to attack. Their votes land beside the legend and the hexagons light up; you still click the one that plays. Works alongside whatever the phones are doing during a clue. Needs a room; with no phones the button stays hidden.' });
 
-  S.register({ id:'bbWinRoute', group:'Blockbusters', adv:true, type:'variant', default:'trace',
-    games:['blockbusters'],
-    label:'Winning route', help:'How the completed line is shown when a team connects its two edges.',
-    variants:[{value:'trace', label:'Light up along the route'},
-              {value:'pulse', label:'Flash the whole route at once'},
-              {value:'off',   label:'Just mark it — no animation'}] });
-
-  S.register({ id:'bbEdges', group:'Blockbusters', adv:true, type:'toggle', default:true,
-    games:['blockbusters'],
-    label:'Team edges around the board',
-    help:'Yellow teeth down the sides and blue along the top and bottom, so which way each team has to connect is on the board itself.' });
+  /* Blockbusters' own settings (bbWinRoute, bbEdges) moved with the game into
+     game-hub/games/blockbusters.js. The shared keepControl (Competition) and bbTeamVote
+     (Phones) stay here, in their shared groups. */
 
   /* A skin, not a rewrite. Game show is the default: the app is a classroom
      presentation tool and the lit look is what makes a class sit up, so it should be
@@ -1482,15 +1369,6 @@
         </div>
         <div id="board"></div>
       </div>
-      <div id="play-blockbusters">
-        <div id="legend">
-          <span class="legend-gold"><span class="dot" style="background:var(--gold)"></span> Yellow: left &rarr; right</span>
-          <span class="legend-silver"><span class="dot" style="background:var(--silver)"></span> Blue: top &rarr; bottom</span>
-          <button id="bb-ask" style="display:none;">Team picks</button>
-          <span id="bb-tally" style="display:none;"></span>
-        </div>
-        <div id="hexwrap"></div>
-      </div>
 
     </div>
 
@@ -1632,9 +1510,6 @@
   let UNIT = null;
   let JEOPARDY_SECTION_LABELS   = {};
   let JEOPARDY_CATEGORIES       = [];
-  let BLOCKBUSTERS_BANK         = [];
-  let BLOCKBUSTERS_SECTION_NAMES= {};
-  let BLOCKBUSTERS_TOPIC_NAMES  = {};
 
   // Which games a unit can actually offer — a unit without a bank for a game
   // simply doesn't show that card, so units can adopt new games one at a time.
@@ -1694,7 +1569,6 @@
   /* ================= STATE / NAVIGATION ================= */
   let activeGame = null;
   let selectedContent = [];
-  let pool = [];
 
   /* A team is data, never DOM: renderScorebar() tears the whole bar down and
      rebuilds it on every score change, so anything held in an element is destroyed.
@@ -1738,10 +1612,10 @@
        !confirm('Remove ' + teams[i].name + '? They have ' + teams[i].score + ' points.')) return;
     teams.splice(i, 1);
     // a team was removed at index i: the active board shifts its own per-team state
+    // (Millionaire's ladder, Blockbusters' side-turn) through the hook
     hook('onTeamsChanged', i);
     if(active > i) active--;
     if(active >= teams.length) active = teams.length - 1;
-    bbSideAt = [0, 0];
     /* The phones' indices shift with the board's, or the two disagree for the
        rest of the lesson — the first live class paid a Drag the Letters win to a
        team that no longer existed, because every joined phone kept the number it
@@ -1836,7 +1710,6 @@
     }
   };
   let active = 0;   // jeopardy: selected/active team index
-  let bbTurn = 0;   // blockbusters: whose turn (0 = Yellow/teams[0], 1 = Blue/teams[1])
 
   function showScreen(id){
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -2429,7 +2302,7 @@
   });
 
   document.getElementById('new-game-btn').addEventListener('click', ()=>{
-    activeGame=null; window.HubGames.setActive(null); selectedContent=[]; pool=[];
+    activeGame=null; window.HubGames.setActive(null); selectedContent=[];
     S.setContext(null);
     // park, don't close: the class stays joined on the same code for the next game
     parkBuzzRoom();
@@ -3367,13 +3240,6 @@
     });
   }
 
-  function renderBlockbustersContent(list, help){
-    document.getElementById('blockbusters-rules').style.display='block';
-    help.textContent = "Pick the topics that feed the board. Each clue's answer starts with the letter shown on its hexagon.";
-    groupCheckboxes(list, BLOCKBUSTERS_BANK, BLOCKBUSTERS_TOPIC_NAMES, BLOCKBUSTERS_SECTION_NAMES);
-  }
-
-
 
   function onContentToggle(){
     selectedContent = [...document.querySelectorAll('#content-list input:checked')].map(i=>i.value);
@@ -3414,12 +3280,6 @@
       : `Build board with ${selectedContent.length} categories`;
   }
 
-  function blockbustersStartButton(btn){
-    const total = BLOCKBUSTERS_BANK.filter(inPlay).length;
-    startGate(btn, { picked: selectedContent.length > 0, total, need: BB_TOTAL,
-      short: `Need ${BB_TOTAL} clues for a full board`,
-      ready: `Build board — ${BB_TOTAL} of ${total} clues, shuffled` });
-  }
 
 
 
@@ -3458,605 +3318,6 @@
     }
   });
 
-  /* ================= BLOCKBUSTERS ================= */
-  const BB_ROWS  = [5,4,5,4];                        // the classic board
-  const BB_TOTAL = BB_ROWS.reduce((a,b)=>a+b,0);    // how many clues fill it — derive, never re-type
-
-  /* ---- more than two teams on a two-sided board ----
-     The board is structurally two-sided: yellow connects left→right, blue connects
-     top→bottom, and there is no third route for a third team to win by. So a class
-     split into four cannot each have their own colour here — but they can all play,
-     as **two alliances**: odd teams on yellow, even on blue, each scoring its own
-     points while the *line* belongs to a side.
-
-     `bbSideOf` is the whole mechanism, and with exactly two teams it is the identity
-     — team 0 is yellow, team 1 is blue — so nothing about the two-team game changes.
-     Within a side the teams take it in turn, so a four-team class rotates
-     Lions → Tigers → Bears → Wolves across the two colours rather than two students
-     playing the whole game. */
-  function bbSideOf(teamIdx){ return teamIdx % 2; }
-  function bbTeamsOn(side){ return teams.map((_, i) => i).filter(i => bbSideOf(i) === side); }
-  let bbSideAt = [0, 0];   // which of that side's teams is up next
-  function bbTeamOnTurn(){
-    const list = bbTeamsOn(bbTurn);
-    if(!list.length) return bbTurn;                    // no team on this side yet
-    return list[bbSideAt[bbTurn] % list.length];
-  }
-  // the side's turn has been used, so the next one goes to that side's next team
-  function bbAdvanceSide(side){
-    const list = bbTeamsOn(side);
-    if(list.length > 1) bbSideAt[side] = (bbSideAt[side] + 1) % list.length;
-  }
-
-  function renderBBTurn(){
-    const g=document.querySelector('#legend .legend-gold');
-    const s=document.querySelector('#legend .legend-silver');
-    if(g) g.classList.toggle('active-turn', bbTurn===0);
-    if(s) s.classList.toggle('active-turn', bbTurn===1);
-    /* Name who is actually playing each colour. With two teams this says what the
-       team bar already says; with four it is the only place that says which of
-       Lions and Bears is up. */
-    /* Marked with a class, never shouted in the markup: the name a teacher typed is
-       the name that should be in the DOM, and anything reading the legend — a test,
-       a screen reader — should see it as typed. CSS does the emphasis. */
-    const label = (el, side) => {
-      if(!el) return;
-      const list = bbTeamsOn(side);
-      const on   = bbTeamOnTurn();
-      let host = el.querySelector('.legend-teams');
-      if(!host){ host = document.createElement('span'); host.className = 'legend-teams'; el.appendChild(host); }
-      host.innerHTML = '';
-      list.forEach((i, k) => {
-        if(k) host.appendChild(document.createTextNode(' / '));
-        const n = document.createElement('span');
-        n.className = 'legend-team' + (i === on && bbTurn === side ? ' on' : '');
-        n.textContent = teams[i] ? teams[i].name : ('Team ' + (i+1));
-        host.appendChild(n);
-      });
-      if(list.length) host.insertBefore(document.createTextNode(' — '), host.firstChild);
-    };
-    label(g, 0);
-    label(s, 1);
-  }
-
-  /* ---- the bench votes for the hexagon ----
-     Blockbusters' weakness is that two students play and the rest watch: one
-     person picks the hex, one person answers, and a class of thirty has nothing to
-     do between clues. So the team on turn chooses its next hexagon on their phones
-     — every one of them, not the loudest one — and the counts land on the board.
-
-     Deliberately advisory. The teacher still clicks the hex, because that is the
-     app's constraint everywhere (students never touch the device) and because a
-     vote that opened a clue by itself would make a mis-tap unrecoverable. The
-     leading hexagon is outlined; taking their advice is one click, ignoring it is
-     a different click. */
-  let bbVote = null;      // Kit.vote while the team is choosing
-  let bbVoting = false;   // ...and whether it is still open
-
-  // What is left to attack. Two hexes can carry the same letter, so the options are
-  // the *distinct* letters — a vote names a letter and the board shows every hex
-  // holding it, which is also how a student reading the board would say it.
-  function bbOpenLetters(){
-    const out = [];
-    document.querySelectorAll('#hexwrap .hex').forEach(h=>{
-      if(h.classList.contains('claimed-gold') || h.classList.contains('claimed-silver')) return;
-      const l = (h.dataset.letter || h.textContent || '').trim();
-      if(l && out.indexOf(l) === -1) out.push(l);
-    });
-    return out;
-  }
-
-  function bbAskTeam(){
-    if(!buzzHost || bbWon) return;
-    const letters = bbOpenLetters();
-    if(!letters.length) return;
-    const onTurn = bbTeamOnTurn();
-    bbVote   = Kit.vote.open({ options:letters, team:onTurn });
-    bbVoting = true;
-    const who = teams[onTurn] ? teams[onTurn].name : (bbTurn === 0 ? 'Yellow' : 'Blue');
-    askClass(who + ' — which letter next?', 'vote', letters, onTurn);
-    renderBBVote();
-  }
-
-  /* Closing hands the phones back — the vote borrows the room, it does not own it.
-     Unlike Millionaire's Done voting there is no question live to hand them back
-     *to*: the team has chosen, and the clue they chose has not been opened yet. So
-     the phones go quiet and the next hexagon arms them, which is what `phoneMode`
-     already does on every other board.
-
-     `keep` leaves the numbers up: they are the team's decision, and the teacher is
-     about to click on the hexagon they name. */
-  function bbCloseVote(keep){
-    if(!bbVoting) return;
-    bbVoting = false;
-    if(bbVote) bbVote.close();
-    if(!keep) bbVote = null;
-    if(activeGame === 'blockbusters') parkBuzzRoom();
-    renderBBVote();
-  }
-
-  /* Where the numbers go was the one thing here that had to be got wrong first.
-     A count drawn *on* the hexagon reads perfectly until two hexagons share a
-     letter — and they nearly always do, because a board of eighteen from a vocab
-     bank clusters on common initials. One vote for R then painted "1" on three
-     separate hexagons, which any room would read as three votes.
-
-     So the vote is for a **letter**, and the letters are counted once, in a strip
-     beside the legend. The board's job is to show where that lands: every hexagon
-     carrying the leading letter lights up, which is also the honest picture —
-     the team said R, there are three, and the teacher picks which. */
-  // its own button, filed with its own game — it sat in the Millionaire block once
-  document.getElementById('bb-ask').addEventListener('click', ()=>{
-    if(bbVoting) bbCloseVote(true); else bbAskTeam();
-  });
-  function renderBBVote(){
-    const btn = document.getElementById('bb-ask');
-    const on  = activeGame === 'blockbusters' && !!buzzHost && !bbWon &&
-                S.get('bbTeamVote', 'blockbusters');
-    if(btn){
-      btn.style.display = on ? 'inline-block' : 'none';
-      const onTurn = bbTeamOnTurn();
-      btn.textContent = bbVoting ? 'Done choosing'
-                                 : ((teams[onTurn] ? teams[onTurn].name : 'Team') + ' picks');
-      btn.className = bbVoting ? 'voting' : '';
-    }
-    const lead  = bbVote && bbVote.leader();
-    const strip = document.getElementById('bb-tally');
-    if(strip){
-      const rows = bbVote ? bbVote.options.filter(o=>bbVote.counts[o] > 0)
-                                 .sort((a,b)=>bbVote.counts[b] - bbVote.counts[a]) : [];
-      strip.innerHTML = '';
-      strip.style.display = rows.length ? 'inline-flex' : 'none';
-      rows.forEach(o=>{
-        const el = document.createElement('span');
-        el.className = 'bb-vote-count' + (lead && !lead.tied && o === lead.option ? ' lead' : '');
-        el.dataset.letter = o;
-        el.textContent = o + ' ' + bbVote.counts[o];
-        strip.appendChild(el);
-      });
-    }
-    document.querySelectorAll('#hexwrap .hex').forEach(h=>{
-      const letter = (h.dataset.letter || h.textContent || '').trim();
-      const claimed = h.classList.contains('claimed-gold') || h.classList.contains('claimed-silver');
-      h.classList.toggle('pick', !!lead && !lead.tied && !claimed && letter === lead.option);
-    });
-  }
-
-  function buildBlockbustersBoard(){
-    const wrap=document.getElementById('hexwrap');
-    wrap.innerHTML='';
-    let idx=0;
-    BB_ROWS.forEach((size, r)=>{
-      for(let c=0; c<size; c++){
-        const clueObj = pool[idx++];
-        if(!clueObj) return;
-        const hex=document.createElement('div');
-        hex.className='hex';
-        hex.textContent=clueObj.letter;
-        /* The letter also lives in a data attribute: claiming a hex empties its
-           text, and the vote still has to know which letter that hex was. */
-        hex.dataset.letter=clueObj.letter;
-        hex.dataset.row=r; hex.dataset.col=c;
-        hex.addEventListener('click', ()=> openBlockbustersClue(clueObj, hex));
-        wrap.appendChild(hex);
-      }
-    });
-    layoutBlockbustersBoard();
-  }
-
-  /* Positions are worked out from the hexagons' *rendered* width, which is a vw
-     clamp — so this can only run once the play screen is visible. It used to be
-     done at build time behind a hidden screen, where the measurement came back 0
-     and fell back to a hard-coded 90px step: at 1440px wide the hexes render at
-     116px and so overlapped by 21px. Kept separate from building so a resize
-     repositions without rebuilding, which also means claimed hexes keep their
-     colour instead of being restored by index. */
-  function layoutBlockbustersBoard(){
-    const wrap  = document.getElementById('hexwrap');
-    const hexes = [...wrap.querySelectorAll('.hex')];
-    if(!hexes.length) return false;
-
-    /* `offsetWidth`, not `getBoundingClientRect()`: the rect is the *painted* width,
-       so an ancestor's scale is baked into it. `#play-blockbusters` carries a 350ms
-       transform transition, and the banner scales the board to sit above it — so
-       "New board" cleared the scale and measured one frame later, mid-transition,
-       at 0.84 of the real size. The hexes were then spaced for a 92px hex and
-       rendered at 110, overlapping by 41px; a resize fixed it, which is exactly why
-       leaving and coming back looked fine. Layout width ignores both that and the
-       hexes' own deal animation. */
-    const w = hexes[0].offsetWidth || hexes[0].getBoundingClientRect().width;
-    if(!w) return false;                 // not on screen yet — caller re-runs later
-
-    const h       = w * 1.1547;
-    const gap     = Math.max(4, w * 0.06);
-    const colStep = w + gap;
-    // a vertical step of gap leaves only gap*cos(30) between the slanted edges, so
-    // diagonal neighbours looked tighter than side-by-side ones; this evens them up
-    const rowStep = h * 0.75 + gap * 1.1547;
-    const boardW  = Math.max(...BB_ROWS) * colStep - gap;
-
-    /* ---- the team edges ----
-       The show's own grammar, drawn rather than only written in the legend: a
-       yellow band down each side (yellow crosses left to right), a blue band along
-       the top and the bottom (blue descends) — **continuous zig-zag ribbons that
-       follow the outer contour of the hexagons**, not straight bars, because a
-       straight bar cuts across the notches and separate teeth read as decoration.
-       Each band is one div clipped to a polygon traced from the same measured
-       geometry the board is laid out from: the inner path hugs the silhouette a
-       breath off the faces, the outer path is the same points shifted out by the
-       band's thickness. Rebuilt on every layout, because every number here comes
-       from the measured hex width. */
-    wrap.querySelectorAll('.bb-band').forEach(e => e.remove());
-    const edges = S.get('bbEdges', 'blockbusters');
-    const bt  = w * 0.18;                // band thickness
-    const bg  = gap * 0.8;               // breathing room off the hex faces
-    const pad = edges ? bt + bg + 2 : 0;
-
-    hexes.forEach(hex=>{
-      const r = +hex.dataset.row, c = +hex.dataset.col;
-      const rowW   = BB_ROWS[r] * colStep - gap;
-      const startX = (boardW - rowW) / 2;
-      hex.style.left = (pad + startX + c*colStep) + 'px';
-      hex.style.top  = (pad + r*rowStep) + 'px';
-    });
-
-    if(edges){
-      const band = (cls, pts)=>{
-        const d = document.createElement('div');
-        d.className = 'bb-band ' + cls;
-        d.style.clipPath = 'polygon(' +
-          pts.map(p => (p[0] + pad).toFixed(1) + 'px ' + (p[1] + pad).toFixed(1) + 'px').join(', ') + ')';
-        wrap.appendChild(d);
-      };
-      const sx = r => (boardW - (BB_ROWS[r] * colStep - gap)) / 2;
-      const R  = BB_ROWS.length;
-
-      /* The side silhouette is each row's two left (or right) corners; joining
-         them across the rows gives the diagonals for free, because a staggered
-         row's corner *is* diagonally adjacent to its neighbour's. */
-      const leftIn = [], rightIn = [];
-      for(let r = 0; r < R; r++){
-        const y = r * rowStep;
-        leftIn.push( [sx(r) - bg, y + 0.25*h], [sx(r) - bg, y + 0.75*h]);
-        const X = sx(r) + BB_ROWS[r] * colStep - gap + bg;
-        rightIn.push([X, y + 0.25*h], [X, y + 0.75*h]);
-      }
-      band('gold', leftIn.concat(leftIn.slice().reverse().map(p => [p[0] - bt, p[1]])));
-      band('gold', rightIn.concat(rightIn.slice().reverse().map(p => [p[0] + bt, p[1]])));
-
-      /* Top and bottom trace each boundary hex's point: corner, tip, corner. */
-      const topIn = [], botIn = [];
-      const yb = (R - 1) * rowStep;
-      for(let c = 0; c < BB_ROWS[0]; c++){
-        const x = sx(0) + c * colStep;
-        topIn.push([x, 0.25*h - bg], [x + w/2, -bg], [x + w, 0.25*h - bg]);
-      }
-      for(let c = 0; c < BB_ROWS[R-1]; c++){
-        const x = sx(R-1) + c * colStep;
-        botIn.push([x, yb + 0.75*h + bg], [x + w/2, yb + h + bg], [x + w, yb + 0.75*h + bg]);
-      }
-      band('blue', topIn.concat(topIn.slice().reverse().map(p => [p[0], p[1] - bt])));
-      band('blue', botIn.concat(botIn.slice().reverse().map(p => [p[0], p[1] + bt])));
-    }
-
-    wrap.style.width  = (boardW + 2*pad) + 'px';
-    wrap.style.height = ((BB_ROWS.length-1)*rowStep + h + 2*pad) + 'px';
-    return true;
-  }
-
-  /* ---- has anybody actually won? ----------------------------------------------
-     Until now a completed line did nothing at all — the teacher had to spot it and
-     call it. The board is a honeycomb, so "connected" needs the real geometry.
-
-     A row is inset by (widest − its size) / 2 columns, which is exactly what the
-     layout above does with startX, so a hex's position across the board is
-     `inset + col`. Two hexes touch when that distance is 1 within a row, or ½ in
-     the row above or below. Deriving it from BB_ROWS rather than hard-coding the
-     5/4/5/4 pattern means changing the board shape needs no change here. */
-  const BB_WIDEST = Math.max(...BB_ROWS);
-  function bbAcross(r, c){ return (BB_WIDEST - BB_ROWS[r]) / 2 + c; }
-
-  function bbNeighbours(r, c){
-    const x = bbAcross(r, c), out = [];
-    for(let rr = Math.max(0, r-1); rr <= Math.min(BB_ROWS.length-1, r+1); rr++){
-      for(let cc = 0; cc < BB_ROWS[rr]; cc++){
-        if(rr===r && cc===c) continue;
-        const d = Math.abs(bbAcross(rr, cc) - x);
-        if(Math.abs(d - (rr===r ? 1 : 0.5)) < 0.01) out.push([rr, cc]);
-      }
-    }
-    return out;
-  }
-
-  function bbHexAt(r, c){
-    return document.querySelector('#hexwrap .hex[data-row="'+r+'"][data-col="'+c+'"]');
-  }
-  function bbOwner(hex){
-    return !hex ? null
-         : hex.classList.contains('claimed-gold')   ? 0
-         : hex.classList.contains('claimed-silver') ? 1 : null;
-  }
-
-  /* Shortest connected path across the board, or null. Yellow crosses left→right,
-     blue descends top→bottom.
-
-     An edge hex is one whose *position across the board* is at the extreme, not
-     simply the first in its row: the short rows are inset by half a hexagon, so
-     counting their end hexes as edges would let yellow "win" with a line floating
-     in the middle of the board, touching neither side. That also restores the
-     asymmetry the real game has — yellow needs 5 hexes, blue 4.
-
-     `passable` is what makes one walk answer two questions: pass "hexes this team
-     owns" to find a finished route, or "owns or nobody owns" to ask whether the
-     team can still get there at all. BFS, so the route it returns is the shortest
-     one — which is also the one that traces best. */
-  function bbRoute(team, passable){
-    const last = BB_ROWS.length - 1;
-    const isStart = (r,c) => team===0 ? bbAcross(r,c)===0 : r===0;
-    const isEnd   = (r,c) => team===0 ? bbAcross(r,c)===BB_WIDEST-1 : r===last;
-    const key = (r,c) => r+','+c;
-    const from = new Map();
-    const queue = [];
-
-    for(let r=0; r<=last; r++) for(let c=0; c<BB_ROWS[r]; c++){
-      if(isStart(r,c) && passable(r,c)){ from.set(key(r,c), null); queue.push([r,c]); }
-    }
-    while(queue.length){
-      const cell = queue.shift();
-      if(isEnd(cell[0], cell[1])){
-        const path = [];
-        for(let at = cell; at; at = from.get(key(at[0], at[1]))) path.unshift(at);
-        return path;
-      }
-      bbNeighbours(cell[0], cell[1]).forEach(n=>{
-        if(from.has(key(n[0], n[1])) || !passable(n[0], n[1])) return;
-        from.set(key(n[0], n[1]), cell);
-        queue.push(n);
-      });
-    }
-    return null;
-  }
-
-  /* A win, a dead board, or nothing yet. "Blocked" is a real Blockbusters ending:
-     once neither team can reach its far edge even using every unclaimed hex, the
-     round is over however many hexes are left, and saying so beats playing on to
-     no conclusion. */
-  function bbOutcome(){
-    const owns = t => (r,c) => bbOwner(bbHexAt(r,c)) === t;
-    for(const team of [0,1]){
-      const path = bbRoute(team, owns(team));
-      if(path) return { type:'win', team, path };
-    }
-    const open = t => !!bbRoute(t, (r,c)=>{
-      const hex = bbHexAt(r,c);
-      if(!hex) return false;
-      const o = bbOwner(hex);
-      return o === null || o === t;
-    });
-    if(!open(0) && !open(1)) return { type:'blocked' };
-    return null;
-  }
-
-  /* ---- Blockbusters' tension curve ----
-     Millionaire reads the rung and Jeopardy reads what's at stake on the tile. This
-     board has neither, but it has something better: **how close anybody is to
-     winning**. Cheapest route to a finished line, where your own hexes are free,
-     an unclaimed one costs the question you'd have to answer to take it, and the
-     other team's are walls. One hex from a line is as tense as this game gets, and
-     the lights say so before the class has worked it out.
-
-     Dijkstra rather than the plain BFS `bbRoute` uses, because here the edges have
-     different costs. Eighteen cells, so a linear scan for the nearest node is the
-     right amount of machinery. */
-  function bbStepsToWin(team){
-    const last = BB_ROWS.length - 1;
-    const isStart = (r,c) => team===0 ? bbAcross(r,c)===0 : r===0;
-    const isEnd   = (r,c) => team===0 ? bbAcross(r,c)===BB_WIDEST-1 : r===last;
-    const key = (r,c) => r+','+c;
-    const stepOnto = (r,c) => {
-      const owner = bbOwner(bbHexAt(r,c));
-      if(!bbHexAt(r,c)) return null;            // board short of clues
-      return owner===team ? 0 : owner===null ? 1 : null;   // null = the other team
-    };
-
-    const dist = new Map(), settled = new Set();
-    const relax = (r,c,v) => {
-      const k = key(r,c), cur = dist.get(k);
-      if(cur === undefined || v < cur) dist.set(k, v);
-    };
-    for(let r=0; r<=last; r++) for(let c=0; c<BB_ROWS[r]; c++){
-      if(!isStart(r,c)) continue;
-      const cost = stepOnto(r,c);
-      if(cost !== null) relax(r,c,cost);
-    }
-    for(;;){
-      let bestKey = null, bestVal = Infinity;
-      dist.forEach((v,k)=>{ if(!settled.has(k) && v < bestVal){ bestVal = v; bestKey = k; } });
-      if(bestKey === null) return Infinity;     // no line left for this team
-      settled.add(bestKey);
-      const parts = bestKey.split(','), r = +parts[0], c = +parts[1];
-      if(isEnd(r,c)) return bestVal;
-      bbNeighbours(r,c).forEach(n=>{
-        const cost = stepOnto(n[0], n[1]);
-        if(cost !== null) relax(n[0], n[1], bestVal + cost);
-      });
-    }
-  }
-
-  function bbTension(clueOpen){
-    stageTension('blockbusters', () => {
-      // the shortest line anyone could ever need: blue's four rows beats yellow's five
-      const shortest = Math.min(BB_WIDEST, BB_ROWS.length);
-      const need = Math.min(bbStepsToWin(0), bbStepsToWin(1));
-      const raw = !isFinite(need) ? 0
-                : need >= shortest ? 0
-                : (shortest - need) / (shortest - 1);
-      return { t: Math.max(0, Math.min(1, raw)), live: !!clueOpen };
-    });
-  }
-
-  /* The honeycomb builds itself rather than appearing. Staggered on row+col, the
-     same diagonal wave Jeopardy deals with, so it reads as the board assembling. */
-  function bbDeal(){
-    dealStagger('play-blockbusters', document.getElementById('hexwrap'), wrap => {
-      [...wrap.querySelectorAll('.hex')].forEach(hex=>
-        hex.style.setProperty('--i', (+hex.dataset.row) + (+hex.dataset.col)));
-    }, 1600);
-  }
-
-  /* ---- lighting up the route ----
-     Registered as variants, so another way of showing it is a register() call and
-     one line in the setting above — see "Solve once, use anywhere" in CLAUDE.md.
-     Each takes the winner's glow colour and returns how long it will take, so the
-     banner can wait for it to land.
-
-     The glow is the team's own colour, not white: the board sits on a white page,
-     so a white halo is invisible and a brightness flash on yellow just washes it
-     out. `.route` holds the same glow at rest and the keyframes end on it, so
-     there's no flicker when the animation hands back to CSS. */
-  const BB_GLOW = ['rgba(255,194,14,0.95)', 'rgba(0,160,223,0.95)'];   // yellow, blue
-  const bbLit   = g => 'brightness(1) drop-shadow(0 0 14px ' + g + ')';
-  const bbPeak  = g => 'brightness(1.18) drop-shadow(0 0 30px ' + g + ')';
-
-  Kit.anim.register('winRoute', 'trace', {
-    run(hexes, glow){
-      const step = 155, ms = 430;
-      hexes.forEach((hex, i)=>{
-        setTimeout(()=>hex.classList.add('route'), i*step);
-        hex.animate([
-          { transform:'scale(1)',    filter:'brightness(1) drop-shadow(0 0 0 ' + glow + ')' },
-          { transform:'scale(1.22)', filter:bbPeak(glow), offset:0.42 },
-          { transform:'scale(1)',    filter:bbLit(glow) }
-        ], { duration:ms, delay:i*step, easing:'cubic-bezier(.3,.85,.4,1)' });
-      });
-      return (hexes.length-1)*step + ms;
-    }
-  });
-
-  Kit.anim.register('winRoute', 'pulse', {
-    run(hexes, glow){
-      const ms = 620;
-      hexes.forEach(hex=>{
-        hex.classList.add('route');
-        hex.animate([
-          { transform:'scale(1)',    filter:bbLit(glow) },
-          { transform:'scale(1.16)', filter:bbPeak(glow), offset:0.5 },
-          { transform:'scale(1)',    filter:bbLit(glow) }
-        ], { duration:ms, iterations:2, easing:'ease-in-out' });
-      });
-      return ms*2;
-    }
-  });
-
-  // still marks the route — "off" means no animation, not no answer
-  Kit.anim.register('winRoute', 'off', {
-    run(hexes){ hexes.forEach(hex=>hex.classList.add('route')); return 0; }
-  });
-
-  function runWinRoute(hexes, team){
-    const reduced = window.matchMedia &&
-                    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const name = reduced ? 'off' : S.get('bbWinRoute', activeGame);
-    // fall back rather than silently do nothing if the setting names one we lack
-    const impl = Kit.anim.get('winRoute', name) || Kit.anim.get('winRoute', 'off');
-    return impl.run(hexes, BB_GLOW[team] || BB_GLOW[0]) || 0;
-  }
-
-  let bbWon = null;   // set once the round has an ending; the board stops taking clicks
-
-  /* The board isn't sized to fit the screen the way the other three are, and at
-     720p it already fills nearly all of it — so the banner would cover the bottom
-     row, hiding half of a blue top-to-bottom route seconds after lighting it up.
-     Shrink the whole panel into what's left instead of sliding it, which is the
-     only move that keeps every hex of the route on screen. Purely visual and
-     reversed the moment the banner goes. */
-  function bbFitAroundBanner(){
-    const play  = document.getElementById('play-blockbusters');
-    const card  = document.getElementById('result-card');
-    const modal = document.getElementById('result-modal');
-    play.style.transform = '';
-    // the banner's top from its own offset, not its rect: it is mid-slide-in, and
-    // its rect would report wherever the animation currently has it
-    const cardTop = window.innerHeight - (parseFloat(modal.style.bottom) || 92) - card.offsetHeight;
-    const box     = play.getBoundingClientRect();
-    const room    = cardTop - box.top - 14;
-    if(box.height <= room || room <= 0) return;
-    play.style.transformOrigin = 'top center';
-    play.style.transform = 'scale(' + Math.max(0.5, room / box.height).toFixed(3) + ')';
-  }
-  function bbDropBoard(){
-    const play = document.getElementById('play-blockbusters');
-    play.style.transform = '';
-    play.style.transformOrigin = '';
-  }
-
-  function bbClearOutcome(){
-    bbWon = null;
-    bbDropBoard();
-    const wrap = document.getElementById('hexwrap');
-    wrap.classList.remove('won', 'route-shown');
-    wrap.querySelectorAll('.hex.route').forEach(hex=>{
-      hex.getAnimations().forEach(a=>a.cancel());
-      hex.classList.remove('route');
-    });
-    hideResult();
-  }
-
-  function bbFinish(outcome){
-    bbWon = outcome;
-    // the round has an ending: there is nothing left to choose, so the vote goes
-    // and the phones go back to the mode
-    bbCloseVote(false);
-    const wrap = document.getElementById('hexwrap');
-    wrap.classList.add('won');
-
-    if(outcome.type !== 'win'){
-      Sound.play('end');
-      showResult({
-        eyebrow:'Blockbusters',
-        title:'Board blocked',
-        sub:'Neither team can reach its far side now — nobody completes a line.',
-        actions:[{ label:'New board', primary:true, onPick:bbPlayAgain }],
-        onShow:bbFitAroundBanner, onHide:bbDropBoard
-      });
-      return;
-    }
-
-    const team  = outcome.team;
-    const hexes = outcome.path.map(cell=>bbHexAt(cell[0], cell[1])).filter(Boolean);
-    wrap.classList.add('route-shown');
-    const ms = runWinRoute(hexes, team);
-
-    setTimeout(()=>{
-      // the trace takes a couple of seconds; "New game" or "New board" in that
-      // window must not be followed by a banner for a round that's already gone
-      if(bbWon !== outcome) return;
-      if(wrap.closest('.lit')){ Sound.fanfare(); setTimeout(()=>Sound.applause(2400), 620); }
-      else Sound.play('clear');
-      showResult({
-        eyebrow:'Blockbusters',
-        title: ((teams[team] && teams[team].name) || (team===0 ? 'Yellow' : 'Blue')) + ' wins!',
-        sub: (team===0 ? 'Left to right' : 'Top to bottom') +
-             ' in ' + hexes.length + ' hexagons.',
-        tone: team===0 ? 'gold' : 'silver',
-        actions:[{ label:'New board', primary:true, onPick:bbPlayAgain },
-                 { label:'Leave it up', onPick:function(){} }],
-        onShow:bbFitAroundBanner, onHide:bbDropBoard
-      });
-    }, ms + 140);
-  }
-
-  // same sections, freshly shuffled. Scores stay — the team bar carries across
-  // games and units by design, so a new board shouldn't wipe it either.
-  function bbPlayAgain(){
-    bbClearOutcome();
-    pool = shuffle(BLOCKBUSTERS_BANK.filter(inPlay)).slice(0, BB_TOTAL);
-    buildBlockbustersBoard();
-    bbTurn=0; bbSideAt=[0,0]; renderBBTurn();
-    bbVote=null; bbVoting=false; renderBBVote();
-    bbTension(); bbDeal();
-  }
-
   /* ================= SHARED CLUE MODAL ================= */
   let currentTile=null, modalMode=null, currentClueValue=0;
   let currentClueItem=null;      // what the shared renderer needs to answer in place
@@ -4066,12 +3327,13 @@
   /* One chooser, two callers: Blockbusters claims a hex with it, and Jeopardy offers a
      steal with it. One instance rather than two — each would register its own document
      keydown listener — and the pick routes through the active game's declared
-     `onClaimPick`, so this shared chooser no longer branches on the game's name.
-     Blockbusters declares none and falls to the ordinary claim. */
+     `onClaimPick`, so this shared chooser no longer branches on the game's name. Both
+     card games that use it (Jeopardy's steal, Blockbusters' claim) declare one; a game
+     that shows the chooser without declaring the pick is the only way to reach null. */
   const clueClaim = Kit.claimTeam({
     mount:  document.getElementById('clue-claim'),
     onPick: i => { const g = gameDef(activeGame);
-                   return (g && g.onClaimPick) ? g.onClaimPick(i) : claimHex(i); }
+                   return (g && g.onClaimPick) ? g.onClaimPick(i) : null; }
   });
 
   /* Everything in the strip goes away; each opener then shows what it wants. The
@@ -5197,62 +4459,6 @@
     renderRoundButton();
   }
 
-  function openBlockbustersClue(clueObj, hex){
-    if(bbWon) return;                        // the round has an ending; nothing left to claim
-    if(hex.classList.contains('claimed-gold') || hex.classList.contains('claimed-silver')) return;
-    currentTile=hex; modalMode='blockbusters';
-    /* The letter stays on the topline whatever is behind the hexagon. It is the
-       hexagon's *name* — how a team says which one they are attacking, and what the
-       picking vote counts — and it stopped being a promise about the answer's first
-       letter the day a hexagon could open a round. A grouping set has four answers
-       and an ordering scale has five; neither has an initial to match. */
-    document.getElementById('clue-topline').textContent = clueObj.letter;
-    document.getElementById('clue-section').textContent = clueObj.section;
-    currentClueItem = { text:clueObj.clue, answer:clueObj.answer, type:clueObj.type };
-    /* Whatever field a registered round claims, carried across by asking the
-       registry rather than by naming them here — the same normalisation Jeopardy
-       does, and for the same reason: naming them by hand is what silently dropped
-       a feature twice, the symptom being that it simply never appeared. */
-    Kit.round.fields().forEach(f => { if(clueObj[f] !== undefined) currentClueItem[f] = clueObj[f]; });
-    /* Set up once and keep it: `setup` shuffles, so asking twice would draw one
-       order for the answer line and another for the card. A round's answer is
-       derived from the round rather than authored beside it, because two copies of
-       one fact are two things that can drift. */
-    const rnd = roundOf(currentClueItem, 'blockbusters');
-    if(rnd) currentClueItem.answer = rnd.state.answer;
-    /* Opening a hex answers the vote's question, so it ends there rather than
-       waiting for the button — and it must end *before* askPhones, or the arm
-       below would be overwritten by a vote nobody is still taking. */
-    bbVoting = false; bbVote = null; renderBBVote();
-    drawPrompt(document.getElementById('clue-text'), currentClueItem, 'blockbusters');
-    /* After `drawPrompt`, which owns `#clue-text` and clears it, and before
-       `askPhones`, which consults `phoneRound()` — and `phoneRound()` cannot say
-       what the handsets want until the round exists. */
-    roundEnd();
-    if(!(rnd && roundOpen(rnd))) askPhones(clueObj.clue, 'blockbusters');
-    const ansEl=document.getElementById('clue-answer'); ansEl.style.display='none';
-    ansEl.textContent = currentClueItem.answer || clueObj.answer || '';
-    hideAllActionButtons();
-    document.getElementById('reveal-btn').style.display='inline-block';
-    /* Every team that exists, not the first two. `allow` used to be [0,1] because
-       the board is two-sided — but the side a team plays for is `bbSideOf`, so a
-       four-team class can all answer; their hex simply takes their side's colour.
-
-       A live round judges itself and pays the hexagon out of `roundHost.win`, so
-       the chooser would be a second way to award the same square — it stands down
-       until the round is over, exactly as Jeopardy's Correct and Wrong do, and the
-       reveal puts it back for a class that never got there. */
-    if(!rnd) clueClaim.show(teams, teams.map((_, i) => i));
-    const bbSkip = document.getElementById('skip-btn');
-    bbSkip.textContent = 'No claim / close';
-    bbSkip.style.display='inline-block';
-    /* After `hideAllActionButtons()`, which is the whole reason it is down here:
-       the round's Check button is one of the buttons that clears. */
-    renderRoundButton();
-    bbTension(true);                 // think music while the clue is on the table
-    openClueCard(hex);
-  }
-
   /* ---- the card flip ----------------------------------------------------------
      The clue card grows out of the tile you clicked and turns over, so the tile
      itself appears to flip rather than a dialog appearing on top of it. Done with
@@ -6064,42 +5270,6 @@
     });
   }
 
-  // Blockbusters: claim (or skip) a hex, award +1 to the claiming team, pass turn.
-  function claimHex(idx){
-    const claimed = idx != null && idx >= 0 && !!teams[idx];
-    const side    = claimed ? bbSideOf(idx) : null;
-    const showy = document.getElementById('play-blockbusters').classList.contains('lit');
-    Sound.bedStop();
-    if(claimed) Sound.play(showy ? 'sting' : 'claim');
-    let paid = 0;
-    if(currentTile && modalMode==='blockbusters' && claimed){
-      // the hexagon belongs to a *side* — that is what a line is made of — while the
-      // points belong to the team that answered
-      currentTile.classList.add(side===0 ? 'claimed-gold' : 'claimed-silver');
-      currentTile.textContent='';
-      // a hex taken by the side that wasn't on turn is a steal, and scores as one
-      paid = award(idx, 1, { steal: side !== bbTurn, why:'hexagon' });
-      markRun(idx, true);
-    }
-    // work out the ending now, but let the card land before showing it
-    const outcome = claimed ? bbOutcome() : null;
-    closeModal(claimed ? flipMs(FLIP_HOLD_MS) : 0,
-               outcome ? ()=>bbFinish(outcome) : ()=>bbTension());
-    /* Keeping the board on a correct answer: the team on turn that claims its own
-       hex goes again. A steal or a skip always hands over — otherwise a team that
-       lost the question would keep the turn it just failed to use. */
-    /* Whoever answered has used their side's go, so that side's next team is up
-       when it comes round again — including when the side keeps the board, which is
-       what stops one student on an alliance answering every question. A no-op with
-       two teams, where each side has exactly one. */
-    if(claimed) bbAdvanceSide(side);
-    const kept = claimed && side === bbTurn && S.get('keepControl', 'blockbusters');
-    if(!kept) bbTurn = Kit.passTurn(2, bbTurn);
-    renderBBTurn();
-    renderBBVote();      // the button names the team whose turn it now is
-    renderScorebar();
-    return paid;
-  }
   /* Skip belongs to whichever game put the card up. Blockbusters uses it to leave a
      hex unclaimed; Jeopardy now uses it to decline a steal, which it must have —
      offering the question with no way to say "nobody wants it" strands the teacher
@@ -6128,7 +5298,9 @@
 
   document.getElementById('skip-btn').addEventListener('click', ()=>{
     if(modalMode === 'jeopardy' && jSteal){ jDeclineSteal(); return; }
-    claimHex(null);
+    // a card game's own "nobody claimed it" — Blockbusters routes null through its claim
+    const g = gameDef(activeGame);
+    if(g && g.onClaimPick) g.onClaimPick(null);
   });
 
   /* **The shared "choice bank item, as a round" adapter**, exposed as
@@ -6553,7 +5725,7 @@
        outlive the mode, Blockbusters and Millionaire take the other route and the
        chip kept whatever the previous game had made it say. */
     renderBuzzChip();
-    renderBBVote();
+    hook('onRoomSync');   // the active game repaints room-facing chrome (Blockbusters' vote button)
   }
 
   function parkBuzzRoom(){
@@ -6562,7 +5734,7 @@
     buzzWinner = null; lastTyped = null; lastScored = null; lastAsk = null;
     if(buzzHost) buzzHost.disarm();
     renderBuzzChip();
-    renderBBVote();
+    hook('onRoomSync');   // the active game repaints room-facing chrome (Blockbusters' vote button)
   }
 
   /* The code outlives the *page*, not just the game. Reloading the hub — which is
@@ -6695,7 +5867,8 @@
     if(buzzHost){ buzzHost.close(); buzzHost=null; window.HubHost = null; }
     buzzEpoch=null;
     buzzWinner=null; buzzPlayers=0; lastTyped=null; lastScored=null;
-    bbVote=null; bbVoting=false; renderBBVote();
+    // the room is gone: a game holding a board vote clears it (Blockbusters' hex vote)
+    hook('onRoomDrop');
     const chip=document.getElementById('buzzer-chip');
     if(chip) chip.style.display='none';
   }
@@ -6716,7 +5889,7 @@
   S.onChange(id=>{
     if(id !== 'round_default' && id !== 'mLifelines' && id !== 'bbTeamVote') return;
     syncBuzzRoom();
-    renderBBVote();
+    hook('onRoomSync');   // the active game repaints room-facing chrome (Blockbusters' vote button)
   });
 
   /* ---------- individual play: the roster is whoever has joined ----------
@@ -7123,10 +6296,10 @@
   }
 
   /* A vote is open on the board — the fact lives here rather than in each caller, the
-     same reason `Kit.floorTop()` exists. Only Blockbusters borrows the phones for a
-     board vote now; Millionaire's `mVoting` was never set true after the round took
-     over the room, so it left with that game. */
-  function voteLive(){ return bbVoting; }
+     same reason `Kit.floorTop()` exists. Asked of the active game, because only a game
+     that borrows the phones for a board vote (Blockbusters) knows; the rest answer the
+     default false. */
+  function voteLive(){ return !!hook('voteLive'); }
 
   function clearReplies(){
     classReplies = null;
@@ -7408,7 +6581,26 @@
     clearFloor: () => { buzzWinner = null; renderBuzzChip(); },
     renderScorebar, themeOf, motionOK, Sound, stageTension, startGate,
     timerSetDuration, timerStart, timerStop, timerReset,
-    asChoiceRound: q => mAsRound(q)
+    asChoiceRound: q => mAsRound(q),
+    /* **The shared clue card, lent to a card game in its own file.** The card is a hub
+       surface a game borrows, not a thing it owns — Blockbusters opens it over a
+       hexagon, says which game's clue is up (`modalMode`) and which tile it flipped
+       from (`currentTile`), and closes it; the shared reveal/close handlers read that
+       state, which is why both need a getter and a setter here. `clueClaim` is the one
+       team chooser both card games share, exposed narrowly. */
+    openClueCard, closeModal, hideAllActionButtons, renderRoundButton, clueIsOpen,
+    askClass, parkBuzzRoom,
+    // the shared clue-card mount, so a card game's round host draws into the same box
+    cardMount: CARD_MOUNT,
+    modalMode: () => modalMode,
+    setModalMode: m => { modalMode = m; },
+    currentTile: () => currentTile,
+    setCurrentTile: t => { currentTile = t; },
+    clueItem: () => currentClueItem,
+    clueClaimShow: (t, allow) => clueClaim.show(t, allow),
+    clueClaimHide: () => clueClaim.hide(),
+    flipHoldMs: () => flipMs(FLIP_HOLD_MS),
+    activeGameId: () => activeGame
   };
 
   if(UNITS.length===1){

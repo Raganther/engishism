@@ -123,7 +123,18 @@ window.HubGames = (function(){
       onRoomReady:  NO_OP,
       onPlayers:    NO_OP,
       onRoomForgot: NO_OP,
+      /* The room was dropped entirely (buzzers switched off, or pointed at another
+         relay) — distinct from onRoomForgot's "relay restarted, re-deal". A game holding
+         a board vote clears it here (Blockbusters' hexagon vote). */
+      onRoomDrop:   NO_OP,
+      /* The room state changed — opened, parked, or a phone setting flipped — so a game
+         repaints its room-facing chrome (Blockbusters' vote button). A repaint, not a
+         reset: onRoomDrop clears, this only redraws. */
+      onRoomSync:   NO_OP,
       onPhoneReply: function(){ return false; },
+      /* Is a board vote open right now? Only a game that borrows every phone for a whole
+         vote (Blockbusters) answers true; the shared phone bar and re-ask read it. */
+      voteLive:     function(){ return false; },
       /* ---- declared facts that used to be `activeGame ===` branches ----
          Each of these replaced a by-name switch in shared code. Declared, a game
          registered next month is correct by default. */
