@@ -652,15 +652,15 @@ What is true and unfinished. Not a changelog — an item leaves when it closes.
 
 **Build `20260815a`.** Three coursebooks, ~760 authored items, six games, nine rounds.
 
-**Untested against a class.** The whole of the open-question work — a right answer no
-longer locks the room out, position and time recorded, standings after every question,
-the solo commit beat with its escalating cooldown, the crowd reveal and its meter. Every
-number in it is a guess (the 60/30 podium shares, the 0.5 floor, 3s escalating to 9s, the
-40% reveal), which is why the settings are marked `quick`. **Nothing else should be built
-until a class has met it.** Three things to watch, likeliest wrong first: whether
-standings after *every* question drags (`roundWinBanner` turns it off), whether the
-podium beats `equal`, and whether the extra Reveal-then-Close press costs too much
-(`roundOpenToAll` off restores the race).
+**Open-question tuning is guessed, not measured.** The open-question work — a right
+answer no longer locks the room out, position and time recorded, standings after every
+question, the solo commit beat with its escalating cooldown, the crowd reveal and its
+meter. Every number in it is a guess (the 60/30 podium shares, the 0.5 floor, 3s
+escalating to 9s, the 40% reveal), which is why the settings are marked `quick` — they
+are meant to be flipped, not trusted. Three things to watch the first time a class meets
+it, likeliest wrong first: whether standings after *every* question drags
+(`roundWinBanner` turns it off), whether the podium beats `equal`, and whether the extra
+Reveal-then-Close press costs too much (`roundOpenToAll` off restores the race).
 
 **Being chased right now — the room bench hosts no room.** Four symptoms, all
 downstream of one thing: the board mints no code, so the bench's box stays empty and
