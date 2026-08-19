@@ -102,6 +102,12 @@ window.HubGames = (function(){
          leaderboard is the first caller — without this a latecomer scored and never
          appeared on it. A no-op for every board that reads `teams` at draw time. */
       onRoster:     NO_OP,
+      /* A team was removed (`i>=0`, at that index) or the roster was replaced
+         wholesale (`i<0`). A game holding **per-team state keyed by index** — a
+         parallel array like Millionaire's ladders — re-aligns it here; the engine
+         used to reach into that state by name. A no-op for every board whose per-team
+         state is rebuilt on entry or keyed by the competitor rather than the slot. */
+      onTeamsChanged: NO_OP,
       /* ---- the room's own beats, for games that hold per-player state ----
          Bingo forced all three onto the contract: it is the one game whose state
          the phone layer used to reach by name. `onRoomReady` fires when the

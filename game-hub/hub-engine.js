@@ -363,61 +363,6 @@
     onTimerEnd(){ if(raceMode==='timed' && raceRunning) endRaceRound(false); }
   });
 
-  registerGame({
-    id:'millionaire', title:'Millionaire',
-    /* **It draws one ladder, not one per competitor** — `renderMillionaire` reads
-       `mTeamState(active)`, so twenty-five people is twenty-five *stored* ladders
-       and one on screen. This was excluded on the assumption that it drew them all,
-       which reading the code disproved. What is true is that turns rotate, so with a
-       big class each person answers rarely — a pacing warning, not a broken board,
-       and the game card says so. */
-    solo: true,
-    card:{
-      icon:'<svg class="game-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 34 L8 26"/><path d="M16 34 L16 20"/><path d="M24 34 L24 14"/><path d="M32 34 L32 7"/><path d="M4 34 L36 34"/></svg>',
-      blurb:'Four options, rising difficulty. Teams climb their own ladder, with 50:50, Ask the class and Confer to spend.',
-      badge:'Best for: spotting the near-miss answer' },
-    intro:{ eyebrow:'Cambridge Empower C1', title:'MILLIONAIRE',
-            sub:'Eight rungs. One team at a time. No safety net.', accent:'#FFC83D' },
-    hasBank: u => (u.millionaireBank||[]).length > 0,
-    load(u){ MILLIONAIRE_BANK          = u.millionaireBank || [];
-             MILLIONAIRE_SECTION_NAMES = u.millionaireSectionNames || {};
-             MILLIONAIRE_TOPIC_NAMES   = u.topicNames || {}; },
-    bank: () => MILLIONAIRE_BANK,
-    // scores in hundreds: corrections nudge by 100, payouts round to 50
-    nudgeStep: 100, payStep: 50,
-    renderContent: renderMillionaireContent,
-    startButton:   millionaireStartButton,
-    start(){ buildMillionaire();
-             timerSetDuration(Number(S.get('mConferSeconds', 'millionaire')) || 30); },
-    expects:     () => (mCurrent && mCurrent.q && mCurrent.q.answer) || '',
-    phonePrompt: () => (mCurrent && mCurrent.q && mCurrent.q.prompt) || '',
-    askingNow:   () => !!(mCurrent && !mAnswered),
-    /* **No buzz hooks, and that is a statement rather than an omission.** This board
-       used to answer `buzzEntitled` and `onBuzzTaken` against `mBuzzRole`; the ladder
-       hosts a round now, so a live question puts the four options in every hand and
-       there is no buzzer to be entitled to. Between questions `askingNow()` is false
-       and the engine disarms. Both hooks default to a no-op, which is the correct
-       state here — see the note where `mBuzzRole` was dropped. */
-    // no onTypedWin: typing is not offered here, for the same reason it never gets
-    // an anagram — the four options hand you the word
-    /* Every question is a round now, so the handsets are the round's for the whole
-       of it. Declaring `phoneRound` without `onVoteReply` is the failure that shipped
-       on Blockbusters: the room arms correctly and every tap lands on the floor. */
-    phoneRound(){ return roundForPhones(); },
-    asRound:     q => mAsRound(q),
-    /* Ask the class disables itself with no room to reveal from, and this board
-       deals its first question inside `start()` — before the code has come back.
-       Without this repaint a lesson opening here found the lifeline greyed out
-       for the whole first question. */
-    onRoomReady(){ renderMillionaire(); },
-    wantsVote:   () => roundLive() || !!S.get('mLifelines', 'millionaire'),
-    roomNote:    () => roundLive() ? 'pick an answer' : null,
-    onVoteReply(all){ if(roundLive()) roundOnReplies(all); },
-    fit:      fitMillionaire,
-    tension(){ mTension(); },
-    onResize: fitMillionaire
-  });
-
   /* ---------- which boards can host a round ----------
      A round is drawn in the shared clue card, so it is literally the same code
      whichever board opened it. What differs is only what the *host* contributes,
@@ -543,40 +488,6 @@
          reads as the one ladder it is. The drag rounds wore `first` here for one
          day — reverted with Jeopardy's, the user's call after testing. */
       teamMode: true
-    },
-    millionaire: {
-      game:'millionaire', stage:'play-millionaire',
-      /* No clue card: the options are the stage. This is F3.8.9 — a round handed a
-         mount that is not the card — and it cost this line plus honouring it below. */
-      mount: () => document.getElementById('m-options'),
-      commit:'m-final',
-      /* A question is on screen and has not been answered. There is no modal to ask
-         about, which is exactly why `modalMode` could not stay the test. */
-      live: () => !!mCurrent && !mAnswered,
-      /* The team the question was dealt to — which is not `active` after a steal,
-         and the steal is precisely when the difference matters. */
-      turn: () => (mCurrent ? mCurrent.team : active),
-      scorer: () => (mCurrent ? mCurrent.team : active),
-      win:  team => mPayRung(team),
-      /* The rung the team being paid is standing on — read per team, because every
-         competitor climbs its own ladder here and "what this question is worth" is
-         a different number for each of them. */
-      worth: team => M_LADDER[Math.min(mTeamState(team == null ? active : team).rung,
-                                       M_LADDER.length - 1)],
-      // the board's payout unit, read from the game's own payStep (see Jeopardy's host)
-      step:  () => gameDef('millionaire').payStep,
-      /* The class votes on every question now, so the counts exist from the first
-         tap. Holding them back is what leaves Ask the class worth spending. */
-      hideVotes: () => !mTally,
-      /* Ask the class is about the whole room, not about which team said what —
-         there is only one team answering at a time on this board anyway. */
-      countVotes: () => true,
-      commitText: () => 'Final answer?',
-      repaint: () => mSayHint(),
-      autoCommit: () => !S.get('mFinalAnswer', 'millionaire'),
-      /* On this board a wrong answer ends the go — the steal, then the rung stands.
-         Every other host lets one cost nothing but the time. */
-      miss: team => mMissed(team)
     },
     /* **The fifth host, and the one the build order kept last for a reason.** Race
        owns the *card* — the scattered words are the answer surface — so a round
@@ -1331,15 +1242,9 @@
              {value:'off',   label:'Never'}] });
 
 
-  S.register({ id:'mLifelines', group:'Millionaire', type:'toggle', default:true, games:['millionaire'],
-    label:'Lifelines', help:'50:50, Ask the class, and Confer — one use each per team.' });
-  /* The show's beat, not a confirmation dialog: picking an option is the team saying
-     a letter out loud, and the reveal waits for the host to ask. The pause is where
-     the room gets to shout at them to change it — which is the whole point, so this
-     defaults on. Off restores the one-click reveal for a class that needs the pace. */
-  S.register({ id:'mFinalAnswer', group:'Millionaire', type:'toggle', default:true, games:['millionaire'],
-    label:'Final answer?',
-    help:'A picked option locks in highlighted and waits for "Final answer?" before the reveal. The team can change their mind until then. Off reveals on the first click.' });
+  /* Millionaire's own settings (mLifelines, mFinalAnswer, mConferSeconds) moved with
+     the game into game-hub/games/millionaire.js. Its retirements stay here, because a
+     migration drops an old key on every device whether or not that game is loaded. */
   /* **`mBuzzRole` was retired here, and the reason is worth keeping.** It asked what
      a buzz wins in Millionaire — name the speaker for the team on turn, take the
      question outright, or nothing — which was a real question while a rung was an
@@ -1362,10 +1267,6 @@
     // the clue-card Tune pill is gone — settings live in the room bench now, so its switch retires
     S.drop([''].concat(gameIds().map(g => '@' + g)).map(sfx => 'roundTune' + sfx));
   })();
-
-  S.register({ id:'mConferSeconds', group:'Millionaire', under:'mLifelines', type:'select', default:30, games:['millionaire'],
-    label:'Confer time', help:'How long a team gets to consult when they use Confer.',
-    options:[{value:30,label:'30 seconds'},{value:45,label:'45 seconds'},{value:60,label:'60 seconds'}] });
 
   /* **Who is competing: sides, or people.** Deliberately *not* per game. It is a
      fact about the room — the roster persists across games and unit switches, so a
@@ -1712,29 +1613,6 @@
         </div>
         <div id="race-words"></div>
       </div>
-      <div id="play-millionaire">
-        <div id="m-bar">
-          <div id="m-turn"></div>
-          <div id="m-lifelines">
-            <button class="lifeline" data-life="fifty">50:50</button>
-            <button class="lifeline" data-life="class">Ask the class</button>
-            <button class="lifeline" data-life="confer">Confer</button>
-          </div>
-        </div>
-        <div id="m-main">
-          <div id="m-stage">
-            <div id="m-question"></div>
-            <div id="m-options"></div>
-            <div id="m-foot">
-              <span id="m-hint"></span>
-              <button id="m-final" style="display:none;">Final answer?</button>
-              <button id="m-next" style="display:none;">Next team</button>
-              <button id="m-done-count" style="display:none;">Done counting</button>
-            </div>
-          </div>
-          <div id="m-ladder"></div>
-        </div>
-      </div>
 
     </div>
 
@@ -1882,9 +1760,6 @@
   let RACE_BANK                 = [];
   let RACE_SECTION_NAMES        = {};
   let RACE_TOPIC_NAMES          = {};
-  let MILLIONAIRE_BANK          = [];
-  let MILLIONAIRE_SECTION_NAMES = {};
-  let MILLIONAIRE_TOPIC_NAMES   = {};
 
   // Which games a unit can actually offer — a unit without a bank for a game
   // simply doesn't show that card, so units can adopt new games one at a time.
@@ -1974,10 +1849,12 @@
 
   /* Teams could be added and never removed, so a class that split four ways one
      lesson carried four teams into the next one. Removing is more than a splice,
-     because a team's *index* is its identity in three other places:
+     because a team's *index* is its identity in more than one place:
        - `active`, which has to follow the team it pointed at rather than the slot;
-       - `mState`, Millionaire's per-team ladder, which is a parallel array;
-       - `bbSideAt`, which team is up within each Blockbusters alliance.
+       - `bbSideAt`, which team is up within each Blockbusters alliance;
+       - and any game holding per-team state keyed by index — the ladder Millionaire
+         climbs — which is told through the `onTeamsChanged` hook rather than reached
+         into by name here, so an extracted game re-aligns its own state.
      Two is the floor: every board is built for at least two sides. */
   function removeTeam(i){
     if(teams.length <= Roster.floor() || !teams[i]) return;
@@ -1985,7 +1862,8 @@
     if(teams[i].score !== 0 &&
        !confirm('Remove ' + teams[i].name + '? They have ' + teams[i].score + ' points.')) return;
     teams.splice(i, 1);
-    if(Array.isArray(mState)) mState.splice(i, 1);
+    // a team was removed at index i: the active board shifts its own per-team state
+    hook('onTeamsChanged', i);
     if(active > i) active--;
     if(active >= teams.length) active = teams.length - 1;
     bbSideAt = [0, 0];
@@ -2175,9 +2053,10 @@
       const word = to === 'solo' ? 'Player ' : 'Team ';
       teams.push(newTeam(word + '1', true), newTeam(word + '2', true));
     }
-    /* Millionaire's ladders are a parallel array and `active` is an index — both are
-       about the list that has just been replaced. */
-    if(Array.isArray(mState)) mState.length = 0;
+    /* The roster was replaced wholesale, so any game holding per-team state keyed by
+       index resets it (the ladder Millionaire climbs) — told through the hook rather
+       than reached into here — and `active`, an index into the old list, goes to 0. */
+    hook('onTeamsChanged', -1);
     active = 0;
     /* The seats we just cleared have to be re-sent, or every phone keeps the number
        it was given under the old roster — the index-shift bug that paid a win to a
@@ -3619,10 +3498,6 @@
     groupCheckboxes(list, BLOCKBUSTERS_BANK, BLOCKBUSTERS_TOPIC_NAMES, BLOCKBUSTERS_SECTION_NAMES);
   }
 
-  function renderMillionaireContent(list, help){
-    help.textContent = "Pick the topics that feed the ladder. Each team climbs its own eight rungs, taking turns, and the questions get harder as they go.";
-    groupCheckboxes(list, MILLIONAIRE_BANK, MILLIONAIRE_TOPIC_NAMES, MILLIONAIRE_SECTION_NAMES);
-  }
 
   function renderRaceContent(list, help){
     document.getElementById('race-rules').style.display='block';
@@ -3678,15 +3553,6 @@
       ready: `Build board — ${BB_TOTAL} of ${total} clues, shuffled` });
   }
 
-  function millionaireStartButton(btn){
-    const pool = MILLIONAIRE_BANK.filter(inPlay);
-    const rungs = new Set(pool.map(q=>q.level));
-    const missing = M_LADDER.map((_,i)=>i+1).filter(l=>!rungs.has(l));
-    btn.disabled = selectedContent.length===0 || missing.length>0;
-    btn.textContent = selectedContent.length===0 ? 'Select at least one section'
-      : missing.length ? `Not enough for a full ladder — nothing at level ${missing.join(', ')}`
-      : `Build ladder — ${pool.length} questions across 8 rungs`;
-  }
 
   function raceStartButton(btn){
     const total = RACE_BANK.filter(inPlay).length;
@@ -6403,375 +6269,17 @@
     claimHex(null);
   });
 
-  /* ================= MILLIONAIRE =================
-     Four options, rising difficulty. Every team climbs its **own** ladder and turns
-     alternate, which answers the open question in spec §9.5: parallel ladders give
-     each team a full arc, and interleaving the turns means nobody sits out for eight
-     questions the way a one-team-at-a-time run would.
-
-     Scoring is additive — a correct answer banks that rung's value and nothing is
-     ever taken away. §4.4 wanted safe havens so a late mistake doesn't wipe a team
-     out; not losing anything in the first place solves that more simply, and it
-     keeps this game consistent with the shared team bar the others feed. A wrong
-     answer costs the turn, and the team tries that rung again with a different
-     question next time round. */
-  const M_LADDER = [100, 200, 300, 500, 800, 1200, 1600, 2000];
-
-  let mState   = [];     // per team: {rung, used:Set<prompt>, lifelines:{}}
-  let mCurrent = null;   // {q, options[], team}
-  let mAnswered = false;
-  /* Ask the class runs on this board's own state, not Kit.vote — the counts are
-     painted straight from the phone replies as they arrive. `mTally` is a boolean:
-     true once the class has voted, which spends the lifeline and keeps its counts on
-     the options. (Blockbusters' hexagon vote is the one that uses Kit.vote.) */
-  let mTally   = null;   // true once Ask the class has run — the lifeline is spent
-  /* Counting is not the same thing as having counts. While the teacher is tapping
-     hands, a click on an option adds a hand; once the count is in, a click has to
-     answer the question — otherwise the round dead-ends with the votes on screen
-     and no way to play them. With phones voting there is no tapping at all, so the
-     board is never a tally pad in the first place. */
-  let mCounting = false;
-  /* A phone vote is open: the counts are arriving over the wire rather than off
-     the teacher's fingers. Distinct from `mCounting` because the board behaves
-     oppositely — clicking an option answers the question — and distinct from
-     `mTally` because the votes outlive the vote being open. It is what says the
-     phones are borrowed, so closing it hands them back to `phoneMode`. */
-  let mVoting = false;
-  /* The option the team has said out loud but not locked in. Held separately from
-     the answer because it is reversible: until "Final answer?" it can move to any
-     other option, or be thrown away entirely by a lifeline. */
-  let mPicked  = null;
-
-  /* One definition of "this bank item, as a round". The deal uses it and so does the
-     content screen, through the `asRound` hook — two copies would be two things that
-     could disagree about what a question is. */
+  /* **The shared "choice bank item, as a round" adapter**, exposed as
+     `HubEnv.asChoiceRound` and kept in the engine when Millionaire left, because it is
+     not that game's alone: Quickfire draws Millionaire's bank the same way. A bank item
+     carrying `{answer, distractors}` and no `choice:` field is not a round the registry
+     can see; this builds one, without the round ever learning the bank calls a prompt
+     `prompt`. Two copies would be two things that could disagree about what a question is. */
   function mAsRound(q){
     if(!q || !q.distractors) return q;
     return { text:q.prompt, answer:q.answer, type:q.type,
              choice:{ options:[q.answer, ...q.distractors], answer:q.answer } };
   }
-
-  function mTeamState(i){
-    if(!mState[i]) mState[i] = { rung:0, used:new Set(), lifelines:{ fifty:true, class:true, confer:true } };
-    return mState[i];
-  }
-
-  function buildMillionaire(){
-    mState = []; mCurrent = null; mAnswered = false; mTally = null; mCounting = false;
-    mVoting = false; mPicked = null;
-    teams.forEach((t,i)=>mTeamState(i));
-    active = 0;
-    renderScorebar();
-    nextMillionaireQuestion();
-  }
-
-  function pickQuestion(team){
-    const st   = mTeamState(team);
-    const rung = Math.min(st.rung, M_LADDER.length-1);
-    const pool = MILLIONAIRE_BANK.filter(q=>selectedContent.includes(groupOf(q)) && q.level === rung+1);
-    if(!pool.length) return null;
-    const fresh = pool.filter(q=>!st.used.has(q.prompt));
-    return shuffle((fresh.length ? fresh : pool).slice())[0];
-  }
-
-  function nextMillionaireQuestion(){
-    mAnswered = false; mTally = null; mCounting = false; mVoting = false; mPicked = null;
-    const st = mTeamState(active);
-
-    if(st.rung >= M_LADDER.length){       // this team has topped out
-      renderMillionaire();
-      showMillionaireMessage((teams[active] ? teams[active].name : 'Team') + ' has cleared the ladder!');
-      Sound.bedStop();
-      if(document.getElementById('play-millionaire').classList.contains('lit')){
-        Sound.fanfare(); setTimeout(()=>Sound.applause(2600), 700);
-      } else {
-        Sound.play('clear');
-      }
-      return;
-    }
-    const q = pickQuestion(active);
-    if(!q){
-      renderMillionaire();
-      showMillionaireMessage('No question left at this level for the sections you picked.');
-      return;
-    }
-    st.used.add(q.prompt);
-    mCurrent = { q, team:active };
-    /* **Normalised into a round, not migrated in the bank.** The item stays
-       `{prompt, answer, distractors, level}` — the ladder still needs `level`, and
-       the round has never learned that this bank calls a prompt `prompt`. Exactly
-       the move `jShowClue` makes turning `q` into `text`, so all 52 authored items
-       became rounds with no content edit at all. The round shuffles the options. */
-    currentClueItem = mAsRound(q);
-    const found = roundOf(currentClueItem, 'millionaire');
-    roundEnd();
-    const opened = found ? roundOpen(found) : null;
-    renderMillionaire();
-    /* A new question ends any borrowing: the phones go back to whatever the mode
-       says, the same as in the tile games. Voting is not a mode any more, so there
-       is nothing to exempt here — it comes and goes inside a question. Only when no
-       round opened, because opening one has already armed the room. */
-    if(!opened) askPhones(q.prompt, 'millionaire');
-  }
-
-  function showMillionaireMessage(text){
-    roundEnd();
-    document.getElementById('m-question').textContent = text;
-    document.getElementById('m-options').innerHTML = '';
-    document.getElementById('m-hint').textContent = '';
-    document.getElementById('m-next').style.display = 'inline-block';
-    document.getElementById('m-done-count').style.display = 'none';
-    document.getElementById('m-final').style.display = 'none';
-  }
-
-  function renderMillionaire(){
-    const turnEl = document.getElementById('m-turn');
-    const st = mTeamState(active);
-    const rung = Math.min(st.rung, M_LADDER.length-1);
-    turnEl.textContent = (teams[active] ? teams[active].name : 'Team') +
-                         ' · playing for ' + M_LADDER[rung];
-
-    // lifelines belong to the team whose turn it is
-    document.querySelectorAll('#m-lifelines .lifeline').forEach(btn=>{
-      const on = S.get('mLifelines', 'millionaire');
-      btn.style.display = on ? 'inline-block' : 'none';
-      const needsRoom = btn.dataset.life === 'class' && !buzzHost;
-      btn.disabled = !on || !st.lifelines[btn.dataset.life] || !mCurrent || mAnswered || needsRoom;
-      btn.title = needsRoom ? 'No phones in the room — nothing to reveal' : '';
-      btn.classList.toggle('spent', !st.lifelines[btn.dataset.life]);
-    });
-
-    renderLadder();
-    mTension();          // one place keeping the lights and the music in step
-    if(!mCurrent) return;
-
-    drawPrompt(document.getElementById('m-question'),
-                      { text:mCurrent.q.prompt, answer:mCurrent.q.answer, type:mCurrent.q.type },
-                      'millionaire');
-    /* **The options are the multiple choice round now**, drawn into this game's own
-       stage rather than a clue card — which is the whole of F3.8.9, and cost one
-       `mount` fact in `ROUND_HOSTS`. What was here before was the same question drawn
-       a second way: its own A/B/C/D, its own picked state, its own vote counts, none
-       of it reachable from any other board. */
-    renderRound();
-
-    mSayHint();
-    document.getElementById('m-next').style.display = 'none';
-    /* No "Done voting" any more, and its absence is the point: the round holds the
-       room for the whole question, so there is no borrowing to hand back. */
-    document.getElementById('m-done-count').style.display = 'none';
-    /* `m-final` is the round's commit button now, shown and worded by
-       `renderRoundButton` — setting it here as well is how the two would disagree. */
-  }
-
-  /* ---- how tense it should feel right now ----
-     The ladder already holds the only number this needs: rung 0 of 8 is a warm-up,
-     rung 7 is the last question of the night. One value drives both halves of the
-     atmosphere — the CSS reads `--tension` to close the spotlight in and pull the
-     colour towards red, and the think-music bed uses it for tempo and brightness.
-     Nothing here runs unless the game show skin is on. */
-  function mTension(){
-    stageTension('millionaire', () => {
-      const st = mTeamState(active);
-      // the bed plays under a live question and stops the moment one is answered, so
-      // it never runs under the teacher reading out the result
-      return { t: Math.min(st.rung, M_LADDER.length-1) / (M_LADDER.length-1),
-               live: !!(mCurrent && !mAnswered) };
-    });
-  }
-
-  /* A short light wash over the stage — the show's "lights change on the answer".
-     Capped well under 3Hz and skipped entirely for reduced motion: a projected
-     full-screen strobe in front of a class you don't have medical histories for is
-     not a risk worth taking for a flourish. */
-  function mFlash(kind){
-    const stage = document.getElementById('play-millionaire');
-    if(!stage.classList.contains('lit') || !motionOK()) return;
-    stage.classList.remove('flash-right','flash-wrong');
-    void stage.offsetWidth;                        // restart the animation
-    stage.classList.add(kind === 'right' ? 'flash-right' : 'flash-wrong');
-    setTimeout(()=>stage.classList.remove('flash-right','flash-wrong'), 900);
-  }
-
-  /* Same rule as the other boards: fill the screen, never scroll. The stage takes
-     whatever is left under the header and above the team bar, and the options and
-     ladder stretch into it. */
-  function fitMillionaire(){
-    Kit.fitToScreen(document.getElementById('m-main'), { min:260, gap:12, floor:true });
-  }
-
-  function renderLadder(){
-    const wrap = document.getElementById('m-ladder');
-    wrap.innerHTML = '';
-    for(let i = M_LADDER.length - 1; i >= 0; i--){
-      const row = document.createElement('div');
-      row.className = 'm-rung';
-      const st = mTeamState(active);
-      if(i < st.rung)  row.classList.add('cleared');
-      if(i === st.rung) row.classList.add('here');
-      const n = document.createElement('span'); n.className='m-rung-n'; n.textContent = i+1;
-      const v = document.createElement('span'); v.className='m-rung-v'; v.textContent = M_LADDER[i];
-      row.appendChild(n); row.appendChild(v);
-      wrap.appendChild(row);
-    }
-  }
-
-  /* The line under the options. Its own function because a nomination refreshes it
-     without redrawing the whole board. */
-  function mSayHint(){
-    if(!mCurrent || mAnswered) return;
-    const nom = mNominated();
-    document.getElementById('m-hint').textContent =
-      nom      ? 'Locked on ' + nom + ' — or pick another option to change it.'
-      : mTally ? 'The class has voted — their picks are on the options.'
-      : '';
-  }
-
-  /* What the team has nominated, read off the round rather than kept beside it.
-     `mPicked` used to be a second copy of this and the two could disagree. */
-  function mNominated(){ return (roundState && roundState.chosen && roundState.chosen[0]) || null; }
-
-  /* Everything a question ending does to the board, whichever way it ended. */
-  function mEndQuestion(){
-    /* **Show which one was right.** On a tile the card flips away and nobody needs
-       telling; here the options stay on screen for the rest of the beat, so ending
-       without revealing leaves four live-looking options and no answer. `reveal`
-       also clears the lock, which is what stops the nomination outliving the
-       question it belonged to. */
-    if(roundState && !roundState.shown) roundDef().reveal(roundHost.mount(), roundState, roundCtx());
-    mAnswered = true;
-    mVoting = false; mCounting = false;
-    document.getElementById('m-done-count').style.display = 'none';
-    document.getElementById('m-final').style.display = 'none';
-    renderScorebar();
-    renderLadder();
-    // the ladder now shows the new rung lit, so the stage has to agree — without
-    // this the lights stayed on the old rung until the next question was dealt
-    mTension();
-    document.querySelectorAll('#m-lifelines .lifeline').forEach(b=>b.disabled = true);
-    document.getElementById('m-next').style.display = 'inline-block';
-  }
-
-  /* The round says a team has it; this says what that is worth here. Called through
-     `ROUND_HOSTS.millionaire.win`, and it returns what it paid because the phone
-     strip names the student and the amount. */
-  function mPayRung(team){
-    const st = mTeamState(team);
-    const value = M_LADDER[Math.min(st.rung, M_LADDER.length - 1)];
-    const paid = award(team, value, { steal: !!(mCurrent && mCurrent.stolen),
-                                      why: 'rung ' + value });
-    markRun(team, true);
-    st.rung += 1;
-    document.getElementById('m-hint').textContent = '+' + paid;
-    if(document.getElementById('play-millionaire').classList.contains('lit') &&
-       st.rung >= M_LADDER.length - 1) setTimeout(()=>Sound.applause(1600), 300);
-    mEndQuestion();
-    return paid;
-  }
-
-  /* A wrong answer on this board is not free, which is the one place Millionaire
-     genuinely differs from every other host: it ends the go. Offer the rung to the
-     next team once — without that a wrong answer is dead air for everyone else in
-     the room — and otherwise reveal and move on.
-
-     Returns true either way, because the generic "costs nothing, try again" path
-     below it would be wrong here in both cases. */
-  function mMissed(team){
-    markRun(team, false);
-    const st = mTeamState(team);
-    const others = teams.map((_, i) => i).filter(i => i !== team);
-    if(S.get('stealOnWrong', 'millionaire') && mCurrent && !mCurrent.stolen && others.length){
-      mCurrent.stolen = true;
-      mCurrent.team   = others[0];
-      if(roundState) roundState.chosen = [];
-      document.getElementById('m-hint').textContent =
-        (teams[mCurrent.team] ? teams[mCurrent.team].name : 'The other team') +
-        ' can steal it for ' + Math.round(M_LADDER[Math.min(st.rung, M_LADDER.length-1)] /
-                                          (S.get('stealFullValue','millionaire') ? 1 : 2));
-      if(document.getElementById('play-millionaire').classList.contains('lit')){
-        Sound.play('klaxon'); mFlash('wrong');
-      } else Sound.play('wrong');
-      renderRound();
-      renderScorebar();
-      /* The question now belongs to the other team, so the room is asked again —
-         a scoped round would otherwise still be entitled to the team that missed. */
-      askPhones(mCurrent.q.prompt, 'millionaire');
-      return true;
-    }
-    if(document.getElementById('play-millionaire').classList.contains('lit')){
-      Sound.play('klaxon'); mFlash('wrong');
-    } else Sound.play('wrong');
-    Sound.bedStop();
-    document.getElementById('m-hint').textContent = 'No points — same rung next time round.';
-    mEndQuestion();
-    return true;
-  }
-
-  /* ---- lifelines ---- */
-  function useLifeline(kind){
-    const st = mTeamState(active);
-    if(!mCurrent || mAnswered || !st.lifelines[kind]) return;
-    st.lifelines[kind] = false;
-    /* Reaching for a lifeline is reconsidering, so it throws away the nomination —
-       which also means 50:50 can never remove the option that is currently locked on. */
-    mPicked = null;
-
-    if(kind === 'fifty'){
-      /* Two wrong options out of play. `hidden` is the round's — "narrow the
-         choice" is a generic hint mechanic rather than a Millionaire feature — so
-         they stay on screen struck through and leave the handsets entirely. */
-      if(roundState){
-        const wrong = roundState.options.filter(o => o !== roundState.answer);
-        roundState.hidden = shuffle(wrong.slice()).slice(0, 2);
-        renderRound();
-        if(buzzHost) askPhones(mCurrent.q.prompt, 'millionaire');
-      }
-      Sound.play('reveal');
-    } else if(kind === 'class'){
-      /* **The class has already voted.** The round asks the room on every question,
-         so this no longer borrows the phones and runs a second vote against them —
-         which was two dynamics arming one handset, the bug this project has already
-         paid for. It reveals the counts the round is holding, which is what makes
-         it still worth spending rather than free.
-
-         With no relay there is nothing to reveal, so the button is not offered —
-         see `renderMillionaire`. That is a real loss against the old hands-in-the-air
-         tally, and the honest trade for the round owning the room. */
-      mTally = true;
-      Sound.play('reveal');
-      renderMillionaire();
-    } else if(kind === 'confer'){
-      timerSetDuration(Number(S.get('mConferSeconds', 'millionaire')) || 30);
-      timerReset(); timerStart();
-    }
-    renderMillionaire();
-  }
-
-  document.querySelectorAll('#m-lifelines .lifeline').forEach(btn=>{
-    btn.addEventListener('click', ()=>useLifeline(btn.dataset.life));
-  });
-  document.getElementById('m-final').addEventListener('click', roundCommit);
-  document.getElementById('m-next').addEventListener('click', ()=>{
-    timerStop();
-    active = Kit.passTurn(teams.length, active);
-    renderScorebar();
-    nextMillionaireQuestion();
-  });
-  /* Done counting stops the *counting*, and deliberately keeps the numbers: they
-     are what the team is deciding on. Clearing them was the other half of the
-     dead end — the only way out of tally mode also threw away the vote. */
-  document.getElementById('m-done-count').addEventListener('click', ()=>{
-    const wasVoting = mVoting;
-    mCounting = false;
-    mVoting   = false;
-    /* Give the phones back. Without this the room stays on the four options for the
-       rest of the question, so a class set to buzz for the floor lost the buzzer the
-       moment a lifeline was used — the borrowing has to end as explicitly as it
-       started. `askPhones` re-arms whatever the mode is, including disarming when
-       it is off. */
-    if(wasVoting && mCurrent && !mAnswered) askPhones(currentPhonePrompt(), 'millionaire');
-    renderMillionaire();
-  });
 
   /* ================= PHONE BUZZERS =================
      Optional layer. Students join on their phones and buzz for the right to answer;
@@ -7396,8 +6904,9 @@
        dropped at all — but the round's own state does not, and there is no reason it
        should have to: a student mid-question is not clutter. The tidy-up happens
        when the question ends, which is the moment the state it would scramble stops
-       existing. `mState.length = 0` below is the same problem solved bluntly for
-       Millionaire's ladders; this is why nothing else needs that treatment. */
+       existing. The `onTeamsChanged` hook below is the same problem solved bluntly for
+       a game's own per-team state (Millionaire's ladders); this is why nothing else
+       needs that treatment. */
     if(roundLive()) return false;
     const here = Object.create(null);
     (list || []).forEach(p=>{ if(p && p.id) here[p.id] = true; });
@@ -7414,8 +6923,10 @@
       /* Every seat above the hole has moved. That used to need a second map voided
          here — what each phone was last told was now a lie about all of them — and
          it is structural instead: the shifted phones disagree with their new index
-         and `seatSoloPlayers` re-sends them on the next roster event. */
-      if(Array.isArray(mState)) mState.length = 0;
+         and `seatSoloPlayers` re-sends them on the next roster event. A game holding
+         per-team state keyed by index resets it through the hook, the same as a team
+         removal. */
+      hook('onTeamsChanged', -1);
       if(active >= teams.length) active = Math.max(0, teams.length - 1);
     }
     return dropped;
@@ -7749,9 +7260,11 @@
     askPhones(prompt, activeGame);
   }
 
-  /* Both games' votes, asked as one question — the fact lives here rather than in
-     each caller, the same reason `Kit.floorTop()` exists. */
-  function voteLive(){ return mVoting || bbVoting; }
+  /* A vote is open on the board — the fact lives here rather than in each caller, the
+     same reason `Kit.floorTop()` exists. Only Blockbusters borrows the phones for a
+     board vote now; Millionaire's `mVoting` was never set true after the round took
+     over the room, so it left with that game. */
+  function voteLive(){ return bbVoting; }
 
   function clearReplies(){
     classReplies = null;
@@ -8419,6 +7932,15 @@
     roundCommit, roundEnd, roundOf, roundOpen, roundClockSecs,
     roundForPhones, roundLive, roundOnReplies,
     revealOpenRound, roundDone: roundDoneNow,
+    renderRound, currentPhonePrompt,
+    /* The live round's own object, for a host that reaches into it — Millionaire's
+       50:50 hides two options and its steal clears the nomination. A getter, because
+       `roundState` is replaced wholesale each question. */
+    roundState: () => roundState,
+    /* The item the shared round re-ask paths read `.text` from. A host that mounts a
+       round on its own stage sets it as its clue opens (the card games set it in
+       `openClueCard`). */
+    setClueItem: it => { currentClueItem = it; },
     // surfaces and the room
     drawPrompt, askPhones, armBuzzers, resetBuzzers,
     showResult, hideResult, showStandings, standingsWanted,
