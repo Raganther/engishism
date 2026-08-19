@@ -89,8 +89,12 @@ a page that barely touches code has little to get wrong.
 
 **The limit worth stating: a skill whose files have never carried a bug cannot be
 rehearsed at all.** There is nothing to replay. That is not a pass — it is no result,
-and saying so is the honest report. The new-game page is in exactly that position: its
-territory has only ever seen the two extraction commits that created it.
+and saying so is the honest report. But confirm it against the real history before
+believing it, and **count fixes, not commits**: a territory can be nothing but
+extraction commits that *moved* code into its files — no lesson to replay in any of
+them — while one genuine fix hides among them, and that one is the case. The clone is
+shallow, so `git fetch --unshallow` first; a page declared bug-free off the photograph
+in a fresh clone is a page nobody looked past.
 
 ## Before you finish
 
