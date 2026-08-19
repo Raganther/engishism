@@ -50,7 +50,18 @@ myboard: {
 Then two calls where your clue opens: `roundOf(item, 'myboard')` **before**
 `askPhones` (the host must be named before `setup` reads the ctx, or the round is set
 up against the previous board), and `roundOpen(found)` if it found one. Carry the
-round's fields across with `Kit.round.fields()` rather than naming them.
+round's fields across with `Kit.round.fields()` rather than naming them. Quickfire and
+Millionaire mount the round on their **own board** this way.
+
+**If your board opens the shared clue card instead** (declare `onCard:true` and
+`mount:() => E().cardMount()`), do **not** hand-write that sequence — the whole
+~dozen-step open (those two calls, the field-copy, drawing the prompt, standing the old
+handsets down, the answer line and the button strip, all in one load-bearing order) is
+`E().openRoundOnCard(o)`. Call it and keep only your board's own pre-work before it and
+post-work off the round it returns. Jeopardy, Blockbusters and the Connections probe are
+the three; copy the thinnest, Connections' `openConnectionsClue` (one call), and read
+`openRoundOnCard`'s own header for what each field does. Hand-copying the sequence is the
+exact drift that broke a card once.
 
 `ROUND_HOSTS` lives above the settings block so the round settings' `games` list is
 derived from it — do not type the game names out again anywhere.
