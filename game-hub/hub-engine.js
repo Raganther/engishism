@@ -4008,6 +4008,63 @@
     else card.classList.add('flipped');
   }
 
+  /* **Opening a round (or an ordinary clue) on the shared card — the invariant core.**
+     Three card hosts — `jeopardy.js`, `blockbusters.js`, `connections.js` — each opened
+     the card with the same dozen steps in the same load-bearing order, and copies drift:
+     one already had (the `onCard` reveal bug during the Jeopardy extraction). This is that
+     sequence, once. A host keeps its own pre-work (before the call) and post-work (after,
+     off the returned round): the Daily Double wager, the hex chooser, the review
+     answer-reveal, tension and hints are genuinely a game's own and stay there.
+
+       o = { game, mode, origin, item, source, topline, section,
+             ask=true, open=true, buttons={reveal:true,close:true}, skipText }
+
+     - `origin` is the tile/hex in play: it becomes `currentTile` (so scoring knows which to
+       mark used) and the card's flip source; `null` for a board with no tile (Connections).
+     - `source` is the raw bank object — the round's authored fields are carried from it onto
+       `item` here, the copy every host used to write by hand and could forget.
+     - `open:false` keeps the round from arming the room (a replayed Jeopardy tile asks
+       nobody); `ask:false` suppresses the ordinary-question fallback (a Daily Double belongs
+       to one team). Returns the live round, or null. */
+  function openRoundOnCard(o){
+    /* Captured before any mutation: a Daily Double already opened the card for its wager,
+       and re-opening would re-flip it. Everyone else opens onto a closed card. */
+    const wasOpen = document.getElementById('clue-modal').style.display === 'flex';
+    currentTile = o.origin || null;
+    modalMode   = o.mode;
+    document.getElementById('clue-topline').textContent = o.topline || '';
+    document.getElementById('clue-section').textContent = o.section || '';
+    // Carry the round's authored fields across, or a claimed field never reaches setup.
+    if(o.source) Kit.round.fields().forEach(f => {
+      if(o.source[f] !== undefined) o.item[f] = o.source[f];
+    });
+    currentClueItem = o.item;
+    // roundOf names the host, so setup's ctx is scoped to this board — before roundOpen.
+    const rnd = roundOf(o.item, o.game);
+    if(rnd) o.item.answer = rnd.state.answer;   // a round's answer is derived, not authored
+    drawPrompt(document.getElementById('clue-text'), o.item, o.game);
+    roundEnd();                                 // stand the previous handsets down
+    /* A round arms the room as it opens; the ordinary-question fallback covers the rest.
+       Neither fires for a replayed tile (open:false, ask:false). */
+    const opened = (rnd && o.open !== false) ? roundOpen(rnd) : null;
+    if(!opened && o.ask !== false) askPhones(o.item.text, o.game);
+    const ans = document.getElementById('clue-answer');
+    ans.textContent = o.item.answer || '';
+    ans.style.display = 'none';
+    hideAllActionButtons();
+    const b = o.buttons || { reveal:true, close:true };
+    if(b.reveal) document.getElementById('reveal-btn').style.display = 'inline-block';
+    if(b.close)  document.getElementById('close-btn').style.display  = 'inline-block';
+    if(b.skip){
+      const s = document.getElementById('skip-btn');
+      s.textContent = o.skipText || 'Skip';
+      s.style.display = 'inline-block';
+    }
+    renderRoundButton();                        // AFTER hideAllActionButtons — mints Check
+    if(!wasOpen) openClueCard(o.origin || null);// the DD card is already open; don't re-flip
+    return rnd;
+  }
+
   /* `then` runs once the card is out of the way — a board that wants to animate
      after a clue (Blockbusters lighting up a winning route) would otherwise do it
      behind the card. */
@@ -5456,7 +5513,7 @@
        from (`currentTile`), and closes it; the shared reveal/close handlers read that
        state, which is why both need a getter and a setter here. `clueClaim` is the one
        team chooser both card games share, exposed narrowly. */
-    openClueCard, closeModal, hideAllActionButtons, renderRoundButton, clueIsOpen,
+    openClueCard, openRoundOnCard, closeModal, hideAllActionButtons, renderRoundButton, clueIsOpen,
     askClass, parkBuzzRoom,
     // the shared clue-card mount, so a card game's round host draws into the same box
     cardMount: CARD_MOUNT,

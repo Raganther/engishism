@@ -670,44 +670,26 @@
   function openBlockbustersClue(clueObj, hex){
     if(bbWon) return;                        // the round has an ending; nothing left to claim
     if(hex.classList.contains('claimed-gold') || hex.classList.contains('claimed-silver')) return;
-    E().setCurrentTile(hex); E().setModalMode('blockbusters');
-    /* The letter stays on the topline whatever is behind the hexagon — it is the
-       hexagon's *name*, how a team says which one they are attacking, not a promise about
-       the answer's first letter (a grouping set has four answers, an ordering scale five). */
-    document.getElementById('clue-topline').textContent = clueObj.letter;
-    document.getElementById('clue-section').textContent = clueObj.section;
-    const item = { text:clueObj.clue, answer:clueObj.answer, type:clueObj.type };
-    // whatever field a registered round claims, carried across by asking the registry
-    K.round.fields().forEach(f => { if(clueObj[f] !== undefined) item[f] = clueObj[f]; });
-    E().setClueItem(item);
-    /* Set up once and keep it: a round's answer is derived from the round rather than
-       authored beside it, because two copies of one fact can drift. */
-    const rnd = E().roundOf(item, 'blockbusters');
-    if(rnd) item.answer = rnd.state.answer;
-    /* Opening a hex answers the vote's question, so it ends here — before askPhones, or
-       the arm below would be overwritten by a vote nobody is still taking. */
+    /* Opening a hex answers the vote's question, so it ends here — before
+       `openRoundOnCard` arms the room, or that arm would be overwritten by a vote nobody
+       is still taking. */
     bbVoting = false; bbVote = null; renderBBVote();
-    E().drawPrompt(document.getElementById('clue-text'), item, 'blockbusters');
-    /* After drawPrompt (which owns #clue-text) and before askPhones, which consults
-       phoneRound() — and that cannot say what the handsets want until the round exists. */
-    E().roundEnd();
-    if(!(rnd && E().roundOpen(rnd))) E().askPhones(clueObj.clue, 'blockbusters');
-    const ansEl=document.getElementById('clue-answer'); ansEl.style.display='none';
-    ansEl.textContent = item.answer || clueObj.answer || '';
-    E().hideAllActionButtons();
-    document.getElementById('reveal-btn').style.display='inline-block';
+    /* The letter is the topline whatever is behind the hexagon — it is the hexagon's
+       *name*, how a team says which one they are attacking, not a promise about the
+       answer's first letter (a grouping set has four answers, an ordering scale five).
+       `source:clueObj` carries whatever field a registered round claims. */
+    const rnd = E().openRoundOnCard({
+      game:'blockbusters', mode:'blockbusters', origin:hex,
+      item:{ text:clueObj.clue, answer:clueObj.answer, type:clueObj.type }, source:clueObj,
+      topline:clueObj.letter, section:clueObj.section,
+      buttons:{ reveal:true, skip:true }, skipText:'No claim / close'
+    });
     /* Every team that exists, not the first two: the side a team plays for is bbSideOf,
        so a four-team class can all answer. A live round judges itself and pays the hex
        through roundHost.win, so the chooser stands down until the round is over and the
        reveal puts it back for a class that never got there. */
     if(!rnd) E().clueClaimShow(E().teams(), E().teams().map((_, i) => i));
-    const bbSkip = document.getElementById('skip-btn');
-    bbSkip.textContent = 'No claim / close';
-    bbSkip.style.display='inline-block';
-    // after hideAllActionButtons(), which clears the round's Check button
-    E().renderRoundButton();
     bbTension(true);                 // think music while the clue is on the table
-    E().openClueCard(hex);
   }
 
   function claimHex(idx){

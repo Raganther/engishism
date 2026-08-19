@@ -126,10 +126,13 @@ its own file now, but the shared clue card was built *around* Jeopardy, so layer
 carries Jeopardy-shaped surfaces the games reach through hooks — the card's
 reveal/correct/wrong/close/skip buttons route to `onClueReveal`/`onClueCorrect`/
 `onClueWrong`/`onClueClose`/`onClaimPick`, the answer clock stops via `onFloorClear`, the
-Together class-line repaints via `onScoreShown`. Parts of layer 1 were generalised *from*
-one game and still show it — `showResult()`'s `tone` is gold/silver, `Kit.claimTeam`'s
-`allow` exists for Blockbusters' two-team geometry. Read layer 1 as "what happens to be
-shared so far".
+Together class-line repaints via `onScoreShown`. **Opening the card is shared now:** a card
+host calls `E().openRoundOnCard(o)` — the ~dozen-step open sequence in its load-bearing
+order, once — and keeps its own pre-work before it and post-work off the round it returns
+(the Daily Double wager, the hex chooser, the review answer-reveal). Parts of layer 1 were
+generalised *from* one game and still show it — `showResult()`'s `tone` is gold/silver,
+`Kit.claimTeam`'s `allow` exists for Blockbusters' two-team geometry. Read layer 1 as "what
+happens to be shared so far".
 
 **Docs worth knowing by name:**
 - `docs/game-hub-requirements.md` — the spec. **The agreed direction (§3.8–§3.10), the

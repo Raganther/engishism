@@ -662,57 +662,43 @@
                           then: bet => { E().setClueValue(bet); jShowClue(cat, clue, tile, false); } });
       return;
     }
+    // openRoundOnCard opens the card itself now; the Daily Double opened it earlier for
+    // the wager and jShowClue will not re-flip it.
     jShowClue(cat, clue, tile, review);
-    E().openClueCard(tile);
   }
 
   // everything that was openJeopardyClue's body, so the Daily Double can run it
   // *after* its bet rather than duplicating it
   function jShowClue(cat, clue, tile, review){
     const dd = jDoubleTeam != null;
-    document.getElementById('clue-topline').textContent =
+    /* The topline carries the value, so it is the host's to compose — a Daily Double says
+       the bet, an ordinary tile its price, a replay marks itself. */
+    const topline =
       dd ? ('DAILY DOUBLE · ' + categoryName(cat) + ' · $' + E().clueValue())
          : (categoryName(cat) + ' · $' + clue.v + (review ? '  ·  review' : ''));
-    document.getElementById('clue-section').textContent = cat.section;
-    /* `reveal` and `group` ride along with the normalised shape — the kit never learns
-       that Jeopardy calls a prompt `q`, but it is a whitelist, so anything an author
-       adds is invisible downstream until it is named here. */
+    /* `reveal` rides along with the normalised shape (the kit never learns Jeopardy calls
+       a prompt `q`); `source:clue` is what carries whatever else a registered round claims
+       — a grouping set's `group` — onto the item without this host naming each field. */
     const item = { text:clue.q, answer:clue.a, type:clue.type, reveal:clue.reveal };
-    /* Whatever field a registered round claims, carried across by asking the registry. */
-    K.round.fields().forEach(f => { if(clue[f] !== undefined) item[f] = clue[f]; });
-    E().setClueItem(item);
-    /* A grouping clue's answer *is* its set, so it is derived once and kept — `setup`
-       shuffles, so asking twice would draw one order for the answer line and another
-       for the card. */
-    const grp = E().roundOf(item, 'jeopardy');
-    if(grp) item.answer = grp.state.answer;
-    E().drawPrompt(document.getElementById('clue-text'), item, 'jeopardy');
-    /* Before `askPhones`, which consults `phoneRound()` — and that cannot answer until
-       the round exists. Also after `drawPrompt`, which owns `#clue-text`. */
-    E().roundEnd();
-    // A round arms the room as it opens, so this covers the ordinary clues only.
-    // A replayed tile asks nobody, and a Daily Double belongs to one team alone.
-    const opened = (!review && grp) ? E().roundOpen(grp) : null;
-    if(!review && !dd && !opened) E().askPhones(clue.q, 'jeopardy');
-    const ansEl=document.getElementById('clue-answer');
-    ansEl.textContent = item.answer || clue.a || '';
-    E().hideAllActionButtons();
+    /* The shared open sequence, once. What stays here is genuinely Jeopardy's: a replayed
+       tile arms nobody and opens no round (`open:false`), a Daily Double belongs to one
+       team so nothing is asked (`ask:false`), and review reveals the answer at once. */
+    E().openRoundOnCard({
+      game:'jeopardy', mode: review ? 'review' : 'jeopardy', origin:tile,
+      item, source:clue,
+      topline, section:cat.section,
+      open: !review, ask: (!review && !dd),
+      buttons: { reveal: !review, close: true }
+    });
     if(review){
-      // already played — show everything, score nothing
-      ansEl.style.display =
+      // already played — show everything, score nothing: the answer prints on its own
+      // line unless the form already revealed it inline.
+      document.getElementById('clue-answer').style.display =
         K.prompt.reveal(document.getElementById('clue-text'), item) ? 'none' : 'block';
-      document.getElementById('close-btn').style.display='inline-block';
-    } else {
-      ansEl.style.display='none';
-      document.getElementById('reveal-btn').style.display='inline-block';
-      document.getElementById('close-btn').style.display='inline-block';
     }
     jTension(review ? 0 : (dd ? Math.max(clue.v, E().clueValue()) : clue.v));
     jHintsUsed = 0;
-    renderHintButton();
-    /* After `hideAllActionButtons()`, which is the whole reason this is here rather than
-       inside `roundOpen` — the buttons are cleared after `askPhones`. */
-    E().renderRoundButton();
+    renderHintButton();   // toggles the fixed #hint-btn; after the strip is (re)built
   }
 
   /* ---- the answer clock ----

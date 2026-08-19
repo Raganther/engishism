@@ -8,23 +8,24 @@
    `E().cardMount()`; the stage is a bare panel that exists only so `roundHost.stage`
    resolves.
 
-   It is modelled on `blockbusters.js` (the nearest card host — the open-card sequence is
-   copied from it almost verbatim, on purpose: that duplication is the coupling the probe
-   is meant to make visible) and `quickfire.js` (the thinnest sequence host).
+   It is modelled on `blockbusters.js` (the nearest card host) and `quickfire.js` (the
+   thinnest sequence host).
 
-   COUPLING THIS EXPOSES — read the inline `PROBE:` notes below, they are the findings:
+   COUPLING THIS EXPOSED — the findings, and which are now addressed:
    1. `modalMode` is an untyped free string this host invents ('connections') and echoes
-      in `live()`. No registry of legal values.
-   2. Opening a round on the card is a hand-ordered ~12-step choreography with three
-      load-bearing ordering constraints — duplicated here, in jeopardy.js and in
-      blockbusters.js. There is no `E().openRoundOnCard(item, host)` entry point.
-   3. `K.round.fields()` must be hand-copied per clue or the round silently drops to text.
+      in `live()`. No registry of legal values. STILL OPEN (deferred non-goal).
+   2. Opening a round on the card was a hand-ordered ~12-step choreography duplicated here,
+      in jeopardy.js and in blockbusters.js. RESOLVED — it is `E().openRoundOnCard(o)` now,
+      the invariant core once, and this host's `openConnectionsClue` is one call.
+   3. The round's authored fields had to be hand-copied per clue or the round silently
+      dropped to text. RESOLVED — `openRoundOnCard` carries them from `source`.
    4. The clue-card buttons are one shared imperative pool; a self-judging round needs
-      almost none of them yet must still drive them.
+      almost none of them yet must still drive them. STILL OPEN (deferred: needs a second
+      round-first game before the button set is worth deriving).
    5. There is no "next question" seam for a sequence host on the card — `win()` has to
       close the card AND schedule the next question itself, and the give-up path needs a
-      second seam (`onClueClose`). Grouping also has no content channel of its own, so
-      this file carries its own bank. */
+      second seam (`onClueClose`). STILL OPEN (deferred non-goal). Grouping also has no
+      content channel of its own, so this file carries its own bank. */
 (function(){
   'use strict';
   const K = window.HubKit;
@@ -39,8 +40,9 @@
   let over = false;                // the run has ended
 
   /* PROBE 5 (content): grouping has no bank of its own — it normally rides a card game's
-     bank and the K.round.fields() copy. A skinless host has nowhere to source it from, so
-     the probe authors its own. Shape per content/unit-lab.js: {text, group:{pick,with}} —
+     bank, its `group` field carried onto the item by `openRoundOnCard`. A skinless host
+     has nowhere to source it from, so the probe authors its own. Shape per
+     content/unit-lab.js: {text, group:{pick,with}} —
      `pick` are the four that belong, `with` the four near-miss distractors. */
   const CONNECTIONS_BANK = [
     { section:'Feelings', text:'Four of these mean extremely happy. Find the four.',
@@ -155,39 +157,17 @@
     openConnectionsClue(current);
   }
 
-  /* PROBE 2: the open-card choreography — copied almost verbatim from
-     `blockbusters.js` openBlockbustersClue, with the board-specific bits (the hexagon,
-     the vote) dropped. The ordering below is load-bearing in three places and there is no
-     shared helper for it. */
+  /* The open-card choreography is the shared `E().openRoundOnCard` now — the dozen steps
+     three hosts copied. Connections is the plain case: no tile to flip from, no pre- or
+     post-work, so the whole body is one call. `mode:'connections'` is this board's own
+     `modalMode` string; `source:bankItem` is what carries `group` through to setup. */
   function openConnectionsClue(bankItem){
-    E().setCurrentTile(null);
-    E().setModalMode('connections');                         // PROBE 1: invent + write the string
-    document.getElementById('clue-topline').textContent = 'CONNECTIONS';
-    document.getElementById('clue-section').textContent = bankItem.section || '';
-
-    const item = { text:bankItem.text, type:bankItem.type };
-    // PROBE 3: carry the round's authored fields across, or `group` never reaches setup
-    K.round.fields().forEach(f => { if(bankItem[f] !== undefined) item[f] = bankItem[f]; });
-    E().setClueItem(item);
-
-    // roundOf BEFORE roundOpen — it names the host so setup's ctx is scoped to this board
-    const rnd = E().roundOf(item, 'connections');
-    if(rnd) item.answer = rnd.state.answer;                  // the answer is derived, not authored
-
-    E().drawPrompt(document.getElementById('clue-text'), item, 'connections');
-    E().roundEnd();                                          // stand the previous handsets down
-    // opening the round arms the room; there is no ordinary-question fallback here
-    if(!(rnd && E().roundOpen(rnd))) E().askPhones(bankItem.text, 'connections');
-
-    const ansEl = document.getElementById('clue-answer');
-    ansEl.style.display = 'none';
-    ansEl.textContent = item.answer || '';
-
-    E().hideAllActionButtons();
-    document.getElementById('reveal-btn').style.display = 'inline-block';   // give up + reveal
-    document.getElementById('close-btn').style.display  = 'inline-block';   // skip this one
-    E().renderRoundButton();                                 // AFTER hideAllActionButtons — mints Check
-    E().openClueCard(null);                                  // null origin: no tile to flip from
+    E().openRoundOnCard({
+      game:'connections', mode:'connections', origin:null,
+      item:{ text:bankItem.text, type:bankItem.type }, source:bankItem,
+      topline:'CONNECTIONS', section:bankItem.section || '',
+      buttons:{ reveal:true, close:true }
+    });
   }
 
   function finishConnections(){
