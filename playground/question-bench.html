@@ -8,7 +8,7 @@
 <!-- The shared card, exactly as a game show draws it. This is the whole point of
      the page: what you tune here IS what a class meets, not a second implementation
      that resembles it. -->
-<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260819c">
+<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260819d">
 <style>
   /* ================= The question bench =================
      One question type at a time, with the card on the left and a rack of real
@@ -164,6 +164,10 @@
   .phone .who{ font-size:0.7rem; text-align:center; opacity:0.7; margin-bottom:5px;
                font-family:'IBM Plex Mono',monospace;
                display:flex; align-items:center; justify-content:center; gap:6px; }
+  /* A solo phone is its own competitor: its name reads at full strength in its own
+     colour, and its tile takes a coloured top edge so the colour is unmissable. */
+  .phone.solo .who{ opacity:1; font-weight:700; }
+  .phone.solo .clip{ border-top:3px solid var(--pc, transparent); }
   /* The room bench's × on every phone — one standard rack on both benches. */
   .phone .phone-off{ background:none; border:none; color:inherit; cursor:pointer;
                      font-size:0.85rem; padding:0 3px; opacity:0.6; }
@@ -302,36 +306,36 @@
   <div id="rack-pane"><div id="rack-warn" class="warn"></div><div id="rack"></div></div>
 </div>
 
-<script src="../game-hub/hub-buzzer.js?v=20260819c"></script>
-<script src="../game-hub/hub-qr.js?v=20260819c"></script>
-<script src="../game-hub/hub-kit.js?v=20260819c"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260819d"></script>
+<script src="../game-hub/hub-qr.js?v=20260819d"></script>
+<script src="../game-hub/hub-kit.js?v=20260819d"></script>
 <!-- Captured between the two files, which is the only moment the two sets are
      distinguishable: every form registered above is in the kit and live in every
      game the day a bank item carries its type, and everything registered below is
      experimental and can reach no board at all, because a game loads hub-kit.js and
      never loads this file. The menu says which is which so nobody has to remember. -->
 <script>window.IN_THE_KIT = window.HubKit.prompt.types();</script>
-<script src="lab-forms.js?v=20260819c"></script>
-<script src="../game-hub/hub-rounds.js?v=20260819c"></script>
-<script src="../game-hub/rounds/default.js?v=20260819c"></script>
-<script src="../game-hub/rounds/grouping.js?v=20260819c"></script>
-<script src="../game-hub/rounds/ordering.js?v=20260819c"></script>
-<script src="../game-hub/rounds/choice.js?v=20260819c"></script>
-<script src="../game-hub/rounds/anagram.js?v=20260819c"></script>
-<script src="../game-hub/rounds/scramble.js?v=20260819c"></script>
-<script src="../game-hub/rounds/infogap.js?v=20260819c"></script>
-<script src="../game-hub/rounds/drop.js?v=20260819c"></script>
-<script src="../game-hub/rounds/bingo.js?v=20260819c"></script>
+<script src="lab-forms.js?v=20260819d"></script>
+<script src="../game-hub/hub-rounds.js?v=20260819d"></script>
+<script src="../game-hub/rounds/default.js?v=20260819d"></script>
+<script src="../game-hub/rounds/grouping.js?v=20260819d"></script>
+<script src="../game-hub/rounds/ordering.js?v=20260819d"></script>
+<script src="../game-hub/rounds/choice.js?v=20260819d"></script>
+<script src="../game-hub/rounds/anagram.js?v=20260819d"></script>
+<script src="../game-hub/rounds/scramble.js?v=20260819d"></script>
+<script src="../game-hub/rounds/infogap.js?v=20260819d"></script>
+<script src="../game-hub/rounds/drop.js?v=20260819d"></script>
+<script src="../game-hub/rounds/bingo.js?v=20260819d"></script>
 <!-- Data only, and the reason the bench can be a round trip rather than a blank
      page: an existing category can be loaded, edited and exported back. Loading a
      unit here puts nothing in front of a class — these files are inert until a hub
      shell reads them. -->
-<script src="../game-hub/content/unit-lab.js?v=20260819c"></script>
-<script src="../game-hub/content/unit-4.js?v=20260819c"></script>
-<script src="../game-hub/content/unit-5.js?v=20260819c"></script>
-<script src="../game-hub/content/nef-1.js?v=20260819c"></script>
-<script src="../game-hub/content/ef-2a.js?v=20260819c"></script>
-<script src="bench-kit.js?v=20260819c"></script>
+<script src="../game-hub/content/unit-lab.js?v=20260819d"></script>
+<script src="../game-hub/content/unit-4.js?v=20260819d"></script>
+<script src="../game-hub/content/unit-5.js?v=20260819d"></script>
+<script src="../game-hub/content/nef-1.js?v=20260819d"></script>
+<script src="../game-hub/content/ef-2a.js?v=20260819d"></script>
+<script src="bench-kit.js?v=20260819d"></script>
 <script>
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -1286,6 +1290,21 @@ const phonesOn = t => PHONES.filter(p => p.team === t).length;
    bench's rule, and the reason a team is given its row the moment it exists rather
    than when its first phone arrives. */
 function rackRow(team){
+  /* In solo every player flows into one grid — four to a line and wrapping, exactly
+     as a team's phones do — because each phone carries its own name and colour, so
+     there is no per-competitor label row to strand them one to a line. */
+  if(SOLO){
+    let box = document.getElementById('rack-solo');
+    if(!box){
+      box = document.createElement('div');
+      box.id = 'rack-solo';
+      const r = document.createElement('div');
+      r.className = 'rack-row';
+      box.appendChild(r);
+      $('rack').appendChild(box);
+    }
+    return box.querySelector('.rack-row');
+  }
   let row = document.getElementById('rack-team-' + team);
   if(row) return row.querySelector('.rack-row');
   const box = document.createElement('div');
@@ -1388,6 +1407,15 @@ function addPhone(team){
   const who = document.createElement('div');
   who.className = 'who';
   who.textContent = name;
+  /* In solo the player is the competitor, so the phone carries its own colour — the
+     name and a coloured top edge — the way a team's label does in teams. Distinct per
+     player now that `teamColour` spreads past its six brand colours. */
+  if(SOLO){
+    const col = window.HubBuzzer ? HubBuzzer.teamColour(t) : '';
+    box.classList.add('solo');
+    who.style.color = col;
+    box.style.setProperty('--pc', col);
+  }
   /* The room bench's × on every phone, here too — one standard rack. */
   const off = document.createElement('button');
   off.type = 'button';
@@ -1419,7 +1447,7 @@ function addPhone(team){
 function clearRack(){
   PHONES.slice().forEach(p => p.el.remove());
   PHONES.length = 0;
-  $('rack').querySelectorAll('[id^="rack-team-"]').forEach(b => b.remove());
+  $('rack').replaceChildren();          // every competitor row and the solo grid
   refreshRackChrome();
 }
 

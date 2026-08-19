@@ -29,8 +29,14 @@ window.HubBuzzer = (function(){
      violet, yellow, pink — never red-against-green as the first pair. */
   const TEAM_COLOURS = ['#00A0DF','#E8743B','#7BC043','#A162E8','#E8C547','#E85A8A'];
   function teamColour(i){
-    const n = Number(i);
-    return TEAM_COLOURS[((n >= 0 ? n : 0) | 0) % TEAM_COLOURS.length];
+    const n = (Number(i) >= 0 ? Number(i) : 0) | 0;
+    if(n < TEAM_COLOURS.length) return TEAM_COLOURS[n];
+    /* Past the brand palette, which only a room of individuals reaches — teams never
+       run to seven. Cycling the six repeated a colour every seventh player; instead
+       spread the extra hues by the golden angle, so no two players share a colour at
+       any class size. Teams (0–5) are untouched. */
+    const hue = Math.round(((n - TEAM_COLOURS.length) * 137.508 + 165) % 360);
+    return 'hsl(' + hue + ', 60%, 60%)';
   }
 
   /* ---------- how many words go on a line ----------
