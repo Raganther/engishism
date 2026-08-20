@@ -27,6 +27,19 @@ window.BenchKit = (function(){
   const params = new URLSearchParams(location.search);
   const RELAY  = params.get('relay') || '';
 
+  /* The build stamp, read off this file's own `?v=` at load — the same derivation
+     `HUB_BUILD` makes in hub-engine.js. A `.js` file cannot carry a literal the HTML
+     cache-stamp sed maintains, so the QR reads it from the script tag instead; it lets
+     the scanned join URL carry `?v=`, so a new deploy hands a real phone the current
+     shell rather than a cached one (the trap the rack iframes were stamped to avoid).
+     `document.currentScript` is only this script *during* its own top-level run. */
+  const BENCH_V = (function(){
+    const el = document.currentScript ||
+               [...document.querySelectorAll('script[src*="bench-kit.js"]')].pop();
+    const m = el && el.src && el.src.match(/[?&]v=([^&]+)/);
+    return m ? m[1] : '';
+  })();
+
   /* ---------- the room ----------
      Opens a room on the relay, renders the chip that shows it, and owns the join
      panel behind it. The page gets the host back and does its own arming — what a
@@ -41,6 +54,34 @@ window.BenchKit = (function(){
     const board = o.board || '';
     const on = o.on || {};
     let host = null, lan = '', count = 0;
+
+    /* The panel and QR are styled in hub.css (#join-modal etc.), which the benches
+       deliberately never load — it restyles the whole body. So the component supplies
+       its own rules, once, mirroring those values (CSS vars → hex: no --yellow/--blue
+       here). Same self-styling pattern as the roster chip and the build pill, for the
+       same reason: a playground page carries no hub CSS. Without this the chip opens an
+       unstyled, unpositioned panel with an unsized QR — the QR reads as missing. */
+    if(!document.getElementById('join-panel-css')){
+      const css = document.createElement('style');
+      css.id = 'join-panel-css';
+      css.textContent =
+        '#room-chip{ cursor:pointer; }' +
+        '#join-panel{ display:none; position:fixed; inset:0; z-index:65; padding:24px;' +
+        '  background:rgba(2,3,10,0.94); align-items:center; justify-content:center; }' +
+        '#join-panel.on{ display:flex; }' +
+        '#join-card{ text-align:center; max-width:min(90vw,620px);' +
+        '  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }' +
+        '#join-qr{ background:#fff; padding:16px; border-radius:16px; display:inline-block; line-height:0; }' +
+        '#join-qr svg{ width:min(46vh,320px); height:min(46vh,320px); display:block; }' +
+        '#join-code{ font-family:"IBM Plex Mono",monospace; font-weight:600; color:#F5C542;' +
+        '  font-size:clamp(2.4rem,7vw,4.2rem); letter-spacing:0.22em; margin:16px 0 2px; }' +
+        '#join-url{ font-family:"IBM Plex Mono",monospace; color:#cfe0ff; font-size:clamp(0.85rem,2vw,1.15rem); }' +
+        '#join-count{ color:#8fa6c8; margin-top:12px; font-size:0.95rem; }' +
+        '#bench-link{ display:inline-block; margin-top:16px; color:#00A0DF; }' +
+        '#join-panel .aside{ display:block; max-width:44ch; margin:12px auto 0; color:#8fa6c8;' +
+        '  font-size:0.85rem; line-height:1.4; }';
+      document.head.appendChild(css);
+    }
 
     const mount = o.mount || document.body;
     const chip = document.createElement('span');
@@ -89,7 +130,7 @@ window.BenchKit = (function(){
       box.innerHTML = '';
       try{
         const q = window.qrcode(0, 'M');
-        q.addData(base() + '/join.html?code=' + host.code);
+        q.addData(base() + '/join.html?' + (BENCH_V ? 'v=' + BENCH_V + '&' : '') + 'code=' + host.code);
         q.make();
         box.innerHTML = q.createSvgTag({ cellSize:7, margin:0, scalable:true });
       }catch(e){}
