@@ -8,7 +8,7 @@
 <!-- The shared card, exactly as a game show draws it. This is the whole point of
      the page: what you tune here IS what a class meets, not a second implementation
      that resembles it. -->
-<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260820d">
+<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260820e">
 <style>
   /* ================= The question bench =================
      One question type at a time, with the card on the left and a rack of real
@@ -179,6 +179,16 @@
                 height:calc(var(--phone-h) * var(--phone-scale)); }
   .phone iframe{ width:var(--phone-w); height:var(--phone-h); border:0;
                  transform:scale(var(--phone-scale)); transform-origin:top left; }
+  /* A real phone that scanned in: no iframe (it is a separate device), a badged
+     placeholder in its team's colour so it reads as its own participant beside the
+     simulated ones. Same footprint as a virtual card via the shared .clip size. */
+  .phone.real .who{ opacity:1; font-weight:700; color:var(--pc, #00A0DF); }
+  .phone.real .clip{ display:flex; flex-direction:column; align-items:center;
+                     justify-content:center; gap:5px; border-style:dashed;
+                     border-top:3px solid var(--pc, #00A0DF); background:rgba(0,160,223,0.06); }
+  .phone.real .real-badge{ font-family:'IBM Plex Mono',monospace; font-weight:700;
+                           font-size:0.82rem; letter-spacing:0.16em; color:var(--pc, #00A0DF); }
+  .phone.real .real-sub{ font-size:0.62rem; opacity:0.55; }
   #room-chip{ font-family:'IBM Plex Mono',monospace; font-size:0.74rem; letter-spacing:0.12em;
               text-transform:uppercase; opacity:0.75; }
   /* BenchKit puts its own bench link in the page; keep it out of the editor's prose */
@@ -306,41 +316,41 @@
   <div id="rack-pane"><div id="rack-warn" class="warn"></div><div id="rack"></div></div>
 </div>
 
-<script src="../game-hub/hub-buzzer.js?v=20260820d"></script>
-<script src="../game-hub/hub-qr.js?v=20260820d"></script>
-<script src="../game-hub/hub-kit.js?v=20260820d"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260820e"></script>
+<script src="../game-hub/hub-qr.js?v=20260820e"></script>
+<script src="../game-hub/hub-kit.js?v=20260820e"></script>
 <!-- The physics table shelf, for the Toss round below. Matter first (hub-table
      destructures window.Matter at load), then the shelf onto window.HubKit. -->
-<script src="../game-hub/matter.min.js?v=20260820d"></script>
-<script src="../game-hub/hub-table.js?v=20260820d"></script>
+<script src="../game-hub/matter.min.js?v=20260820e"></script>
+<script src="../game-hub/hub-table.js?v=20260820e"></script>
 <!-- Captured between the two files, which is the only moment the two sets are
      distinguishable: every form registered above is in the kit and live in every
      game the day a bank item carries its type, and everything registered below is
      experimental and can reach no board at all, because a game loads hub-kit.js and
      never loads this file. The menu says which is which so nobody has to remember. -->
 <script>window.IN_THE_KIT = window.HubKit.prompt.types();</script>
-<script src="lab-forms.js?v=20260820d"></script>
-<script src="../game-hub/hub-rounds.js?v=20260820d"></script>
-<script src="../game-hub/rounds/default.js?v=20260820d"></script>
-<script src="../game-hub/rounds/grouping.js?v=20260820d"></script>
-<script src="../game-hub/rounds/ordering.js?v=20260820d"></script>
-<script src="../game-hub/rounds/choice.js?v=20260820d"></script>
-<script src="../game-hub/rounds/anagram.js?v=20260820d"></script>
-<script src="../game-hub/rounds/scramble.js?v=20260820d"></script>
-<script src="../game-hub/rounds/infogap.js?v=20260820d"></script>
-<script src="../game-hub/rounds/drop.js?v=20260820d"></script>
-<script src="../game-hub/rounds/bingo.js?v=20260820d"></script>
-<script src="../game-hub/rounds/toss.js?v=20260820d"></script>
+<script src="lab-forms.js?v=20260820e"></script>
+<script src="../game-hub/hub-rounds.js?v=20260820e"></script>
+<script src="../game-hub/rounds/default.js?v=20260820e"></script>
+<script src="../game-hub/rounds/grouping.js?v=20260820e"></script>
+<script src="../game-hub/rounds/ordering.js?v=20260820e"></script>
+<script src="../game-hub/rounds/choice.js?v=20260820e"></script>
+<script src="../game-hub/rounds/anagram.js?v=20260820e"></script>
+<script src="../game-hub/rounds/scramble.js?v=20260820e"></script>
+<script src="../game-hub/rounds/infogap.js?v=20260820e"></script>
+<script src="../game-hub/rounds/drop.js?v=20260820e"></script>
+<script src="../game-hub/rounds/bingo.js?v=20260820e"></script>
+<script src="../game-hub/rounds/toss.js?v=20260820e"></script>
 <!-- Data only, and the reason the bench can be a round trip rather than a blank
      page: an existing category can be loaded, edited and exported back. Loading a
      unit here puts nothing in front of a class — these files are inert until a hub
      shell reads them. -->
-<script src="../game-hub/content/unit-lab.js?v=20260820d"></script>
-<script src="../game-hub/content/unit-4.js?v=20260820d"></script>
-<script src="../game-hub/content/unit-5.js?v=20260820d"></script>
-<script src="../game-hub/content/nef-1.js?v=20260820d"></script>
-<script src="../game-hub/content/ef-2a.js?v=20260820d"></script>
-<script src="bench-kit.js?v=20260820d"></script>
+<script src="../game-hub/content/unit-lab.js?v=20260820e"></script>
+<script src="../game-hub/content/unit-4.js?v=20260820e"></script>
+<script src="../game-hub/content/unit-5.js?v=20260820e"></script>
+<script src="../game-hub/content/nef-1.js?v=20260820e"></script>
+<script src="../game-hub/content/ef-2a.js?v=20260820e"></script>
+<script src="bench-kit.js?v=20260820e"></script>
 <script>
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -1287,8 +1297,13 @@ const NAMES = ['Ana','Bo','Cal','Di','Eli','Fen','Gus','Hana','Ivo','Jo',
    needs a handle on the box, and which team a phone is on has to survive any
    number of adds and removes. The room bench has always worked this way; this is
    the two benches converging on one shape. */
-const PHONES = [];                     // {name, team, el}
+const PHONES = [];                     // {name, team, el, id}
 const phonesOn = t => PHONES.filter(p => p.team === t).length;
+/* A monotonic id for each spawned handset (`sim-0`, `sim-1`, …), handed to its
+   join.html so the bench can tell its OWN phones from a real one that scanned the QR:
+   any roster player whose id is not one of these is a real device. Monotonic, never
+   reused, so removing and re-adding cannot collide with a still-connected phone. */
+let simSeq = 0;
 
 /* A row per team, created once and never rebuilt. **Rows are added, never
    re-parented**: moving an iframe reloads it, which drops its stream — the room
@@ -1395,6 +1410,47 @@ function removePhone(p){
   setTimeout(()=>{ draw(); fitAll(); }, 900);   // the share moves when a team shrinks
 }
 
+/* Real phones — a handset that scanned the QR, not one the bench spawned — have no
+   iframe here (a real device cannot be framed), and in a team room their answer
+   surfaces on their whole team, so without a card of their own it reads as one of the
+   virtual phones reacting (the reported "my phone became Ana"). Draw each a placeholder
+   card in its team's row, badged, so it is visibly its own participant. Rebuilt wholesale
+   on every roster change: these cards hold no stream to drop, so unlike the iframes they
+   can be re-parented freely. A player is "ours" iff its id is one of the `sim-N` ids we
+   handed out; everyone else is real. */
+function syncRealPhones(){
+  document.querySelectorAll('.phone.real').forEach(el => el.remove());
+  const roster = (host && host.players && host.players()) || [];
+  roster.forEach(p => {
+    if(!p || !p.id || PHONES.some(x => x.id === p.id)) return;   // a spawned sim phone
+    const t = Math.max(0, Number(p.team) || 0);
+    const row = rackRow(SOLO ? 0 : Math.min(t, TEAMS.length - 1));
+    const box = document.createElement('div');
+    box.className = 'phone real';
+    box.style.setProperty('--pc', window.HubBuzzer ? HubBuzzer.teamColour(t) : '');
+    const who = document.createElement('div');
+    who.className = 'who';
+    who.textContent = p.name || 'Phone';
+    const clip = document.createElement('div');
+    clip.className = 'clip';
+    clip.innerHTML = '<span class="real-badge">REAL</span><span class="real-sub">scanned in</span>';
+    box.appendChild(who); box.appendChild(clip);
+    row.appendChild(box);
+  });
+  /* Reconcile each team row's "no phones yet" label against what it actually holds now
+     (virtual or real) — a row with only a real phone must not still say it is empty. */
+  document.querySelectorAll('[id^="rack-team-"]').forEach(boxEl => {
+    const label = boxEl.querySelector('.rack-label'); if(!label) return;
+    const has = boxEl.querySelector('.phone'), none = label.querySelector('.none');
+    if(has && none) none.remove();
+    else if(!has && !none){
+      const n = document.createElement('span');
+      n.className = 'none'; n.textContent = ' — no phones yet';
+      label.appendChild(n);
+    }
+  });
+}
+
 function addPhone(team){
   if(!host || PHONES.length >= RACK_MAX) return;
   const name = NAMES[seat++ % NAMES.length];
@@ -1431,16 +1487,18 @@ function addPhone(team){
   const clip = document.createElement('div');
   clip.className = 'clip';
   const f = document.createElement('iframe');
+  const simId = 'sim-' + (simSeq++);
   // `?v=` first and literal, so the cache-stamp sed one-liner keeps it current — a
   // fresh stamp is a fresh cache key, so the rack always loads the CURRENT join.html
   // shell rather than a cached one that predates a mode it is being armed with.
-  f.src = '../join.html?v=20260820d&code=' + encodeURIComponent(host.code) +
-          '&name=' + encodeURIComponent(name) + '&team=' + t + '&auto=1' +
+  // `&id=sim-N` is a KNOWN id, so a real phone (any other roster id) is recognisable.
+  f.src = '../join.html?v=20260820e&code=' + encodeURIComponent(host.code) +
+          '&name=' + encodeURIComponent(name) + '&team=' + t + '&auto=1&id=' + simId +
           (RELAY ? '&relay=' + encodeURIComponent(RELAY) : '');
   clip.appendChild(f);
   box.appendChild(who); box.appendChild(clip);
   row.appendChild(box);
-  const rec = { name, team: t, el: box };
+  const rec = { name, team: t, el: box, id: simId };
   off.addEventListener('click', ()=> removePhone(rec));
   PHONES.push(rec);
   refreshRackChrome();
@@ -1590,6 +1648,7 @@ const room = BenchKit.room({
       const btn = $('add-phone');
       btn.disabled = false; btn.textContent = '+ phone'; btn.removeAttribute('title');
       pushTeams(); ask();
+      syncRealPhones();               // a real phone may already be in the room on connect
       /* **Nothing racks itself here either** — see the room bench's note. This
          used to replay a remembered division the moment the room existed, so
          opening the bench to edit a question dealt you sixteen handsets first.
@@ -1621,6 +1680,7 @@ const room = BenchKit.room({
        and a team of three sitting at 2 becomes unanimous the moment the third
        drops off. Nothing else would ever say so, because a leaver sends no reply. */
     players(){
+      syncRealPhones();               // a real phone may have scanned in or dropped
       if(state && !state.done){
         onResponse({ all: replies });
         /* The deal follows the room: the information gap cuts a view per player,
