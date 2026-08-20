@@ -456,7 +456,12 @@
         b.className = 'rl-place'; b.dataset.place = f.place;
         b.textContent = ordinal(f.place);
         line.appendChild(b);
-        line.appendChild(document.createTextNode(' ' + name(f.who)));
+        /* The finisher's name in their own colour, so a crowded room reads the same
+           way the lanes do — find your colour, find yourself. */
+        const nm = document.createElement('span');
+        nm.textContent = ' ' + name(f.who);
+        if(window.HubBuzzer && window.HubBuzzer.teamColour) nm.style.color = window.HubBuzzer.teamColour(f.who);
+        line.appendChild(nm);
       });
       if(fin.length > SHOW){
         const more = document.createElement('span');
@@ -954,6 +959,15 @@
     const el = document.createElement('div');
     el.className = 'group-say' + (state && state.done ? ' good' : '');
     el.textContent = (state && state.say) || '';
+    /* **Commentary about one competitor wears their colour** — the same left accent
+       the lanes use — so a student finds what the card says about *them* at a glance.
+       The round says who by setting `sayTeam` beside `say`; a line about the whole
+       room (a hint, a shared reveal) leaves it null and stays neutral. */
+    const who = state && state.sayTeam;
+    if(who != null && el.textContent && window.HubBuzzer && window.HubBuzzer.teamColour){
+      el.classList.add('tagged');
+      el.style.setProperty('--say', window.HubBuzzer.teamColour(who));
+    }
     mount.appendChild(el);
     return el;
   }

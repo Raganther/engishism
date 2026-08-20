@@ -3033,7 +3033,7 @@
          the room has had its go. */
       Kit.round.results.note(team, { done: r.done !== false || !!roundState.done });
       if(r.done !== false || roundState.done){ roundTake(team); return; }
-      roundState.say = 'Yes — keep going.';
+      roundState.say = 'Yes — keep going.'; roundState.sayTeam = team;
       Sound.play('correct');
       renderRound();
       roundSendDone();
@@ -3045,6 +3045,7 @@
        the host is asked first and only boards with no opinion fall through. */
     if(roundHost.miss && roundHost.miss(team, r)) return;
     roundState.say = def.saidOf('Not that', r, roundState).replace(/^Not that: /, '');
+    roundState.sayTeam = team;
     Sound.play('wrong');
     /* Shake what they picked, *then* let it go. Leaving the selection standing meant
        the next click deselected instead of choosing, so the teacher's second attempt
@@ -3292,7 +3293,7 @@
            sting each would be sixteen of them in twenty seconds. Its feedback is the
            strip and the standings, and that is unchanged. */
         if(!roundHost.scoreEach){
-          roundState.say = teamName(v.team) + ' has it.';
+          roundState.say = teamName(v.team) + ' has it.'; roundState.sayTeam = v.team;
           Sound.play(document.getElementById(roundHost.stage).classList.contains('lit')
                      ? 'sting' : 'correct');
         }
@@ -3310,7 +3311,7 @@
           /* A step, not a win. The card already says so; what the room needs is the
              next question — for an ordering race that is a different set of words per
              team, because the one just placed has left their pool. */
-          roundState.say = teamName(v.team) + ' — yes.';
+          roundState.say = teamName(v.team) + ' — yes.'; roundState.sayTeam = v.team;
           again = true;
           return;
         }
@@ -3359,7 +3360,7 @@
       roundSendRight(won.team, !over);
       roundSendDone();
       if(over){ roundTake(won.team); return; }
-      roundState.say = teamName(won.team) + ' — yes.';
+      roundState.say = teamName(won.team) + ' — yes.'; roundState.sayTeam = won.team;
       roundSettler.reset();          // the question moved on, so every answer is worth trying again
       renderRound();
       Sound.play('correct');
@@ -3536,7 +3537,7 @@
   function roundTake(team){
     roundSettler.stop();
     roundState.done = true;
-    roundState.say  = teamName(team) + ' has it.';
+    roundState.say  = teamName(team) + ' has it.'; roundState.sayTeam = team;
     renderRound();
     Sound.play(document.getElementById(roundHost.stage).classList.contains('lit')
                ? 'sting' : 'correct');
@@ -3602,7 +3603,7 @@
        replaced everything inside `#clue-text`. */
     roundDef().reveal(roundHost.mount(), roundState, roundCtx());
     // `reveal` speaks for the round; who took it is the host's, so it is said after
-    roundState.say = teamName(team) + ' has it.';
+    roundState.say = teamName(team) + ' has it.'; roundState.sayTeam = team;
     renderRound();
     roundStandDown();
     hook('onFloorClear');         // the answer is out; whatever answer clock a game runs is over
