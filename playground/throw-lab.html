@@ -110,6 +110,7 @@
       const ctx = canvas.getContext('2d');
       const engine = Engine.create();
       engine.gravity.y = opts.gravity;
+      engine.constraintIterations = 6;   // up from 2: pulls a held box to the finger harder each frame, so a fast drag lags less
 
       let cssW = 0, cssH = 0, dpr = 1;
       let walls = [];
@@ -121,13 +122,13 @@
         power: opts.power,
         swing: opts.swing   // 0 = rigid (tracks the finger), 1 = loose (dangles and swings)
       };
-      // Drag stiffness from the swing dial. Deliberately a SOFT spring (the same
-      // gentle range Matter's own MouseConstraint uses): soft enough that the box
-      // eases to the finger instead of snapping to it — a stiff length-0 spring
-      // warps the grabbed point onto the finger in one step, which reads as a
-      // jump. Softer also means more lag, so the box trails and pendulums. Loose
-      // end of the dial = softer = more swing.
-      const stiffnessOf = sw => 0.28 - sw * 0.24;   // 0.28 (tight) .. 0.04 (dangly)
+      // Drag stiffness from the swing dial. Tight enough to track the finger
+      // without visible lag (the warp that once needed a soft spring was really
+      // the frame bug, now fixed, so this can be firm again); the gravity swing
+      // survives because it is the box pivoting under gravity about the pinned
+      // point, which the linear spring does not damp. Loose end = more trailing
+      // dangle on top of that.
+      const stiffnessOf = sw => 1 - sw * 0.7;   // 1.0 (rigid track) .. 0.30 (loose)
 
       // The drag, multi-touch: one grip per pointer id. While a box is held we
       // drive it to that finger by hand and remember its last few positions in
@@ -211,16 +212,20 @@
         // rotated box lurch its far side under the cursor (the opposite-side
         // warp). The pull still lands off-centre, so torque still swings it.
         let dx = x - body.position.x, dy = y - body.position.y;
-        // A forgiving grab can land just outside a small box; keep the anchor
-        // near the box rather than far out by capping the offset radius.
+        // A forgiving grab can land just outside a small box; keep the anchor on
+        // the box by capping the offset radius. Anchor pointA at that on-box
+        // point (not the raw finger) so the constraint is already satisfied at
+        // grab — no snap however stiff the spring is — then track the finger by
+        // its delta from here.
         const maxR = feel.size * 0.6, len = Math.hypot(dx, dy);
         if(len > maxR){ dx = dx / len * maxR; dy = dy / len * maxR; }
+        const anchor = { x: body.position.x + dx, y: body.position.y + dy };
         const constraint = Constraint.create({
-          pointA: { x, y }, bodyB: body, pointB: { x: dx, y: dy },
+          pointA: { x: anchor.x, y: anchor.y }, bodyB: body, pointB: { x: dx, y: dy },
           stiffness: stiffnessOf(feel.swing), damping: 0.1, length: 0
         });
         Composite.add(engine.world, constraint);
-        grips.set(id, { body, constraint });
+        grips.set(id, { body, constraint, fingerStart: { x, y }, anchor });
         return true;
       }
       function nearestBox(x, y, exclude){
@@ -236,10 +241,12 @@
       function moveTo(id, x, y){
         const g = grips.get(id);
         if(!g) return;
-        // Move the anchor; the spring pulls the grabbed point after it, and the
-        // off-centre pull is what swings the box.
-        g.constraint.pointA.x = x;
-        g.constraint.pointA.y = y;
+        // Move the anchor by the finger's delta from the grab (not to the raw
+        // finger), so an off-box forgiving grab keeps its small constant gap and
+        // never snaps. The spring pulls the grabbed point after it; the off-centre
+        // pull is what swings the box.
+        g.constraint.pointA.x = g.anchor.x + (x - g.fingerStart.x);
+        g.constraint.pointA.y = g.anchor.y + (y - g.fingerStart.y);
       }
       function release(id){
         const g = grips.get(id);
