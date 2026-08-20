@@ -91,377 +91,37 @@
     <div class="hint" id="status">Drag the scrambled letters into the slots to spell the word.</div>
   </div>
 
-  <script src="matter.min.js"></script>
+  <!-- The physics table is a shared shelf now (Kit.table), the same one the hub's
+       Toss round will call. Throw Lab is its first caller — the workshop where the
+       feel gets tuned. matter.min.js and hub-table.js live in game-hub/ beside the
+       other shelves; hub-kit.js is the object Kit.table hangs off. -->
+  <script src="../game-hub/matter.min.js?v=20260819i"></script>
+  <script src="../game-hub/hub-kit.js?v=20260819i"></script>
+  <script src="../game-hub/hub-table.js?v=20260819i"></script>
   <script>
   (function(){
     'use strict';
-    const M = window.Matter;
-    if(!M){ document.querySelector('.hint').textContent = 'Matter.js failed to load.'; return; }
-    const { Engine, Composite, Bodies, Body, Query, Constraint } = M;
+    const K = window.HubKit;
+    if(!K || !K.table){ document.getElementById('status').textContent = 'Kit.table failed to load.'; return; }
 
-    /* ---- palette for the letter boxes: distinguishable, high-contrast on dark ---- */
-    const HUES = ['#00A0DF','#F5C542','#E2603B','#6FB04A','#B36FD1','#3BB0A8','#E86FA0'];
-
-    /* =====================================================================
-       makeThrowWorld — the transport-agnostic core. It takes a canvas, some
-       letters and feel options; it hands back grab/move/release (the input)
-       and read() (the state that judging will one day want). It knows nothing
-       about phones, the relay or the board — that is the whole point (axiom 4).
-       Kept in-page for now: one caller is a guess about an API, so it gets
-       extracted to a shelf only when a second caller (a hub round) appears.
-       ===================================================================== */
-    function makeThrowWorld(opts){
-      const canvas = opts.canvas;
-      const ctx = canvas.getContext('2d');
-      const engine = Engine.create();
-      engine.gravity.y = opts.gravity;
-      engine.constraintIterations = 6;   // up from 2: pulls a held box to the finger harder each frame, so a fast drag lags less
-
-      let cssW = 0, cssH = 0, dpr = 1;
-      let walls = [];
-      let boxes = [];
-      let feel = {
-        restitution: opts.restitution,
-        frictionAir: opts.frictionAir,
-        size: opts.size,
-        power: opts.power,
-        swing: opts.swing,  // 0 = rigid (tracks the finger), 1 = loose (dangles and swings)
-        snap: opts.snap     // dock glide duration in ms
-      };
-      // Drag stiffness from the swing dial. Tight enough to track the finger
-      // without visible lag (the warp that once needed a soft spring was really
-      // the frame bug, now fixed, so this can be firm again); the gravity swing
-      // survives because it is the box pivoting under gravity about the pinned
-      // point, which the linear spring does not damp. Loose end = more trailing
-      // dangle on top of that.
-      const stiffnessOf = sw => 1 - sw * 0.7;   // 1.0 (rigid track) .. 0.30 (loose)
-
-      // The drag, multi-touch: one grip per pointer id. While a box is held we
-      // drive it to that finger by hand and remember its last few positions in
-      // time; on release the flick velocity is read off those samples. That
-      // sampled velocity IS the impulse. A Map (not a single held) is what lets
-      // several fingers each carry their own letter at once.
-      const grips = new Map();   // pointerId -> { body, constraint, fingerStart, anchor }
-
-      // The anagram layer: a target word, a row of answer slots, and a verdict.
-      // A dropped letter snaps into the nearest empty slot and freezes there;
-      // when every slot is filled the arrangement is judged against the word.
-      let target = '';       // the word to spell (uppercase)
-      let slots = [];        // answer boxes: { x, y, w, h, piece }
-      let result = null;     // null (incomplete) | 'right' | 'wrong'
-
-      function sizeToCanvas(){
-        const r = canvas.getBoundingClientRect();
-        dpr = Math.min(window.devicePixelRatio || 1, 2);
-        cssW = Math.max(1, Math.round(r.width));
-        cssH = Math.max(1, Math.round(r.height));
-        canvas.width = Math.round(cssW * dpr);
-        canvas.height = Math.round(cssH * dpr);
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        buildWalls();
-        layoutSlots();
-      }
-
-      function buildWalls(){
-        if(walls.length) Composite.remove(engine.world, walls);
-        const t = 200; // thick, so a fast box cannot tunnel through in one step
-        const o = { isStatic:true, restitution:0.4, friction:0.2 };
-        walls = [
-          Bodies.rectangle(cssW/2, cssH + t/2, cssW + t*2, t, o),   // floor
-          Bodies.rectangle(cssW/2, -t/2,        cssW + t*2, t, o),   // ceiling
-          Bodies.rectangle(-t/2,   cssH/2,      t, cssH + t*2, o),   // left
-          Bodies.rectangle(cssW + t/2, cssH/2,  t, cssH + t*2, o)    // right
-        ];
-        Composite.add(engine.world, walls);
-      }
-
-      function makeBoxes(letters){
-        if(boxes.length) Composite.remove(engine.world, boxes.map(b => b.body));
-        boxes = [];
-        const s = feel.size;
-        const chars = letters.split('');
-        const spread = Math.min(cssW - s, (chars.length) * (s + 10));
-        const startX = (cssW - spread) / 2 + s/2;
-        chars.forEach((ch, i) => {
-          const x = chars.length > 1 ? startX + (spread - s) * (i/(chars.length-1)) : cssW/2;
-          const y = s/2 + 20 + (i % 2) * 8;
-          const body = Bodies.rectangle(x, y, s, s, {
-            chamfer:{ radius: Math.round(s*0.16) },
-            restitution: feel.restitution,
-            frictionAir: feel.frictionAir,
-            friction: 0.3,
-            density: 0.0016
-          });
-          Body.setAngle(body, (Math.random() - 0.5) * 0.3);
-          boxes.push({ body, ch, hue: HUES[i % HUES.length], slot: null, dock: null });
-        });
-        Composite.add(engine.world, boxes.map(b => b.body));
-      }
-
-      /* ---- answer slots (the zones a letter can land in) ---- */
-      function slotDims(n){
-        const margin = 16, gap = Math.max(6, Math.round(feel.size * 0.12));
-        const sw = Math.max(36, Math.min(feel.size, Math.floor((cssW - margin*2 - gap*(n-1)) / n)));
-        const rowW = n*sw + (n-1)*gap, x0 = (cssW - rowW) / 2, y = Math.round(cssH * 0.46);
-        return { gap, sw, x0, y };
-      }
-      function makeSlots(n){
-        slots = [];
-        if(!n) return;
-        const { gap, sw, x0, y } = slotDims(n);
-        for(let i = 0; i < n; i++) slots.push({ x: x0 + i*(sw+gap) + sw/2, y, w: sw, h: sw, piece: null });
-      }
-      function layoutSlots(){          // recompute geometry on resize, keeping any placed letters
-        const n = slots.length; if(!n) return;
-        const { gap, sw, x0, y } = slotDims(n);
-        slots.forEach((s, i) => {
-          s.x = x0 + i*(sw+gap) + sw/2; s.y = y; s.w = sw; s.h = sw;
-          if(s.piece) Body.setPosition(s.piece.body, { x: s.x, y: s.y });
-        });
-      }
-      function boxOf(body){ for(const b of boxes) if(b.body === body) return b; return null; }
-      function freeSlotOf(box){ if(box && box.slot != null){ const s = slots[box.slot]; if(s) s.piece = null; box.slot = null; } }
-      function slotNear(x, y){         // nearest EMPTY slot within capture range, or -1
-        let best = -1, bestD = Infinity;
-        slots.forEach((s, i) => { if(s.piece) return; const dx = s.x - x, dy = s.y - y, d = dx*dx + dy*dy; if(d < bestD){ bestD = d; best = i; } });
-        const cap = (slots.length ? slots[0].w : feel.size) * 0.85;
-        return (best >= 0 && bestD <= cap*cap) ? best : -1;
-      }
-      function startDock(box, i){      // begin the glide-and-spin into a slot
-        const s = slots[i];
-        s.piece = box; box.slot = i;
-        Body.setStatic(box.body, true);          // hand the tile to the tween, not gravity
-        Body.setVelocity(box.body, { x:0, y:0 });
-        Body.setAngularVelocity(box.body, 0);
-        const a = box.body.angle;
-        box.dock = {
-          t0: now(), dur: Math.max(80, feel.snap),
-          fromX: box.body.position.x, fromY: box.body.position.y,
-          fromA: a, toA: Math.round(a / (Math.PI*2)) * (Math.PI*2),   // nearest upright — spins the short way
-          p: 0
-        };
-      }
-      function tickDocks(){            // advance every gliding tile by real elapsed time
-        const t = now();
-        for(const b of boxes){
-          const dk = b.dock; if(!dk) continue;
-          let raw = (t - dk.t0) / dk.dur; if(raw > 1) raw = 1;
-          const e = raw*raw*raw*(raw*(raw*6 - 15) + 10);   // smootherstep — a soft magnetic pull
-          dk.p = e;
-          const s = slots[b.slot];
-          Body.setPosition(b.body, { x: dk.fromX + (s.x - dk.fromX)*e, y: dk.fromY + (s.y - dk.fromY)*e });
-          Body.setAngle(b.body, dk.fromA + (dk.toA - dk.fromA)*e);
-          if(raw >= 1){ b.dock = null; Body.setAngle(b.body, 0); judge(); }   // verdict lands once it is home
-        }
-      }
-      function judge(){
-        const filled = slots.length > 0 && slots.every(s => s.piece);
-        result = filled ? (read() === target ? 'right' : 'wrong') : null;
-        report();
-      }
-      function report(){ if(opts.onResult) opts.onResult(result, read(), target); }
-      function shuffleLetters(word){   // Fisher-Yates, retried until it isn't the answer
-        const a = word.split('');
-        for(let tries = 0; tries < 24; tries++){
-          for(let i = a.length-1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); const t = a[i]; a[i] = a[j]; a[j] = t; }
-          if(a.length < 2 || a.join('') !== word) break;
-        }
-        return a.join('');
-      }
-      function setWord(word){
-        target = String(word || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 12);
-        clearGrips();
-        makeBoxes(shuffleLetters(target || 'WORD'));
-        makeSlots(target.length);
-        result = null;
-        report();
-      }
-
-      /* ---- input surface (one grip per pointer id) ---- */
-      function heldBodies(){
-        const set = new Set();
-        for(const g of grips.values()) set.add(g.body);
-        return set;
-      }
-      function grabAt(id, x, y){
-        // Strict hit first (so a stack grabs the box you're actually over), then
-        // a forgiving fallback: the nearest box centre within tolerance. A
-        // fingertip reports a fat, slightly-off contact point, so strict
-        // point-in-box misses unless you press dead centre — the tolerance is
-        // what makes a finger grab land where a mouse pixel already does.
-        // A box another finger already holds is off-limits, or two fingers fight.
-        const taken = heldBodies();
-        const free = boxes.filter(b => !taken.has(b.body)).map(b => b.body);
-        const hit = Query.point(free, { x, y });
-        const body = hit.length ? hit[hit.length - 1] : nearestBox(x, y, taken);
-        if(!body) return false;
-        // Pulling a letter back out of a slot: free the slot, un-freeze the body,
-        // and clear any verdict (the arrangement is no longer complete).
-        const gbox = boxOf(body);
-        if(gbox) gbox.dock = null;   // grabbing mid-glide cancels the dock
-        if(gbox && gbox.slot != null){ freeSlotOf(gbox); result = null; report(); }
-        if(body.isStatic) Body.setStatic(body, false);
-        Body.setVelocity(body, { x:0, y:0 });
-        Body.setAngularVelocity(body, 0);
-        // Drag by the exact point you grabbed, through a spring — pointA is the
-        // finger, pointB is the offset of that point from the box centre. This
-        // is a WORLD-oriented offset, exactly as Matter's own MouseConstraint
-        // uses (pointB = mouse − body.position): Matter does not re-rotate pointB
-        // by the body angle, so converting into the body's local frame made a
-        // rotated box lurch its far side under the cursor (the opposite-side
-        // warp). The pull still lands off-centre, so torque still swings it.
-        let dx = x - body.position.x, dy = y - body.position.y;
-        // A forgiving grab can land just outside a small box; keep the anchor on
-        // the box by capping the offset radius. Anchor pointA at that on-box
-        // point (not the raw finger) so the constraint is already satisfied at
-        // grab — no snap however stiff the spring is — then track the finger by
-        // its delta from here.
-        const maxR = feel.size * 0.6, len = Math.hypot(dx, dy);
-        if(len > maxR){ dx = dx / len * maxR; dy = dy / len * maxR; }
-        const anchor = { x: body.position.x + dx, y: body.position.y + dy };
-        const constraint = Constraint.create({
-          pointA: { x: anchor.x, y: anchor.y }, bodyB: body, pointB: { x: dx, y: dy },
-          stiffness: stiffnessOf(feel.swing), damping: 0.1, length: 0
-        });
-        Composite.add(engine.world, constraint);
-        grips.set(id, { body, constraint, fingerStart: { x, y }, anchor });
-        return true;
-      }
-      function nearestBox(x, y, exclude){
-        let best = null, bestD = Infinity;
-        for(const b of boxes){
-          if(exclude && exclude.has(b.body)) continue;
-          const dx = b.body.position.x - x, dy = b.body.position.y - y, d = dx*dx + dy*dy;
-          if(d < bestD){ bestD = d; best = b.body; }
-        }
-        const tol = feel.size * 0.9;   // within ~0.9 of a box of the centre
-        return (best && bestD <= tol*tol) ? best : null;
-      }
-      function moveTo(id, x, y){
-        const g = grips.get(id);
-        if(!g) return;
-        // Move the anchor by the finger's delta from the grab (not to the raw
-        // finger), so an off-box forgiving grab keeps its small constant gap and
-        // never snaps. The spring pulls the grabbed point after it; the off-centre
-        // pull is what swings the box.
-        g.constraint.pointA.x = g.anchor.x + (x - g.fingerStart.x);
-        g.constraint.pointA.y = g.anchor.y + (y - g.fingerStart.y);
-      }
-      function release(id){
-        const g = grips.get(id);
-        if(!g) return;
-        Composite.remove(engine.world, g.constraint);
-        const b = g.body, box = boxOf(b);
-        grips.delete(id);
-        // Dropped over an empty slot? Suck it home (glide + spin) instead of flying.
-        const near = slotNear(b.position.x, b.position.y);
-        if(near >= 0 && box){ startDock(box, near); return; }
-        // Otherwise it flies: it already carries the velocity and spin the drag
-        // built up; throw power just scales it, and the cap stops a hard whip.
-        const p = feel.power, cap = 55;
-        Body.setVelocity(b, { x: clamp(b.velocity.x * p, -cap, cap), y: clamp(b.velocity.y * p, -cap, cap) });
-        Body.setAngularVelocity(b, clamp(b.angularVelocity * p, -1, 1));
-      }
-      function clearGrips(){
-        for(const g of grips.values()) Composite.remove(engine.world, g.constraint);
-        grips.clear();
-      }
-
-      /* ---- readout: the letters sitting in the slots, left to right. This is
-         the answer judging reads — the seam a real round's read() will use. */
-      function read(){ return slots.map(s => s.piece ? s.piece.ch : '').join(''); }
-
-      /* ---- step + draw. Matter does the physics; we do the draw, because the
-         draw is the part that later moves to the board, and letters-on-boxes are
-         awkward with Matter's own renderer. ---- */
-      function step(){
-        Engine.update(engine, 1000/60);
-        tickDocks();
-      }
-      function draw(){
-        ctx.clearRect(0, 0, cssW, cssH);
-        // answer slots, behind the letters. A filled row glows by the verdict.
-        for(const s of slots){
-          const half = s.w/2, r = Math.round(s.w*0.16);
-          ctx.save();
-          ctx.lineWidth = 2.5;
-          ctx.strokeStyle = s.piece
-            ? (result === 'right' ? '#6FB04A' : result === 'wrong' ? '#E2603B' : '#5a6473')
-            : '#39414f';
-          if(!s.piece) ctx.setLineDash([6, 7]);
-          roundRect(ctx, s.x - half, s.y - half, s.w, s.w, r);
-          ctx.stroke();
-          ctx.restore();
-        }
-        for(const b of boxes){
-          const p = b.body.position, docking = !!b.dock, inSlot = b.slot != null;
-          // While gliding home, follow the tween: rotate with the body and shrink
-          // from loose size to slot size. Settled = upright at slot size. Loose = as thrown.
-          let s, ang;
-          if(docking){ s = feel.size + (slots[b.slot].w - feel.size) * b.dock.p; ang = b.body.angle; }
-          else if(inSlot){ s = slots[b.slot].w; ang = 0; }
-          else { s = feel.size; ang = b.body.angle; }
-          const r = Math.round(s*0.16);
-          ctx.save();
-          ctx.translate(p.x, p.y);
-          ctx.rotate(ang);
-          ctx.fillStyle = b.hue;
-          roundRect(ctx, -s/2, -s/2, s, s, r);
-          ctx.fill();
-          ctx.fillStyle = '#101318';
-          ctx.font = `700 ${Math.round(s*0.56)}px -apple-system, "Segoe UI", Roboto, sans-serif`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(b.ch, 0, Math.round(s*0.03));
-          ctx.restore();
-        }
-      }
-
-      function setFeel(next){
-        Object.assign(feel, next);
-        if(next.gravity != null) engine.gravity.y = next.gravity;
-        // restitution / air apply to live bodies immediately so a slider is felt
-        if(next.restitution != null || next.frictionAir != null){
-          for(const b of boxes){
-            if(next.restitution != null) b.body.restitution = feel.restitution;
-            if(next.frictionAir != null) b.body.frictionAir = feel.frictionAir;
-          }
-        }
-        // swing retunes a box you're already holding, so the change is felt now
-        if(next.swing != null){
-          const k = stiffnessOf(feel.swing);
-          for(const g of grips.values()) g.constraint.stiffness = k;
-        }
-      }
-
-      return {
-        engine, grabAt, moveTo, release, read, step, draw, setFeel,
-        resize: sizeToCanvas,
-        reset(word){ setWord(word); },
-        result: () => result,
-        heldBy: (id) => grips.has(id),
-        anyHeld: () => grips.size > 0
-      };
-    }
-
-    /* ---- tiny helpers (no library assumptions) ---- */
-    function now(){ return (window.performance && performance.now) ? performance.now() : Date.now(); }
-    function clamp(v, lo, hi){ return v < lo ? lo : v > hi ? hi : v; }
-    function roundRect(ctx, x, y, w, h, r){
-      if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
-      ctx.beginPath();
-      ctx.moveTo(x+r, y);
-      ctx.arcTo(x+w, y, x+w, y+h, r);
-      ctx.arcTo(x+w, y+h, x, y+h, r);
-      ctx.arcTo(x, y+h, x, y, r);
-      ctx.arcTo(x, y, x+w, y, r);
-      ctx.closePath();
-    }
-
-    /* ============================ page wiring ============================ */
+    /* ============================ the caller ============================
+       Throw Lab owns the word, the judging and the chrome; Kit.table owns the
+       physics, the throw, the slots and the draw. The transport here is mouse
+       and touch on this page, converted to canvas coords and handed to the
+       table — the hub's Toss round will hand it coords from a scaled card, and
+       the same table won't know the difference. */
     const canvas = document.getElementById('stage');
     const status = document.getElementById('status');
-    const world = makeThrowWorld({
+
+    let target = '';                       // the word to spell
+    function setStatus(res){
+      status.textContent = res === 'right' ? '✓ Correct — that spells the word.'
+        : res === 'wrong' ? '✗ Not the word yet — pull a letter out and try again.'
+        : 'Drag the scrambled letters into the slots to spell the word.';
+      status.style.color = res === 'right' ? '#6FB04A' : res === 'wrong' ? '#E2603B' : '';
+    }
+
+    const world = K.table({
       canvas,
       gravity: +document.getElementById('s-grav').value,
       restitution: +document.getElementById('s-rest').value,
@@ -470,50 +130,62 @@
       power: +document.getElementById('s-pow').value,
       swing: +document.getElementById('s-swing').value,
       snap: (+document.getElementById('s-snap').value) * 1000,
-      onResult(res){
-        status.textContent = res === 'right' ? '✓ Correct — that spells the word.'
-          : res === 'wrong' ? '✗ Not the word yet — pull a letter out and try again.'
-          : 'Drag the scrambled letters into the slots to spell the word.';
-        status.style.color = res === 'right' ? '#6FB04A' : res === 'wrong' ? '#E2603B' : '';
+      onArrange(read, done){               // the table reports the arrangement; the caller judges
+        const res = done ? (read === target ? 'right' : 'wrong') : null;
+        world.setResult(res);
+        setStatus(res);
       }
     });
 
     function letters(){
-      return (document.getElementById('word-in').value || 'THROW').replace(/[^A-Za-z]/g,'').toUpperCase().slice(0,12) || 'THROW';
+      return (document.getElementById('word-in').value || 'THROW').replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 12) || 'THROW';
+    }
+    function shuffle(word){                 // Fisher-Yates, retried until it isn't the answer
+      const a = word.split('');
+      for(let tries = 0; tries < 24; tries++){
+        for(let i = a.length-1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); const t = a[i]; a[i] = a[j]; a[j] = t; }
+        if(a.length < 2 || a.join('') !== word) break;
+      }
+      return a;
+    }
+    function newWord(){
+      target = letters();
+      world.reset();
+      world.setPieces(shuffle(target));
+      world.slots(target.length);
+      world.setResult(null);
+      setStatus(null);
     }
 
     world.resize();
-    world.reset(letters());
+    newWord();
 
     // Fixed-timestep loop: step the physics, draw what came out.
     (function loop(){ world.step(); world.draw(); requestAnimationFrame(loop); })();
 
-    /* ---- pointer → grab / move / release ---- */
-    function pt(e){
-      const r = canvas.getBoundingClientRect();
-      return { x: e.clientX - r.left, y: e.clientY - r.top };
-    }
+    /* ---- pointer -> grab / move / drop (canvas-space coords) ---- */
+    function pt(e){ const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
     canvas.addEventListener('pointerdown', e => {
       const p = pt(e);
-      if(world.grabAt(e.pointerId, p.x, p.y)){
+      if(world.grab(e.pointerId, p.x, p.y)){
         canvas.classList.add('grabbing');
-        canvas.setPointerCapture(e.pointerId);   // per-pointer capture — several at once is fine
+        canvas.setPointerCapture(e.pointerId);
       }
     });
     canvas.addEventListener('pointermove', e => {
-      if(world.heldBy(e.pointerId)){ const p = pt(e); world.moveTo(e.pointerId, p.x, p.y); }
+      if(world.heldBy(e.pointerId)){ const p = pt(e); world.move(e.pointerId, p.x, p.y); }
     });
     function endDrag(e){
       if(world.heldBy(e.pointerId)){
-        world.release(e.pointerId);
+        world.drop(e.pointerId);
         try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
-        if(!world.anyHeld()) canvas.classList.remove('grabbing');   // only when the last finger lifts
+        if(!world.anyHeld()) canvas.classList.remove('grabbing');
       }
     }
     canvas.addEventListener('pointerup', endDrag);
     canvas.addEventListener('pointercancel', endDrag);
 
-    /* ---- controls ---- */
+    /* ---- feel sliders ---- */
     function bindSlider(id, valId, fmt, apply){
       const el = document.getElementById(id), out = document.getElementById(valId);
       function show(){ out.textContent = fmt(+el.value); }
@@ -523,29 +195,28 @@
     bindSlider('s-grav','v-grav', v => v.toFixed(2),        v => world.setFeel({ gravity:v }));
     bindSlider('s-rest','v-rest', v => v.toFixed(2),        v => world.setFeel({ restitution:v }));
     bindSlider('s-air','v-air',   v => v.toFixed(3),        v => world.setFeel({ frictionAir:v }));
-    bindSlider('s-size','v-size', v => v + 'px',            v => { world.setFeel({ size:v }); world.reset(letters()); });
+    bindSlider('s-size','v-size', v => v + 'px',            v => { world.setFeel({ size:v }); newWord(); });
     bindSlider('s-swing','v-swing', v => v.toFixed(2),      v => world.setFeel({ swing:v }));
     bindSlider('s-pow','v-pow',   v => '×' + v.toFixed(1),  v => world.setFeel({ power:v }));
     bindSlider('s-snap','v-snap', v => v.toFixed(2) + 's',  v => world.setFeel({ snap: v*1000 }));
 
-    document.getElementById('btn-reset').addEventListener('click', () => world.reset(letters()));
-    document.getElementById('word-in').addEventListener('change', () => world.reset(letters()));
+    document.getElementById('btn-reset').addEventListener('click', newWord);
+    document.getElementById('word-in').addEventListener('change', newWord);
 
-    /* ---- collapsible controls: on a phone the panel is folded away by default,
-       and the Tune button toggles it, re-fitting the canvas each time. ---- */
+    /* ---- collapsible controls: folded away by default on a phone ---- */
     const btnTune = document.getElementById('btn-tune');
-    function refit(){ requestAnimationFrame(() => world.resize()); }
     function applyTune(){
       const hidden = document.body.classList.contains('controls-hidden');
       btnTune.textContent = hidden ? '⚙ Tune' : 'Close ✕';
-      refit();
+      requestAnimationFrame(() => world.resize());
     }
     if(window.innerWidth < 720) document.body.classList.add('controls-hidden');
     applyTune();
     btnTune.addEventListener('click', () => { document.body.classList.toggle('controls-hidden'); applyTune(); });
 
     let rz;
-    window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { world.resize(); }, 150); });
+    window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => world.resize(), 150); });
+
   })();
   </script>
 </body>

@@ -99,6 +99,8 @@ Four facts about a classroom that outrank anything above when they conflict.
 | `game-hub/hub.css` | all shared styling, DCU theme and game-show skin. The one place to restyle |
 | `game-hub/hub-rounds.css` | the round card's own styling. **Not `hub.css`** — a playground page cannot load that without taking the whole hub theme |
 | `game-hub/hub-qr.js` | vendored QR encoder (qrcode-generator, MIT), unmodified. Vendored because the app must run offline with no build step |
+| `game-hub/hub-table.js` | **`Kit.table`** — the physics table shelf (pieces you flick into slots): grab/throw, gravity swing, suck-and-spin dock, `read()`, default draw. First caller `playground/throw-lab.html`; the `toss` round is next |
+| `game-hub/matter.min.js` | vendored Matter.js (2D physics, MIT), unmodified. The engine behind `hub-table.js`; vendored beside `hub-qr.js` for offline / no build step |
 | `game-hub/content/*.js` | data-only banks, one file per unit; each does `window.UNITS.push({…})` |
 | `join.html` | the students' page |
 | `tools/buzzer-relay.js` | zero-dependency Node relay **and** static server. `docs/buzzers.md` |
@@ -662,16 +664,20 @@ What is true and unfinished. Not a changelog — an item leaves when it closes.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only.
 
-**The throw dynamic — rung 1 prototyped, awaiting a real hand.** Answer pieces as
-physical boxes you *flick* around a space instead of tapping or dragging.
-`playground/throw-lab.html` is the standalone feel test (Matter.js physics, our own
-canvas draw, a pointer-velocity flick, feel sliders); `matter.min.js` is vendored **in
-`playground/`** for now — the lab-forms isolation, moving beside `hub-qr.js` only when a
-second caller earns it. `makeThrowWorld()` is built transport-agnostic on purpose (axiom
-4): the same core is meant to back a phone-local round *and* a board-arena variant, so it
-is kept in-page (axiom 5) and extracted to a shelf at the second caller. The ladder above
-rung 1 — letters→word readout, judging, then the relay/round wiring — is unbuilt. The one
-thing no suite can answer is whether the throw *feels* good; that is a real phone.
+**The throw dynamic — on a shelf, heading for the bench.** Answer pieces as physical
+boxes you *flick* around a space and drop into slots, instead of tapping or dragging. The
+physics now lives on a shelf, **`Kit.table` in `game-hub/hub-table.js`** (Matter.js is
+`game-hub/matter.min.js`, vendored beside `hub-qr.js`): a bounded space, throwable lettered
+pieces with a soft-spring grab + gravity swing + a suck-and-spin dock into answer slots, a
+`read()` of what landed where, and a default canvas draw. It is transport-agnostic (axiom
+4) — takes canvas-space coords in `grab/move/drop`, reports via `onArrange`, and judging is
+the caller's (`setResult` only tints). `playground/throw-lab.html` is its first caller and
+the feel workshop (the sliders). **Next: the `toss` round** (`game-hub/rounds/toss.js`,
+step 3) is the second caller — same anagram content as `anagram.js` (`item.anagram.word`),
+physical instead of drag, developed on the question bench. **Deferred to step 4:** a
+`join.html` `table` mode so phones run their own table (today a `toss` round would fall back
+to `mode:'arrange'`). The one thing no suite can answer is whether the throw *feels* good;
+that is a real phone.
 
 **Open-question tuning is guessed, not measured.** The open-question work — a right
 answer no longer locks the room out, position and time recorded, standings after every
