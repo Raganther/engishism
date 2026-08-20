@@ -48,6 +48,8 @@
     display:inline-block; padding:3px 11px; border-radius:999px; margin-left:7px;
     background:var(--team, var(--blue)); color:var(--navy); font-weight:700;
   }
+  /* Solo: the chip is the whole identity, with no name in front of it to sit beside. */
+  .who .tteam.solo{ margin-left:0; }
   .card{ display:none; grid-template-columns:repeat(3, 1fr); gap:8px; width:100%; }
   .card button{
     padding:14px 5px; border-radius:12px; border:2px solid rgba(255,255,255,0.22);
@@ -380,7 +382,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260819e"></script>
+<script src="game-hub/hub-buzzer.js?v=20260819f"></script>
 <script>
 (function(){
   'use strict';
@@ -431,35 +433,25 @@
      was written out in two places already. Takes the name rather than reading one:
      the player's name is a parameter of joinRoom, and an undeclared `name` here
      would quietly resolve to `window.name` — an empty string, on every handset. */
-  function paintWho(who){
-    $('who').textContent = who + ' ';
-    /* **A room of individuals gets no tag and no colour, and that is a decision
-       rather than a tidy-up.** A colour on a handset means "this is the side you are
-       on" — it is how a student matches themselves to a coloured row on the board.
-       In individual play there are no sides, so a colour would be decoration that
-       looks like information, and the tag would print the name the line above
-       already says.
+  /* **The identity chip: the competitor you are, in its colour — the same colour the
+     board puts on your row, so you can find yourself on the screen.** One shape for
+     both rooms; only the label differs, which is exactly what differs between them.
+     In a team, you and your team are not the same thing, so your name sits plain and
+     the chip names the *team*. In a room of individuals you *are* the competitor, so
+     the chip is your *own* name and there is no separate copy to duplicate it.
 
-       It also removes a whole class of wrong: the tag read whatever competitor sat
-       at this phone's index, so a handset that had not been re-seated announced
-       somebody else's name in confident blue. Nothing to be stale when nothing is
-       drawn. */
-    /* **A room of individuals now gets a colour, but still no tag.** The colour is
-       this player's own identity — their name shown in it — not a side, so there is
-       no team name to print. It is safe where the tag was not: the name is always
-       this handset's own, never the competitor who last sat at its index, so there is
-       no stale-seat wrong-name to flash — and it re-paints on every re-seat. */
-    if(joinSolo){
-      document.documentElement.style.setProperty('--team', colourOf(team));
-      $('who').style.color = colourOf(team);
-      return;
-    }
-    $('who').style.color = '';   // team mode wears its colour on the pill, not the name
+     Safe where the old solo tag was not: the solo chip reads this handset's own name
+     (`who`), never `teamNames[team]` — the competitor who last sat at this index — so
+     a stale seat can flash the wrong colour for an instant but never the wrong name,
+     and it repaints on every re-seat. */
+  function paintWho(who){
     document.documentElement.style.setProperty('--team', colourOf(team));
-    const pill = document.createElement('span');
-    pill.className = 'tteam';
-    pill.textContent = teamNames[team] || ('Team ' + (team+1));
-    $('who').appendChild(pill);
+    $('who').style.color = '';
+    $('who').textContent = joinSolo ? '' : (who + ' ');
+    const chip = document.createElement('span');
+    chip.className = 'tteam' + (joinSolo ? ' solo' : '');
+    chip.textContent = joinSolo ? who : (teamNames[team] || ('Team ' + (team+1)));
+    $('who').appendChild(chip);
   }
 
   /* The real teams, before joining. This screen used to offer a hard-coded two, so
