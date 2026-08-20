@@ -76,6 +76,7 @@
     <div class="ctl"><label>Bounce</label><input id="s-rest" type="range" min="0" max="0.95" step="0.05" value="0.45"><span class="val" id="v-rest"></span></div>
     <div class="ctl"><label>Air drag</label><input id="s-air" type="range" min="0" max="0.08" step="0.005" value="0.01"><span class="val" id="v-air"></span></div>
     <div class="ctl"><label>Box size</label><input id="s-size" type="range" min="40" max="140" step="5" value="82"><span class="val" id="v-size"></span></div>
+    <div class="ctl"><label>Swing</label><input id="s-swing" type="range" min="0" max="1" step="0.05" value="0.4"><span class="val" id="v-swing"></span></div>
     <div class="ctl"><label>Throw power</label><input id="s-pow" type="range" min="0.4" max="3" step="0.1" value="1.3"><span class="val" id="v-pow"></span></div>
     <button id="btn-reset" type="button">Reset ⟳</button>
   </div>
@@ -91,7 +92,7 @@
     'use strict';
     const M = window.Matter;
     if(!M){ document.querySelector('.hint').textContent = 'Matter.js failed to load.'; return; }
-    const { Engine, Composite, Bodies, Body, Query } = M;
+    const { Engine, Composite, Bodies, Body, Query, Constraint } = M;
 
     /* ---- palette for the letter boxes: distinguishable, high-contrast on dark ---- */
     const HUES = ['#00A0DF','#F5C542','#E2603B','#6FB04A','#B36FD1','#3BB0A8','#E86FA0'];
@@ -117,8 +118,12 @@
         restitution: opts.restitution,
         frictionAir: opts.frictionAir,
         size: opts.size,
-        power: opts.power
+        power: opts.power,
+        swing: opts.swing   // 0 = rigid (tracks the finger), 1 = loose (dangles and swings)
       };
+      // Drag stiffness from the swing dial: loose = a springier pull, so an
+      // off-centre grab lets the box pendulum under gravity instead of sliding.
+      const stiffnessOf = sw => 1 - sw * 0.72;
 
       // The drag, multi-touch: one grip per pointer id. While a box is held we
       // drive it to that finger by hand and remember its last few positions in
@@ -192,11 +197,21 @@
         const hit = Query.point(free, { x, y });
         const body = hit.length ? hit[hit.length - 1] : nearestBox(x, y, taken);
         if(!body) return false;
-        // Remember where in the box you grabbed, so it follows the finger from
-        // that spot instead of snapping its centre to the point (the warp).
-        grips.set(id, { body, offset:{ x: body.position.x - x, y: body.position.y - y }, samples:[{ x, y, t: now() }] });
         Body.setVelocity(body, { x:0, y:0 });
         Body.setAngularVelocity(body, 0);
+        // Drag by the exact point you grabbed, through a spring — pointA is the
+        // finger, pointB is that point in the box's own frame. Because the pull
+        // lands off-centre it makes torque, so the box swings and dangles under
+        // gravity instead of sliding rigidly. pointB must be unrotated into the
+        // body frame or the pivot drifts as the box spins.
+        const dx = x - body.position.x, dy = y - body.position.y;
+        const c = Math.cos(-body.angle), s = Math.sin(-body.angle);
+        const constraint = Constraint.create({
+          pointA: { x, y }, bodyB: body, pointB: { x: dx*c - dy*s, y: dx*s + dy*c },
+          stiffness: stiffnessOf(feel.swing), damping: 0.12, length: 0
+        });
+        Composite.add(engine.world, constraint);
+        grips.set(id, { body, constraint });
         return true;
       }
       function nearestBox(x, y, exclude){
@@ -212,32 +227,25 @@
       function moveTo(id, x, y){
         const g = grips.get(id);
         if(!g) return;
-        Body.setPosition(g.body, { x: x + g.offset.x, y: y + g.offset.y });
-        Body.setVelocity(g.body, { x:0, y:0 });   // no drift while pinned to the finger
-        g.samples.push({ x, y, t: now() });
-        if(g.samples.length > 6) g.samples.shift();
+        // Move the anchor; the spring pulls the grabbed point after it, and the
+        // off-centre pull is what swings the box.
+        g.constraint.pointA.x = x;
+        g.constraint.pointA.y = y;
       }
       function release(id){
         const g = grips.get(id);
         if(!g) return;
-        const v = flickVelocity(g.samples);
-        Body.setVelocity(g.body, v);
-        Body.setAngularVelocity(g.body, (Math.random() - 0.5) * 0.2 + v.x * 0.004);
+        Composite.remove(engine.world, g.constraint);
+        // The box already carries the velocity and spin the drag built up; throw
+        // power just scales it, and the cap stops a hard whip launching off-world.
+        const p = feel.power, cap = 55, b = g.body;
+        Body.setVelocity(b, { x: clamp(b.velocity.x * p, -cap, cap), y: clamp(b.velocity.y * p, -cap, cap) });
+        Body.setAngularVelocity(b, clamp(b.angularVelocity * p, -1, 1));
         grips.delete(id);
       }
-      function flickVelocity(samples){
-        // velocity over the recent window, in px/ms, scaled to px/step (~16ms)
-        if(samples.length < 2) return { x:0, y:0 };
-        const last = samples[samples.length - 1];
-        // reach back ~45ms for a stable read of the flick, not the last jitter
-        let ref = samples[0];
-        for(let i = samples.length - 2; i >= 0; i--){ ref = samples[i]; if(last.t - ref.t >= 45) break; }
-        const dt = Math.max(8, last.t - ref.t);
-        const k = 16 * feel.power;
-        const vx = (last.x - ref.x) / dt * k;
-        const vy = (last.y - ref.y) / dt * k;
-        const cap = 55; // keep a hard flick from launching off-world
-        return { x: clamp(vx, -cap, cap), y: clamp(vy, -cap, cap) };
+      function clearGrips(){
+        for(const g of grips.values()) Composite.remove(engine.world, g.constraint);
+        grips.clear();
       }
 
       /* ---- readout: order of the boxes, left-to-right then top-to-bottom.
@@ -284,12 +292,17 @@
             if(next.frictionAir != null) b.body.frictionAir = feel.frictionAir;
           }
         }
+        // swing retunes a box you're already holding, so the change is felt now
+        if(next.swing != null){
+          const k = stiffnessOf(feel.swing);
+          for(const g of grips.values()) g.constraint.stiffness = k;
+        }
       }
 
       return {
         engine, grabAt, moveTo, release, read, step, draw, setFeel,
         resize: sizeToCanvas,
-        reset(letters){ grips.clear(); makeBoxes(letters); },
+        reset(letters){ clearGrips(); makeBoxes(letters); },
         heldBy: (id) => grips.has(id),
         anyHeld: () => grips.size > 0,
         boxAt: (x,y) => Query.point(boxes.map(b => b.body), {x,y}).length > 0
@@ -318,7 +331,8 @@
       restitution: +document.getElementById('s-rest').value,
       frictionAir: +document.getElementById('s-air').value,
       size: +document.getElementById('s-size').value,
-      power: +document.getElementById('s-pow').value
+      power: +document.getElementById('s-pow').value,
+      swing: +document.getElementById('s-swing').value
     });
 
     function letters(){
@@ -367,6 +381,7 @@
     bindSlider('s-rest','v-rest', v => v.toFixed(2),        v => world.setFeel({ restitution:v }));
     bindSlider('s-air','v-air',   v => v.toFixed(3),        v => world.setFeel({ frictionAir:v }));
     bindSlider('s-size','v-size', v => v + 'px',            v => { world.setFeel({ size:v }); world.reset(letters()); });
+    bindSlider('s-swing','v-swing', v => v.toFixed(2),      v => world.setFeel({ swing:v }));
     bindSlider('s-pow','v-pow',   v => '×' + v.toFixed(1),  v => world.setFeel({ power:v }));
 
     document.getElementById('btn-reset').addEventListener('click', () => world.reset(letters()));
