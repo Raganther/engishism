@@ -17,8 +17,8 @@
 
    Kit.table({ canvas, gravity, restitution, frictionAir, size, power, swing,
                snap, onArrange }) -> {
-     reset(), setPieces(labels[]), slots(n),
-     read()->string, filled()->bool, setResult(res),
+     reset(), setPieces(labels[]), slots(n), place(i,label),
+     read()->string, cells()->string[], filled()->bool, setResult(res),
      setFeel(partial), resize(),
      grab(id,x,y), move(id,x,y), drop(id), heldBy(id), anyHeld(),
      step(), draw()
@@ -194,7 +194,33 @@
 
     /* ---- readout ---- */
     function read(){ return slots.map(s => s.piece ? s.piece.ch : '').join(''); }
+    /* Positional read: one entry per slot, an empty slot kept as '' rather than
+       collapsed. `read()` concatenates (the spelled word); a caller that must send
+       the arrangement over a wire and have gaps survive — a phone feeding the
+       drag rounds' positional merge — joins these with a separator instead. */
+    function cells(){ return slots.map(s => s.piece ? s.piece.ch : ''); }
     function filled(){ return slots.length > 0 && slots.every(s => s.piece); }
+
+    /* Drop a lettered piece straight into a slot, no glide — the reconnect path.
+       A handset that dropped off the wifi mid-arrangement is re-armed with the
+       same pieces and its last-sent wire; this puts each letter back where it was
+       without re-running the dock tween or firing onArrange (the caller already
+       knows the arrangement it is restoring). Matches by free piece of that letter,
+       so duplicate letters each find their own tile. */
+    function place(i, label){
+      if(i < 0 || i >= slots.length || slots[i].piece) return false;
+      const held = heldBodies();
+      const p = pieces.find(pp => pp.slot == null && !pp.dock && !held.has(pp.body) && pp.ch === String(label));
+      if(!p) return false;
+      const s = slots[i];
+      s.piece = p; p.slot = i; p.dock = null;
+      Body.setStatic(p.body, true);
+      Body.setPosition(p.body, { x: s.x, y: s.y });
+      Body.setAngle(p.body, 0);
+      Body.setVelocity(p.body, { x:0, y:0 });
+      Body.setAngularVelocity(p.body, 0);
+      return true;
+    }
 
     /* ---- input surface (one grip per pointer id) ---- */
     function heldBodies(){ const set = new Set(); for(const g of grips.values()) set.add(g.body); return set; }
@@ -323,8 +349,8 @@
 
     return {
       reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; result = null; },
-      setPieces, slots: makeSlots,
-      read, filled, setResult(res){ result = res; },
+      setPieces, slots: makeSlots, place,
+      read, cells, filled, setResult(res){ result = res; },
       setFeel, resize: sizeToCanvas,
       grab, move, drop,
       heldBy: id => grips.has(id), anyHeld: () => grips.size > 0,

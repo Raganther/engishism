@@ -3,21 +3,25 @@
    answer slots, instead of the careful drag of the `anagram` round. It shares
    that round's content shape (item.anagram.word) — physical, not drag.
 
-   The card IS the play surface here: the round renders a <canvas> into the clue
-   card and runs Kit.table on it, operated directly (mouse on the bench, touch on
-   a projector — Race is the precedent for a board-operated round). The table
-   reports the arrangement through onArrange; this round judges read()===word and
-   tints the slots. No lanes, no team bar — the canvas owns the card.
+   TWO FACES, decided by whether phones are in the room (ctx.roster):
 
-   The clue card is transform:scale()-d, so the pointer→canvas conversion divides
-   by the painted/natural ratio; Kit.table measures the natural box (offsetWidth),
-   so the two agree. render() is idempotent: the bench redraws on every beat, so a
-   live table is reused (just re-fitted) rather than rebuilt.
+   - **No phones → the card is the play surface.** The round renders a <canvas> into
+     the clue card and runs Kit.table on it, operated directly (mouse on the bench,
+     touch on a projector — Race is the precedent). The table reports through
+     onArrange; the board judges read()===word and tints the slots. This is the
+     no-relay / bench path. The clue card is transform:scale()-d, so the
+     pointer→canvas conversion divides by the painted/natural ratio; Kit.table
+     measures the natural box (offsetWidth), so the two agree. render() is idempotent:
+     the bench redraws on every beat, so a live table is reused (re-fitted), not rebuilt.
+
+   - **Phones present → each handset runs its OWN Kit.table** (join.html's `table`
+     mode), and the card becomes the scoreboard: a lane per team filling as letters
+     land in the right boxes (Kit.round.lanes, exactly as the drag rounds). `arm`
+     sends `mode:'table'`; `read` merges the handsets' arrangements with
+     Kit.round.arrangement, the same positional |-joined wire the drag rounds use.
 
    Declares NO `field`/`claims` for now: it is bench-selected (?type=r:toss) and,
-   later, routed by an explicit round:'toss' on a bank item. `arm` falls back to
-   the existing drag-anagram phone dynamic until join.html gains a `table` mode
-   (step 4), so phones are not dead.
+   later, routed by an explicit round:'toss' on a bank item.
    ========================================================================== */
 (function(){
   'use strict';
@@ -25,6 +29,15 @@
   const MAX = 12;
 
   const clean = w => String(w || '').toUpperCase().replace(/[^A-Z]/g, '');
+  // Every letter in a placed sequence is one this word actually has, counted rather
+  // than merely present — so a stale reply spelling EEE is dropped against a word
+  // holding one E. The drag rounds' `Kit.round.arrangement` calls this as `legal`.
+  function fits(seq, word){
+    if(!seq.length || seq.length > word.length) return false;
+    const left = {};
+    word.split('').forEach(ch => { left[ch] = (left[ch] || 0) + 1; });
+    return seq.every(ch => (left[ch] = (left[ch] || 0) - 1) >= 0);
+  }
   function scramble(word){                 // shelf shuffle, retried until it isn't the answer
     const chars = word.split('');
     let out = K.round.shuffle(chars.slice());
@@ -48,17 +61,56 @@
       read: it => ({ q: (it && it.text) || '', a: (it && it.anagram && it.anagram.word) || '', b: '' })
     },
 
-    setup(item){
+    setup(item, ctx){
       const word = clean(item && item.anagram && item.anagram.word);
       if(!/^[A-Z]{3,}$/.test(word) || word.length > MAX) return null;
       return {
         text: String((item && item.text) || 'Spell the word'),
-        word, answer: word,
-        cardAnswer: '', verdict: null, done: false, chosen: []
+        word, answer: word, need: word.length,
+        // A stable scramble, fixed once: the phones spawn exactly these pieces and
+        // a reconnect re-arms with the same set, so a restored arrangement lines up.
+        pieces: scramble(word),
+        mode: (ctx && ctx.mode === 'agree') ? 'agree' : 'first',
+        // The lanes' three-way split, kept exactly as the drag rounds keep it.
+        picks: {}, leading: {}, votes: {}, by: {}, got: {},
+        say: '', cardAnswer: '', verdict: null, done: false, chosen: []
       };
     },
 
     render(mount, s, ctx){
+      const c = ctx || {};
+      // **Phones present → they run the physics on their own screens, and the card
+      // becomes the scoreboard.** A lane per team fills as letters land in the right
+      // boxes — the same standard the drag rounds draw. No canvas here; the students
+      // are looking at their hands. (Board-operated / no-relay is the branch below.)
+      if(c.roster && c.roster.length){
+        if(s._canvas){ s._table = null; s._canvas = null; }   // drop any live board table; clearing the mount stops its loop
+        mount.innerHTML = '';
+        mount.className = 'round-toss' + (s.mode === 'agree' ? ' agreeing' : '');
+        K.round.lanes(mount, c, {
+          kind: 'toss',
+          progressed: Object.keys(s.got || {}),
+          lane(t){
+            const row = (s.got || {})[t] || [];
+            const need = K.round.mustHold(s.mode, c, t);
+            const cells = []; let right = 0;
+            for(let i = 0; i < s.need; i++){
+              const ok = (row[i] || 0) >= need;
+              if(ok) right++;
+              cells.push({ got: ok, text: ok ? s.word[i] : '', colour: true });
+            }
+            return {
+              cells,
+              count: right + ' of ' + s.need,
+              agree: s.mode === 'agree' ? K.round.agreement(s, c, t) : null,
+              full: right === s.need
+            };
+          }
+        });
+        K.round.say(mount, s);
+        return;
+      }
+      // No phones → board-operated: the physics runs on the card, mouse/touch driven.
       // Reuse the live table if its canvas is still mounted — the bench calls
       // render on every beat, and rebuilding would restart the physics.
       if(s._table && s._canvas && s._canvas.isConnected){ s._table.resize(); return; }
@@ -82,7 +134,7 @@
         }
       });
       s._table = table;
-      table.setPieces(scramble(s.word));
+      table.setPieces(s.pieces);
       table.slots(s.word.length);
 
       // Pointer → table, converting client coords into the canvas's NATURAL space:
@@ -109,8 +161,27 @@
       table.resize();
     },
 
-    // The card is the input, so read() reports the card's own arrangement (team 0).
-    read(replies, s){ return { 0: (s.cardAnswer || '').split('') }; },
+    // **Phones in play → merge every handset's arrangement into one team answer**,
+    // positionally, exactly as the drag rounds do (`Kit.round.arrangement`). The wire
+    // is |-joined slot letters with gaps preserved — what the phone's `tableWire()`
+    // sends. Stashes leading/votes/by/got for the lanes; returns the committed picks.
+    // **No phones → the card is the input**, so it reports the card's own arrangement
+    // (team 0), judged on the board by the canvas's own onArrange.
+    read(replies, s, ctx){
+      if(replies && replies.length){
+        const p = K.round.arrangement(replies, {
+          need:   s.need,
+          clean:  x => String(x).toUpperCase(),
+          wordAt: i => s.word[i],
+          legal:  placed => fits(placed, s.word),
+          sizes:  (ctx && ctx.sizes) || [],
+          mode:   s.mode
+        });
+        s.leading = p.leading; s.votes = p.votes; s.by = p.by; s.got = p.got;
+        return p.picks;
+      }
+      return { 0: (s.cardAnswer || '').split('') };
+    },
     judge(answer, s){
       const seq = (answer || []).map(x => String(x).toUpperCase());
       if(seq.length !== s.word.length) return { verdict: 'incomplete', hits: 0 };
@@ -119,13 +190,17 @@
       return { verdict: right ? 'right' : 'wrong', hits };
     },
 
-    // Phone fallback: the existing drag-anagram, until join.html gains a table mode (step 4).
+    // **The phones run their OWN Kit.table** (join.html's `table` mode). The arm
+    // carries the scrambled letters to spawn as pieces; the slot count is the word
+    // length. Same shape as the drag round's `arrange`, one word changed — `mode` —
+    // because a phone that can't run the physics falls back to plain text, not to a
+    // broken screen (join.html's setMode leaves an unknown mode showing nothing new).
     arm(s, ctx){
       const c = ctx || {};
       return {
-        mode: 'arrange',
+        mode: 'table',
         prompt: c.prompt === false ? 'Spell the word' : (s.text || 'Spell the word'),
-        options: scramble(s.word), multi: s.word.length, holds: true, rethink: true,
+        options: s.pieces, multi: s.word.length, holds: true, rethink: true,
         team: (c.team === 0 || Number(c.team) > 0) ? Number(c.team) : null
       };
     },

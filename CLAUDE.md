@@ -674,15 +674,24 @@ pieces with a soft-spring grab + gravity swing + a suck-and-spin dock into answe
 the caller's (`setResult` only tints). `playground/throw-lab.html` is its first caller and
 the feel workshop (the sliders). **The `toss` round** (`game-hub/rounds/toss.js`) is the
 second caller — same anagram content as `anagram.js` (`item.anagram.word`), physical instead
-of drag. It renders a `<canvas>` into the clue card and runs `Kit.table`, **board-operated**
-(mouse/touch on the card, like Race) — its `render` is idempotent (reuse the live table, the
-bench redraws every beat) and converts pointer coords by the card's `transform:scale` (it
-reads the painted/natural ratio; `Kit.table` sizes to the *natural* `offsetWidth`). Declares
+of drag. It has **two faces, chosen by whether phones are in the room** (`ctx.roster`): with
+no phones the `<canvas>` runs on the clue card, **board-operated** (mouse/touch, like Race) —
+`render` idempotent, pointer coords divided by the card's `transform:scale` (`Kit.table` sizes
+to the *natural* `offsetWidth`); with phones present **each handset runs its own `Kit.table`**
+(join.html's `table` mode) and the card becomes the scoreboard (`Kit.round.lanes`, as the drag
+rounds). `arm` sends `mode:'table'`; `read` merges handset arrangements with
+`Kit.round.arrangement` on the same positional `|`-joined wire the drag rounds use. Declares
 no `field`/`claims` yet — bench-selected (`?type=r:toss`), later routed by explicit
 `round:'toss'`; registered in every shell so `check-syntax` stays green, but **no content
-routes to it yet**, so it appears only on the bench/Lab. **Deferred (step 4):** a `join.html`
-`table` mode so phones run their own table (today `toss.arm` falls back to `mode:'arrange'`).
-The one thing no suite can answer is whether the throw *feels* good; that is a real phone.
+routes to it yet**, so it appears only on the bench/Lab.
+
+The phone-side physics needed two things beyond the round: `join.html` now loads
+`matter.min.js` + `hub-table.js` (behind a `window.HubKit = {}` stub — hub-table only reads
+HubKit to hang `.table` on it) and has a `table` handset mode mirroring `arrange` (its own
+`buildTable`/`tableWire`/`restoreTable`, same commit-beat and reconnect paths); and `Kit.table`
+grew `cells()` (positional read, gaps kept — `read()` collapses them) and `place(i,label)` (drop
+a letter straight into a slot, for reconnect restore). The one thing no suite can answer is
+whether the throw *feels* good on a touchscreen; that is a real phone.
 
 **Open-question tuning is guessed, not measured.** The open-question work — a right
 answer no longer locks the room out, position and time recorded, standings after every
