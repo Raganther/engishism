@@ -4284,6 +4284,14 @@
       const u = new URL('join.html', location.href);
       if(/^(localhost|127\.0\.0\.1)/.test(u.host) && buzzLanHost) u.host = buzzLanHost;
       if(buzzHost) u.searchParams.set('code', buzzHost.code);
+      /* Carry the build stamp so a new deploy hands out a NEW join URL — join.html is
+         the one shell nothing else busts, so a phone that scanned an old QR keeps its
+         cached, pre-upgrade shell (a `table` arm it does not understand falls back to a
+         buzzer). A fresh `?v=` is a fresh cache key, so the scan fetches the current
+         shell. `HUB_BUILD` is derived from the engine's own `?v=`, so it is always live;
+         join.html ignores the extra param. The typed address (`joinAddress`) stays clean
+         — a student cannot type a stamp — and the build-watch pill covers that path. */
+      if(window.HUB_BUILD && window.HUB_BUILD !== 'dev') u.searchParams.set('v', window.HUB_BUILD);
       return u.toString();
     }catch(e){ return 'join.html'; }
   }
