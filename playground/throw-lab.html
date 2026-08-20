@@ -204,18 +204,19 @@
         Body.setVelocity(body, { x:0, y:0 });
         Body.setAngularVelocity(body, 0);
         // Drag by the exact point you grabbed, through a spring — pointA is the
-        // finger, pointB is that point in the box's own frame. Because the pull
-        // lands off-centre it makes torque, so the box swings and dangles under
-        // gravity instead of sliding rigidly. pointB must be unrotated into the
-        // body frame or the pivot drifts as the box spins, and clamped to the
-        // box's own extent so a forgiving grab from just outside the box pulls
-        // from its edge, not a phantom point in mid-air.
-        const half = feel.size / 2;
-        const dx = x - body.position.x, dy = y - body.position.y;
-        const c = Math.cos(-body.angle), s = Math.sin(-body.angle);
-        const lx = clamp(dx*c - dy*s, -half, half), ly = clamp(dx*s + dy*c, -half, half);
+        // finger, pointB is the offset of that point from the box centre. This
+        // is a WORLD-oriented offset, exactly as Matter's own MouseConstraint
+        // uses (pointB = mouse − body.position): Matter does not re-rotate pointB
+        // by the body angle, so converting into the body's local frame made a
+        // rotated box lurch its far side under the cursor (the opposite-side
+        // warp). The pull still lands off-centre, so torque still swings it.
+        let dx = x - body.position.x, dy = y - body.position.y;
+        // A forgiving grab can land just outside a small box; keep the anchor
+        // near the box rather than far out by capping the offset radius.
+        const maxR = feel.size * 0.6, len = Math.hypot(dx, dy);
+        if(len > maxR){ dx = dx / len * maxR; dy = dy / len * maxR; }
         const constraint = Constraint.create({
-          pointA: { x, y }, bodyB: body, pointB: { x: lx, y: ly },
+          pointA: { x, y }, bodyB: body, pointB: { x: dx, y: dy },
           stiffness: stiffnessOf(feel.swing), damping: 0.1, length: 0
         });
         Composite.add(engine.world, constraint);
