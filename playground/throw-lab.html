@@ -78,6 +78,7 @@
     <div class="ctl"><label>Box size</label><input id="s-size" type="range" min="40" max="140" step="5" value="82"><span class="val" id="v-size"></span></div>
     <div class="ctl"><label>Swing</label><input id="s-swing" type="range" min="0" max="1" step="0.05" value="0.4"><span class="val" id="v-swing"></span></div>
     <div class="ctl"><label>Throw power</label><input id="s-pow" type="range" min="0.4" max="3" step="0.1" value="1.3"><span class="val" id="v-pow"></span></div>
+    <div class="ctl"><label>Snap</label><input id="s-snap" type="range" min="0.15" max="0.8" step="0.05" value="0.38"><span class="val" id="v-snap"></span></div>
     <button id="btn-reset" type="button">Reset ⟳</button>
   </div>
 
@@ -120,7 +121,8 @@
         frictionAir: opts.frictionAir,
         size: opts.size,
         power: opts.power,
-        swing: opts.swing   // 0 = rigid (tracks the finger), 1 = loose (dangles and swings)
+        swing: opts.swing,  // 0 = rigid (tracks the finger), 1 = loose (dangles and swings)
+        snap: opts.snap     // dock glide duration in ms
       };
       // Drag stiffness from the swing dial. Tight enough to track the finger
       // without visible lag (the warp that once needed a soft spring was really
@@ -187,7 +189,7 @@
             density: 0.0016
           });
           Body.setAngle(body, (Math.random() - 0.5) * 0.3);
-          boxes.push({ body, ch, hue: HUES[i % HUES.length], slot: null });
+          boxes.push({ body, ch, hue: HUES[i % HUES.length], slot: null, dock: null });
         });
         Composite.add(engine.world, boxes.map(b => b.body));
       }
@@ -221,15 +223,32 @@
         const cap = (slots.length ? slots[0].w : feel.size) * 0.85;
         return (best >= 0 && bestD <= cap*cap) ? best : -1;
       }
-      function snapInto(box, i){       // lock a letter into a slot, upright and frozen
+      function startDock(box, i){      // begin the glide-and-spin into a slot
         const s = slots[i];
         s.piece = box; box.slot = i;
-        Body.setStatic(box.body, true);
-        Body.setPosition(box.body, { x: s.x, y: s.y });
-        Body.setAngle(box.body, 0);
+        Body.setStatic(box.body, true);          // hand the tile to the tween, not gravity
         Body.setVelocity(box.body, { x:0, y:0 });
         Body.setAngularVelocity(box.body, 0);
-        judge();
+        const a = box.body.angle;
+        box.dock = {
+          t0: now(), dur: Math.max(80, feel.snap),
+          fromX: box.body.position.x, fromY: box.body.position.y,
+          fromA: a, toA: Math.round(a / (Math.PI*2)) * (Math.PI*2),   // nearest upright — spins the short way
+          p: 0
+        };
+      }
+      function tickDocks(){            // advance every gliding tile by real elapsed time
+        const t = now();
+        for(const b of boxes){
+          const dk = b.dock; if(!dk) continue;
+          let raw = (t - dk.t0) / dk.dur; if(raw > 1) raw = 1;
+          const e = raw*raw*raw*(raw*(raw*6 - 15) + 10);   // smootherstep — a soft magnetic pull
+          dk.p = e;
+          const s = slots[b.slot];
+          Body.setPosition(b.body, { x: dk.fromX + (s.x - dk.fromX)*e, y: dk.fromY + (s.y - dk.fromY)*e });
+          Body.setAngle(b.body, dk.fromA + (dk.toA - dk.fromA)*e);
+          if(raw >= 1){ b.dock = null; Body.setAngle(b.body, 0); judge(); }   // verdict lands once it is home
+        }
       }
       function judge(){
         const filled = slots.length > 0 && slots.every(s => s.piece);
@@ -275,6 +294,7 @@
         // Pulling a letter back out of a slot: free the slot, un-freeze the body,
         // and clear any verdict (the arrangement is no longer complete).
         const gbox = boxOf(body);
+        if(gbox) gbox.dock = null;   // grabbing mid-glide cancels the dock
         if(gbox && gbox.slot != null){ freeSlotOf(gbox); result = null; report(); }
         if(body.isStatic) Body.setStatic(body, false);
         Body.setVelocity(body, { x:0, y:0 });
@@ -329,9 +349,9 @@
         Composite.remove(engine.world, g.constraint);
         const b = g.body, box = boxOf(b);
         grips.delete(id);
-        // Dropped over an empty slot? Snap it home instead of letting it fly.
+        // Dropped over an empty slot? Suck it home (glide + spin) instead of flying.
         const near = slotNear(b.position.x, b.position.y);
-        if(near >= 0 && box){ snapInto(box, near); return; }
+        if(near >= 0 && box){ startDock(box, near); return; }
         // Otherwise it flies: it already carries the velocity and spin the drag
         // built up; throw power just scales it, and the cap stops a hard whip.
         const p = feel.power, cap = 55;
@@ -352,6 +372,7 @@
          awkward with Matter's own renderer. ---- */
       function step(){
         Engine.update(engine, 1000/60);
+        tickDocks();
       }
       function draw(){
         ctx.clearRect(0, 0, cssW, cssH);
@@ -369,11 +390,17 @@
           ctx.restore();
         }
         for(const b of boxes){
-          const p = b.body.position, inSlot = b.slot != null;
-          const s = inSlot ? slots[b.slot].w : feel.size, r = Math.round(s*0.16);
+          const p = b.body.position, docking = !!b.dock, inSlot = b.slot != null;
+          // While gliding home, follow the tween: rotate with the body and shrink
+          // from loose size to slot size. Settled = upright at slot size. Loose = as thrown.
+          let s, ang;
+          if(docking){ s = feel.size + (slots[b.slot].w - feel.size) * b.dock.p; ang = b.body.angle; }
+          else if(inSlot){ s = slots[b.slot].w; ang = 0; }
+          else { s = feel.size; ang = b.body.angle; }
+          const r = Math.round(s*0.16);
           ctx.save();
           ctx.translate(p.x, p.y);
-          if(!inSlot) ctx.rotate(b.body.angle);   // slotted letters sit upright and still
+          ctx.rotate(ang);
           ctx.fillStyle = b.hue;
           roundRect(ctx, -s/2, -s/2, s, s, r);
           ctx.fill();
@@ -438,6 +465,7 @@
       size: +document.getElementById('s-size').value,
       power: +document.getElementById('s-pow').value,
       swing: +document.getElementById('s-swing').value,
+      snap: (+document.getElementById('s-snap').value) * 1000,
       onResult(res){
         status.textContent = res === 'right' ? '✓ Correct — that spells the word.'
           : res === 'wrong' ? '✗ Not the word yet — pull a letter out and try again.'
@@ -494,6 +522,7 @@
     bindSlider('s-size','v-size', v => v + 'px',            v => { world.setFeel({ size:v }); world.reset(letters()); });
     bindSlider('s-swing','v-swing', v => v.toFixed(2),      v => world.setFeel({ swing:v }));
     bindSlider('s-pow','v-pow',   v => '×' + v.toFixed(1),  v => world.setFeel({ power:v }));
+    bindSlider('s-snap','v-snap', v => v.toFixed(2) + 's',  v => world.setFeel({ snap: v*1000 }));
 
     document.getElementById('btn-reset').addEventListener('click', () => world.reset(letters()));
     document.getElementById('word-in').addEventListener('change', () => world.reset(letters()));
