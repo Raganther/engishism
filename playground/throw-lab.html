@@ -31,11 +31,14 @@
   }
   h1{ font-size:1.15rem; margin:0; letter-spacing:0.01em; }
   h1 small{ color:var(--muted); font-weight:400; font-size:0.8rem; margin-left:6px; }
+  .tune{ margin-left:auto; align-self:center; white-space:nowrap; }
 
   .controls{
     flex:0 0 auto; display:flex; gap:14px; flex-wrap:wrap; align-items:center;
     padding:4px 14px 10px; border-bottom:1px solid var(--border);
   }
+  /* On a phone the eight sliders eat the play area — the Tune button folds them away. */
+  body.controls-hidden .controls{ display:none; }
   .ctl{ display:flex; flex-direction:column; gap:2px; min-width:96px; }
   .ctl label{ font-size:0.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; }
   .ctl input[type=range]{ width:120px; accent-color:var(--accent); }
@@ -65,6 +68,7 @@
 <body>
   <header>
     <h1>Throw Lab <small>flick the scrambled letters into the slots to spell the word</small></h1>
+    <button id="btn-tune" type="button" class="tune">⚙ Tune</button>
   </header>
 
   <div class="controls">
@@ -526,6 +530,19 @@
 
     document.getElementById('btn-reset').addEventListener('click', () => world.reset(letters()));
     document.getElementById('word-in').addEventListener('change', () => world.reset(letters()));
+
+    /* ---- collapsible controls: on a phone the panel is folded away by default,
+       and the Tune button toggles it, re-fitting the canvas each time. ---- */
+    const btnTune = document.getElementById('btn-tune');
+    function refit(){ requestAnimationFrame(() => world.resize()); }
+    function applyTune(){
+      const hidden = document.body.classList.contains('controls-hidden');
+      btnTune.textContent = hidden ? '⚙ Tune' : 'Close ✕';
+      refit();
+    }
+    if(window.innerWidth < 720) document.body.classList.add('controls-hidden');
+    applyTune();
+    btnTune.addEventListener('click', () => { document.body.classList.toggle('controls-hidden'); applyTune(); });
 
     let rz;
     window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { world.resize(); }, 150); });
