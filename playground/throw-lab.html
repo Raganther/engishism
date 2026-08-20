@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Throw Lab — Engishism Playground</title>
+<style>
+  /* Playground page: its own chrome, NOT the hub skin — same as Thermometer and
+     Connections. This one is rung 1 of the throw dynamic and proves exactly one
+     thing: does flicking a letter box around feel good in the hand? No relay, no
+     phones, no judging. The sliders are here so the feel can be dialled in live on
+     a real device, because motion is the one thing a screenshot cannot settle. */
+  :root{
+    --bg:#101318; --panel:#171b22; --text:#f2f2ec; --muted:#9aa0aa;
+    --border:#2a2f38; --accent:#00A0DF;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; overflow:hidden; }
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display:flex; flex-direction:column;
+    /* Stop the page itself from panning/zooming under a throw — the canvas owns
+       the gesture. Without this, a fast drag scrolls the page on a phone. */
+    touch-action:none; -webkit-user-select:none; user-select:none;
+    overscroll-behavior:none;
+  }
+  header{
+    flex:0 0 auto; display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;
+    padding:10px 14px 6px;
+  }
+  h1{ font-size:1.15rem; margin:0; letter-spacing:0.01em; }
+  h1 small{ color:var(--muted); font-weight:400; font-size:0.8rem; margin-left:6px; }
+
+  .controls{
+    flex:0 0 auto; display:flex; gap:14px; flex-wrap:wrap; align-items:center;
+    padding:4px 14px 10px; border-bottom:1px solid var(--border);
+  }
+  .ctl{ display:flex; flex-direction:column; gap:2px; min-width:96px; }
+  .ctl label{ font-size:0.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; }
+  .ctl input[type=range]{ width:120px; accent-color:var(--accent); }
+  .ctl .val{ font-size:0.72rem; color:var(--text); font-variant-numeric:tabular-nums; }
+  .word{ display:flex; flex-direction:column; gap:2px; }
+  .word label{ font-size:0.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; }
+  .word input[type=text]{
+    font:inherit; font-size:0.9rem; letter-spacing:0.12em; text-transform:uppercase;
+    width:150px; padding:5px 9px; border-radius:8px;
+    border:1px solid var(--border); background:var(--panel); color:var(--text);
+  }
+  button{
+    font:inherit; font-size:0.82rem; padding:7px 14px; border-radius:999px;
+    border:1px solid var(--border); background:var(--panel); color:var(--text); cursor:pointer;
+  }
+  button:hover{ border-color:var(--accent); }
+
+  .stage{ flex:1 1 auto; position:relative; min-height:0; }
+  canvas{ display:block; width:100%; height:100%; touch-action:none; cursor:grab; }
+  canvas.grabbing{ cursor:grabbing; }
+  .hint{
+    position:absolute; left:14px; bottom:12px; color:var(--muted); font-size:0.75rem;
+    pointer-events:none; background:rgba(16,19,24,0.6); padding:4px 8px; border-radius:6px;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Throw Lab <small>flick the letters — do they feel good to throw?</small></h1>
+  </header>
+
+  <div class="controls">
+    <div class="word">
+      <label for="word-in">Letters</label>
+      <input id="word-in" type="text" value="THROW" maxlength="12" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="ctl"><label>Gravity</label><input id="s-grav" type="range" min="0" max="2" step="0.05" value="0.9"><span class="val" id="v-grav"></span></div>
+    <div class="ctl"><label>Bounce</label><input id="s-rest" type="range" min="0" max="0.95" step="0.05" value="0.45"><span class="val" id="v-rest"></span></div>
+    <div class="ctl"><label>Air drag</label><input id="s-air" type="range" min="0" max="0.08" step="0.005" value="0.01"><span class="val" id="v-air"></span></div>
+    <div class="ctl"><label>Box size</label><input id="s-size" type="range" min="40" max="140" step="5" value="82"><span class="val" id="v-size"></span></div>
+    <div class="ctl"><label>Throw power</label><input id="s-pow" type="range" min="0.4" max="3" step="0.1" value="1.3"><span class="val" id="v-pow"></span></div>
+    <button id="btn-reset" type="button">Reset ⟳</button>
+  </div>
+
+  <div class="stage">
+    <canvas id="stage"></canvas>
+    <div class="hint">Grab a letter and flick it.</div>
+  </div>
+
+  <script src="matter.min.js"></script>
+  <script>
+  (function(){
+    'use strict';
+    const M = window.Matter;
+    if(!M){ document.querySelector('.hint').textContent = 'Matter.js failed to load.'; return; }
+    const { Engine, Composite, Bodies, Body, Query } = M;
+
+    /* ---- palette for the letter boxes: distinguishable, high-contrast on dark ---- */
+    const HUES = ['#00A0DF','#F5C542','#E2603B','#6FB04A','#B36FD1','#3BB0A8','#E86FA0'];
+
+    /* =====================================================================
+       makeThrowWorld — the transport-agnostic core. It takes a canvas, some
+       letters and feel options; it hands back grab/move/release (the input)
+       and read() (the state that judging will one day want). It knows nothing
+       about phones, the relay or the board — that is the whole point (axiom 4).
+       Kept in-page for now: one caller is a guess about an API, so it gets
+       extracted to a shelf only when a second caller (a hub round) appears.
+       ===================================================================== */
+    function makeThrowWorld(opts){
+      const canvas = opts.canvas;
+      const ctx = canvas.getContext('2d');
+      const engine = Engine.create();
+      engine.gravity.y = opts.gravity;
+
+      let cssW = 0, cssH = 0, dpr = 1;
+      let walls = [];
+      let boxes = [];
+      let feel = {
+        restitution: opts.restitution,
+        frictionAir: opts.frictionAir,
+        size: opts.size,
+        power: opts.power
+      };
+
+      // The drag: while a box is held we drive it to the pointer by hand and
+      // remember the last few positions in time; on release the flick velocity
+      // is read off those samples. That sampled velocity IS the impulse.
+      let held = null;
+      let samples = [];   // {x, y, t}
+
+      function sizeToCanvas(){
+        const r = canvas.getBoundingClientRect();
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        cssW = Math.max(1, Math.round(r.width));
+        cssH = Math.max(1, Math.round(r.height));
+        canvas.width = Math.round(cssW * dpr);
+        canvas.height = Math.round(cssH * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        buildWalls();
+      }
+
+      function buildWalls(){
+        if(walls.length) Composite.remove(engine.world, walls);
+        const t = 200; // thick, so a fast box cannot tunnel through in one step
+        const o = { isStatic:true, restitution:0.4, friction:0.2 };
+        walls = [
+          Bodies.rectangle(cssW/2, cssH + t/2, cssW + t*2, t, o),   // floor
+          Bodies.rectangle(cssW/2, -t/2,        cssW + t*2, t, o),   // ceiling
+          Bodies.rectangle(-t/2,   cssH/2,      t, cssH + t*2, o),   // left
+          Bodies.rectangle(cssW + t/2, cssH/2,  t, cssH + t*2, o)    // right
+        ];
+        Composite.add(engine.world, walls);
+      }
+
+      function makeBoxes(letters){
+        if(boxes.length) Composite.remove(engine.world, boxes.map(b => b.body));
+        boxes = [];
+        const s = feel.size;
+        const chars = letters.split('');
+        const spread = Math.min(cssW - s, (chars.length) * (s + 10));
+        const startX = (cssW - spread) / 2 + s/2;
+        chars.forEach((ch, i) => {
+          const x = chars.length > 1 ? startX + (spread - s) * (i/(chars.length-1)) : cssW/2;
+          const y = s/2 + 20 + (i % 2) * 8;
+          const body = Bodies.rectangle(x, y, s, s, {
+            chamfer:{ radius: Math.round(s*0.16) },
+            restitution: feel.restitution,
+            frictionAir: feel.frictionAir,
+            friction: 0.3,
+            density: 0.0016
+          });
+          Body.setAngle(body, (Math.random() - 0.5) * 0.3);
+          boxes.push({ body, ch, hue: HUES[i % HUES.length] });
+        });
+        Composite.add(engine.world, boxes.map(b => b.body));
+      }
+
+      /* ---- input surface ---- */
+      function grabAt(x, y){
+        const hit = Query.point(boxes.map(b => b.body), { x, y });
+        if(!hit.length) return false;
+        // topmost = last added that contains the point
+        const body = hit[hit.length - 1];
+        held = body;
+        Body.setStatic(body, false);
+        Body.setVelocity(body, { x:0, y:0 });
+        Body.setAngularVelocity(body, 0);
+        samples = [{ x, y, t: now() }];
+        return true;
+      }
+      function moveTo(x, y){
+        if(!held) return;
+        Body.setPosition(held, { x, y });
+        Body.setVelocity(held, { x:0, y:0 });   // no drift while pinned to the finger
+        samples.push({ x, y, t: now() });
+        if(samples.length > 6) samples.shift();
+      }
+      function release(){
+        if(!held) return;
+        const v = flickVelocity();
+        Body.setVelocity(held, v);
+        Body.setAngularVelocity(held, (Math.random() - 0.5) * 0.2 + v.x * 0.004);
+        held = null;
+        samples = [];
+      }
+      function flickVelocity(){
+        // velocity over the recent window, in px/ms, scaled to px/step (~16ms)
+        if(samples.length < 2) return { x:0, y:0 };
+        const last = samples[samples.length - 1];
+        // reach back ~70ms for a stable read of the flick, not the last jitter
+        let ref = samples[0];
+        for(let i = samples.length - 2; i >= 0; i--){ ref = samples[i]; if(last.t - ref.t >= 45) break; }
+        const dt = Math.max(8, last.t - ref.t);
+        const k = 16 * feel.power;
+        const vx = (last.x - ref.x) / dt * k;
+        const vy = (last.y - ref.y) / dt * k;
+        const cap = 55; // keep a hard flick from launching off-world
+        return { x: clamp(vx, -cap, cap), y: clamp(vy, -cap, cap) };
+      }
+
+      /* ---- readout: order of the boxes, left-to-right then top-to-bottom.
+         Unused in rung 1 (no judging yet) — here so the seam judging will use
+         is already the shape it needs, and so the world hands back an answer. */
+      function read(){
+        return boxes.slice()
+          .sort((a,b) => (a.body.position.x - b.body.position.x) || (a.body.position.y - b.body.position.y))
+          .map(b => b.ch).join('');
+      }
+
+      /* ---- step + draw. Matter does the physics; we do the draw, because the
+         draw is the part that later moves to the board, and letters-on-boxes are
+         awkward with Matter's own renderer. ---- */
+      function step(){
+        Engine.update(engine, 1000/60);
+      }
+      function draw(){
+        ctx.clearRect(0, 0, cssW, cssH);
+        for(const b of boxes){
+          const p = b.body.position, s = feel.size, r = Math.round(s*0.16);
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(b.body.angle);
+          ctx.fillStyle = b.hue;
+          roundRect(ctx, -s/2, -s/2, s, s, r);
+          ctx.fill();
+          ctx.fillStyle = '#101318';
+          ctx.font = `700 ${Math.round(s*0.56)}px -apple-system, "Segoe UI", Roboto, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(b.ch, 0, Math.round(s*0.03));
+          ctx.restore();
+        }
+      }
+
+      function setFeel(next){
+        Object.assign(feel, next);
+        if(next.gravity != null) engine.gravity.y = next.gravity;
+        // restitution / air apply to live bodies immediately so a slider is felt
+        if(next.restitution != null || next.frictionAir != null){
+          for(const b of boxes){
+            if(next.restitution != null) b.body.restitution = feel.restitution;
+            if(next.frictionAir != null) b.body.frictionAir = feel.frictionAir;
+          }
+        }
+      }
+
+      return {
+        engine, grabAt, moveTo, release, read, step, draw, setFeel,
+        resize: sizeToCanvas,
+        reset(letters){ makeBoxes(letters); },
+        held: () => !!held,
+        boxAt: (x,y) => Query.point(boxes.map(b => b.body), {x,y}).length > 0
+      };
+    }
+
+    /* ---- tiny helpers (no library assumptions) ---- */
+    function now(){ return (window.performance && performance.now) ? performance.now() : Date.now(); }
+    function clamp(v, lo, hi){ return v < lo ? lo : v > hi ? hi : v; }
+    function roundRect(ctx, x, y, w, h, r){
+      if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
+      ctx.beginPath();
+      ctx.moveTo(x+r, y);
+      ctx.arcTo(x+w, y, x+w, y+h, r);
+      ctx.arcTo(x+w, y+h, x, y+h, r);
+      ctx.arcTo(x, y+h, x, y, r);
+      ctx.arcTo(x, y, x+w, y, r);
+      ctx.closePath();
+    }
+
+    /* ============================ page wiring ============================ */
+    const canvas = document.getElementById('stage');
+    const world = makeThrowWorld({
+      canvas,
+      gravity: +document.getElementById('s-grav').value,
+      restitution: +document.getElementById('s-rest').value,
+      frictionAir: +document.getElementById('s-air').value,
+      size: +document.getElementById('s-size').value,
+      power: +document.getElementById('s-pow').value
+    });
+
+    function letters(){
+      return (document.getElementById('word-in').value || 'THROW').replace(/[^A-Za-z]/g,'').toUpperCase().slice(0,12) || 'THROW';
+    }
+
+    world.resize();
+    world.reset(letters());
+
+    // Fixed-timestep loop: step the physics, draw what came out.
+    (function loop(){ world.step(); world.draw(); requestAnimationFrame(loop); })();
+
+    /* ---- pointer → grab / move / release ---- */
+    function pt(e){
+      const r = canvas.getBoundingClientRect();
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    }
+    canvas.addEventListener('pointerdown', e => {
+      const p = pt(e);
+      if(world.grabAt(p.x, p.y)){
+        canvas.classList.add('grabbing');
+        canvas.setPointerCapture(e.pointerId);
+      }
+    });
+    canvas.addEventListener('pointermove', e => {
+      if(world.held()){ const p = pt(e); world.moveTo(p.x, p.y); }
+    });
+    function endDrag(e){
+      if(world.held()){
+        world.release();
+        canvas.classList.remove('grabbing');
+        try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
+      }
+    }
+    canvas.addEventListener('pointerup', endDrag);
+    canvas.addEventListener('pointercancel', endDrag);
+
+    /* ---- controls ---- */
+    function bindSlider(id, valId, fmt, apply){
+      const el = document.getElementById(id), out = document.getElementById(valId);
+      function show(){ out.textContent = fmt(+el.value); }
+      el.addEventListener('input', () => { show(); apply(+el.value); });
+      show();
+    }
+    bindSlider('s-grav','v-grav', v => v.toFixed(2),        v => world.setFeel({ gravity:v }));
+    bindSlider('s-rest','v-rest', v => v.toFixed(2),        v => world.setFeel({ restitution:v }));
+    bindSlider('s-air','v-air',   v => v.toFixed(3),        v => world.setFeel({ frictionAir:v }));
+    bindSlider('s-size','v-size', v => v + 'px',            v => { world.setFeel({ size:v }); world.reset(letters()); });
+    bindSlider('s-pow','v-pow',   v => '×' + v.toFixed(1),  v => world.setFeel({ power:v }));
+
+    document.getElementById('btn-reset').addEventListener('click', () => world.reset(letters()));
+    document.getElementById('word-in').addEventListener('change', () => world.reset(letters()));
+
+    let rz;
+    window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { world.resize(); world.reset(letters()); }, 150); });
+  })();
+  </script>
+</body>
+</html>

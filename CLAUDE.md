@@ -662,6 +662,17 @@ What is true and unfinished. Not a changelog — an item leaves when it closes.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only.
 
+**The throw dynamic — rung 1 prototyped, awaiting a real hand.** Answer pieces as
+physical boxes you *flick* around a space instead of tapping or dragging.
+`playground/throw-lab.html` is the standalone feel test (Matter.js physics, our own
+canvas draw, a pointer-velocity flick, feel sliders); `matter.min.js` is vendored **in
+`playground/`** for now — the lab-forms isolation, moving beside `hub-qr.js` only when a
+second caller earns it. `makeThrowWorld()` is built transport-agnostic on purpose (axiom
+4): the same core is meant to back a phone-local round *and* a board-arena variant, so it
+is kept in-page (axiom 5) and extracted to a shelf at the second caller. The ladder above
+rung 1 — letters→word readout, judging, then the relay/round wiring — is unbuilt. The one
+thing no suite can answer is whether the throw *feels* good; that is a real phone.
+
 **Open-question tuning is guessed, not measured.** The open-question work — a right
 answer no longer locks the room out, position and time recorded, standings after every
 question, the solo commit beat with its escalating cooldown, the crowd reveal and its
