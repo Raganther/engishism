@@ -3208,6 +3208,11 @@
 
   function roundSettle(){
     if(!roundLive()) return;
+    /* Start each cycle with no owner on the say line: a verdict that names a
+       competitor sets `sayTeam` beside its `say`, and this makes a site that forgets
+       fall back to a neutral line rather than wearing the *previous* competitor's
+       colour — the stale-colour bug a missed `roundMiss` caused. */
+    roundState.sayTeam = null;
     const def = roundDef();
     const ctx = roundCtx();
     const verdicts = Object.keys(roundState.picks).map(t => ({
@@ -3523,6 +3528,7 @@
     if(mode === 'headline' || (mode === 'lane' && !ownLane)){
       roundState.say = def.saidOf(teamName(team), r, roundState)
                      + (wait ? ' · waiting ' + wait + 's' : '');
+      roundState.sayTeam = team;   // whose miss this is — or the line wears the last one's colour
     }
     Sound.play('wrong');
     renderRound();

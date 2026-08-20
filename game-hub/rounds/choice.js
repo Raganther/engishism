@@ -340,7 +340,7 @@
       s.hint = (s.hint || []).concat([out]);
       // the teacher cannot un-click a box that is no longer on screen
       s.chosen = (s.chosen || []).filter(w => w !== out);
-      s.say = 'Hint: it is not ' + out + '.';
+      s.say = 'Hint: it is not ' + out + '.'; s.sayTeam = null;
       /* The phones keep all four, so there is nothing to re-arm — which is the
          whole reason this hint has its own list instead of using `hidden`. */
       /* `'card'` — the projector changed and the handsets did not, so the host must

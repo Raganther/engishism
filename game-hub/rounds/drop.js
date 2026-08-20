@@ -63,6 +63,7 @@
     s.say = ok ? ('Yes — ' + w.w + ' is ' + w.b + '.')
                : (said ? ('No — ' + w.w + ' is ' + w.b + ', not ' + said + '.')
                        : ('Nobody said — ' + w.w + ' is ' + w.b + '.'));
+    s.sayTeam = null;   // the word landing is the whole room's, not one player's
     s.at++;
     s.fallMs = Math.max(FALL_MIN, s.fallMs - FALL_STEP);
     s.votes = {}; s.lead = null; s._t0 = 0;
