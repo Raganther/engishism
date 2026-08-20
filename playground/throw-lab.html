@@ -64,12 +64,12 @@
 </head>
 <body>
   <header>
-    <h1>Throw Lab <small>flick the letters — do they feel good to throw?</small></h1>
+    <h1>Throw Lab <small>flick the scrambled letters into the slots to spell the word</small></h1>
   </header>
 
   <div class="controls">
     <div class="word">
-      <label for="word-in">Letters</label>
+      <label for="word-in">Word</label>
       <input id="word-in" type="text" value="THROW" maxlength="12" autocomplete="off" spellcheck="false">
     </div>
     <div class="ctl"><label>Gravity</label><input id="s-grav" type="range" min="0" max="2" step="0.05" value="0.9"><span class="val" id="v-grav"></span></div>
@@ -83,7 +83,7 @@
 
   <div class="stage">
     <canvas id="stage"></canvas>
-    <div class="hint">Grab a letter and flick it.</div>
+    <div class="hint" id="status">Drag the scrambled letters into the slots to spell the word.</div>
   </div>
 
   <script src="matter.min.js"></script>
@@ -135,7 +135,14 @@
       // time; on release the flick velocity is read off those samples. That
       // sampled velocity IS the impulse. A Map (not a single held) is what lets
       // several fingers each carry their own letter at once.
-      const grips = new Map();   // pointerId -> { body, offset:{x,y}, samples:[{x,y,t}] }
+      const grips = new Map();   // pointerId -> { body, constraint, fingerStart, anchor }
+
+      // The anagram layer: a target word, a row of answer slots, and a verdict.
+      // A dropped letter snaps into the nearest empty slot and freezes there;
+      // when every slot is filled the arrangement is judged against the word.
+      let target = '';       // the word to spell (uppercase)
+      let slots = [];        // answer boxes: { x, y, w, h, piece }
+      let result = null;     // null (incomplete) | 'right' | 'wrong'
 
       function sizeToCanvas(){
         const r = canvas.getBoundingClientRect();
@@ -146,6 +153,7 @@
         canvas.height = Math.round(cssH * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         buildWalls();
+        layoutSlots();
       }
 
       function buildWalls(){
@@ -179,9 +187,71 @@
             density: 0.0016
           });
           Body.setAngle(body, (Math.random() - 0.5) * 0.3);
-          boxes.push({ body, ch, hue: HUES[i % HUES.length] });
+          boxes.push({ body, ch, hue: HUES[i % HUES.length], slot: null });
         });
         Composite.add(engine.world, boxes.map(b => b.body));
+      }
+
+      /* ---- answer slots (the zones a letter can land in) ---- */
+      function slotDims(n){
+        const margin = 16, gap = Math.max(6, Math.round(feel.size * 0.12));
+        const sw = Math.max(36, Math.min(feel.size, Math.floor((cssW - margin*2 - gap*(n-1)) / n)));
+        const rowW = n*sw + (n-1)*gap, x0 = (cssW - rowW) / 2, y = Math.round(cssH * 0.46);
+        return { gap, sw, x0, y };
+      }
+      function makeSlots(n){
+        slots = [];
+        if(!n) return;
+        const { gap, sw, x0, y } = slotDims(n);
+        for(let i = 0; i < n; i++) slots.push({ x: x0 + i*(sw+gap) + sw/2, y, w: sw, h: sw, piece: null });
+      }
+      function layoutSlots(){          // recompute geometry on resize, keeping any placed letters
+        const n = slots.length; if(!n) return;
+        const { gap, sw, x0, y } = slotDims(n);
+        slots.forEach((s, i) => {
+          s.x = x0 + i*(sw+gap) + sw/2; s.y = y; s.w = sw; s.h = sw;
+          if(s.piece) Body.setPosition(s.piece.body, { x: s.x, y: s.y });
+        });
+      }
+      function boxOf(body){ for(const b of boxes) if(b.body === body) return b; return null; }
+      function freeSlotOf(box){ if(box && box.slot != null){ const s = slots[box.slot]; if(s) s.piece = null; box.slot = null; } }
+      function slotNear(x, y){         // nearest EMPTY slot within capture range, or -1
+        let best = -1, bestD = Infinity;
+        slots.forEach((s, i) => { if(s.piece) return; const dx = s.x - x, dy = s.y - y, d = dx*dx + dy*dy; if(d < bestD){ bestD = d; best = i; } });
+        const cap = (slots.length ? slots[0].w : feel.size) * 0.85;
+        return (best >= 0 && bestD <= cap*cap) ? best : -1;
+      }
+      function snapInto(box, i){       // lock a letter into a slot, upright and frozen
+        const s = slots[i];
+        s.piece = box; box.slot = i;
+        Body.setStatic(box.body, true);
+        Body.setPosition(box.body, { x: s.x, y: s.y });
+        Body.setAngle(box.body, 0);
+        Body.setVelocity(box.body, { x:0, y:0 });
+        Body.setAngularVelocity(box.body, 0);
+        judge();
+      }
+      function judge(){
+        const filled = slots.length > 0 && slots.every(s => s.piece);
+        result = filled ? (read() === target ? 'right' : 'wrong') : null;
+        report();
+      }
+      function report(){ if(opts.onResult) opts.onResult(result, read(), target); }
+      function shuffleLetters(word){   // Fisher-Yates, retried until it isn't the answer
+        const a = word.split('');
+        for(let tries = 0; tries < 24; tries++){
+          for(let i = a.length-1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); const t = a[i]; a[i] = a[j]; a[j] = t; }
+          if(a.length < 2 || a.join('') !== word) break;
+        }
+        return a.join('');
+      }
+      function setWord(word){
+        target = String(word || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 12);
+        clearGrips();
+        makeBoxes(shuffleLetters(target || 'WORD'));
+        makeSlots(target.length);
+        result = null;
+        report();
       }
 
       /* ---- input surface (one grip per pointer id) ---- */
@@ -202,6 +272,11 @@
         const hit = Query.point(free, { x, y });
         const body = hit.length ? hit[hit.length - 1] : nearestBox(x, y, taken);
         if(!body) return false;
+        // Pulling a letter back out of a slot: free the slot, un-freeze the body,
+        // and clear any verdict (the arrangement is no longer complete).
+        const gbox = boxOf(body);
+        if(gbox && gbox.slot != null){ freeSlotOf(gbox); result = null; report(); }
+        if(body.isStatic) Body.setStatic(body, false);
         Body.setVelocity(body, { x:0, y:0 });
         Body.setAngularVelocity(body, 0);
         // Drag by the exact point you grabbed, through a spring — pointA is the
@@ -252,26 +327,25 @@
         const g = grips.get(id);
         if(!g) return;
         Composite.remove(engine.world, g.constraint);
-        // The box already carries the velocity and spin the drag built up; throw
-        // power just scales it, and the cap stops a hard whip launching off-world.
-        const p = feel.power, cap = 55, b = g.body;
+        const b = g.body, box = boxOf(b);
+        grips.delete(id);
+        // Dropped over an empty slot? Snap it home instead of letting it fly.
+        const near = slotNear(b.position.x, b.position.y);
+        if(near >= 0 && box){ snapInto(box, near); return; }
+        // Otherwise it flies: it already carries the velocity and spin the drag
+        // built up; throw power just scales it, and the cap stops a hard whip.
+        const p = feel.power, cap = 55;
         Body.setVelocity(b, { x: clamp(b.velocity.x * p, -cap, cap), y: clamp(b.velocity.y * p, -cap, cap) });
         Body.setAngularVelocity(b, clamp(b.angularVelocity * p, -1, 1));
-        grips.delete(id);
       }
       function clearGrips(){
         for(const g of grips.values()) Composite.remove(engine.world, g.constraint);
         grips.clear();
       }
 
-      /* ---- readout: order of the boxes, left-to-right then top-to-bottom.
-         Unused in rung 1 (no judging yet) — here so the seam judging will use
-         is already the shape it needs, and so the world hands back an answer. */
-      function read(){
-        return boxes.slice()
-          .sort((a,b) => (a.body.position.x - b.body.position.x) || (a.body.position.y - b.body.position.y))
-          .map(b => b.ch).join('');
-      }
+      /* ---- readout: the letters sitting in the slots, left to right. This is
+         the answer judging reads — the seam a real round's read() will use. */
+      function read(){ return slots.map(s => s.piece ? s.piece.ch : '').join(''); }
 
       /* ---- step + draw. Matter does the physics; we do the draw, because the
          draw is the part that later moves to the board, and letters-on-boxes are
@@ -281,11 +355,25 @@
       }
       function draw(){
         ctx.clearRect(0, 0, cssW, cssH);
+        // answer slots, behind the letters. A filled row glows by the verdict.
+        for(const s of slots){
+          const half = s.w/2, r = Math.round(s.w*0.16);
+          ctx.save();
+          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = s.piece
+            ? (result === 'right' ? '#6FB04A' : result === 'wrong' ? '#E2603B' : '#5a6473')
+            : '#39414f';
+          if(!s.piece) ctx.setLineDash([6, 7]);
+          roundRect(ctx, s.x - half, s.y - half, s.w, s.w, r);
+          ctx.stroke();
+          ctx.restore();
+        }
         for(const b of boxes){
-          const p = b.body.position, s = feel.size, r = Math.round(s*0.16);
+          const p = b.body.position, inSlot = b.slot != null;
+          const s = inSlot ? slots[b.slot].w : feel.size, r = Math.round(s*0.16);
           ctx.save();
           ctx.translate(p.x, p.y);
-          ctx.rotate(b.body.angle);
+          if(!inSlot) ctx.rotate(b.body.angle);   // slotted letters sit upright and still
           ctx.fillStyle = b.hue;
           roundRect(ctx, -s/2, -s/2, s, s, r);
           ctx.fill();
@@ -318,10 +406,10 @@
       return {
         engine, grabAt, moveTo, release, read, step, draw, setFeel,
         resize: sizeToCanvas,
-        reset(letters){ clearGrips(); makeBoxes(letters); },
+        reset(word){ setWord(word); },
+        result: () => result,
         heldBy: (id) => grips.has(id),
-        anyHeld: () => grips.size > 0,
-        boxAt: (x,y) => Query.point(boxes.map(b => b.body), {x,y}).length > 0
+        anyHeld: () => grips.size > 0
       };
     }
 
@@ -341,6 +429,7 @@
 
     /* ============================ page wiring ============================ */
     const canvas = document.getElementById('stage');
+    const status = document.getElementById('status');
     const world = makeThrowWorld({
       canvas,
       gravity: +document.getElementById('s-grav').value,
@@ -348,7 +437,13 @@
       frictionAir: +document.getElementById('s-air').value,
       size: +document.getElementById('s-size').value,
       power: +document.getElementById('s-pow').value,
-      swing: +document.getElementById('s-swing').value
+      swing: +document.getElementById('s-swing').value,
+      onResult(res){
+        status.textContent = res === 'right' ? '✓ Correct — that spells the word.'
+          : res === 'wrong' ? '✗ Not the word yet — pull a letter out and try again.'
+          : 'Drag the scrambled letters into the slots to spell the word.';
+        status.style.color = res === 'right' ? '#6FB04A' : res === 'wrong' ? '#E2603B' : '';
+      }
     });
 
     function letters(){
@@ -404,7 +499,7 @@
     document.getElementById('word-in').addEventListener('change', () => world.reset(letters()));
 
     let rz;
-    window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { world.resize(); world.reset(letters()); }, 150); });
+    window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { world.resize(); }, 150); });
   })();
   </script>
 </body>
