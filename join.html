@@ -380,7 +380,7 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260819d"></script>
+<script src="game-hub/hub-buzzer.js?v=20260819e"></script>
 <script>
 (function(){
   'use strict';
@@ -444,10 +444,17 @@
        at this phone's index, so a handset that had not been re-seated announced
        somebody else's name in confident blue. Nothing to be stale when nothing is
        drawn. */
+    /* **A room of individuals now gets a colour, but still no tag.** The colour is
+       this player's own identity — their name shown in it — not a side, so there is
+       no team name to print. It is safe where the tag was not: the name is always
+       this handset's own, never the competitor who last sat at its index, so there is
+       no stale-seat wrong-name to flash — and it re-paints on every re-seat. */
     if(joinSolo){
-      document.documentElement.style.removeProperty('--team');
+      document.documentElement.style.setProperty('--team', colourOf(team));
+      $('who').style.color = colourOf(team);
       return;
     }
+    $('who').style.color = '';   // team mode wears its colour on the pill, not the name
     document.documentElement.style.setProperty('--team', colourOf(team));
     const pill = document.createElement('span');
     pill.className = 'tteam';

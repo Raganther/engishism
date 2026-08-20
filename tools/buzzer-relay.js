@@ -255,7 +255,7 @@ function openStream(req, res, q){
 
   const id   = (q.get('id')||'').slice(0,40) || String(Math.random()).slice(2,10);
   const name = ((q.get('name')||'').trim() || 'Player').slice(0,24);
-  const team = Math.max(0, Math.min(7, parseInt(q.get('team'),10) || 0));
+  const team = Math.max(0, Math.min(59, parseInt(q.get('team'),10) || 0));
   /* A phone that reconnects arrives with the same id, so this replaces its entry.
      End the stream it is replacing rather than leaving it open — the host does the
      same with its own stream, and without it a flapping connection leaks one
