@@ -125,6 +125,7 @@
       // is read off those samples. That sampled velocity IS the impulse.
       let held = null;
       let samples = [];   // {x, y, t}
+      let grabOffset = { x:0, y:0 };   // where in the box you grabbed, box-centre minus point
 
       function sizeToCanvas(){
         const r = canvas.getBoundingClientRect();
@@ -175,20 +176,35 @@
 
       /* ---- input surface ---- */
       function grabAt(x, y){
+        // Strict hit first (so a stack grabs the box you're actually over), then
+        // a forgiving fallback: the nearest box centre within tolerance. A
+        // fingertip reports a fat, slightly-off contact point, so strict
+        // point-in-box misses unless you press dead centre — the tolerance is
+        // what makes a finger grab land where a mouse pixel already does.
         const hit = Query.point(boxes.map(b => b.body), { x, y });
-        if(!hit.length) return false;
-        // topmost = last added that contains the point
-        const body = hit[hit.length - 1];
+        const body = hit.length ? hit[hit.length - 1] : nearestBox(x, y);
+        if(!body) return false;
         held = body;
-        Body.setStatic(body, false);
+        // Remember where in the box you grabbed, so it follows the finger from
+        // that spot instead of snapping its centre to the point (the warp).
+        grabOffset = { x: body.position.x - x, y: body.position.y - y };
         Body.setVelocity(body, { x:0, y:0 });
         Body.setAngularVelocity(body, 0);
         samples = [{ x, y, t: now() }];
         return true;
       }
+      function nearestBox(x, y){
+        let best = null, bestD = Infinity;
+        for(const b of boxes){
+          const dx = b.body.position.x - x, dy = b.body.position.y - y, d = dx*dx + dy*dy;
+          if(d < bestD){ bestD = d; best = b.body; }
+        }
+        const tol = feel.size * 0.9;   // within ~0.9 of a box of the centre
+        return (best && bestD <= tol*tol) ? best : null;
+      }
       function moveTo(x, y){
         if(!held) return;
-        Body.setPosition(held, { x, y });
+        Body.setPosition(held, { x: x + grabOffset.x, y: y + grabOffset.y });
         Body.setVelocity(held, { x:0, y:0 });   // no drift while pinned to the finger
         samples.push({ x, y, t: now() });
         if(samples.length > 6) samples.shift();
