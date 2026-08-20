@@ -490,10 +490,22 @@
     const work = document.createElement('div');
     work.className = 'rcrowd-working';
     const SHOW = 6;
-    work.textContent = rows.length
-      ? rows.slice(0, SHOW).map(e => e.label).join(' · ') +
-        (rows.length > SHOW ? '  +' + (rows.length - SHOW) + ' more' : '')
-      : ' ';
+    if(rows.length){
+      rows.slice(0, SHOW).forEach((e, i)=>{
+        if(i){ const s = document.createElement('span'); s.className = 'rcrowd-sep'; s.textContent = ' · '; work.appendChild(s); }
+        /* Each name in the working line in its own colour, the same as the finished
+           line and the lanes, so a student spots their own progress at a glance. */
+        const sp = document.createElement('span');
+        sp.textContent = e.label;
+        if(window.HubBuzzer && window.HubBuzzer.teamColour && e.who != null) sp.style.color = window.HubBuzzer.teamColour(e.who);
+        work.appendChild(sp);
+      });
+      if(rows.length > SHOW){
+        const m = document.createElement('span');
+        m.textContent = '  +' + (rows.length - SHOW) + ' more';
+        work.appendChild(m);
+      }
+    } else { work.textContent = ' '; }
     wrap.appendChild(work);
     mount.appendChild(wrap);
     return wrap;
@@ -965,8 +977,10 @@
        room (a hint, a shared reveal) leaves it null and stays neutral. */
     const who = state && state.sayTeam;
     if(who != null && el.textContent && window.HubBuzzer && window.HubBuzzer.teamColour){
+      const col = window.HubBuzzer.teamColour(who);
       el.classList.add('tagged');
-      el.style.setProperty('--say', window.HubBuzzer.teamColour(who));
+      el.style.setProperty('--say', col);
+      el.style.color = col;   // the line itself in the competitor's colour, not only the accent
     }
     mount.appendChild(el);
     return el;
