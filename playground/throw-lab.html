@@ -120,12 +120,12 @@
         power: opts.power
       };
 
-      // The drag: while a box is held we drive it to the pointer by hand and
-      // remember the last few positions in time; on release the flick velocity
-      // is read off those samples. That sampled velocity IS the impulse.
-      let held = null;
-      let samples = [];   // {x, y, t}
-      let grabOffset = { x:0, y:0 };   // where in the box you grabbed, box-centre minus point
+      // The drag, multi-touch: one grip per pointer id. While a box is held we
+      // drive it to that finger by hand and remember its last few positions in
+      // time; on release the flick velocity is read off those samples. That
+      // sampled velocity IS the impulse. A Map (not a single held) is what lets
+      // several fingers each carry their own letter at once.
+      const grips = new Map();   // pointerId -> { body, offset:{x,y}, samples:[{x,y,t}] }
 
       function sizeToCanvas(){
         const r = canvas.getBoundingClientRect();
@@ -174,54 +174,62 @@
         Composite.add(engine.world, boxes.map(b => b.body));
       }
 
-      /* ---- input surface ---- */
-      function grabAt(x, y){
+      /* ---- input surface (one grip per pointer id) ---- */
+      function heldBodies(){
+        const set = new Set();
+        for(const g of grips.values()) set.add(g.body);
+        return set;
+      }
+      function grabAt(id, x, y){
         // Strict hit first (so a stack grabs the box you're actually over), then
         // a forgiving fallback: the nearest box centre within tolerance. A
         // fingertip reports a fat, slightly-off contact point, so strict
         // point-in-box misses unless you press dead centre — the tolerance is
         // what makes a finger grab land where a mouse pixel already does.
-        const hit = Query.point(boxes.map(b => b.body), { x, y });
-        const body = hit.length ? hit[hit.length - 1] : nearestBox(x, y);
+        // A box another finger already holds is off-limits, or two fingers fight.
+        const taken = heldBodies();
+        const free = boxes.filter(b => !taken.has(b.body)).map(b => b.body);
+        const hit = Query.point(free, { x, y });
+        const body = hit.length ? hit[hit.length - 1] : nearestBox(x, y, taken);
         if(!body) return false;
-        held = body;
         // Remember where in the box you grabbed, so it follows the finger from
         // that spot instead of snapping its centre to the point (the warp).
-        grabOffset = { x: body.position.x - x, y: body.position.y - y };
+        grips.set(id, { body, offset:{ x: body.position.x - x, y: body.position.y - y }, samples:[{ x, y, t: now() }] });
         Body.setVelocity(body, { x:0, y:0 });
         Body.setAngularVelocity(body, 0);
-        samples = [{ x, y, t: now() }];
         return true;
       }
-      function nearestBox(x, y){
+      function nearestBox(x, y, exclude){
         let best = null, bestD = Infinity;
         for(const b of boxes){
+          if(exclude && exclude.has(b.body)) continue;
           const dx = b.body.position.x - x, dy = b.body.position.y - y, d = dx*dx + dy*dy;
           if(d < bestD){ bestD = d; best = b.body; }
         }
         const tol = feel.size * 0.9;   // within ~0.9 of a box of the centre
         return (best && bestD <= tol*tol) ? best : null;
       }
-      function moveTo(x, y){
-        if(!held) return;
-        Body.setPosition(held, { x: x + grabOffset.x, y: y + grabOffset.y });
-        Body.setVelocity(held, { x:0, y:0 });   // no drift while pinned to the finger
-        samples.push({ x, y, t: now() });
-        if(samples.length > 6) samples.shift();
+      function moveTo(id, x, y){
+        const g = grips.get(id);
+        if(!g) return;
+        Body.setPosition(g.body, { x: x + g.offset.x, y: y + g.offset.y });
+        Body.setVelocity(g.body, { x:0, y:0 });   // no drift while pinned to the finger
+        g.samples.push({ x, y, t: now() });
+        if(g.samples.length > 6) g.samples.shift();
       }
-      function release(){
-        if(!held) return;
-        const v = flickVelocity();
-        Body.setVelocity(held, v);
-        Body.setAngularVelocity(held, (Math.random() - 0.5) * 0.2 + v.x * 0.004);
-        held = null;
-        samples = [];
+      function release(id){
+        const g = grips.get(id);
+        if(!g) return;
+        const v = flickVelocity(g.samples);
+        Body.setVelocity(g.body, v);
+        Body.setAngularVelocity(g.body, (Math.random() - 0.5) * 0.2 + v.x * 0.004);
+        grips.delete(id);
       }
-      function flickVelocity(){
+      function flickVelocity(samples){
         // velocity over the recent window, in px/ms, scaled to px/step (~16ms)
         if(samples.length < 2) return { x:0, y:0 };
         const last = samples[samples.length - 1];
-        // reach back ~70ms for a stable read of the flick, not the last jitter
+        // reach back ~45ms for a stable read of the flick, not the last jitter
         let ref = samples[0];
         for(let i = samples.length - 2; i >= 0; i--){ ref = samples[i]; if(last.t - ref.t >= 45) break; }
         const dt = Math.max(8, last.t - ref.t);
@@ -281,8 +289,9 @@
       return {
         engine, grabAt, moveTo, release, read, step, draw, setFeel,
         resize: sizeToCanvas,
-        reset(letters){ makeBoxes(letters); },
-        held: () => !!held,
+        reset(letters){ grips.clear(); makeBoxes(letters); },
+        heldBy: (id) => grips.has(id),
+        anyHeld: () => grips.size > 0,
         boxAt: (x,y) => Query.point(boxes.map(b => b.body), {x,y}).length > 0
       };
     }
@@ -329,19 +338,19 @@
     }
     canvas.addEventListener('pointerdown', e => {
       const p = pt(e);
-      if(world.grabAt(p.x, p.y)){
+      if(world.grabAt(e.pointerId, p.x, p.y)){
         canvas.classList.add('grabbing');
-        canvas.setPointerCapture(e.pointerId);
+        canvas.setPointerCapture(e.pointerId);   // per-pointer capture — several at once is fine
       }
     });
     canvas.addEventListener('pointermove', e => {
-      if(world.held()){ const p = pt(e); world.moveTo(p.x, p.y); }
+      if(world.heldBy(e.pointerId)){ const p = pt(e); world.moveTo(e.pointerId, p.x, p.y); }
     });
     function endDrag(e){
-      if(world.held()){
-        world.release();
-        canvas.classList.remove('grabbing');
+      if(world.heldBy(e.pointerId)){
+        world.release(e.pointerId);
         try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
+        if(!world.anyHeld()) canvas.classList.remove('grabbing');   // only when the last finger lifts
       }
     }
     canvas.addEventListener('pointerup', endDrag);
