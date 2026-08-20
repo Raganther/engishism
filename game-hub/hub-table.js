@@ -82,10 +82,17 @@
 
     /* ---- canvas + walls ---- */
     function sizeToCanvas(){
-      const r = canvas.getBoundingClientRect();
+      // Natural (layout) size, NOT the painted size. A caller may live inside a
+      // transform:scale()-d card (the hub clue card is), where getBoundingClientRect
+      // reports the scaled paint; offsetWidth/Height are the untransformed layout box,
+      // so the physics runs at full resolution in card-natural coordinates and the
+      // caller converts pointer coords by the same scale. At scale 1 (Throw Lab) the
+      // two measures are identical.
+      const w = canvas.offsetWidth || canvas.getBoundingClientRect().width;
+      const h = canvas.offsetHeight || canvas.getBoundingClientRect().height;
       dpr = Math.min(window.devicePixelRatio || 1, 2);
-      cssW = Math.max(1, Math.round(r.width));
-      cssH = Math.max(1, Math.round(r.height));
+      cssW = Math.max(1, Math.round(w));
+      cssH = Math.max(1, Math.round(h));
       canvas.width = Math.round(cssW * dpr);
       canvas.height = Math.round(cssH * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

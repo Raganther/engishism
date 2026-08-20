@@ -672,12 +672,17 @@ pieces with a soft-spring grab + gravity swing + a suck-and-spin dock into answe
 `read()` of what landed where, and a default canvas draw. It is transport-agnostic (axiom
 4) — takes canvas-space coords in `grab/move/drop`, reports via `onArrange`, and judging is
 the caller's (`setResult` only tints). `playground/throw-lab.html` is its first caller and
-the feel workshop (the sliders). **Next: the `toss` round** (`game-hub/rounds/toss.js`,
-step 3) is the second caller — same anagram content as `anagram.js` (`item.anagram.word`),
-physical instead of drag, developed on the question bench. **Deferred to step 4:** a
-`join.html` `table` mode so phones run their own table (today a `toss` round would fall back
-to `mode:'arrange'`). The one thing no suite can answer is whether the throw *feels* good;
-that is a real phone.
+the feel workshop (the sliders). **The `toss` round** (`game-hub/rounds/toss.js`) is the
+second caller — same anagram content as `anagram.js` (`item.anagram.word`), physical instead
+of drag. It renders a `<canvas>` into the clue card and runs `Kit.table`, **board-operated**
+(mouse/touch on the card, like Race) — its `render` is idempotent (reuse the live table, the
+bench redraws every beat) and converts pointer coords by the card's `transform:scale` (it
+reads the painted/natural ratio; `Kit.table` sizes to the *natural* `offsetWidth`). Declares
+no `field`/`claims` yet — bench-selected (`?type=r:toss`), later routed by explicit
+`round:'toss'`; registered in every shell so `check-syntax` stays green, but **no content
+routes to it yet**, so it appears only on the bench/Lab. **Deferred (step 4):** a `join.html`
+`table` mode so phones run their own table (today `toss.arm` falls back to `mode:'arrange'`).
+The one thing no suite can answer is whether the throw *feels* good; that is a real phone.
 
 **Open-question tuning is guessed, not measured.** The open-question work — a right
 answer no longer locks the room out, position and time recorded, standings after every
