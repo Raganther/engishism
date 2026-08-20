@@ -121,9 +121,13 @@
         power: opts.power,
         swing: opts.swing   // 0 = rigid (tracks the finger), 1 = loose (dangles and swings)
       };
-      // Drag stiffness from the swing dial: loose = a springier pull, so an
-      // off-centre grab lets the box pendulum under gravity instead of sliding.
-      const stiffnessOf = sw => 1 - sw * 0.72;
+      // Drag stiffness from the swing dial. Deliberately a SOFT spring (the same
+      // gentle range Matter's own MouseConstraint uses): soft enough that the box
+      // eases to the finger instead of snapping to it — a stiff length-0 spring
+      // warps the grabbed point onto the finger in one step, which reads as a
+      // jump. Softer also means more lag, so the box trails and pendulums. Loose
+      // end of the dial = softer = more swing.
+      const stiffnessOf = sw => 0.28 - sw * 0.24;   // 0.28 (tight) .. 0.04 (dangly)
 
       // The drag, multi-touch: one grip per pointer id. While a box is held we
       // drive it to that finger by hand and remember its last few positions in
@@ -203,12 +207,16 @@
         // finger, pointB is that point in the box's own frame. Because the pull
         // lands off-centre it makes torque, so the box swings and dangles under
         // gravity instead of sliding rigidly. pointB must be unrotated into the
-        // body frame or the pivot drifts as the box spins.
+        // body frame or the pivot drifts as the box spins, and clamped to the
+        // box's own extent so a forgiving grab from just outside the box pulls
+        // from its edge, not a phantom point in mid-air.
+        const half = feel.size / 2;
         const dx = x - body.position.x, dy = y - body.position.y;
         const c = Math.cos(-body.angle), s = Math.sin(-body.angle);
+        const lx = clamp(dx*c - dy*s, -half, half), ly = clamp(dx*s + dy*c, -half, half);
         const constraint = Constraint.create({
-          pointA: { x, y }, bodyB: body, pointB: { x: dx*c - dy*s, y: dx*s + dy*c },
-          stiffness: stiffnessOf(feel.swing), damping: 0.12, length: 0
+          pointA: { x, y }, bodyB: body, pointB: { x: lx, y: ly },
+          stiffness: stiffnessOf(feel.swing), damping: 0.1, length: 0
         });
         Composite.add(engine.world, constraint);
         grips.set(id, { body, constraint });
