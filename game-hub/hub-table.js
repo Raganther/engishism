@@ -58,6 +58,7 @@
     engine.constraintIterations = 6;   // pulls a held piece to the finger harder each frame, so a fast drag lags less
 
     let cssW = 0, cssH = 0, dpr = 1;
+    let tile;                    // effective tile size = the fitted slot size (see fitTiles)
     let walls = [];
     let pieces = [];       // { body, ch, hue, slot, dock }
     let slots = [];        // { x, y, w, h, piece }
@@ -70,6 +71,7 @@
       swing:       opts.swing != null ? opts.swing : 0.4,   // 0 = rigid (tracks the finger), 1 = loose (dangles)
       snap:        opts.snap != null ? opts.snap : 380      // dock glide duration in ms
     };
+    tile = feel.size;            // until the first fit, a tile is its requested size
     // Drag stiffness from the swing dial. Firm enough to track the finger without
     // visible lag; the gravity swing survives because it is the piece pivoting
     // under gravity about the pinned point, which the linear spring does not damp.
@@ -98,6 +100,20 @@
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       buildWalls();
       layoutSlots();
+      fitTiles();
+    }
+    /* A loose tile is the SAME size as the slot it drops into. The slots shrink to fit
+       the row (slotDims caps at feel.size, then reduces for width/count), so a piece left
+       at feel.size looks bigger than its box. `tile` is that fitted size; scale the bodies
+       to it so the physics matches the drawn square, and the draw uses it for loose pieces. */
+    function fitTiles(){
+      const n = Math.max(slots.length, pieces.length, 1);
+      const nt = slotDims(n).sw;
+      if(pieces.length && Math.abs(nt - tile) > 0.5){
+        const f = nt / tile;
+        for(const p of pieces) Body.scale(p.body, f, f);
+      }
+      tile = nt;
     }
     function buildWalls(){
       if(walls.length) Composite.remove(engine.world, walls);
@@ -131,6 +147,9 @@
         pieces.push({ body, ch: String(ch), hue: HUES[i % HUES.length], slot: null, dock: null });
       });
       Composite.add(engine.world, pieces.map(p => p.body));
+      // Bodies are built at feel.size; if the table is already fitted (a re-arm), bring
+      // them down to the fitted tile so they match the slots straight away.
+      if(tile !== feel.size) for(const p of pieces) Body.scale(p.body, tile / feel.size, tile / feel.size);
     }
 
     /* ---- slots (the zones a piece lands in): a centred row of n ---- */
@@ -313,9 +332,9 @@
       for(const b of pieces){
         const p = b.body.position, docking = !!b.dock, inSlot = b.slot != null;
         let s, ang;
-        if(docking){ s = feel.size + (slots[b.slot].w - feel.size) * b.dock.p; ang = b.body.angle; }
+        if(docking){ s = tile + (slots[b.slot].w - tile) * b.dock.p; ang = b.body.angle; }
         else if(inSlot){ s = slots[b.slot].w; ang = 0; }
-        else { s = feel.size; ang = b.body.angle; }
+        else { s = tile; ang = b.body.angle; }
         const r = Math.round(s*0.16);
         ctx.save();
         ctx.translate(p.x, p.y);
