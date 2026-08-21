@@ -51,6 +51,10 @@
     sample: { text: 'the decision a jury delivers', anagram: { word: 'verdict' } },
     modes: [ K.round.mode.first, K.round.mode.agree ],
     teamMode: 'agree',
+    // The answer is a SEQUENCE, so the host stamps arrival by the order the letters
+    // are in — a team that spells it first, in order, places ahead of one that had the
+    // letters earlier but jumbled. The drag rounds set this for the same reason.
+    ordered: true,
     settleMs: 600,
     // The workshop editor: one field, the word (same shape as anagram.js), so the
     // bench can build { text, anagram:{ word } } and seed from the sample.
@@ -188,6 +192,15 @@
       const right = seq.join('') === s.word;
       const hits = seq.reduce((n, ch, i) => n + (ch === s.word[i] ? 1 : 0), 0);
       return { verdict: right ? 'right' : 'wrong', hits };
+    },
+
+    // What a wrong arrangement is told — the commentary line the host reads on a miss.
+    // The engine calls this UNGUARDED (a round without it crashes on the first wrong
+    // answer), and it is what the open-question path shows per player. Same shape as
+    // anagram's: letters in the right place is the only useful thing to say.
+    saidOf(who, r, s){
+      if(!r || r.verdict === 'incomplete') return who + ': not finished yet.';
+      return who + ': not it — ' + (r.hits || 0) + ' of ' + s.need + ' letters are in the right place.';
     },
 
     // **The phones run their OWN Kit.table** (join.html's `table` mode). The arm
