@@ -438,11 +438,27 @@ registerRoundSettings(S, {
   payVariants: [{ value:'winner', label:'Winner takes all' }], solo: () => SOLO
 });
 
+/* **Register `roster` here too, so the bench can tell the settings system which room
+   it is.** A `byRoster` setting only forks to its `…!solo` value when `soloNow()` is
+   true, and `soloNow()` reads this `roster` value (hub-settings.js). The hub registers
+   it and its team bar writes it; the bench never did, so on the bench the solo fork was
+   dead — the Individuals switch changed the rack but not one forked setting. Registered
+   minimally (it is kept out of the Tune pane by group below); the Individuals segment
+   writes it in setSolo, exactly as the hub's team bar does. */
+S.register({ id:'roster', group:'Competition', type:'variant', default:'teams',
+  variants:[{ value:'teams', label:'Teams' }, { value:'solo', label:'Individuals' }] });
+/* Adopt the shared room mode rather than overwrite it: `roster` persists across the hub
+   and here (one storage), and the hub trusts the stored value, so seeding it at boot
+   would silently flip a class to Teams. Reading it means the bench opens in the room the
+   teacher last chose and the forked settings are correct from the first draw. */
+if(S.get('roster') === 'solo'){ SOLO = true; TEAMS = []; }
+
 /* ---- the Tune pane: the hub's own settings rows, rendered straight onto this page ----
-   `renderOnce(mount, null, {})` shows the master view — and only the round settings are
-   registered here, so that IS the round-settings panel. A change re-renders the pane (so
-   nested/greyed rows update) and re-draws the card (so commentary/reveal/etc. take effect
-   on the question on screen). Folded by default, remembered per device. */
+   `renderOnce` shows the master view, scoped to the round-setting groups (Questions and
+   Phones) — `roster` is registered here too but it is the room mode, not a round setting.
+   A change re-renders the pane (so nested/greyed rows update) and re-draws the card (so
+   commentary/reveal/etc. take effect on the question on screen). Folded by default,
+   remembered per device. */
 const TUNE_KEY = 'engishism.qbenchTune';
 let tuneTimer = null;
 function tuneOpen(){ try{ return localStorage.getItem(TUNE_KEY) === 'open'; }catch(e){ return false; } }
@@ -450,7 +466,11 @@ function setTuneOpen(v){ try{ localStorage.setItem(TUNE_KEY, v ? 'open' : 'close
 function renderTune(){
   const body = $('tune-body'); if(!body) return;
   body.innerHTML = '';
-  try{ S.renderOnce(body, null, {}); }catch(e){ body.textContent = 'settings unavailable'; }
+  /* Only the round-setting groups: `roster` is registered here now (to drive the solo
+     scope) but it is the room mode, owned by the Individuals segment above — a second
+     control for it in "Tune the round" would be a duplicate that does not rebuild the
+     rack. Every round setting lives in Questions or Phones, so this shows them all. */
+  try{ S.renderOnce(body, null, { groups:['Questions','Phones'] }); }catch(e){ body.textContent = 'settings unavailable'; }
 }
 function paintTuneFold(){
   const open = tuneOpen();
@@ -1148,9 +1168,11 @@ function ask(){
      (hub-engine.js): in a room of individuals a tap round holds its taps until the
      player presses Send, and the live preview rides on the back of that. It is a
      host fact, not the round's — set on the arm here, or the bench's solo would let
-     a tap be the answer and would not be the room a class actually meets. Treated as
-     on because `roundSend` defaults on; the bench has no panel to turn it off. */
-  if(SOLO && (arm.mode === 'vote' || arm.mode === 'arrange' || arm.mode === 'table')){
+     a tap be the answer and would not be the room a class actually meets. Gated on
+     `roundSend` now, matching the hub (`Roster.solo() && S.get('roundSend')`), so the
+     Tune pane's "Individuals press Send" toggle actually turns it off here. `table`
+     stays in the set because Toss is bench-only. */
+  if(SOLO && S.get('roundSend') && (arm.mode === 'vote' || arm.mode === 'arrange' || arm.mode === 'table')){
     arm.send = true;
     if(ctx().crowdLive) arm.preview = true;
   }
@@ -1735,6 +1757,10 @@ function pushTeams(){ if(host) host.setTeams(TEAMS.slice(), SOLO); }
    the hub's own re-seat, so the reload is the honest cost. */
 function setSolo(on){
   if(SOLO === on) return;
+  /* Drive the settings system's solo scope, the same fact the hub's team bar writes:
+     without it every `byRoster` setting (Everyone-finishes, the commentary, the crowd
+     bar, the phone hint) stays on its team-room value however this switch is flipped. */
+  S.set('roster', on ? 'solo' : 'teams');
   const keep = PHONES.length;                    // carry the class size across
   clearRack();
   SOLO = on; seat = 0;
@@ -1789,6 +1815,7 @@ $('add-phone').addEventListener('click', ()=>{
 });
 BenchKit.layout($('bar-layouts'), applyLayout);
 buildRosterSeg();
+if(SOLO) $('add-team').style.display = 'none';   // adopted a solo room at boot — no teams to add
 
 /* The room bench's handle when this page is its board — grow-only, exactly as
    the hub's team bar exposes. */
