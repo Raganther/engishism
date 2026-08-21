@@ -480,8 +480,22 @@ function paintTuneFold(){
 }
 $('tune-toggle').addEventListener('click', ()=>{ setTuneOpen(!tuneOpen()); paintTuneFold(); });
 /* Debounced, like the room bench: a change writes storage and fires onChange; re-render
-   the pane and the card so what is tuned is what is seen. */
-S.onChange(()=>{ clearTimeout(tuneTimer); tuneTimer = setTimeout(()=>{ if(tuneOpen()) renderTune(); draw(); }, 300); });
+   the pane and the card so what is tuned is what is seen. And RE-ARM the phones: a
+   phone-side setting (Send, the preview bar) rides the arm, so without this a toggle
+   only lands on the NEXT question — invisible on a one-question round like Toss, which
+   read as "the toggle does nothing". Safe here and only here: a workshop has no real
+   students mid-answer, so re-arming to show the change is what you want (the real games
+   deliberately defer it). Guarded so a form, a finished question or no relay re-arms
+   nothing. */
+S.onChange((id)=>{ clearTimeout(tuneTimer); tuneTimer = setTimeout(()=>{
+  if(tuneOpen()) renderTune();
+  draw();
+  /* Re-arm only for the two settings `ask()` actually puts on the wire — `roundSend`
+     (arm.send) and `crowdLive` (arm.preview). Re-arming on a card/judging setting
+     (commentary, the reveal, everyone-finishes) would needlessly wipe the phones'
+     in-progress picks; those already take effect through draw() above. */
+  if((id === 'roundSend' || id === 'crowdLive') && host && isRound(type) && state && !state.done) ask();
+}, 300); });
 paintTuneFold();
 
 /* Assigned below rather than here: the namespacing helpers are `const`, so naming
