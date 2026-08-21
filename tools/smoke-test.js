@@ -6289,12 +6289,20 @@ async function testQuestionBench(browser){
 
     await tap(frames[2], set.decoy.slice(0, 2));          // drop them
     await page.waitForTimeout(300);
+    /* This asserts the take-path — a right set ENDS the question and lights its four
+       words — which is `roundOpenToAll` off ("restores the race"), a real supported
+       mode rather than the default. Open-to-all keeps the room open on a right answer
+       and so lights nothing here; that is its own branch and not what this check is
+       about. Read live in ctx(), so setting it at master scope reaches the next settle;
+       restored after, since the pages that follow share this context's storage. */
+    await page.evaluate(() => S.set('roundOpenToAll', false));
     await tap(frames[2], set.pick.slice(2, 4));
     await page.waitForTimeout(1500);
     check('the right set is taken and the four light up',
           await page.locator('#card-round .gword.right').count() === 4 &&
           /has it/i.test(await page.locator('#card-round .group-say').innerText()),
           await page.locator('#card-round .group-say').innerText());
+    await page.evaluate(() => S.set('roundOpenToAll', true));
     /* No score anywhere on this page, and that is the contract rather than an
        omission: a round has no points, no turn and no clock. */
     check('and nothing on the bench scored it',

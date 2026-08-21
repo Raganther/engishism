@@ -887,7 +887,13 @@ function fillLoad(){
       if(!claimed.length) return;
       const o = document.createElement('option');
       o.value = ui + ':' + ci;
-      o.textContent = (u.card && u.card.num ? u.card.num + ' · ' : '') + c.name +
+      /* The name a category shows, derived exactly as the board's categoryName does:
+         a round category carries no explicit `name` since the A1 dedup, so the round's
+         label is the single home for it — reading raw `c.name` here printed "undefined"
+         for every Connections/Thermometer category the moment the names were stripped. */
+      const chit  = Kit.round.of((c.clues || [])[0]);
+      const cname = c.name || (chit && chit.def && chit.def.label) || c.section || '';
+      o.textContent = (u.card && u.card.num ? u.card.num + ' · ' : '') + cname +
                       ' (' + claimed.length + ')';
       sel.appendChild(o);
     });
