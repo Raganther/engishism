@@ -590,6 +590,14 @@ window.HubSettings = (function(){
   }
 
   function render(){
+    /* The panel is built lazily — a board that never opened ⚙ has no `panel`,
+       `tabsEl` or `body`. But the control builders are shared with `renderOnce`
+       (the room bench's tune pane embeds them), and a select change, range
+       change or undo click each call render() after writing — which threw on
+       every interaction from the bench, after the value had already landed, so
+       the write worked and the page error was the only symptom. An embedder
+       repaints itself through `onChange`; the panel repaints only if it exists. */
+    if(!panel || !tabsEl || !body) return;
     renderTabs(); renderBody();
   }
 
