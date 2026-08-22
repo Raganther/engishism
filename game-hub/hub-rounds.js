@@ -1006,6 +1006,76 @@
     return mount;
   }
 
+  /* ---------- the ctx builder — one container, two doors ----------
+     What a host lends a round used to be written twice: `roundCtx()` in
+     hub-engine.js and `ctx()` on the question bench, kept identical by hand and
+     already drifting — a guard fixed in one was still wrong in the other, and a
+     field added to one simply did not exist in the other. This is that field
+     list, written once. The hub and the bench both call it now, so the bench
+     playing a round IS the container playing a round, minus the skin.
+
+     `d` is what the caller has that the shelf cannot reach for (axiom 4):
+       teams     the team names, as an array
+       buzz      the phone host, or null — a room with no phones is a correct state
+       setting   key -> value, already scoped to the caller's game. The *guard
+                 shapes* around each value live here, because they are exactly
+                 what drifted; the scope stays the caller's.
+       live      () -> whether the round is still being played; gates the nudge.
+                 Absent means always — the bench has no take/reveal to stop it.
+       keep      the per-player store that outlives one question
+       host      the caller's own facts and wires, laid over the defaults —
+                 turn, mode, solo, onPick, anything a round was never told about.
+                 Carried, not read, so a host can lend a field this list has
+                 never heard of.
+
+     Every default below is the no-phones, no-turns, whole-room case, so a caller
+     overrides only what it actually owns. */
+  function buildCtx(d){
+    const buzz = d.buzz || null;
+    /* `p.team` is the truth for sizes in both kinds of room — see the note at
+       `seat` in hub-buzzer.js: a stale host-side copy once counted two phones
+       onto one competitor and halved that person's share of the answer. */
+    const players = buzz ? buzz.players() : [];
+    const teams = d.teams.slice();
+    const sizes = teams.map(()=>0);
+    players.forEach(p=>{
+      const t = Number(p.team);
+      if(t >= 0 && t < sizes.length) sizes[t]++;
+    });
+    const get  = d.setting || function(){};
+    const live = d.live || function(){ return true; };
+    return Object.assign({
+      teams, sizes,
+      /* Who is in the room, read when the ctx is built — which both callers do
+         fresh at every call, because a roster the round was told once is a lie
+         by the third question. */
+      roster: players,
+      openToAll: !!get('roundOpenToAll'),
+      /* The crowd-reveal threshold as a fraction. 0 is off; the shelf helper
+         treats *absent* as its own default, which is why this is `|| 0` on the
+         Number and never `|| 0.4`. */
+      crowdReveal: (Number(get('crowdReveal')) || 0) / 100,
+      // the meter treats absent as on, so only an explicit false stands it down
+      crowdMeter: get('crowdMeter') !== false,
+      crowdLive:  !!get('crowdLive'),
+      commentary: get('roundCommentary') || 'headline',
+      /* **Look up** — when a crowd reveal lands on the projector, every phone
+         pulses once. The shelf decides when; this decides whether there is a
+         room to tell and whether the question is still open. */
+      nudge: kind => { if(buzz && buzz.nudge && live()) buzz.nudge(kind); },
+      /* A verdict for one phone, lent rather than reached for — the round says
+         how a typed word was received and the host owns the wire. */
+      verdict: (id, verdict, note, coolMs) => { if(buzz) buzz.judge(id, verdict, { note, coolMs }); },
+      teamName: i => teams[i] || ('Team ' + (i + 1)),
+      keep: d.keep || null,
+      solo: false, prompt: true,
+      team: null,      // null is the whole room; a scoped host overrides it
+      mode: null, forTeam: null,
+      hideVotes: false, lockIn: false, countVotes: false,
+      onPick: function(){}
+    }, d.host || {});
+  }
+
   window.HubKit.round = {
     register(id, def){
       ROUNDS[String(id)] = Object.assign({
@@ -1195,6 +1265,7 @@
       }
       return null;
     },
+    ctx: buildCtx,
     shares, settle, clock, results, poll, agreement, lanes, placeBadge, crowd, crowdKnown, crowdMeter, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour, dragTag, bare,
     /* A comma-separated field as a list. Three rounds' editors parse one, which
        is what puts it here rather than in each of them. */

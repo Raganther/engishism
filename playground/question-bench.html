@@ -609,15 +609,6 @@ function labelOf(t){
   return isRound(t) ? (Kit.round.get(nameOf(t)).label || nameOf(t)) : nameOf(t);
 }
 
-function sizes(){
-  const out = TEAMS.map(()=>0);
-  if(host) host.players().forEach(p=>{
-    const t = Number(p.team);
-    if(t >= 0 && t < out.length) out[t]++;
-  });
-  return out;
-}
-
 /* **State that outlives one question**, the same store the hub lends. Anything a
    *student* carries rather than the question: a bingo card and its marks, a hand, a
    secret role. Keyed by player id because that is what survives a phone dropping off
@@ -634,59 +625,44 @@ const KEEP = {
 };
 
 function ctx(){
-  return {
+  /* The field list and every guard shape live in `Kit.round.ctx` now — the same
+     builder `roundCtx()` (hub-engine.js) calls, so the bench plays a round with
+     the container's own ctx rather than a hand-kept copy of it. What is written
+     here is only what the bench actually owns: its master-scope settings (the
+     bench has no game), its keep store, and the host facts below. */
+  return Kit.round.ctx({
     teams: TEAMS.slice(),
-    sizes: sizes(),
-    /* The bench now HOSTS the round settings (registered above), so it reads them live
-       with S.get — the same way roundCtx() (hub-engine.js) does, so the bench plays a
-       round exactly as a game would, and the Tune pane changes take effect here. Read at
-       master scope (the bench has no game); the guards mirror roundCtx() line-for-line. */
-    openToAll:  !!S.get('roundOpenToAll'),
-    crowdReveal: (Number(S.get('crowdReveal')) || 0) / 100,
-    crowdMeter:  S.get('crowdMeter') !== false,
-    crowdLive:   !!S.get('crowdLive'),
-    commentary:  S.get('roundCommentary') || 'headline',
-    nudge: kind => { if(host && host.nudge) host.nudge(kind); },
-    solo: SOLO,                                        // lent for parity; no round reads it
-    hideVotes: false,
-    lockIn: false,
-    countVotes: false,
+    buzz: host,
+    setting: k => S.get(k),
     keep: KEEP,
-    /* Who is in the room, read fresh like `sizes` — the information gap deals a
-       view per player, and a deal cut from a stale roster misses whoever just
-       walked in. */
-    roster: host ? host.players() : [],
-    /* A verdict for one phone, lent rather than reached for — the round says how
-       a typed word was received and the host owns the wire. */
-    verdict: (id, verdict, note, coolMs) => { if(host) host.judge(id, verdict, { note, coolMs }); },
-    /* "Re-arm the phones and redraw me" — how a round that advances by its own
-       clock asks for its next beat (Word Drop's landing). The same move the
-       bench itself makes after an accepted climb step, handed to the round for
-       the case where time, not a right answer, is the trigger. An arm of null
-       means the round has nothing left to ask. */
-    again: ()=>{
-      if(!state || !isRound(type)) return;
-      if(host && !state.done){
-        const a = roundDef().arm(state, ctx());
-        if(a) host.arm(a.prompt, a); else host.disarm();
+    host: {
+      solo: SOLO,                     // lent for parity; no round reads it
+      /* "Re-arm the phones and redraw me" — how a round that advances by its own
+         clock asks for its next beat (Word Drop's landing). The same move the
+         bench itself makes after an accepted climb step, handed to the round for
+         the case where time, not a right answer, is the trigger. An arm of null
+         means the round has nothing left to ask. */
+      again: ()=>{
+        if(!state || !isRound(type)) return;
+        if(host && !state.done){
+          const a = roundDef().arm(state, ctx());
+          if(a) host.arm(a.prompt, a); else host.disarm();
+        }
+        if(host && state.done) host.disarm();
+        draw();
+      },
+      mode: $('mode-pick').value || null,
+      forTeam: teacherTeam(),
+      onPick: word => {
+        if(!state || state.done) return;
+        const cap = capOf();
+        const at = state.chosen.indexOf(word);
+        if(at !== -1) state.chosen.splice(at, 1);
+        else if(state.chosen.length < cap) state.chosen.push(word);
+        draw();
       }
-      if(host && state.done) host.disarm();
-      draw();
-    },
-    teamName: i => TEAMS[i] || ('Team ' + (i+1)),
-    prompt: true,
-    team: null,                       // the whole room; a host may scope it, this does not
-    mode: $('mode-pick').value || null,
-    forTeam: teacherTeam(),
-    onPick: word => {
-      if(!state || state.done) return;
-      const cap = capOf();
-      const at = state.chosen.indexOf(word);
-      if(at !== -1) state.chosen.splice(at, 1);
-      else if(state.chosen.length < cap) state.chosen.push(word);
-      draw();
     }
-  };
+  });
 }
 
 /* The picker is built from what the round *declares*, so the bench never learns

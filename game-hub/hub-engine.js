@@ -2528,63 +2528,16 @@
   function roundDef(){ return roundId ? Kit.round.get(roundId) : null; }
 
   // what the round is lent: the team list, their sizes, and what a click means here
+  /* The field list and the guard shapes live in `Kit.round.ctx` now — one builder,
+     shared with the question bench, so the bench playing a round IS this container
+     playing a round. What is written here is only what the hub actually owns: its
+     settings scope, its keep store, and the host facts below. */
   function roundCtx(id){
-    /* `p.team` is the truth for this, in both kinds of room — `HubBuzzer`'s `seat`
-       keeps the host's own copy current, which it did not always do. See the note
-       there: a stale copy counted two phones onto one competitor and halved that
-       person's share of the answer. Fixed at the seam rather than here, so the
-       three other readers of `players()` are correct too. */
-    const sizes = teams.map(()=>0);
-    if(buzzHost) buzzHost.players().forEach(p=>{
-      const t = Number(p.team);
-      if(t >= 0 && t < sizes.length) sizes[t]++;
-    });
-    return {
-      teams:  teams.map((t, i) => teamName(i)),
-      sizes,
-      /* **Whether the question stays open after somebody gets it right**, which a
-         round has to know because "I am finished" and "the round is over" are the
-         same field on the same object — `state.done`. Written by a round that meant
-         only the first, it ends the question for everybody: the ordering race set it
-         the moment one team's ladder filled, which froze the card, stopped the replies
-         being read and locked every other team out of finishing theirs. Exactly the
-         lockout this whole change exists to remove, expressed one tier down.
-
-         So the host lends the rule and the round says "this team has finished"
-         instead. Only rounds that can be finished by one competitor while others are
-         still working need to read it. */
-      openToAll: openToAllNow(),
-      /* The crowd-reveal threshold as a fraction, lent the same way. 0 is off;
-         the shelf helper treats *absent* as its own default, so the bench needs
-         no wiring — which is why this is `?? 0` and never `|| 0.4`. */
-      crowdReveal: (Number(S.get('crowdReveal', activeGame)) || 0) / 100,
-      /* The meter's switch, lent the same way: the shelf treats absent as on,
-         so only an explicit false stands it down and the bench inherits it. */
-      crowdMeter: S.get('crowdMeter', activeGame) !== false,
-      /* Whether the reveal counts what the room has *selected* as well as what it
-         has sent. Lent rather than read, so the question bench inherits it with no
-         wiring — the same contract the threshold already follows. */
-      crowdLive: !!S.get('crowdLive', activeGame),
-      /* Where a round's wrong-answer verdict is announced — a headline, each player's
-         own lane, or nowhere (the running count already says how close they are). Lent
-         so the round owns the presentation and the bench inherits the default. */
-      commentary: S.get('roundCommentary', activeGame) || 'headline',
-      /* **Look up.** The crowd reveal lands on the projector, which is worth
-         nothing to a room of sixteen reading their own handsets — so when one
-         lands, every phone pulses once. The shelf decides *when* (it is the only
-         thing that knows the revealed set just grew); this decides whether there
-         is a room to tell and whether a question is still open. The second guard
-         matters: `crowdKnown` is also called on the reveal render, when the answer
-         is going up anyway and nobody needs sending anywhere. */
-      nudge: kind => { if(buzzHost && roundLive()) buzzHost.nudge(kind); },
-      /* Who is in the room, read fresh like `sizes` — the information gap deals a
-         view per player, and a deal cut from a stale roster misses whoever just
-         walked in. */
-      roster: buzzHost ? buzzHost.players() : [],
-      /* A verdict for one phone, lent rather than reached for — the round says how
-         a typed word was received and the host owns the wire. */
-      verdict: (id, verdict, note, coolMs) => { if(buzzHost) buzzHost.judge(id, verdict, { note, coolMs }); },
-      teamName,
+    return Kit.round.ctx({
+      teams: teams.map((t, i) => teamName(i)),
+      buzz: buzzHost,
+      live: roundLive,
+      setting: k => S.get(k, activeGame),
       /* **State that outlives one question — the contract addition, and the last one
          on the build order.** Every hook a round has is handed one question and
          forgets it afterwards, which is right for a question and wrong for anything
@@ -2602,34 +2555,49 @@
          is `cardsByPlayer` on the arm. This is the host's half — anything a round
          wants to remember that the phones do not need to see. */
       keep: roundKeepFor(id || roundId),
-      /* **Individuals, so there is nothing to assemble.** A lane exists to show a
-         team building one answer out of several handsets — how many have committed,
-         whether they agree. A competitor of one has neither question to answer: they
-         have answered or they have not, and the option counts already say how many
-         of the room have. Twenty-five lanes on a board is also simply unreadable. */
-      solo:   Roster.solo(),
-      prompt: !!S.get('phonePrompt', roundHost.game),
-      // `null` is the whole room; a scoped round belongs to the team on turn
-      team:   S.get('roundWho', roundHost.game) === 'turn' ? roundHost.turn() : null,
-      mode:   roundModeOf(id || roundId),
-      // which lane the teacher's own clicks act on, when a round gives each team one
-      forTeam: roundHost.turn(),
-      /* A host may collect votes and not show them yet — Millionaire's Ask the class
-         is the only caller, and it is what leaves that lifeline something to buy now
-         that the round asks the room on every question anyway. */
-      hideVotes: !!(roundHost.hideVotes && roundHost.hideVotes()),
-      /* **Whether a tap is final belongs to the skin, not the round.** On a tile the
-         room is negotiating and a player must be able to move their vote — that is
-         the whole mechanic in `agree` mode. On a board where the clock is the
-         opponent, being able to change your answer after watching the count is the
-         opposite of the game. So the host says which it is and the round honours it,
-         except where honouring it would break the round's own contract. */
-      lockIn: !!roundHost.lockIn,
-      /* How the room's votes read: a count of people, or a dot per team. See the
-         note in `choice.js` — it is the same data answering two questions. */
-      countVotes: !!(roundHost.countVotes && roundHost.countVotes()),
-      onPick: roundTeacherPick
-    };
+      /* The host facts — what this board contributes on top of the shared list.
+         Laid over the defaults, so a field absent here means the builder's
+         no-phones, whole-room answer. */
+      host: {
+        /* **Whether the question stays open after somebody gets it right**, which a
+           round has to know because "I am finished" and "the round is over" are the
+           same field on the same object — `state.done`. Written by a round that meant
+           only the first, it ends the question for everybody: the ordering race set it
+           the moment one team's ladder filled, which froze the card, stopped the replies
+           being read and locked every other team out of finishing theirs. Overridden
+           here rather than left to the builder's plain read, because a board that
+           scores by place (`scoreEach`) already keeps everyone in. */
+        openToAll: openToAllNow(),
+        teamName,
+        /* **Individuals, so there is nothing to assemble.** A lane exists to show a
+           team building one answer out of several handsets — how many have committed,
+           whether they agree. A competitor of one has neither question to answer: they
+           have answered or they have not, and the option counts already say how many
+           of the room have. Twenty-five lanes on a board is also simply unreadable. */
+        solo:   Roster.solo(),
+        prompt: !!S.get('phonePrompt', roundHost.game),
+        // `null` is the whole room; a scoped round belongs to the team on turn
+        team:   S.get('roundWho', roundHost.game) === 'turn' ? roundHost.turn() : null,
+        mode:   roundModeOf(id || roundId),
+        // which lane the teacher's own clicks act on, when a round gives each team one
+        forTeam: roundHost.turn(),
+        /* A host may collect votes and not show them yet — Millionaire's Ask the class
+           is the only caller, and it is what leaves that lifeline something to buy now
+           that the round asks the room on every question anyway. */
+        hideVotes: !!(roundHost.hideVotes && roundHost.hideVotes()),
+        /* **Whether a tap is final belongs to the skin, not the round.** On a tile the
+           room is negotiating and a player must be able to move their vote — that is
+           the whole mechanic in `agree` mode. On a board where the clock is the
+           opponent, being able to change your answer after watching the count is the
+           opposite of the game. So the host says which it is and the round honours it,
+           except where honouring it would break the round's own contract. */
+        lockIn: !!roundHost.lockIn,
+        /* How the room's votes read: a count of people, or a dot per team. See the
+           note in `choice.js` — it is the same data answering two questions. */
+        countVotes: !!(roundHost.countVotes && roundHost.countVotes()),
+        onPick: roundTeacherPick
+      }
+    });
   }
 
   /* Which round this clue wants, asked of the registry rather than named here — so
