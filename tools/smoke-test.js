@@ -8427,8 +8427,8 @@ async function testBattleScrabble(browser){
   const joinUrl = await board.evaluate(() => (document.getElementById('join-url') || {}).textContent || '');
   check('the QR sends phones to the game page, not join.html',
         /playground\/battle-scrabble\.html/.test(joinUrl), joinUrl);
-  await board.keyboard.press('Escape').catch(()=>{});
-  await board.evaluate(() => { const m = document.getElementById('join-modal'); if(m) m.style.display = 'none'; });
+  // the panel is #join-panel (class 'on') and left open it eats the Start click
+  await board.evaluate(() => { const m = document.getElementById('join-panel'); if(m) m.classList.remove('on'); });
 
   async function phone(name){
     const p = await browser.newPage({ viewport:{ width:390, height:844 } });

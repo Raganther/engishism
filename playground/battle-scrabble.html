@@ -461,98 +461,6 @@
       document.getElementById('over').classList.add('show');
     }
 
-    world.resize();
-    /* No code and no Join press = stage 1, byte for byte: solo starts at once.
-       A ?code= (the board's QR) opens the join strip instead — the lobby. */
-    if(!maybeRoomBoot()) startGame();
-    (function loop(){ world.step(); world.draw(); if(candValid) paintBank(); requestAnimationFrame(loop); })();
-
-    /* ---- pointer -> grab / move / drop, exactly as Throw Lab ---- */
-    function pt(e){ const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
-    canvas.addEventListener('pointerdown', e => {
-      if(!playing) return;                       // time is up; the board is frozen
-      const p = pt(e);
-      if(world.grab(e.pointerId, p.x, p.y)){
-        canvas.classList.add('grabbing');
-        canvas.setPointerCapture(e.pointerId);
-      }
-    });
-    canvas.addEventListener('pointermove', e => {
-      if(world.heldBy(e.pointerId)){ const p = pt(e); world.move(e.pointerId, p.x, p.y); }
-    });
-    function endDrag(e){
-      if(!world.heldBy(e.pointerId)) return;
-      /* Dropped inside an active throw zone: the tile is spent, not placed.
-         `takeHeld` says which letter left, the rack shrinks (no replacement
-         until the next bank — the ammo limit), and the intent goes up for the
-         board to route. Zones are pointer-events:none, so this rect test is
-         the only thing that makes them real. */
-      const side = zoneAt(e);
-      if(side){
-        const ch = world.takeHeld(e.pointerId);
-        if(ch){
-          const at = rack.indexOf(ch);
-          if(at !== -1) rack.splice(at, 1);
-          send({ t:'th', d: side.toUpperCase(), l: ch });
-          status.textContent = 'Thrown at ' + (side === 'l' ? nbL : nbR) + '!';
-          readBoard(); zonesPaint();
-        }
-        try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
-        if(!world.anyHeld()) canvas.classList.remove('grabbing');
-        return;
-      }
-      world.drop(e.pointerId);
-      try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
-      if(!world.anyHeld()) canvas.classList.remove('grabbing');
-    }
-    canvas.addEventListener('pointerup', endDrag);
-    canvas.addEventListener('pointercancel', endDrag);
-
-    /* ---- buttons ---- */
-    bankBtn.addEventListener('click', bank);
-    document.getElementById('redeal').addEventListener('click', () => { if(playing) deal([]); });
-    document.getElementById('again').addEventListener('click', startGame);
-    const hintsBtn = document.getElementById('btn-hints');
-    hintsBtn.addEventListener('click', () => {
-      const off = document.body.classList.toggle('hints-off');
-      hintsBtn.textContent = off ? 'Hints off' : 'Hints on';
-    });
-
-    /* ---- sliders ---- */
-    function bindSlider(id, valId, fmt, apply){
-      const el = document.getElementById(id), out = document.getElementById(valId);
-      function show(){ out.textContent = fmt(+el.value); }
-      el.addEventListener('input', () => { show(); if(apply) apply(+el.value); });
-      show();
-    }
-    bindSlider('s-secs','v-secs',   v => v + 's', null);   // read at the next Play again
-    bindSlider('s-mrate','v-mrate', v => '+' + v.toFixed(2) + '/s', null);
-    bindSlider('s-mmax','v-mmax',   v => '×' + v.toFixed(2), null);
-    bindSlider('s-vow','v-vow',     v => String(v), null);
-    bindSlider('s-grav','v-grav',   v => v.toFixed(2),       v => world.setFeel({ gravity:v }));
-    bindSlider('s-rest','v-rest',   v => v.toFixed(2),       v => world.setFeel({ restitution:v }));
-    bindSlider('s-air','v-air',     v => v.toFixed(3),       v => world.setFeel({ frictionAir:v }));
-    bindSlider('s-size','v-size',   v => v + 'px',           v => { world.setFeel({ size:v }); if(playing) deal([]); });
-    bindSlider('s-swing','v-swing', v => v.toFixed(2),       v => world.setFeel({ swing:v }));
-    bindSlider('s-pow','v-pow',     v => '×' + v.toFixed(1), v => world.setFeel({ power:v }));
-    bindSlider('s-snap','v-snap',   v => v.toFixed(2) + 's', v => world.setFeel({ snap: v*1000 }));
-
-    /* ---- collapsible controls: folded away by default on a phone ---- */
-    const btnTune = document.getElementById('btn-tune');
-    function applyTune(){
-      const hidden = document.body.classList.contains('controls-hidden');
-      btnTune.textContent = hidden ? '⚙ Tune' : 'Close ✕';
-      requestAnimationFrame(() => world.resize());
-    }
-    if(window.innerWidth < 720) document.body.classList.add('controls-hidden');
-    applyTune();
-    btnTune.addEventListener('click', () => { document.body.classList.toggle('controls-hidden'); applyTune(); });
-
-    let rz;
-    window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => world.resize(), 150); });
-
-    // A handle for driving the page from a test (world.place docks a letter
-    // directly); the question bench sets the same kind of debug handle.
     /* ==================== the room — stage 2 ====================
        Protocol, duplicated verbatim on the board page (battle-scrabble-board):
        JSON rides the relay's existing messages — nothing new on the wire.
@@ -701,6 +609,98 @@
       return true;                    // lobby: no autostart, table stays empty
     }
 
+    world.resize();
+    /* No code and no Join press = stage 1, byte for byte: solo starts at once.
+       A ?code= (the board's QR) opens the join strip instead — the lobby. */
+    if(!maybeRoomBoot()) startGame();
+    (function loop(){ world.step(); world.draw(); if(candValid) paintBank(); requestAnimationFrame(loop); })();
+
+    /* ---- pointer -> grab / move / drop, exactly as Throw Lab ---- */
+    function pt(e){ const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+    canvas.addEventListener('pointerdown', e => {
+      if(!playing) return;                       // time is up; the board is frozen
+      const p = pt(e);
+      if(world.grab(e.pointerId, p.x, p.y)){
+        canvas.classList.add('grabbing');
+        canvas.setPointerCapture(e.pointerId);
+      }
+    });
+    canvas.addEventListener('pointermove', e => {
+      if(world.heldBy(e.pointerId)){ const p = pt(e); world.move(e.pointerId, p.x, p.y); }
+    });
+    function endDrag(e){
+      if(!world.heldBy(e.pointerId)) return;
+      /* Dropped inside an active throw zone: the tile is spent, not placed.
+         `takeHeld` says which letter left, the rack shrinks (no replacement
+         until the next bank — the ammo limit), and the intent goes up for the
+         board to route. Zones are pointer-events:none, so this rect test is
+         the only thing that makes them real. */
+      const side = zoneAt(e);
+      if(side){
+        const ch = world.takeHeld(e.pointerId);
+        if(ch){
+          const at = rack.indexOf(ch);
+          if(at !== -1) rack.splice(at, 1);
+          send({ t:'th', d: side.toUpperCase(), l: ch });
+          status.textContent = 'Thrown at ' + (side === 'l' ? nbL : nbR) + '!';
+          readBoard(); zonesPaint();
+        }
+        try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
+        if(!world.anyHeld()) canvas.classList.remove('grabbing');
+        return;
+      }
+      world.drop(e.pointerId);
+      try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
+      if(!world.anyHeld()) canvas.classList.remove('grabbing');
+    }
+    canvas.addEventListener('pointerup', endDrag);
+    canvas.addEventListener('pointercancel', endDrag);
+
+    /* ---- buttons ---- */
+    bankBtn.addEventListener('click', bank);
+    document.getElementById('redeal').addEventListener('click', () => { if(playing) deal([]); });
+    document.getElementById('again').addEventListener('click', startGame);
+    const hintsBtn = document.getElementById('btn-hints');
+    hintsBtn.addEventListener('click', () => {
+      const off = document.body.classList.toggle('hints-off');
+      hintsBtn.textContent = off ? 'Hints off' : 'Hints on';
+    });
+
+    /* ---- sliders ---- */
+    function bindSlider(id, valId, fmt, apply){
+      const el = document.getElementById(id), out = document.getElementById(valId);
+      function show(){ out.textContent = fmt(+el.value); }
+      el.addEventListener('input', () => { show(); if(apply) apply(+el.value); });
+      show();
+    }
+    bindSlider('s-secs','v-secs',   v => v + 's', null);   // read at the next Play again
+    bindSlider('s-mrate','v-mrate', v => '+' + v.toFixed(2) + '/s', null);
+    bindSlider('s-mmax','v-mmax',   v => '×' + v.toFixed(2), null);
+    bindSlider('s-vow','v-vow',     v => String(v), null);
+    bindSlider('s-grav','v-grav',   v => v.toFixed(2),       v => world.setFeel({ gravity:v }));
+    bindSlider('s-rest','v-rest',   v => v.toFixed(2),       v => world.setFeel({ restitution:v }));
+    bindSlider('s-air','v-air',     v => v.toFixed(3),       v => world.setFeel({ frictionAir:v }));
+    bindSlider('s-size','v-size',   v => v + 'px',           v => { world.setFeel({ size:v }); if(playing) deal([]); });
+    bindSlider('s-swing','v-swing', v => v.toFixed(2),       v => world.setFeel({ swing:v }));
+    bindSlider('s-pow','v-pow',     v => '×' + v.toFixed(1), v => world.setFeel({ power:v }));
+    bindSlider('s-snap','v-snap',   v => v.toFixed(2) + 's', v => world.setFeel({ snap: v*1000 }));
+
+    /* ---- collapsible controls: folded away by default on a phone ---- */
+    const btnTune = document.getElementById('btn-tune');
+    function applyTune(){
+      const hidden = document.body.classList.contains('controls-hidden');
+      btnTune.textContent = hidden ? '⚙ Tune' : 'Close ✕';
+      requestAnimationFrame(() => world.resize());
+    }
+    if(window.innerWidth < 720) document.body.classList.add('controls-hidden');
+    applyTune();
+    btnTune.addEventListener('click', () => { document.body.classList.toggle('controls-hidden'); applyTune(); });
+
+    let rz;
+    window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => world.resize(), 150); });
+
+    // A handle for driving the page from a test (world.place docks a letter
+    // directly); the question bench sets the same kind of debug handle.
     /* `read` is here because world.place() (the reconnect-restore path a test
        drives) fires no onArrange — a driven board must ask for the re-read a
        real dock performs itself. */
