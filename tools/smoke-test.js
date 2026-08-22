@@ -8472,23 +8472,49 @@ async function testBattleScrabble(browser){
     window.__bsb.players[window.__bsb.seats[0]].score) > 0, 8000);
   check('a banked word lands on the board\'s standings', true);
 
-  /* The throw: Anna's right neighbour is Ben; the board routes it, Ben's
-     board re-rains and his multiplier dies, Anna's rack shrinks by one. */
+  /* The throw: a real missile now. Anna flicks hard right, the board routes
+     it to Ben by the flick's angle; the tile enters Ben's screen, knocks his
+     docked word loose (placed dead-centre so the fall line meets it), and
+     then becomes HIS tile — the transfer. Anna is one tile down. */
+  /* Let the dealt tiles finish raining and settle first: a throw fired into
+     the deal meets the target's own tiles still airborne at the top, and the
+     missile honestly hits THOSE first — found by the shelf's __tblDebug probe
+     naturalising at y=0 against a falling letter. Real throws happen seconds
+     into a game; the suite has to grant the same beat. */
+  await B.waitForTimeout(1600);
   const hintB = await B.evaluate(() => window.__bs.state().hints.slice(-1)[0] || window.__bs.state().hints[0]);
   if(hintB){
-    await B.evaluate(w => { w.toUpperCase().split('').forEach((ch, i) => window.__bs.world.place(i, ch)); window.__bs.read(); }, hintB);
+    await B.evaluate(w => {
+      const chars = w.toUpperCase().split('');
+      const start = Math.floor((8 - chars.length) / 2);   // centred in the slot row
+      chars.forEach((ch, i) => window.__bs.world.place(start + i, ch));
+      window.__bs.read();
+    }, hintB);
   }
-  const rackBefore = await A.evaluate(() => window.__bs.state().rack.length);
+  const rackA = await A.evaluate(() => window.__bs.state().rack.length);
+  const rackB = await B.evaluate(() => window.__bs.state().rack.length);
   const threw = await A.evaluate(() => window.__bs.throw('R'));
   check('a throw is accepted while a neighbour exists', threw === true);
-  await until(async () => await B.evaluate(() => window.__bs.state().candidate === ''), 8000);
-  check('the hit re-rains the target\'s board and kills their word',
-        await B.evaluate(() => { const s = window.__bs.state(); return s.candidate === '' && !s.candValid; }));
-  check('and the target is told who threw it',
-        /hit by anna/i.test(await B.locator('#status').innerText()),
-        await B.locator('#status').innerText());
   check('the thrown tile is spent — no replacement until the next bank',
-        await A.evaluate(() => window.__bs.state().rack.length) === rackBefore - 1);
+        await A.evaluate(() => window.__bs.state().rack.length) === rackA - 1);
+  check('the target is warned who threw it',
+        await (async () => { await until(async () =>
+          /incoming from anna/i.test(await B.locator('#status').innerText()), 8000);
+          return /incoming from anna/i.test(await B.locator('#status').innerText()); })(),
+        await B.locator('#status').innerText());
+  /* The transfer is guaranteed (the missile naturalises within 2s even if it
+     touches nothing); the knockout rides the real physics, straight down the
+     centre onto the docked row. */
+  check('the tile becomes the target\'s — the transfer',
+        await (async () => { await until(async () =>
+          await B.evaluate(() => window.__bs.state().rack.length) === rackB + 1, 8000);
+          return await B.evaluate(() => window.__bs.state().rack.length) === rackB + 1; })(),
+        String(await B.evaluate(() => window.__bs.state().rack.length)));
+  check('and the strike knocks the docked word loose',
+        await (async () => { await until(async () =>
+          await B.evaluate(() => window.__bs.state().candidate === ''), 8000);
+          return await B.evaluate(() => window.__bs.state().candidate === ''); })(),
+        await B.evaluate(() => window.__bs.state().candidate));
 
   /* Time-up: the phones end on their own clocks (driven directly here) and
      the board crowns the leader from the last reported scores. */
@@ -8525,10 +8551,10 @@ async function testBattleScrabble(browser){
   await solo.goto(BASE + '/playground/battle-scrabble.html');
   await solo.waitForTimeout(800);
   check('a plain URL plays solo at once', await solo.evaluate(() => window.__bs.state().playing));
-  check('with no join strip and no throw zones',
+  check('with no join strip, and a closed box nothing can escape',
         await solo.evaluate(() =>
           !document.getElementById('joinbar').classList.contains('on') &&
-          !document.getElementById('zone-l').classList.contains('on')));
+          window.__bs.state().rack.length === 8));
 
   check('board threw nothing', board.__errors.length === 0, board.__errors.join(' | '));
   check('phones threw nothing', A.__errors.length === 0 && B.__errors.length === 0 && solo.__errors.length === 0,

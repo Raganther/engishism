@@ -109,20 +109,6 @@
   #roomchip{ font-size:0.72rem; color:var(--muted); white-space:nowrap; align-self:center; }
   #roomchip b{ color:var(--accent); letter-spacing:0.1em; }
 
-  /* The throw zones: pointer-events none, so they never steal a grab — the
-     canvas keeps the gesture and the drop is tested against their rects. */
-  .zone{
-    position:absolute; top:8%; bottom:46%; width:56px; display:none;
-    flex-direction:column; align-items:center; justify-content:center; gap:6px;
-    border:2px dashed var(--bad); border-radius:14px; pointer-events:none;
-    background:rgba(226,96,59,0.08); color:var(--bad);
-    font-size:0.72rem; text-transform:uppercase; letter-spacing:0.06em;
-  }
-  .zone.on{ display:flex; }
-  .zone.dim{ opacity:0.25; }
-  .zone b{ writing-mode:vertical-rl; font-size:0.8rem; max-height:80%; overflow:hidden; }
-  #zone-l{ left:6px; } #zone-r{ right:6px; }
-
   @keyframes bs-shake{
     0%,100%{ transform:translate(0,0); } 20%{ transform:translate(-9px,3px); }
     40%{ transform:translate(8px,-4px); } 60%{ transform:translate(-6px,-3px); }
@@ -176,8 +162,6 @@
 
   <div class="stage">
     <canvas id="stage"></canvas>
-    <div class="zone" id="zone-l"><span>&#9664; throw</span><b id="zname-l"></b></div>
-    <div class="zone" id="zone-r"><span>throw &#9654;</span><b id="zname-r"></b></div>
     <div class="status" id="status">Flick letters into the slots to spell a word.</div>
     <div class="flash" id="flash"></div>
     <div class="over" id="over">
@@ -196,11 +180,11 @@
   <!-- Same shelf and same order as Throw Lab: matter.min.js → hub-kit.js (the
        object Kit.table hangs off) → hub-table.js. word-list.js is this page's own
        vendored dictionary — a <script src>, never a fetch, so file:// works. -->
-  <script src="../game-hub/hub-buzzer.js?v=20260822g"></script>
-  <script src="../game-hub/matter.min.js?v=20260822g"></script>
-  <script src="../game-hub/hub-kit.js?v=20260822g"></script>
-  <script src="../game-hub/hub-table.js?v=20260822g"></script>
-  <script src="word-list.js?v=20260822g"></script>
+  <script src="../game-hub/hub-buzzer.js?v=20260822h"></script>
+  <script src="../game-hub/matter.min.js?v=20260822h"></script>
+  <script src="../game-hub/hub-kit.js?v=20260822h"></script>
+  <script src="../game-hub/hub-table.js?v=20260822h"></script>
+  <script src="word-list.js?v=20260822h"></script>
   <script>
   (function(){
     'use strict';
@@ -318,7 +302,34 @@
       gravity: +val('s-grav'), restitution: +val('s-rest'), frictionAir: +val('s-air'),
       size: +val('s-size'), power: +val('s-pow'), swing: +val('s-swing'),
       snap: (+val('s-snap')) * 1000,
-      onArrange(){ readBoard(); }
+      onArrange(){ readBoard(); },
+      /* The throw leaving: the tile is spent the moment it clears the open
+         top — spliced from the rack and sent with its physics intact, so the
+         other end can recreate the very same flick. */
+      onEscape(info){
+        const at = rack.indexOf(info.ch);
+        if(at !== -1) rack.splice(at, 1);
+        if(client && playing){
+          send({ t:'th', l: info.ch, h: info.hue,
+                 vx: Math.round(info.vx * 10) / 10, vy: Math.round(info.vy * 10) / 10,
+                 x: Math.round(info.xFrac * 100) / 100, s: Math.round(info.spin * 10) / 10 });
+          status.textContent = 'Thrown!';
+        }
+        hints = pickHints(spellable(rack));
+        renderHints();
+        readBoard(); paintBank();
+      },
+      /* The throw arriving: after its first impact the missile is an ordinary
+         tile, and it is THEIRS — the transfer is the consolation for the hit.
+         If it struck a slotted letter, the shelf already knocked it loose and
+         reported, so the broken word and dead multiplier arrive via readBoard. */
+      onArrive(info){
+        window.__bs.lastArrive = info;      // struck says whether a letter was knocked loose
+        rack.push(info.ch);
+        hints = pickHints(spellable(rack));
+        renderHints();
+        readBoard(); paintBank();
+      }
     });
     function val(id){ return document.getElementById(id).value; }
     function minVowels(){ return +val('s-vow'); }
@@ -445,12 +456,12 @@
         paintClock();
         if(secsLeft <= 0) endGame();
       }, 1000);
-      zonesPaint();
+      throwPaint();
     }
     function endGame(){
       clearInterval(tick); tick = null;
       playing = false;
-      paintBank(); zonesPaint();
+      paintBank(); throwPaint();
       report(true);
       document.getElementById('final').textContent = score;
       document.getElementById('best-line').textContent =
@@ -466,9 +477,11 @@
        JSON rides the relay's existing messages — nothing new on the wire.
        Up, via respond() (<=120 chars), tagged `t`, per-phone sequence `q`:
          {"t":"s","q":7,"sc":41.5,"w":"QUIZ","n":4[,"f":1]}   score (f = final)
-         {"t":"th","q":8,"d":"L","l":"Q"}                     throw intent
+         {"t":"th","q":8,"l":"Q","h":"#6FB04A",
+          "vx":-12.4,"vy":-28.1,"x":0.42,"s":0.3}             a thrown tile, physics and all
        Down, to one phone via nope():
-         {"t":"hit","by":"Maria","l":"Q"}    you were hit
+         {"t":"hit","by":"Maria","l":"Q","h":"#6FB04A",
+          "vx":12.4,"vy":28.1,"x":0.58,"s":-0.3}   the same tile, arriving mirrored
          {"t":"nb","l":"Maria","r":"Ken"}    your neighbours' names
          {"t":"sync","left":48}              clock sync for a late joiner
        Start rides arm({mode:'answer',rethink:true,secs}); the board holds the
@@ -494,44 +507,48 @@
 
     function roomChip(txt){ document.getElementById('roomchip').innerHTML = txt || ''; }
 
-    function zoneAt(e){
-      for(const side of ['l','r']){
-        const z = document.getElementById('zone-' + side);
-        if(!z.classList.contains('on') || z.classList.contains('dim')) continue;
-        const r = z.getBoundingClientRect();
-        if(e.clientX >= r.left && e.clientX <= r.right &&
-           e.clientY >= r.top  && e.clientY <= r.bottom) return side;
+    /* Whether the ceiling is open decides whether a flick can leave at all —
+       so it opens exactly when a throw has somewhere to go, and solo stays a
+       closed box by construction. */
+    function canThrow(){ return !!client && playing && !!(nbL || nbR); }
+    function throwPaint(){
+      world.setOpenTop(canThrow());
+      if(canThrow() && !candValid && status.textContent.indexOf('Flick') === 0){
+        status.textContent = 'Flick letters into the slots — or hard off the top to throw at ' +
+                             (nbL === nbR ? nbL : (nbL + ' / ' + nbR)) + '.';
       }
-      return null;
-    }
-    function zonesPaint(){
-      ['l','r'].forEach(side => {
-        const z = document.getElementById('zone-' + side);
-        const name = side === 'l' ? nbL : nbR;
-        const on = !!client && playing && !!name;
-        z.classList.toggle('on', on);
-        // below three spare-ish letters a throw would leave the rack unspellable
-        z.classList.toggle('dim', on && rack.length <= MIN_WORD);
-        document.getElementById('zname-' + side).textContent = name || '';
-      });
     }
 
     /* A hit: everything re-rains, the slots empty, the multiplier dies — the
        same beat as a deal, minus the redraw, so it reads as an event. */
+    /* The board relays the thrower's raw physics; the TARGET mirrors them —
+       the two of you are facing each other, so their up is your down and
+       their left is your right. The tile enters from the top with the same
+       speed it left with and collides for real; nothing here touches the
+       rack layout — only the letter the missile actually strikes moves. */
     function onHit(d){
+      window.__bs.lastHit = d;              // the phone-debug window into the wire
       if(!playing) return;
-      world.setPieces(rack);
-      world.slots(SLOT_COUNT);
-      world.setResult(null);
-      candidate = ''; candValid = false; validSince = 0;
-      status.textContent = 'Hit by ' + (d.by || 'someone') + '!';
+      /* The sideways speed already did its job — it aimed the throw. Carried
+         whole into the arrival it makes the missile drift the width of the
+         screen mid-fall and slide down a wall past everything (found by probe:
+         struck:null on every aimed throw). A quarter of it keeps the slant
+         readable while the tile still comes DOWN at the board. */
+      world.strike({
+        ch:   d.l || '?',
+        hue:  d.h,
+        vx:   -(Number(d.vx) || 0) * 0.25,
+        vy:   -(Number(d.vy) || -12),
+        xFrac: 1 - (Number(d.x) || 0.5),
+        spin: -(Number(d.s) || 0)
+      });
+      status.textContent = 'Incoming from ' + (d.by || 'someone') + '!';
       const stage = document.querySelector('.stage');
       stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake');
       const flash = document.getElementById('flash');
-      flash.textContent = 'HIT BY ' + String(d.by || '?').toUpperCase() + '!';
+      flash.textContent = 'FROM ' + String(d.by || '?').toUpperCase() + '!';
       flash.classList.add('show', 'bad');
       setTimeout(() => flash.classList.remove('show', 'bad'), 1100);
-      paintBank(); zonesPaint();
     }
 
     function toLobby(){
@@ -542,7 +559,7 @@
       document.getElementById('over').classList.remove('show');
       document.getElementById('clock').textContent = '–:––';
       status.textContent = 'Waiting for the board to start the game…';
-      paintBank(); zonesPaint();
+      paintBank(); throwPaint();
     }
 
     /* The full room state arrives on `joined` (resent on every reconnect) and
@@ -553,7 +570,7 @@
       if(playing) return;
       document.getElementById('over').classList.remove('show');
       startGame(d && d.secs);
-      zonesPaint();
+      throwPaint();
     }
 
     function join(code, name){
@@ -575,12 +592,12 @@
         try{ m = JSON.parse((d && d.word) || ''); }catch(_){ return; }
         if(!m || !m.t) return;
         if(m.t === 'hit') onHit(m);
-        else if(m.t === 'nb'){ nbL = m.l || ''; nbR = m.r || ''; zonesPaint(); }
+        else if(m.t === 'nb'){ nbL = m.l || ''; nbR = m.r || ''; throwPaint(); }
         else if(m.t === 'sync' && playing && Number(m.left) > 0){
           secsLeft = Math.round(Number(m.left)); paintClock();
         }
       });
-      client.on('kicked', () => { roomChip('<span style="color:var(--bad)">removed from the room</span>'); client = null; zonesPaint(); });
+      client.on('kicked', () => { roomChip('<span style="color:var(--bad)">removed from the room</span>'); client = null; throwPaint(); });
       client.on('status', st => {
         const state = (st && st.state) || '';
         roomChip('room <b>' + code + '</b>' +
@@ -630,25 +647,6 @@
     });
     function endDrag(e){
       if(!world.heldBy(e.pointerId)) return;
-      /* Dropped inside an active throw zone: the tile is spent, not placed.
-         `takeHeld` says which letter left, the rack shrinks (no replacement
-         until the next bank — the ammo limit), and the intent goes up for the
-         board to route. Zones are pointer-events:none, so this rect test is
-         the only thing that makes them real. */
-      const side = zoneAt(e);
-      if(side){
-        const ch = world.takeHeld(e.pointerId);
-        if(ch){
-          const at = rack.indexOf(ch);
-          if(at !== -1) rack.splice(at, 1);
-          send({ t:'th', d: side.toUpperCase(), l: ch });
-          status.textContent = 'Thrown at ' + (side === 'l' ? nbL : nbR) + '!';
-          readBoard(); zonesPaint();
-        }
-        try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
-        if(!world.anyHeld()) canvas.classList.remove('grabbing');
-        return;
-      }
       world.drop(e.pointerId);
       try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
       if(!world.anyHeld()) canvas.classList.remove('grabbing');
@@ -705,16 +703,18 @@
        drives) fires no onArrange — a driven board must ask for the re-read a
        real dock performs itself. */
     window.__bs = { world, deal, bank, startGame, endGame, read: readBoard,
-      /* the suite's throw — the same path as a zone drop, minus the pointer */
+      /* the suite's throw — the same wire as a real escape, minus the physics:
+         direction picks the horizontal velocity the flick would have had */
       throw: dir => {
-        const side = String(dir || 'R').toUpperCase() === 'L' ? 'l' : 'r';
-        const name = side === 'l' ? nbL : nbR;
-        if(!client || !playing || !name || rack.length <= MIN_WORD) return false;
+        if(!client || !playing || !(nbL || nbR) || !rack.length) return false;
+        const d = String(dir || 'R').toUpperCase();
         const ch = rack.pop();
-        world.setPieces(rack); world.slots(SLOT_COUNT);
-        candidate = ''; candValid = false; validSince = 0;
-        send({ t:'th', d: side.toUpperCase(), l: ch });
-        readBoard(); zonesPaint();
+        send({ t:'th', l: ch, h: '#6FB04A',
+               vx: d === 'L' ? -14 : d === 'U' ? 0 : 14,
+               vy: -22, x: 0.5, s: 0.3 });
+        hints = pickHints(spellable(rack));
+        renderHints();
+        readBoard(); paintBank();
         return true;
       },
       join, connected: () => !!client,

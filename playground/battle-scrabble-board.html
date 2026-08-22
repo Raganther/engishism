@@ -95,9 +95,9 @@
     </aside>
   </main>
 
-<script src="../game-hub/hub-buzzer.js?v=20260822g"></script>
-<script src="../game-hub/hub-qr.js?v=20260822g"></script>
-<script src="bench-kit.js?v=20260822g"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260822h"></script>
+<script src="../game-hub/hub-qr.js?v=20260822h"></script>
+<script src="bench-kit.js?v=20260822h"></script>
 <script>
 (function(){
   'use strict';
@@ -109,9 +109,11 @@
      the relay's existing messages — nothing new on the wire.
      Up, via respond() (<=120 chars), tagged `t`, per-phone sequence `q`:
        {"t":"s","q":7,"sc":41.5,"w":"QUIZ","n":4[,"f":1]}   score (f = final)
-       {"t":"th","q":8,"d":"L","l":"Q"}                     throw intent
+       {"t":"th","q":8,"l":"Q","h":"#6FB04A",
+        "vx":-12.4,"vy":-28.1,"x":0.42,"s":0.3}             a thrown tile, physics and all
      Down, to one phone via nope():
-       {"t":"hit","by":"Maria","l":"Q"}    you were hit
+       {"t":"hit","by":"Maria","l":"Q","h":"#6FB04A",
+        "vx":12.4,"vy":28.1,"x":0.58,"s":-0.3}   the same tile, arriving mirrored
        {"t":"nb","l":"Maria","r":"Ken"}    your neighbours' names
        {"t":"sync","left":48}              clock sync for a late joiner
      Start rides arm({mode:'answer',rethink:true,secs}); the board holds the
@@ -205,11 +207,23 @@
     });
   }
 
+  /* The flick's sideways speed is the aim: hard left goes to the left
+     neighbour, hard right to the right, straight up to the player opposite.
+     With two players every case is the other one. The raw physics travel
+     whole; the TARGET mirrors them (the phones face each other). */
   function routeThrow(fromId, m){
     const nb = neighbours(fromId);
     if(!nb) return;                                // nobody to hit
-    const target = (String(m.d).toUpperCase() === 'L') ? nb.l : nb.r;
-    host.nope(target, JSON.stringify({ t:'hit', by: players[fromId].name, l: m.l || '' }));
+    const ring = presentSeats();
+    const i = ring.indexOf(fromId);
+    const vx = Number(m.vx) || 0;
+    const target = vx < -6 ? nb.l
+                 : vx >  6 ? nb.r
+                 : ring[(i + Math.floor(ring.length / 2)) % ring.length];
+    if(target === fromId) return;                  // a room of one aims at nobody
+    host.nope(target, JSON.stringify({ t:'hit', by: players[fromId].name,
+      l: m.l || '', h: m.h || '', vx, vy: Number(m.vy) || -12,
+      x: Number(m.x) || 0.5, s: Number(m.s) || 0 }));
     $('toast').textContent = players[fromId].name + ' → ' + players[target].name + ' !';
     setTimeout(() => { if(!$('banner').textContent) $('toast').textContent = ''; }, 1800);
     const el = document.querySelector('.chip[data-id="' + target + '"]');

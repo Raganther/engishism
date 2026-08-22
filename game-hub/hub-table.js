@@ -16,14 +16,18 @@
    hub-kit.js (needs window.HubKit).
 
    Kit.table({ canvas, gravity, restitution, frictionAir, size, power, swing,
-               snap, onArrange }) -> {
+               snap, openTop, onArrange, onEscape, onArrive }) -> {
      reset(), setPieces(labels[]), slots(n), place(i,label),
      read()->string, cells()->string[], filled()->bool, setResult(res),
-     setFeel(partial), resize(),
+     setFeel(partial), resize(), setOpenTop(on),
      grab(id,x,y), move(id,x,y), drop(id), heldBy(id), anyHeld(),
-     step(), draw()
+     strike({ch,hue,vx,vy,xFrac,spin}), step(), draw()
    }
    onArrange(read, filled) fires whenever a piece docks or is pulled out.
+   With openTop, a piece flicked off the top edge leaves the table and fires
+   onEscape({ch,hue,vx,vy,xFrac,spin}); strike() is the receiving end — a
+   foreign body entering from the top that knocks the first slotted letter it
+   hits loose, then becomes an ordinary tile and fires onArrive({ch,hue,struck}).
    setResult('right'|'wrong'|null) tints filled slots — judging stays the
    caller's; the table only paints the tint it is handed.
    ========================================================================== */
@@ -31,7 +35,7 @@
   'use strict';
   if(!window.Matter || !window.HubKit) return;   // load order guard
   const M = window.Matter;
-  const { Engine, Composite, Bodies, Body, Query, Constraint } = M;
+  const { Engine, Composite, Bodies, Body, Query, Constraint, Events } = M;
 
   /* palette for the pieces: distinguishable, high-contrast on dark */
   const HUES = ['#00A0DF','#F5C542','#E2603B','#6FB04A','#B36FD1','#3BB0A8','#E86FA0'];
@@ -56,11 +60,22 @@
     const engine = Engine.create();
     engine.gravity.y = opts.gravity != null ? opts.gravity : 0.9;
     engine.constraintIterations = 6;   // pulls a held piece to the finger harder each frame, so a fast drag lags less
+    /* Queued, never resolved mid-solve: mutating the world from inside a
+       collision callback is the classic Matter footgun. resolveStrikes() runs
+       the queue after Engine.update, inside step(). */
+    Events.on(engine, 'collisionStart', e => {
+      for(const pr of e.pairs) pendingHits.push([pr.bodyA, pr.bodyB]);
+    });
 
     let cssW = 0, cssH = 0, dpr = 1;
     let tile;                    // effective tile size = the fitted slot size (see fitTiles)
     let walls = [];
-    let pieces = [];       // { body, ch, hue, slot, dock }
+    /* The top wall is optional: Battle Scrabble's throw is a tile flicked off
+       the top edge, so a table that can be thrown FROM opens its ceiling. Off
+       by default — every other caller keeps the closed box. */
+    let openTop = !!opts.openTop;
+    let pieces = [];       // { body, ch, hue, slot, dock, foreign?, born? }
+    const pendingHits = [];   // collision pairs queued mid-solve, resolved after step
     let slots = [];        // { x, y, w, h, piece }
     let result = null;     // tint for filled slots: null | 'right' | 'wrong'
     const feel = {
@@ -107,7 +122,7 @@
        at feel.size looks bigger than its box. `tile` is that fitted size; scale the bodies
        to it so the physics matches the drawn square, and the draw uses it for loose pieces. */
     function fitTiles(){
-      const n = Math.max(slots.length, pieces.length, 1);
+      const n = Math.max(slots.length, pieces.filter(p => !p.foreign).length, 1);
       const nt = slotDims(n).sw;
       if(pieces.length && Math.abs(nt - tile) > 0.5){
         const f = nt / tile;
@@ -121,10 +136,11 @@
       const o = { isStatic:true, restitution:0.4, friction:0.2 };
       walls = [
         Bodies.rectangle(cssW/2, cssH + t/2, cssW + t*2, t, o),   // floor
-        Bodies.rectangle(cssW/2, -t/2,        cssW + t*2, t, o),   // ceiling
         Bodies.rectangle(-t/2,   cssH/2,      t, cssH + t*2, o),   // left
         Bodies.rectangle(cssW + t/2, cssH/2,  t, cssH + t*2, o)    // right
       ];
+      // the ceiling only when the table is closed — an open top is how a throw leaves
+      if(!openTop) walls.push(Bodies.rectangle(cssW/2, -t/2, cssW + t*2, t, o));
       Composite.add(engine.world, walls);
     }
 
@@ -229,7 +245,7 @@
     function place(i, label){
       if(i < 0 || i >= slots.length || slots[i].piece) return false;
       const held = heldBodies();
-      const p = pieces.find(pp => pp.slot == null && !pp.dock && !held.has(pp.body) && pp.ch === String(label));
+      const p = pieces.find(pp => pp.slot == null && !pp.dock && !pp.foreign && !held.has(pp.body) && pp.ch === String(label));
       if(!p) return false;
       const s = slots[i];
       s.piece = p; p.slot = i; p.dock = null;
@@ -248,7 +264,7 @@
       // nearest-centre fallback (a fat fingertip lands slightly off a small tile).
       // A piece another finger holds is off-limits, or two fingers fight over it.
       const taken = heldBodies();
-      const free = pieces.filter(p => !taken.has(p.body)).map(p => p.body);
+      const free = pieces.filter(p => !taken.has(p.body) && !p.foreign).map(p => p.body);
       const hit = Query.point(free, { x, y });
       const body = hit.length ? hit[hit.length - 1] : nearest(x, y, taken);
       if(!body) return false;
@@ -279,6 +295,7 @@
       let best = null, bestD = Infinity;
       for(const p of pieces){
         if(exclude && exclude.has(p.body)) continue;
+        if(p.foreign) continue;             // a finger cannot catch the incoming missile
         const dx = p.body.position.x - x, dy = p.body.position.y - y, d = dx*dx + dy*dy;
         if(d < bestD){ bestD = d; best = p.body; }
       }
@@ -310,32 +327,105 @@
       grips.clear();
     }
 
-    /* **Take the piece a pointer is holding out of the world, and say which it
-       was.** The throw-at-a-neighbour gesture (Battle Scrabble's edge zones)
-       needs the identity of the dragged tile, and nothing on the public surface
-       could say — `grab`/`heldBy` answer yes or no, and the pieces are closed
-       over in here. Deliberately not `drop()`: drop's job is to dock or hurl,
-       and a taken piece must do neither — the grip is released bare, the slot
-       freed, the body removed. Returns the letter, or null if this pointer
-       held nothing. Additive; no existing caller changes. */
-    function takeHeld(id){
-      const g = grips.get(id);
-      if(!g) return null;
-      Composite.remove(engine.world, g.constraint);
-      grips.delete(id);
-      const p = pieceOf(g.body);
-      if(!p) return null;
-      freeSlotOf(p);
-      p.dock = null;
-      Composite.remove(engine.world, p.body);
-      pieces = pieces.filter(q => q !== p);
-      return p.ch;
+    /* ---- the throw: escape off the top, arrive as a missile ----
+       A tile flicked off an open top LEAVES — removed and reported through
+       `onEscape` with everything the other end needs to recreate it: letter,
+       colour, velocity, entry point, spin. `strike()` is that other end: a
+       foreign body entering from the top with real velocity, colliding for
+       real. Its first contact naturalises it into an ordinary rack tile
+       (`onArrive`), and if that contact was a slotted letter, the letter is
+       knocked loose — the word breaks physically, nothing else moves. */
+    function tickEscapes(){
+      if(!openTop) return;
+      const held = heldBodies();
+      for(let i = pieces.length - 1; i >= 0; i--){
+        const p = pieces[i];
+        if(p.foreign || p.dock || p.slot != null || held.has(p.body)) continue;
+        const b = p.body;
+        if(b.bounds.max.y >= 0 || b.velocity.y >= 0) continue;
+        Composite.remove(engine.world, b);
+        pieces.splice(i, 1);
+        if(opts.onEscape) opts.onEscape({
+          ch: p.ch, hue: p.hue,
+          vx: b.velocity.x, vy: b.velocity.y,
+          xFrac: clamp(b.position.x / (cssW || 1), 0, 1),
+          spin: b.angularVelocity
+        });
+      }
+    }
+    function strike(o){
+      o = o || {};
+      const sz = tile || feel.size;
+      const x = clamp((Number(o.xFrac) || 0.5), 0.08, 0.92) * cssW;
+      /* With the top open the missile enters from off-screen, the fiction
+         intact. With it closed (a solo table driven by a test, or a race with
+         setOpenTop) spawning at -sz lands INSIDE the 200px ceiling body and
+         Matter ejects it on top, where it sits forever — so it enters just
+         inside the field instead. */
+      const y = openTop ? -sz : sz * 0.75;
+      const body = Bodies.rectangle(x, y, sz, sz, {
+        chamfer:{ radius: Math.round(sz*0.16) },
+        restitution: feel.restitution, frictionAir: feel.frictionAir,
+        friction: 0.3, density: 0.0016
+      });
+      /* Capped well under the wall-tunnelling speed — this build has no
+         continuous collision detection, and a 55 px/step body passes clean
+         through a resting row in one frame. */
+      Body.setVelocity(body, { x: clamp(Number(o.vx) || 0, -22, 22),
+                               y: clamp(Number(o.vy) || 12, 4, 22) });
+      Body.setAngularVelocity(body, clamp(Number(o.spin) || 0, -1, 1));
+      const p = { body, ch: String(o.ch || '?'), hue: o.hue || HUES[0],
+                  slot: null, dock: null, foreign: true, born: now() };
+      pieces.push(p);
+      Composite.add(engine.world, body);
+      return true;
+    }
+    function naturalise(p, struckCh){
+      if(window.__tblDebug) window.__tblDebug.push('naturalise ' + p.ch + ' struck=' + struckCh + ' y=' + Math.round(p.body.position.y) + ' cssH=' + cssH);
+      if(!p.foreign) return;
+      p.foreign = false;
+      if(opts.onArrive) opts.onArrive({ ch: p.ch, hue: p.hue, struck: struckCh || null });
+    }
+    function resolveStrikes(){
+      while(pendingHits.length){
+        const pair = pendingHits.pop();
+        const a = pieceOf(pair[0]), b = pieceOf(pair[1]);
+        const f = (a && a.foreign) ? a : (b && b.foreign) ? b : null;
+        // opt-in probe: a page that sets window.__tblDebug=[] sees every foreign pair
+        if(window.__tblDebug && f)
+          window.__tblDebug.push('pair f=' + f.ch + ' hit=' + JSON.stringify((f === a ? b : a) && { ch:(f === a ? b : a).ch, slot:(f === a ? b : a).slot }));
+        if(!f || !f.foreign) continue;              // already naturalised this frame
+        const victim = (f === a) ? b : a;           // a piece, or null for a wall
+        /* A wall contact only counts as landing when it is the FLOOR — a graze
+           on the ceiling or a side on the way in must not naturalise a missile
+           that has not reached anything yet. */
+        if(!victim && f.body.position.y < cssH * 0.55) continue;
+        let struck = null;
+        if(victim && !victim.foreign && victim.slot != null){
+          /* Knock the letter loose: the full un-slot recipe — a slotted body is
+             static, so freeing the slot alone leaves it hanging in the air. */
+          struck = victim.ch;
+          victim.dock = null;
+          freeSlotOf(victim);
+          Body.setStatic(victim.body, false);
+          result = null;
+          Body.setVelocity(victim.body, { x: f.body.velocity.x * 0.8,
+                                          y: Math.max(f.body.velocity.y * 0.8, 2) });
+          Body.setAngularVelocity(victim.body, (Math.random() - 0.5) * 0.8);
+          report();                                  // onArrange does not fire by itself
+        }
+        naturalise(f, struck);
+      }
+      // the failsafe: a missile that touched nothing for 2s is theirs anyway
+      for(const p of pieces) if(p.foreign && now() - p.born > 2000) naturalise(p, null);
     }
 
     /* ---- step + default draw. Matter does the physics; we do the draw. ---- */
     function step(){
       Engine.update(engine, 1000/60);
       tickDocks();
+      tickEscapes();
+      resolveStrikes();
     }
     function draw(){
       ctx.clearRect(0, 0, cssW, cssH);
@@ -393,7 +483,8 @@
       setPieces, slots: makeSlots, place,
       read, cells, filled, setResult(res){ result = res; },
       setFeel, resize: sizeToCanvas,
-      grab, move, drop, takeHeld,
+      grab, move, drop,
+      strike, setOpenTop(on){ openTop = !!on; if(cssW) buildWalls(); },
       heldBy: id => grips.has(id), anyHeld: () => grips.size > 0,
       step, draw
     };
