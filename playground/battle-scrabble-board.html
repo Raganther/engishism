@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Battle Scrabble — the board</title>
+<style>
+  /* The projector's half of Battle Scrabble. This page hosts the room and owns
+     the truth the phones cannot: the seating circle (join order, wraparound),
+     the standings, the clock, and who a throw actually lands on. Every phone
+     runs battle-scrabble.html — the QR below points there, not at join.html.
+     Chrome copied from the other playground boards; no hub skin. */
+  :root{
+    --bg:#101318; --panel:#171b22; --text:#f2f2ec; --muted:#9aa0aa;
+    --border:#2a2f38; --accent:#00A0DF; --good:#6FB04A; --bad:#E2603B; --gold:#E8B93E;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; overflow:hidden; }
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display:flex; flex-direction:column;
+  }
+  header{ flex:0 0 auto; display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:12px 18px; border-bottom:1px solid var(--border); }
+  h1{ font-size:1.3rem; margin:0; }
+  h1 small{ color:var(--muted); font-weight:400; font-size:0.85rem; margin-left:8px; }
+  #room-slot{ margin-left:auto; }
+  #settings-slot{ display:flex; gap:10px; align-items:center; }
+  button{
+    font:inherit; font-size:0.95rem; padding:9px 20px; border-radius:999px;
+    border:1px solid var(--border); background:var(--panel); color:var(--text); cursor:pointer;
+  }
+  button:hover{ border-color:var(--accent); }
+  #start{ background:var(--accent); border-color:var(--accent); color:#08131a; font-weight:700; }
+
+  main{ flex:1 1 auto; display:flex; min-height:0; }
+  .arena{ flex:1 1 auto; position:relative; min-width:0; }
+
+  /* The circle IS the seating diagram — it stays in seat order so what the
+     room sees matches who is throwing at whom. Sorting happens in the sidebar. */
+  #circle{ position:absolute; inset:0; }
+  .chip{
+    position:absolute; left:50%; top:50%; width:150px; margin-left:-75px;
+    background:var(--panel); border:1px solid var(--border); border-radius:14px;
+    padding:8px 12px; text-align:center; transition:transform 0.4s;
+  }
+  .chip .nm{ font-weight:700; font-size:1.02rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .chip .sc{ font-size:1.5rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums; }
+  .chip .wd{ font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; min-height:1em; }
+  .chip.gone{ opacity:0.35; }
+  .chip.hit{ animation:chip-shake 0.5s; border-color:var(--bad); }
+  @keyframes chip-shake{
+    0%,100%{ margin-left:-75px; } 25%{ margin-left:-83px; } 50%{ margin-left:-67px; } 75%{ margin-left:-80px; }
+  }
+  #centre{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    text-align:center; pointer-events:none;
+  }
+  #big-clock{ font-size:4.2rem; font-weight:800; font-variant-numeric:tabular-nums; }
+  #big-clock.urgent{ color:var(--bad); }
+  #toast{ min-height:1.4em; color:var(--bad); font-weight:600; }
+  #banner{ color:var(--gold); font-size:1.6rem; font-weight:800; min-height:1.2em; }
+
+  aside{
+    flex:0 0 240px; border-left:1px solid var(--border); padding:14px 16px;
+    display:flex; flex-direction:column; gap:8px; overflow:hidden;
+  }
+  aside h2{ font-size:0.72rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); margin:0; }
+  .stand{ display:flex; justify-content:space-between; gap:8px; font-variant-numeric:tabular-nums; padding:4px 0; border-bottom:1px solid var(--border); }
+  .stand b{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .stand:first-of-type b{ color:var(--gold); }
+  .hint{ color:var(--muted); font-size:0.8rem; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Battle Scrabble <small>the board — phones scan the code and play</small></h1>
+    <button id="start" type="button">Start ▶</button>
+    <div id="settings-slot"></div>
+    <div id="room-slot"></div>
+  </header>
+  <main>
+    <div class="arena">
+      <div id="circle"></div>
+      <div id="centre">
+        <div id="big-clock">–:––</div>
+        <div id="toast"></div>
+        <div id="banner"></div>
+      </div>
+    </div>
+    <aside>
+      <h2>Standings</h2>
+      <div id="stand"></div>
+      <p class="hint" id="hint">Waiting for players — phones scan the room code (top right) and join with their name.</p>
+    </aside>
+  </main>
+
+<script src="../game-hub/hub-buzzer.js?v=20260822f"></script>
+<script src="../game-hub/hub-qr.js?v=20260822f"></script>
+<script src="bench-kit.js?v=20260822f"></script>
+<script>
+(function(){
+  'use strict';
+  const $ = id => document.getElementById(id);
+  if(!window.BenchKit){ $('hint').textContent = 'BenchKit failed to load.'; return; }
+
+  /* ==================== the room — the protocol ====================
+     Duplicated verbatim on the phone page (battle-scrabble.html): JSON rides
+     the relay's existing messages — nothing new on the wire.
+     Up, via respond() (<=120 chars), tagged `t`, per-phone sequence `q`:
+       {"t":"s","q":7,"sc":41.5,"w":"QUIZ","n":4[,"f":1]}   score (f = final)
+       {"t":"th","q":8,"d":"L","l":"Q"}                     throw intent
+     Down, to one phone via nope():
+       {"t":"hit","by":"Maria","l":"Q"}    you were hit
+       {"t":"nb","l":"Maria","r":"Ken"}    your neighbours' names
+       {"t":"sync","left":48}              clock sync for a late joiner
+     Start rides arm({mode:'answer',rethink:true,secs}); the board holds the
+     room armed through a grace period after time-up so finals still land.
+     Receivers ignore non-JSON and unknown `t` — that is the compat rule. */
+
+  let host = null;
+  /* The seats: append-only ids, in join order, never reordered and never
+     deleted — the neighbour pinning. The relay's roster drops a player who
+     disconnects and re-appends them on return; this array is why that cannot
+     shuffle who is throwing at whom. */
+  const seats = [];
+  const players = {};        // id -> { name, score, words, lastWord, lastQ, present, lastNb }
+  let running = false, endsAt = 0, tick = null;
+
+  const settings = BenchKit.settings($('settings-slot'), [
+    { id:'secs', label:'Game time', default:'120',
+      options:[ {value:'60',label:'1 min'}, {value:'120',label:'2 min'},
+                {value:'180',label:'3 min'}, {value:'300',label:'5 min'} ] }
+  ]);
+
+  const room = BenchKit.room({
+    mount: $('room-slot'),
+    board: 'battle-scrabble-board.html',
+    joinPath: '/playground/battle-scrabble.html',
+    on: {
+      ready(h){ host = h; },
+      players(list){
+        (list || []).forEach(p => {
+          if(!players[p.id]){
+            players[p.id] = { name:p.name, score:0, words:0, lastWord:'', lastQ:0, present:true, lastNb:'' };
+            seats.push(p.id);
+          }
+          players[p.id].name = p.name;
+        });
+        const here = new Set((list || []).map(p => p.id));
+        seats.forEach(id => { players[id].present = here.has(id); });
+        render();
+        pushNb();
+        /* A phone seen (or seen again) mid-game gets the real clock — the
+           relay replays the original arm, whose secs are stale by now. */
+        if(running && host){
+          const left = Math.max(1, Math.round((endsAt - Date.now()) / 1000));
+          (list || []).forEach(p => host.nope(p.id, JSON.stringify({ t:'sync', left })));
+        }
+      },
+      response(d){
+        const v = d && d.latest;
+        if(!v || !host) return;
+        let m = null;
+        try{ m = JSON.parse(v.value || ''); }catch(_){ return; }
+        if(!m || !m.t) return;
+        const pl = players[v.id];
+        if(!pl) return;
+        /* The relay stores one value per player and replays it, so the same
+           message can arrive twice — the sequence makes a replay a no-op. */
+        if(m.q != null){ if(m.q <= pl.lastQ) return; pl.lastQ = m.q; }
+        if(m.t === 's'){
+          pl.score = Number(m.sc) || 0;
+          pl.words = Number(m.n) || 0;
+          pl.lastWord = String(m.w || '').slice(0, 12);
+          render();
+        } else if(m.t === 'th' && running){
+          routeThrow(v.id, m);
+        }
+      }
+    }
+  });
+
+  /* Neighbours over the *present* seats, wrapping — the thrower's left is the
+     previous seat, their right the next. The board is the one authority; the
+     phones' zone labels come only from these pushes. */
+  function presentSeats(){ return seats.filter(id => players[id].present); }
+  function neighbours(id){
+    const ring = presentSeats();
+    const i = ring.indexOf(id);
+    if(i === -1 || ring.length < 2) return null;
+    return { l: ring[(i - 1 + ring.length) % ring.length],
+             r: ring[(i + 1) % ring.length] };
+  }
+  function pushNb(){
+    if(!host) return;
+    presentSeats().forEach(id => {
+      const nb = neighbours(id);
+      const msg = JSON.stringify(nb
+        ? { t:'nb', l: players[nb.l].name, r: players[nb.r].name }
+        : { t:'nb', l:'', r:'' });
+      if(players[id].lastNb === msg) return;      // only phones whose view changed
+      players[id].lastNb = msg;
+      host.nope(id, msg);
+    });
+  }
+
+  function routeThrow(fromId, m){
+    const nb = neighbours(fromId);
+    if(!nb) return;                                // nobody to hit
+    const target = (String(m.d).toUpperCase() === 'L') ? nb.l : nb.r;
+    host.nope(target, JSON.stringify({ t:'hit', by: players[fromId].name, l: m.l || '' }));
+    $('toast').textContent = players[fromId].name + ' → ' + players[target].name + ' !';
+    setTimeout(() => { if(!$('banner').textContent) $('toast').textContent = ''; }, 1800);
+    const el = document.querySelector('.chip[data-id="' + target + '"]');
+    if(el){ el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
+  }
+
+  /* ---- the game ---- */
+  function start(){
+    if(!host || !presentSeats().length) return;
+    seats.forEach(id => { players[id].score = 0; players[id].words = 0; players[id].lastWord = ''; players[id].lastQ = 0; });
+    $('banner').textContent = ''; $('toast').textContent = '';
+    const secs = Number(settings.get('secs')) || 120;
+    /* rethink lets every phone respond as often as it banks; answer is a
+       whitelisted mode (an unknown one silently downgrades to buzz, which
+       would kill every respond). Re-arming clears stored responses — correct
+       at the start of a game. */
+    host.arm('', { mode:'answer', rethink:true, secs });
+    running = true;
+    endsAt = Date.now() + secs * 1000;
+    clearInterval(tick);
+    tick = setInterval(paintClock, 250);
+    paintClock();
+    pushNb();
+    $('start').textContent = 'Again ⟳';
+    render();
+  }
+  function paintClock(){
+    const left = Math.max(0, Math.round((endsAt - Date.now()) / 1000));
+    $('big-clock').textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+    $('big-clock').classList.toggle('urgent', running && left <= 10);
+    if(running && left <= 0) endGame();
+  }
+  function endGame(){
+    running = false;
+    clearInterval(tick); tick = null;
+    /* The room stays armed through a grace beat so every phone's final score
+       report still lands — respond needs an armed room. */
+    setTimeout(() => { if(host && !running) host.disarm(); }, 4000);
+    setTimeout(crown, 1500);          // let the last finals arrive, then crown
+  }
+  function crown(){
+    if(running) return;
+    const ring = seats.filter(id => players[id].words || players[id].score);
+    if(!ring.length){ $('banner').textContent = 'Time!'; return; }
+    const top = ring.slice().sort((a, b) => players[b].score - players[a].score)[0];
+    $('banner').textContent = '🏆 ' + players[top].name + ' — ' + players[top].score;
+    $('toast').textContent = '';
+    render();
+  }
+
+  /* ---- painting ---- */
+  function render(){
+    const circle = $('circle');
+    circle.querySelectorAll('.chip').forEach(el => {
+      if(seats.indexOf(el.dataset.id) === -1) el.remove();
+    });
+    const n = Math.max(seats.length, 1);
+    const R = Math.min(circle.clientWidth, circle.clientHeight) * 0.36;
+    seats.forEach((id, i) => {
+      let el = circle.querySelector('.chip[data-id="' + id + '"]');
+      if(!el){
+        el = document.createElement('div');
+        el.className = 'chip'; el.dataset.id = id;
+        el.innerHTML = '<div class="nm"></div><div class="sc"></div><div class="wd"></div>';
+        circle.appendChild(el);
+      }
+      const a = (i / n) * 2 * Math.PI - Math.PI / 2;
+      el.style.transform = 'translate(' + Math.round(Math.cos(a) * R) + 'px,' +
+                           Math.round(Math.sin(a) * R - 40) + 'px)';
+      el.classList.toggle('gone', !players[id].present);
+      el.querySelector('.nm').textContent = players[id].name;
+      el.querySelector('.sc').textContent = players[id].score;
+      el.querySelector('.wd').textContent = players[id].lastWord ? players[id].lastWord + ' · ' + players[id].words : '';
+    });
+    const stand = $('stand');
+    stand.innerHTML = '';
+    seats.slice().sort((a, b) => players[b].score - players[a].score).forEach(id => {
+      const row = document.createElement('div');
+      row.className = 'stand';
+      row.innerHTML = '<b></b><span></span>';
+      row.querySelector('b').textContent = players[id].name;
+      row.querySelector('span').textContent = players[id].score;
+      stand.appendChild(row);
+    });
+    $('hint').style.display = seats.length ? 'none' : '';
+  }
+
+  $('start').addEventListener('click', start);
+  window.addEventListener('resize', render);
+
+  // the suite's handle
+  window.__bsb = { seats, players, start, running: () => running, host: () => host,
+    // the suite's fast-forward: pull the end of the game to s seconds from now
+    hurry: s => { if(running){ endsAt = Date.now() + s * 1000; paintClock(); } } };
+})();
+</script>
+</body>
+</html>
