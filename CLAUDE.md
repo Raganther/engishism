@@ -273,8 +273,10 @@ not a helper.
   why `read`, `judge` and `accept` all take it. Students join and drop all lesson; a size
   the round was told once is a lie by the third question. It is also why the question
   bench works: it has no team bar, passes its own `ctx`, and no round can tell.
-  **`roundCtx()` in `hub-engine.js` is the field list**, and a copy of it written anywhere
-  else is a copy that will be wrong.
+  **`Kit.round.ctx(deps)` in `hub-rounds.js` is the field list and the guard shapes** —
+  the hub's `roundCtx()` and the bench's `ctx()` are both thin calls to it, passing only
+  what each owns (settings scope as a `setting(key)` getter, keep store, host facts). A
+  copy of the list written anywhere else is a copy that will be wrong.
 - **The ordinary question is a round too** — `rounds/default.js`, registered as
   `round_default`. It deliberately declares no `field` and no `claims`, so
   `Kit.round.of(item)` returns null for a gap fill: the content-screen chip, the clue path
