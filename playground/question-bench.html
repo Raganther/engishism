@@ -1214,68 +1214,28 @@ function onSettle(){
   if(!state || state.done) return;
   const def = roundDef();
   const c = ctx();
-  const verdicts = Object.keys(state.picks).map(t => ({
-    team: Number(t), set: state.picks[t], r: def.judge(state.picks[t], state, Number(t), c)
-  })).filter(v => v.r.verdict !== 'incomplete');
-
-  /* **Open to all: everyone finishes and is ranked, not just the first right answer.**
-     Mirror the engine's roundSettle open branch — record each finisher's arrival in
-     Kit.round.results (the lanes draw the 1st/2nd/3rd badges straight off it) and keep
-     the room open; the teacher's Reveal ends the question. saidOf drives the per-player
-     miss commentary, exactly as a real game shows it. No take(), no re-arm — a student
-     mid-arrangement is not reset by someone else finishing. */
-  if(c.openToAll){
-    // ordered rounds key by the sequence; the rest by the set — so a re-ordered wrong
-    // answer re-announces and a fresh rung accepts, exactly as the engine's roundKeyOf.
-    const keyOf = set => (def.ordered ? set.slice() : set.slice().sort()).join('|');
-    let moved = false, again = false;
-    /* Misses first, so a right answer owns the say line (the engine's order). */
-    verdicts.filter(v => v.r.verdict !== 'right').forEach(v => {
-      if(!settler.fresh(v.team, keyOf(v.set))) return;
-      state.say = def.saidOf(ctx().teamName(v.team), v.r, state); state.sayTeam = v.team;
-      shake(v.set); moved = true;
-    });
-    /* Every fresh right answer is ACCEPTED — that is what advances a multi-step round
-       (an ordering climb locks its rung and deals the next), and skipping it froze the
-       ladder. `done` separates a rung from a finish: a step re-arms for the next one and
-       records nothing final; a finish stamps the placement (the lanes draw the badge). */
-    verdicts.filter(v => v.r.verdict === 'right').forEach(v => {
-      if(!settler.fresh(v.team, 'ok:' + keyOf(v.set))) return;
-      def.accept(v.set, state, v.team, c);
-      const finished = v.r.done !== false || state.done;
-      Kit.round.results.note(v.team, { at: Date.now(), done: finished });
-      if(!finished){
-        state.say = ctx().teamName(v.team) + ' — yes.'; state.sayTeam = v.team;
-        again = true; moved = true;
-        return;
-      }
-      state.say = ctx().teamName(v.team) + ' has it!'; state.sayTeam = v.team;
-      moved = true;
-    });
-    if(moved) draw();
-    // a step moved the question on — re-arm the phones for the next rung, as the hub does
-    if(again && host){ const a = def.arm(state, ctx()); if(a) host.arm(a.prompt, a); }
-    return;
-  }
-
-  // the right answer is resolved before any wrong one — two teams can settle in one tick
-  const won = verdicts.filter(v => v.r.verdict === 'right')[0];
-  if(won){
-    /* Right is not always the end. A grouping card is over the moment a team has the
-       set; an ordering climb has four more rungs to go. The round says which. */
-    def.accept(won.set, state, won.team, c);
-    if(won.r.done !== false || state.done){ take(won.team); return; }
-    state.say = ctx().teamName(won.team) + ' — yes.'; state.sayTeam = won.team;
-    settler.reset();
-    draw();
-    if(host){ const a = def.arm(state, ctx()); host.arm(a.prompt, a); }
-    return;
-  }
-  verdicts.forEach(v=>{
-    if(!settler.fresh(v.team, v.set.slice().sort().join('|'))) return;
-    state.say = def.saidOf(ctx().teamName(v.team), v.r, state); state.sayTeam = v.team;
-    draw();
-    shake(v.set);
+  /* The decision structure — freshness, the rights resolved before any wrong one,
+     accept, the finished forks, the record the lanes draw their badges from — is
+     `Kit.round.resolve`, the same spine the engine's `roundSettle` calls. What is
+     written here is only the bench's effects: the say line, the shake, the answer
+     box, and re-arming its own phones. */
+  Kit.round.resolve(def, state, c, {
+    settler,
+    at: ()=> Date.now(),
+    draw,
+    miss: (team, r, set) => {
+      state.say = def.saidOf(c.teamName(team), r, state); state.sayTeam = team;
+      draw();
+      shake(set);
+    },
+    right: (team, r, finished) => {
+      if(!finished){ state.say = c.teamName(team) + ' — yes.'; state.sayTeam = team; return; }
+      /* Open, nobody takes the question — the finish is announced and the teacher
+         ends it. On the slot path the spine calls take(), which owns the line. */
+      if(c.openToAll){ state.say = c.teamName(team) + ' has it!'; state.sayTeam = team; }
+    },
+    take,
+    again: ()=>{ if(host){ const a = def.arm(state, ctx()); if(a) host.arm(a.prompt, a); } }
   });
 }
 

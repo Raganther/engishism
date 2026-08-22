@@ -2987,175 +2987,67 @@
 
   function roundSettle(){
     if(!roundLive()) return;
-    /* Start each cycle with no owner on the say line: a verdict that names a
-       competitor sets `sayTeam` beside its `say`, and this makes a site that forgets
-       fall back to a neutral line rather than wearing the *previous* competitor's
-       colour — the stale-colour bug a missed `roundMiss` caused. */
-    roundState.sayTeam = null;
-    const def = roundDef();
-    const ctx = roundCtx();
-    const verdicts = Object.keys(roundState.picks).map(t => ({
-      team: Number(t), set: roundState.picks[t], r: def.judge(roundState.picks[t], roundState, Number(t), ctx)
-    })).filter(v => v.r.verdict !== 'incomplete');
-    /* The right answer is resolved before any wrong one. Two teams can settle in the
-       same tick, and taking them in arrival order puts "not a group" on screen
-       *after* the other team has already taken the tile — the board announcing the
-       wrong headline for a question that has moved on. */
-    /* **A slot one team takes, or a question everybody answers.** Every board until
-       Quickfire had a slot — a tile, a hexagon, a rung — so the first right answer
-       ended the question and took it. A straight run of questions has no slot: the
-       question belongs to nobody, each team answers it, and each is paid for its own
-       answer. Declared by the host rather than branched on the game's name, and
-       false everywhere else, so the three boards above are untouched.
+    /* The decision structure — freshness, ordering, accept, the finished forks,
+       the record — is `Kit.round.resolve`, shared with the question bench. What
+       is written here is only this board's effects. */
+    Kit.round.resolve(roundDef(), roundState, roundCtx(), {
+      settler: roundSettler,
+      at: roundAt,
+      scoreEach: !!roundHost.scoreEach,
+      draw: renderRound,
+      miss: (team, r) => roundMiss(team, r),
+      right: roundRight,
+      take: roundTake,
+      again: roundAgain
+    });
+  }
 
-       The settler's per-team memory is what stops a team being paid twice: a right
-       answer settles once, and `win()` itself is idempotent per team. */
-    /* Earliest right answer, not lowest index — see `roundStamp`. The teacher's own
-       clicks carry no stamp and sort last, which is correct: a click is a judgement
-       made after the room has had its go. */
-    const rights = verdicts.filter(v => v.r.verdict === 'right')
-                           .sort((a, b) => roundAt(a.team) - roundAt(b.team));
-
-    /* **The question does not end because somebody was right.** Two boards' worth of
-       reasons, and they are the same reason: the first team to get there locks
-       everybody else out, so the rest of the room stops working on a question they
-       had not finished. On Quickfire there is no slot to lock — every team answers
-       every question — and `roundOpenToAll` is that same beat on a board that *does*
-       have one.
-
-       The slot still belongs to whoever was first, and it still pays in full. What
-       changes is that it is **held back** rather than paid now: the tile, the turn,
-       the banner and the ending are the ordinary take beat, run when the question
-       actually ends (the teacher reveals, or their own Check decides it). Everybody
-       else who still gets there is paid whatever the running rule says their position
-       is worth — less than the slot, which is what keeps being first worth something.
-
-       **Being right and the question being over are two different things, and this
-       branch once conflated them.** They were one function — `roundTake` set the
-       line naming the team, played the sting, *and* paid the tile, stopped the
-       settler and closed the card. Holding the question open meant that function no
-       longer ran when a team got it right, so the recognition went with the ending
-       and a correct answer produced nothing but a sound. Reported straight back from
-       a board, and correctly: a round that cannot say "yes, that's it" is not a round
-       any more.
-
-       So the two halves of that function are split here. What a right answer *is* —
-       the line, the sound, the round's own marking — happens every time one lands.
-       What ends the question is the teacher's, and nothing below touches it.
-
-       (There was a second reason given for the silence: that naming the team would
-       leak the answer to the rooms still working. It does not. No round prints *what*
-       a team answered in a way that naming them adds to, and Connections already puts
-       every team's picked words in its own lane.) */
+  /* What a right answer *is* on a board — the recognition beat, the phone tell
+     and the pay, split from the ending (see the note above `roundTake`: being
+     right and the question being over are two different things). Called by the
+     spine for every fresh accepted right, with `finished` already decided. */
+  function roundRight(team, r, finished){
+    /* Said to the phone that sent it, and only to that phone. True either way,
+       and the last word of a ladder deserves the same green as the first. */
+    roundSendRight(team, !finished);
+    roundSendDone();
     if(roundHost.scoreEach || openToAllNow()){
-      /* **Misses first, so a right answer has the last word.** Both can settle in one
-         tick, and whichever runs last owns the say line. "Team 2 has it" is the more
-         useful headline than "Team 3 — not that one", and on a board where nothing is
-         taken until the teacher ends it, the order costs nothing else. */
+      /* The board says who got it, the moment they do — only on the boards that
+         lost it when the question stopped ending on a right answer. Quickfire
+         never named a team per answer: every competitor answers every question
+         there, so its feedback is the strip and the standings. */
       if(!roundHost.scoreEach){
-        verdicts.filter(v => v.r.verdict !== 'right').forEach(v => {
-          if(!roundSettler.fresh(v.team, roundKeyOf(v.set))) return;
-          roundMiss(v.team, v.r);
-        });
+        roundState.say = teamName(team) + ' has it.'; roundState.sayTeam = team;
+        Sound.play(document.getElementById(roundHost.stage).classList.contains('lit')
+                   ? 'sting' : 'correct');
       }
-      let again = false;              // did any right answer move the question on
-      rights.forEach(v => {
-        if(!roundSettler.fresh(v.team, 'ok:' + roundKeyOf(v.set))) return;
-        def.accept(v.set, roundState, v.team, ctx);
-        /* Said to the phone that sent it, and only to that phone. Before the
-           finished/not-finished fork, because "your answer landed" is true either
-           way and the last word of a ladder deserves the same green as the first. */
-        const finished = v.r.done !== false || !!roundState.done;
-        roundSendRight(v.team, !finished);
-        roundSendDone();
-        /* The board says who got it, the moment they do — the same wording and the
-           same stage-aware sound the take beat has always used, so nothing new is
-           invented and the room hears what it has always heard.
-
-           **Only on the boards that lost it.** Quickfire never named a team per
-           answer: every competitor answers every question there, so a line and a
-           sting each would be sixteen of them in twenty seconds. Its feedback is the
-           strip and the standings, and that is unchanged. */
-        if(!roundHost.scoreEach){
-          roundState.say = teamName(v.team) + ' has it.'; roundState.sayTeam = v.team;
-          Sound.play(document.getElementById(roundHost.stage).classList.contains('lit')
-                     ? 'sting' : 'correct');
-        }
-        /* **On the record before anything is paid.** `done` is what separates getting
-           a piece right from finishing: an ordering climb is correct once per rung,
-           and a rule paying every correct answer would pay one question five times.
-           `at` is the arrival stamp, so the order is the room's rather than this
-           loop's. */
-        /* **Getting a rung right is not finishing the ladder**, and paying on the
-           first one was a real bug: an ordering race is correct once per word, so the
-           slot went to whoever got the *first word* rather than to whoever completed
-           a ladder. `done` is the round saying which of the two just happened. */
-        Kit.round.results.note(v.team, { at: roundAt(v.team), done: finished });
-        if(!finished){
-          /* A step, not a win. The card already says so; what the room needs is the
-             next question — for an ordering race that is a different set of words per
-             team, because the one just placed has left their pool. */
-          roundState.say = teamName(v.team) + ' — yes.'; roundState.sayTeam = v.team;
-          again = true;
-          return;
-        }
-        if(!roundHost.scoreEach && roundState.hostTook == null){
-          roundState.hostTook = v.team;     // the slot, paid when the question ends
-          return;                       // said and sounded above, like every other right answer
-        }
-        const paid = roundHost.scoreEach
-                       ? roundHost.win(v.team, roundPayout()[v.team] || 0)
-                       : roundPayLate(v.team);
-        notePhoneScore(teamName(v.team), v.team, null, paid || 0);
-      });
-      /* **A partial right answer moves the question on, so the room has to be asked
-         again.** The single-winner path has always done this and the open branch did
-         not, which is what left a placed word still sitting in its team's list on
-         every handset — the round could not progress because the phones were still
-         offering a word that had already been used. Once, after the loop, rather than
-         per team: an arm is room-wide and several teams can settle in one tick. */
-      if(again && buzzHost && currentClueItem){
-        roundSettler.reset();       // the question changed; every answer is worth trying again
-        if(roundReasks()) askPhones(currentClueItem.text, roundHost.game);
+      if(!finished){
+        /* A step, not a win. The card already says so; what the room needs is
+           the next question — the spine re-asks once, after the loop. */
+        roundState.say = teamName(team) + ' — yes.'; roundState.sayTeam = team;
+        return;
       }
-      renderRound();
-      return;                       // the clock or the teacher ends it, not the first right answer
-    }
-
-    const won = rights[0];
-    if(won){
-      /* On the record here too, so the standings screen can say who got there
-         whichever way the question was played. */
-      Kit.round.results.note(won.team, { at: roundAt(won.team),
-                                        done: won.r.done !== false || !!roundState.done });
-      /* Right does not always mean the round is over. A grouping clue ends the
-         moment a team has the set; an ordering climb has four more rungs to fill,
-         so the round says which happened and this only pays the tile when it is
-         genuinely finished. Getting this wrong would have scored a $400 tile on the
-         first correct rung.
-
-         **The default is that it ends.** `done !== false` rather than `done` — a
-         round that has never had to think about progress says nothing, and saying
-         nothing must mean the ordinary case. Defaulting the other way made a
-         correct grouping card report "yes, keep going" and never pay out, which is
-         exactly the kind of silent wrong-way-round a second caller exists to find. */
-      def.accept(won.set, roundState, won.team, ctx);
-      const over = won.r.done !== false || !!roundState.done;
-      roundSendRight(won.team, !over);
-      roundSendDone();
-      if(over){ roundTake(won.team); return; }
-      roundState.say = teamName(won.team) + ' — yes.'; roundState.sayTeam = won.team;
-      roundSettler.reset();          // the question moved on, so every answer is worth trying again
-      renderRound();
-      Sound.play('correct');
-      // the next rung is a new question — unless the round says it is not
-      if(roundReasks()) askPhones(currentClueItem.text, roundHost.game);
+      if(!roundHost.scoreEach && roundState.hostTook == null){
+        roundState.hostTook = team;     // the slot, paid when the question ends
+        return;
+      }
+      const paid = roundHost.scoreEach
+                     ? roundHost.win(team, roundPayout()[team] || 0)
+                     : roundPayLate(team);
+      notePhoneScore(teamName(team), team, null, paid || 0);
       return;
     }
-    verdicts.forEach(v=>{
-      if(!roundSettler.fresh(v.team, roundKeyOf(v.set))) return;
-      roundMiss(v.team, v.r);
-    });
+    if(!finished){
+      roundState.say = teamName(team) + ' — yes.'; roundState.sayTeam = team;
+      Sound.play('correct');
+    }
+    // finished on a slot board: the spine calls roundTake, which owns the beat
+  }
+
+  /* A step moved the question on — the next rung is a new question, unless the
+     round says it is not. */
+  function roundAgain(){
+    if(buzzHost && currentClueItem && roundReasks()) askPhones(currentClueItem.text, roundHost.game);
   }
 
   /* Whether this board keeps a question open after somebody has it right. Only the
