@@ -1006,6 +1006,114 @@
     return mount;
   }
 
+  /* ---------- the settle spine — one play loop, two doors ----------
+     What happens when the settler fires used to be written twice: `roundSettle()`
+     in hub-engine.js and `onSettle()` on the question bench, each a hand-mirror of
+     the other, and the mirror had already cracked four ways — the bench never
+     reset `sayTeam` (the stale-colour bug the engine had already fixed), keyed an
+     ordered round's misses pre-sorted (so a re-ordered wrong answer never
+     re-announced), skipped `results.note` when a single winner took it (so the
+     standings missed them), and never stamped arrivals. This is the decision
+     structure, written once: which verdicts are fresh, the rights resolved before
+     any wrong one, earliest arrival first, accept before the finished fork,
+     `done !== false` as "saying nothing means it ends", the record noted for every
+     finisher, and the question moving on when a step lands.
+
+     Every *effect* stays the caller's, handed in as `fx` — a board pays tiles and
+     talks to phones, the bench shakes words and shows the answer box, and this
+     spine knows neither. All optional except `settler`:
+       settler    the caller's Kit.round.settle instance — freshness memory + reset
+       at(team)   the arrival stamp, for ordering rights and the record
+       scoreEach  the host pays every finisher (Quickfire) — implies the open
+                  branch and stands the misses down; the rest is fx.right's
+       draw()     redraw the card
+       miss(team, r, set)         a fresh wrong answer landed
+       right(team, r, done, set)  a fresh right answer was accepted and noted
+       take(team)                 a single winner ended the question
+       again()    a step moved the question on — re-ask the room
+
+     One deliberate unification: the record is noted *after* `accept`, in both
+     branches, so a round whose accept finishes the state is recorded as finished.
+     The engine's single-winner path used to note before accepting — the one
+     ordering the two copies disagreed on. */
+  function resolve(def, state, ctx, fx){
+    if(!state || state.done) return;
+    fx = fx || {};
+    const settler = fx.settler;
+    const at = fx.at || function(){ return Infinity; };
+    /* Ordered rounds key by the sequence, the rest by the set — so a re-ordered
+       wrong answer re-announces and the same set re-tried does not. */
+    const keyOf = set => {
+      const seq = (set || []).slice();
+      if(!def.ordered) seq.sort();
+      return seq.join('\u0000');
+    };
+    /* Start each cycle with no owner on the say line: a verdict that names a
+       competitor sets `sayTeam` beside its `say`, and this makes a site that
+       forgets fall back to a neutral line rather than wearing the *previous*
+       competitor's colour. */
+    state.sayTeam = null;
+    const verdicts = Object.keys(state.picks || {}).map(t => ({
+      team: Number(t), set: state.picks[t],
+      r: def.judge(state.picks[t], state, Number(t), ctx)
+    })).filter(v => v.r.verdict !== 'incomplete');
+    /* Earliest right answer first, not lowest index — the teacher's own clicks
+       carry no stamp, sort last, and that is correct: a click is a judgement made
+       after the room has had its go. */
+    const rights = verdicts.filter(v => v.r.verdict === 'right')
+                           .sort((a, b) => at(a.team) - at(b.team));
+
+    /* **A slot one team takes, or a question everybody answers.** Open, the first
+       right answer does not end the question — everyone finishes and is ranked,
+       and the teacher ends it. */
+    if(fx.scoreEach || ctx.openToAll){
+      /* Misses first, so a right answer has the last word on the say line. */
+      if(!fx.scoreEach){
+        verdicts.filter(v => v.r.verdict !== 'right').forEach(v => {
+          if(!settler.fresh(v.team, keyOf(v.set))) return;
+          if(fx.miss) fx.miss(v.team, v.r, v.set);
+        });
+      }
+      let again = false;              // did any right answer move the question on
+      rights.forEach(v => {
+        if(!settler.fresh(v.team, 'ok:' + keyOf(v.set))) return;
+        def.accept(v.set, state, v.team, ctx);
+        /* `done` separates a rung from a finish: a step re-arms for the next one;
+           a finish stamps the placement the lanes draw the badge from. */
+        const finished = v.r.done !== false || !!state.done;
+        results.note(v.team, { at: at(v.team), done: finished });
+        if(fx.right) fx.right(v.team, v.r, finished, v.set);
+        if(!finished) again = true;
+      });
+      /* Once, after the loop, rather than per team: an arm is room-wide and
+         several teams can settle in one tick. The question changed, so every
+         answer is worth trying again. */
+      if(again){ settler.reset(); if(fx.again) fx.again(); }
+      if(fx.draw) fx.draw();
+      return;                 // the clock or the teacher ends it, not the first right answer
+    }
+
+    const won = rights[0];
+    if(won){
+      /* Right does not always mean over — an ordering climb has more rungs. The
+         default is that it ends: `done !== false`, so a round that has never had
+         to think about progress says the ordinary thing by saying nothing. */
+      def.accept(won.set, state, won.team, ctx);
+      const over = won.r.done !== false || !!state.done;
+      results.note(won.team, { at: at(won.team), done: over });
+      if(fx.right) fx.right(won.team, won.r, over, won.set);
+      if(over){ if(fx.take) fx.take(won.team); return; }
+      settler.reset();               // the question moved on
+      if(fx.draw) fx.draw();
+      if(fx.again) fx.again();
+      return;
+    }
+    verdicts.forEach(v => {
+      if(!settler.fresh(v.team, keyOf(v.set))) return;
+      if(fx.miss) fx.miss(v.team, v.r, v.set);
+    });
+  }
+
   /* ---------- the ctx builder — one container, two doors ----------
      What a host lends a round used to be written twice: `roundCtx()` in
      hub-engine.js and `ctx()` on the question bench, kept identical by hand and
@@ -1265,7 +1373,7 @@
       }
       return null;
     },
-    ctx: buildCtx,
+    ctx: buildCtx, resolve,
     shares, settle, clock, results, poll, agreement, lanes, placeBadge, crowd, crowdKnown, crowdMeter, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour, dragTag, bare,
     /* A comma-separated field as a list. Three rounds' editors parse one, which
        is what puts it here rather than in each of them. */
