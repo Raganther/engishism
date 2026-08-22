@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Battle Scrabble — Engishism Playground</title>
+<style>
+  /* Playground page: its own chrome, NOT the hub skin — same as Throw Lab, which
+     this copies. Stage 1 of Battle Scrabble proves one player's whole loop on one
+     screen: letters rain in, a live checker says what the rack can spell, flicking
+     them into the slots builds a word, Bank cashes it and deals replacements, the
+     clock ends it. No relay, no phones, no other players — the throw-at-a-
+     neighbour half is stage 2 and needs a wire this page deliberately avoids. */
+  :root{
+    --bg:#101318; --panel:#171b22; --text:#f2f2ec; --muted:#9aa0aa;
+    --border:#2a2f38; --accent:#00A0DF; --good:#6FB04A; --bad:#E2603B; --gold:#E8B93E;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; overflow:hidden; }
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display:flex; flex-direction:column;
+    /* The canvas owns the gesture — without this a fast flick pans the page. */
+    touch-action:none; -webkit-user-select:none; user-select:none;
+    overscroll-behavior:none;
+  }
+  header{ flex:0 0 auto; display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; padding:10px 14px 6px; }
+  h1{ font-size:1.15rem; margin:0; letter-spacing:0.01em; }
+  h1 small{ color:var(--muted); font-weight:400; font-size:0.8rem; margin-left:6px; }
+  .tune{ margin-left:auto; align-self:center; white-space:nowrap; }
+
+  .controls{
+    flex:0 0 auto; display:flex; gap:14px; flex-wrap:wrap; align-items:center;
+    padding:4px 14px 10px; border-bottom:1px solid var(--border);
+  }
+  body.controls-hidden .controls{ display:none; }
+  .ctl{ display:flex; flex-direction:column; gap:2px; min-width:96px; }
+  .ctl label{ font-size:0.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; }
+  .ctl input[type=range]{ width:120px; accent-color:var(--accent); }
+  .ctl .val{ font-size:0.72rem; color:var(--text); font-variant-numeric:tabular-nums; }
+  button{
+    font:inherit; font-size:0.82rem; padding:7px 14px; border-radius:999px;
+    border:1px solid var(--border); background:var(--panel); color:var(--text); cursor:pointer;
+  }
+  button:hover{ border-color:var(--accent); }
+
+  /* Score · hints · clock — always visible, one thin strip. */
+  .strip{
+    flex:0 0 auto; display:flex; align-items:center; gap:10px;
+    padding:6px 14px; border-bottom:1px solid var(--border); min-height:40px;
+  }
+  .score{ font-size:1.05rem; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .score small{ color:var(--muted); font-weight:400; font-size:0.68rem; display:block; text-transform:uppercase; letter-spacing:0.05em; }
+  .hints{ flex:1 1 auto; display:flex; gap:6px; flex-wrap:wrap; justify-content:center; min-width:0; }
+  .hint-chip{
+    font-size:0.78rem; letter-spacing:0.08em; text-transform:uppercase;
+    padding:3px 10px; border-radius:999px; border:1px solid var(--border);
+    background:var(--panel); color:var(--muted); white-space:nowrap;
+  }
+  body.hints-off .hint-chip{ display:none; }
+  .clock{ font-size:1.05rem; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .clock.urgent{ color:var(--bad); }
+
+  .stage{ flex:1 1 auto; position:relative; min-height:0; }
+  canvas{ display:block; width:100%; height:100%; touch-action:none; cursor:grab; }
+  canvas.grabbing{ cursor:grabbing; }
+  .status{
+    position:absolute; left:14px; top:12px; color:var(--muted); font-size:0.75rem;
+    pointer-events:none; background:rgba(16,19,24,0.6); padding:4px 8px; border-radius:6px;
+  }
+  /* The banked-points flash: a reward beat that sells the redeal as a new hand
+     rather than as the board being wiped. */
+  .flash{
+    position:absolute; left:50%; top:38%; transform:translate(-50%,-50%);
+    font-size:2.2rem; font-weight:800; color:var(--gold); pointer-events:none;
+    opacity:0; transition:opacity 0.25s, transform 0.9s;
+  }
+  .flash.show{ opacity:1; transform:translate(-50%,-90%); }
+
+  /* The action bar lives in the thumb zone; Bank is the whole game so it gets
+     the width. safe-area padding keeps it above an iPhone home bar. */
+  .actions{
+    flex:0 0 auto; display:flex; gap:10px; align-items:stretch;
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    border-top:1px solid var(--border);
+  }
+  #bank{
+    flex:1 1 auto; min-height:56px; font-size:1rem; font-weight:700;
+    border-radius:14px; letter-spacing:0.02em;
+  }
+  #bank:disabled{ color:var(--muted); cursor:default; border-color:var(--border); }
+  #bank.ready{ background:var(--accent); border-color:var(--accent); color:#08131a; }
+  #redeal{ flex:0 0 auto; min-height:56px; border-radius:14px; }
+
+  .over{
+    position:absolute; inset:0; display:none; flex-direction:column; align-items:center;
+    justify-content:center; gap:10px; background:rgba(16,19,24,0.88); text-align:center;
+  }
+  .over.show{ display:flex; }
+  .over .final{ font-size:3rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums; }
+  .over .label{ color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; font-size:0.8rem; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Battle Scrabble <small>spell from your rack, bank before the clock — stage 1: solo</small></h1>
+    <button id="btn-hints" type="button">Hints on</button>
+    <button id="btn-tune" type="button" class="tune">⚙ Tune</button>
+  </header>
+
+  <div class="controls">
+    <div class="ctl"><label>Game time</label><input id="s-secs" type="range" min="30" max="300" step="15" value="120"><span class="val" id="v-secs"></span></div>
+    <div class="ctl"><label>Multiplier rate</label><input id="s-mrate" type="range" min="0" max="0.5" step="0.05" value="0.15"><span class="val" id="v-mrate"></span></div>
+    <div class="ctl"><label>Multiplier max</label><input id="s-mmax" type="range" min="1" max="3" step="0.25" value="2"><span class="val" id="v-mmax"></span></div>
+    <div class="ctl"><label>Min vowels</label><input id="s-vow" type="range" min="0" max="4" step="1" value="2"><span class="val" id="v-vow"></span></div>
+    <div class="ctl"><label>Gravity</label><input id="s-grav" type="range" min="0" max="2" step="0.05" value="0.9"><span class="val" id="v-grav"></span></div>
+    <div class="ctl"><label>Bounce</label><input id="s-rest" type="range" min="0" max="0.95" step="0.05" value="0.45"><span class="val" id="v-rest"></span></div>
+    <div class="ctl"><label>Air drag</label><input id="s-air" type="range" min="0" max="0.08" step="0.005" value="0.01"><span class="val" id="v-air"></span></div>
+    <div class="ctl"><label>Box size</label><input id="s-size" type="range" min="40" max="140" step="5" value="56"><span class="val" id="v-size"></span></div>
+    <div class="ctl"><label>Swing</label><input id="s-swing" type="range" min="0" max="1" step="0.05" value="0.4"><span class="val" id="v-swing"></span></div>
+    <div class="ctl"><label>Throw power</label><input id="s-pow" type="range" min="0.4" max="3" step="0.1" value="1.3"><span class="val" id="v-pow"></span></div>
+    <div class="ctl"><label>Snap</label><input id="s-snap" type="range" min="0.15" max="0.8" step="0.05" value="0.38"><span class="val" id="v-snap"></span></div>
+  </div>
+
+  <div class="strip">
+    <div class="score"><small>Score</small><span id="score">0</span></div>
+    <div class="hints" id="hints"></div>
+    <div class="clock" id="clock">2:00</div>
+  </div>
+
+  <div class="stage">
+    <canvas id="stage"></canvas>
+    <div class="status" id="status">Flick letters into the slots to spell a word.</div>
+    <div class="flash" id="flash"></div>
+    <div class="over" id="over">
+      <div class="label">Time!</div>
+      <div class="final" id="final">0</div>
+      <div class="label" id="best-line"></div>
+      <button id="again" type="button">Play again ⟳</button>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button id="bank" type="button" disabled>Spell a word to bank it</button>
+    <button id="redeal" type="button">Redeal ⟳</button>
+  </div>
+
+  <!-- Same shelf and same order as Throw Lab: matter.min.js → hub-kit.js (the
+       object Kit.table hangs off) → hub-table.js. word-list.js is this page's own
+       vendored dictionary — a <script src>, never a fetch, so file:// works. -->
+  <script src="../game-hub/matter.min.js?v=20260822e"></script>
+  <script src="../game-hub/hub-kit.js?v=20260822e"></script>
+  <script src="../game-hub/hub-table.js?v=20260822e"></script>
+  <script src="word-list.js?v=20260822e"></script>
+  <script>
+  (function(){
+    'use strict';
+    const K = window.HubKit;
+    if(!K || !K.table){ document.getElementById('status').textContent = 'Kit.table failed to load.'; return; }
+    if(!window.WORDS){ document.getElementById('status').textContent = 'word-list.js failed to load.'; return; }
+
+    /* ==================== CONTENT — a teacher can edit this ====================
+       Standard Scrabble bag: letter → [how many in the bag, points]. No blanks —
+       a blank tile has no letter to read on a physics board. */
+    const BAG = {
+      A:[9,1], B:[2,3], C:[2,3], D:[4,2], E:[12,1], F:[2,4], G:[3,2], H:[2,4],
+      I:[9,1], J:[1,8], K:[1,5], L:[4,1], M:[2,3],  N:[6,1], O:[8,1], P:[2,3],
+      Q:[1,10], R:[6,1], S:[4,1], T:[6,1], U:[4,1], V:[2,4], W:[2,4], X:[1,8],
+      Y:[2,4], Z:[1,10]
+    };
+    const LENGTH_BONUS = { 5:3, 6:6, 7:12, 8:20 };   // on top of letter values
+    const RACK_SIZE  = 8;
+    const SLOT_COUNT = 8;
+    const MIN_WORD   = 3;
+    const HINT_COUNT = 3;
+    /* ========================================================================= */
+
+    /* ---- dictionary: a Set for "is this a word", the array for the hint scan ---- */
+    const WORD_LIST = window.WORDS.split(' ');
+    const DICT = new Set(WORD_LIST);
+    /* Letter-multiset check — can `rack` spell `word`? The same six lines as
+       the toss round's `fits`, copied rather than imported: a playground page
+       may not load round files, and a shelf home waits for a second caller
+       (axiom 5). */
+    function canSpell(word, rack){
+      const pool = {};
+      rack.forEach(ch => { pool[ch] = (pool[ch] || 0) + 1; });
+      for(const ch of word.toUpperCase()){
+        if(!pool[ch]) return false;
+        pool[ch]--;
+      }
+      return true;
+    }
+    function wordScore(word){
+      let pts = 0;
+      for(const ch of word.toUpperCase()) pts += (BAG[ch] ? BAG[ch][1] : 0);
+      return pts + (LENGTH_BONUS[word.length] || 0);
+    }
+    /* Recomputed on each deal only — a 22k-word multiset scan is a few
+       milliseconds, but it has no business running per frame. */
+    function spellable(rack){
+      return WORD_LIST.filter(w => w.length >= MIN_WORD && w.length <= rack.length && canSpell(w, rack));
+    }
+    /* Best + two reachable: the top-scoring word is the stretch, a four- and a
+       three-letter word are the targets a struggling student can actually hit. */
+    function pickHints(list){
+      if(!list.length) return [];
+      const byScore = list.slice().sort((a, b) => wordScore(b) - wordScore(a));
+      const out = [byScore[0]];
+      [4, 3].forEach(len => {
+        const hit = byScore.find(w => w.length === len && out.indexOf(w) === -1);
+        if(hit) out.push(hit);
+      });
+      return out.slice(0, HINT_COUNT);
+    }
+
+    /* ---- the bag: drawn without replacement, reshuffled when dry ---- */
+    const VOWELS = 'AEIOU';
+    let bag = [];
+    function refillBag(){
+      bag = [];
+      Object.keys(BAG).forEach(ch => { for(let i = 0; i < BAG[ch][0]; i++) bag.push(ch); });
+      for(let i = bag.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = bag[i]; bag[i] = bag[j]; bag[j] = t;
+      }
+    }
+    function drawOne(vowelOnly){
+      if(!bag.length) refillBag();
+      if(vowelOnly){
+        const at = bag.findIndex(ch => VOWELS.indexOf(ch) !== -1);
+        if(at !== -1) return bag.splice(at, 1)[0];
+      }
+      return bag.pop();
+    }
+    /* An ESL rack with no vowels is a dead hand, so the last draws are forced to
+       vowels when the count is short — a guard, not a stack of retries. */
+    function draw(n, have){
+      const out = [];
+      let vowels = have.filter(ch => VOWELS.indexOf(ch) !== -1).length;
+      for(let i = 0; i < n; i++){
+        const left = n - i;
+        const need = minVowels() - vowels;
+        const ch = drawOne(need >= left);
+        if(VOWELS.indexOf(ch) !== -1) vowels++;
+        out.push(ch);
+      }
+      return out;
+    }
+
+    /* ---- game state ---- */
+    let rack = [];            // the letters in play, slots included
+    let hints = [];
+    let score = 0;
+    let bestWord = null;      // {word, pts} — for the game-over line
+    let candidate = '';       // the contiguous docked run, uppercase
+    let candValid = false;
+    let validSince = 0;       // performance.now() when the current valid word docked
+    let playing = false;
+    let secsLeft = 0;
+
+    const canvas  = document.getElementById('stage');
+    const status  = document.getElementById('status');
+    const bankBtn = document.getElementById('bank');
+
+    const world = K.table({
+      canvas,
+      gravity: +val('s-grav'), restitution: +val('s-rest'), frictionAir: +val('s-air'),
+      size: +val('s-size'), power: +val('s-pow'), swing: +val('s-swing'),
+      snap: (+val('s-snap')) * 1000,
+      onArrange(){ readBoard(); }
+    });
+    function val(id){ return document.getElementById(id).value; }
+    function minVowels(){ return +val('s-vow'); }
+    function multRate(){ return +val('s-mrate'); }
+    function multMax(){ return +val('s-mmax'); }
+
+    /* The candidate word is the single contiguous filled run in the slot row —
+       unambiguous to a player looking at it. An internal gap means "not yet",
+       and the status line says which. Judged on every arrangement change; the
+       dictionary is a Set so this is O(letters). */
+    function readBoard(){
+      const cells = world.cells();
+      const runs = [];
+      let cur = '';
+      cells.forEach(ch => {
+        if(ch) cur += ch;
+        else { if(cur) runs.push(cur); cur = ''; }
+      });
+      if(cur) runs.push(cur);
+      const was = candidate;
+      candidate = runs.length === 1 ? runs[0] : '';
+      const gap = runs.length > 1;
+      candValid = candidate.length >= MIN_WORD && DICT.has(candidate.toLowerCase());
+      if(candidate !== was) validSince = candValid ? performance.now() : 0;
+      world.setResult(candValid ? 'right' : (candidate.length >= MIN_WORD || gap ? 'wrong' : null));
+      status.textContent =
+        gap ? 'Close the gap — one word, no spaces.' :
+        candValid ? '✓ ' + candidate + ' — bank it, or hold for the multiplier.' :
+        candidate.length >= MIN_WORD ? '✗ ' + candidate + ' is not a word here.' :
+        'Flick letters into the slots to spell a word.';
+      paintBank();
+    }
+
+    function multNow(){
+      if(!candValid || !validSince || !multRate()) return 1;
+      return Math.min(multMax(), 1 + multRate() * (performance.now() - validSince) / 1000);
+    }
+    function paintBank(){
+      if(!playing){ bankBtn.disabled = true; bankBtn.classList.remove('ready'); bankBtn.textContent = '—'; return; }
+      if(!candValid){
+        bankBtn.disabled = true; bankBtn.classList.remove('ready');
+        bankBtn.textContent = 'Spell a word to bank it';
+        return;
+      }
+      const m = multNow();
+      bankBtn.disabled = false; bankBtn.classList.add('ready');
+      bankBtn.textContent = 'BANK ' + candidate + ' · ' + wordScore(candidate) + ' pts' +
+                            (m > 1.001 ? ' ×' + m.toFixed(1) : '');
+    }
+
+    /* ---- the deal: wholesale, framed as a beat ----
+       Kit.table has one spawn path (setPieces replaces everything) and setPieces
+       does not clear the slot row's back-references — so pieces first, slots
+       second, every time, or the new deal docks into ghosts. Everything rains
+       from the top again, kept letters included; that is the "new hand" moment,
+       not a defect. */
+    function deal(kept){
+      rack = kept.concat(draw(RACK_SIZE - kept.length, kept));
+      world.setPieces(rack);
+      world.slots(SLOT_COUNT);
+      world.setResult(null);
+      candidate = ''; candValid = false; validSince = 0;
+      hints = pickHints(spellable(rack));
+      renderHints();
+      status.textContent = 'Flick letters into the slots to spell a word.';
+      paintBank();
+    }
+
+    function renderHints(){
+      const box = document.getElementById('hints');
+      box.innerHTML = '';
+      hints.forEach(w => {
+        const el = document.createElement('span');
+        el.className = 'hint-chip';
+        el.textContent = w + ' · ' + wordScore(w);
+        box.appendChild(el);
+      });
+    }
+
+    function bank(){
+      if(!candValid || !playing) return;
+      const word = candidate;
+      const pts  = Math.floor(wordScore(word) * multNow() * 10) / 10;
+      score = Math.round((score + pts) * 10) / 10;
+      if(!bestWord || pts > bestWord.pts) bestWord = { word, pts };
+      document.getElementById('score').textContent = score;
+      const flash = document.getElementById('flash');
+      flash.textContent = '+' + pts;
+      flash.classList.add('show');
+      setTimeout(() => flash.classList.remove('show'), 900);
+      /* The banked letters are spent; the rest come back with the next hand. */
+      const spent = {};
+      for(const ch of word) spent[ch] = (spent[ch] || 0) + 1;
+      const kept = [];
+      rack.forEach(ch => { if(spent[ch]) spent[ch]--; else kept.push(ch); });
+      deal(kept);
+    }
+
+    /* ---- clock ---- */
+    let tick = null;
+    function paintClock(){
+      const m = Math.floor(secsLeft / 60), s = secsLeft % 60;
+      const el = document.getElementById('clock');
+      el.textContent = m + ':' + String(s).padStart(2, '0');
+      el.classList.toggle('urgent', secsLeft <= 10);
+    }
+    function startGame(){
+      score = 0; bestWord = null;
+      document.getElementById('score').textContent = '0';
+      document.getElementById('over').classList.remove('show');
+      refillBag();
+      secsLeft = +val('s-secs');
+      paintClock();
+      playing = true;
+      deal([]);
+      clearInterval(tick);
+      tick = setInterval(() => {
+        secsLeft--;
+        paintClock();
+        if(secsLeft <= 0) endGame();
+      }, 1000);
+    }
+    function endGame(){
+      clearInterval(tick); tick = null;
+      playing = false;
+      paintBank();
+      document.getElementById('final').textContent = score;
+      document.getElementById('best-line').textContent =
+        bestWord ? 'best word: ' + bestWord.word + ' (+' + bestWord.pts + ')' : 'no words banked';
+      document.getElementById('over').classList.add('show');
+    }
+
+    world.resize();
+    startGame();
+    (function loop(){ world.step(); world.draw(); if(candValid) paintBank(); requestAnimationFrame(loop); })();
+
+    /* ---- pointer -> grab / move / drop, exactly as Throw Lab ---- */
+    function pt(e){ const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+    canvas.addEventListener('pointerdown', e => {
+      if(!playing) return;                       // time is up; the board is frozen
+      const p = pt(e);
+      if(world.grab(e.pointerId, p.x, p.y)){
+        canvas.classList.add('grabbing');
+        canvas.setPointerCapture(e.pointerId);
+      }
+    });
+    canvas.addEventListener('pointermove', e => {
+      if(world.heldBy(e.pointerId)){ const p = pt(e); world.move(e.pointerId, p.x, p.y); }
+    });
+    function endDrag(e){
+      if(world.heldBy(e.pointerId)){
+        world.drop(e.pointerId);
+        try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
+        if(!world.anyHeld()) canvas.classList.remove('grabbing');
+      }
+    }
+    canvas.addEventListener('pointerup', endDrag);
+    canvas.addEventListener('pointercancel', endDrag);
+
+    /* ---- buttons ---- */
+    bankBtn.addEventListener('click', bank);
+    document.getElementById('redeal').addEventListener('click', () => { if(playing) deal([]); });
+    document.getElementById('again').addEventListener('click', startGame);
+    const hintsBtn = document.getElementById('btn-hints');
+    hintsBtn.addEventListener('click', () => {
+      const off = document.body.classList.toggle('hints-off');
+      hintsBtn.textContent = off ? 'Hints off' : 'Hints on';
+    });
+
+    /* ---- sliders ---- */
+    function bindSlider(id, valId, fmt, apply){
+      const el = document.getElementById(id), out = document.getElementById(valId);
+      function show(){ out.textContent = fmt(+el.value); }
+      el.addEventListener('input', () => { show(); if(apply) apply(+el.value); });
+      show();
+    }
+    bindSlider('s-secs','v-secs',   v => v + 's', null);   // read at the next Play again
+    bindSlider('s-mrate','v-mrate', v => '+' + v.toFixed(2) + '/s', null);
+    bindSlider('s-mmax','v-mmax',   v => '×' + v.toFixed(2), null);
+    bindSlider('s-vow','v-vow',     v => String(v), null);
+    bindSlider('s-grav','v-grav',   v => v.toFixed(2),       v => world.setFeel({ gravity:v }));
+    bindSlider('s-rest','v-rest',   v => v.toFixed(2),       v => world.setFeel({ restitution:v }));
+    bindSlider('s-air','v-air',     v => v.toFixed(3),       v => world.setFeel({ frictionAir:v }));
+    bindSlider('s-size','v-size',   v => v + 'px',           v => { world.setFeel({ size:v }); if(playing) deal([]); });
+    bindSlider('s-swing','v-swing', v => v.toFixed(2),       v => world.setFeel({ swing:v }));
+    bindSlider('s-pow','v-pow',     v => '×' + v.toFixed(1), v => world.setFeel({ power:v }));
+    bindSlider('s-snap','v-snap',   v => v.toFixed(2) + 's', v => world.setFeel({ snap: v*1000 }));
+
+    /* ---- collapsible controls: folded away by default on a phone ---- */
+    const btnTune = document.getElementById('btn-tune');
+    function applyTune(){
+      const hidden = document.body.classList.contains('controls-hidden');
+      btnTune.textContent = hidden ? '⚙ Tune' : 'Close ✕';
+      requestAnimationFrame(() => world.resize());
+    }
+    if(window.innerWidth < 720) document.body.classList.add('controls-hidden');
+    applyTune();
+    btnTune.addEventListener('click', () => { document.body.classList.toggle('controls-hidden'); applyTune(); });
+
+    let rz;
+    window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => world.resize(), 150); });
+
+    // A handle for driving the page from a test (world.place docks a letter
+    // directly); the question bench sets the same kind of debug handle.
+    /* `read` is here because world.place() (the reconnect-restore path a test
+       drives) fires no onArrange — a driven board must ask for the re-read a
+       real dock performs itself. */
+    window.__bs = { world, deal, bank, startGame, endGame, read: readBoard, state: () => ({ rack, score, candidate, candValid, secsLeft, hints, playing }) };
+  })();
+  </script>
+</body>
+</html>
