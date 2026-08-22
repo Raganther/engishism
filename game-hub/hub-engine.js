@@ -3712,16 +3712,20 @@
     modalMode   = o.mode;
     document.getElementById('clue-topline').textContent = o.topline || '';
     document.getElementById('clue-section').textContent = o.section || '';
-    // Carry the round's authored fields across, or a claimed field never reaches setup.
-    // `round` is carried first and on its own: it is the explicit host id (Toss declares
-    // no field and is reachable no other way), and `fields()` only knows *claimed* fields.
-    // Without it a `round:'toss'` clue rebuilt for the card kept only its `anagram` field
-    // and was silently claimed by the anagram round — a "Toss" category that played as
-    // Drag the Letters. Additive: today only Toss sets an explicit `round`.
+    /* **The item travels whole.** `item` is the host's normalised aliases (Jeopardy
+       calls a prompt `q`; the kit never learns that) and `source` is the authored
+       bank object — everything the item does not already define is carried across,
+       so the item on the card IS the authored question plus the aliases, not a
+       filtered copy of it. This used to be a whitelist of *claimed* fields
+       (`Kit.round.fields()` plus a hand-carried `round`), and the filter dropped a
+       feature three times — `reveal` when Story Reveal shipped, `order` the day the
+       whitelist was written, and `round:'toss'` last, which left a Toss clue
+       claimed by the anagram round and playing as Drag the Letters. A field only a
+       future round reads is carried today, by construction. The item wins where
+       both define a key, so an alias can never be overwritten by the raw shape. */
     if(o.source){
-      if(o.source.round !== undefined) o.item.round = o.source.round;
-      Kit.round.fields().forEach(f => {
-        if(o.source[f] !== undefined) o.item[f] = o.source[f];
+      Object.keys(o.source).forEach(f => {
+        if(o.item[f] === undefined) o.item[f] = o.source[f];
       });
     }
     currentClueItem = o.item;

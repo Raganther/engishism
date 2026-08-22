@@ -684,9 +684,9 @@ to the *natural* `offsetWidth`); with phones present **each handset runs its own
 rounds). `arm` sends `mode:'table'`; `read` merges handset arrangements with
 `Kit.round.arrangement` on the same positional `|`-joined wire the drag rounds use. Declares
 no `field`/`claims` — reached by an explicit `round:'toss'` on a clue (or `?type=r:toss` on the
-bench). **A board carries that tag now:** `openRoundOnCard` copies `round` onto the card item
-before `Kit.round.of`, because it rebuilds the item with only the *claimed* fields and an
-anagram-shaped Toss clue would otherwise be stolen by the anagram round. The Lab unit's **L9
+bench). **The card item is the authored object now:** `openRoundOnCard` carries everything
+from `source` the host's aliases don't define — no whitelist — so `round:'toss'` and any
+field only a future round reads travel by construction. The Lab unit's **L9
 category** is the first content to route this way — board-operated on the Lab Jeopardy card,
 cyclable on the bench. No class-facing unit routes to it yet.
 
