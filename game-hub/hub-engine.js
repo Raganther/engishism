@@ -3853,9 +3853,17 @@
     document.getElementById('clue-topline').textContent = o.topline || '';
     document.getElementById('clue-section').textContent = o.section || '';
     // Carry the round's authored fields across, or a claimed field never reaches setup.
-    if(o.source) Kit.round.fields().forEach(f => {
-      if(o.source[f] !== undefined) o.item[f] = o.source[f];
-    });
+    // `round` is carried first and on its own: it is the explicit host id (Toss declares
+    // no field and is reachable no other way), and `fields()` only knows *claimed* fields.
+    // Without it a `round:'toss'` clue rebuilt for the card kept only its `anagram` field
+    // and was silently claimed by the anagram round — a "Toss" category that played as
+    // Drag the Letters. Additive: today only Toss sets an explicit `round`.
+    if(o.source){
+      if(o.source.round !== undefined) o.item.round = o.source.round;
+      Kit.round.fields().forEach(f => {
+        if(o.source[f] !== undefined) o.item[f] = o.source[f];
+      });
+    }
     currentClueItem = o.item;
     // roundOf names the host, so setup's ctx is scoped to this board — before roundOpen.
     const rnd = roundOf(o.item, o.game);
