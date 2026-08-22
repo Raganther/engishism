@@ -99,6 +99,8 @@ Four facts about a classroom that outrank anything above when they conflict.
 | `game-hub/hub.css` | all shared styling, DCU theme and game-show skin. The one place to restyle |
 | `game-hub/hub-rounds.css` | the round card's own styling. **Not `hub.css`** — a playground page cannot load that without taking the whole hub theme |
 | `game-hub/hub-qr.js` | vendored QR encoder (qrcode-generator, MIT), unmodified. Vendored because the app must run offline with no build step |
+| `game-hub/hub-table.js` | **`Kit.table`** — the physics table shelf (pieces you flick into slots): grab/throw, gravity swing, suck-and-spin dock, `read()`, default draw. First caller `playground/throw-lab.html`; the `toss` round is next |
+| `game-hub/matter.min.js` | vendored Matter.js (2D physics, MIT), unmodified. The engine behind `hub-table.js`; vendored beside `hub-qr.js` for offline / no build step |
 | `game-hub/content/*.js` | data-only banks, one file per unit; each does `window.UNITS.push({…})` |
 | `join.html` | the students' page |
 | `tools/buzzer-relay.js` | zero-dependency Node relay **and** static server. `docs/buzzers.md` |
@@ -271,8 +273,10 @@ not a helper.
   why `read`, `judge` and `accept` all take it. Students join and drop all lesson; a size
   the round was told once is a lie by the third question. It is also why the question
   bench works: it has no team bar, passes its own `ctx`, and no round can tell.
-  **`roundCtx()` in `hub-engine.js` is the field list**, and a copy of it written anywhere
-  else is a copy that will be wrong.
+  **`Kit.round.ctx(deps)` in `hub-rounds.js` is the field list and the guard shapes** —
+  the hub's `roundCtx()` and the bench's `ctx()` are both thin calls to it, passing only
+  what each owns (settings scope as a `setting(key)` getter, keep store, host facts). A
+  copy of the list written anywhere else is a copy that will be wrong.
 - **The ordinary question is a round too** — `rounds/default.js`, registered as
   `round_default`. It deliberately declares no `field` and no `claims`, so
   `Kit.round.of(item)` returns null for a gap fill: the content-screen chip, the clue path
@@ -661,6 +665,38 @@ What is true and unfinished. Not a changelog — an item leaves when it closes.
 **Build `20260819a`.** Three coursebooks, ~760 authored items, six games, nine rounds.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only.
+
+**The throw dynamic — on a shelf, heading for the bench.** Answer pieces as physical
+boxes you *flick* around a space and drop into slots, instead of tapping or dragging. The
+physics now lives on a shelf, **`Kit.table` in `game-hub/hub-table.js`** (Matter.js is
+`game-hub/matter.min.js`, vendored beside `hub-qr.js`): a bounded space, throwable lettered
+pieces with a soft-spring grab + gravity swing + a suck-and-spin dock into answer slots, a
+`read()` of what landed where, and a default canvas draw. It is transport-agnostic (axiom
+4) — takes canvas-space coords in `grab/move/drop`, reports via `onArrange`, and judging is
+the caller's (`setResult` only tints). `playground/throw-lab.html` is its first caller and
+the feel workshop (the sliders). **The `toss` round** (`game-hub/rounds/toss.js`) is the
+second caller — same anagram content as `anagram.js` (`item.anagram.word`), physical instead
+of drag. It has **two faces, chosen by whether phones are in the room** (`ctx.roster`): with
+no phones the `<canvas>` runs on the clue card, **board-operated** (mouse/touch, like Race) —
+`render` idempotent, pointer coords divided by the card's `transform:scale` (`Kit.table` sizes
+to the *natural* `offsetWidth`); with phones present **each handset runs its own `Kit.table`**
+(join.html's `table` mode) and the card becomes the scoreboard (`Kit.round.lanes`, as the drag
+rounds). `arm` sends `mode:'table'`; `read` merges handset arrangements with
+`Kit.round.arrangement` on the same positional `|`-joined wire the drag rounds use. Declares
+no `field`/`claims` — reached by an explicit `round:'toss'` on a clue (or `?type=r:toss` on the
+bench). **A board carries that tag now:** `openRoundOnCard` copies `round` onto the card item
+before `Kit.round.of`, because it rebuilds the item with only the *claimed* fields and an
+anagram-shaped Toss clue would otherwise be stolen by the anagram round. The Lab unit's **L9
+category** is the first content to route this way — board-operated on the Lab Jeopardy card,
+cyclable on the bench. No class-facing unit routes to it yet.
+
+The phone-side physics needed two things beyond the round: `join.html` now loads
+`matter.min.js` + `hub-table.js` (behind a `window.HubKit = {}` stub — hub-table only reads
+HubKit to hang `.table` on it) and has a `table` handset mode mirroring `arrange` (its own
+`buildTable`/`tableWire`/`restoreTable`, same commit-beat and reconnect paths); and `Kit.table`
+grew `cells()` (positional read, gaps kept — `read()` collapses them) and `place(i,label)` (drop
+a letter straight into a slot, for reconnect restore). The one thing no suite can answer is
+whether the throw *feels* good on a touchscreen; that is a real phone.
 
 **Open-question tuning is guessed, not measured.** The open-question work — a right
 answer no longer locks the room out, position and time recorded, standings after every

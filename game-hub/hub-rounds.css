@@ -82,6 +82,9 @@
    the first thing to occupy that row. Reserved, so nothing moves. `Kit.round.say`
    is what draws it for every round. */
 .group-say{ margin-top:10px; font-size:0.85em; opacity:0.85; min-height:1.4em; }
+/* Commentary about one competitor: the same left accent the lanes wear, so a student
+   matches the line to their own colour at a glance. */
+.group-say.tagged{ border-left:4px solid var(--say, currentColor); padding-left:9px; opacity:1; }
 /* **Two lines, but only here.** Every other round's messages are short — "Team 1
    has it.", "Hint: it is not make." — and one reserved line holds them. A ladder
    race is the exception: with no shared ladder to print a gloss in, its own hint has

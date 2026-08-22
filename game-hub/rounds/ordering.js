@@ -508,7 +508,7 @@
         s.picks = {}; s.leading = {}; s.votes = {};
         /* No gloss here: the rung it just landed in prints it, and printing it twice
            costs a second line on a card that is already the tallest of the five. */
-        s.say = 'Shown: ' + word + '.';
+        s.say = 'Shown: ' + word + '.'; s.sayTeam = null;
         /* The one hint that genuinely moves the question: a rung has landed, so the
            remaining words are different and every handset has to be asked again. */
         return true;
@@ -528,7 +528,7 @@
       const word = s.scale[n];
       if(!word) return false;
       s.hint = n + 1;
-      s.say = 'Hint: number ' + s.hint + ' on the scale is ' + word + gloss(word);
+      s.say = 'Hint: number ' + s.hint + ' on the scale is ' + word + gloss(word); s.sayTeam = null;
       /* `'card'` — the projector changed and the handsets did not, so the host must
          **not** re-arm. An arm resets every phone and clears the replies the relay
          is holding, which on a hint means throwing away what the room has already

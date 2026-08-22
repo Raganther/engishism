@@ -405,7 +405,12 @@ function handleSend(req, res){
            the reply is the same `|`-joined list in the order they were placed; what
            differs is only what the handset draws, which is the handset's business
            and not the relay's. The relay learns nothing new by carrying it. */
-        room.mode  = ['buzz','vote','answer','type','card','arrange'].indexOf(msg.mode) !== -1 ? msg.mode : 'buzz';
+        /* 'table' is 'arrange' flicked instead of dragged — each phone runs the Toss
+           physics and reports the same positional `|`-joined list. The relay carries it
+           identically; only the handset's draw differs. **This list is a whitelist: a
+           mode missing from it is silently downgraded to 'buzz', so every new handset
+           dynamic must be added here or the phones fall back to a buzzer.** */
+        room.mode  = ['buzz','vote','answer','type','card','arrange','table'].indexOf(msg.mode) !== -1 ? msg.mode : 'buzz';
         /* Was six, which is right for a question with four answers and wrong for
            "which of the letters still on the board" — a Blockbusters board opens
            with eighteen. The phone lays short options out as a keypad rather than a

@@ -443,203 +443,19 @@
       } });
   });
 
-  /* Only the boards where a round has a slot one team takes — Quickfire's
-     `scoreEach` pays every team as it answers and its clock ends the question, so
-     there is no single winning moment to announce. Derived from the host's own
-     declaration rather than naming the game, so a seventh board sorts itself. */
-  /* **This was the winner banner and is now the standings, so every board gets it** —
-     including the ones with no slot to win, which is why the `scoreEach` filter came
-     off. Quickfire is the board the movement matters most on: fifteen questions and
-     nothing else punctuating them. */
-  S.register({ id:'roundWinBanner', group:'Questions', type:'toggle', default:true, quick:true,
-    games: ROUND_GAMES,
-    label:'Standings between questions',
-    help:'After each question, a screen naming who took it and showing everybody rising and falling. It waits for you rather than leaving on a timer. Off keeps the board on screen and says nothing.' });
 
-  /* The standings open on the *old* order for a beat, then everybody glides to
-     their new place — the movement itself, not only the arrows describing it. */
-  S.register({ id:'standingsShuffle', group:'Questions', under:'roundWinBanner', type:'toggle', default:true,
-    games: ROUND_GAMES,
-    label:'Standings shuffle into place',
-    help:'The screen opens showing the order before this question, holds a moment, then the rows slide to the new order. Off shows the new order at once.' });
-
-  /* **How a question's points are split, and the whole answer to "custom behaviour
-     per game".** A board names its starting rule through `defaults`, which ranks
-     below a teacher's override and above the master — so Jeopardy opens on the podium
-     and Quickfire on the clock without either holding any arithmetic, and the panel
-     says in as many words that it is the game's own default rather than a control
-     that silently does nothing. The variants are built from `PAY_RULES`, so a fifth
-     rule is a table entry and this row grows on its own. */
-  S.register({ id:'roundPay', group:'Questions', type:'variant', default:'winner',
-    games: ROUND_GAMES,
-    defaults:{ jeopardy:'podium', kahoot:'clock' },
-    label:'How the points are split',
-    variants: Object.keys(PAY_RULES).map(k => ({ value:k, label:PAY_RULES[k].label })),
-    help:'Who scores when more than one team gets it right. The tile, hexagon or rung still goes to whoever was first — this is the points only.' });
-
-  S.register({ id:'roundPaySecond', group:'Questions', under:'roundPay', when:'podium', type:'range', default:0.6,
-    min:0.1, max:0.9, step:0.1, unit:'×', games:ROUND_GAMES,
-    label:'Second place is worth',
-    help:"Second place scores this share of the question's value." });
-  S.register({ id:'roundPayThird', group:'Questions', under:'roundPay', when:'podium', type:'range', default:0.3,
-    min:0.1, max:0.9, step:0.1, unit:'×', games:ROUND_GAMES,
-    label:'Third place is worth',
-    help:"Third place scores this share of the question's value." });
-  S.register({ id:'roundPayFloor', group:'Questions', under:'roundPay', when:'clock', type:'range', default:0.5,
-    min:0.1, max:0.9, step:0.1, unit:'×', games:ROUND_GAMES,
-    label:'A last-second right answer is worth',
-    help:"The least a right answer can score, as a share of the full value — and with no clock running, what every answer after the first is worth." });
-
-  /* Offered only to the boards that *have* a slot to lock. Quickfire plays this way
-     already and has nothing to switch, so a row there would be a control that reads
-     as a choice and is not one. Derived from the host's own declaration, so a
-     seventh board sorts itself.
-
-     **On, now that there is something for the rest of the room to play for.** It
-     shipped off for one build and the reason was honest then: holding the slot back
-     changes a beat three boards have always had, and a right answer that was not
-     first scored nothing worth having. With the podium and the standings screen there
-     is now a reason to keep working after somebody else has it, which is the whole
-     point of the change.
-
-     It still costs the teacher a press — Reveal, then Close, where a won round used
-     to take itself — and no class has met it. The switch is what puts the old race
-     back, in one tap on the room bench. */
-  /* **Forked by room type, and this one is not a formality.** Unlike the crowd
-     reveal — which gates on room size, so ordinary team play never meets it — this
-     applies identically in both rooms and the right answer genuinely differs. With
-     three teams the race for the tile *is* the game, and first-takes-it is the beat
-     three boards have always had. With sixteen individuals the same rule locks
-     fifteen people out of a question they are half way through, which is the
-     lockout this setting exists to remove. Individuals follow the team-room value
-     until set apart, so nothing moves for anybody until a solo room chooses. */
-  S.register({ id:'roundOpenToAll', group:'Questions', type:'toggle', default:true, quick:true,
-    byRoster: true,
-    games: ROUND_GAMES.filter(g => !ROUND_HOSTS[g].scoreEach),
-    label:'Everyone finishes, not just the first',
-    help:'A right answer stops closing the question. The first team still takes the tile at full value when you reveal; everyone else who gets there still scores, for less. Off is the old race.' });
-
-  /* **The crowd reveal — what the room collectively knows fills in on the card.**
-     Only in a big room (7+ competitors, where the lanes have stood down): a letter,
-     word or rung appears once this share of the players who have started already
-     have it, so nothing on the wall is any one player's answer. In a small room the
-     lanes already show the dynamic — a team's correct letters are readable off its
-     lane — so this stays out of the way there. The rule and the never-the-last-part
-     cap live in `Kit.round.crowdKnown`; this row is only the number. */
-  S.register({ id:'crowdReveal', group:'Questions', type:'range', default:40, quick:true, adv:true,
-    min:0, max:90, step:5, unit:'%', games:'*',
-    label:'Reveal what the room knows',
-    help:'In a big room, a part of the answer fills in once this share of active players have it. 0 switches it off. Never the last part — that stays yours to reveal.' });
-
-  /* The reveal's companion: one anonymous bar filling toward the next reveal —
-     anticipation the room can watch without learning which part is coming. The
-     rules (never per word, hidden at the cap, damped) live in
-     `Kit.round.crowdMeter`; this row only switches the picture. */
-  S.register({ id:'crowdMeter', group:'Questions', type:'toggle', default:true, quick:true,
-    games:'*', under:'crowdReveal',
-    label:'Meter toward the next reveal',
-    help:'A bar on the card filling as the room converges on its next reveal, without saying which part. Hidden when nothing more can reveal. Needs the reveal above to be on.' });
-
-  /* **The commit beat for a room of individuals.** A competitor of one has no
-     agreement friction, so a tap is judged the instant it lands and a wrong tap
-     costs nothing — which makes button-mashing the winning strategy on any tap
-     round. Send is the friction: taps only select, the answer counts when the
-     player commits it, and a wrong commit puts that phone alone on a countdown.
-
-     **Solo only, gated in code rather than forked with `byRoster`** — the roster
-     mode is already the live gate (the `crowdReveal` rule: check for an existing
-     gate before forking). In a team room the live taps *are* the negotiation the
-     lanes and the agreement fractions read, so Send there would starve the
-     picture the mode exists for. These rows say so. */
-  S.register({ id:'roundSend', group:'Phones', type:'toggle', default:true, quick:true,
-    games:'*',
-    label:'Individuals press Send',
-    help:'In a room of individuals, taps only select — the answer counts when the player presses Send. Stops guess-and-check. Team rooms are never affected.' });
-  S.register({ id:'roundSendCool', group:'Phones', type:'range', default:3, quick:true,
-    min:0, max:15, step:1, unit:'s', games:'*', under:'roundSend',
-    label:'Wrong answer wait',
-    help:'A wrong Send locks that phone alone for this long, with the countdown in their hand. 0 is no wait. Individuals only.' });
-  /* **What the reveal bar follows.** Off, it counts what the room has *committed*,
-     which is what the commit beat made it: a selection costs nothing, so counting
-     selections would turn the bar into a free oracle — choose, watch it twitch, then
-     send what it told you. On, it counts what people currently have *selected*,
-     which is livelier and is how the bar behaved before Send existed. The leak is
-     real and small: the bar is collective and damped, so one person barely moves it.
-     Offered as a switch because which of the two teaches better is a question about
-     a room, not about code. */
-  S.register({ id:'crowdLive', group:'Questions', type:'toggle', default:false,
-    quick:true, byRoster:true, games:'*', under:'crowdReveal',
-    /* **Reported as broken because the row could not say it was inert.** A preview
-       only exists where a tap is *held*, which is the commit beat, which is a room
-       of individuals — so in a team room a tap is already the answer, the bar has
-       always followed it, and this switch has nothing left to turn on. Toggling it
-       there changes precisely nothing, correctly, and silently. Proved with six
-       handsets: `preview` on the arm is false in a team room with the switch on and
-       true in a solo room with the switch on.
-
-       Said through `stateNote` rather than in `help` because it is a fact about the
-       room in front of the teacher, not a property of the setting — and the third
-       line is the one that catches everybody, since anything riding the arm cannot
-       reach the question already on screen. */
-    stateNote(game){
-      if(!Roster.solo())
-        return 'A team room has no Send, so a tap is already the answer and the bar ' +
-               'always follows it — this switch only does something for a room of individuals.';
-      if(!S.get('roundSend', game))
-        return 'Needs “Individuals press Send” on — without Send a tap is already the answer.';
-      return 'Rides the next arm, so it lands on the following question, not the one open now.';
-    },
-    label:'Reveal bar follows selections',
-    help:'The bar fills as people choose, before they press Send — livelier, and closer to how it felt without the Send button. Off, it only counts answers that have actually been sent.' });
-  S.register({ id:'roundSendRamp', group:'Phones', under:'roundSend', type:'toggle', default:true,
-    games:'*',
-    label:'The wait grows',
-    help:'Each wrong Send on the same question adds the wait again — 3s, then 6s, then 9s — so the second guess is a real decision. Individuals only.' });
-
-  /* **The card stops leaving on its own when a round is won.** Reported from a real
-     board: the four words light up, the tile flips away, and the room is left with
-     no answer on screen and no idea who took it. The round pays the moment it is
-     won *because* the class produced the answer and the host judged it — there is
-     nothing left to confirm — but "nothing to confirm" was read as "nothing to
-     read", and those are different. The teacher closes it now; the payout and the
-     winner banner ride on that press, so the beat is one thing rather than two.
-     Every round on a card board inherits it, because the wait is the host's. */
-  S.register({ id:'roundWinClose', group:'Questions', adv:true, type:'variant', default:'teacher',
-    games: ROUND_GAMES.filter(g => ROUND_HOSTS[g].onCard),
-    label:'When a round is won',
-    variants:[{ value:'teacher', label:'Keep the card up — the answer stays on screen until you close it' },
-              { value:'auto',    label:'Close the card straight away' }],
-    help:'A won round used to flip the card away within a second of the answer landing. Keeping it up leaves the answer and the winning team on screen for as long as you want to talk about them.' });
-
-  /* Offered wherever a round can be hosted, including the two boards with no card:
-     a hint changes the question rather than the card, so Millionaire and Quickfire
-     get it too. Which rounds actually offer a button is the round's own business —
-     one that declares no `hint` shows none, whatever this says. */
-  S.register({ id:'roundHints', group:'Questions', type:'toggle', default:true,
-    games:ROUND_GAMES, label:'Hint button on a round',
-    help:'Gives away one part of the answer — a word of the group, a wrong option struck out, a letter into its slot, the next rung. Press again for the next part. It never gives away the last part; that is what Reveal is for. Costs nothing.' });
-
-  S.register({ id:'roundWho', group:'Questions', type:'variant', default:'room',
-    games:ROUND_GAMES, label:'Who plays a round',
-    variants:[{ value:'room', label:'The whole class races — first team to get it takes the square' },
-              { value:'turn', label:'Only the team on turn' }],
-    help:'A round asks the room to assemble an answer on their phones. It can be a race between every team, or belong to the team whose turn it is like any other clue.' });
-
-  /* ---- how a wrong answer is announced ----
-     The `say` line is one overwriting headline: right for a team room where one team
-     answers at a time, a blur in a room of individuals where a dozen misses a second
-     thrash it. So where a verdict lands is a switch, kept per room type because the
-     headline is only a problem in the solo room. The count already says how close a
-     player is, which is why "off" is a real choice and not a loss of information. */
-  S.register({ id:'roundCommentary', group:'Questions', type:'variant', default:'headline',
-    games:ROUND_GAMES, byRoster:true, quick:true, label:'Where a verdict shows',
-    variants:[{ value:'headline', label:'One headline on top of the card — the last thing that happened' },
-              { value:'lane',     label:'On the player’s own lane, where it stays until their next try' },
-              { value:'off',      label:'Nowhere — the "3/4 right" count already says how close they are' }],
-    help:'A "one away" / "not a group" can share one headline (fine for teams, a blur for sixteen individuals), sit on each player’s own row where it stays put, or stay off the board and leave the running count to say it.' });
-  S.register({ id:'roundHintPhone', group:'Questions', type:'toggle', default:false,
-    games:ROUND_GAMES, byRoster:true, quick:true, label:'Tell the phone how close',
-    help:'On, a wrong answer tells the handset how close it was — "One away…" or "Not a group" — instead of a plain "Not that one". It never says which word is wrong, only how far off.' });
+  /* The Questions-group round settings (Everyone-finishes, the pay split, the crowd
+     reveal, the commit beat, the commentary, the question-type dressing) are defined
+     once in hub-round-settings.js so the question bench can register the SAME rows.
+     Handed the engine symbols the definitions reference; runs BEFORE the migrations
+     below, which write some of these ids. */
+  registerRoundSettings(S, {
+    roundGames:  ROUND_GAMES,
+    isScoreEach: g => !!(ROUND_HOSTS[g] && ROUND_HOSTS[g].scoreEach),
+    isOnCard:    g => !!(ROUND_HOSTS[g] && ROUND_HOSTS[g].onCard),
+    payVariants: Object.keys(PAY_RULES).map(k => ({ value:k, label:PAY_RULES[k].label })),
+    solo:        () => Roster.solo()
+  });
 
   /* Rounds were Jeopardy's alone for the first three, so their switches were named
      and grouped as Jeopardy's: `jGroupWho`, and `jRound_<id>` per round. A second
@@ -753,11 +569,6 @@
     games:'*',
     label:'Streak bonus',
     help:'Two in a row scores 1.5×, three or more scores 2×. A wrong answer resets it.' });
-
-  S.register({ id:'promptForms', group:'Questions', type:'toggle', default:true,
-    games:'*',
-    label:'Draw the question type',
-    help:'Gap fills show a real blank, anagrams show letter tiles, odd-one-out shows chips. Off prints every question as plain text.' });
 
   // only the two games that open a clue card have a card to animate
   S.register({ id:'cardFlip', group:'Clue card', type:'variant', default:'morph',
@@ -2717,63 +2528,16 @@
   function roundDef(){ return roundId ? Kit.round.get(roundId) : null; }
 
   // what the round is lent: the team list, their sizes, and what a click means here
+  /* The field list and the guard shapes live in `Kit.round.ctx` now — one builder,
+     shared with the question bench, so the bench playing a round IS this container
+     playing a round. What is written here is only what the hub actually owns: its
+     settings scope, its keep store, and the host facts below. */
   function roundCtx(id){
-    /* `p.team` is the truth for this, in both kinds of room — `HubBuzzer`'s `seat`
-       keeps the host's own copy current, which it did not always do. See the note
-       there: a stale copy counted two phones onto one competitor and halved that
-       person's share of the answer. Fixed at the seam rather than here, so the
-       three other readers of `players()` are correct too. */
-    const sizes = teams.map(()=>0);
-    if(buzzHost) buzzHost.players().forEach(p=>{
-      const t = Number(p.team);
-      if(t >= 0 && t < sizes.length) sizes[t]++;
-    });
-    return {
-      teams:  teams.map((t, i) => teamName(i)),
-      sizes,
-      /* **Whether the question stays open after somebody gets it right**, which a
-         round has to know because "I am finished" and "the round is over" are the
-         same field on the same object — `state.done`. Written by a round that meant
-         only the first, it ends the question for everybody: the ordering race set it
-         the moment one team's ladder filled, which froze the card, stopped the replies
-         being read and locked every other team out of finishing theirs. Exactly the
-         lockout this whole change exists to remove, expressed one tier down.
-
-         So the host lends the rule and the round says "this team has finished"
-         instead. Only rounds that can be finished by one competitor while others are
-         still working need to read it. */
-      openToAll: openToAllNow(),
-      /* The crowd-reveal threshold as a fraction, lent the same way. 0 is off;
-         the shelf helper treats *absent* as its own default, so the bench needs
-         no wiring — which is why this is `?? 0` and never `|| 0.4`. */
-      crowdReveal: (Number(S.get('crowdReveal', activeGame)) || 0) / 100,
-      /* The meter's switch, lent the same way: the shelf treats absent as on,
-         so only an explicit false stands it down and the bench inherits it. */
-      crowdMeter: S.get('crowdMeter', activeGame) !== false,
-      /* Whether the reveal counts what the room has *selected* as well as what it
-         has sent. Lent rather than read, so the question bench inherits it with no
-         wiring — the same contract the threshold already follows. */
-      crowdLive: !!S.get('crowdLive', activeGame),
-      /* Where a round's wrong-answer verdict is announced — a headline, each player's
-         own lane, or nowhere (the running count already says how close they are). Lent
-         so the round owns the presentation and the bench inherits the default. */
-      commentary: S.get('roundCommentary', activeGame) || 'headline',
-      /* **Look up.** The crowd reveal lands on the projector, which is worth
-         nothing to a room of sixteen reading their own handsets — so when one
-         lands, every phone pulses once. The shelf decides *when* (it is the only
-         thing that knows the revealed set just grew); this decides whether there
-         is a room to tell and whether a question is still open. The second guard
-         matters: `crowdKnown` is also called on the reveal render, when the answer
-         is going up anyway and nobody needs sending anywhere. */
-      nudge: kind => { if(buzzHost && roundLive()) buzzHost.nudge(kind); },
-      /* Who is in the room, read fresh like `sizes` — the information gap deals a
-         view per player, and a deal cut from a stale roster misses whoever just
-         walked in. */
-      roster: buzzHost ? buzzHost.players() : [],
-      /* A verdict for one phone, lent rather than reached for — the round says how
-         a typed word was received and the host owns the wire. */
-      verdict: (id, verdict, note, coolMs) => { if(buzzHost) buzzHost.judge(id, verdict, { note, coolMs }); },
-      teamName,
+    return Kit.round.ctx({
+      teams: teams.map((t, i) => teamName(i)),
+      buzz: buzzHost,
+      live: roundLive,
+      setting: k => S.get(k, activeGame),
       /* **State that outlives one question — the contract addition, and the last one
          on the build order.** Every hook a round has is handed one question and
          forgets it afterwards, which is right for a question and wrong for anything
@@ -2791,34 +2555,49 @@
          is `cardsByPlayer` on the arm. This is the host's half — anything a round
          wants to remember that the phones do not need to see. */
       keep: roundKeepFor(id || roundId),
-      /* **Individuals, so there is nothing to assemble.** A lane exists to show a
-         team building one answer out of several handsets — how many have committed,
-         whether they agree. A competitor of one has neither question to answer: they
-         have answered or they have not, and the option counts already say how many
-         of the room have. Twenty-five lanes on a board is also simply unreadable. */
-      solo:   Roster.solo(),
-      prompt: !!S.get('phonePrompt', roundHost.game),
-      // `null` is the whole room; a scoped round belongs to the team on turn
-      team:   S.get('roundWho', roundHost.game) === 'turn' ? roundHost.turn() : null,
-      mode:   roundModeOf(id || roundId),
-      // which lane the teacher's own clicks act on, when a round gives each team one
-      forTeam: roundHost.turn(),
-      /* A host may collect votes and not show them yet — Millionaire's Ask the class
-         is the only caller, and it is what leaves that lifeline something to buy now
-         that the round asks the room on every question anyway. */
-      hideVotes: !!(roundHost.hideVotes && roundHost.hideVotes()),
-      /* **Whether a tap is final belongs to the skin, not the round.** On a tile the
-         room is negotiating and a player must be able to move their vote — that is
-         the whole mechanic in `agree` mode. On a board where the clock is the
-         opponent, being able to change your answer after watching the count is the
-         opposite of the game. So the host says which it is and the round honours it,
-         except where honouring it would break the round's own contract. */
-      lockIn: !!roundHost.lockIn,
-      /* How the room's votes read: a count of people, or a dot per team. See the
-         note in `choice.js` — it is the same data answering two questions. */
-      countVotes: !!(roundHost.countVotes && roundHost.countVotes()),
-      onPick: roundTeacherPick
-    };
+      /* The host facts — what this board contributes on top of the shared list.
+         Laid over the defaults, so a field absent here means the builder's
+         no-phones, whole-room answer. */
+      host: {
+        /* **Whether the question stays open after somebody gets it right**, which a
+           round has to know because "I am finished" and "the round is over" are the
+           same field on the same object — `state.done`. Written by a round that meant
+           only the first, it ends the question for everybody: the ordering race set it
+           the moment one team's ladder filled, which froze the card, stopped the replies
+           being read and locked every other team out of finishing theirs. Overridden
+           here rather than left to the builder's plain read, because a board that
+           scores by place (`scoreEach`) already keeps everyone in. */
+        openToAll: openToAllNow(),
+        teamName,
+        /* **Individuals, so there is nothing to assemble.** A lane exists to show a
+           team building one answer out of several handsets — how many have committed,
+           whether they agree. A competitor of one has neither question to answer: they
+           have answered or they have not, and the option counts already say how many
+           of the room have. Twenty-five lanes on a board is also simply unreadable. */
+        solo:   Roster.solo(),
+        prompt: !!S.get('phonePrompt', roundHost.game),
+        // `null` is the whole room; a scoped round belongs to the team on turn
+        team:   S.get('roundWho', roundHost.game) === 'turn' ? roundHost.turn() : null,
+        mode:   roundModeOf(id || roundId),
+        // which lane the teacher's own clicks act on, when a round gives each team one
+        forTeam: roundHost.turn(),
+        /* A host may collect votes and not show them yet — Millionaire's Ask the class
+           is the only caller, and it is what leaves that lifeline something to buy now
+           that the round asks the room on every question anyway. */
+        hideVotes: !!(roundHost.hideVotes && roundHost.hideVotes()),
+        /* **Whether a tap is final belongs to the skin, not the round.** On a tile the
+           room is negotiating and a player must be able to move their vote — that is
+           the whole mechanic in `agree` mode. On a board where the clock is the
+           opponent, being able to change your answer after watching the count is the
+           opposite of the game. So the host says which it is and the round honours it,
+           except where honouring it would break the round's own contract. */
+        lockIn: !!roundHost.lockIn,
+        /* How the room's votes read: a count of people, or a dot per team. See the
+           note in `choice.js` — it is the same data answering two questions. */
+        countVotes: !!(roundHost.countVotes && roundHost.countVotes()),
+        onPick: roundTeacherPick
+      }
+    });
   }
 
   /* Which round this clue wants, asked of the registry rather than named here — so
@@ -3033,7 +2812,7 @@
          the room has had its go. */
       Kit.round.results.note(team, { done: r.done !== false || !!roundState.done });
       if(r.done !== false || roundState.done){ roundTake(team); return; }
-      roundState.say = 'Yes — keep going.';
+      roundState.say = 'Yes — keep going.'; roundState.sayTeam = team;
       Sound.play('correct');
       renderRound();
       roundSendDone();
@@ -3045,6 +2824,7 @@
        the host is asked first and only boards with no opinion fall through. */
     if(roundHost.miss && roundHost.miss(team, r)) return;
     roundState.say = def.saidOf('Not that', r, roundState).replace(/^Not that: /, '');
+    roundState.sayTeam = team;
     Sound.play('wrong');
     /* Shake what they picked, *then* let it go. Leaving the selection standing meant
        the next click deselected instead of choosing, so the teacher's second attempt
@@ -3207,6 +2987,11 @@
 
   function roundSettle(){
     if(!roundLive()) return;
+    /* Start each cycle with no owner on the say line: a verdict that names a
+       competitor sets `sayTeam` beside its `say`, and this makes a site that forgets
+       fall back to a neutral line rather than wearing the *previous* competitor's
+       colour — the stale-colour bug a missed `roundMiss` caused. */
+    roundState.sayTeam = null;
     const def = roundDef();
     const ctx = roundCtx();
     const verdicts = Object.keys(roundState.picks).map(t => ({
@@ -3292,7 +3077,7 @@
            sting each would be sixteen of them in twenty seconds. Its feedback is the
            strip and the standings, and that is unchanged. */
         if(!roundHost.scoreEach){
-          roundState.say = teamName(v.team) + ' has it.';
+          roundState.say = teamName(v.team) + ' has it.'; roundState.sayTeam = v.team;
           Sound.play(document.getElementById(roundHost.stage).classList.contains('lit')
                      ? 'sting' : 'correct');
         }
@@ -3310,7 +3095,7 @@
           /* A step, not a win. The card already says so; what the room needs is the
              next question — for an ordering race that is a different set of words per
              team, because the one just placed has left their pool. */
-          roundState.say = teamName(v.team) + ' — yes.';
+          roundState.say = teamName(v.team) + ' — yes.'; roundState.sayTeam = v.team;
           again = true;
           return;
         }
@@ -3359,7 +3144,7 @@
       roundSendRight(won.team, !over);
       roundSendDone();
       if(over){ roundTake(won.team); return; }
-      roundState.say = teamName(won.team) + ' — yes.';
+      roundState.say = teamName(won.team) + ' — yes.'; roundState.sayTeam = won.team;
       roundSettler.reset();          // the question moved on, so every answer is worth trying again
       renderRound();
       Sound.play('correct');
@@ -3522,6 +3307,7 @@
     if(mode === 'headline' || (mode === 'lane' && !ownLane)){
       roundState.say = def.saidOf(teamName(team), r, roundState)
                      + (wait ? ' · waiting ' + wait + 's' : '');
+      roundState.sayTeam = team;   // whose miss this is — or the line wears the last one's colour
     }
     Sound.play('wrong');
     renderRound();
@@ -3536,7 +3322,7 @@
   function roundTake(team){
     roundSettler.stop();
     roundState.done = true;
-    roundState.say  = teamName(team) + ' has it.';
+    roundState.say  = teamName(team) + ' has it.'; roundState.sayTeam = team;
     renderRound();
     Sound.play(document.getElementById(roundHost.stage).classList.contains('lit')
                ? 'sting' : 'correct');
@@ -3602,7 +3388,7 @@
        replaced everything inside `#clue-text`. */
     roundDef().reveal(roundHost.mount(), roundState, roundCtx());
     // `reveal` speaks for the round; who took it is the host's, so it is said after
-    roundState.say = teamName(team) + ' has it.';
+    roundState.say = teamName(team) + ' has it.'; roundState.sayTeam = team;
     renderRound();
     roundStandDown();
     hook('onFloorClear');         // the answer is out; whatever answer clock a game runs is over
@@ -4035,9 +3821,17 @@
     document.getElementById('clue-topline').textContent = o.topline || '';
     document.getElementById('clue-section').textContent = o.section || '';
     // Carry the round's authored fields across, or a claimed field never reaches setup.
-    if(o.source) Kit.round.fields().forEach(f => {
-      if(o.source[f] !== undefined) o.item[f] = o.source[f];
-    });
+    // `round` is carried first and on its own: it is the explicit host id (Toss declares
+    // no field and is reachable no other way), and `fields()` only knows *claimed* fields.
+    // Without it a `round:'toss'` clue rebuilt for the card kept only its `anagram` field
+    // and was silently claimed by the anagram round — a "Toss" category that played as
+    // Drag the Letters. Additive: today only Toss sets an explicit `round`.
+    if(o.source){
+      if(o.source.round !== undefined) o.item.round = o.source.round;
+      Kit.round.fields().forEach(f => {
+        if(o.source[f] !== undefined) o.item[f] = o.source[f];
+      });
+    }
     currentClueItem = o.item;
     // roundOf names the host, so setup's ctx is scoped to this board — before roundOpen.
     const rnd = roundOf(o.item, o.game);
@@ -4277,6 +4071,14 @@
       const u = new URL('join.html', location.href);
       if(/^(localhost|127\.0\.0\.1)/.test(u.host) && buzzLanHost) u.host = buzzLanHost;
       if(buzzHost) u.searchParams.set('code', buzzHost.code);
+      /* Carry the build stamp so a new deploy hands out a NEW join URL — join.html is
+         the one shell nothing else busts, so a phone that scanned an old QR keeps its
+         cached, pre-upgrade shell (a `table` arm it does not understand falls back to a
+         buzzer). A fresh `?v=` is a fresh cache key, so the scan fetches the current
+         shell. `HUB_BUILD` is derived from the engine's own `?v=`, so it is always live;
+         join.html ignores the extra param. The typed address (`joinAddress`) stays clean
+         — a student cannot type a stamp — and the build-watch pill covers that path. */
+      if(window.HUB_BUILD && window.HUB_BUILD !== 'dev') u.searchParams.set('v', window.HUB_BUILD);
       return u.toString();
     }catch(e){ return 'join.html'; }
   }

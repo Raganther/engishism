@@ -62,7 +62,7 @@
   label: "Lab · question dynamics",
   card: { num: "Lab", title: "Question dynamics",
           blurb: "One question type per category, so forms can be mixed and compared in a real game show. Not lesson content.",
-          sections: "L1–L8" },
+          sections: "L1–L9" },
   intro: "A test board, not a lesson. Each category is a single question type — pick the ones you want to compare.",
 
   jeopardySectionLabels: {
@@ -74,6 +74,7 @@
     'L6': "L6 · Multiple Choice — four options, the plain control case",
     'L7': "L7 · Drag the Letters — the letters dragged into boxes on every handset",
     'L8': "L8 · Drag the Words — the sentence dragged into place on every handset",
+    'L9': "L9 · Toss — the letters flicked as physical tiles into the slots (or board-operated, no phones)",
   },
 
   jeopardyCategories: [
@@ -342,6 +343,28 @@
         scramble:{ sentence:'The appeal against the sentence was dismissed' }},
       {v:500, q:"Order the words.",
         scramble:{ sentence:'The witness whose evidence convicted him has retracted it' }},
+    ]},
+
+    /* ---------- L9 · the Toss round ----------
+       The physics face of the same anagram content as L7 — a word spelled by flicking
+       lettered tiles into slots instead of dragging them. Routed by an explicit
+       `round:'toss'` (an anagram-shaped item would otherwise be claimed by the anagram
+       round); the prompt is normalised `q`->`text` on the way in, exactly as every
+       other category here. Distinct prompts and words from L1/L7 so no bank shares a
+       prompt. Words stay short-to-mid (MAX is 12 tiles, and a dozen tiles to flick is
+       already a lot on a phone). Its answer is the word; the clue must never contain
+       it, which the round's own `check` enforces. */
+    { id:'lab-toss', section:'L9', clues:[
+      {v:100, q:"a formal request to a higher court to change a decision",
+        round:'toss', anagram:{ word:'appeal' }},
+      {v:200, q:"proof that you were somewhere else when a crime happened",
+        round:'toss', anagram:{ word:'alibi' }},
+      {v:300, q:"the spoken statement a witness gives in court",
+        round:'toss', anagram:{ word:'testimony' }},
+      {v:400, q:"to bring a criminal charge against someone in court",
+        round:'toss', anagram:{ word:'prosecute' }},
+      {v:500, q:"supervised release instead of prison, on good behaviour",
+        round:'toss', anagram:{ word:'probation' }},
     ]},
   ],
 

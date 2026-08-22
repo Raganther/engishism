@@ -314,7 +314,7 @@
       if(!open.length) return false;
       const at = K.round.shuffle(open)[0];
       s.hint = (s.hint || []).concat([at]);
-      s.say  = 'Hint: letter ' + (at + 1) + ' is ' + s.word[at] + '.';
+      s.say  = 'Hint: letter ' + (at + 1) + ' is ' + s.word[at] + '.'; s.sayTeam = null;
       /* `'card'` — the projector changed and the handsets did not, so the host must
          **not** re-arm. An arm resets every phone and clears the replies the relay
          is holding, which on a hint means throwing away what the room has already

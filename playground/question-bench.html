@@ -8,7 +8,7 @@
 <!-- The shared card, exactly as a game show draws it. This is the whole point of
      the page: what you tune here IS what a class meets, not a second implementation
      that resembles it. -->
-<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260819e">
+<link rel="stylesheet" href="../game-hub/hub-rounds.css?v=20260822b">
 <style>
   /* ================= The question bench =================
      One question type at a time, with the card on the left and a rack of real
@@ -179,6 +179,16 @@
                 height:calc(var(--phone-h) * var(--phone-scale)); }
   .phone iframe{ width:var(--phone-w); height:var(--phone-h); border:0;
                  transform:scale(var(--phone-scale)); transform-origin:top left; }
+  /* A real phone that scanned in: no iframe (it is a separate device), a badged
+     placeholder in its team's colour so it reads as its own participant beside the
+     simulated ones. Same footprint as a virtual card via the shared .clip size. */
+  .phone.real .who{ opacity:1; font-weight:700; color:var(--pc, #00A0DF); }
+  .phone.real .clip{ display:flex; flex-direction:column; align-items:center;
+                     justify-content:center; gap:5px; border-style:dashed;
+                     border-top:3px solid var(--pc, #00A0DF); background:rgba(0,160,223,0.06); }
+  .phone.real .real-badge{ font-family:'IBM Plex Mono',monospace; font-weight:700;
+                           font-size:0.82rem; letter-spacing:0.16em; color:var(--pc, #00A0DF); }
+  .phone.real .real-sub{ font-size:0.62rem; opacity:0.55; }
   #room-chip{ font-family:'IBM Plex Mono',monospace; font-size:0.74rem; letter-spacing:0.12em;
               text-transform:uppercase; opacity:0.75; }
   /* BenchKit puts its own bench link in the page; keep it out of the editor's prose */
@@ -202,6 +212,48 @@
                --gw-bad:#FF6E5F;  --gw-badwash:rgba(255,110,95,0.26); }
   /* BenchKit's own prose, which is a footnote here rather than body copy */
   #bench-note, #bench-link ~ *{ font-size:0.76rem; opacity:0.55; }
+  /* ---- the Tune pane: a mirror of hub.css's .settings-* rows (the bench loads no
+     hub.css), in this page's dark palette. The switch-track is load-bearing — the
+     checkbox itself is opacity:0. ---- */
+  #tune-pane{ margin-top:14px; border-top:1px solid rgba(255,255,255,0.14); padding-top:10px; }
+  #tune-toggle{ background:transparent; border:1px solid rgba(255,255,255,0.3); color:var(--paper);
+    font-size:0.8rem; letter-spacing:0.04em; padding:7px 12px; border-radius:8px; cursor:pointer; }
+  #tune-pane.closed #tune-body, #tune-pane.closed #tune-intro{ display:none; }
+  #tune-intro{ margin:8px 0 2px; }
+  #tune-pane .settings-row{ display:flex; flex-direction:column; align-items:stretch; gap:5px;
+    padding:9px 0; border-bottom:1px solid rgba(255,255,255,0.08); }
+  #tune-pane .settings-label{ font-weight:600; font-size:0.9rem; color:var(--paper); }
+  #tune-pane .settings-help{ color:rgba(234,240,252,0.6); font-size:0.78rem; line-height:1.4; }
+  #tune-pane .settings-state{ font-family:ui-monospace,monospace; font-size:0.66rem; color:rgba(234,240,252,0.5); }
+  #tune-pane .settings-state.overridden{ color:var(--blue); }
+  #tune-pane .settings-undo{ background:none; border:none; padding:0; cursor:pointer; color:var(--blue); font:inherit; font-size:0.72rem; }
+  #tune-pane .settings-intro{ color:rgba(234,240,252,0.6); font-size:0.8rem; line-height:1.5; margin:8px 0 2px; }
+  #tune-pane .settings-select, #tune-pane .settings-input{ font:inherit; font-size:0.85rem; padding:7px 9px;
+    background:var(--navy2); color:var(--paper); border:1px solid rgba(255,255,255,0.2); border-radius:8px; }
+  #tune-pane .settings-range{ display:flex; align-items:center; gap:10px; }
+  #tune-pane .settings-range input[type=range]{ flex:1; width:auto; accent-color:var(--blue); }
+  #tune-pane .settings-range output{ font-family:ui-monospace,monospace; font-size:0.8rem; color:var(--paper); }
+  #tune-pane .settings-switch{ position:relative; flex-shrink:0; width:52px; height:30px; cursor:pointer; }
+  #tune-pane .settings-switch input{ opacity:0; width:0; height:0; position:absolute; }
+  #tune-pane .switch-track{ position:absolute; inset:0; background:rgba(255,255,255,0.18); border-radius:999px; transition:background .15s; }
+  #tune-pane .switch-track::after{ content:''; position:absolute; top:3px; left:3px; width:24px; height:24px;
+    border-radius:50%; background:#fff; transition:transform .15s; box-shadow:0 1px 3px rgba(0,0,0,0.3); }
+  #tune-pane .settings-switch input:checked + .switch-track{ background:var(--blue); }
+  #tune-pane .settings-switch input:checked + .switch-track::after{ transform:translateX(22px); }
+  #tune-pane .settings-group{ font-family:ui-monospace,monospace; font-size:0.68rem; letter-spacing:0.1em;
+    text-transform:uppercase; color:var(--blue); margin:14px 0 4px; }
+  #tune-pane .settings-group.foldable{ cursor:pointer; user-select:none; }
+  #tune-pane .settings-group.foldable::after{ content:'▾'; margin-left:8px; display:inline-block; }
+  #tune-pane .settings-group.foldable.closed::after{ transform:rotate(-90deg); }
+  #tune-pane .settings-groupbody.closed{ display:none; }
+  #tune-pane .settings-ruleset{ border-bottom:2px solid var(--gold); padding-bottom:3px; }
+  #tune-pane .settings-child{ margin-left:16px; border-left:2px solid rgba(255,255,255,0.2); padding-left:12px; }
+  #tune-pane .settings-inert{ opacity:0.45; }
+  #tune-pane .settings-inert input, #tune-pane .settings-inert select, #tune-pane .settings-inert button, #tune-pane .settings-inert .settings-switch{ pointer-events:none; }
+  #tune-pane .settings-advanced{ font-family:ui-monospace,monospace; font-size:0.62rem; letter-spacing:0.08em;
+    text-transform:uppercase; color:rgba(234,240,252,0.5); margin:12px 0 6px; cursor:pointer; user-select:none; }
+  #tune-pane .settings-advanced::after{ content:'▾'; margin-left:6px; display:inline-block; }
+  #tune-pane .settings-advanced.closed::after{ transform:rotate(-90deg); }
 </style>
 </head>
 <body>
@@ -301,41 +353,60 @@
         points, no turn and no clock, because those belong to the game hosting it.
       </p>
     </div>
+    <!-- The round settings, live. The same rows a game's ⚙ shows, hosted on this page
+         (registered above) so a round can be tuned as it is built; a change re-renders
+         the card. Folded by default so the editor leads. -->
+    <div id="tune-pane" class="closed">
+      <button id="tune-toggle" type="button">Tune the round ▾</button>
+      <p id="tune-intro" class="hint">These are the game's real round settings — changing one here changes what a class next gets (it is the same storage). They take effect on the card as you tune.</p>
+      <div id="tune-body"></div>
+    </div>
   </div>
 
   <div id="rack-pane"><div id="rack-warn" class="warn"></div><div id="rack"></div></div>
 </div>
 
-<script src="../game-hub/hub-buzzer.js?v=20260819e"></script>
-<script src="../game-hub/hub-qr.js?v=20260819e"></script>
-<script src="../game-hub/hub-kit.js?v=20260819e"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260822b"></script>
+<script src="../game-hub/hub-qr.js?v=20260822b"></script>
+<script src="../game-hub/hub-kit.js?v=20260822b"></script>
+<!-- The physics table shelf, for the Toss round below. Matter first (hub-table
+     destructures window.Matter at load), then the shelf onto window.HubKit. -->
+<script src="../game-hub/matter.min.js?v=20260822b"></script>
+<script src="../game-hub/hub-table.js?v=20260822b"></script>
 <!-- Captured between the two files, which is the only moment the two sets are
      distinguishable: every form registered above is in the kit and live in every
      game the day a bank item carries its type, and everything registered below is
      experimental and can reach no board at all, because a game loads hub-kit.js and
      never loads this file. The menu says which is which so nobody has to remember. -->
 <script>window.IN_THE_KIT = window.HubKit.prompt.types();</script>
-<script src="lab-forms.js?v=20260819e"></script>
-<script src="../game-hub/hub-rounds.js?v=20260819e"></script>
-<script src="../game-hub/rounds/default.js?v=20260819e"></script>
-<script src="../game-hub/rounds/grouping.js?v=20260819e"></script>
-<script src="../game-hub/rounds/ordering.js?v=20260819e"></script>
-<script src="../game-hub/rounds/choice.js?v=20260819e"></script>
-<script src="../game-hub/rounds/anagram.js?v=20260819e"></script>
-<script src="../game-hub/rounds/scramble.js?v=20260819e"></script>
-<script src="../game-hub/rounds/infogap.js?v=20260819e"></script>
-<script src="../game-hub/rounds/drop.js?v=20260819e"></script>
-<script src="../game-hub/rounds/bingo.js?v=20260819e"></script>
+<script src="lab-forms.js?v=20260822b"></script>
+<script src="../game-hub/hub-rounds.js?v=20260822b"></script>
+<script src="../game-hub/rounds/default.js?v=20260822b"></script>
+<script src="../game-hub/rounds/grouping.js?v=20260822b"></script>
+<script src="../game-hub/rounds/ordering.js?v=20260822b"></script>
+<script src="../game-hub/rounds/choice.js?v=20260822b"></script>
+<script src="../game-hub/rounds/anagram.js?v=20260822b"></script>
+<script src="../game-hub/rounds/scramble.js?v=20260822b"></script>
+<script src="../game-hub/rounds/infogap.js?v=20260822b"></script>
+<script src="../game-hub/rounds/drop.js?v=20260822b"></script>
+<script src="../game-hub/rounds/bingo.js?v=20260822b"></script>
+<script src="../game-hub/rounds/toss.js?v=20260822b"></script>
 <!-- Data only, and the reason the bench can be a round trip rather than a blank
      page: an existing category can be loaded, edited and exported back. Loading a
      unit here puts nothing in front of a class — these files are inert until a hub
      shell reads them. -->
-<script src="../game-hub/content/unit-lab.js?v=20260819e"></script>
-<script src="../game-hub/content/unit-4.js?v=20260819e"></script>
-<script src="../game-hub/content/unit-5.js?v=20260819e"></script>
-<script src="../game-hub/content/nef-1.js?v=20260819e"></script>
-<script src="../game-hub/content/ef-2a.js?v=20260819e"></script>
-<script src="bench-kit.js?v=20260819e"></script>
+<script src="../game-hub/content/unit-lab.js?v=20260822b"></script>
+<script src="../game-hub/content/unit-4.js?v=20260822b"></script>
+<script src="../game-hub/content/unit-5.js?v=20260822b"></script>
+<script src="../game-hub/content/nef-1.js?v=20260822b"></script>
+<script src="../game-hub/content/ef-2a.js?v=20260822b"></script>
+<script src="bench-kit.js?v=20260822b"></script>
+<!-- The round settings, hosted directly: the room bench borrows a live board's registry,
+     but this page IS the board, so it loads the machinery (hub-settings.js) and registers
+     the same Questions-group rows (hub-round-settings.js) master-only — for the Tune pane
+     and for ctx() to read instead of hard-coded defaults. -->
+<script src="../game-hub/hub-settings.js?v=20260822b"></script>
+<script src="../game-hub/hub-round-settings.js?v=20260822b"></script>
 <script>
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -356,6 +427,76 @@ let TEAMS = ['Team 1', 'Team 2'];
    own little room, so `setSolo` does the reseating here — each phone gets its own
    competitor index, which is the only thing that makes each a competitor of its own. */
 let SOLO = false;
+
+/* Register the round settings on THIS page — the same rows the hub registers, but
+   master-only (no games), so ctx() below reads live values with S.get(id) and the Tune
+   pane can show them. `solo:()=>SOLO` lets crowdLive's stateNote read the bench's room
+   mode. Runs before the first ctx()/build() in the boot sequence at the bottom. */
+const S = window.HubSettings;
+registerRoundSettings(S, {
+  roundGames: [], isScoreEach: () => false, isOnCard: () => false,
+  payVariants: [{ value:'winner', label:'Winner takes all' }], solo: () => SOLO
+});
+
+/* **Register `roster` here too, so the bench can tell the settings system which room
+   it is.** A `byRoster` setting only forks to its `…!solo` value when `soloNow()` is
+   true, and `soloNow()` reads this `roster` value (hub-settings.js). The hub registers
+   it and its team bar writes it; the bench never did, so on the bench the solo fork was
+   dead — the Individuals switch changed the rack but not one forked setting. Registered
+   minimally (it is kept out of the Tune pane by group below); the Individuals segment
+   writes it in setSolo, exactly as the hub's team bar does. */
+S.register({ id:'roster', group:'Competition', type:'variant', default:'teams',
+  variants:[{ value:'teams', label:'Teams' }, { value:'solo', label:'Individuals' }] });
+/* Adopt the shared room mode rather than overwrite it: `roster` persists across the hub
+   and here (one storage), and the hub trusts the stored value, so seeding it at boot
+   would silently flip a class to Teams. Reading it means the bench opens in the room the
+   teacher last chose and the forked settings are correct from the first draw. */
+if(S.get('roster') === 'solo'){ SOLO = true; TEAMS = []; }
+
+/* ---- the Tune pane: the hub's own settings rows, rendered straight onto this page ----
+   `renderOnce` shows the master view, scoped to the round-setting groups (Questions and
+   Phones) — `roster` is registered here too but it is the room mode, not a round setting.
+   A change re-renders the pane (so nested/greyed rows update) and re-draws the card (so
+   commentary/reveal/etc. take effect on the question on screen). Folded by default,
+   remembered per device. */
+const TUNE_KEY = 'engishism.qbenchTune';
+let tuneTimer = null;
+function tuneOpen(){ try{ return localStorage.getItem(TUNE_KEY) === 'open'; }catch(e){ return false; } }
+function setTuneOpen(v){ try{ localStorage.setItem(TUNE_KEY, v ? 'open' : 'closed'); }catch(e){} }
+function renderTune(){
+  const body = $('tune-body'); if(!body) return;
+  body.innerHTML = '';
+  /* Only the round-setting groups: `roster` is registered here now (to drive the solo
+     scope) but it is the room mode, owned by the Individuals segment above — a second
+     control for it in "Tune the round" would be a duplicate that does not rebuild the
+     rack. Every round setting lives in Questions or Phones, so this shows them all. */
+  try{ S.renderOnce(body, null, { groups:['Questions','Phones'] }); }catch(e){ body.textContent = 'settings unavailable'; }
+}
+function paintTuneFold(){
+  const open = tuneOpen();
+  $('tune-pane').classList.toggle('closed', !open);
+  $('tune-toggle').textContent = 'Tune the round ' + (open ? '▴' : '▾');
+  if(open) renderTune();
+}
+$('tune-toggle').addEventListener('click', ()=>{ setTuneOpen(!tuneOpen()); paintTuneFold(); });
+/* Debounced, like the room bench: a change writes storage and fires onChange; re-render
+   the pane and the card so what is tuned is what is seen. And RE-ARM the phones: a
+   phone-side setting (Send, the preview bar) rides the arm, so without this a toggle
+   only lands on the NEXT question — invisible on a one-question round like Toss, which
+   read as "the toggle does nothing". Safe here and only here: a workshop has no real
+   students mid-answer, so re-arming to show the change is what you want (the real games
+   deliberately defer it). Guarded so a form, a finished question or no relay re-arms
+   nothing. */
+S.onChange((id)=>{ clearTimeout(tuneTimer); tuneTimer = setTimeout(()=>{
+  if(tuneOpen()) renderTune();
+  draw();
+  /* Re-arm only for the two settings `ask()` actually puts on the wire — `roundSend`
+     (arm.send) and `crowdLive` (arm.preview). Re-arming on a card/judging setting
+     (commentary, the reveal, everyone-finishes) would needlessly wipe the phones'
+     in-progress picks; those already take effect through draw() above. */
+  if((id === 'roundSend' || id === 'crowdLive') && host && isRound(type) && state && !state.done) ask();
+}, 300); });
+paintTuneFold();
 
 /* Assigned below rather than here: the namespacing helpers are `const`, so naming
    one at this point is a temporal-dead-zone error — which threw before the menu was
@@ -468,15 +609,6 @@ function labelOf(t){
   return isRound(t) ? (Kit.round.get(nameOf(t)).label || nameOf(t)) : nameOf(t);
 }
 
-function sizes(){
-  const out = TEAMS.map(()=>0);
-  if(host) host.players().forEach(p=>{
-    const t = Number(p.team);
-    if(t >= 0 && t < out.length) out[t]++;
-  });
-  return out;
-}
-
 /* **State that outlives one question**, the same store the hub lends. Anything a
    *student* carries rather than the question: a bingo card and its marks, a hand, a
    secret role. Keyed by player id because that is what survives a phone dropping off
@@ -493,61 +625,44 @@ const KEEP = {
 };
 
 function ctx(){
-  return {
+  /* The field list and every guard shape live in `Kit.round.ctx` now — the same
+     builder `roundCtx()` (hub-engine.js) calls, so the bench plays a round with
+     the container's own ctx rather than a hand-kept copy of it. What is written
+     here is only what the bench actually owns: its master-scope settings (the
+     bench has no game), its keep store, and the host facts below. */
+  return Kit.round.ctx({
     teams: TEAMS.slice(),
-    sizes: sizes(),
-    /* The bench has no settings panel, so it lends the *default room's* values — the
-       same numbers a game shows before a teacher changes anything. Keeping this in
-       step with roundCtx() (hub-engine.js) is what stops the bench quietly playing a
-       round differently than a game would: `openToAll` absent made the ordering race
-       set `done` on the first finisher and lock everyone else out — exactly the bug
-       the field was added to prevent. */
-    openToAll: true,                                   // roundOpenToAll default
-    crowdReveal: 0.4,                                  // crowdReveal default 40%
-    crowdMeter: true,
-    crowdLive: false,
-    commentary: 'headline',                            // roundCommentary default
-    nudge: kind => { if(host && host.nudge) host.nudge(kind); },
-    solo: SOLO,                                        // lent for parity; no round reads it
-    hideVotes: false,
-    lockIn: false,
-    countVotes: false,
+    buzz: host,
+    setting: k => S.get(k),
     keep: KEEP,
-    /* Who is in the room, read fresh like `sizes` — the information gap deals a
-       view per player, and a deal cut from a stale roster misses whoever just
-       walked in. */
-    roster: host ? host.players() : [],
-    /* A verdict for one phone, lent rather than reached for — the round says how
-       a typed word was received and the host owns the wire. */
-    verdict: (id, verdict, note, coolMs) => { if(host) host.judge(id, verdict, { note, coolMs }); },
-    /* "Re-arm the phones and redraw me" — how a round that advances by its own
-       clock asks for its next beat (Word Drop's landing). The same move the
-       bench itself makes after an accepted climb step, handed to the round for
-       the case where time, not a right answer, is the trigger. An arm of null
-       means the round has nothing left to ask. */
-    again: ()=>{
-      if(!state || !isRound(type)) return;
-      if(host && !state.done){
-        const a = roundDef().arm(state, ctx());
-        if(a) host.arm(a.prompt, a); else host.disarm();
+    host: {
+      solo: SOLO,                     // lent for parity; no round reads it
+      /* "Re-arm the phones and redraw me" — how a round that advances by its own
+         clock asks for its next beat (Word Drop's landing). The same move the
+         bench itself makes after an accepted climb step, handed to the round for
+         the case where time, not a right answer, is the trigger. An arm of null
+         means the round has nothing left to ask. */
+      again: ()=>{
+        if(!state || !isRound(type)) return;
+        if(host && !state.done){
+          const a = roundDef().arm(state, ctx());
+          if(a) host.arm(a.prompt, a); else host.disarm();
+        }
+        if(host && state.done) host.disarm();
+        draw();
+      },
+      mode: $('mode-pick').value || null,
+      forTeam: teacherTeam(),
+      onPick: word => {
+        if(!state || state.done) return;
+        const cap = capOf();
+        const at = state.chosen.indexOf(word);
+        if(at !== -1) state.chosen.splice(at, 1);
+        else if(state.chosen.length < cap) state.chosen.push(word);
+        draw();
       }
-      if(host && state.done) host.disarm();
-      draw();
-    },
-    teamName: i => TEAMS[i] || ('Team ' + (i+1)),
-    prompt: true,
-    team: null,                       // the whole room; a host may scope it, this does not
-    mode: $('mode-pick').value || null,
-    forTeam: teacherTeam(),
-    onPick: word => {
-      if(!state || state.done) return;
-      const cap = capOf();
-      const at = state.chosen.indexOf(word);
-      if(at !== -1) state.chosen.splice(at, 1);
-      else if(state.chosen.length < cap) state.chosen.push(word);
-      draw();
     }
-  };
+  });
 }
 
 /* The picker is built from what the round *declares*, so the bench never learns
@@ -782,7 +897,13 @@ function fillLoad(){
       if(!claimed.length) return;
       const o = document.createElement('option');
       o.value = ui + ':' + ci;
-      o.textContent = (u.card && u.card.num ? u.card.num + ' · ' : '') + c.name +
+      /* The name a category shows, derived exactly as the board's categoryName does:
+         a round category carries no explicit `name` since the A1 dedup, so the round's
+         label is the single home for it — reading raw `c.name` here printed "undefined"
+         for every Connections/Thermometer category the moment the names were stripped. */
+      const chit  = Kit.round.of((c.clues || [])[0]);
+      const cname = c.name || (chit && chit.def && chit.def.label) || c.section || '';
+      o.textContent = (u.card && u.card.num ? u.card.num + ' · ' : '') + cname +
                       ' (' + claimed.length + ')';
       sel.appendChild(o);
     });
@@ -944,6 +1065,7 @@ function build(){
      a pool that no longer exists. */
   keepReset();
   state = def ? def.setup(itemFromEditor(), ctx()) : null;
+  if(state) Kit.round.results.open();     // fresh standings for the new question (open-to-all path)
   replies = [];
   if(settler) settler.stop();
   settler = state ? Kit.round.settle(def.settleMs, onSettle) : null;
@@ -1036,9 +1158,11 @@ function ask(){
      (hub-engine.js): in a room of individuals a tap round holds its taps until the
      player presses Send, and the live preview rides on the back of that. It is a
      host fact, not the round's — set on the arm here, or the bench's solo would let
-     a tap be the answer and would not be the room a class actually meets. Treated as
-     on because `roundSend` defaults on; the bench has no panel to turn it off. */
-  if(SOLO && (arm.mode === 'vote' || arm.mode === 'arrange')){
+     a tap be the answer and would not be the room a class actually meets. Gated on
+     `roundSend` now, matching the hub (`Roster.solo() && S.get('roundSend')`), so the
+     Tune pane's "Individuals press Send" toggle actually turns it off here. `table`
+     stays in the set because Toss is bench-only. */
+  if(SOLO && S.get('roundSend') && (arm.mode === 'vote' || arm.mode === 'arrange' || arm.mode === 'table')){
     arm.send = true;
     if(ctx().crowdLive) arm.preview = true;
   }
@@ -1093,6 +1217,47 @@ function onSettle(){
   const verdicts = Object.keys(state.picks).map(t => ({
     team: Number(t), set: state.picks[t], r: def.judge(state.picks[t], state, Number(t), c)
   })).filter(v => v.r.verdict !== 'incomplete');
+
+  /* **Open to all: everyone finishes and is ranked, not just the first right answer.**
+     Mirror the engine's roundSettle open branch — record each finisher's arrival in
+     Kit.round.results (the lanes draw the 1st/2nd/3rd badges straight off it) and keep
+     the room open; the teacher's Reveal ends the question. saidOf drives the per-player
+     miss commentary, exactly as a real game shows it. No take(), no re-arm — a student
+     mid-arrangement is not reset by someone else finishing. */
+  if(c.openToAll){
+    // ordered rounds key by the sequence; the rest by the set — so a re-ordered wrong
+    // answer re-announces and a fresh rung accepts, exactly as the engine's roundKeyOf.
+    const keyOf = set => (def.ordered ? set.slice() : set.slice().sort()).join('|');
+    let moved = false, again = false;
+    /* Misses first, so a right answer owns the say line (the engine's order). */
+    verdicts.filter(v => v.r.verdict !== 'right').forEach(v => {
+      if(!settler.fresh(v.team, keyOf(v.set))) return;
+      state.say = def.saidOf(ctx().teamName(v.team), v.r, state); state.sayTeam = v.team;
+      shake(v.set); moved = true;
+    });
+    /* Every fresh right answer is ACCEPTED — that is what advances a multi-step round
+       (an ordering climb locks its rung and deals the next), and skipping it froze the
+       ladder. `done` separates a rung from a finish: a step re-arms for the next one and
+       records nothing final; a finish stamps the placement (the lanes draw the badge). */
+    verdicts.filter(v => v.r.verdict === 'right').forEach(v => {
+      if(!settler.fresh(v.team, 'ok:' + keyOf(v.set))) return;
+      def.accept(v.set, state, v.team, c);
+      const finished = v.r.done !== false || state.done;
+      Kit.round.results.note(v.team, { at: Date.now(), done: finished });
+      if(!finished){
+        state.say = ctx().teamName(v.team) + ' — yes.'; state.sayTeam = v.team;
+        again = true; moved = true;
+        return;
+      }
+      state.say = ctx().teamName(v.team) + ' has it!'; state.sayTeam = v.team;
+      moved = true;
+    });
+    if(moved) draw();
+    // a step moved the question on — re-arm the phones for the next rung, as the hub does
+    if(again && host){ const a = def.arm(state, ctx()); if(a) host.arm(a.prompt, a); }
+    return;
+  }
+
   // the right answer is resolved before any wrong one — two teams can settle in one tick
   const won = verdicts.filter(v => v.r.verdict === 'right')[0];
   if(won){
@@ -1100,7 +1265,7 @@ function onSettle(){
        set; an ordering climb has four more rungs to go. The round says which. */
     def.accept(won.set, state, won.team, c);
     if(won.r.done !== false || state.done){ take(won.team); return; }
-    state.say = ctx().teamName(won.team) + ' — yes.';
+    state.say = ctx().teamName(won.team) + ' — yes.'; state.sayTeam = won.team;
     settler.reset();
     draw();
     if(host){ const a = def.arm(state, ctx()); host.arm(a.prompt, a); }
@@ -1108,7 +1273,7 @@ function onSettle(){
   }
   verdicts.forEach(v=>{
     if(!settler.fresh(v.team, v.set.slice().sort().join('|'))) return;
-    state.say = def.saidOf(ctx().teamName(v.team), v.r, state);
+    state.say = def.saidOf(ctx().teamName(v.team), v.r, state); state.sayTeam = v.team;
     draw();
     shake(v.set);
   });
@@ -1116,7 +1281,7 @@ function onSettle(){
 
 function take(team){
   state.done = true;
-  state.say  = ctx().teamName(team) + ' has it.';
+  state.say  = ctx().teamName(team) + ' has it.'; state.sayTeam = team >= 0 ? team : null;
   draw();
   $('card-answer').style.display = 'block';
   if(host) host.disarm();
@@ -1140,13 +1305,13 @@ $('check-btn').addEventListener('click', ()=>{
   if(r.verdict === 'right'){
     def.accept(state.chosen.slice(), state, teacherTeam(), c);
     state.chosen = [];
-    if(r.done !== false || state.done){ take(-1); state.say = 'That is it.'; draw(); return; }
-    state.say = 'Yes — keep going.';
+    if(r.done !== false || state.done){ take(-1); state.say = 'That is it.'; state.sayTeam = null; draw(); return; }
+    state.say = 'Yes — keep going.'; state.sayTeam = null;   // the teacher's own check, not a student's
     draw();
     if(host){ const a = def.arm(state, ctx()); host.arm(a.prompt, a); }
     return;
   }
-  state.say = def.saidOf('Not a group', r, state).replace(/^Not a group: /, 'Not a group — ');
+  state.say = def.saidOf('Not a group', r, state).replace(/^Not a group: /, 'Not a group — '); state.sayTeam = null;
   draw();
   shake(state.chosen);
 });
@@ -1164,6 +1329,7 @@ $('reveal-btn').addEventListener('click', ()=>{
   }
   if(!state) return;
   if(settler) settler.stop();
+  state.done = true;                 // the question is over — no stray settle re-reads it (open-to-all)
   roundDef().reveal($('card-round'), state, ctx());
   $('card-answer').style.display = 'block';
   draw();
@@ -1282,8 +1448,19 @@ const NAMES = ['Ana','Bo','Cal','Di','Eli','Fen','Gus','Hana','Ivo','Jo',
    needs a handle on the box, and which team a phone is on has to survive any
    number of adds and removes. The room bench has always worked this way; this is
    the two benches converging on one shape. */
-const PHONES = [];                     // {name, team, el}
+const PHONES = [];                     // {name, team, el, id}
 const phonesOn = t => PHONES.filter(p => p.team === t).length;
+/* A monotonic id for each spawned handset (`sim-0`, `sim-1`, …), handed to its
+   join.html so the bench can tell its OWN phones from a real one that scanned the QR:
+   any roster player whose id is not one of these is a real device. Monotonic, never
+   reused, so removing and re-adding cannot collide with a still-connected phone. */
+let simSeq = 0;
+/* In Individuals mode a real phone must be its OWN competitor. It joins at team 0 (the
+   join form's default), which is the first player's index — so its answer lands on whoever
+   sits there (the reported "Ali's right answer credited Ana"). We seat it onto a fresh
+   competitor, once, and remember by id so the seat/teams events that follow do not re-seat
+   it. Cleared whenever the competitor list is rebuilt (clearRack). */
+const realSeats = new Map();           // real phone id -> its own competitor index (solo)
 
 /* A row per team, created once and never rebuilt. **Rows are added, never
    re-parented**: moving an iframe reloads it, which drops its stream — the room
@@ -1390,6 +1567,65 @@ function removePhone(p){
   setTimeout(()=>{ draw(); fitAll(); }, 900);   // the share moves when a team shrinks
 }
 
+/* Real phones — a handset that scanned the QR, not one the bench spawned — have no
+   iframe here (a real device cannot be framed), and in a team room their answer
+   surfaces on their whole team, so without a card of their own it reads as one of the
+   virtual phones reacting (the reported "my phone became Ana"). Draw each a placeholder
+   card in its team's row, badged, so it is visibly its own participant. Rebuilt wholesale
+   on every roster change: these cards hold no stream to drop, so unlike the iframes they
+   can be re-parented freely. A player is "ours" iff its id is one of the `sim-N` ids we
+   handed out; everyone else is real. */
+function syncRealPhones(){
+  document.querySelectorAll('.phone.real').forEach(el => el.remove());
+  const roster = (host && host.players && host.players()) || [];
+  const reals = roster.filter(p => p && p.id && !PHONES.some(x => x.id === p.id));
+
+  /* Individuals: seat each new real phone onto its own competitor, exactly as `+player`
+     adds one — append it to TEAMS, move it there with `host.seat`, and rebuild the lanes
+     and re-arm (a new competitor is a new question, the same cost `addTeam` pays). Guarded
+     by `realSeats` so the seat/teams events this triggers settle without re-seating. */
+  if(SOLO && host){
+    let changed = false;
+    reals.forEach(p => {
+      if(realSeats.has(p.id)) return;
+      TEAMS.push(p.name || 'Phone');
+      realSeats.set(p.id, TEAMS.length - 1);
+      host.seat(p.id, TEAMS.length - 1);
+      changed = true;
+    });
+    if(changed){ build(); pushTeams(); ask(); fitAll(); }
+  }
+
+  reals.forEach(p => {
+    // the seated index colours the card right away, before the roster's own team updates
+    const t = (SOLO && realSeats.has(p.id)) ? realSeats.get(p.id) : Math.max(0, Number(p.team) || 0);
+    const row = rackRow(SOLO ? 0 : Math.min(t, TEAMS.length - 1));
+    const box = document.createElement('div');
+    box.className = 'phone real';
+    box.style.setProperty('--pc', window.HubBuzzer ? HubBuzzer.teamColour(t) : '');
+    const who = document.createElement('div');
+    who.className = 'who';
+    who.textContent = p.name || 'Phone';
+    const clip = document.createElement('div');
+    clip.className = 'clip';
+    clip.innerHTML = '<span class="real-badge">REAL</span><span class="real-sub">scanned in</span>';
+    box.appendChild(who); box.appendChild(clip);
+    row.appendChild(box);
+  });
+  /* Reconcile each team row's "no phones yet" label against what it actually holds now
+     (virtual or real) — a row with only a real phone must not still say it is empty. */
+  document.querySelectorAll('[id^="rack-team-"]').forEach(boxEl => {
+    const label = boxEl.querySelector('.rack-label'); if(!label) return;
+    const has = boxEl.querySelector('.phone'), none = label.querySelector('.none');
+    if(has && none) none.remove();
+    else if(!has && !none){
+      const n = document.createElement('span');
+      n.className = 'none'; n.textContent = ' — no phones yet';
+      label.appendChild(n);
+    }
+  });
+}
+
 function addPhone(team){
   if(!host || PHONES.length >= RACK_MAX) return;
   const name = NAMES[seat++ % NAMES.length];
@@ -1426,13 +1662,18 @@ function addPhone(team){
   const clip = document.createElement('div');
   clip.className = 'clip';
   const f = document.createElement('iframe');
-  f.src = '../join.html?code=' + encodeURIComponent(host.code) +
-          '&name=' + encodeURIComponent(name) + '&team=' + t + '&auto=1' +
+  const simId = 'sim-' + (simSeq++);
+  // `?v=` first and literal, so the cache-stamp sed one-liner keeps it current — a
+  // fresh stamp is a fresh cache key, so the rack always loads the CURRENT join.html
+  // shell rather than a cached one that predates a mode it is being armed with.
+  // `&id=sim-N` is a KNOWN id, so a real phone (any other roster id) is recognisable.
+  f.src = '../join.html?v=20260822b&code=' + encodeURIComponent(host.code) +
+          '&name=' + encodeURIComponent(name) + '&team=' + t + '&auto=1&id=' + simId +
           (RELAY ? '&relay=' + encodeURIComponent(RELAY) : '');
   clip.appendChild(f);
   box.appendChild(who); box.appendChild(clip);
   row.appendChild(box);
-  const rec = { name, team: t, el: box };
+  const rec = { name, team: t, el: box, id: simId };
   off.addEventListener('click', ()=> removePhone(rec));
   PHONES.push(rec);
   refreshRackChrome();
@@ -1447,6 +1688,7 @@ function addPhone(team){
 function clearRack(){
   PHONES.slice().forEach(p => p.el.remove());
   PHONES.length = 0;
+  realSeats.clear();                    // the competitor list is being rebuilt from scratch
   $('rack').replaceChildren();          // every competitor row and the solo grid
   refreshRackChrome();
 }
@@ -1505,6 +1747,10 @@ function pushTeams(){ if(host) host.setTeams(TEAMS.slice(), SOLO); }
    the hub's own re-seat, so the reload is the honest cost. */
 function setSolo(on){
   if(SOLO === on) return;
+  /* Drive the settings system's solo scope, the same fact the hub's team bar writes:
+     without it every `byRoster` setting (Everyone-finishes, the commentary, the crowd
+     bar, the phone hint) stays on its team-room value however this switch is flipped. */
+  S.set('roster', on ? 'solo' : 'teams');
   const keep = PHONES.length;                    // carry the class size across
   clearRack();
   SOLO = on; seat = 0;
@@ -1559,6 +1805,7 @@ $('add-phone').addEventListener('click', ()=>{
 });
 BenchKit.layout($('bar-layouts'), applyLayout);
 buildRosterSeg();
+if(SOLO) $('add-team').style.display = 'none';   // adopted a solo room at boot — no teams to add
 
 /* The room bench's handle when this page is its board — grow-only, exactly as
    the hub's team bar exposes. */
@@ -1582,6 +1829,7 @@ const room = BenchKit.room({
       const btn = $('add-phone');
       btn.disabled = false; btn.textContent = '+ phone'; btn.removeAttribute('title');
       pushTeams(); ask();
+      syncRealPhones();               // a real phone may already be in the room on connect
       /* **Nothing racks itself here either** — see the room bench's note. This
          used to replay a remembered division the moment the room existed, so
          opening the bench to edit a question dealt you sixteen handsets first.
@@ -1613,6 +1861,7 @@ const room = BenchKit.room({
        and a team of three sitting at 2 becomes unanimous the moment the third
        drops off. Nothing else would ever say so, because a leaver sends no reply. */
     players(){
+      syncRealPhones();               // a real phone may have scanned in or dropped
       if(state && !state.done){
         onResponse({ all: replies });
         /* The deal follows the room: the information gap cuts a view per player,

@@ -48,6 +48,8 @@
     display:inline-block; padding:3px 11px; border-radius:999px; margin-left:7px;
     background:var(--team, var(--blue)); color:var(--navy); font-weight:700;
   }
+  /* Solo: the chip is the whole identity, with no name in front of it to sit beside. */
+  .who .tteam.solo{ margin-left:0; }
   .card{ display:none; grid-template-columns:repeat(3, 1fr); gap:8px; width:100%; }
   .card button{
     padding:14px 5px; border-radius:12px; border:2px solid rgba(255,255,255,0.22);
@@ -195,6 +197,13 @@
   /* `touch-action:none` or the browser claims the gesture as a scroll and the
      pointermove events stop arriving halfway through a drag. */
   #arrange *{ touch-action:none; }
+  /* The physics table (the Toss round). One canvas the whole width of the screen;
+     `touch-action:none` for the same reason as #arrange — the browser must not
+     claim a flick as a scroll. An explicit height, not a flex grow, so the canvas
+     never collapses to nothing inside a parent that isn't giving it room. */
+  #table{ display:none; width:100%; flex-direction:column; align-items:stretch; }
+  #table canvas{ width:100%; height:min(60vh, 420px); min-height:300px;
+    touch-action:none; border-radius:12px; background:#0e1230; display:block; }
   /* **One row each, divided, never wrapped.** A fixed minimum width wrapped a
      seven-letter word to six-and-one on a 390px handset, which reads as a mistake
      rather than as a word — and the stray box on its own line is exactly where a
@@ -357,6 +366,9 @@
     <div id="ana-tray"></div>
     <p id="ana-note"></p>
   </div>
+  <!-- The physics table: the same puzzle as #arrange, flicked instead of dragged.
+       The canvas is built fresh per arm by buildTable(); Kit.table runs on it. -->
+  <div id="table"><canvas id="table-canvas"></canvas></div>
   <!-- The commit beat for a room of individuals: taps only select, this sends.
        Shown only when the arm asks for it (`send`), which the host does in solo —
        in a team room the live taps are the negotiation and this never appears. -->
@@ -380,7 +392,14 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260819e"></script>
+<script src="game-hub/hub-buzzer.js?v=20260822b"></script>
+<!-- The physics table, so a `table` handset runs its OWN Kit.table (the Toss round).
+     matter.min.js first (hub-table destructures window.Matter at load); the stub gives
+     hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
+     phone — hub-table only reads window.HubKit to hang its .table on it. -->
+<script src="game-hub/matter.min.js?v=20260822b"></script>
+<script>window.HubKit = window.HubKit || {};</script>
+<script src="game-hub/hub-table.js?v=20260822b"></script>
 <script>
 (function(){
   'use strict';
@@ -431,35 +450,25 @@
      was written out in two places already. Takes the name rather than reading one:
      the player's name is a parameter of joinRoom, and an undeclared `name` here
      would quietly resolve to `window.name` — an empty string, on every handset. */
-  function paintWho(who){
-    $('who').textContent = who + ' ';
-    /* **A room of individuals gets no tag and no colour, and that is a decision
-       rather than a tidy-up.** A colour on a handset means "this is the side you are
-       on" — it is how a student matches themselves to a coloured row on the board.
-       In individual play there are no sides, so a colour would be decoration that
-       looks like information, and the tag would print the name the line above
-       already says.
+  /* **The identity chip: the competitor you are, in its colour — the same colour the
+     board puts on your row, so you can find yourself on the screen.** One shape for
+     both rooms; only the label differs, which is exactly what differs between them.
+     In a team, you and your team are not the same thing, so your name sits plain and
+     the chip names the *team*. In a room of individuals you *are* the competitor, so
+     the chip is your *own* name and there is no separate copy to duplicate it.
 
-       It also removes a whole class of wrong: the tag read whatever competitor sat
-       at this phone's index, so a handset that had not been re-seated announced
-       somebody else's name in confident blue. Nothing to be stale when nothing is
-       drawn. */
-    /* **A room of individuals now gets a colour, but still no tag.** The colour is
-       this player's own identity — their name shown in it — not a side, so there is
-       no team name to print. It is safe where the tag was not: the name is always
-       this handset's own, never the competitor who last sat at its index, so there is
-       no stale-seat wrong-name to flash — and it re-paints on every re-seat. */
-    if(joinSolo){
-      document.documentElement.style.setProperty('--team', colourOf(team));
-      $('who').style.color = colourOf(team);
-      return;
-    }
-    $('who').style.color = '';   // team mode wears its colour on the pill, not the name
+     Safe where the old solo tag was not: the solo chip reads this handset's own name
+     (`who`), never `teamNames[team]` — the competitor who last sat at this index — so
+     a stale seat can flash the wrong colour for an instant but never the wrong name,
+     and it repaints on every re-seat. */
+  function paintWho(who){
     document.documentElement.style.setProperty('--team', colourOf(team));
-    const pill = document.createElement('span');
-    pill.className = 'tteam';
-    pill.textContent = teamNames[team] || ('Team ' + (team+1));
-    $('who').appendChild(pill);
+    $('who').style.color = '';
+    $('who').textContent = joinSolo ? '' : (who + ' ');
+    const chip = document.createElement('span');
+    chip.className = 'tteam' + (joinSolo ? ' solo' : '');
+    chip.textContent = joinSolo ? who : (teamNames[team] || ('Team ' + (team+1)));
+    $('who').appendChild(chip);
   }
 
   /* The real teams, before joining. This screen used to offer a hard-coded two, so
@@ -637,6 +646,7 @@
     $('buzzer').style.display = (mode==='buzz' || mode==='type') ? '' : 'none';
     $('opts').style.display   = mode==='vote'   ? 'flex' : 'none';
     $('arrange').style.display = mode==='arrange' ? 'flex' : 'none';
+    $('table').style.display  = mode==='table'   ? 'flex' : 'none';
     $('write').style.display  = (mode==='answer' || mode==='type') ? 'flex' : 'none';
     // the card stays on screen between calls — it is the student's own board, not
     // a control that belongs to one question
@@ -647,7 +657,7 @@
     $('send').style.display   = mode==='type' ? 'none' : '';   // the buzzer sends it
     /* A fresh mode retires the last question's commit state with it. */
     cooling = false; sentValue = null;
-    $('commit').style.display = (needSend && (mode==='vote' || mode==='arrange')) ? '' : 'none';
+    $('commit').style.display = (needSend && (mode==='vote' || mode==='arrange' || mode==='table')) ? '' : 'none';
     $('commit').disabled = true;
     $('commit').textContent = 'Send';
     $('screen-play').classList.toggle('mode-type', mode==='type');
@@ -739,6 +749,7 @@
       });
     }
     if(mode==='arrange') buildArrange(opts || []);
+    if(mode==='table') buildTable(opts || []);
     if(mode==='answer'){ $('reply').value=''; $('reply').disabled=false; $('send').disabled=false; }
     if(mode==='type'){
       $('reply').value=''; $('reply').disabled=false;
@@ -758,6 +769,12 @@
   let anaTiles = [];        // [{ ch, el }] the tray, in the order the card drew it
   let anaSlots = [];        // slot -> tray index, or null
   let anaDrag  = null;      // the in-flight drag, if any
+
+  /* The physics table (Toss). One live Kit.table per arm, on a canvas built fresh
+     each time. The wire is the same |-joined, gap-preserving list #arrange sends —
+     the round's board-side merge reads the two identically — so the relay and the
+     host cannot tell a flicked answer from a dragged one. */
+  let tbl = null, tblCanvas = null;
 
   function buildArrange(list){
     const tray = $('ana-tray'), slots = $('ana-slots');
@@ -885,7 +902,9 @@
      the host cannot tell the two apart. */
   $('commit').addEventListener('click', ()=>{
     if(!client || cooling || timeUp) return;
-    const cur = mode === 'arrange' ? arrangeWire() : myPicks.join('|');
+    const cur = mode === 'table' ? tableWire()
+              : mode === 'arrange' ? arrangeWire()
+              : myPicks.join('|');
     if(cur === sentValue) return;
     blip();
     sentValue = cur;
@@ -915,6 +934,64 @@
       used[i] = true; anaSlots[slot] = i;
     });
     paintArrange();
+  }
+
+  /* Build the physics table for a `table` arm. A fresh canvas each time, exactly as
+     buildArrange rebuilds the tray — a re-arm starts clean. Kit.table owns the
+     physics and the draw; this wires the pointers (converting client → canvas-natural
+     coords, scale 1 on a phone) and runs the loop. onArrange fires when a piece docks
+     or is pulled out, which is the live-send trigger — the flick equivalent of anaPut. */
+  function buildTable(list){
+    const host = $('table');
+    host.innerHTML = '';
+    const canvas = document.createElement('canvas');
+    canvas.id = 'table-canvas';
+    host.appendChild(canvas);
+    tblCanvas = canvas;
+    tbl = window.HubKit.table({ canvas, size: 56, onArrange(){ sendTable(); } });
+    tbl.setPieces(list);
+    tbl.slots(list.length);
+
+    function pt(e){
+      const r = canvas.getBoundingClientRect();
+      const scale = (r.width / canvas.offsetWidth) || 1;   // 1 on a phone; !=1 only inside a scaled card
+      return { x:(e.clientX - r.left)/scale, y:(e.clientY - r.top)/scale };
+    }
+    canvas.addEventListener('pointerdown', e => {
+      if(timeUp || cooling || !client) return;             // a wrong Send is being waited out
+      const p = pt(e);
+      if(tbl.grab(e.pointerId, p.x, p.y)){ try{ canvas.setPointerCapture(e.pointerId); }catch(_){ } }
+    });
+    canvas.addEventListener('pointermove', e => { if(tbl.heldBy(e.pointerId)){ const p = pt(e); tbl.move(e.pointerId, p.x, p.y); } });
+    function end(e){ if(tbl.heldBy(e.pointerId)){ tbl.drop(e.pointerId); try{ canvas.releasePointerCapture(e.pointerId); }catch(_){ } } }
+    canvas.addEventListener('pointerup', end);
+    canvas.addEventListener('pointercancel', end);
+
+    // Self-driving loop; stops itself when this canvas leaves the DOM (a re-arm or a mode change).
+    (function loop(){ if(!canvas.isConnected || tblCanvas !== canvas) return; tbl.step(); tbl.draw(); requestAnimationFrame(loop); })();
+    requestAnimationFrame(()=>{ if(canvas.isConnected) tbl.resize(); });
+    tbl.resize();
+  }
+
+  /* The answer, same shape as arrangeWire: box order, |-joined, empty slots kept as
+     empty segments so a gap survives to the restore. Kit.table.cells() is the
+     positional readout (read() would collapse the gaps). */
+  function tableWire(){ return tbl ? tbl.cells().join('|') : ''; }
+
+  function sendTable(){
+    if(!client || !tbl) return;
+    if(needSend){ $('commit').disabled = cooling || !tableWire(); return; }
+    answered = true;
+    client.respond(tableWire());
+  }
+
+  /* Reconnect restore, the flick counterpart of restoreArrange. buildTable has just
+     rebuilt the pieces; place each non-empty letter straight into its slot without a
+     glide (Kit.table.place matches a free tile of that letter, so duplicates each find
+     their own). No onArrange fires from place(), so this does not re-send. */
+  function restoreTable(seq){
+    if(!tbl) return;
+    seq.forEach((ch, slot)=>{ if(ch) tbl.place(slot, ch); });
   }
 
   function anaPut(tile, slot){
@@ -1107,7 +1184,7 @@
      round offers locked, because a penalty you can tap through is not one. */
   function coolDown(until){
     if(coolTimer) clearInterval(coolTimer);
-    const commitRound = ()=> (mode === 'vote' || mode === 'arrange');
+    const commitRound = ()=> (mode === 'vote' || mode === 'arrange' || mode === 'table');
     const tick = ()=>{
       const left = Math.ceil((until - Date.now())/1000);
       if(left > 0){
@@ -1134,7 +1211,8 @@
         /* Ready again the moment the wait is over. It used to stay dead until the
            answer *changed*, which stranded anybody whose reply had gone astray
            rather than come back wrong. The wait is what a wrong Send costs. */
-        $('commit').disabled = (mode === 'arrange') ? !arrangeWire() : !voteReady();
+        $('commit').disabled = mode === 'table' ? !tableWire()
+                             : mode === 'arrange' ? !arrangeWire() : !voteReady();
         /* The verdict on that Send has been and gone, so the record of it stops
            standing in the way — of sending the same word again if the player still
            believes it, and of previews, which stay quiet while an answer is in
@@ -1368,6 +1446,13 @@
         if(needSend) sentValue = String(d.yours);
         restoreArrange(String(d.yours).split('|'));
       }
+      /* The same for a flicked arrangement. `buildTable` has just run, so the pieces
+         exist to place into. */
+      if(d && d.yours && mode === 'table'){
+        answered = true;
+        if(needSend) sentValue = String(d.yours);
+        restoreTable(String(d.yours).split('|'));
+      }
       /* A reload mid-penalty comes back still on the clock — the relay carries
          every live cooldown, and a countdown a reload can skip is not one. The
          reopen path above already does this for the typed dynamics. */
@@ -1388,6 +1473,7 @@
            students to type — two instructions, one of them wrong. `#state` stays
            free for what the host says back. */
         : mode==='arrange' ? ''
+        : mode==='table' ? 'Flick the letters into the boxes'
         : mode==='type' ? 'Type it, then buzz' : 'Type your answer');
       if(navigator.vibrate) navigator.vibrate(40);
     }
@@ -1598,7 +1684,11 @@
     if(!/^\d{4,6}$/.test(code)) return;
     team = Math.max(0, parseInt(params.get('team') || '0', 10) || 0);
     renderTeams();
-    joinRoom(code, params.get('name') || 'Phone', null);
+    /* A bench-spawned phone may be handed an explicit id (`&id=sim-…`) so the bench
+       can tell its own simulated handsets from a real one that scanned in. Only ever
+       set on this `?auto=1` path — the hub and a real student's scan carry neither,
+       so `null` here keeps the random id exactly as before. */
+    joinRoom(code, params.get('name') || 'Phone', params.get('id') || null);
   })();
 
   /* Back to the join form, seat and all. The code and name inputs still hold what

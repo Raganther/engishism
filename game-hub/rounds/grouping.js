@@ -291,7 +291,7 @@
       const next = s.pick.filter(w => (s.hint || []).indexOf(w) === -1)[0];
       if(!next || !this.hintsLeft(s)) return false;
       s.hint = (s.hint || []).concat([next]);
-      s.say = 'Hint: ' + next + ' is one of them.';
+      s.say = 'Hint: ' + next + ' is one of them.'; s.sayTeam = null;
       /* `'card'` — the projector changed and the handsets did not, so the host must
          **not** re-arm. An arm resets every phone and clears the replies the relay
          is holding, which on a hint means throwing away what the room has already

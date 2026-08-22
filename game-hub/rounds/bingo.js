@@ -245,7 +245,7 @@
         if(!s.winner && hasLine(card.marked)){
           s.winner = r.id;
           s.winnerTeam = Number(r.team) || 0;
-          s.say = r.name + ' has a line.';
+          s.say = r.name + ' has a line.'; s.sayTeam = s.winnerTeam;
         }
       });
       if(s.winner && s.winnerTeam != null) picks[s.winnerTeam] = ['line'];
@@ -271,7 +271,7 @@
     press(id, s){
       if(id !== 'next' || s.at >= s.calls.length - 1) return false;
       s.at++;
-      s.say = '';
+      s.say = ''; s.sayTeam = null;
       return true;         // the question moved: redraw and re-arm
     },
 
@@ -285,7 +285,7 @@
     hint(s){
       const call = s.calls[s.at];
       if(!call || !this.hintsLeft(s)) return false;
-      s.say = 'It starts with "' + String(call.answer).charAt(0).toUpperCase() + '".';
+      s.say = 'It starts with "' + String(call.answer).charAt(0).toUpperCase() + '".'; s.sayTeam = null;
       return 'card';       // the projector changed; leave the handsets alone
     },
 

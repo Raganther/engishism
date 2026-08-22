@@ -290,7 +290,7 @@
     </div>
   </div>
 
-<script src="bench-kit.js?v=20260819e"></script>
+<script src="bench-kit.js?v=20260822b"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -499,7 +499,10 @@ function joinSrc(name, team){
   const code = $('code').value.trim();
   const qs = new URLSearchParams({ code, name, team, auto:'1' });
   if(RELAY) qs.set('relay', RELAY);
-  return '../join.html?' + qs.toString();
+  // `?v=` first and literal, so the cache-stamp sed one-liner keeps it current: the
+  // rack always loads the CURRENT join.html shell, not a cached one from before a
+  // mode it is armed with existed.
+  return '../join.html?v=20260822b&' + qs.toString();
 }
 
 /* Phones rack up under their team, so a team dynamic reads as a team.
