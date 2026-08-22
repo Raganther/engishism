@@ -739,9 +739,13 @@ what `/buzzer/health` says on the same address the bench is opened from, what bu
   countdown sits behind the card for exactly the seconds it describes. The precedent is
   `#buzzer-chip` at z-index 51 over the card's 50, which would draw across the card's own
   topline, so it wants a decision rather than a reflex.
-- **An index is not an identity.** Every round keys per-team state by index; keying by
-  the competitor id every competitor already carries is the real answer, and it touches
-  every round. Related and **not** broken, but the thing to check before adding a third:
+- **An index is not an identity.** The container's half is done: `Kit.round.results`
+  stamps each row with the competitor id (`ctx.ids`, positional beside `teams`) and
+  `remap` follows it when the roster shifts under a live question, so the rebuild no
+  longer wipes who answered. What remains is the rounds' own lane state (`s.lanes[t]`,
+  `s.picks[t]`), still keyed by index and still *rebuilt from scratch* at the seam —
+  re-keying it fights the relay's numeric wire, so it waits for the round that actually
+  needs progress to survive a roster shift. Before adding a third cache, the rule:
   a cache of somebody else's index needs a stated invalidation point, and there are
   exactly two. `players` in `hub-buzzer.js` is replaced wholesale by every relay event
   carrying a roster, so it is only ever as fresh as the last message — and it reports

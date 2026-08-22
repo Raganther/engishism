@@ -328,13 +328,37 @@
            counter here would have sorted those clicks *ahead* of every phone answer,
            which is the wrong end and would have been invisible until a teacher
            finished a question the class had already half-answered. */
-        resRows[key] = { who: Number(who), at: o.at == null ? LATE + (++resSeq) : o.at,
+        /* `id` is the competitor's identity, when the caller has one — the index is
+           this question's word for them, the id is theirs across the lesson. It is
+           what `remap` follows when the roster shifts under a live question. */
+        resRows[key] = { who: Number(who), id: o.id || null,
+                         at: o.at == null ? LATE + (++resSeq) : o.at,
                          seconds: resAt ? (Date.now() - resAt) / 1000 : 0,
                          fraction: clock.fraction(), done: !!o.done };
       } else if(o.done){
         resRows[key].done = true;      // the last rung of a climb, on an entry that stands
       }
       return resRows[key];
+    },
+    /* **The roster shifted under a live question — follow the people, not the
+       slots.** `ids` is the roster's current positional id list; each row finds its
+       competitor's new index by id. A row whose id is gone leaves with them, and a
+       row that never had one (a caller that supplies no ids, like the bench) keeps
+       its index while that index still exists. Before this the rebuild path wiped
+       the record whole, so removing a team mid-question also erased who had already
+       answered — the first live class paid a win to a team that no longer existed
+       for the same slot-vs-person confusion, one tier down. */
+    remap(ids){
+      const next = Object.create(null);
+      Object.keys(resRows).forEach(k => {
+        const r = resRows[k];
+        const i = r.id ? ids.indexOf(r.id) : (Number(k) < ids.length ? Number(k) : -1);
+        if(i === -1) return;
+        r.who = i;
+        next[String(i)] = r;
+      });
+      resRows = next;
+      return results;
     },
     of(who){ return results.list().filter(r => r.who === Number(who))[0] || null; },
     place(who){ const r = results.of(who); return r ? r.place : Infinity; },
@@ -1081,7 +1105,7 @@
         /* `done` separates a rung from a finish: a step re-arms for the next one;
            a finish stamps the placement the lanes draw the badge from. */
         const finished = v.r.done !== false || !!state.done;
-        results.note(v.team, { at: at(v.team), done: finished });
+        results.note(v.team, { at: at(v.team), done: finished, id: (ctx.ids || [])[v.team] });
         if(fx.right) fx.right(v.team, v.r, finished, v.set);
         if(!finished) again = true;
       });
@@ -1100,7 +1124,7 @@
          to think about progress says the ordinary thing by saying nothing. */
       def.accept(won.set, state, won.team, ctx);
       const over = won.r.done !== false || !!state.done;
-      results.note(won.team, { at: at(won.team), done: over });
+      results.note(won.team, { at: at(won.team), done: over, id: (ctx.ids || [])[won.team] });
       if(fx.right) fx.right(won.team, won.r, over, won.set);
       if(over){ if(fx.take) fx.take(won.team); return; }
       settler.reset();               // the question moved on
@@ -1154,6 +1178,11 @@
     const live = d.live || function(){ return true; };
     return Object.assign({
       teams, sizes,
+      /* The competitors' identities, positional beside `teams` — `null` per slot
+         when the caller has none (the bench). The index is one question's word for
+         a competitor; the id is theirs across the lesson, and it is what lets the
+         record follow a person when the roster shifts under a live question. */
+      ids: d.ids ? d.ids.slice() : teams.map(function(){ return null; }),
       /* Who is in the room, read when the ctx is built — which both callers do
          fresh at every call, because a roster the round was told once is a lie
          by the third question. */
