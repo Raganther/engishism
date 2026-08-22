@@ -7689,13 +7689,13 @@ async function testPhoneBench(browser){
      Read off the handsets rather than off the host, because the host's own record of
      a player's team is deliberately stale (`seat` does not come back to it) — which
      is exactly what made the first attempt at the fix do nothing. */
-  /* No tag and no colour in a room of individuals: a colour means "this is the side
-     you are on", and there are no sides. It also cannot then be stale. */
+  /* No *team name* in a room of individuals — there are no sides to be on. A
+     colour is a different fact now: since the identity-chip work each solo phone
+     wears its competitor's own colour (join.html's paintWho sets `--team` in
+     both rooms), so asserting an empty `--team` pinned the pre-change picture
+     and this check could never pass again. The tag is the rule that survives. */
   check('in solo a handset carries no side at all',
-        (await pills()).every(p => !/team \d/i.test(p)) &&
-        await hub.frames().filter(f => /join\.html/.test(f.url()))[0]
-          .evaluate(() => getComputedStyle(document.documentElement)
-                            .getPropertyValue('--team').trim()) === '',
+        (await pills()).every(p => !/team \d/i.test(p)),
         JSON.stringify(await pills()));
 
   /* **The roster follows the phones in solo, both ways.** It only ever grew: a phone
@@ -7796,11 +7796,17 @@ async function testPhoneBench(browser){
      (`renderOnce`, the HubTeams reach-in pattern), so a row here and a row in
      the ⚙ drawer cannot disagree. What the pane itself owes: an edit is a real
      per-game override, and the state line tells a default from a customization. */
+  /* A tab per registered game **plus the All-games master tab** — the pane has
+     rendered ids+1 since the day it existed (the same shape as the ⚙ drawer),
+     and the first cut of this check counted ids alone, so it was born red and
+     never once able to pass. The master tab is asserted by name so a count that
+     drifts is told apart from a master tab that vanished. */
   check('the tune pane is open with a tab per registered game',
         await hub.locator('#tune-pane').isVisible() &&
+        /all games/i.test((await hub.locator('#tune-tabs button').allInnerTexts())[0] || '') &&
         await hub.locator('#tune-tabs button').count() ===
           await hub.evaluate(() => document.getElementById('stage-frame')
-                                    .contentWindow.HubGames.ids().length),
+                                    .contentWindow.HubGames.ids().length) + 1,
         (await hub.locator('#tune-tabs button').allInnerTexts()).join(' '));
   await until(async () =>
     await hub.locator('#tune-body [data-setting="round_anagram"]').count() === 1, 8000);

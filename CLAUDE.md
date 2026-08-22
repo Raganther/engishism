@@ -106,7 +106,7 @@ Four facts about a classroom that outrank anything above when they conflict.
 | `tools/buzzer-relay.js` | zero-dependency Node relay **and** static server. `docs/buzzers.md` |
 | `playground/question-bench.html` | the workshop for rounds *and* forms |
 | `playground/phone-bench.html` | the whole room on one screen — board plus a rack of real handsets |
-| `playground/connections.html`, `thermometer.html`, `story-reveal.html` | standalone prototypes — see "The playground" |
+| `playground/connections.html`, `thermometer.html`, `story-reveal.html`, `battle-scrabble.html` | standalone prototypes — see "The playground". Battle Scrabble carries its own vendored dictionary, `playground/word-list.js` |
 | `playground/bench-kit.js` | **`BenchKit`** — the shelf a playground page calls |
 | `playground/lab-forms.js` | experimental question forms. **No game ever loads this** |
 | `tools/` | the harness — see "The harness" |
