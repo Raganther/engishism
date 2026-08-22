@@ -1165,8 +1165,9 @@
      competitor's identity everywhere today, which is why removing one is a special
      case rather than a splice, and it is why the first live class paid a win to a
      team that no longer existed. A person has to be matched to their handset
-     across a reconnect, and an index cannot do that. Nothing reads it yet; it is
-     minted now so that a competitor created today is already addressable. */
+     across a reconnect, and an index cannot do that. The round record reads it
+     now — `Kit.round.results` stamps each row with it and `remap` follows it when
+     the roster shifts under a live question — and the solo seat map stores it. */
   let nextCompetitorId = 1;
   /* `auto` means "nobody chose this name" — it is the placeholder the app starts
      with, not something a teacher typed. It is what lets the first two students to
@@ -2535,6 +2536,8 @@
   function roundCtx(id){
     return Kit.round.ctx({
       teams: teams.map((t, i) => teamName(i)),
+      // positional beside teams: the identity the record follows across a roster shift
+      ids: teams.map(t => t.id),
       buzz: buzzHost,
       live: roundLive,
       setting: k => S.get(k, activeGame),
@@ -2632,7 +2635,7 @@
      the same question on purpose — a new rung in an ordering climb, a Millionaire
      steal handing the question to another team — and a guard there would silently
      turn those into no-ops. */
-  function roundOpen(found){
+  function roundOpen(found, opts){
     if(!found) return null;
     roundId = found.id;
     /* Settings that fork by round read this rather than taking an argument, so the
@@ -2645,10 +2648,16 @@
        each host, for the same reason arming moved here: four call sites each
        responsible for remembering the same thing is the obligation this function
        exists to delete. */
-    Kit.round.results.open();
+    /* On the roster-shift rebuild the record is remapped, never wiped: rows follow
+       their competitor's id to its new index, and whoever already answered stays
+       answered. Wiping it here was the old behaviour, and it meant removing a team
+       mid-question also erased the other teams' places. */
+    if(opts && opts.rebuild) Kit.round.results.remap(teams.map(t => t.id));
+    else Kit.round.results.open();
     /* The scores as this question opened, so the standings can show what it changed.
        Beside the results record because they answer halves of one question and a
-       second call site is a second thing to forget. */
+       second call site is a second thing to forget. Re-read on a rebuild too — the
+       baseline is per-index and the indices just shifted. */
     standingsOpen();
     roundReplies = [];    // nobody has answered *this* question yet
     sendMisses = {};      // a new question starts every phone's escalation from cold
@@ -2726,7 +2735,7 @@
   function roundRebuildForRoster(){
     if(!roundLive() || !currentClueItem) return;
     const found = roundOf(currentClueItem, roundHost.game);
-    if(found) roundOpen(found);
+    if(found) roundOpen(found, { rebuild:true });
   }
 
   /* The card's own box, inside `#clue-text` the way the hint is — so the class is
@@ -2810,7 +2819,8 @@
       /* The teacher's own answer goes on the record too, with no arrival stamp — a
          click carries none, and sorting last is right: it is a judgement made after
          the room has had its go. */
-      Kit.round.results.note(team, { done: r.done !== false || !!roundState.done });
+      Kit.round.results.note(team, { done: r.done !== false || !!roundState.done,
+                                     id: (teams[team] || {}).id });
       if(r.done !== false || roundState.done){ roundTake(team); return; }
       roundState.say = 'Yes — keep going.'; roundState.sayTeam = team;
       Sound.play('correct');
