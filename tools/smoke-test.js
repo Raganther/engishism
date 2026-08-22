@@ -8530,6 +8530,34 @@ async function testBattleScrabble(browser){
           !document.getElementById('joinbar').classList.contains('on') &&
           !document.getElementById('zone-l').classList.contains('on')));
 
+  /* ---- the phone bench racks the game page, not join.html ----
+     The board declares what its phones run (`window.HubPhonePage`, beside
+     HubHost) and the bench follows: a racked phone must be this game,
+     auto-joined via ?auto=1 — never a generic join.html that receives the
+     board's arm and cannot play it. One check proves the declaration, the
+     follow, and the auto-join. */
+  const bench = await browser.newPage({ viewport:{ width:1500, height:950 } });
+  bench.__errors = []; bench.on('pageerror', e => bench.__errors.push(String(e)));
+  await bench.goto(BASE + '/playground/phone-bench.html?board=battle-scrabble-board.html');
+  await until(async () => /^\d{4,6}$/.test(await bench.locator('#code').inputValue()), 12000);
+  await bench.locator('#add').click();
+  await bench.waitForTimeout(400);
+  const rackSrc = await bench.evaluate(() =>
+    (document.querySelector('.phone iframe') || {}).getAttribute('src'));
+  check('the bench racks the game page the board declared',
+        /battle-scrabble\.html/.test(rackSrc || ''), String(rackSrc));
+  // the -board page also matches nothing here: the phone frame alone is battle-scrabble.html
+  const phoneFrame = () => bench.frames().find(f => /battle-scrabble\.html/.test(f.url()));
+  const benchJoined = await until(async () => {
+    try{
+      const f = phoneFrame();
+      return !!(f && await f.evaluate(() => !!(window.__bs && window.__bs.connected())));
+    }catch(e){ return false; }   // a frame mid-navigation detaches under evaluate
+  }, 10000);
+  check('and the racked phone joins the board\'s room by itself', benchJoined);
+  check('bench threw nothing', bench.__errors.length === 0, bench.__errors.join(' | '));
+  await bench.close();
+
   check('board threw nothing', board.__errors.length === 0, board.__errors.join(' | '));
   check('phones threw nothing', A.__errors.length === 0 && B.__errors.length === 0 && solo.__errors.length === 0,
         [].concat(A.__errors, B.__errors, solo.__errors).join(' | '));

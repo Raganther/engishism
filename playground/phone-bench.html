@@ -253,6 +253,7 @@
       <option value="connections.html">Playground · Connections</option>
       <option value="thermometer.html">Playground · Word thermometer</option>
       <option value="story-reveal.html">Playground · Story reveal</option>
+      <option value="battle-scrabble-board.html">Playground · Battle Scrabble</option>
       <option value="custom">Other URL…</option>
     </select>
     <input id="board-url" placeholder="../game-hub.html" style="display:none;">
@@ -499,10 +500,21 @@ function joinSrc(name, team){
   const code = $('code').value.trim();
   const qs = new URLSearchParams({ code, name, team, auto:'1' });
   if(RELAY) qs.set('relay', RELAY);
+  /* The board also says what page its phones run — `window.HubPhonePage`,
+     declared beside HubHost. Battle Scrabble's phones are a whole game page,
+     not join.html, and racking join.html against its room gives handsets that
+     receive the arm but never play. The declared path is root-absolute, so it
+     resolves the same from /playground/; the fallback stays relative so the
+     bench still racks under file://. */
+  let page = '../join.html';
+  try{
+    const p = $('stage-frame').contentWindow.HubPhonePage;
+    if(p) page = p;
+  }catch(e){}
   // `?v=` first and literal, so the cache-stamp sed one-liner keeps it current: the
-  // rack always loads the CURRENT join.html shell, not a cached one from before a
+  // rack always loads the CURRENT phone shell, not a cached one from before a
   // mode it is armed with existed.
-  return '../join.html?v=20260822g&' + qs.toString();
+  return page + '?v=20260822g&' + qs.toString();
 }
 
 /* Phones rack up under their team, so a team dynamic reads as a team.

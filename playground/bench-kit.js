@@ -204,6 +204,11 @@ window.BenchKit = (function(){
            bench asks exactly this of whatever board it has loaded, so it needs to
            know nothing about which game is being played. */
         window.HubHost = host;
+        /* And what page its phones run, stated the same way — so the phone
+           bench racks the board's own phone page (Battle Scrabble's phones
+           are a whole game, not join.html). Only a board that names one sets
+           it; everywhere else the bench's join.html fallback stands. */
+        if(o.joinPath) window.HubPhonePage = joinPath;
         host.on('ready',   ()=>{ paintChip(); say('ready'); if(on.ready) on.ready(host); });
         host.on('players', ()=>{ count = host.players().length; paintChip();
                                  if(on.players) on.players(host.players()); });

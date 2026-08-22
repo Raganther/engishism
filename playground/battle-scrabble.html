@@ -477,12 +477,20 @@
     const SEAT_KEY = 'engishism.battle.seat';   // never join.html's 'engishism.seat'
     const qs    = new URLSearchParams(location.search);
     const RELAY = qs.get('relay') || '';
+
+    /* A simulated phone (the phone bench opens this page in iframes:
+       ?auto=1&code=&name=). It joins by itself and — crucially — never touches
+       the seat: every bench iframe shares this origin's localStorage, so one
+       seat key would be fought over by every fake phone and clobber the real
+       phone's. Same contract, same flag, as join.html's ?auto=1. */
+    const SIMULATED = qs.get('auto') === '1';
     let client = null, roomCode = null;
     let nbL = '', nbR = '';        // neighbour names, only ever from the board's nb push
     let seq = 0;
 
     function seatGet(){ try{ return JSON.parse(localStorage.getItem(SEAT_KEY) || 'null') || {}; }catch(_){ return {}; } }
-    function seatKeep(o){ try{ localStorage.setItem(SEAT_KEY, JSON.stringify(o)); }catch(_){} }
+    function seatKeep(o){ if(SIMULATED) return;
+      try{ localStorage.setItem(SEAT_KEY, JSON.stringify(o)); }catch(_){} }
 
     function send(o){ if(!client) return; o.q = ++seq; client.respond(JSON.stringify(o)); }
     function report(final){
@@ -557,7 +565,9 @@
     }
 
     function join(code, name){
-      const old = seatGet();
+      // a fake phone never inherits the real phone's seat — a reused id would
+      // fold every bench iframe into one player on the circle
+      const old = SIMULATED ? {} : seatGet();
       const id = (old.code === code && old.id)
         ? old.id
         : ('bs' + Date.now().toString(36) + Math.floor(Math.random() * 1e4));
@@ -593,6 +603,12 @@
        autostart should stand down. */
     function maybeRoomBoot(){
       const code = (qs.get('code') || '').trim();
+      /* The bench's phones join themselves — same path a Join press takes,
+         no strip, a fresh id per iframe (join() mints one when SIMULATED). */
+      if(SIMULATED && /^\d{4,6}$/.test(code) && window.HubBuzzer){
+        join(code, qs.get('name') || 'Phone');
+        return true;
+      }
       const bar  = document.getElementById('joinbar');
       const nameIn = document.getElementById('j-name'), codeIn = document.getElementById('j-code');
       nameIn.value = seatGet().name || '';
