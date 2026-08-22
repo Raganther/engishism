@@ -52,6 +52,11 @@ window.BenchKit = (function(){
   function room(opts){
     const o = opts || {};
     const board = o.board || '';
+    /* Where the QR and the join line send a phone. Every existing board wants
+       join.html; a board whose phones run a full game page of their own
+       (Battle Scrabble) names it here. Path from the site root, so the `?v=`
+       and `code=` conventions below stay exactly as they are. */
+    const joinPath = o.joinPath || '/join.html';
     const on = o.on || {};
     let host = null, lan = '', count = 0;
 
@@ -124,13 +129,13 @@ window.BenchKit = (function(){
          which nothing on screen ever said. */
       if(!host){ tries = 0; openRoom(); return; }
       document.getElementById('join-code').textContent = host.code;
-      document.getElementById('join-url').textContent  = base().replace(/^https?:\/\//,'') + '/join.html';
+      document.getElementById('join-url').textContent  = base().replace(/^https?:\/\//,'') + joinPath;
       document.getElementById('join-count').textContent = count + ' joined';
       const box = document.getElementById('join-qr');
       box.innerHTML = '';
       try{
         const q = window.qrcode(0, 'M');
-        q.addData(base() + '/join.html?' + (BENCH_V ? 'v=' + BENCH_V + '&' : '') + 'code=' + host.code);
+        q.addData(base() + joinPath + '?' + (BENCH_V ? 'v=' + BENCH_V + '&' : '') + 'code=' + host.code);
         q.make();
         box.innerHTML = q.createSvgTag({ cellSize:7, margin:0, scalable:true });
       }catch(e){}

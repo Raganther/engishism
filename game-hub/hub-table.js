@@ -310,6 +310,28 @@
       grips.clear();
     }
 
+    /* **Take the piece a pointer is holding out of the world, and say which it
+       was.** The throw-at-a-neighbour gesture (Battle Scrabble's edge zones)
+       needs the identity of the dragged tile, and nothing on the public surface
+       could say — `grab`/`heldBy` answer yes or no, and the pieces are closed
+       over in here. Deliberately not `drop()`: drop's job is to dock or hurl,
+       and a taken piece must do neither — the grip is released bare, the slot
+       freed, the body removed. Returns the letter, or null if this pointer
+       held nothing. Additive; no existing caller changes. */
+    function takeHeld(id){
+      const g = grips.get(id);
+      if(!g) return null;
+      Composite.remove(engine.world, g.constraint);
+      grips.delete(id);
+      const p = pieceOf(g.body);
+      if(!p) return null;
+      freeSlotOf(p);
+      p.dock = null;
+      Composite.remove(engine.world, p.body);
+      pieces = pieces.filter(q => q !== p);
+      return p.ch;
+    }
+
     /* ---- step + default draw. Matter does the physics; we do the draw. ---- */
     function step(){
       Engine.update(engine, 1000/60);
@@ -371,7 +393,7 @@
       setPieces, slots: makeSlots, place,
       read, cells, filled, setResult(res){ result = res; },
       setFeel, resize: sizeToCanvas,
-      grab, move, drop,
+      grab, move, drop, takeHeld,
       heldBy: id => grips.has(id), anyHeld: () => grips.size > 0,
       step, draw
     };

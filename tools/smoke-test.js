@@ -8402,6 +8402,140 @@ async function testJeopardyTogether(browser){
   await comp.close();
 }
 
+/* ---------- Battle Scrabble — the playground's multiplayer half ----------
+   Board + two phones on the real relay, all three the real pages. The phones
+   are full game pages acting as relay clients (not join.html), so what is
+   asserted is the wire the room actually uses: join order on the circle, a
+   banked score reaching the standings, a throw landing on the right
+   neighbour and shaking their board, the crown at time-up, a reconnect
+   keeping its seat — and, the hard requirement, the plain URL still being
+   the solo game with no room chrome at all. */
+async function testBattleScrabble(browser){
+  section('Battle Scrabble');
+  const board = await browser.newPage({ viewport:{ width:1280, height:720 } });
+  board.__errors = []; board.on('pageerror', e => board.__errors.push(String(e)));
+  await board.goto(BASE + '/playground/battle-scrabble-board.html');
+  await until(async () => await board.evaluate(() => !!(window.__bsb && window.__bsb.host())), 10000);
+  const code = await board.evaluate(() => String(window.__bsb.host().code));
+  check('the board hosts a room', /^\d{4,6}$/.test(code), code);
+
+  /* The joinPath proof: the QR and the printed URL must point at the game
+     page, never join.html — a phone scanning the board has to land in Battle
+     Scrabble. */
+  await board.locator('#room-chip').click();
+  await board.waitForTimeout(200);
+  const joinUrl = await board.evaluate(() => (document.getElementById('join-url') || {}).textContent || '');
+  check('the QR sends phones to the game page, not join.html',
+        /playground\/battle-scrabble\.html/.test(joinUrl), joinUrl);
+  // the panel is #join-panel (class 'on') and left open it eats the Start click
+  await board.evaluate(() => { const m = document.getElementById('join-panel'); if(m) m.classList.remove('on'); });
+
+  async function phone(name){
+    const p = await browser.newPage({ viewport:{ width:390, height:844 } });
+    p.__errors = []; p.on('pageerror', e => p.__errors.push(String(e)));
+    await p.goto(BASE + '/playground/battle-scrabble.html?code=' + code);
+    await p.waitForTimeout(300);
+    await p.fill('#j-name', name);
+    await p.click('#j-go');
+    await until(async () => await p.evaluate(() => window.__bs.connected()), 8000);
+    return p;
+  }
+  const A = await phone('Anna');
+  const B = await phone('Ben');
+  await until(async () => await board.evaluate(() => window.__bsb.seats.length) === 2, 8000);
+  check('both phones take a seat on the circle, in join order',
+        await board.evaluate(() => window.__bsb.seats.map(id => window.__bsb.players[id].name).join(',')) === 'Anna,Ben',
+        await board.evaluate(() => JSON.stringify(window.__bsb.seats.map(id => window.__bsb.players[id].name))));
+  check('a joined phone waits in the lobby, not playing',
+        !(await A.evaluate(() => window.__bs.state().playing)));
+
+  /* Start with a game length that is NOT the phone slider's default, so the
+     phones showing it proves the room seeded their clocks, not the slider. */
+  await board.locator('#settings-slot select').selectOption('180');
+  await board.locator('#start').click();
+  await until(async () => await A.evaluate(() => window.__bs.state().playing), 8000);
+  await until(async () => await B.evaluate(() => window.__bs.state().playing), 8000);
+  const aSecs = await A.evaluate(() => window.__bs.state().secsLeft);
+  check('the board\'s clock seeds every phone', aSecs > 170 && aSecs <= 180, String(aSecs));
+  check('and each phone knows its neighbours by name',
+        await A.evaluate(() => { const s = window.__bs.state(); return s.nbL + '/' + s.nbR; }) === 'Ben/Ben');
+
+  /* A bank on one phone reaches the board's standings. Driven through the
+     same place-and-read path the solo suite uses. */
+  const hintA = await A.evaluate(() => window.__bs.state().hints.slice(-1)[0] || window.__bs.state().hints[0]);
+  if(hintA){
+    await A.evaluate(w => { w.toUpperCase().split('').forEach((ch, i) => window.__bs.world.place(i, ch)); window.__bs.read(); }, hintA);
+    await A.waitForTimeout(200);
+    await A.evaluate(() => window.__bs.bank());
+  }
+  await until(async () => await board.evaluate(() =>
+    window.__bsb.players[window.__bsb.seats[0]].score) > 0, 8000);
+  check('a banked word lands on the board\'s standings', true);
+
+  /* The throw: Anna's right neighbour is Ben; the board routes it, Ben's
+     board re-rains and his multiplier dies, Anna's rack shrinks by one. */
+  const hintB = await B.evaluate(() => window.__bs.state().hints.slice(-1)[0] || window.__bs.state().hints[0]);
+  if(hintB){
+    await B.evaluate(w => { w.toUpperCase().split('').forEach((ch, i) => window.__bs.world.place(i, ch)); window.__bs.read(); }, hintB);
+  }
+  const rackBefore = await A.evaluate(() => window.__bs.state().rack.length);
+  const threw = await A.evaluate(() => window.__bs.throw('R'));
+  check('a throw is accepted while a neighbour exists', threw === true);
+  await until(async () => await B.evaluate(() => window.__bs.state().candidate === ''), 8000);
+  check('the hit re-rains the target\'s board and kills their word',
+        await B.evaluate(() => { const s = window.__bs.state(); return s.candidate === '' && !s.candValid; }));
+  check('and the target is told who threw it',
+        /hit by anna/i.test(await B.locator('#status').innerText()),
+        await B.locator('#status').innerText());
+  check('the thrown tile is spent — no replacement until the next bank',
+        await A.evaluate(() => window.__bs.state().rack.length) === rackBefore - 1);
+
+  /* Time-up: the phones end on their own clocks (driven directly here) and
+     the board crowns the leader from the last reported scores. */
+  await A.evaluate(() => window.__bs.endGame());
+  await B.evaluate(() => window.__bs.endGame());
+  await board.evaluate(() => window.__bsb.hurry(1));
+  await until(async () => (await board.locator('#banner').innerText()).length > 0, 10000);
+  check('the board crowns the leader at time-up',
+        /anna/i.test(await board.locator('#banner').innerText()),
+        await board.locator('#banner').innerText());
+  check('a phone in a room waits for the board\'s rematch',
+        await A.evaluate(() => document.getElementById('again').style.display === 'none'));
+
+  /* A reconnect keeps its seat: same localStorage id, same slot, and the
+     board's sync corrects the replayed clock. */
+  await board.locator('#start').click();          // a fresh game so B rejoins mid-play
+  await until(async () => await A.evaluate(() => window.__bs.state().playing), 8000);
+  await B.reload();
+  await B.waitForTimeout(400);
+  await B.fill('#j-name', 'Ben');
+  await B.click('#j-go');
+  await until(async () => await B.evaluate(() => window.__bs.connected() && window.__bs.state().playing), 10000);
+  check('a reloaded phone resumes the same seat',
+        await board.evaluate(() => window.__bsb.seats.length) === 2,
+        String(await board.evaluate(() => window.__bsb.seats.length)));
+  const bLeft = await B.evaluate(() => window.__bs.state().secsLeft);
+  check('and its clock is synced to the board, not the replayed arm',
+        bLeft > 0 && bLeft <= 182, String(bLeft));
+
+  /* The hard requirement: a plain URL is the solo game — playing at once, no
+     join chrome, no zones. Degradation is stage 1 itself. */
+  const solo = await browser.newPage({ viewport:{ width:390, height:844 } });
+  solo.__errors = []; solo.on('pageerror', e => solo.__errors.push(String(e)));
+  await solo.goto(BASE + '/playground/battle-scrabble.html');
+  await solo.waitForTimeout(800);
+  check('a plain URL plays solo at once', await solo.evaluate(() => window.__bs.state().playing));
+  check('with no join strip and no throw zones',
+        await solo.evaluate(() =>
+          !document.getElementById('joinbar').classList.contains('on') &&
+          !document.getElementById('zone-l').classList.contains('on')));
+
+  check('board threw nothing', board.__errors.length === 0, board.__errors.join(' | '));
+  check('phones threw nothing', A.__errors.length === 0 && B.__errors.length === 0 && solo.__errors.length === 0,
+        [].concat(A.__errors, B.__errors, solo.__errors).join(' | '));
+  await A.close(); await B.close(); await solo.close(); await board.close();
+}
+
 /* ---------- run ---------- */
 async function main(){
   let relay = null;
@@ -8419,6 +8553,7 @@ async function main(){
     card: testFloatingCard, turns: testTurnsAndPoints, phoneteams: testPhoneTeams,
     strip: testPhoneStrip, bbteams: testBlockbustersTeams, jointeams: testJoinTeams,
     variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, topics: testTopicPicking, defaultlook: testDefaultLook, jfinish: testJeopardyFinish, standings: testStandings, competition: testCompetition, lab: testLabDrawer, range: testRangeSetting,
+    battlescrabble: testBattleScrabble,
     buzzers: testBuzzers, phonemodes: testPhoneModes, teamvote: testTeamVote,
     typetobuzz: testTypeToBuzz, judging: testAnswerJudging,
     degradation: testDegradation, file: testFileProtocol,

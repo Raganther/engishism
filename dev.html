@@ -249,22 +249,22 @@ git add -A && git commit -m "..." && git push      # live in about 40 seconds</p
 
 <!-- Registries only. These are data-only registrations with no DOM of their own, so
      asking them what exists costs nothing and starts no game. -->
-<script src="game-hub/hub-kit.js?v=20260822f"></script>
+<script src="game-hub/hub-kit.js?v=20260822g"></script>
 <!-- Captured between the two script tags: which forms are in the shipped kit. The
      one moment a kit form and a lab-only one are distinguishable. -->
 <script>window.IN_THE_KIT = (window.HubKit && window.HubKit.prompt.types()) || [];</script>
-<script src="playground/lab-forms.js?v=20260822f"></script>
-<script src="game-hub/hub-rounds.js?v=20260822f"></script>
-<script src="game-hub/rounds/default.js?v=20260822f"></script>
-<script src="game-hub/rounds/grouping.js?v=20260822f"></script>
-<script src="game-hub/rounds/ordering.js?v=20260822f"></script>
-<script src="game-hub/rounds/choice.js?v=20260822f"></script>
-<script src="game-hub/rounds/anagram.js?v=20260822f"></script>
-<script src="game-hub/rounds/scramble.js?v=20260822f"></script>
-<script src="game-hub/rounds/infogap.js?v=20260822f"></script>
-<script src="game-hub/rounds/drop.js?v=20260822f"></script>
-<script src="game-hub/rounds/bingo.js?v=20260822f"></script>
-<script src="game-hub/rounds/toss.js?v=20260822f"></script>
+<script src="playground/lab-forms.js?v=20260822g"></script>
+<script src="game-hub/hub-rounds.js?v=20260822g"></script>
+<script src="game-hub/rounds/default.js?v=20260822g"></script>
+<script src="game-hub/rounds/grouping.js?v=20260822g"></script>
+<script src="game-hub/rounds/ordering.js?v=20260822g"></script>
+<script src="game-hub/rounds/choice.js?v=20260822g"></script>
+<script src="game-hub/rounds/anagram.js?v=20260822g"></script>
+<script src="game-hub/rounds/scramble.js?v=20260822g"></script>
+<script src="game-hub/rounds/infogap.js?v=20260822g"></script>
+<script src="game-hub/rounds/drop.js?v=20260822g"></script>
+<script src="game-hub/rounds/bingo.js?v=20260822g"></script>
+<script src="game-hub/rounds/toss.js?v=20260822g"></script>
 <script>
 (function(){
   'use strict';
@@ -490,7 +490,9 @@ git add -A && git commit -m "..." && git push      # live in about 40 seconds</p
     { t:'Throw Lab', href:'playground/throw-lab.html',
       d:'Physics feel test — flick letter boxes around a bounded space. Multi-touch, swing, tunable. The foundation for the physics round dynamic.' },
     { t:'Battle Scrabble', href:'playground/battle-scrabble.html',
-      d:'Flick Scrabble tiles into slots against the clock — live word check, hold-to-multiply, bank and redeal. Stage 1: solo on one screen, no phones.' },
+      d:'Flick Scrabble tiles into slots against the clock — live word check, hold-to-multiply, bank and redeal. Solo as a plain URL, or join a room and throw tiles at your neighbours.' },
+    { t:'Battle Scrabble — the board', href:'playground/battle-scrabble-board.html',
+      d:'The projector half: hosts the room, shows the seating circle, standings and clock, and routes every thrown tile to its neighbour.' },
     { t:'Connections', href:'playground/connections.html',
       d:'Sixteen words, four groups. Turns or race. <code>?p=1</code> pins a puzzle.' },
     { t:'Word thermometer', href:'playground/thermometer.html',

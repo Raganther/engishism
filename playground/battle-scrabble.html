@@ -93,6 +93,44 @@
   #bank.ready{ background:var(--accent); border-color:var(--accent); color:#08131a; }
   #redeal{ flex:0 0 auto; min-height:56px; border-radius:14px; }
 
+  /* ---- stage 2: the room ---- */
+  .joinbar{
+    flex:0 0 auto; display:none; gap:8px; align-items:center;
+    padding:6px 14px 10px; border-bottom:1px solid var(--border);
+  }
+  .joinbar.on{ display:flex; }
+  .joinbar input{
+    font:inherit; font-size:0.9rem; padding:7px 10px; border-radius:10px;
+    border:1px solid var(--border); background:var(--panel); color:var(--text);
+    min-width:0;
+  }
+  #j-name{ flex:1 1 auto; }
+  #j-code{ flex:0 0 92px; letter-spacing:0.15em; font-variant-numeric:tabular-nums; }
+  #roomchip{ font-size:0.72rem; color:var(--muted); white-space:nowrap; align-self:center; }
+  #roomchip b{ color:var(--accent); letter-spacing:0.1em; }
+
+  /* The throw zones: pointer-events none, so they never steal a grab — the
+     canvas keeps the gesture and the drop is tested against their rects. */
+  .zone{
+    position:absolute; top:8%; bottom:46%; width:56px; display:none;
+    flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    border:2px dashed var(--bad); border-radius:14px; pointer-events:none;
+    background:rgba(226,96,59,0.08); color:var(--bad);
+    font-size:0.72rem; text-transform:uppercase; letter-spacing:0.06em;
+  }
+  .zone.on{ display:flex; }
+  .zone.dim{ opacity:0.25; }
+  .zone b{ writing-mode:vertical-rl; font-size:0.8rem; max-height:80%; overflow:hidden; }
+  #zone-l{ left:6px; } #zone-r{ right:6px; }
+
+  @keyframes bs-shake{
+    0%,100%{ transform:translate(0,0); } 20%{ transform:translate(-9px,3px); }
+    40%{ transform:translate(8px,-4px); } 60%{ transform:translate(-6px,-3px); }
+    80%{ transform:translate(5px,2px); }
+  }
+  .stage.shake{ animation:bs-shake 0.45s; }
+  .flash.bad{ color:var(--bad); font-size:1.7rem; }
+
   .over{
     position:absolute; inset:0; display:none; flex-direction:column; align-items:center;
     justify-content:center; gap:10px; background:rgba(16,19,24,0.88); text-align:center;
@@ -104,7 +142,8 @@
 </head>
 <body>
   <header>
-    <h1>Battle Scrabble <small>spell from your rack, bank before the clock — stage 1: solo</small></h1>
+    <h1>Battle Scrabble <small>spell from your rack, bank before the clock — solo, or join a room</small></h1>
+    <span id="roomchip"></span>
     <button id="btn-hints" type="button">Hints on</button>
     <button id="btn-tune" type="button" class="tune">⚙ Tune</button>
   </header>
@@ -123,6 +162,12 @@
     <div class="ctl"><label>Snap</label><input id="s-snap" type="range" min="0.15" max="0.8" step="0.05" value="0.38"><span class="val" id="v-snap"></span></div>
   </div>
 
+  <div class="joinbar" id="joinbar">
+    <input id="j-name" placeholder="Your name" maxlength="20" autocomplete="off">
+    <input id="j-code" placeholder="Code" inputmode="numeric" maxlength="6" autocomplete="off">
+    <button id="j-go" type="button">Join</button>
+  </div>
+
   <div class="strip">
     <div class="score"><small>Score</small><span id="score">0</span></div>
     <div class="hints" id="hints"></div>
@@ -131,6 +176,8 @@
 
   <div class="stage">
     <canvas id="stage"></canvas>
+    <div class="zone" id="zone-l"><span>&#9664; throw</span><b id="zname-l"></b></div>
+    <div class="zone" id="zone-r"><span>throw &#9654;</span><b id="zname-r"></b></div>
     <div class="status" id="status">Flick letters into the slots to spell a word.</div>
     <div class="flash" id="flash"></div>
     <div class="over" id="over">
@@ -149,10 +196,11 @@
   <!-- Same shelf and same order as Throw Lab: matter.min.js → hub-kit.js (the
        object Kit.table hangs off) → hub-table.js. word-list.js is this page's own
        vendored dictionary — a <script src>, never a fetch, so file:// works. -->
-  <script src="../game-hub/matter.min.js?v=20260822f"></script>
-  <script src="../game-hub/hub-kit.js?v=20260822f"></script>
-  <script src="../game-hub/hub-table.js?v=20260822f"></script>
-  <script src="word-list.js?v=20260822f"></script>
+  <script src="../game-hub/hub-buzzer.js?v=20260822g"></script>
+  <script src="../game-hub/matter.min.js?v=20260822g"></script>
+  <script src="../game-hub/hub-kit.js?v=20260822g"></script>
+  <script src="../game-hub/hub-table.js?v=20260822g"></script>
+  <script src="word-list.js?v=20260822g"></script>
   <script>
   (function(){
     'use strict';
@@ -259,6 +307,7 @@
     let validSince = 0;       // performance.now() when the current valid word docked
     let playing = false;
     let secsLeft = 0;
+    let banked = 0;           // words banked this game — reported to the board
 
     const canvas  = document.getElementById('stage');
     const status  = document.getElementById('status');
@@ -355,6 +404,7 @@
       const pts  = Math.floor(wordScore(word) * multNow() * 10) / 10;
       score = Math.round((score + pts) * 10) / 10;
       if(!bestWord || pts > bestWord.pts) bestWord = { word, pts };
+      banked++;
       document.getElementById('score').textContent = score;
       const flash = document.getElementById('flash');
       flash.textContent = '+' + pts;
@@ -366,6 +416,7 @@
       const kept = [];
       rack.forEach(ch => { if(spent[ch]) spent[ch]--; else kept.push(ch); });
       deal(kept);
+      report(false);           // the board's standings follow every bank
     }
 
     /* ---- clock ---- */
@@ -376,12 +427,15 @@
       el.textContent = m + ':' + String(s).padStart(2, '0');
       el.classList.toggle('urgent', secsLeft <= 10);
     }
-    function startGame(){
-      score = 0; bestWord = null;
+    function startGame(roomSecs){
+      score = 0; bestWord = null; banked = 0;
       document.getElementById('score').textContent = '0';
       document.getElementById('over').classList.remove('show');
       refillBag();
-      secsLeft = +val('s-secs');
+      /* In a room the board's arm carries the duration, sent once — the same
+         clock model every round uses, so no handset agrees the time with
+         anybody. Solo reads the slider. */
+      secsLeft = Number(roomSecs) > 0 ? Math.round(Number(roomSecs)) : +val('s-secs');
       paintClock();
       playing = true;
       deal([]);
@@ -391,19 +445,174 @@
         paintClock();
         if(secsLeft <= 0) endGame();
       }, 1000);
+      zonesPaint();
     }
     function endGame(){
       clearInterval(tick); tick = null;
       playing = false;
-      paintBank();
+      paintBank(); zonesPaint();
+      report(true);
       document.getElementById('final').textContent = score;
       document.getElementById('best-line').textContent =
         bestWord ? 'best word: ' + bestWord.word + ' (+' + bestWord.pts + ')' : 'no words banked';
+      /* In a room the board deals the rematch — a phone restarting itself would
+         desync the whole circle. */
+      document.getElementById('again').style.display = client ? 'none' : '';
       document.getElementById('over').classList.add('show');
     }
 
+    /* ==================== the room — stage 2 ====================
+       Protocol, duplicated verbatim on the board page (battle-scrabble-board):
+       JSON rides the relay's existing messages — nothing new on the wire.
+       Up, via respond() (<=120 chars), tagged `t`, per-phone sequence `q`:
+         {"t":"s","q":7,"sc":41.5,"w":"QUIZ","n":4[,"f":1]}   score (f = final)
+         {"t":"th","q":8,"d":"L","l":"Q"}                     throw intent
+       Down, to one phone via nope():
+         {"t":"hit","by":"Maria","l":"Q"}    you were hit
+         {"t":"nb","l":"Maria","r":"Ken"}    your neighbours' names
+         {"t":"sync","left":48}              clock sync for a late joiner
+       Start rides arm({mode:'answer',rethink:true,secs}); the board holds the
+       room armed through a grace period after time-up so finals still land.
+       Receivers ignore non-JSON and unknown `t` — that is the compat rule. */
+    const SEAT_KEY = 'engishism.battle.seat';   // never join.html's 'engishism.seat'
+    const qs    = new URLSearchParams(location.search);
+    const RELAY = qs.get('relay') || '';
+    let client = null, roomCode = null;
+    let nbL = '', nbR = '';        // neighbour names, only ever from the board's nb push
+    let seq = 0;
+
+    function seatGet(){ try{ return JSON.parse(localStorage.getItem(SEAT_KEY) || 'null') || {}; }catch(_){ return {}; } }
+    function seatKeep(o){ try{ localStorage.setItem(SEAT_KEY, JSON.stringify(o)); }catch(_){} }
+
+    function send(o){ if(!client) return; o.q = ++seq; client.respond(JSON.stringify(o)); }
+    function report(final){
+      if(!client) return;
+      const o = { t:'s', sc:score, w:(bestWord && bestWord.word) || '', n:banked };
+      if(final) o.f = 1;
+      send(o);
+    }
+
+    function roomChip(txt){ document.getElementById('roomchip').innerHTML = txt || ''; }
+
+    function zoneAt(e){
+      for(const side of ['l','r']){
+        const z = document.getElementById('zone-' + side);
+        if(!z.classList.contains('on') || z.classList.contains('dim')) continue;
+        const r = z.getBoundingClientRect();
+        if(e.clientX >= r.left && e.clientX <= r.right &&
+           e.clientY >= r.top  && e.clientY <= r.bottom) return side;
+      }
+      return null;
+    }
+    function zonesPaint(){
+      ['l','r'].forEach(side => {
+        const z = document.getElementById('zone-' + side);
+        const name = side === 'l' ? nbL : nbR;
+        const on = !!client && playing && !!name;
+        z.classList.toggle('on', on);
+        // below three spare-ish letters a throw would leave the rack unspellable
+        z.classList.toggle('dim', on && rack.length <= MIN_WORD);
+        document.getElementById('zname-' + side).textContent = name || '';
+      });
+    }
+
+    /* A hit: everything re-rains, the slots empty, the multiplier dies — the
+       same beat as a deal, minus the redraw, so it reads as an event. */
+    function onHit(d){
+      if(!playing) return;
+      world.setPieces(rack);
+      world.slots(SLOT_COUNT);
+      world.setResult(null);
+      candidate = ''; candValid = false; validSince = 0;
+      status.textContent = 'Hit by ' + (d.by || 'someone') + '!';
+      const stage = document.querySelector('.stage');
+      stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake');
+      const flash = document.getElementById('flash');
+      flash.textContent = 'HIT BY ' + String(d.by || '?').toUpperCase() + '!';
+      flash.classList.add('show', 'bad');
+      setTimeout(() => flash.classList.remove('show', 'bad'), 1100);
+      paintBank(); zonesPaint();
+    }
+
+    function toLobby(){
+      clearInterval(tick); tick = null;
+      playing = false;
+      world.reset();
+      document.getElementById('hints').innerHTML = '';
+      document.getElementById('over').classList.remove('show');
+      document.getElementById('clock').textContent = '–:––';
+      status.textContent = 'Waiting for the board to start the game…';
+      paintBank(); zonesPaint();
+    }
+
+    /* The full room state arrives on `joined` (resent on every reconnect) and
+       the live start on `armed`. One handler; the `playing` guard is what
+       stops a reconnect replay restarting a game in progress. */
+    function onArmState(d, isJoinedEvent){
+      if(isJoinedEvent && !d.armed){ toLobby(); return; }
+      if(playing) return;
+      document.getElementById('over').classList.remove('show');
+      startGame(d && d.secs);
+      zonesPaint();
+    }
+
+    function join(code, name){
+      const old = seatGet();
+      const id = (old.code === code && old.id)
+        ? old.id
+        : ('bs' + Date.now().toString(36) + Math.floor(Math.random() * 1e4));
+      seatKeep({ id, name, code });
+      roomCode = code;
+      client = window.HubBuzzer.player({ relay: RELAY, code, name, id });
+      document.getElementById('joinbar').classList.remove('on');
+      roomChip('room <b>' + code + '</b>');
+      toLobby();
+      client.on('joined',   d => onArmState(d, true));
+      client.on('armed',    d => onArmState(d, false));
+      client.on('disarmed', () => { if(playing) endGame(); });
+      client.on('nope', d => {
+        let m = null;
+        try{ m = JSON.parse((d && d.word) || ''); }catch(_){ return; }
+        if(!m || !m.t) return;
+        if(m.t === 'hit') onHit(m);
+        else if(m.t === 'nb'){ nbL = m.l || ''; nbR = m.r || ''; zonesPaint(); }
+        else if(m.t === 'sync' && playing && Number(m.left) > 0){
+          secsLeft = Math.round(Number(m.left)); paintClock();
+        }
+      });
+      client.on('kicked', () => { roomChip('<span style="color:var(--bad)">removed from the room</span>'); client = null; zonesPaint(); });
+      client.on('status', st => {
+        const state = (st && st.state) || '';
+        roomChip('room <b>' + code + '</b>' +
+                 (state === 'connected' ? '' : ' · <span style="color:var(--bad)">' + state + '</span>'));
+      });
+    }
+
+    /* ?code= (the board's QR) opens the join strip with the code locked in and
+       the name focused — nothing starts until Join. Returns true when the solo
+       autostart should stand down. */
+    function maybeRoomBoot(){
+      const code = (qs.get('code') || '').trim();
+      const bar  = document.getElementById('joinbar');
+      const nameIn = document.getElementById('j-name'), codeIn = document.getElementById('j-code');
+      nameIn.value = seatGet().name || '';
+      document.getElementById('j-go').addEventListener('click', () => {
+        const c = codeIn.value.trim(), n = nameIn.value.trim() || 'Player';
+        if(!/^\d{4,6}$/.test(c) || !window.HubBuzzer) return;
+        join(c, n);
+      });
+      if(!code || !window.HubBuzzer) return false;
+      bar.classList.add('on');
+      codeIn.value = code; codeIn.readOnly = true;
+      status.textContent = 'Enter your name and press Join.';
+      nameIn.focus();
+      return true;                    // lobby: no autostart, table stays empty
+    }
+
     world.resize();
-    startGame();
+    /* No code and no Join press = stage 1, byte for byte: solo starts at once.
+       A ?code= (the board's QR) opens the join strip instead — the lobby. */
+    if(!maybeRoomBoot()) startGame();
     (function loop(){ world.step(); world.draw(); if(candValid) paintBank(); requestAnimationFrame(loop); })();
 
     /* ---- pointer -> grab / move / drop, exactly as Throw Lab ---- */
@@ -420,11 +629,29 @@
       if(world.heldBy(e.pointerId)){ const p = pt(e); world.move(e.pointerId, p.x, p.y); }
     });
     function endDrag(e){
-      if(world.heldBy(e.pointerId)){
-        world.drop(e.pointerId);
+      if(!world.heldBy(e.pointerId)) return;
+      /* Dropped inside an active throw zone: the tile is spent, not placed.
+         `takeHeld` says which letter left, the rack shrinks (no replacement
+         until the next bank — the ammo limit), and the intent goes up for the
+         board to route. Zones are pointer-events:none, so this rect test is
+         the only thing that makes them real. */
+      const side = zoneAt(e);
+      if(side){
+        const ch = world.takeHeld(e.pointerId);
+        if(ch){
+          const at = rack.indexOf(ch);
+          if(at !== -1) rack.splice(at, 1);
+          send({ t:'th', d: side.toUpperCase(), l: ch });
+          status.textContent = 'Thrown at ' + (side === 'l' ? nbL : nbR) + '!';
+          readBoard(); zonesPaint();
+        }
         try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
         if(!world.anyHeld()) canvas.classList.remove('grabbing');
+        return;
       }
+      world.drop(e.pointerId);
+      try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
+      if(!world.anyHeld()) canvas.classList.remove('grabbing');
     }
     canvas.addEventListener('pointerup', endDrag);
     canvas.addEventListener('pointercancel', endDrag);
@@ -477,7 +704,21 @@
     /* `read` is here because world.place() (the reconnect-restore path a test
        drives) fires no onArrange — a driven board must ask for the re-read a
        real dock performs itself. */
-    window.__bs = { world, deal, bank, startGame, endGame, read: readBoard, state: () => ({ rack, score, candidate, candValid, secsLeft, hints, playing }) };
+    window.__bs = { world, deal, bank, startGame, endGame, read: readBoard,
+      /* the suite's throw — the same path as a zone drop, minus the pointer */
+      throw: dir => {
+        const side = String(dir || 'R').toUpperCase() === 'L' ? 'l' : 'r';
+        const name = side === 'l' ? nbL : nbR;
+        if(!client || !playing || !name || rack.length <= MIN_WORD) return false;
+        const ch = rack.pop();
+        world.setPieces(rack); world.slots(SLOT_COUNT);
+        candidate = ''; candValid = false; validSince = 0;
+        send({ t:'th', d: side.toUpperCase(), l: ch });
+        readBoard(); zonesPaint();
+        return true;
+      },
+      join, connected: () => !!client,
+      state: () => ({ rack, score, candidate, candValid, secsLeft, hints, playing, banked, nbL, nbR }) };
   })();
   </script>
 </body>
