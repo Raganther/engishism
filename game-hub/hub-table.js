@@ -16,7 +16,7 @@
    hub-kit.js (needs window.HubKit).
 
    Kit.table({ canvas, gravity, restitution, frictionAir, size, power, swing,
-               snap, onArrange, onExit }) -> {
+               snap, dock, onArrange, onExit }) -> {
      reset(), setPieces(labels[]), slots(n | {cols,rows}), place(i,label),
      addPiece(label, {x,y,vx,vy,spin,hue,shot}), openSides({l,r}),
      read()->string, cells()->string[], filled()->bool, loose(),
@@ -82,7 +82,8 @@
       size:        opts.size != null ? opts.size : 82,
       power:       opts.power != null ? opts.power : 1.3,
       swing:       opts.swing != null ? opts.swing : 0.4,   // 0 = rigid (tracks the finger), 1 = loose (dangles)
-      snap:        opts.snap != null ? opts.snap : 380      // dock glide duration in ms
+      snap:        opts.snap != null ? opts.snap : 380,     // dock glide duration in ms
+      dock:        opts.dock != null ? opts.dock : 8         // dock-on-release only below this speed (px/step)
     };
     tile = feel.size;            // until the first fit, a tile is its requested size
     // Drag stiffness from the swing dial. Firm enough to track the finger without
@@ -428,7 +429,8 @@
         stiffness: stiffnessOf(feel.swing), damping: 0.1, length: 0
       });
       Composite.add(engine.world, constraint);
-      grips.set(id, { body, constraint, fingerStart: { x, y }, anchor });
+      grips.set(id, { body, constraint, fingerStart: { x, y }, anchor,
+                      hist: [{ x, y, t: now() }] });   // recent finger track — the dock/flick signal
       return true;
     }
     function nearest(x, y, exclude){
@@ -448,6 +450,21 @@
       // so an off-tile forgiving grab keeps its small constant gap and never snaps.
       g.constraint.pointA.x = g.anchor.x + (x - g.fingerStart.x);
       g.constraint.pointA.y = g.anchor.y + (y - g.fingerStart.y);
+      g.hist.push({ x, y, t: now() });
+      if(g.hist.length > 8) g.hist.shift();
+    }
+    /* How fast the FINGER was moving at release, in px per physics step.
+       Matter's constraint solver moves a dragged body positionally, so the
+       body's own velocity under-reports even a violent flick — the finger
+       track is the honest gesture signal. Only the last ~120ms count: a drag
+       that pauses over a slot before letting go reads as stationary. */
+    function gripSpeed(g){
+      const cut = now() - 120;
+      const h = (g.hist || []).filter(e => e.t >= cut);
+      if(h.length < 2) return 0;
+      const a = h[0], z = h[h.length - 1];
+      const dt = Math.max(8, z.t - a.t);
+      return Math.hypot(z.x - a.x, z.y - a.y) / dt * (1000 / 60);
     }
     function drop(id){
       const g = grips.get(id);
@@ -455,7 +472,13 @@
       Composite.remove(engine.world, g.constraint);
       const b = g.body, piece = pieceOf(b);
       grips.delete(id);
-      const near = slotNear(b.position.x, b.position.y);
+      /* Dock only a SLOW release — a deliberate placement. A piece released
+         mid-flick is a throw, and sucking it into whichever empty slot it
+         happened to pass over turned every throw over a grid into an
+         accidental placement. feel.dock is the boundary; the speed is the
+         larger of the body's and the finger's (see gripSpeed). */
+      const speed = Math.max(Math.hypot(b.velocity.x, b.velocity.y), gripSpeed(g));
+      const near = speed < feel.dock ? slotNear(b.position.x, b.position.y) : -1;
       if(near >= 0 && piece){ startDock(piece, near); return; }   // dropped over a slot: suck it home
       const p = feel.power, cap = 55;
       Body.setVelocity(b, { x: clamp(b.velocity.x * p, -cap, cap), y: clamp(b.velocity.y * p, -cap, cap) });

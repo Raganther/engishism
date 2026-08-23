@@ -8601,6 +8601,40 @@ async function testBattleScrabble(browser){
   check('one press banks both words', afterBank.banked >= 2 && afterBank.score > scoreBefore,
         JSON.stringify({ banked: afterBank.banked, score: afterBank.score }));
 
+  /* The dock threshold: a tile carried to a square and released still docks;
+     one released mid-flick flies on — otherwise every throw over the 64-slot
+     grid was sucked into whatever empty space it passed. Both driven through
+     grab/move/drop, the real gesture path. */
+  await solo.evaluate(() => {
+    const W = window.__bs.world, h = document.getElementById('stage').offsetHeight;
+    W.addPiece('J', { x: 200, y: Math.round(h * 0.85) });
+    W.grab(77, 200, Math.round(h * 0.85));
+    const box = W.slotBox(20);
+    W.move(77, box.x, box.y);
+  });
+  await solo.waitForTimeout(600);            // let the spring settle the piece over the slot
+  await solo.evaluate(() => window.__bs.world.drop(77));
+  const docked = await until(async () =>
+    await solo.evaluate(() => window.__bs.world.cells()[20]) === 'J', 4000);
+  check('a slow release over a square still docks', docked,
+        await solo.evaluate(() => JSON.stringify(window.__bs.world.cells())));
+  /* Deterministic flick: pull the spring anchor far across the grid and step
+     the world synchronously so the tile is released at full chase speed —
+     the same state a finger mid-flick leaves it in. */
+  await solo.evaluate(() => {
+    const W = window.__bs.world, h = document.getElementById('stage').offsetHeight;
+    W.addPiece('X', { x: 350, y: Math.round(h * 0.5) });
+    W.grab(78, 350, Math.round(h * 0.5));
+    W.move(78, 30, Math.round(h * 0.5) - 60);
+    W.step(); W.step(); W.step();
+    W.drop(78);
+  });
+  await solo.waitForTimeout(600);
+  check('a fast release flies instead of docking',
+        await solo.evaluate(() => window.__bs.world.cells().indexOf('X') === -1 &&
+                                  window.__bs.world.loose().some(p => p.ch === 'X')),
+        await solo.evaluate(() => JSON.stringify(window.__bs.world.cells())));
+
   /* The knock rule, deterministically: a shot tile fired in at slot height
      must punch a slotted letter out — the word breaks physically, nothing is
      deleted. Driven on the solo page so no relay timing is in the loop. */
