@@ -196,11 +196,11 @@
   <!-- Same shelf and same order as Throw Lab: matter.min.js → hub-kit.js (the
        object Kit.table hangs off) → hub-table.js. word-list.js is this page's own
        vendored dictionary — a <script src>, never a fetch, so file:// works. -->
-  <script src="../game-hub/hub-buzzer.js?v=20260822g"></script>
-  <script src="../game-hub/matter.min.js?v=20260822g"></script>
-  <script src="../game-hub/hub-kit.js?v=20260822g"></script>
-  <script src="../game-hub/hub-table.js?v=20260822g"></script>
-  <script src="word-list.js?v=20260822g"></script>
+  <script src="../game-hub/hub-buzzer.js?v=20260823a"></script>
+  <script src="../game-hub/matter.min.js?v=20260823a"></script>
+  <script src="../game-hub/hub-kit.js?v=20260823a"></script>
+  <script src="../game-hub/hub-table.js?v=20260823a"></script>
+  <script src="word-list.js?v=20260823a"></script>
   <script>
   (function(){
     'use strict';
@@ -466,9 +466,13 @@
        JSON rides the relay's existing messages — nothing new on the wire.
        Up, via respond() (<=120 chars), tagged `t`, per-phone sequence `q`:
          {"t":"s","q":7,"sc":41.5,"w":"QUIZ","n":4[,"f":1]}   score (f = final)
-         {"t":"th","q":8,"d":"L","l":"Q"}                     throw intent
+         {"t":"th","q":8,"d":"L","l":"Q","vx":-14.2,"vy":-3.1,"ny":0.42}
+           throw: the tile, plus the velocity it left the screen with and the
+           release height as a fraction — the tile itself travels
        Down, to one phone via nope():
-         {"t":"hit","by":"Maria","l":"Q"}    you were hit
+         {"t":"tile","by":"Maria","d":"L","l":"Q","vx":-14.2,"vy":-3.1,"ny":0.42}
+           an incoming tile: it enters this board moving as it left theirs,
+           and it is this player's to use from then on
          {"t":"nb","l":"Maria","r":"Ken"}    your neighbours' names
          {"t":"sync","left":48}              clock sync for a late joiner
        Start rides arm({mode:'answer',rethink:true,secs}); the board holds the
@@ -524,19 +528,34 @@
       });
     }
 
-    /* A hit: everything re-rains, the slots empty, the multiplier dies — the
-       same beat as a deal, minus the redraw, so it reads as an event. */
-    function onHit(d){
+    /* An incoming tile: the neighbour's throw arrives as a real piece, entering
+       from the side it was thrown through, moving as it left their screen. It
+       is this player's letter now — the rack grows, the hints re-pick — and its
+       shot flag arms the shelf's knock rule, so a hard first impact punches a
+       slotted letter out of the word it hits. Nothing resets and nothing is
+       deleted: the only damage is what the impact physically does. */
+    function onTile(d){
       if(!playing) return;
-      world.setPieces(rack);
-      world.slots(SLOT_COUNT);
-      world.setResult(null);
-      candidate = ''; candValid = false; validSince = 0;
-      status.textContent = 'Hit by ' + (d.by || 'someone') + '!';
-      const stage = document.querySelector('.stage');
-      stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake');
+      const ch = String(d.l || '').slice(0, 1).toUpperCase();
+      if(!/^[A-Z]$/.test(ch)) return;
+      rack.push(ch);
+      hints = pickHints(spellable(rack));
+      renderHints();
+      /* d is the side of the THROWER's screen it left through: off their left
+         edge it crosses to their left neighbour — this screen — entering at the
+         right edge, still moving left; mirrored for 'R'. A gently-dropped throw
+         still has to actually enter, so the inward speed keeps a floor. */
+      const fromRight = String(d.d || 'R').toUpperCase() === 'L';
+      const w = canvas.offsetWidth, h = canvas.offsetHeight;
+      const MINV = 9;
+      let vx = Number(d.vx) || 0;
+      const vy = Math.max(-30, Math.min(30, Number(d.vy) || 0));
+      vx = fromRight ? Math.min(vx, -MINV) : Math.max(vx, MINV);
+      const ny = Math.max(0.08, Math.min(0.85, Number(d.ny) || 0.3));
+      world.addPiece(ch, { x: fromRight ? w - 16 : 16, y: ny * h, vx, vy, hue: '#E2603B', shot: true });
+      status.textContent = (d.by || 'Someone') + ' threw you a ' + ch + '!';
       const flash = document.getElementById('flash');
-      flash.textContent = 'HIT BY ' + String(d.by || '?').toUpperCase() + '!';
+      flash.textContent = 'INCOMING ' + ch + '!';
       flash.classList.add('show', 'bad');
       setTimeout(() => flash.classList.remove('show', 'bad'), 1100);
       paintBank(); zonesPaint();
@@ -584,7 +603,7 @@
         let m = null;
         try{ m = JSON.parse((d && d.word) || ''); }catch(_){ return; }
         if(!m || !m.t) return;
-        if(m.t === 'hit') onHit(m);
+        if(m.t === 'tile') onTile(m);
         else if(m.t === 'nb'){ nbL = m.l || ''; nbR = m.r || ''; zonesPaint(); }
         else if(m.t === 'sync' && playing && Number(m.left) > 0){
           secsLeft = Math.round(Number(m.left)); paintClock();
@@ -653,11 +672,18 @@
          the only thing that makes them real. */
       const side = zoneAt(e);
       if(side){
-        const ch = world.takeHeld(e.pointerId);
-        if(ch){
-          const at = rack.indexOf(ch);
+        const taken = world.takeHeld(e.pointerId);
+        if(taken){
+          const at = rack.indexOf(taken.ch);
           if(at !== -1) rack.splice(at, 1);
-          send({ t:'th', d: side.toUpperCase(), l: ch });
+          /* The tile travels: its exit velocity and release height ride up
+             with it, so it enters the neighbour's screen moving exactly as
+             it left this one. One decimal is plenty on a <=120-char wire. */
+          const r1 = v => Math.round(v * 10) / 10;
+          const h = canvas.offsetHeight || 1;
+          send({ t:'th', d: side.toUpperCase(), l: taken.ch,
+                 vx: r1(taken.vx), vy: r1(taken.vy),
+                 ny: Math.round(Math.max(0, Math.min(1, pt(e).y / h)) * 100) / 100 });
           status.textContent = 'Thrown at ' + (side === 'l' ? nbL : nbR) + '!';
           readBoard(); zonesPaint();
         }
@@ -721,7 +747,8 @@
        drives) fires no onArrange — a driven board must ask for the re-read a
        real dock performs itself. */
     window.__bs = { world, deal, bank, startGame, endGame, read: readBoard,
-      /* the suite's throw — the same path as a zone drop, minus the pointer */
+      /* the suite's throw — the same path as a zone drop, minus the pointer.
+         Returns the letter thrown, so a test can watch for it arriving. */
       throw: dir => {
         const side = String(dir || 'R').toUpperCase() === 'L' ? 'l' : 'r';
         const name = side === 'l' ? nbL : nbR;
@@ -729,9 +756,10 @@
         const ch = rack.pop();
         world.setPieces(rack); world.slots(SLOT_COUNT);
         candidate = ''; candValid = false; validSince = 0;
-        send({ t:'th', d: side.toUpperCase(), l: ch });
+        send({ t:'th', d: side.toUpperCase(), l: ch,
+               vx: side === 'l' ? -18 : 18, vy: -4, ny: 0.4 });
         readBoard(); zonesPaint();
-        return true;
+        return ch;
       },
       join, connected: () => !!client,
       state: () => ({ rack, score, candidate, candValid, secsLeft, hints, playing, banked, nbL, nbR }) };

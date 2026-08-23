@@ -8472,20 +8472,22 @@ async function testBattleScrabble(browser){
     window.__bsb.players[window.__bsb.seats[0]].score) > 0, 8000);
   check('a banked word lands on the board\'s standings', true);
 
-  /* The throw: Anna's right neighbour is Ben; the board routes it, Ben's
-     board re-rains and his multiplier dies, Anna's rack shrinks by one. */
-  const hintB = await B.evaluate(() => window.__bs.state().hints.slice(-1)[0] || window.__bs.state().hints[0]);
-  if(hintB){
-    await B.evaluate(w => { w.toUpperCase().split('').forEach((ch, i) => window.__bs.world.place(i, ch)); window.__bs.read(); }, hintB);
-  }
+  /* The throw: Anna's right neighbour is Ben. The tile itself travels now —
+     it leaves Anna's rack and arrives on Ben's board as a real usable piece;
+     nothing on Ben's board resets. */
+  const bRackBefore = await B.evaluate(() => window.__bs.state().rack.length);
   const rackBefore = await A.evaluate(() => window.__bs.state().rack.length);
   const threw = await A.evaluate(() => window.__bs.throw('R'));
-  check('a throw is accepted while a neighbour exists', threw === true);
-  await until(async () => await B.evaluate(() => window.__bs.state().candidate === ''), 8000);
-  check('the hit re-rains the target\'s board and kills their word',
-        await B.evaluate(() => { const s = window.__bs.state(); return s.candidate === '' && !s.candValid; }));
+  check('a throw is accepted while a neighbour exists', /^[A-Z]$/.test(String(threw)), String(threw));
+  const arrived = await until(async () =>
+    await B.evaluate(() => window.__bs.state().rack.length) === bRackBefore + 1, 8000);
+  check('the thrown tile crosses to the target and joins their rack', arrived,
+        await B.evaluate(() => window.__bs.state().rack.join('')));
+  check('as the same letter that left the thrower',
+        await B.evaluate(() => window.__bs.state().rack.slice(-1)[0]) === threw,
+        threw + ' vs rack ' + await B.evaluate(() => window.__bs.state().rack.join('')));
   check('and the target is told who threw it',
-        /hit by anna/i.test(await B.locator('#status').innerText()),
+        /anna threw you/i.test(await B.locator('#status').innerText()),
         await B.locator('#status').innerText());
   check('the thrown tile is spent — no replacement until the next bank',
         await A.evaluate(() => window.__bs.state().rack.length) === rackBefore - 1);
@@ -8529,6 +8531,26 @@ async function testBattleScrabble(browser){
         await solo.evaluate(() =>
           !document.getElementById('joinbar').classList.contains('on') &&
           !document.getElementById('zone-l').classList.contains('on')));
+
+  /* The knock rule, deterministically: a shot tile fired in at slot height
+     must punch a slotted letter out — the word breaks physically, nothing is
+     deleted. Driven on the solo page so no relay timing is in the loop. */
+  await solo.evaluate(() => {
+    const w = (window.__bs.state().hints[0] || '').toUpperCase();
+    w.split('').forEach((ch, i) => window.__bs.world.place(i, ch));
+    window.__bs.read();
+  });
+  const wordBefore = await solo.evaluate(() => window.__bs.world.read());
+  await solo.evaluate(() => {
+    const c = document.getElementById('stage');
+    window.__bs.world.addPiece('Z', { x: 40, y: Math.round(c.offsetHeight * 0.46),
+                                      vx: 30, vy: 0, hue: '#E2603B', shot: true });
+  });
+  const knocked = await until(async () =>
+    (await solo.evaluate(() => window.__bs.world.read())).length < wordBefore.length, 6000);
+  check('a fast incoming tile knocks a slotted letter out of the word',
+        wordBefore.length >= 3 && knocked,
+        'before "' + wordBefore + '" after "' + await solo.evaluate(() => window.__bs.world.read()) + '"');
 
   /* ---- the phone bench racks the game page, not join.html ----
      The board declares what its phones run (`window.HubPhonePage`, beside

@@ -18,9 +18,10 @@
    Kit.table({ canvas, gravity, restitution, frictionAir, size, power, swing,
                snap, onArrange }) -> {
      reset(), setPieces(labels[]), slots(n), place(i,label),
+     addPiece(label, {x,y,vx,vy,spin,hue,shot}),
      read()->string, cells()->string[], filled()->bool, setResult(res),
      setFeel(partial), resize(),
-     grab(id,x,y), move(id,x,y), drop(id), heldBy(id), anyHeld(),
+     grab(id,x,y), move(id,x,y), drop(id), takeHeld(id), heldBy(id), anyHeld(),
      step(), draw()
    }
    onArrange(read, filled) fires whenever a piece docks or is pulled out.
@@ -31,7 +32,7 @@
   'use strict';
   if(!window.Matter || !window.HubKit) return;   // load order guard
   const M = window.Matter;
-  const { Engine, Composite, Bodies, Body, Query, Constraint } = M;
+  const { Engine, Composite, Bodies, Body, Query, Constraint, Events } = M;
 
   /* palette for the pieces: distinguishable, high-contrast on dark */
   const HUES = ['#00A0DF','#F5C542','#E2603B','#6FB04A','#B36FD1','#3BB0A8','#E86FA0'];
@@ -152,6 +153,55 @@
       if(tile !== feel.size) for(const p of pieces) Body.scale(p.body, tile / feel.size, tile / feel.size);
     }
 
+    /* Add ONE piece without touching the rest — the arrival path for a tile
+       thrown from another player's table. Spawned wherever the caller says,
+       moving however the caller says (the thrown tile keeps the speed and
+       trajectory it left the other screen with), and it is an ordinary piece
+       from then on: grabbable, dockable, read by read(). `hue` lets the caller
+       mark it (a thrown tile stays red on the receiving board); `shot:true`
+       arms the knock rule below for its first hard impact. */
+    function addPiece(label, o){
+      o = o || {};
+      const s = feel.size;
+      const body = Bodies.rectangle(o.x != null ? o.x : cssW/2, o.y != null ? o.y : s, s, s, {
+        chamfer:{ radius: Math.round(s*0.16) },
+        restitution: feel.restitution, frictionAir: feel.frictionAir,
+        friction: 0.3, density: 0.0016
+      });
+      if(tile !== s) Body.scale(body, tile / s, tile / s);
+      Body.setVelocity(body, { x: o.vx || 0, y: o.vy || 0 });
+      Body.setAngularVelocity(body, clamp(o.spin || 0, -1, 1));
+      pieces.push({ body, ch: String(label), hue: o.hue || HUES[pieces.length % HUES.length],
+                    slot: null, dock: null, shot: o.shot ? now() : 0 });
+      Composite.add(engine.world, body);
+    }
+
+    /* The knock: a shot piece (addPiece with shot:true) that lands its first
+       hard hit on a SLOTTED tile punches it out of its slot — the word breaks
+       physically, nothing is deleted. Slotted tiles are static, so without
+       this rule a projectile merely bounces off a finished word. One knock
+       per shot, and the flag ages out so a tile that rolled to rest is just
+       a tile. Grabbing a shot tile also disarms it (see grab). */
+    const KNOCK_MIN = 6, SHOT_MS = 4000;
+    Events.on(engine, 'collisionStart', ev => {
+      for(const pair of ev.pairs){
+        const a = pieceOf(pair.bodyA), b = pieceOf(pair.bodyB);
+        const shot = (a && a.shot) ? a : (b && b.shot) ? b : null;
+        if(!shot) continue;
+        if(now() - shot.shot > SHOT_MS){ shot.shot = 0; continue; }
+        const hit = shot === a ? b : a;
+        if(!hit || hit.slot == null) continue;
+        const v = shot.body.velocity;
+        if(Math.hypot(v.x, v.y) < KNOCK_MIN) continue;
+        freeSlotOf(hit);
+        Body.setStatic(hit.body, false);
+        Body.setVelocity(hit.body, { x: v.x * 0.6, y: v.y * 0.6 - 2 });
+        shot.shot = 0;
+        result = null;
+        report();
+      }
+    });
+
     /* ---- slots (the zones a piece lands in): a centred row of n ---- */
     function slotDims(n){
       const margin = 16, gap = Math.max(6, Math.round(feel.size * 0.12));
@@ -254,6 +304,7 @@
       if(!body) return false;
       const gp = pieceOf(body);
       if(gp) gp.dock = null;   // grabbing mid-glide cancels the dock
+      if(gp && gp.shot) gp.shot = 0;   // picked up, it's an ordinary tile now
       if(gp && gp.slot != null){ freeSlotOf(gp); result = null; report(); }
       if(body.isStatic) Body.setStatic(body, false);
       Body.setVelocity(body, { x:0, y:0 });
@@ -316,8 +367,10 @@
        could say — `grab`/`heldBy` answer yes or no, and the pieces are closed
        over in here. Deliberately not `drop()`: drop's job is to dock or hurl,
        and a taken piece must do neither — the grip is released bare, the slot
-       freed, the body removed. Returns the letter, or null if this pointer
-       held nothing. Additive; no existing caller changes. */
+       freed, the body removed. Returns { ch, vx, vy } — the letter plus the
+       velocity it left with, so a thrown tile can arrive on another table
+       moving exactly as it was moving here — or null if this pointer held
+       nothing. */
     function takeHeld(id){
       const g = grips.get(id);
       if(!g) return null;
@@ -325,11 +378,13 @@
       grips.delete(id);
       const p = pieceOf(g.body);
       if(!p) return null;
+      const v = p.body.velocity;
+      const out = { ch: p.ch, vx: v.x, vy: v.y };
       freeSlotOf(p);
       p.dock = null;
       Composite.remove(engine.world, p.body);
       pieces = pieces.filter(q => q !== p);
-      return p.ch;
+      return out;
     }
 
     /* ---- step + default draw. Matter does the physics; we do the draw. ---- */
@@ -390,7 +445,7 @@
 
     return {
       reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; result = null; },
-      setPieces, slots: makeSlots, place,
+      setPieces, addPiece, slots: makeSlots, place,
       read, cells, filled, setResult(res){ result = res; },
       setFeel, resize: sizeToCanvas,
       grab, move, drop, takeHeld,
