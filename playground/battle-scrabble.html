@@ -21,6 +21,11 @@
     background:var(--bg); color:var(--text);
     font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     display:flex; flex-direction:column;
+    /* The REAL visible height on a phone: mobile browser chrome (the URL bar)
+       grows and shrinks, and 100% is the layout viewport, not what is on
+       screen — the pile ended up crushed behind the bank bar. dvh follows the
+       chrome; the 100% line above stays as the older-browser fallback. */
+    height:100dvh;
     /* The canvas owns the gesture — without this a fast flick pans the page. */
     touch-action:none; -webkit-user-select:none; user-select:none;
     overscroll-behavior:none;
@@ -205,11 +210,11 @@
   <!-- Same shelf and same order as Throw Lab: matter.min.js → hub-kit.js (the
        object Kit.table hangs off) → hub-table.js. word-list.js is this page's own
        vendored dictionary — a <script src>, never a fetch, so file:// works. -->
-  <script src="../game-hub/hub-buzzer.js?v=20260823d"></script>
-  <script src="../game-hub/matter.min.js?v=20260823d"></script>
-  <script src="../game-hub/hub-kit.js?v=20260823d"></script>
-  <script src="../game-hub/hub-table.js?v=20260823d"></script>
-  <script src="word-list.js?v=20260823d"></script>
+  <script src="../game-hub/hub-buzzer.js?v=20260823e"></script>
+  <script src="../game-hub/matter.min.js?v=20260823e"></script>
+  <script src="../game-hub/hub-kit.js?v=20260823e"></script>
+  <script src="../game-hub/hub-table.js?v=20260823e"></script>
+  <script src="word-list.js?v=20260823e"></script>
   <script>
   (function(){
     'use strict';
@@ -807,7 +812,12 @@
     btnTune.addEventListener('click', () => { document.body.classList.toggle('controls-hidden'); applyTune(); });
 
     let rz;
-    window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => world.resize(), 150); });
+    const refit = () => { clearTimeout(rz); rz = setTimeout(() => world.resize(), 150); };
+    window.addEventListener('resize', refit);
+    /* Mobile chrome collapsing/expanding fires on the VISUAL viewport, often
+       without a window resize — without this the canvas keeps the height the
+       page loaded with and the pile sits behind the bank bar. */
+    if(window.visualViewport) window.visualViewport.addEventListener('resize', refit);
 
     // A handle for driving the page from a test (world.place docks a letter
     // directly); the question bench sets the same kind of debug handle.

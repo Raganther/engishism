@@ -489,9 +489,34 @@
       grips.clear();
     }
 
-    /* ---- step + default draw. Matter does the physics; we do the draw. ---- */
+    /* ---- step + default draw. Matter does the physics; we do the draw. ----
+       step() is called once per animation frame by every caller, but frames
+       are NOT 60Hz everywhere: a 120Hz phone calls twice as often, and one
+       fixed update per call ran the whole game at double speed there — the
+       drag spring whipped held tiles into a frenzy. So step() keeps a wall-
+       clock accumulator and runs however many fixed 60Hz updates the elapsed
+       time has earned (capped at 4 — a backgrounded tab must not fast-forward
+       on return; the remainder is dropped). Synchronous back-to-back calls
+       (the driven tests) earn at most the cap between them. */
+    const STEP_MS = 1000/60;
+    let stepLast = 0, stepAcc = 0;
     function step(){
-      Engine.update(engine, 1000/60);
+      const t = now();
+      if(!stepLast) stepLast = t - STEP_MS;   // first call runs exactly one update
+      stepAcc += t - stepLast;
+      stepLast = t;
+      if(stepAcc > STEP_MS * 4) stepAcc = STEP_MS * 4;
+      while(stepAcc >= STEP_MS){
+        Engine.update(engine, STEP_MS);
+        stepAcc -= STEP_MS;
+        /* A held tile may swing under gravity but never windmill: the spring's
+           off-centre pull adds torque every update, and on a fast drag it
+           compounds into a crazy spin before release. */
+        for(const g of grips.values()){
+          const av = g.body.angularVelocity;
+          if(av > 0.6 || av < -0.6) Body.setAngularVelocity(g.body, clamp(av, -0.6, 0.6));
+        }
+      }
       tickDocks();
       tickExits();
     }
@@ -551,9 +576,11 @@
       reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; clearResult(); },
       setPieces, addPiece, slots: makeSlots, place, openSides,
       read, cells, filled, setResult,
-      /* the loose pieces (not slotted), letter + colour — a driven test's only
-         window onto what is lying on the table, since read() sees slots alone */
-      loose: () => pieces.filter(p => p.slot == null).map(p => ({ ch: p.ch, hue: p.hue })),
+      /* the loose pieces (not slotted), letter + colour + height — a driven
+         test's only window onto what is lying on the table, since read()
+         sees slots alone */
+      loose: () => pieces.filter(p => p.slot == null)
+                         .map(p => ({ ch: p.ch, hue: p.hue, y: Math.round(p.body.position.y) })),
       /* slot geometry + the fitted tile size, for callers that aim or assert
          at real coordinates (the suite fires its test shots at a slot's row) */
       slotBox: i => slots[i] ? { x: slots[i].x, y: slots[i].y, w: slots[i].w } : null,

@@ -8635,6 +8635,28 @@ async function testBattleScrabble(browser){
                                   window.__bs.world.loose().some(p => p.ch === 'X')),
         await solo.evaluate(() => JSON.stringify(window.__bs.world.cells())));
 
+  /* Real-time physics: step() advances by wall clock, not by call count — a
+     120Hz screen's doubled frames must not run the game at double speed (a
+     held tile whipped into a spin was the symptom on a real phone). A burst
+     of synchronous calls earns at most the capped few updates; real elapsed
+     time advances normally. The probe tile is found by its unique hue. */
+  const fall = await solo.evaluate(() => {
+    const W = window.__bs.world;
+    W.addPiece('Y', { x: 350, y: 60, hue: '#0f0f0f' });
+    const at = () => W.loose().find(p => p.hue === '#0f0f0f').y;
+    const y0 = at();
+    for(let i = 0; i < 30; i++) W.step();
+    return at() - y0;
+  });
+  check('a burst of synchronous steps advances by time, not by call count',
+        fall >= 0 && fall < 60, String(fall));
+  await solo.waitForTimeout(700);
+  const fell = await solo.evaluate(() => {
+    const p = window.__bs.world.loose().find(p2 => p2.hue === '#0f0f0f');
+    return p ? p.y : -1;
+  });
+  check('while real elapsed time falls the same tile normally', fell > 200, String(fell));
+
   /* The knock rule, deterministically: a shot tile fired in at slot height
      must punch a slotted letter out — the word breaks physically, nothing is
      deleted. Driven on the solo page so no relay timing is in the loop. */
