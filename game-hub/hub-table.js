@@ -16,14 +16,16 @@
    hub-kit.js (needs window.HubKit).
 
    Kit.table({ canvas, gravity, restitution, frictionAir, size, power, swing,
-               snap, onArrange }) -> {
+               snap, onArrange, onExit }) -> {
      reset(), setPieces(labels[]), slots(n), place(i,label),
-     addPiece(label, {x,y,vx,vy,spin,hue,shot}),
-     read()->string, cells()->string[], filled()->bool, setResult(res),
+     addPiece(label, {x,y,vx,vy,spin,hue,shot}), openSides({l,r}),
+     read()->string, cells()->string[], filled()->bool, loose(), setResult(res),
      setFeel(partial), resize(),
      grab(id,x,y), move(id,x,y), drop(id), takeHeld(id), heldBy(id), anyHeld(),
      step(), draw()
    }
+   onExit({ch,hue,side,vx,vy,ny}) fires when a free piece leaves through an
+   open side — the throw dynamic's exit door; see openSides.
    onArrange(read, filled) fires whenever a piece docks or is pulled out.
    setResult('right'|'wrong'|null) tints filled slots — judging stays the
    caller's; the table only paints the tint it is handed.
@@ -116,17 +118,60 @@
       }
       tile = nt;
     }
+    /* The sides can OPEN — the throw dynamic's exit doors. With a side open its
+       wall is simply not built, a piece that crosses that edge leaves the world,
+       and step() reports it through onExit (letter, hue, side, velocity, height)
+       so the caller can send it wherever tiles travel to. Both sides closed is
+       the default and the walls behave exactly as before. */
+    const open = { l:false, r:false };
+    function openSides(o2){
+      const l = !!(o2 && o2.l), r = !!(o2 && o2.r);
+      if(l === open.l && r === open.r) return;
+      open.l = l; open.r = r;
+      buildWalls();
+    }
     function buildWalls(){
       if(walls.length) Composite.remove(engine.world, walls);
       const t = 200; // thick, so a fast piece cannot tunnel through in one step
       const o = { isStatic:true, restitution:0.4, friction:0.2 };
       walls = [
         Bodies.rectangle(cssW/2, cssH + t/2, cssW + t*2, t, o),   // floor
-        Bodies.rectangle(cssW/2, -t/2,        cssW + t*2, t, o),   // ceiling
-        Bodies.rectangle(-t/2,   cssH/2,      t, cssH + t*2, o),   // left
-        Bodies.rectangle(cssW + t/2, cssH/2,  t, cssH + t*2, o)    // right
+        Bodies.rectangle(cssW/2, -t/2,        cssW + t*2, t, o)    // ceiling
       ];
+      if(!open.l) walls.push(Bodies.rectangle(-t/2,   cssH/2, t, cssH + t*2, o));   // left
+      if(!open.r) walls.push(Bodies.rectangle(cssW + t/2, cssH/2, t, cssH + t*2, o)); // right
       Composite.add(engine.world, walls);
+    }
+    /* A free piece fully past an open edge has left: take it out of the world
+       and hand it to the caller with everything a receiving table needs to
+       continue its flight. Held, docking and slotted pieces never exit — a drag
+       past the edge only counts once the finger lets go. */
+    function tickExits(){
+      if((!open.l && !open.r) || !opts.onExit || !pieces.length) return;
+      const held = grips.size ? heldBodies() : null;
+      const out = [];
+      for(const p of pieces){
+        if(p.slot != null || p.dock || (held && held.has(p.body))) continue;
+        const x = p.body.position.x, m = tile * 0.6;
+        const crossL = open.l && x < -m, crossR = open.r && x > cssW + m;
+        if(!crossL && !crossR) continue;
+        if(p.hold && now() < p.hold){
+          // too fresh to leave: the edge is a soft wall for the arrival beat
+          const v = p.body.velocity;
+          if((crossL && v.x < 0) || (crossR && v.x > 0))
+            Body.setVelocity(p.body, { x: -v.x * 0.8, y: v.y });
+          continue;
+        }
+        out.push({ p, side: crossL ? 'l' : 'r' });
+      }
+      for(const o2 of out){
+        const b = o2.p.body;
+        Composite.remove(engine.world, b);
+        pieces = pieces.filter(q => q !== o2.p);
+        opts.onExit({ ch: o2.p.ch, hue: o2.p.hue, side: o2.side,
+                      vx: b.velocity.x, vy: b.velocity.y,
+                      ny: clamp(b.position.y / cssH, 0, 1) });
+      }
     }
 
     /* ---- pieces ---- */
@@ -145,7 +190,10 @@
           friction: 0.3, density: 0.0016
         });
         Body.setAngle(body, (Math.random() - 0.5) * 0.3);
-        pieces.push({ body, ch: String(ch), hue: HUES[i % HUES.length], slot: null, dock: null });
+        // hold: a fresh deal's rain must not leak out through an open side
+        // while it settles — the edge reflects it back in until this expires
+        pieces.push({ body, ch: String(ch), hue: HUES[i % HUES.length],
+                      slot: null, dock: null, hold: now() + 1500 });
       });
       Composite.add(engine.world, pieces.map(p => p.body));
       // Bodies are built at feel.size; if the table is already fitted (a re-arm), bring
@@ -158,8 +206,9 @@
        moving however the caller says (the thrown tile keeps the speed and
        trajectory it left the other screen with), and it is an ordinary piece
        from then on: grabbable, dockable, read by read(). `hue` lets the caller
-       mark it (a thrown tile stays red on the receiving board); `shot:true`
-       arms the knock rule below for its first hard impact. */
+       colour it (a thrown tile arrives wearing the colour it wore on the
+       thrower's board); `shot:true` arms the knock rule below for its first
+       hard impact. */
     function addPiece(label, o){
       o = o || {};
       const s = feel.size;
@@ -171,8 +220,12 @@
       if(tile !== s) Body.scale(body, tile / s, tile / s);
       Body.setVelocity(body, { x: o.vx || 0, y: o.vy || 0 });
       Body.setAngularVelocity(body, clamp(o.spin || 0, -1, 1));
+      /* A shot arrival gets a short hold too — without it a tile entering at
+         speed can carom off another piece and leave again through the edge it
+         came in by, and two open boards ping-pong one tile forever. */
       pieces.push({ body, ch: String(label), hue: o.hue || HUES[pieces.length % HUES.length],
-                    slot: null, dock: null, shot: o.shot ? now() : 0 });
+                    slot: null, dock: null, shot: o.shot ? now() : 0,
+                    hold: o.shot ? now() + 900 : 0 });
       Composite.add(engine.world, body);
     }
 
@@ -379,7 +432,7 @@
       const p = pieceOf(g.body);
       if(!p) return null;
       const v = p.body.velocity;
-      const out = { ch: p.ch, vx: v.x, vy: v.y };
+      const out = { ch: p.ch, hue: p.hue, vx: v.x, vy: v.y };
       freeSlotOf(p);
       p.dock = null;
       Composite.remove(engine.world, p.body);
@@ -391,6 +444,7 @@
     function step(){
       Engine.update(engine, 1000/60);
       tickDocks();
+      tickExits();
     }
     function draw(){
       ctx.clearRect(0, 0, cssW, cssH);
@@ -445,8 +499,11 @@
 
     return {
       reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; result = null; },
-      setPieces, addPiece, slots: makeSlots, place,
+      setPieces, addPiece, slots: makeSlots, place, openSides,
       read, cells, filled, setResult(res){ result = res; },
+      /* the loose pieces (not slotted), letter + colour — a driven test's only
+         window onto what is lying on the table, since read() sees slots alone */
+      loose: () => pieces.filter(p => p.slot == null).map(p => ({ ch: p.ch, hue: p.hue })),
       setFeel, resize: sizeToCanvas,
       grab, move, drop, takeHeld,
       heldBy: id => grips.has(id), anyHeld: () => grips.size > 0,

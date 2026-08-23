@@ -111,8 +111,10 @@
 
   /* The throw zones: pointer-events none, so they never steal a grab — the
      canvas keeps the gesture and the drop is tested against their rects. */
+  /* Full height: the WHOLE side edge is the throw surface, not a small box —
+     release a tile anywhere along it, or just flick it off the screen. */
   .zone{
-    position:absolute; top:8%; bottom:46%; width:56px; display:none;
+    position:absolute; top:6px; bottom:6px; width:56px; display:none;
     flex-direction:column; align-items:center; justify-content:center; gap:6px;
     border:2px dashed var(--bad); border-radius:14px; pointer-events:none;
     background:rgba(226,96,59,0.08); color:var(--bad);
@@ -196,11 +198,11 @@
   <!-- Same shelf and same order as Throw Lab: matter.min.js → hub-kit.js (the
        object Kit.table hangs off) → hub-table.js. word-list.js is this page's own
        vendored dictionary — a <script src>, never a fetch, so file:// works. -->
-  <script src="../game-hub/hub-buzzer.js?v=20260823a"></script>
-  <script src="../game-hub/matter.min.js?v=20260823a"></script>
-  <script src="../game-hub/hub-kit.js?v=20260823a"></script>
-  <script src="../game-hub/hub-table.js?v=20260823a"></script>
-  <script src="word-list.js?v=20260823a"></script>
+  <script src="../game-hub/hub-buzzer.js?v=20260823b"></script>
+  <script src="../game-hub/matter.min.js?v=20260823b"></script>
+  <script src="../game-hub/hub-kit.js?v=20260823b"></script>
+  <script src="../game-hub/hub-table.js?v=20260823b"></script>
+  <script src="word-list.js?v=20260823b"></script>
   <script>
   (function(){
     'use strict';
@@ -318,7 +320,10 @@
       gravity: +val('s-grav'), restitution: +val('s-rest'), frictionAir: +val('s-air'),
       size: +val('s-size'), power: +val('s-pow'), swing: +val('s-swing'),
       snap: (+val('s-snap')) * 1000,
-      onArrange(){ readBoard(); }
+      onArrange(){ readBoard(); },
+      /* a free tile crossed an open side edge: it has been thrown, mid-air,
+         at whatever speed it was doing — same wire as a band release */
+      onExit(t){ throwOut(t.side, t.ch, t.hue, t.vx, t.vy, t.ny); }
     });
     function val(id){ return document.getElementById(id).value; }
     function minVowels(){ return +val('s-vow'); }
@@ -466,13 +471,13 @@
        JSON rides the relay's existing messages — nothing new on the wire.
        Up, via respond() (<=120 chars), tagged `t`, per-phone sequence `q`:
          {"t":"s","q":7,"sc":41.5,"w":"QUIZ","n":4[,"f":1]}   score (f = final)
-         {"t":"th","q":8,"d":"L","l":"Q","vx":-14.2,"vy":-3.1,"ny":0.42}
-           throw: the tile, plus the velocity it left the screen with and the
-           release height as a fraction — the tile itself travels
+         {"t":"th","q":8,"d":"L","l":"Q","c":"#F5C542","vx":-14.2,"vy":-3.1,"ny":0.42}
+           throw: the tile (letter and colour), plus the velocity it left the
+           screen with and the release height as a fraction — the tile travels
        Down, to one phone via nope():
-         {"t":"tile","by":"Maria","d":"L","l":"Q","vx":-14.2,"vy":-3.1,"ny":0.42}
+         {"t":"tile","by":"Maria","d":"L","l":"Q","c":"#F5C542","vx":-14.2,"vy":-3.1,"ny":0.42}
            an incoming tile: it enters this board moving as it left theirs,
-           and it is this player's to use from then on
+           wearing its own colour, and it is this player's from then on
          {"t":"nb","l":"Maria","r":"Ken"}    your neighbours' names
          {"t":"sync","left":48}              clock sync for a late joiner
        Start rides arm({mode:'answer',rethink:true,secs}); the board holds the
@@ -517,6 +522,7 @@
       return null;
     }
     function zonesPaint(){
+      const openTo = { l:false, r:false };
       ['l','r'].forEach(side => {
         const z = document.getElementById('zone-' + side);
         const name = side === 'l' ? nbL : nbR;
@@ -525,7 +531,30 @@
         // below three spare-ish letters a throw would leave the rack unspellable
         z.classList.toggle('dim', on && rack.length <= MIN_WORD);
         document.getElementById('zname-' + side).textContent = name || '';
+        openTo[side] = on && rack.length > MIN_WORD;
       });
+      /* The walls follow the zones: an entitled side is an OPEN edge, so a
+         tile flicked hard enough to cross it leaves mid-flight — no drop
+         point needed, any speed counts. Solo, lobby, game over, or down to
+         the last spellable letters: the edge closes and is a wall again. */
+      world.openSides(openTo);
+    }
+
+    /* One sender for both throw paths — a tile released in the side band and
+       a tile that flew out through the open edge take the same wire. The
+       colour rides with it, so the tile lands on the neighbour's board
+       looking like itself. */
+    function throwOut(side, ch, hue, vx, vy, ny){
+      const at = rack.indexOf(ch);
+      if(at !== -1) rack.splice(at, 1);
+      const r1 = v => Math.round(v * 10) / 10;
+      send({ t:'th', d: side.toUpperCase(), l: ch, c: hue || '',
+             vx: r1(vx), vy: r1(vy),
+             ny: Math.round(Math.max(0, Math.min(1, ny)) * 100) / 100 });
+      // status LAST: readBoard always writes the status line, and the throw
+      // announcement is the one worth leaving on screen
+      readBoard(); zonesPaint();
+      status.textContent = 'Thrown at ' + (side === 'l' ? nbL : nbR) + '!';
     }
 
     /* An incoming tile: the neighbour's throw arrives as a real piece, entering
@@ -552,7 +581,10 @@
       const vy = Math.max(-30, Math.min(30, Number(d.vy) || 0));
       vx = fromRight ? Math.min(vx, -MINV) : Math.max(vx, MINV);
       const ny = Math.max(0.08, Math.min(0.85, Number(d.ny) || 0.3));
-      world.addPiece(ch, { x: fromRight ? w - 16 : 16, y: ny * h, vx, vy, hue: '#E2603B', shot: true });
+      // the tile keeps the colour it wore on the thrower's board — it is the
+      // SAME tile arriving, not a marker; palette fallback if none rode along
+      const hue = /^#[0-9a-fA-F]{6}$/.test(String(d.c || '')) ? d.c : undefined;
+      world.addPiece(ch, { x: fromRight ? w - 16 : 16, y: ny * h, vx, vy, hue, shot: true });
       status.textContent = (d.by || 'Someone') + ' threw you a ' + ch + '!';
       const flash = document.getElementById('flash');
       flash.textContent = 'INCOMING ' + ch + '!';
@@ -674,18 +706,11 @@
       if(side){
         const taken = world.takeHeld(e.pointerId);
         if(taken){
-          const at = rack.indexOf(taken.ch);
-          if(at !== -1) rack.splice(at, 1);
-          /* The tile travels: its exit velocity and release height ride up
-             with it, so it enters the neighbour's screen moving exactly as
-             it left this one. One decimal is plenty on a <=120-char wire. */
-          const r1 = v => Math.round(v * 10) / 10;
-          const h = canvas.offsetHeight || 1;
-          send({ t:'th', d: side.toUpperCase(), l: taken.ch,
-                 vx: r1(taken.vx), vy: r1(taken.vy),
-                 ny: Math.round(Math.max(0, Math.min(1, pt(e).y / h)) * 100) / 100 });
-          status.textContent = 'Thrown at ' + (side === 'l' ? nbL : nbR) + '!';
-          readBoard(); zonesPaint();
+          /* Released inside the side band: thrown, whatever the speed — the
+             exit velocity and release height ride up with it, so it enters
+             the neighbour's screen moving exactly as it left this one. */
+          throwOut(side, taken.ch, taken.hue, taken.vx, taken.vy,
+                   pt(e).y / (canvas.offsetHeight || 1));
         }
         try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
         if(!world.anyHeld()) canvas.classList.remove('grabbing');

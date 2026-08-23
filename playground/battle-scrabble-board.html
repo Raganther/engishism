@@ -95,9 +95,9 @@
     </aside>
   </main>
 
-<script src="../game-hub/hub-buzzer.js?v=20260823a"></script>
-<script src="../game-hub/hub-qr.js?v=20260823a"></script>
-<script src="bench-kit.js?v=20260823a"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260823b"></script>
+<script src="../game-hub/hub-qr.js?v=20260823b"></script>
+<script src="bench-kit.js?v=20260823b"></script>
 <script>
 (function(){
   'use strict';
@@ -109,13 +109,13 @@
      the relay's existing messages — nothing new on the wire.
      Up, via respond() (<=120 chars), tagged `t`, per-phone sequence `q`:
        {"t":"s","q":7,"sc":41.5,"w":"QUIZ","n":4[,"f":1]}   score (f = final)
-       {"t":"th","q":8,"d":"L","l":"Q","vx":-14.2,"vy":-3.1,"ny":0.42}
-         throw: the tile plus the velocity it left the screen with — the
-         tile itself travels to the neighbour
+       {"t":"th","q":8,"d":"L","l":"Q","c":"#F5C542","vx":-14.2,"vy":-3.1,"ny":0.42}
+         throw: the tile (letter and colour) plus the velocity it left the
+         screen with — the tile itself travels to the neighbour
      Down, to one phone via nope():
-       {"t":"tile","by":"Maria","d":"L","l":"Q","vx":-14.2,"vy":-3.1,"ny":0.42}
-         an incoming tile, routed whole — the receiver spawns it moving
-         as it left the thrower's screen, and it is theirs from then on
+       {"t":"tile","by":"Maria","d":"L","l":"Q","c":"#F5C542","vx":-14.2,"vy":-3.1,"ny":0.42}
+         an incoming tile, routed whole — the receiver spawns it moving as
+         it left the thrower's screen, wearing its own colour, theirs now
        {"t":"nb","l":"Maria","r":"Ken"}    your neighbours' names
        {"t":"sync","left":48}              clock sync for a late joiner
      Start rides arm({mode:'answer',rethink:true,secs}); the board holds the
@@ -217,7 +217,7 @@
        side it left through. The board routes, it does not interpret — the
        receiving phone spawns the tile moving as it left the thrower's screen. */
     host.nope(target, JSON.stringify({ t:'tile', by: players[fromId].name,
-      d: String(m.d || 'R'), l: m.l || '',
+      d: String(m.d || 'R'), l: m.l || '', c: String(m.c || '').slice(0, 9),
       vx: Number(m.vx) || 0, vy: Number(m.vy) || 0, ny: Number(m.ny) || 0.3 }));
     $('toast').textContent = players[fromId].name + ' → ' + players[target].name + ' !';
     setTimeout(() => { if(!$('banner').textContent) $('toast').textContent = ''; }, 1800);

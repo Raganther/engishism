@@ -8492,6 +8492,27 @@ async function testBattleScrabble(browser){
   check('the thrown tile is spent — no replacement until the next bank',
         await A.evaluate(() => window.__bs.state().rack.length) === rackBefore - 1);
 
+  /* The open edge: a tile flicked off the side mid-air travels too — no drop
+     point needed — and it arrives wearing its own colour. Driven by spawning
+     a fast leftward piece inside Anna's open left edge (both her neighbours
+     are Ben, so the receiver is known). */
+  const bBefore2 = await B.evaluate(() => window.__bs.state().rack.length);
+  /* A flick can clip one of Anna's own resting tiles and stall short of the
+     edge — real physics, not a defect — so try up to three lanes; any one
+     crossing proves the mechanic. `>=` because a stalled tile may still drift
+     out later and arrive as a second Q. */
+  let flew = false;
+  for(let lane = 0; lane < 3 && !flew; lane++){
+    await A.evaluate(y => window.__bs.world.addPiece('Q', { x: 70, y, vx: -55, vy: 0, hue: '#123456' }), 40 + lane * 60);
+    flew = await until(async () =>
+      await B.evaluate(() => window.__bs.state().rack.length) >= bBefore2 + 1, 4000);
+  }
+  check('a tile flicked off the open edge travels mid-air', flew,
+        await B.evaluate(() => window.__bs.state().rack.join('')));
+  check('and arrives wearing its own colour',
+        await B.evaluate(() => window.__bs.world.loose().some(p => p.ch === 'Q' && p.hue === '#123456')),
+        JSON.stringify(await B.evaluate(() => window.__bs.world.loose())));
+
   /* Time-up: the phones end on their own clocks (driven directly here) and
      the board crowns the leader from the last reported scores. */
   await A.evaluate(() => window.__bs.endGame());
