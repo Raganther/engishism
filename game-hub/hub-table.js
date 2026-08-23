@@ -17,11 +17,12 @@
 
    Kit.table({ canvas, gravity, restitution, frictionAir, size, power, swing,
                snap, onArrange, onExit }) -> {
-     reset(), setPieces(labels[]), slots(n), place(i,label),
+     reset(), setPieces(labels[]), slots(n | {cols,rows}), place(i,label),
      addPiece(label, {x,y,vx,vy,spin,hue,shot}), openSides({l,r}),
-     read()->string, cells()->string[], filled()->bool, loose(), setResult(res),
+     read()->string, cells()->string[], filled()->bool, loose(),
+     setResult(res[, slotIdx]), slotBox(i), tileSize(),
      setFeel(partial), resize(),
-     grab(id,x,y), move(id,x,y), drop(id), takeHeld(id), heldBy(id), anyHeld(),
+     grab(id,x,y), move(id,x,y), drop(id), heldBy(id), anyHeld(),
      step(), draw()
    }
    onExit({ch,hue,side,vx,vy,ny}) fires when a free piece leaves through an
@@ -66,6 +67,15 @@
     let pieces = [];       // { body, ch, hue, slot, dock }
     let slots = [];        // { x, y, w, h, piece }
     let result = null;     // tint for filled slots: null | 'right' | 'wrong'
+    /* Per-slot tint overrides — setResult(res, [indices]) scopes the glow to
+       one word's slots, so a grid can show a green word and a red run at once.
+       setResult(res) with no indices stays the global tint and clears these. */
+    const resultMap = new Map();
+    function clearResult(){ result = null; resultMap.clear(); }
+    function setResult(res, idx){
+      if(idx){ for(const i of idx){ if(res == null) resultMap.delete(i); else resultMap.set(i, res); } }
+      else { result = res; resultMap.clear(); }
+    }
     const feel = {
       restitution: opts.restitution != null ? opts.restitution : 0.45,
       frictionAir: opts.frictionAir != null ? opts.frictionAir : 0.01,
@@ -110,8 +120,13 @@
        at feel.size looks bigger than its box. `tile` is that fitted size; scale the bodies
        to it so the physics matches the drawn square, and the draw uses it for loose pieces. */
     function fitTiles(){
-      const n = Math.max(slots.length, pieces.length, 1);
-      const nt = slotDims(n).sw;
+      /* A loose tile is the SAME size as a slot square, always. When slots
+         exist their fitted width IS the tile size; with none, fit for the
+         piece count. Called from makeSlots/setPieces/addPiece as well as
+         resize — the old resize-only fit left a first deal's tiles at
+         feel.size, visibly larger than the slots they drop into. */
+      const nt = slots.length ? slots[0].w
+                              : slotDims(Math.max(pieces.length, 1)).sw;
       if(pieces.length && Math.abs(nt - tile) > 0.5){
         const f = nt / tile;
         for(const p of pieces) Body.scale(p.body, f, f);
@@ -196,9 +211,9 @@
                       slot: null, dock: null, hold: now() + 1500 });
       });
       Composite.add(engine.world, pieces.map(p => p.body));
-      // Bodies are built at feel.size; if the table is already fitted (a re-arm), bring
-      // them down to the fitted tile so they match the slots straight away.
-      if(tile !== feel.size) for(const p of pieces) Body.scale(p.body, tile / feel.size, tile / feel.size);
+      // Bodies are built at feel.size; fitTiles brings them to the slot size.
+      tile = feel.size;
+      fitTiles();
     }
 
     /* Add ONE piece without touching the rest — the arrival path for a tile
@@ -250,26 +265,63 @@
         Body.setStatic(hit.body, false);
         Body.setVelocity(hit.body, { x: v.x * 0.6, y: v.y * 0.6 - 2 });
         shot.shot = 0;
-        result = null;
+        clearResult();
         report();
       }
     });
 
-    /* ---- slots (the zones a piece lands in): a centred row of n ---- */
+    /* ---- slots (the zones a piece lands in) ----
+       Two shapes, one flat row-major array either way: slots(n) is the original
+       centred row; slots({cols, rows}) is a grid — words read across each row
+       and down each column, and cells()/read()/place(i) index it unchanged. */
     function slotDims(n){
       const margin = 16, gap = Math.max(6, Math.round(feel.size * 0.12));
       const sw = Math.max(36, Math.min(feel.size, Math.floor((cssW - margin*2 - gap*(n-1)) / n)));
       const rowW = n*sw + (n-1)*gap, x0 = (cssW - rowW) / 2, y = Math.round(cssH * 0.46);
       return { gap, sw, x0, y };
     }
-    function makeSlots(n){
-      slots = [];
-      if(!n) return;
-      const { gap, sw, x0, y } = slotDims(n);
-      for(let i = 0; i < n; i++) slots.push({ x: x0 + i*(sw+gap) + sw/2, y, w: sw, h: sw, piece: null });
+    /* Grid squares fit the width AND a height budget — the bottom ~third of the
+       canvas stays free as the loose-tile pile, or the grid would leave the
+       rain nowhere to land. */
+    function gridDims(cols, rows, top){
+      const margin = 12, gap = Math.max(4, Math.round(feel.size * 0.10));
+      const yTop = top != null ? top : margin;   // room for a caller's own chrome above row 0
+      const budgetH = Math.round(cssH * 0.62);
+      const sw = Math.max(20, Math.min(feel.size,
+        Math.floor((cssW - margin*2 - gap*(cols-1)) / cols),
+        Math.floor((budgetH - yTop - gap*(rows-1)) / rows)));
+      const x0 = (cssW - (cols*sw + (cols-1)*gap)) / 2;
+      const y0 = yTop + sw/2;
+      return { gap, sw, x0, y0 };
+    }
+    let grid = null;               // {cols, rows} when the slots are a grid
+    function makeSlots(spec){
+      slots = []; grid = null;
+      if(!spec){ fitTiles(); return; }
+      if(typeof spec === 'object'){
+        grid = { cols: spec.cols, rows: spec.rows, top: spec.top };
+        const { gap, sw, x0, y0 } = gridDims(grid.cols, grid.rows, grid.top);
+        for(let r = 0; r < grid.rows; r++)
+          for(let c = 0; c < grid.cols; c++)
+            slots.push({ x: x0 + c*(sw+gap) + sw/2, y: y0 + r*(sw+gap), w: sw, h: sw, piece: null });
+      } else {
+        const n = spec;
+        const { gap, sw, x0, y } = slotDims(n);
+        for(let i = 0; i < n; i++) slots.push({ x: x0 + i*(sw+gap) + sw/2, y, w: sw, h: sw, piece: null });
+      }
+      fitTiles();
     }
     function layoutSlots(){          // recompute geometry on resize, keeping placed pieces
       const n = slots.length; if(!n) return;
+      if(grid){
+        const { gap, sw, x0, y0 } = gridDims(grid.cols, grid.rows, grid.top);
+        slots.forEach((s, i) => {
+          const r = Math.floor(i / grid.cols), c = i % grid.cols;
+          s.x = x0 + c*(sw+gap) + sw/2; s.y = y0 + r*(sw+gap); s.w = sw; s.h = sw;
+          if(s.piece) Body.setPosition(s.piece.body, { x: s.x, y: s.y });
+        });
+        return;
+      }
       const { gap, sw, x0, y } = slotDims(n);
       slots.forEach((s, i) => {
         s.x = x0 + i*(sw+gap) + sw/2; s.y = y; s.w = sw; s.h = sw;
@@ -414,32 +466,6 @@
       grips.clear();
     }
 
-    /* **Take the piece a pointer is holding out of the world, and say which it
-       was.** The throw-at-a-neighbour gesture (Battle Scrabble's edge zones)
-       needs the identity of the dragged tile, and nothing on the public surface
-       could say — `grab`/`heldBy` answer yes or no, and the pieces are closed
-       over in here. Deliberately not `drop()`: drop's job is to dock or hurl,
-       and a taken piece must do neither — the grip is released bare, the slot
-       freed, the body removed. Returns { ch, vx, vy } — the letter plus the
-       velocity it left with, so a thrown tile can arrive on another table
-       moving exactly as it was moving here — or null if this pointer held
-       nothing. */
-    function takeHeld(id){
-      const g = grips.get(id);
-      if(!g) return null;
-      Composite.remove(engine.world, g.constraint);
-      grips.delete(id);
-      const p = pieceOf(g.body);
-      if(!p) return null;
-      const v = p.body.velocity;
-      const out = { ch: p.ch, hue: p.hue, vx: v.x, vy: v.y };
-      freeSlotOf(p);
-      p.dock = null;
-      Composite.remove(engine.world, p.body);
-      pieces = pieces.filter(q => q !== p);
-      return out;
-    }
-
     /* ---- step + default draw. Matter does the physics; we do the draw. ---- */
     function step(){
       Engine.update(engine, 1000/60);
@@ -448,18 +474,19 @@
     }
     function draw(){
       ctx.clearRect(0, 0, cssW, cssH);
-      for(const s of slots){          // answer slots, behind the pieces; filled row glows by result
+      slots.forEach((s, i) => {       // answer slots, behind the pieces; filled slots glow by result
+        const res = resultMap.get(i) || result;
         const half = s.w/2, r = Math.round(s.w*0.16);
         ctx.save();
         ctx.lineWidth = 2.5;
         ctx.strokeStyle = s.piece
-          ? (result === 'right' ? '#6FB04A' : result === 'wrong' ? '#E2603B' : '#5a6473')
+          ? (res === 'right' ? '#6FB04A' : res === 'wrong' ? '#E2603B' : '#5a6473')
           : '#39414f';
         if(!s.piece) ctx.setLineDash([6, 7]);
         roundRect(ctx, s.x - half, s.y - half, s.w, s.w, r);
         ctx.stroke();
         ctx.restore();
-      }
+      });
       for(const b of pieces){
         const p = b.body.position, docking = !!b.dock, inSlot = b.slot != null;
         let s, ang;
@@ -498,14 +525,18 @@
     }
 
     return {
-      reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; result = null; },
+      reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; clearResult(); },
       setPieces, addPiece, slots: makeSlots, place, openSides,
-      read, cells, filled, setResult(res){ result = res; },
+      read, cells, filled, setResult,
       /* the loose pieces (not slotted), letter + colour — a driven test's only
          window onto what is lying on the table, since read() sees slots alone */
       loose: () => pieces.filter(p => p.slot == null).map(p => ({ ch: p.ch, hue: p.hue })),
+      /* slot geometry + the fitted tile size, for callers that aim or assert
+         at real coordinates (the suite fires its test shots at a slot's row) */
+      slotBox: i => slots[i] ? { x: slots[i].x, y: slots[i].y, w: slots[i].w } : null,
+      tileSize: () => tile,
       setFeel, resize: sizeToCanvas,
-      grab, move, drop, takeHeld,
+      grab, move, drop,
       heldBy: id => grips.has(id), anyHeld: () => grips.size > 0,
       step, draw
     };

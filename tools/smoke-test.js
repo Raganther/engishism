@@ -8460,6 +8460,31 @@ async function testBattleScrabble(browser){
   check('and each phone knows its neighbours by name',
         await A.evaluate(() => { const s = window.__bs.state(); return s.nbL + '/' + s.nbR; }) === 'Ben/Ben');
 
+  /* Live words: Ben spells; the board's chip and Anna's edge tag both show
+     the word, lit once it is real — that is how you know who to target.
+     Checked BEFORE any tile is thrown: an arrived shot tile can knock a
+     freshly placed word apart (the game working), which would race this. */
+  const wordB = await B.evaluate(() => {
+    const w = (window.__bs.state().hints[0] || '').toUpperCase();
+    w.split('').forEach((ch, i) => window.__bs.world.place(i, ch));
+    window.__bs.read();
+    return w;
+  });
+  check('Ben has a word to spell for the live check', wordB.length >= 3, wordB);
+  const liveOnBoard = await until(async () =>
+    await board.evaluate(() => window.__bsb.players[window.__bsb.seats[1]].live) === wordB, 6000);
+  check('the board shows the word Ben is spelling', liveOnBoard,
+        String(await board.evaluate(() => window.__bsb.players[window.__bsb.seats[1]].live)));
+  const litOnA = await until(async () => await A.evaluate(w =>
+    ['l', 'r'].some(s => document.getElementById('nbword-' + s).textContent === w &&
+                         document.getElementById('nb-' + s).classList.contains('lit')), wordB), 6000);
+  check('and Anna\'s edge tag lights up with it', litOnA,
+        await A.evaluate(() => document.getElementById('nbword-l').textContent + '/' +
+                               document.getElementById('nbword-r').textContent));
+  // clear Ben's board again, so the throw checks below meet an unslotted grid
+  await B.evaluate(() => window.__bs.deal([]));
+  await B.waitForTimeout(300);
+
   /* A bank on one phone reaches the board's standings. Driven through the
      same place-and-read path the solo suite uses. */
   const hintA = await A.evaluate(() => window.__bs.state().hints.slice(-1)[0] || window.__bs.state().hints[0]);
@@ -8548,10 +8573,33 @@ async function testBattleScrabble(browser){
   await solo.goto(BASE + '/playground/battle-scrabble.html');
   await solo.waitForTimeout(800);
   check('a plain URL plays solo at once', await solo.evaluate(() => window.__bs.state().playing));
-  check('with no join strip and no throw zones',
+  check('with no join strip and no neighbour tags',
         await solo.evaluate(() =>
           !document.getElementById('joinbar').classList.contains('on') &&
-          !document.getElementById('zone-l').classList.contains('on')));
+          !document.getElementById('nb-l').classList.contains('on')));
+  check('a loose tile is the same size as a slot square',
+        await solo.evaluate(() => Math.abs(window.__bs.world.tileSize() - window.__bs.world.slotBox(0).w) < 0.6),
+        await solo.evaluate(() => window.__bs.world.tileSize() + ' vs ' + window.__bs.world.slotBox(0).w));
+
+  /* The grid: an across word and a down word sharing their first letter are
+     both live at once, and one BANK press cashes the pair. The letters are
+     minted with addPiece so the check does not depend on the random rack. */
+  await solo.evaluate(() => {
+    window.__bs.deal([]);
+    const W = window.__bs.world;
+    'CATOW'.split('').forEach(ch => W.addPiece(ch, { x: 200, y: 520 }));
+    W.place(0, 'C'); W.place(1, 'A'); W.place(2, 'T');   // row 0 across: CAT
+    W.place(8, 'O'); W.place(16, 'W');                   // column 0 down: C-O-W
+    window.__bs.read();
+  });
+  check('an across word and a down word are both live',
+        await solo.evaluate(() => window.__bs.state().words.slice().sort().join('+')) === 'CAT+COW',
+        await solo.evaluate(() => JSON.stringify(window.__bs.state().words)));
+  const scoreBefore = await solo.evaluate(() => window.__bs.state().score);
+  await solo.evaluate(() => window.__bs.bank());
+  const afterBank = await solo.evaluate(() => window.__bs.state());
+  check('one press banks both words', afterBank.banked >= 2 && afterBank.score > scoreBefore,
+        JSON.stringify({ banked: afterBank.banked, score: afterBank.score }));
 
   /* The knock rule, deterministically: a shot tile fired in at slot height
      must punch a slotted letter out — the word breaks physically, nothing is
@@ -8562,10 +8610,17 @@ async function testBattleScrabble(browser){
     window.__bs.read();
   });
   const wordBefore = await solo.evaluate(() => window.__bs.world.read());
+  /* Let the redeal's rain fall clear of row 0 first — a falling loose tile
+     between the shot and the word absorbs the hit. Then aim along row 0 from
+     just right of the word's last letter, close enough that gravity cannot
+     drop the shot under the row before impact. */
+  await solo.waitForTimeout(1300);
   await solo.evaluate(() => {
-    const c = document.getElementById('stage');
-    window.__bs.world.addPiece('Z', { x: 40, y: Math.round(c.offsetHeight * 0.46),
-                                      vx: 30, vy: 0, hue: '#E2603B', shot: true });
+    const W = window.__bs.world;
+    const words = window.__bs.state().words;
+    const n = words[0] ? words[0].length : 3;
+    const box = W.slotBox(n - 1);
+    W.addPiece('Z', { x: box.x + box.w * 2, y: box.y, vx: -30, vy: 0, hue: '#E2603B', shot: true });
   });
   const knocked = await until(async () =>
     (await solo.evaluate(() => window.__bs.world.read())).length < wordBefore.length, 6000);

@@ -47,6 +47,9 @@
   .chip .nm{ font-weight:700; font-size:1.02rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .chip .sc{ font-size:1.5rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums; }
   .chip .wd{ font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; min-height:1em; }
+  /* the word this player is spelling right now — gold once it is a real word */
+  .chip .lw{ font-size:0.78rem; font-weight:700; letter-spacing:0.12em; min-height:1.1em; color:var(--muted); }
+  .chip .lw.ok{ color:var(--gold); }
   .chip.gone{ opacity:0.35; }
   .chip.hit{ animation:chip-shake 0.5s; border-color:var(--bad); }
   @keyframes chip-shake{
@@ -95,9 +98,9 @@
     </aside>
   </main>
 
-<script src="../game-hub/hub-buzzer.js?v=20260823b"></script>
-<script src="../game-hub/hub-qr.js?v=20260823b"></script>
-<script src="bench-kit.js?v=20260823b"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260823c"></script>
+<script src="../game-hub/hub-qr.js?v=20260823c"></script>
+<script src="bench-kit.js?v=20260823c"></script>
 <script>
 (function(){
   'use strict';
@@ -112,10 +115,12 @@
        {"t":"th","q":8,"d":"L","l":"Q","c":"#F5C542","vx":-14.2,"vy":-3.1,"ny":0.42}
          throw: the tile (letter and colour) plus the velocity it left the
          screen with — the tile itself travels to the neighbour
+       {"t":"w","q":9,"w":"QUIZ","ok":1}   word in progress (ok = a real word)
      Down, to one phone via nope():
        {"t":"tile","by":"Maria","d":"L","l":"Q","c":"#F5C542","vx":-14.2,"vy":-3.1,"ny":0.42}
          an incoming tile, routed whole — the receiver spawns it moving as
          it left the thrower's screen, wearing its own colour, theirs now
+       {"t":"nw","d":"l","w":"QUIZ","ok":1}  your left/right neighbour's word
        {"t":"nb","l":"Maria","r":"Ken"}    your neighbours' names
        {"t":"sync","left":48}              clock sync for a late joiner
      Start rides arm({mode:'answer',rethink:true,secs}); the board holds the
@@ -146,7 +151,8 @@
       players(list){
         (list || []).forEach(p => {
           if(!players[p.id]){
-            players[p.id] = { name:p.name, score:0, words:0, lastWord:'', lastQ:0, present:true, lastNb:'' };
+            players[p.id] = { name:p.name, score:0, words:0, lastWord:'', lastQ:0, present:true, lastNb:'',
+                              live:'', liveOk:false, lastNw:{ l:'', r:'' } };
             seats.push(p.id);
           }
           players[p.id].name = p.name;
@@ -180,6 +186,13 @@
           render();
         } else if(m.t === 'th' && running){
           routeThrow(v.id, m);
+        } else if(m.t === 'w'){
+          /* the word in progress: shown on this player's chip, and routed to
+             their two ring neighbours so the phones can light it up */
+          pl.live = String(m.w || '').slice(0, 12);
+          pl.liveOk = !!m.ok;
+          render();
+          routeLive(v.id, m);
         }
       }
     }
@@ -225,10 +238,27 @@
     if(el){ el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
   }
 
+  /* A player's word-in-progress goes to their two neighbours. The speller sits
+     at their left neighbour's RIGHT edge (and vice versa), so the side flag is
+     from the receiver's point of view. Deduped per target-per-side exactly as
+     pushNb dedupes, or every re-render would re-send an unchanged word. */
+  function routeLive(fromId, m){
+    const nb = neighbours(fromId);
+    if(!nb) return;
+    const pl = players[fromId];
+    [[nb.l, 'r'], [nb.r, 'l']].forEach(([target, side]) => {
+      const msg = JSON.stringify({ t:'nw', d: side, w: pl.live, ok: pl.liveOk ? 1 : 0 });
+      if(players[target].lastNw[side] === msg) return;
+      players[target].lastNw[side] = msg;
+      host.nope(target, msg);
+    });
+  }
+
   /* ---- the game ---- */
   function start(){
     if(!host || !presentSeats().length) return;
-    seats.forEach(id => { players[id].score = 0; players[id].words = 0; players[id].lastWord = ''; players[id].lastQ = 0; });
+    seats.forEach(id => { players[id].score = 0; players[id].words = 0; players[id].lastWord = ''; players[id].lastQ = 0;
+                          players[id].live = ''; players[id].liveOk = false; players[id].lastNw = { l:'', r:'' }; });
     $('banner').textContent = ''; $('toast').textContent = '';
     const secs = Number(settings.get('secs')) || 120;
     /* rethink lets every phone respond as often as it banks; answer is a
@@ -282,7 +312,7 @@
       if(!el){
         el = document.createElement('div');
         el.className = 'chip'; el.dataset.id = id;
-        el.innerHTML = '<div class="nm"></div><div class="sc"></div><div class="wd"></div>';
+        el.innerHTML = '<div class="nm"></div><div class="sc"></div><div class="wd"></div><div class="lw"></div>';
         circle.appendChild(el);
       }
       const a = (i / n) * 2 * Math.PI - Math.PI / 2;
@@ -292,6 +322,9 @@
       el.querySelector('.nm').textContent = players[id].name;
       el.querySelector('.sc').textContent = players[id].score;
       el.querySelector('.wd').textContent = players[id].lastWord ? players[id].lastWord + ' · ' + players[id].words : '';
+      const lw = el.querySelector('.lw');
+      lw.textContent = players[id].live || '';
+      lw.classList.toggle('ok', !!players[id].liveOk);
     });
     const stand = $('stand');
     stand.innerHTML = '';

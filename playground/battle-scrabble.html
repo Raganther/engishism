@@ -109,21 +109,27 @@
   #roomchip{ font-size:0.72rem; color:var(--muted); white-space:nowrap; align-self:center; }
   #roomchip b{ color:var(--accent); letter-spacing:0.1em; }
 
-  /* The throw zones: pointer-events none, so they never steal a grab — the
-     canvas keeps the gesture and the drop is tested against their rects. */
-  /* Full height: the WHOLE side edge is the throw surface, not a small box —
-     release a tile anywhere along it, or just flick it off the screen. */
-  .zone{
-    position:absolute; top:6px; bottom:6px; width:56px; display:none;
-    flex-direction:column; align-items:center; justify-content:center; gap:6px;
-    border:2px dashed var(--bad); border-radius:14px; pointer-events:none;
-    background:rgba(226,96,59,0.08); color:var(--bad);
-    font-size:0.72rem; text-transform:uppercase; letter-spacing:0.06em;
+  /* The neighbour tags: slim vertical labels at the side edges — WHO you are
+     throwing at, and the word they are spelling right now (lit when it is a
+     real word, so you know who to target). Not a drop target: the whole edge
+     is open and only a tile that actually flies out travels, so these carry
+     no border and steal no pointer. */
+  .nbtag{
+    position:absolute; top:50%; transform:translateY(-50%); display:none;
+    flex-direction:column; align-items:center; gap:8px; max-height:88%;
+    pointer-events:none; color:var(--muted);
+    font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em;
   }
-  .zone.on{ display:flex; }
-  .zone.dim{ opacity:0.25; }
-  .zone b{ writing-mode:vertical-rl; font-size:0.8rem; max-height:80%; overflow:hidden; }
-  #zone-l{ left:6px; } #zone-r{ right:6px; }
+  .nbtag.on{ display:flex; }
+  .nbtag.dim{ opacity:0.3; }
+  .nbtag b, .nbtag .nbword{ writing-mode:vertical-rl; overflow:hidden; }
+  .nbtag b{ font-size:0.8rem; max-height:34vh; }
+  .nbtag .nbword{
+    font-size:0.86rem; font-weight:800; letter-spacing:0.14em; max-height:38vh;
+    color:var(--text); opacity:0.55;
+  }
+  .nbtag.lit .nbword{ color:var(--gold); opacity:1; }
+  #nb-l{ left:4px; } #nb-r{ right:4px; }
 
   @keyframes bs-shake{
     0%,100%{ transform:translate(0,0); } 20%{ transform:translate(-9px,3px); }
@@ -178,8 +184,8 @@
 
   <div class="stage">
     <canvas id="stage"></canvas>
-    <div class="zone" id="zone-l"><span>&#9664; throw</span><b id="zname-l"></b></div>
-    <div class="zone" id="zone-r"><span>throw &#9654;</span><b id="zname-r"></b></div>
+    <div class="nbtag" id="nb-l"><b id="nbname-l"></b><span class="nbword" id="nbword-l"></span></div>
+    <div class="nbtag" id="nb-r"><b id="nbname-r"></b><span class="nbword" id="nbword-r"></span></div>
     <div class="status" id="status">Flick letters into the slots to spell a word.</div>
     <div class="flash" id="flash"></div>
     <div class="over" id="over">
@@ -198,11 +204,11 @@
   <!-- Same shelf and same order as Throw Lab: matter.min.js → hub-kit.js (the
        object Kit.table hangs off) → hub-table.js. word-list.js is this page's own
        vendored dictionary — a <script src>, never a fetch, so file:// works. -->
-  <script src="../game-hub/hub-buzzer.js?v=20260823b"></script>
-  <script src="../game-hub/matter.min.js?v=20260823b"></script>
-  <script src="../game-hub/hub-kit.js?v=20260823b"></script>
-  <script src="../game-hub/hub-table.js?v=20260823b"></script>
-  <script src="word-list.js?v=20260823b"></script>
+  <script src="../game-hub/hub-buzzer.js?v=20260823c"></script>
+  <script src="../game-hub/matter.min.js?v=20260823c"></script>
+  <script src="../game-hub/hub-kit.js?v=20260823c"></script>
+  <script src="../game-hub/hub-table.js?v=20260823c"></script>
+  <script src="word-list.js?v=20260823c"></script>
   <script>
   (function(){
     'use strict';
@@ -221,7 +227,8 @@
     };
     const LENGTH_BONUS = { 5:3, 6:6, 7:12, 8:20 };   // on top of letter values
     const RACK_SIZE  = 8;
-    const SLOT_COUNT = 8;
+    const COLS = 8, ROWS = 8;      // the grid: words read across AND down
+    const GRID = { cols: COLS, rows: ROWS, top: 36 };   // top: keeps row 0 clear of the status line
     const MIN_WORD   = 3;
     const HINT_COUNT = 3;
     /* ========================================================================= */
@@ -304,9 +311,10 @@
     let hints = [];
     let score = 0;
     let bestWord = null;      // {word, pts} — for the game-over line
-    let candidate = '';       // the contiguous docked run, uppercase
-    let candValid = false;
-    let validSince = 0;       // performance.now() when the current valid word docked
+    let validRuns = [];       // [{word, idx}] — every valid straight run >= MIN_WORD
+    let badRuns = [];         // runs >= MIN_WORD that are not words
+    let validKey = '';        // the sorted valid words, joined — the multiplier resets when it changes
+    let validSince = 0;       // performance.now() when the current valid set formed
     let playing = false;
     let secsLeft = 0;
     let banked = 0;           // words banked this game — reported to the board
@@ -330,47 +338,66 @@
     function multRate(){ return +val('s-mrate'); }
     function multMax(){ return +val('s-mmax'); }
 
-    /* The candidate word is the single contiguous filled run in the slot row —
-       unambiguous to a player looking at it. An internal gap means "not yet",
-       and the status line says which. Judged on every arrangement change; the
-       dictionary is a Set so this is O(letters). */
+    /* Words are the straight contiguous runs on the grid — across every row
+       and down every column, Scrabble-fashion. A single letter belongs to a
+       1-run both ways and is dropped; a 2-run is neutral ("keep going"); a run
+       of MIN_WORD+ is judged. Each valid word's slots glow green and each
+       failed run's glow red, via the shelf's scoped setResult. Judged on every
+       arrangement change; 16 short scans of a 64-cell array. */
+    function scanRuns(){
+      const cells = world.cells(), runs = [];
+      const line = at => {
+        let w = '', idx = [];
+        for(let k = 0;; k++){
+          const i = at(k), ch = i == null ? '' : cells[i];
+          if(ch){ w += ch; idx.push(i); }
+          else {
+            if(w.length >= 2) runs.push({ word: w, idx });
+            w = ''; idx = [];
+            if(i == null) return;
+          }
+        }
+      };
+      for(let r = 0; r < ROWS; r++) line(k => k < COLS ? r*COLS + k : null);
+      for(let c = 0; c < COLS; c++) line(k => k < ROWS ? k*COLS + c : null);
+      return runs;
+    }
     function readBoard(){
-      const cells = world.cells();
-      const runs = [];
-      let cur = '';
-      cells.forEach(ch => {
-        if(ch) cur += ch;
-        else { if(cur) runs.push(cur); cur = ''; }
+      const runs = scanRuns();
+      validRuns = []; badRuns = [];
+      runs.forEach(r => {
+        if(r.word.length < MIN_WORD) return;   // a 2-run is neutral
+        (DICT.has(r.word.toLowerCase()) ? validRuns : badRuns).push(r);
       });
-      if(cur) runs.push(cur);
-      const was = candidate;
-      candidate = runs.length === 1 ? runs[0] : '';
-      const gap = runs.length > 1;
-      candValid = candidate.length >= MIN_WORD && DICT.has(candidate.toLowerCase());
-      if(candidate !== was) validSince = candValid ? performance.now() : 0;
-      world.setResult(candValid ? 'right' : (candidate.length >= MIN_WORD || gap ? 'wrong' : null));
+      world.setResult(null);
+      validRuns.forEach(r => world.setResult('right', r.idx));
+      badRuns.forEach(r => world.setResult('wrong', r.idx));
+      const key = validRuns.map(r => r.word).sort().join('+');
+      if(key !== validKey){ validKey = key; validSince = key ? performance.now() : 0; }
       status.textContent =
-        gap ? 'Close the gap — one word, no spaces.' :
-        candValid ? '✓ ' + candidate + ' — bank it, or hold for the multiplier.' :
-        candidate.length >= MIN_WORD ? '✗ ' + candidate + ' is not a word here.' :
-        'Flick letters into the slots to spell a word.';
+        badRuns.length ? '✗ ' + badRuns[0].word + ' is not a word here.' :
+        validRuns.length ? '✓ ' + validRuns.map(r => r.word).join(', ') + ' — bank, or hold for the multiplier.' :
+        'Flick letters into the grid — words read across and down.';
+      sendLiveWord();
       paintBank();
     }
 
     function multNow(){
-      if(!candValid || !validSince || !multRate()) return 1;
+      if(!validRuns.length || !validSince || !multRate()) return 1;
       return Math.min(multMax(), 1 + multRate() * (performance.now() - validSince) / 1000);
     }
+    function bankTotal(){ return validRuns.reduce((t, r) => t + wordScore(r.word), 0); }
     function paintBank(){
       if(!playing){ bankBtn.disabled = true; bankBtn.classList.remove('ready'); bankBtn.textContent = '—'; return; }
-      if(!candValid){
+      if(!validRuns.length){
         bankBtn.disabled = true; bankBtn.classList.remove('ready');
         bankBtn.textContent = 'Spell a word to bank it';
         return;
       }
       const m = multNow();
+      const label = validRuns.length === 1 ? validRuns[0].word : validRuns.length + ' WORDS';
       bankBtn.disabled = false; bankBtn.classList.add('ready');
-      bankBtn.textContent = 'BANK ' + candidate + ' · ' + wordScore(candidate) + ' pts' +
+      bankBtn.textContent = 'BANK ' + label + ' · ' + bankTotal() + ' pts' +
                             (m > 1.001 ? ' ×' + m.toFixed(1) : '');
     }
 
@@ -383,12 +410,13 @@
     function deal(kept){
       rack = kept.concat(draw(RACK_SIZE - kept.length, kept));
       world.setPieces(rack);
-      world.slots(SLOT_COUNT);
+      world.slots(GRID);
       world.setResult(null);
-      candidate = ''; candValid = false; validSince = 0;
+      validRuns = []; badRuns = []; validKey = ''; validSince = 0;
+      sendLiveWord(true);          // a fresh hand clears the neighbours' view of us
       hints = pickHints(spellable(rack));
       renderHints();
-      status.textContent = 'Flick letters into the slots to spell a word.';
+      status.textContent = 'Flick letters into the grid — words read across and down.';
       paintBank();
     }
 
@@ -404,20 +432,30 @@
     }
 
     function bank(){
-      if(!candValid || !playing) return;
-      const word = candidate;
-      const pts  = Math.floor(wordScore(word) * multNow() * 10) / 10;
+      if(!validRuns.length || !playing) return;
+      const m = multNow();
+      /* Every valid word cashes at once. A crossing letter scores in BOTH its
+         words (that is the reward for the cross) but sits on one slot, so the
+         spend below is the union of slots, never a double charge. */
+      const pts = Math.floor(bankTotal() * m * 10) / 10;
       score = Math.round((score + pts) * 10) / 10;
-      if(!bestWord || pts > bestWord.pts) bestWord = { word, pts };
-      banked++;
+      validRuns.forEach(r => {
+        const p = Math.floor(wordScore(r.word) * m * 10) / 10;
+        if(!bestWord || p > bestWord.pts) bestWord = { word: r.word, pts: p };
+      });
+      banked += validRuns.length;
       document.getElementById('score').textContent = score;
       const flash = document.getElementById('flash');
       flash.textContent = '+' + pts;
       flash.classList.add('show');
       setTimeout(() => flash.classList.remove('show'), 900);
-      /* The banked letters are spent; the rest come back with the next hand. */
+      /* The banked letters are spent; the rest come back with the next hand.
+         An invalid run never blocks a bank — its letters simply come back. */
+      const cells = world.cells();
       const spent = {};
-      for(const ch of word) spent[ch] = (spent[ch] || 0) + 1;
+      const used = new Set();
+      validRuns.forEach(r => r.idx.forEach(i => used.add(i)));
+      used.forEach(i => { const ch = cells[i]; if(ch) spent[ch] = (spent[ch] || 0) + 1; });
       const kept = [];
       rack.forEach(ch => { if(spent[ch]) spent[ch]--; else kept.push(ch); });
       deal(kept);
@@ -450,12 +488,12 @@
         paintClock();
         if(secsLeft <= 0) endGame();
       }, 1000);
-      zonesPaint();
+      edgesPaint();
     }
     function endGame(){
       clearInterval(tick); tick = null;
       playing = false;
-      paintBank(); zonesPaint();
+      paintBank(); edgesPaint();
       report(true);
       document.getElementById('final').textContent = score;
       document.getElementById('best-line').textContent =
@@ -474,10 +512,12 @@
          {"t":"th","q":8,"d":"L","l":"Q","c":"#F5C542","vx":-14.2,"vy":-3.1,"ny":0.42}
            throw: the tile (letter and colour), plus the velocity it left the
            screen with and the release height as a fraction — the tile travels
+         {"t":"w","q":9,"w":"QUIZ","ok":1}   word in progress (ok = a real word)
        Down, to one phone via nope():
          {"t":"tile","by":"Maria","d":"L","l":"Q","c":"#F5C542","vx":-14.2,"vy":-3.1,"ny":0.42}
            an incoming tile: it enters this board moving as it left theirs,
            wearing its own colour, and it is this player's from then on
+         {"t":"nw","d":"l","w":"QUIZ","ok":1}  your left/right neighbour's word
          {"t":"nb","l":"Maria","r":"Ken"}    your neighbours' names
          {"t":"sync","left":48}              clock sync for a late joiner
        Start rides arm({mode:'answer',rethink:true,secs}); the board holds the
@@ -511,33 +551,43 @@
 
     function roomChip(txt){ document.getElementById('roomchip').innerHTML = txt || ''; }
 
-    function zoneAt(e){
-      for(const side of ['l','r']){
-        const z = document.getElementById('zone-' + side);
-        if(!z.classList.contains('on') || z.classList.contains('dim')) continue;
-        const r = z.getBoundingClientRect();
-        if(e.clientX >= r.left && e.clientX <= r.right &&
-           e.clientY >= r.top  && e.clientY <= r.bottom) return side;
-      }
-      return null;
-    }
-    function zonesPaint(){
+    function edgesPaint(){
       const openTo = { l:false, r:false };
       ['l','r'].forEach(side => {
-        const z = document.getElementById('zone-' + side);
+        const tag = document.getElementById('nb-' + side);
         const name = side === 'l' ? nbL : nbR;
         const on = !!client && playing && !!name;
-        z.classList.toggle('on', on);
+        tag.classList.toggle('on', on);
         // below three spare-ish letters a throw would leave the rack unspellable
-        z.classList.toggle('dim', on && rack.length <= MIN_WORD);
-        document.getElementById('zname-' + side).textContent = name || '';
+        tag.classList.toggle('dim', on && rack.length <= MIN_WORD);
+        document.getElementById('nbname-' + side).textContent = name || '';
         openTo[side] = on && rack.length > MIN_WORD;
       });
-      /* The walls follow the zones: an entitled side is an OPEN edge, so a
-         tile flicked hard enough to cross it leaves mid-flight — no drop
-         point needed, any speed counts. Solo, lobby, game over, or down to
+      /* The walls follow the tags: an entitled side is an OPEN edge, and the
+         ONLY throw is a tile that actually flies out through it — releasing a
+         tile near the edge just drops it. Solo, lobby, game over, or down to
          the last spellable letters: the edge closes and is a wall again. */
       world.openSides(openTo);
+    }
+
+    /* The word-in-progress, sent up so the ring can see who is spelling what
+       — the neighbours' screens show it beside this player's name, lit when
+       it is a real word. Debounced (a drag can chatter) and deduped, so the
+       wire only carries changes; force sends immediately (a bank or a fresh
+       hand must not linger on a neighbour's screen). */
+    let lwTimer = null, lastLw = null;
+    function sendLiveWord(force){
+      if(!client) return;
+      const best = validRuns[0] || null;
+      const all = validRuns.concat(badRuns);
+      const longest = all.length ? all.reduce((a, b) => b.word.length > a.word.length ? b : a) : null;
+      const w = ((best || longest || { word: '' }).word).slice(0, 10);
+      const ok = best ? 1 : 0;
+      const key = w + '|' + ok;
+      if(key === lastLw){ clearTimeout(lwTimer); return; }
+      clearTimeout(lwTimer);
+      if(force){ lastLw = key; send({ t:'w', w, ok }); return; }
+      lwTimer = setTimeout(() => { lastLw = key; send({ t:'w', w, ok }); }, 250);
     }
 
     /* One sender for both throw paths — a tile released in the side band and
@@ -553,7 +603,7 @@
              ny: Math.round(Math.max(0, Math.min(1, ny)) * 100) / 100 });
       // status LAST: readBoard always writes the status line, and the throw
       // announcement is the one worth leaving on screen
-      readBoard(); zonesPaint();
+      readBoard(); edgesPaint();
       status.textContent = 'Thrown at ' + (side === 'l' ? nbL : nbR) + '!';
     }
 
@@ -590,7 +640,7 @@
       flash.textContent = 'INCOMING ' + ch + '!';
       flash.classList.add('show', 'bad');
       setTimeout(() => flash.classList.remove('show', 'bad'), 1100);
-      paintBank(); zonesPaint();
+      paintBank(); edgesPaint();
     }
 
     function toLobby(){
@@ -601,7 +651,7 @@
       document.getElementById('over').classList.remove('show');
       document.getElementById('clock').textContent = '–:––';
       status.textContent = 'Waiting for the board to start the game…';
-      paintBank(); zonesPaint();
+      paintBank(); edgesPaint();
     }
 
     /* The full room state arrives on `joined` (resent on every reconnect) and
@@ -612,7 +662,7 @@
       if(playing) return;
       document.getElementById('over').classList.remove('show');
       startGame(d && d.secs);
-      zonesPaint();
+      edgesPaint();
     }
 
     function join(code, name){
@@ -636,12 +686,18 @@
         try{ m = JSON.parse((d && d.word) || ''); }catch(_){ return; }
         if(!m || !m.t) return;
         if(m.t === 'tile') onTile(m);
-        else if(m.t === 'nb'){ nbL = m.l || ''; nbR = m.r || ''; zonesPaint(); }
+        else if(m.t === 'nb'){ nbL = m.l || ''; nbR = m.r || ''; edgesPaint(); }
+        else if(m.t === 'nw'){
+          // a neighbour's word-in-progress: show it on their tag, lit when real
+          const side = m.d === 'l' ? 'l' : 'r';
+          document.getElementById('nbword-' + side).textContent = String(m.w || '');
+          document.getElementById('nb-' + side).classList.toggle('lit', !!m.ok && !!m.w);
+        }
         else if(m.t === 'sync' && playing && Number(m.left) > 0){
           secsLeft = Math.round(Number(m.left)); paintClock();
         }
       });
-      client.on('kicked', () => { roomChip('<span style="color:var(--bad)">removed from the room</span>'); client = null; zonesPaint(); });
+      client.on('kicked', () => { roomChip('<span style="color:var(--bad)">removed from the room</span>'); client = null; edgesPaint(); });
       client.on('status', st => {
         const state = (st && st.state) || '';
         roomChip('room <b>' + code + '</b>' +
@@ -680,7 +736,7 @@
     /* No code and no Join press = stage 1, byte for byte: solo starts at once.
        A ?code= (the board's QR) opens the join strip instead — the lobby. */
     if(!maybeRoomBoot()) startGame();
-    (function loop(){ world.step(); world.draw(); if(candValid) paintBank(); requestAnimationFrame(loop); })();
+    (function loop(){ world.step(); world.draw(); if(validRuns.length) paintBank(); requestAnimationFrame(loop); })();
 
     /* ---- pointer -> grab / move / drop, exactly as Throw Lab ---- */
     function pt(e){ const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
@@ -697,25 +753,9 @@
     });
     function endDrag(e){
       if(!world.heldBy(e.pointerId)) return;
-      /* Dropped inside an active throw zone: the tile is spent, not placed.
-         `takeHeld` says which letter left, the rack shrinks (no replacement
-         until the next bank — the ammo limit), and the intent goes up for the
-         board to route. Zones are pointer-events:none, so this rect test is
-         the only thing that makes them real. */
-      const side = zoneAt(e);
-      if(side){
-        const taken = world.takeHeld(e.pointerId);
-        if(taken){
-          /* Released inside the side band: thrown, whatever the speed — the
-             exit velocity and release height ride up with it, so it enters
-             the neighbour's screen moving exactly as it left this one. */
-          throwOut(side, taken.ch, taken.hue, taken.vx, taken.vy,
-                   pt(e).y / (canvas.offsetHeight || 1));
-        }
-        try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
-        if(!world.anyHeld()) canvas.classList.remove('grabbing');
-        return;
-      }
+      /* Releasing is only ever a drop — a tile is thrown by actually FLYING
+         out through the open side edge (the shelf's onExit), never by where
+         the finger happened to let go. */
       world.drop(e.pointerId);
       try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
       if(!world.anyHeld()) canvas.classList.remove('grabbing');
@@ -779,15 +819,19 @@
         const name = side === 'l' ? nbL : nbR;
         if(!client || !playing || !name || rack.length <= MIN_WORD) return false;
         const ch = rack.pop();
-        world.setPieces(rack); world.slots(SLOT_COUNT);
-        candidate = ''; candValid = false; validSince = 0;
+        world.setPieces(rack); world.slots(GRID);
+        validRuns = []; badRuns = []; validKey = ''; validSince = 0;
         send({ t:'th', d: side.toUpperCase(), l: ch,
                vx: side === 'l' ? -18 : 18, vy: -4, ny: 0.4 });
-        readBoard(); zonesPaint();
+        readBoard(); edgesPaint();
         return ch;
       },
       join, connected: () => !!client,
-      state: () => ({ rack, score, candidate, candValid, secsLeft, hints, playing, banked, nbL, nbR }) };
+      /* candidate/candValid kept as views of the run set, so nothing that
+         reads the old shape breaks */
+      state: () => ({ rack, score, words: validRuns.map(r => r.word),
+        candidate: validRuns.length ? validRuns[0].word : '', candValid: !!validRuns.length,
+        secsLeft, hints, playing, banked, nbL, nbR }) };
   })();
   </script>
 </body>
