@@ -385,6 +385,7 @@
         validRuns.length ? '✓ ' + validRuns.map(r => r.word).join(', ') + ' — bank, or hold for the multiplier.' :
         'Flick letters into the grid — words read across and down.';
       sendLiveWord();
+      sendGrid();
       paintBank();
     }
 
@@ -420,6 +421,7 @@
       world.setResult(null);
       validRuns = []; badRuns = []; validKey = ''; validSince = 0;
       sendLiveWord(true);          // a fresh hand clears the neighbours' view of us
+      sendGrid(true);              // and the board's mirror of this grid
       hints = [];                  // a fresh hand re-picks in full
       refreshHints();
       status.textContent = 'Flick letters into the grid — words read across and down.';
@@ -531,6 +533,8 @@
            throw: the tile (letter and colour), plus the velocity it left the
            screen with and the release height as a fraction — the tile travels
          {"t":"w","q":9,"w":"QUIZ","ok":1}   word in progress (ok = a real word)
+         {"t":"g","q":10,"b":"<64 chars, . = empty>","v":"<16-nibble valid mask>"}
+           the grid, row-major, for the board's live mirror (v only when set)
        Down, to one phone via nope():
          {"t":"tile","by":"Maria","d":"L","l":"Q","c":"#F5C542","vx":-14.2,"vy":-3.1,"ny":0.42}
            an incoming tile: it enters this board moving as it left theirs,
@@ -538,6 +542,7 @@
          {"t":"nw","d":"l","w":"QUIZ","ok":1}  your left/right neighbour's word
          {"t":"nb","l":"Maria","r":"Ken"}    your neighbours' names
          {"t":"sync","left":48}              clock sync for a late joiner
+         {"t":"full"}                        the board seats four; wait out this game
        Start rides arm({mode:'answer',rethink:true,secs}); the board holds the
        room armed through a grace period after time-up so finals still land.
        Receivers ignore non-JSON and unknown `t` — that is the compat rule. */
@@ -555,6 +560,7 @@
     const SIMULATED = !!SIM;
     let client = null, roomCode = null;
     let nbL = '', nbR = '';        // neighbour names, only ever from the board's nb push
+    let full = false;              // the board seats four; a fifth phone is told so
     let seq = 0;
 
     function seatGet(){ try{ return JSON.parse(localStorage.getItem(SEAT_KEY) || 'null') || {}; }catch(_){ return {}; } }
@@ -608,6 +614,40 @@
       clearTimeout(lwTimer);
       if(force){ lastLw = key; send({ t:'w', w, ok }); return; }
       lwTimer = setTimeout(() => { lastLw = key; send({ t:'w', w, ok }); }, 250);
+    }
+
+    /* The grid mirror: the board draws every player's 8×8 live, so the whole
+       room watches each word form on the projector. Fixed 64 chars ('.' for
+       empty, row-major) keeps the message under the relay's 120-char
+       truncation; v is a 16-nibble hex mask of the cells in a currently
+       VALID word (bit 8>>k for cell 4j+k), sent only when any bit is set —
+       the board lights those cells gold. Same debounce+dedupe as the live
+       word; force sends at once (a fresh hand clears the mirror). */
+    let gTimer = null, lastG = null;
+    function sendGrid(force){
+      if(!client) return;
+      const cells = world.cells();
+      let b = '';
+      for(let i = 0; i < COLS * ROWS; i++) b += cells[i] || '.';
+      const valid = new Array(COLS * ROWS).fill(false);
+      validRuns.forEach(r => r.idx.forEach(i => { valid[i] = true; }));
+      let v = '';
+      for(let j = 0; j < (COLS * ROWS) / 4; j++){
+        let n = 0;
+        for(let k = 0; k < 4; k++) if(valid[j * 4 + k]) n |= (8 >> k);
+        v += n.toString(16);
+      }
+      const key = b + '|' + v;
+      if(key === lastG){ clearTimeout(gTimer); return; }
+      clearTimeout(gTimer);
+      const fire = () => {
+        lastG = key;
+        const o = { t:'g', b };
+        if(/[^0]/.test(v)) o.v = v;
+        send(o);
+      };
+      if(force){ fire(); return; }
+      gTimer = setTimeout(fire, 250);
     }
 
     /* One sender for both throw paths — a tile released in the side band and
@@ -678,6 +718,7 @@
        the live start on `armed`. One handler; the `playing` guard is what
        stops a reconnect replay restarting a game in progress. */
     function onArmState(d, isJoinedEvent){
+      if(full) return;             // a fifth phone never starts, whatever the relay replays
       if(isJoinedEvent && !d.armed){ toLobby(); return; }
       if(playing) return;
       document.getElementById('over').classList.remove('show');
@@ -712,6 +753,14 @@
           const side = m.d === 'l' ? 'l' : 'r';
           document.getElementById('nbword-' + side).textContent = String(m.w || '');
           document.getElementById('nb-' + side).classList.toggle('lit', !!m.ok && !!m.w);
+        }
+        else if(m.t === 'full'){
+          /* The board seats four. The relay's armed replay may have started
+             this phone before the board's verdict arrived, so stand down. */
+          full = true;
+          toLobby();
+          status.textContent = 'Room full — 4 players max.';
+          roomChip('room <b>' + roomCode + '</b> · <span style="color:var(--bad)">full</span>');
         }
         else if(m.t === 'sync' && playing && Number(m.left) > 0){
           secsLeft = Math.round(Number(m.left)); paintClock();
@@ -859,7 +908,7 @@
          reads the old shape breaks */
       state: () => ({ rack, score, words: validRuns.map(r => r.word),
         candidate: validRuns.length ? validRuns[0].word : '', candValid: !!validRuns.length,
-        secsLeft, hints, playing, banked, nbL, nbR }) };
+        secsLeft, hints, playing, banked, nbL, nbR, full }) };
   })();
   </script>
 </body>

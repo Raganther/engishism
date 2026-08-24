@@ -34,35 +34,48 @@
   #start{ background:var(--accent); border-color:var(--accent); color:#08131a; font-weight:700; }
 
   main{ flex:1 1 auto; display:flex; min-height:0; }
-  .arena{ flex:1 1 auto; position:relative; min-width:0; }
+  .arena{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; padding:8px 16px 14px; }
 
-  /* The circle IS the seating diagram — it stays in seat order so what the
-     room sees matches who is throwing at whom. Sorting happens in the sidebar. */
-  #circle{ position:absolute; inset:0; }
-  .chip{
-    position:absolute; left:50%; top:50%; width:150px; margin-left:-75px;
-    background:var(--panel); border:1px solid var(--border); border-radius:14px;
-    padding:8px 12px; text-align:center; transition:transform 0.4s;
-  }
-  .chip .nm{ font-weight:700; font-size:1.02rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .chip .sc{ font-size:1.5rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums; }
-  .chip .wd{ font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; min-height:1em; }
-  /* the word this player is spelling right now — gold once it is a real word */
-  .chip .lw{ font-size:0.78rem; font-weight:700; letter-spacing:0.12em; min-height:1.1em; color:var(--muted); }
-  .chip .lw.ok{ color:var(--gold); }
-  .chip.gone{ opacity:0.35; }
-  .chip.hit{ animation:chip-shake 0.5s; border-color:var(--bad); }
-  @keyframes chip-shake{
-    0%,100%{ margin-left:-75px; } 25%{ margin-left:-83px; } 50%{ margin-left:-67px; } 75%{ margin-left:-80px; }
-  }
-  #centre{
-    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-    text-align:center; pointer-events:none;
-  }
-  #big-clock{ font-size:4.2rem; font-weight:800; font-variant-numeric:tabular-nums; }
+  /* The clock, toast and crown line sit in a strip above the grids now that
+     the grids ARE the screen. */
+  #topstrip{ flex:0 0 auto; text-align:center; }
+  #big-clock{ font-size:2.6rem; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.1; }
   #big-clock.urgent{ color:var(--bad); }
-  #toast{ min-height:1.4em; color:var(--bad); font-weight:600; }
-  #banner{ color:var(--gold); font-size:1.6rem; font-weight:800; min-height:1.2em; }
+  #toast{ min-height:1.3em; color:var(--bad); font-weight:600; }
+  #banner{ color:var(--gold); font-size:1.5rem; font-weight:800; min-height:1.2em; }
+
+  /* The main screen: every player's 8×8, live, side by side in SEAT ORDER —
+     so neighbours on the ring are neighbours on the screen, and the room can
+     watch each word form. Four seats maximum, so this row never wraps and
+     never scrolls (the board rule). */
+  #grids{ flex:1 1 auto; min-height:0; display:flex; gap:18px; justify-content:center; align-items:flex-start; padding-top:8px; }
+  .panel{
+    flex:1 1 0; max-width:290px; min-width:0;
+    background:var(--panel); border:1px solid var(--border); border-radius:14px;
+    padding:10px 12px 12px;
+  }
+  .panel .head{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .panel .nm{ font-weight:700; font-size:1.05rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .panel .sc{ font-size:1.35rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums; }
+  /* the word this player is spelling right now — gold once it is a real word */
+  .panel .lw{ font-size:0.8rem; font-weight:700; letter-spacing:0.12em; min-height:1.2em; color:var(--muted); }
+  .panel .lw.ok{ color:var(--gold); }
+  .panel .cells{
+    display:grid; grid-template-columns:repeat(8, 1fr); gap:3px; margin-top:8px;
+  }
+  .panel .cell{
+    aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+    border:1.5px dashed #39414f; border-radius:5px;
+    font-weight:800; font-size:clamp(0.6rem, 1.4vw, 1rem); color:var(--text);
+  }
+  .panel .cell.on{ background:#2a3550; border-style:solid; border-color:#5a6473; }
+  .panel .cell.ok{ background:rgba(232,185,62,0.22); border-color:var(--gold); color:var(--gold); }
+  .panel.gone{ opacity:0.35; }
+  .panel.hit{ animation:panel-shake 0.5s; border-color:var(--bad); }
+  @keyframes panel-shake{
+    0%,100%{ transform:translateX(0); } 25%{ transform:translateX(-8px); }
+    50%{ transform:translateX(8px); } 75%{ transform:translateX(-5px); }
+  }
 
   aside{
     flex:0 0 240px; border-left:1px solid var(--border); padding:14px 16px;
@@ -84,12 +97,12 @@
   </header>
   <main>
     <div class="arena">
-      <div id="circle"></div>
-      <div id="centre">
+      <div id="topstrip">
         <div id="big-clock">–:––</div>
         <div id="toast"></div>
         <div id="banner"></div>
       </div>
+      <div id="grids"></div>
     </div>
     <aside>
       <h2>Standings</h2>
@@ -116,6 +129,8 @@
          throw: the tile (letter and colour) plus the velocity it left the
          screen with — the tile itself travels to the neighbour
        {"t":"w","q":9,"w":"QUIZ","ok":1}   word in progress (ok = a real word)
+       {"t":"g","q":10,"b":"<64 chars, . = empty>","v":"<16-nibble valid mask>"}
+         the grid, row-major, for the main screen's live mirror
      Down, to one phone via nope():
        {"t":"tile","by":"Maria","d":"L","l":"Q","c":"#F5C542","vx":-14.2,"vy":-3.1,"ny":0.42}
          an incoming tile, routed whole — the receiver spawns it moving as
@@ -123,11 +138,13 @@
        {"t":"nw","d":"l","w":"QUIZ","ok":1}  your left/right neighbour's word
        {"t":"nb","l":"Maria","r":"Ken"}    your neighbours' names
        {"t":"sync","left":48}              clock sync for a late joiner
+       {"t":"full"}                        the board seats four; this phone waits
      Start rides arm({mode:'answer',rethink:true,secs}); the board holds the
      room armed through a grace period after time-up so finals still land.
      Receivers ignore non-JSON and unknown `t` — that is the compat rule. */
 
   let host = null;
+  const MAXP = 4;            // the screen holds four grids; the room seats four
   /* The seats: append-only ids, in join order, never reordered and never
      deleted — the neighbour pinning. The relay's roster drops a player who
      disconnects and re-appends them on return; this array is why that cannot
@@ -151,8 +168,16 @@
       players(list){
         (list || []).forEach(p => {
           if(!players[p.id]){
+            /* The board seats FOUR — the screen holds four grids and the ring
+               four throwers. A fifth phone is told so and skipped everywhere;
+               reconnects of already-seated ids are unaffected (same id, same
+               seat, the append-only rule below). */
+            if(seats.length >= MAXP){
+              if(host) host.nope(p.id, JSON.stringify({ t:'full' }));
+              return;
+            }
             players[p.id] = { name:p.name, score:0, words:0, lastWord:'', lastQ:0, present:true, lastNb:'',
-                              live:'', liveOk:false, lastNw:{ l:'', r:'' } };
+                              live:'', liveOk:false, lastNw:{ l:'', r:'' }, grid:'', gridV:'' };
             seats.push(p.id);
           }
           players[p.id].name = p.name;
@@ -187,12 +212,17 @@
         } else if(m.t === 'th' && running){
           routeThrow(v.id, m);
         } else if(m.t === 'w'){
-          /* the word in progress: shown on this player's chip, and routed to
+          /* the word in progress: shown on this player's panel, and routed to
              their two ring neighbours so the phones can light it up */
           pl.live = String(m.w || '').slice(0, 12);
           pl.liveOk = !!m.ok;
           render();
           routeLive(v.id, m);
+        } else if(m.t === 'g'){
+          // the player's grid, mirrored live on the main screen
+          pl.grid = String(m.b || '').slice(0, 64);
+          pl.gridV = String(m.v || '').slice(0, 16);
+          render();
         }
       }
     }
@@ -234,7 +264,7 @@
       vx: Number(m.vx) || 0, vy: Number(m.vy) || 0, ny: Number(m.ny) || 0.3 }));
     $('toast').textContent = players[fromId].name + ' → ' + players[target].name + ' !';
     setTimeout(() => { if(!$('banner').textContent) $('toast').textContent = ''; }, 1800);
-    const el = document.querySelector('.chip[data-id="' + target + '"]');
+    const el = document.querySelector('.panel[data-id="' + target + '"]');
     if(el){ el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
   }
 
@@ -258,7 +288,8 @@
   function start(){
     if(!host || !presentSeats().length) return;
     seats.forEach(id => { players[id].score = 0; players[id].words = 0; players[id].lastWord = ''; players[id].lastQ = 0;
-                          players[id].live = ''; players[id].liveOk = false; players[id].lastNw = { l:'', r:'' }; });
+                          players[id].live = ''; players[id].liveOk = false; players[id].lastNw = { l:'', r:'' };
+                          players[id].grid = ''; players[id].gridV = ''; });
     $('banner').textContent = ''; $('toast').textContent = '';
     const secs = Number(settings.get('secs')) || 120;
     /* rethink lets every phone respond as often as it banks; answer is a
@@ -301,30 +332,39 @@
 
   /* ---- painting ---- */
   function render(){
-    const circle = $('circle');
-    circle.querySelectorAll('.chip').forEach(el => {
+    /* One panel per seat, appended once in SEAT ORDER (seats only ever append,
+       so DOM order stays ring order and neighbours stand side by side). The
+       64 cells are built once per panel and repainted in place. */
+    const box = $('grids');
+    box.querySelectorAll('.panel').forEach(el => {
       if(seats.indexOf(el.dataset.id) === -1) el.remove();
     });
-    const n = Math.max(seats.length, 1);
-    const R = Math.min(circle.clientWidth, circle.clientHeight) * 0.36;
-    seats.forEach((id, i) => {
-      let el = circle.querySelector('.chip[data-id="' + id + '"]');
+    seats.forEach(id => {
+      let el = box.querySelector('.panel[data-id="' + id + '"]');
       if(!el){
         el = document.createElement('div');
-        el.className = 'chip'; el.dataset.id = id;
-        el.innerHTML = '<div class="nm"></div><div class="sc"></div><div class="wd"></div><div class="lw"></div>';
-        circle.appendChild(el);
+        el.className = 'panel'; el.dataset.id = id;
+        el.innerHTML = '<div class="head"><span class="nm"></span><span class="sc"></span></div>' +
+                       '<div class="lw"></div>' +
+                       '<div class="cells">' + '<span class="cell"></span>'.repeat(64) + '</div>';
+        box.appendChild(el);
       }
-      const a = (i / n) * 2 * Math.PI - Math.PI / 2;
-      el.style.transform = 'translate(' + Math.round(Math.cos(a) * R) + 'px,' +
-                           Math.round(Math.sin(a) * R - 40) + 'px)';
-      el.classList.toggle('gone', !players[id].present);
-      el.querySelector('.nm').textContent = players[id].name;
-      el.querySelector('.sc').textContent = players[id].score;
-      el.querySelector('.wd').textContent = players[id].lastWord ? players[id].lastWord + ' · ' + players[id].words : '';
+      const pl = players[id];
+      el.classList.toggle('gone', !pl.present);
+      el.querySelector('.nm').textContent = pl.name;
+      el.querySelector('.sc').textContent = pl.score;
       const lw = el.querySelector('.lw');
-      lw.textContent = players[id].live || '';
-      lw.classList.toggle('ok', !!players[id].liveOk);
+      lw.textContent = pl.live || (pl.lastWord ? pl.lastWord + ' · ' + pl.words : '');
+      lw.classList.toggle('ok', !!pl.liveOk && !!pl.live);
+      const cells = el.querySelectorAll('.cell');
+      const g = pl.grid || '', mask = pl.gridV || '';
+      for(let i = 0; i < 64; i++){
+        const ch = g[i] && g[i] !== '.' ? g[i] : '';
+        if(cells[i].textContent !== ch) cells[i].textContent = ch;
+        cells[i].classList.toggle('on', !!ch);
+        const nib = mask ? (parseInt(mask[i >> 2], 16) || 0) : 0;
+        cells[i].classList.toggle('ok', !!(nib & (8 >> (i & 3))));
+      }
     });
     const stand = $('stand');
     stand.innerHTML = '';

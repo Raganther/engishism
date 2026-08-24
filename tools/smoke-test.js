@@ -8481,6 +8481,21 @@ async function testBattleScrabble(browser){
   check('and Anna\'s edge tag lights up with it', litOnA,
         await A.evaluate(() => document.getElementById('nbword-l').textContent + '/' +
                                document.getElementById('nbword-r').textContent));
+
+  /* The main screen mirrors every grid: Ben's word, placed on his row 0, must
+     appear letter-for-letter in his panel on the board — data first, then the
+     drawn cells, lit gold since it is a valid word. */
+  const gridMirror = await until(async () =>
+    (await board.evaluate(() => String(window.__bsb.players[window.__bsb.seats[1]].grid || ''))).indexOf(wordB) === 0, 6000);
+  check('the board mirrors Ben\'s grid', gridMirror,
+        await board.evaluate(() => String(window.__bsb.players[window.__bsb.seats[1]].grid || '').slice(0, 12)));
+  check('and Ben\'s panel draws the word, lit as valid', await board.evaluate(w => {
+    const el = document.querySelector('.panel[data-id="' + window.__bsb.seats[1] + '"]');
+    if(!el) return false;
+    const cells = el.querySelectorAll('.cell');
+    return w.split('').every((ch, i) => cells[i].textContent === ch && cells[i].classList.contains('ok'));
+  }, wordB));
+
   // clear Ben's board again, so the throw checks below meet an unslotted grid
   await B.evaluate(() => window.__bs.deal([]));
   await B.waitForTimeout(300);
@@ -8598,6 +8613,29 @@ async function testBattleScrabble(browser){
   const bLeft = await B.evaluate(() => window.__bs.state().secsLeft);
   check('and its clock is synced to the board, not the replayed arm',
         bLeft > 0 && bLeft <= 182, String(bLeft));
+
+  /* The cap: the board seats four. Cara and Dan fill the room; Eve is told it
+     is full, stood down (whatever the relay's armed replay started), and never
+     seated. */
+  const C = await phone('Cara');
+  const D = await phone('Dan');
+  await until(async () => await board.evaluate(() => window.__bsb.seats.length) === 4, 8000);
+  check('a third and fourth player take seats',
+        await board.evaluate(() => window.__bsb.seats.length) === 4,
+        String(await board.evaluate(() => window.__bsb.seats.length)));
+  const E = await browser.newPage({ viewport:{ width:390, height:844 } });
+  E.__errors = []; E.on('pageerror', e => E.__errors.push(String(e)));
+  await E.goto(BASE + '/playground/battle-scrabble.html?code=' + code);
+  await E.waitForTimeout(300);
+  await E.fill('#j-name', 'Eve');
+  await E.click('#j-go');
+  const toldFull = await until(async () => await E.evaluate(() => !!window.__bs.state().full), 8000);
+  check('a fifth phone is told the room is full', toldFull);
+  check('and is never seated or left playing',
+        await board.evaluate(() => window.__bsb.seats.length) === 4 &&
+        !(await E.evaluate(() => window.__bs.state().playing)));
+  check('the fifth phone threw nothing', E.__errors.length === 0, E.__errors.join(' | '));
+  await C.close(); await D.close(); await E.close();
 
   /* The hard requirement: a plain URL is the solo game — playing at once, no
      join chrome, no zones. Degradation is stage 1 itself. */
