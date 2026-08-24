@@ -117,8 +117,9 @@
   <div class="where" id="where">Working out where this page is served from…</div>
 
   <h2>Start here</h2>
-  <p class="note">One app and two workshops. The hub is what a class meets; the benches are
-     where rounds get built and tried. Everything else on this page is a detour.</p>
+  <p class="note">The four entry points. The hub is what a class meets; the benches are where
+     rounds get built and tried; the playground is where whole new games grow on the same
+     shelves. Everything else on this page is a detour.</p>
   <div class="grid" id="main-links"></div>
 
   <h2>Words we use</h2>
@@ -235,7 +236,7 @@ git add -A && git commit -m "..." && git push      # live in about 40 seconds</p
     <h2>Room bench, pointed at a board</h2>
     <div class="grid" id="bench-links"></div>
 
-    <h2>Playground prototypes</h2>
+    <h2 id="playground">Playground prototypes</h2>
     <p class="note">Standalone pages, no hub engine and no hub skin — they borrow only the phone room.
        Each must stay fully playable with no relay.</p>
     <div class="grid" id="play-links"></div>
@@ -309,8 +310,17 @@ git add -A && git commit -m "..." && git push      # live in about 40 seconds</p
     { t:'Question bench', href:'playground/question-bench.html',
       d:'Build and try one round: its card at board size, real handsets beside it. Also writes and exports content.' },
     { t:'Room bench', href:'playground/phone-bench.html',
-      d:'A whole projected board plus its phones on one screen. Opens the real hub by default.' }
+      d:'A whole projected board plus its phones on one screen. Opens the real hub by default.' },
+    { t:'Playground', href:'#playground',
+      d:'Standalone games grown independently on the shared shelves — Battle Scrabble, Throw Lab, Connections and more. The lane where new ideas start; the list is just below.' }
   ]);
+  /* The playground card points into this page's own prototypes list, which lives
+     inside the collapsed reference section — opening it is part of the link. */
+  document.querySelectorAll('a[href="#playground"]').forEach(a => a.addEventListener('click', () => {
+    const h = document.getElementById('playground');
+    const d = h && h.closest('details');
+    if(d) d.open = true;
+  }));
 
   cards('class-links', [
     { t:'Game Hub · Unit 4', href:'game-hub-unit4.html',
