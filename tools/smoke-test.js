@@ -8651,6 +8651,21 @@ async function testBattleScrabble(browser){
   check('a loose tile is the same size as a slot square',
         await solo.evaluate(() => Math.abs(window.__bs.world.tileSize() - window.__bs.world.slotBox(0).w) < 0.6),
         await solo.evaluate(() => window.__bs.world.tileSize() + ' vs ' + window.__bs.world.slotBox(0).w));
+  /* The squares are WIDTH-driven, not squeezed by a proportional height
+     budget — the first classroom photos showed real phones (shorter stage,
+     browser chrome) with tiny unreadable tiles while the bench looked fine.
+     Checked at the bench's height and at a chrome-shortened one. */
+  check('grid squares are width-sized at bench height',
+        await solo.evaluate(() => window.__bs.world.slotBox(0).w) >= 40,
+        String(await solo.evaluate(() => window.__bs.world.slotBox(0).w)));
+  const short = await browser.newPage({ viewport:{ width:390, height:740 } });
+  short.__errors = []; short.on('pageerror', e => short.__errors.push(String(e)));
+  await short.goto(BASE + '/playground/battle-scrabble.html');
+  await short.waitForTimeout(800);
+  check('and still readable on a chrome-shortened real phone',
+        await short.evaluate(() => window.__bs.world.slotBox(0).w) >= 36,
+        String(await short.evaluate(() => window.__bs.world.slotBox(0).w)));
+  await short.close();
 
   /* The grid: an across word and a down word sharing their first letter are
      both live at once, and one BANK press cashes the pair. The letters are

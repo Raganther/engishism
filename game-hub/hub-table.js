@@ -281,16 +281,20 @@
       const rowW = n*sw + (n-1)*gap, x0 = (cssW - rowW) / 2, y = Math.round(cssH * 0.46);
       return { gap, sw, x0, y };
     }
-    /* Grid squares fit the width AND a height budget — the bottom ~third of the
-       canvas stays free as the loose-tile pile, or the grid would leave the
-       rain nowhere to land. */
-    function gridDims(cols, rows, top){
+    /* Grid squares fit the width AND the height left after a FIXED pile band —
+       the loose tiles rest in a dense heap that needs the same ~150px on any
+       screen, so the band is absolute, never a fraction. The first classroom
+       photos are why: a real phone's stage is shorter than the bench's (browser
+       chrome top and bottom), and a fractional budget shrank the squares — and
+       with them every tile — well below what the bench showed. With the fixed
+       band both screens converge on the width-driven size and finally match. */
+    function gridDims(cols, rows, top, pile){
       const margin = 12, gap = Math.max(4, Math.round(feel.size * 0.10));
-      const yTop = top != null ? top : margin;   // room for a caller's own chrome above row 0
-      const budgetH = Math.round(cssH * 0.62);
+      const yTop = top != null ? top : margin;    // room for a caller's own chrome above row 0
+      const pileH = pile != null ? pile : 130;    // the loose-tile band below the grid (a settled heap is 1-2 tiles deep)
       const sw = Math.max(20, Math.min(feel.size,
         Math.floor((cssW - margin*2 - gap*(cols-1)) / cols),
-        Math.floor((budgetH - yTop - gap*(rows-1)) / rows)));
+        Math.floor((cssH - yTop - pileH - gap*(rows-1)) / rows)));
       const x0 = (cssW - (cols*sw + (cols-1)*gap)) / 2;
       const y0 = yTop + sw/2;
       return { gap, sw, x0, y0 };
@@ -300,8 +304,8 @@
       slots = []; grid = null;
       if(!spec){ fitTiles(); return; }
       if(typeof spec === 'object'){
-        grid = { cols: spec.cols, rows: spec.rows, top: spec.top };
-        const { gap, sw, x0, y0 } = gridDims(grid.cols, grid.rows, grid.top);
+        grid = { cols: spec.cols, rows: spec.rows, top: spec.top, pile: spec.pile };
+        const { gap, sw, x0, y0 } = gridDims(grid.cols, grid.rows, grid.top, grid.pile);
         for(let r = 0; r < grid.rows; r++)
           for(let c = 0; c < grid.cols; c++)
             slots.push({ x: x0 + c*(sw+gap) + sw/2, y: y0 + r*(sw+gap), w: sw, h: sw, piece: null });
@@ -315,7 +319,7 @@
     function layoutSlots(){          // recompute geometry on resize, keeping placed pieces
       const n = slots.length; if(!n) return;
       if(grid){
-        const { gap, sw, x0, y0 } = gridDims(grid.cols, grid.rows, grid.top);
+        const { gap, sw, x0, y0 } = gridDims(grid.cols, grid.rows, grid.top, grid.pile);
         slots.forEach((s, i) => {
           const r = Math.floor(i / grid.cols), c = i % grid.cols;
           s.x = x0 + c*(sw+gap) + sw/2; s.y = y0 + r*(sw+gap); s.w = sw; s.h = sw;
