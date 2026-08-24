@@ -420,8 +420,8 @@
       world.setResult(null);
       validRuns = []; badRuns = []; validKey = ''; validSince = 0;
       sendLiveWord(true);          // a fresh hand clears the neighbours' view of us
-      hints = pickHints(spellable(rack));
-      renderHints();
+      hints = [];                  // a fresh hand re-picks in full
+      refreshHints();
       status.textContent = 'Flick letters into the grid — words read across and down.';
       paintBank();
     }
@@ -435,6 +435,18 @@
         el.textContent = w + ' · ' + wordScore(w);
         box.appendChild(el);
       });
+    }
+
+    /* The hint strip must only ever show words the CURRENT rack can spell —
+       the rack changes outside the deal too (a tile thrown away, a tile
+       arriving), and a chip advertising a word you can no longer make reads
+       as the dictionary being broken. Hints that survive the change are kept
+       (no churn on every throw); the gaps refill from what is spellable now. */
+    function refreshHints(){
+      const kept = hints.filter(w => canSpell(w, rack));
+      const fresh = pickHints(spellable(rack)).filter(w => kept.indexOf(w) === -1);
+      hints = kept.concat(fresh).slice(0, HINT_COUNT);
+      renderHints();
     }
 
     function bank(){
@@ -605,6 +617,7 @@
     function throwOut(side, ch, hue, vx, vy, ny){
       const at = rack.indexOf(ch);
       if(at !== -1) rack.splice(at, 1);
+      refreshHints();              // a hint needing the thrown letter must go
       const r1 = v => Math.round(v * 10) / 10;
       send({ t:'th', d: side.toUpperCase(), l: ch, c: hue || '',
              vx: r1(vx), vy: r1(vy),
@@ -626,8 +639,7 @@
       const ch = String(d.l || '').slice(0, 1).toUpperCase();
       if(!/^[A-Z]$/.test(ch)) return;
       rack.push(ch);
-      hints = pickHints(spellable(rack));
-      renderHints();
+      refreshHints();
       /* d is the side of the THROWER's screen it left through: off their left
          edge it crosses to their left neighbour — this screen — entering at the
          right edge, still moving left; mirrored for 'R'. A gently-dropped throw
@@ -834,6 +846,7 @@
         const name = side === 'l' ? nbL : nbR;
         if(!client || !playing || !name || rack.length <= MIN_WORD) return false;
         const ch = rack.pop();
+        refreshHints();
         world.setPieces(rack); world.slots(GRID);
         validRuns = []; badRuns = []; validKey = ''; validSince = 0;
         send({ t:'th', d: side.toUpperCase(), l: ch,

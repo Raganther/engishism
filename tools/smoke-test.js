@@ -8517,6 +8517,39 @@ async function testBattleScrabble(browser){
   check('the thrown tile is spent — no replacement until the next bank',
         await A.evaluate(() => window.__bs.state().rack.length) === rackBefore - 1);
 
+  /* The hint strip only ever shows words the current rack can spell — a
+     thrown-away letter must take any hint that needed it with it. Driven
+     through the REAL path (grab a rack tile, flick it out the open edge →
+     onExit → throwOut), not the wire helper, which spends the rack itself.
+     Several throws maximise the chance a hinted letter leaves; the multiset
+     test mirrors the page's own canSpell. */
+  let hintsFresh = true, thrown = 0;
+  for(let th = 0; th < 3 && hintsFresh; th++){
+    const before = await A.evaluate(() => window.__bs.state().rack.length);
+    if(before <= 4) break;                       // the edge closes at MIN_WORD; keep headroom
+    await A.evaluate(x => {
+      const W = window.__bs.world, h = document.getElementById('stage').offsetHeight;
+      W.grab(91, x, h - 25);                     // nearest loose piece in the pile
+      W.move(91, -400, Math.round(h * 0.5));     // drag the anchor off the open edge
+    }, 100 + th * 90);
+    await A.waitForTimeout(150);                 // real frames carry the held tile left
+    await A.evaluate(() => window.__bs.world.drop(91));
+    const left = await until(async () =>
+      await A.evaluate(() => window.__bs.state().rack.length) < before, 4000);
+    if(!left) continue;                          // grabbed nothing / it stayed — try again
+    thrown++;
+    hintsFresh = await A.evaluate(() => {
+      const s = window.__bs.state();
+      return s.hints.every(w => {
+        const pool = {};
+        s.rack.forEach(ch => { pool[ch] = (pool[ch] || 0) + 1; });
+        return w.toUpperCase().split('').every(ch => (pool[ch] = (pool[ch] || 0) - 1) >= 0);
+      });
+    });
+  }
+  check('a thrown-out tile keeps the hint strip spellable', hintsFresh && thrown > 0,
+        JSON.stringify({ thrown, hintsFresh }));
+
   /* The open edge: a tile flicked off the side mid-air travels too — no drop
      point needed — and it arrives wearing its own colour. Driven by spawning
      a fast leftward piece inside Anna's open left edge (both her neighbours
