@@ -7,6 +7,7 @@ covers:
   - "playground/throw-lab.html"
   - "playground/phone-bench.html"
   - "playground/bench-kit.js"
+  - "playground/phone-profiles.js"
   - "playground/word-list.js"
   - "game-hub/hub-table.js"
 ---
@@ -109,6 +110,12 @@ Paid-for traps — every one cost a debugging session:
 - **On a real phone, size from the real viewport**: `height:100dvh` on the body and a
   refit on `visualViewport` resize — mobile browser chrome changes the visible height
   without a window resize.
+- **Phone geometry comes from `phone-profiles.js` — never a hardcoded viewport.** The
+  one home for what a handset's VISIBLE screen is (browser bars subtracted); the Room
+  bench racks at it and the suite opens phone pages at it, `standard` by default. The
+  chrome-less 844 is the comparison case, not the truth — a layout passing only there
+  is the classroom-photos bug again. Engine differences (refresh rate, touch, real
+  Safari) cannot be emulated at all: remove the dependence instead, as above.
 
 ## 7. Testing a playground game
 

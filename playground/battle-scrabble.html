@@ -149,6 +149,20 @@
     justify-content:center; gap:10px; background:rgba(16,19,24,0.88); text-align:center;
   }
   .over.show{ display:flex; }
+
+  /* A short visible screen (browser bars shown — the realistic classroom case,
+     see playground/phone-profiles.js) compacts the page chrome, so the height
+     goes to the grid and the pile instead of headers. Without this the 8×8's
+     squares fell well under the width-driven size on real handsets. */
+  @media (max-height:780px){
+    header{ padding:6px 12px 2px; }
+    h1{ font-size:0.95rem; }
+    h1 small{ display:none; }
+    .strip{ padding:3px 12px; min-height:32px; }
+    .hint-chip{ font-size:0.7rem; padding:2px 8px; }
+    .actions{ padding:6px 12px calc(6px + env(safe-area-inset-bottom)); }
+    #bank, #redeal{ min-height:46px; }
+  }
   .over .final{ font-size:3rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums; }
   .over .label{ color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; font-size:0.8rem; }
 </style>

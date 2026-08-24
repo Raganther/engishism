@@ -22,7 +22,10 @@
        columns. The bench was misreporting the one thing it exists to show.
        The scale is computed by fitRack() from the pane, four to a row as the
        question bench does; 0.62 here is the cap and the fallback. */
-    --phone-w:390px; --phone-h:844px; --phone-scale:0.62;
+    /* Overwritten at boot from phone-profiles.js — the ONE home for what a
+       real handset's visible screen is. 390×664 (standard, bars shown) is the
+       default; these literals are only the pre-boot fallback. */
+    --phone-w:390px; --phone-h:664px; --phone-scale:0.62;
   }
   *{ box-sizing:border-box; }
   body{
@@ -266,6 +269,7 @@
     <!-- One click to a standard classroom division — teams × phones each. The
          same strip the question bench carries, from bench-kit. -->
     <span id="bar-layouts"></span>
+    <select id="phone-size" title="What a racked phone's visible screen is — real sizes with browser bars subtracted, from phone-profiles.js"></select>
     <button id="bar-tune" title="The rules board — every round's mode and the game's key rules, beside the projector">Tune</button>
     <span id="status"></span>
   </div>
@@ -291,6 +295,7 @@
     </div>
   </div>
 
+<script src="phone-profiles.js?v=20260824a"></script>
 <script src="bench-kit.js?v=20260824a"></script>
 <script>
 'use strict';
@@ -491,10 +496,37 @@ function fitRack(){
   if(!w) return;
   const each = (w - (PER_ROW - 1) * RACK_GAP) / PER_ROW;
   document.documentElement.style.setProperty('--phone-scale',
-    Math.max(PHONE_MIN, Math.min(PHONE_MAX, each / 390)).toFixed(4));
+    Math.max(PHONE_MIN, Math.min(PHONE_MAX, each / PROFILE.w)).toFixed(4));
 }
 window.addEventListener('resize', fitRack);
 if(window.ResizeObserver) new ResizeObserver(fitRack).observe($('rack-pane'));
+
+/* What a racked phone's visible screen is — from phone-profiles.js, the one
+   home for phone geometry (real sizes, browser bars already subtracted; the
+   default is the realistic case). Changing it resizes every clip box and
+   iframe through the CSS vars — the iframes are NOT re-parented, so each
+   phone experiences a live resize, the same event real browser chrome fires
+   when its bar collapses. Flipping standard↔tall is therefore also the test
+   of a page's visualViewport refit. */
+let PROFILE = window.PHONE_PROFILES[window.PHONE_PROFILES.DEFAULT];
+function applyProfile(key){
+  PROFILE = window.PHONE_PROFILES[key] || PROFILE;
+  document.documentElement.style.setProperty('--phone-w', PROFILE.w + 'px');
+  document.documentElement.style.setProperty('--phone-h', PROFILE.h + 'px');
+  fitRack();
+}
+(function(){
+  const sel = $('phone-size');
+  Object.keys(window.PHONE_PROFILES).forEach(k => {
+    if(k === 'DEFAULT') return;
+    const o = document.createElement('option');
+    o.value = k; o.textContent = window.PHONE_PROFILES[k].label;
+    sel.appendChild(o);
+  });
+  sel.value = window.PHONE_PROFILES.DEFAULT;
+  sel.addEventListener('change', () => applyProfile(sel.value));
+  applyProfile(sel.value);
+})();
 
 function joinSrc(name, team){
   const code = $('code').value.trim();

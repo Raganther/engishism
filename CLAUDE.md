@@ -523,10 +523,13 @@ Five rules it is built on:
   drops its stream.
 - **The board renders at a projector's logical width (1280) and is scaled to fit**, never
   past 1:1. A board re-fitting itself to a 500px pane is not the board under test.
-- **And so does every racked phone — 390×844, scaled to its column.** Laying one out at
-  the column's real width gives `join.html` less room than a real handset has, and the
-  bench then misreports the one thing it exists to show. A scaled element still occupies
-  its full layout size, so the iframe needs a clip box with an explicit height.
+- **And so does every racked phone — at a REAL visible size from
+  `playground/phone-profiles.js`, scaled to its column.** That file is the one home for
+  phone geometry (browser bars already subtracted; `standard` 390×664 is the default,
+  the chrome-less 844 a comparison case) and the smoke suite reads the same file — a
+  hardcoded phone viewport anywhere else is the classroom-photos bug returning. A
+  scaled element still occupies its full layout size, so the iframe needs a clip box
+  with an explicit height.
 - **The phones follow the board's room**, re-pointed deliberately when it changes — a
   playground board mints a fresh code every load, which otherwise leaves every racked
   phone connected to a room nobody is hosting.

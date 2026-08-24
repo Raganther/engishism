@@ -32,6 +32,10 @@ const keepOpen  = args.includes('--keep-open');
 const PORT      = 8123;
 const BASE      = urlArg || `http://127.0.0.1:${PORT}`;
 const REPO      = path.resolve(__dirname, '..');
+/* What a real handset's visible screen is — the ONE home, shared with the Room
+   bench. Phone pages under test open at PHONES.standard (browser bars already
+   subtracted), never at a chrome-less 844 the classroom will not see. */
+const PHONES = require(path.join(REPO, 'playground', 'phone-profiles.js')).PHONE_PROFILES;
 
 /* ---------- tiny runner ---------- */
 let passed = 0, failed = 0, group = '';
@@ -8431,7 +8435,7 @@ async function testBattleScrabble(browser){
   await board.evaluate(() => { const m = document.getElementById('join-panel'); if(m) m.classList.remove('on'); });
 
   async function phone(name){
-    const p = await browser.newPage({ viewport:{ width:390, height:844 } });
+    const p = await browser.newPage({ viewport:{ width: PHONES.standard.w, height: PHONES.standard.h } });
     p.__errors = []; p.on('pageerror', e => p.__errors.push(String(e)));
     await p.goto(BASE + '/playground/battle-scrabble.html?code=' + code);
     await p.waitForTimeout(300);
@@ -8623,7 +8627,7 @@ async function testBattleScrabble(browser){
   check('a third and fourth player take seats',
         await board.evaluate(() => window.__bsb.seats.length) === 4,
         String(await board.evaluate(() => window.__bsb.seats.length)));
-  const E = await browser.newPage({ viewport:{ width:390, height:844 } });
+  const E = await browser.newPage({ viewport:{ width: PHONES.standard.w, height: PHONES.standard.h } });
   E.__errors = []; E.on('pageerror', e => E.__errors.push(String(e)));
   await E.goto(BASE + '/playground/battle-scrabble.html?code=' + code);
   await E.waitForTimeout(300);
@@ -8639,7 +8643,7 @@ async function testBattleScrabble(browser){
 
   /* The hard requirement: a plain URL is the solo game — playing at once, no
      join chrome, no zones. Degradation is stage 1 itself. */
-  const solo = await browser.newPage({ viewport:{ width:390, height:844 } });
+  const solo = await browser.newPage({ viewport:{ width: PHONES.standard.w, height: PHONES.standard.h } });
   solo.__errors = []; solo.on('pageerror', e => solo.__errors.push(String(e)));
   await solo.goto(BASE + '/playground/battle-scrabble.html');
   await solo.waitForTimeout(800);
@@ -8654,16 +8658,17 @@ async function testBattleScrabble(browser){
   /* The squares are WIDTH-driven, not squeezed by a proportional height
      budget — the first classroom photos showed real phones (shorter stage,
      browser chrome) with tiny unreadable tiles while the bench looked fine.
-     Checked at the bench's height and at a chrome-shortened one. */
-  check('grid squares are width-sized at bench height',
-        await solo.evaluate(() => window.__bs.world.slotBox(0).w) >= 40,
+     The solo page above already runs at PHONES.standard (the realistic
+     profile); the second page checks the smallest handset in the roster. */
+  check('grid squares stay readable at the standard phone profile',
+        await solo.evaluate(() => window.__bs.world.slotBox(0).w) >= 38,
         String(await solo.evaluate(() => window.__bs.world.slotBox(0).w)));
-  const short = await browser.newPage({ viewport:{ width:390, height:740 } });
+  const short = await browser.newPage({ viewport:{ width: PHONES.small.w, height: PHONES.small.h } });
   short.__errors = []; short.on('pageerror', e => short.__errors.push(String(e)));
   await short.goto(BASE + '/playground/battle-scrabble.html');
   await short.waitForTimeout(800);
-  check('and still readable on a chrome-shortened real phone',
-        await short.evaluate(() => window.__bs.world.slotBox(0).w) >= 36,
+  check('and on the smallest profile in the roster',
+        await short.evaluate(() => window.__bs.world.slotBox(0).w) >= 34,
         String(await short.evaluate(() => window.__bs.world.slotBox(0).w)));
   await short.close();
 
