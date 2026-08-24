@@ -48,19 +48,30 @@
      so neighbours on the ring are neighbours on the screen, and the room can
      watch each word form. Four seats maximum, so this row never wraps and
      never scrolls (the board rule). */
-  #grids{ flex:1 1 auto; min-height:0; display:flex; gap:18px; justify-content:center; align-items:flex-start; padding-top:8px; }
+  #grids{ flex:1 1 auto; min-height:0; display:flex; gap:18px; justify-content:center; align-items:stretch; padding-top:8px; }
+  /* Each mirror is PHONE-SHAPED — a tall rounded rectangle in handset
+     proportions, grid up top where it sits on the real phone, empty pile
+     space below, the live word in a bottom pill where BANK lives. A square
+     box read as "a grid somewhere"; this reads as "that player's phone". */
   .panel{
-    flex:1 1 0; max-width:290px; min-width:0;
-    background:var(--panel); border:1px solid var(--border); border-radius:14px;
+    flex:0 1 auto; height:100%; aspect-ratio: 39 / 80; min-width:0;
+    display:flex; flex-direction:column;
+    background:var(--panel); border:2px solid #3a4356; border-radius:24px;
     padding:10px 12px 12px;
   }
-  .panel .head{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .panel .head{ flex:0 0 auto; display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
   .panel .nm{ font-weight:700; font-size:1.05rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .panel .sc{ font-size:1.35rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums; }
-  /* the word this player is spelling right now — gold once it is a real word */
-  .panel .lw{ font-size:0.8rem; font-weight:700; letter-spacing:0.12em; min-height:1.2em; color:var(--muted); }
-  .panel .lw.ok{ color:var(--gold); }
+  /* the word this player is spelling right now — the bottom pill, where the
+     BANK button sits on the handset; gold once it is a real word */
+  .panel .lw{
+    flex:0 0 auto; margin-top:auto; text-align:center;
+    border:1px solid var(--border); border-radius:999px; padding:4px 10px;
+    font-size:0.8rem; font-weight:700; letter-spacing:0.12em; min-height:1.6em; color:var(--muted);
+  }
+  .panel .lw.ok{ color:var(--gold); border-color:var(--gold); }
   .panel .cells{
+    flex:0 0 auto;
     display:grid; grid-template-columns:repeat(8, 1fr); gap:3px; margin-top:8px;
   }
   .panel .cell{
@@ -345,8 +356,8 @@
         el = document.createElement('div');
         el.className = 'panel'; el.dataset.id = id;
         el.innerHTML = '<div class="head"><span class="nm"></span><span class="sc"></span></div>' +
-                       '<div class="lw"></div>' +
-                       '<div class="cells">' + '<span class="cell"></span>'.repeat(64) + '</div>';
+                       '<div class="cells">' + '<span class="cell"></span>'.repeat(64) + '</div>' +
+                       '<div class="lw"></div>';
         box.appendChild(el);
       }
       const pl = players[id];
