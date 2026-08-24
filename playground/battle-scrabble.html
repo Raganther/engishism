@@ -210,11 +210,11 @@
   <!-- Same shelf and same order as Throw Lab: matter.min.js → hub-kit.js (the
        object Kit.table hangs off) → hub-table.js. word-list.js is this page's own
        vendored dictionary — a <script src>, never a fetch, so file:// works. -->
-  <script src="../game-hub/hub-buzzer.js?v=20260823e"></script>
-  <script src="../game-hub/matter.min.js?v=20260823e"></script>
-  <script src="../game-hub/hub-kit.js?v=20260823e"></script>
-  <script src="../game-hub/hub-table.js?v=20260823e"></script>
-  <script src="word-list.js?v=20260823e"></script>
+  <script src="../game-hub/hub-buzzer.js?v=20260823f"></script>
+  <script src="../game-hub/matter.min.js?v=20260823f"></script>
+  <script src="../game-hub/hub-kit.js?v=20260823f"></script>
+  <script src="../game-hub/hub-table.js?v=20260823f"></script>
+  <script src="word-list.js?v=20260823f"></script>
   <script>
   (function(){
     'use strict';
@@ -537,8 +537,10 @@
        ?auto=1&code=&name=). It joins by itself and — crucially — never touches
        the seat: every bench iframe shares this origin's localStorage, so one
        seat key would be fought over by every fake phone and clobber the real
-       phone's. Same contract, same flag, as join.html's ?auto=1. */
-    const SIMULATED = qs.get('auto') === '1';
+       phone's. The contract's one home is HubBuzzer.sim(), shared with
+       join.html. */
+    const SIM = (window.HubBuzzer && window.HubBuzzer.sim) ? window.HubBuzzer.sim() : null;
+    const SIMULATED = !!SIM;
     let client = null, roomCode = null;
     let nbL = '', nbR = '';        // neighbour names, only ever from the board's nb push
     let seq = 0;
@@ -718,8 +720,8 @@
       const code = (qs.get('code') || '').trim();
       /* The bench's phones join themselves — same path a Join press takes,
          no strip, a fresh id per iframe (join() mints one when SIMULATED). */
-      if(SIMULATED && /^\d{4,6}$/.test(code) && window.HubBuzzer){
-        join(code, qs.get('name') || 'Phone');
+      if(SIMULATED && /^\d{4,6}$/.test(SIM.code || code) && window.HubBuzzer){
+        join(SIM.code || code, SIM.name);
         return true;
       }
       const bar  = document.getElementById('joinbar');

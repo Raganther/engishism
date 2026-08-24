@@ -279,7 +279,31 @@ window.HubBuzzer = (function(){
       .catch(()=>null);
   }
 
-  return { host, player, newCode, teamColour, TEAM_COLOURS, wordCols, PREVIEW };
+  /* ---------- the simulated-phone contract (?auto=1) ----------
+     The phone bench opens phone pages in iframes with ?auto=1&code=&name=
+     (&team=, &id= optional). This is the ONE definition of what that means —
+     it lives here because it is the same fact on join.html and on every
+     playground game whose phones are a full page, and two hand-written copies
+     of it had already begun to drift. Returns null on a real phone; on a
+     simulated one, everything the page needs to join by itself.
+
+     The contract a page owes when sim() is non-null: never WRITE the seat and
+     never READ it (every bench iframe shares one localStorage — the seat key
+     belongs to the real phone, and a reused id would fold every iframe into
+     one player); use the id given here or mint a fresh one; and join
+     immediately with no join UI. */
+  function sim(){
+    const q = new URLSearchParams(location.search);
+    if(q.get('auto') !== '1') return null;
+    return {
+      code: (q.get('code') || '').trim(),
+      name: q.get('name') || 'Phone',
+      id:   q.get('id') || null,
+      team: Math.max(0, parseInt(q.get('team') || '0', 10) || 0)
+    };
+  }
+
+  return { host, player, newCode, sim, teamColour, TEAM_COLOURS, wordCols, PREVIEW };
 })();
 
 /* ---------- is this page the build the server has? ----------

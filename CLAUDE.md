@@ -99,14 +99,15 @@ Four facts about a classroom that outrank anything above when they conflict.
 | `game-hub/hub.css` | all shared styling, DCU theme and game-show skin. The one place to restyle |
 | `game-hub/hub-rounds.css` | the round card's own styling. **Not `hub.css`** — a playground page cannot load that without taking the whole hub theme |
 | `game-hub/hub-qr.js` | vendored QR encoder (qrcode-generator, MIT), unmodified. Vendored because the app must run offline with no build step |
-| `game-hub/hub-table.js` | **`Kit.table`** — the physics table shelf (pieces you flick into slots): grab/throw, gravity swing, suck-and-spin dock, `read()`, default draw. First caller `playground/throw-lab.html`; the `toss` round is next |
+| `game-hub/hub-table.js` | **`Kit.table`** — the physics table shelf: throwable lettered pieces, slots as a row **or a grid** (`slots(n | {cols,rows,top})`), `addPiece` (a tile arriving mid-flight), `openSides`+`onExit` (open edges a flying tile leaves through — how a tile travels between players' screens), the knock rule, a dock-speed threshold (slow release places, a flick flies), and a **wall-clock `step()`** (same game speed at 60 or 120Hz). Four callers: `throw-lab.html`, the `toss` round, `join.html`'s table mode, Battle Scrabble |
 | `game-hub/matter.min.js` | vendored Matter.js (2D physics, MIT), unmodified. The engine behind `hub-table.js`; vendored beside `hub-qr.js` for offline / no build step |
 | `game-hub/content/*.js` | data-only banks, one file per unit; each does `window.UNITS.push({…})` |
 | `join.html` | the students' page |
 | `tools/buzzer-relay.js` | zero-dependency Node relay **and** static server. `docs/buzzers.md` |
 | `playground/question-bench.html` | the workshop for rounds *and* forms |
 | `playground/phone-bench.html` | the whole room on one screen — board plus a rack of real handsets |
-| `playground/connections.html`, `thermometer.html`, `story-reveal.html`, `battle-scrabble.html` | standalone prototypes — see "The playground". Battle Scrabble carries its own vendored dictionary, `playground/word-list.js` |
+| `playground/connections.html`, `thermometer.html`, `story-reveal.html` | standalone prototypes — see "The playground" |
+| `playground/battle-scrabble.html` + `battle-scrabble-board.html` | **the playground's first full multiplayer game**: each phone runs the game page itself (not `join.html`), the board hosts the seating ring and routes throws. Own vendored dictionary, `playground/word-list.js`. The `new-playground-game` skill is its distilled procedure |
 | `playground/bench-kit.js` | **`BenchKit`** — the shelf a playground page calls |
 | `playground/lab-forms.js` | experimental question forms. **No game ever loads this** |
 | `tools/` | the harness — see "The harness" |
@@ -509,11 +510,15 @@ form can be tried before a single bank item is authored for it.
 
 **`phone-bench.html` is the whole room on one screen** — the projected board left, a rack
 of simulated handsets right, both the **real pages in iframes on the real relay**. It
-works against any board because it asks one question of whatever it loaded:
-**`window.HubHost` — what room are you running?** That is a stated convention, which is
-why the bench needs to know nothing about the game. Five rules it is built on:
+works against any board because it asks two questions of whatever it loaded:
+**`window.HubHost` — what room are you running?** and **`window.HubPhonePage` — what
+page do your phones run?** (declared via `joinPath` in `BenchKit.room`; absent means
+`join.html`). Stated conventions, which is why the bench needs to know nothing about
+the game — Battle Scrabble's phones rack as the game itself by declaring one path.
+Five rules it is built on:
 - **A simulated phone never touches the seat.** Every iframe shares the page's
-  localStorage, and the one seat key belongs to the real phone.
+  localStorage, and the one seat key belongs to the real phone. The `?auto=1`
+  contract has one home — `HubBuzzer.sim()` — never a re-parse of the URL.
 - **Phones are appended once and never re-parented** — moving an iframe reloads it, which
   drops its stream.
 - **The board renders at a projector's logical width (1280) and is scaled to fit**, never
@@ -536,12 +541,13 @@ surgery here is `sed -i` and heredocs — naming the skill that covers the file 
 **no skill covers it**, which is the case to tell the user about before starting; and
 `skill-check.js` after, asking once per skill per session whether the checklist held.
 
-**Eleven skills in `.claude/skills/`, and a skill declares the files it covers.** `covers:`
+**Twelve skills in `.claude/skills/`, and a skill declares the files it covers.** `covers:`
 in its own frontmatter is the territory it claims, so a skill written next month is
 picked up with nothing else edited. Which one you want follows the tiers: a skin is
 `new-game`, a question that is played is `new-round`, a way of drawing a prompt is
 `new-question-form`, a bundle of switches is `new-mode`, something every game inherits is
-`shared-surface`, changing a round that already works is `tune-round`, writing questions
+`shared-surface`, changing a round that already works is `tune-round`, a standalone game
+with its own phones is `new-playground-game`, writing questions
 is `author-content`, the deploy seam is `ship-it`, phones are `phone-debug`, anything
 that watches the project is `harness`, and a skill itself is `check-a-skill`.
 - **Quote the globs.** A bare `*.html` in YAML is an alias reference, not a string.
@@ -662,41 +668,37 @@ unverifiable.**
 ## Open
 What is true and unfinished. Not a changelog — an item leaves when it closes.
 
-**Build `20260819a`.** Three coursebooks, ~760 authored items, six games, nine rounds.
+**Build `20260823f`.** Three coursebooks, ~760 authored items, six games, nine rounds.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only.
 
-**The throw dynamic — on a shelf, heading for the bench.** Answer pieces as physical
-boxes you *flick* around a space and drop into slots, instead of tapping or dragging. The
-physics now lives on a shelf, **`Kit.table` in `game-hub/hub-table.js`** (Matter.js is
-`game-hub/matter.min.js`, vendored beside `hub-qr.js`): a bounded space, throwable lettered
-pieces with a soft-spring grab + gravity swing + a suck-and-spin dock into answer slots, a
-`read()` of what landed where, and a default canvas draw. It is transport-agnostic (axiom
-4) — takes canvas-space coords in `grab/move/drop`, reports via `onArrange`, and judging is
-the caller's (`setResult` only tints). `playground/throw-lab.html` is its first caller and
-the feel workshop (the sliders). **The `toss` round** (`game-hub/rounds/toss.js`) is the
-second caller — same anagram content as `anagram.js` (`item.anagram.word`), physical instead
-of drag. It has **two faces, chosen by whether phones are in the room** (`ctx.roster`): with
-no phones the `<canvas>` runs on the clue card, **board-operated** (mouse/touch, like Race) —
-`render` idempotent, pointer coords divided by the card's `transform:scale` (`Kit.table` sizes
-to the *natural* `offsetWidth`); with phones present **each handset runs its own `Kit.table`**
-(join.html's `table` mode) and the card becomes the scoreboard (`Kit.round.lanes`, as the drag
-rounds). `arm` sends `mode:'table'`; `read` merges handset arrangements with
-`Kit.round.arrangement` on the same positional `|`-joined wire the drag rounds use. Declares
-no `field`/`claims` — reached by an explicit `round:'toss'` on a clue (or `?type=r:toss` on the
-bench). **The card item is the authored object now:** `openRoundOnCard` carries everything
-from `source` the host's aliases don't define — no whitelist — so `round:'toss'` and any
-field only a future round reads travel by construction. The Lab unit's **L9
-category** is the first content to route this way — board-operated on the Lab Jeopardy card,
-cyclable on the bench. No class-facing unit routes to it yet.
+**The throw dynamic is grown up; the `toss` round rides it.** `Kit.table` (see the map)
+is the shared physics; the `toss` round (`game-hub/rounds/toss.js`) plays it as a
+question with **two faces, chosen by whether phones are in the room** (`ctx.roster`):
+no phones → the `<canvas>` on the clue card, board-operated, pointer coords divided by
+the card's `transform:scale`; phones → each handset runs its own table (join.html's
+`table` mode, behind a `window.HubKit = {}` stub) and the card becomes the scoreboard.
+`arm` sends `mode:'table'`; `read` merges handset arrangements with
+`Kit.round.arrangement` on the positional `|`-joined wire the drag rounds use. Reached
+by an explicit `round:'toss'` on a clue (or `?type=r:toss` on the bench); the Lab
+unit's **L9 category** routes to it, no class-facing unit yet.
 
-The phone-side physics needed two things beyond the round: `join.html` now loads
-`matter.min.js` + `hub-table.js` (behind a `window.HubKit = {}` stub — hub-table only reads
-HubKit to hang `.table` on it) and has a `table` handset mode mirroring `arrange` (its own
-`buildTable`/`tableWire`/`restoreTable`, same commit-beat and reconnect paths); and `Kit.table`
-grew `cells()` (positional read, gaps kept — `read()` collapses them) and `place(i,label)` (drop
-a letter straight into a slot, for reconnect restore). The one thing no suite can answer is
-whether the throw *feels* good on a touchscreen; that is a real phone.
+**Battle Scrabble — a complete standalone playground game, awaiting its classroom
+run.** Board + phone pages on the phone room; each phone is an 8×8 grid where words
+read across and down and BANK cashes every valid word at once; a tile flicked off an
+open side edge **physically travels** to a ring neighbour with its speed, trajectory
+and colour, knocks a slotted letter out on a hard hit, and is theirs to use; each
+player's word-in-progress shows live on their neighbours' screens and the board's
+circle. The `new-playground-game` skill is the procedure it taught. **Its graduation
+door is deliberately undecided until a class plays it**: seventh hub game
+(`registerGame`) if it is a main event, or distilled into the toss round's territory
+if it is a spice. Every feel number (dock threshold 8, knock speed 6, the arrival
+holds) is a guess wearing a slider, not a measurement.
+
+**What real phones taught, now standing rules:** the harness's Chromium is 60Hz and
+never models browser chrome changing height — so physics steps by **wall clock**
+(`Kit.table.step()`), pages size by `100dvh` + a `visualViewport` refit, and any
+"works in the bench, wrong on my phone" report checks those two first.
 
 **Open-question tuning is guessed, not measured.** The open-question work — a right
 answer no longer locks the room out, position and time recorded, standings after every

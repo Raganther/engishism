@@ -392,14 +392,14 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260823e"></script>
+<script src="game-hub/hub-buzzer.js?v=20260823f"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (the Toss round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260823e"></script>
+<script src="game-hub/matter.min.js?v=20260823f"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260823e"></script>
+<script src="game-hub/hub-table.js?v=20260823f"></script>
 <script>
 (function(){
   'use strict';
@@ -412,8 +412,11 @@
   /* A simulated phone (the bench opens this page in iframes: ?auto=1&name=&team=).
      It joins by itself and — crucially — never touches the seat: every iframe on
      the bench shares this origin's localStorage, so one seat key would be fought
-     over by every fake phone and clobber the real phone's. */
-  const SIMULATED = params.get('auto') === '1';
+     over by every fake phone and clobber the real phone's. The contract has ONE
+     home — HubBuzzer.sim() — shared with every playground game whose phones are
+     a full page; guarded because this page must survive hub-buzzer absent. */
+  const SIM = (window.HubBuzzer && HubBuzzer.sim) ? HubBuzzer.sim() : null;
+  const SIMULATED = !!SIM;
 
   let team = 0, teamNames = ['Team 1','Team 2'], client = null;
 
@@ -1680,15 +1683,15 @@
   /* The bench's phones join themselves — same path a tap on Join takes. */
   (function autoJoin(){
     if(!SIMULATED) return;
-    const code = $('code').value.trim();
+    const code = SIM.code || $('code').value.trim();
     if(!/^\d{4,6}$/.test(code)) return;
-    team = Math.max(0, parseInt(params.get('team') || '0', 10) || 0);
+    team = SIM.team;
     renderTeams();
     /* A bench-spawned phone may be handed an explicit id (`&id=sim-…`) so the bench
        can tell its own simulated handsets from a real one that scanned in. Only ever
        set on this `?auto=1` path — the hub and a real student's scan carry neither,
        so `null` here keeps the random id exactly as before. */
-    joinRoom(code, params.get('name') || 'Phone', params.get('id') || null);
+    joinRoom(code, SIM.name, SIM.id);
   })();
 
   /* Back to the join form, seat and all. The code and name inputs still hold what
