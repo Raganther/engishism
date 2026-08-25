@@ -739,7 +739,14 @@
       // the tile keeps the colour it wore on the thrower's board — it is the
       // SAME tile arriving, not a marker; palette fallback if none rode along
       const hue = /^#[0-9a-fA-F]{6}$/.test(String(d.c || '')) ? d.c : undefined;
-      world.addPiece(ch, { x: fromRight ? w - 16 : 16, y: ny * h, vx, vy, hue, shot: true });
+      /* Spawn the centre just OUTSIDE the edge so the tile SLIDES in, clipped
+         by the canvas exactly as it clipped leaving the thrower's screen —
+         centred 16px inside, a ~50px tile popped in whole on its first frame.
+         Half a tile out sits within tickExits' tile*0.6 crossing margin (not
+         an exit), the arrival hold reflects only OUTWARD motion, and the
+         MINV floor guarantees it comes in. */
+      const half = (world.tileSize() || 56) / 2;
+      world.addPiece(ch, { x: fromRight ? w + half : -half, y: ny * h, vx, vy, hue, shot: true });
       status.textContent = (d.by || 'Someone') + ' threw you a ' + ch + '!';
       const flash = document.getElementById('flash');
       flash.textContent = 'INCOMING ' + ch + '!';
