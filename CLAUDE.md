@@ -739,6 +739,15 @@ what `/buzzer/health` says on the same address the bench is opened from, what bu
 ⚙ reports, and whether the board's own chip shows five digits.
 
 **Known broken:**
+- **A travelling tile pops in whole instead of sliding in.** Leaving, it clips
+  gradually off the sender's edge; arriving, `onTile` in `battle-scrabble.html`
+  spawns it with its centre already 16px INSIDE the screen (`x: fromRight ?
+  w - 16 : 16`), so a ~50px tile appears essentially all at once. Fix: spawn the
+  centre just OUTSIDE the edge (`±tileSize()/2`, within `tickExits`' `tile*0.6`
+  crossing margin so it doesn't read as an exit) and let it glide in — the
+  arrival `hold` already stops it leaving again, the hold's reflect only fires
+  on OUTWARD motion, the resize clamp skips open sides, and the canvas clips a
+  part-outside tile naturally. Entry floor MINV 9 guarantees it comes in.
 - The ordering climb card is 726px on a 720 board with the action strip on.
 - **The clue card covers the phone strip** — on Jeopardy and Blockbusters the cooling
   countdown sits behind the card for exactly the seconds it describes. The precedent is
