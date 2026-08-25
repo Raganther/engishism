@@ -76,13 +76,10 @@
       <label for="word-in">Word</label>
       <input id="word-in" type="text" value="THROW" maxlength="12" autocomplete="off" spellcheck="false">
     </div>
-    <div class="ctl"><label>Gravity</label><input id="s-grav" type="range" min="0" max="2" step="0.05" value="0.9"><span class="val" id="v-grav"></span></div>
-    <div class="ctl"><label>Bounce</label><input id="s-rest" type="range" min="0" max="0.95" step="0.05" value="0.45"><span class="val" id="v-rest"></span></div>
-    <div class="ctl"><label>Air drag</label><input id="s-air" type="range" min="0" max="0.08" step="0.005" value="0.01"><span class="val" id="v-air"></span></div>
-    <div class="ctl"><label>Box size</label><input id="s-size" type="range" min="40" max="140" step="5" value="82"><span class="val" id="v-size"></span></div>
-    <div class="ctl"><label>Swing</label><input id="s-swing" type="range" min="0" max="1" step="0.05" value="0.1"><span class="val" id="v-swing"></span></div>
-    <div class="ctl"><label>Throw power</label><input id="s-pow" type="range" min="0.4" max="3" step="0.1" value="1.3"><span class="val" id="v-pow"></span></div>
-    <div class="ctl"><label>Snap</label><input id="s-snap" type="range" min="0.15" max="0.8" step="0.05" value="0.38"><span class="val" id="v-snap"></span></div>
+    <!-- The physics rows are NOT here: Kit.table.dialsPanel builds them from
+         the shelf's dial registry. This page is the BENCH those dials get
+         tuned on — a number that feels right here is written into the
+         registry once and every caller inherits it. -->
     <button id="btn-reset" type="button">Reset ⟳</button>
   </div>
 
@@ -95,9 +92,9 @@
        Toss round will call. Throw Lab is its first caller — the workshop where the
        feel gets tuned. matter.min.js and hub-table.js live in game-hub/ beside the
        other shelves; hub-kit.js is the object Kit.table hangs off. -->
-  <script src="../game-hub/matter.min.js?v=20260825c"></script>
-  <script src="../game-hub/hub-kit.js?v=20260825c"></script>
-  <script src="../game-hub/hub-table.js?v=20260825c"></script>
+  <script src="../game-hub/matter.min.js?v=20260825d"></script>
+  <script src="../game-hub/hub-kit.js?v=20260825d"></script>
+  <script src="../game-hub/hub-table.js?v=20260825d"></script>
   <script>
   (function(){
     'use strict';
@@ -121,15 +118,10 @@
       status.style.color = res === 'right' ? '#6FB04A' : res === 'wrong' ? '#E2603B' : '';
     }
 
+    /* No feel overrides: the bench must feel exactly like the games it tunes
+       for, so every number comes from the shelf's dial registry. */
     const world = K.table({
       canvas,
-      gravity: +document.getElementById('s-grav').value,
-      restitution: +document.getElementById('s-rest').value,
-      frictionAir: +document.getElementById('s-air').value,
-      size: +document.getElementById('s-size').value,
-      power: +document.getElementById('s-pow').value,
-      swing: +document.getElementById('s-swing').value,
-      snap: (+document.getElementById('s-snap').value) * 1000,
       onArrange(read, done){               // the table reports the arrangement; the caller judges
         const res = done ? (read === target ? 'right' : 'wrong') : null;
         world.setResult(res);
@@ -185,20 +177,12 @@
     canvas.addEventListener('pointerup', endDrag);
     canvas.addEventListener('pointercancel', endDrag);
 
-    /* ---- feel sliders ---- */
-    function bindSlider(id, valId, fmt, apply){
-      const el = document.getElementById(id), out = document.getElementById(valId);
-      function show(){ out.textContent = fmt(+el.value); }
-      el.addEventListener('input', () => { show(); apply(+el.value); });
-      show();
-    }
-    bindSlider('s-grav','v-grav', v => v.toFixed(2),        v => world.setFeel({ gravity:v }));
-    bindSlider('s-rest','v-rest', v => v.toFixed(2),        v => world.setFeel({ restitution:v }));
-    bindSlider('s-air','v-air',   v => v.toFixed(3),        v => world.setFeel({ frictionAir:v }));
-    bindSlider('s-size','v-size', v => v + 'px',            v => { world.setFeel({ size:v }); newWord(); });
-    bindSlider('s-swing','v-swing', v => v.toFixed(2),      v => world.setFeel({ swing:v }));
-    bindSlider('s-pow','v-pow',   v => '×' + v.toFixed(1),  v => world.setFeel({ power:v }));
-    bindSlider('s-snap','v-snap', v => v.toFixed(2) + 's',  v => world.setFeel({ snap: v*1000 }));
+    /* ---- feel sliders: built from the shelf's dial registry ---- */
+    const controls = document.querySelector('.controls');
+    K.table.dialsPanel(controls, world, {
+      onChange(k){ if(k === 'size') newWord(); }   // a new box size wants a fresh scramble
+    });
+    controls.appendChild(document.getElementById('btn-reset'));   // Reset stays last
 
     document.getElementById('btn-reset').addEventListener('click', newWord);
     document.getElementById('word-in').addEventListener('change', newWord);

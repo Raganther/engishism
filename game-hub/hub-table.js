@@ -21,10 +21,13 @@
      addPiece(label, {x,y,vx,vy,spin,hue,shot}), openSides({l,r}),
      read()->string, cells()->string[], filled()->bool, loose(),
      setResult(res[, slotIdx]), slotBox(i), tileSize(),
-     setFeel(partial), resize(), pt(event),
+     setFeel(partial), feel(), resize(), pt(event),
      grab(id,x,y), move(id,x,y), drop(id), heldBy(id), anyHeld(),
      step(), draw()
    }
+   Kit.table.dials is the feel-dial registry (one home for every tuning
+   default); Kit.table.dialsPanel(mount, world, {onChange}) builds a Tune
+   panel from it — see the DIALS table below.
    onExit({ch,hue,side,vx,vy,ny}) fires when a free piece leaves through an
    open side — the throw dynamic's exit door; see openSides.
    onArrange(read, filled) fires whenever a piece docks or is pulled out.
@@ -39,6 +42,42 @@
 
   /* palette for the pieces: distinguishable, high-contrast on dark */
   const HUES = ['#00A0DF','#F5C542','#E2603B','#6FB04A','#B36FD1','#3BB0A8','#E86FA0'];
+
+  /* ---- the feel dials: ONE home for every touch-tuning number ----
+     Each dial declares its default, range, label and print format. makeTable
+     seeds its feel from the defaults (a caller may still override at
+     construction — the toss round's card wants size:64), and the playground
+     Tune panels BUILD themselves from this table via Kit.table.dialsPanel —
+     so a new dial appears on every panel by being declared here, and a tuned
+     value is one edit that every caller inherits (Battle Scrabble, the toss
+     round, join.html's table mode, Throw Lab). The numbers live here in code,
+     never in localStorage: they are developer tuning, and a persisted stale
+     copy would wear the mask of a bug forever (the settings panel's
+     stuck-default trap). Throw Lab is the bench — experiment there on a real
+     device, then write the number that felt right here, once. */
+  const DIALS = [
+    { k:'gravity',     label:'Gravity',     min:0,   max:2,    step:0.05,  def:0.9,  fmt:v => v.toFixed(2) },
+    { k:'restitution', label:'Bounce',      min:0,   max:0.95, step:0.05,  def:0.45, fmt:v => v.toFixed(2) },
+    { k:'frictionAir', label:'Air drag',    min:0,   max:0.08, step:0.005, def:0.01, fmt:v => v.toFixed(3) },
+    /* steps must land on the defaults — a range input SNAPS an off-grid value
+       to the nearest step, and the suite compares slider to feel exactly */
+    { k:'size',        label:'Box size',    min:40,  max:140,  step:2,     def:56,   fmt:v => v + 'px' },
+    /* 0 = rigid (the tile tracks the finger), 1 = loose (dangles from the
+       touch point). Started at 0.4 as the designed charm of the dynamic;
+       0.4 and then 0.25 both read as lag on a real handset, where the finger
+       hides the tile — so the default is OFF and the dial is its trial. */
+    { k:'swing',       label:'Swing',       min:0,   max:1,    step:0.05,  def:0,    fmt:v => v.toFixed(2) },
+    { k:'damping',     label:'Wobble damp', min:0,   max:0.5,  step:0.05,  def:0.15, fmt:v => v.toFixed(2) },
+    /* how far off-centre the grab may pin, as a fraction of the box — the
+       pendulum's arm. 0 recentres every grab under the finger. */
+    { k:'grabArm',     label:'Grab arm',    min:0,   max:0.6,  step:0.05,  def:0.35, fmt:v => '×' + v.toFixed(2) },
+    /* the fat-finger forgiveness: how near a miss still grabs the nearest
+       loose tile, as a fraction of the box */
+    { k:'reach',       label:'Grab reach',  min:0.3, max:1.5,  step:0.1,   def:0.9,  fmt:v => '×' + v.toFixed(1) },
+    { k:'power',       label:'Throw power', min:0.4, max:3,    step:0.1,   def:1.3,  fmt:v => '×' + v.toFixed(1) },
+    { k:'snap',        label:'Snap',        min:150, max:800,  step:10,    def:380,  fmt:v => (v/1000).toFixed(2) + 's' },   // dock glide ms
+    { k:'dock',        label:'Place below', min:2,   max:30,   step:1,     def:8,    fmt:v => String(v) }                    // dock-on-release only below this speed (px/step)
+  ];
 
   const now = () => (window.performance && performance.now) ? performance.now() : Date.now();
   const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
@@ -58,7 +97,11 @@
     const canvas = opts.canvas;
     const ctx = canvas.getContext('2d');
     const engine = Engine.create();
-    engine.gravity.y = opts.gravity != null ? opts.gravity : 0.9;
+    /* Every feel number seeds from the DIALS table above — the one home.
+       A caller's constructor override wins for its own world only. */
+    const feel = {};
+    for(const d of DIALS) feel[d.k] = opts[d.k] != null ? opts[d.k] : d.def;
+    engine.gravity.y = feel.gravity;
     engine.constraintIterations = 6;   // pulls a held piece to the finger harder each frame, so a fast drag lags less
 
     let cssW = 0, cssH = 0, dpr = 1;
@@ -76,15 +119,6 @@
       if(idx){ for(const i of idx){ if(res == null) resultMap.delete(i); else resultMap.set(i, res); } }
       else { result = res; resultMap.clear(); }
     }
-    const feel = {
-      restitution: opts.restitution != null ? opts.restitution : 0.45,
-      frictionAir: opts.frictionAir != null ? opts.frictionAir : 0.01,
-      size:        opts.size != null ? opts.size : 82,
-      power:       opts.power != null ? opts.power : 1.3,
-      swing:       opts.swing != null ? opts.swing : 0.1,   // 0 = rigid (tracks the finger), 1 = loose (dangles). 0.4, then 0.25, both read as lag under a real finger
-      snap:        opts.snap != null ? opts.snap : 380,     // dock glide duration in ms
-      dock:        opts.dock != null ? opts.dock : 8         // dock-on-release only below this speed (px/step)
-    };
     tile = feel.size;            // until the first fit, a tile is its requested size
     // Drag stiffness from the swing dial. Firm enough to track the finger without
     // visible lag; the gravity swing survives because it is the piece pivoting
@@ -439,22 +473,21 @@
       // lurches its far side under the cursor. The off-centre pull makes torque,
       // which is what swings the tile.
       let dx = x - body.position.x, dy = y - body.position.y;
-      /* The arm cap is the pendulum's length. At 0.6 a fat finger on a tile's
-         corner pinned it a whole half-tile off centre, and the tile dangled
-         below the touch point — on a phone the finger then hides the tile and
-         the game reads as "grabbing above the tile". 0.35 keeps the pin near
-         the centre while leaving enough arm for the swing to read. */
-      const maxR = feel.size * 0.35, len = Math.hypot(dx, dy);
+      /* The arm cap is the pendulum's length — the grabArm dial. At 0.6 a fat
+         finger on a tile's corner pinned it a whole half-tile off centre and
+         the tile dangled below the touch point; near the centre the pin
+         tracks. 0 recentres every grab dead under the finger. */
+      const maxR = feel.size * feel.grabArm, len = Math.hypot(dx, dy);
       if(len > maxR){ dx = dx / len * maxR; dy = dy / len * maxR; }
       const anchor = { x: body.position.x + dx, y: body.position.y + dy };
       const constraint = Constraint.create({
         pointA: { x: anchor.x, y: anchor.y }, bodyB: body, pointB: { x: dx, y: dy },
-        /* damping 0.15: enough to settle the pendulum in a beat (0.1 wobbled),
-           low enough not to fight the chase — damping resists the body's
-           velocity toward a MOVING finger, so every extra point here is drag
-           lag. Safe to keep modest now the throw rides the finger's velocity,
+        /* The damping dial: enough settles the pendulum in a beat (0.1
+           wobbled), too much fights the chase — damping resists the body's
+           velocity toward a MOVING finger, so every extra point is drag lag.
+           Safe at modest values now the throw rides the finger's velocity,
            not the damped body's. */
-        stiffness: stiffnessOf(feel.swing), damping: 0.15, length: 0
+        stiffness: stiffnessOf(feel.swing), damping: feel.damping, length: 0
       });
       Composite.add(engine.world, constraint);
       grips.set(id, { body, constraint, fingerStart: { x, y }, anchor,
@@ -468,7 +501,7 @@
         const dx = p.body.position.x - x, dy = p.body.position.y - y, d = dx*dx + dy*dy;
         if(d < bestD){ bestD = d; best = p.body; }
       }
-      const tol = feel.size * 0.9;
+      const tol = feel.size * feel.reach;   // the fat-finger dial
       return (best && bestD <= tol*tol) ? best : null;
     }
     function move(id, x, y){
@@ -604,9 +637,9 @@
           if(next.frictionAir != null) b.body.frictionAir = feel.frictionAir;
         }
       }
-      if(next.swing != null){
+      if(next.swing != null || next.damping != null){
         const k = stiffnessOf(feel.swing);
-        for(const g of grips.values()) g.constraint.stiffness = k;
+        for(const g of grips.values()){ g.constraint.stiffness = k; g.constraint.damping = feel.damping; }
       }
     }
 
@@ -641,11 +674,46 @@
         return { x: (e.clientX - r.left) / sx, y: (e.clientY - r.top) / sy };
       },
       setFeel, resize: sizeToCanvas,
+      /* the current feel, construction overrides included — what a Tune
+         panel seeds its sliders from */
+      feel: () => Object.assign({}, feel),
       grab, move, drop,
       heldBy: id => grips.has(id), anyHeld: () => grips.size > 0,
       step, draw
     };
   }
 
+  /* ---- the Tune panel, built from the dials ----
+     A page hands a mount and its world; one .ctl row per dial appears (the
+     playground pages' own slider styling), seeded from the world's CURRENT
+     feel — construction overrides included — and wired to setFeel. The pages
+     hold no copy of any default: the row count and every number come from
+     DIALS, so a dial declared there grows every panel with nothing edited.
+     opts.onChange(key, value) lets a page react (Battle Scrabble re-deals
+     when the box size moves). */
+  makeTable.dialsPanel = function(mount, world, opts){
+    const f = world.feel();
+    DIALS.forEach(d => {
+      const row = document.createElement('div');
+      row.className = 'ctl'; row.dataset.dial = d.k;
+      const lab = document.createElement('label'); lab.textContent = d.label;
+      const inp = document.createElement('input');
+      inp.type = 'range'; inp.id = 's-' + d.k;
+      inp.min = d.min; inp.max = d.max; inp.step = d.step; inp.value = f[d.k];
+      const out = document.createElement('span');
+      out.className = 'val'; out.id = 'v-' + d.k;
+      const show = v => { out.textContent = d.fmt(v); };
+      inp.addEventListener('input', () => {
+        const v = +inp.value; show(v);
+        const patch = {}; patch[d.k] = v;
+        world.setFeel(patch);
+        if(opts && opts.onChange) opts.onChange(d.k, v);
+      });
+      show(f[d.k]);
+      row.appendChild(lab); row.appendChild(inp); row.appendChild(out);
+      mount.appendChild(row);
+    });
+  };
+  makeTable.dials = DIALS;
   window.HubKit.table = makeTable;
 })();

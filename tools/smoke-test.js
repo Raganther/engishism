@@ -8679,6 +8679,20 @@ async function testBattleScrabble(browser){
   const mB = await short.evaluate(() => window.__bs.world.tileMass());
   check('a tile weighs the same on every screen size', mA > 0 && Math.abs(mA - mB) < 0.01,
         mA.toFixed(3) + ' vs ' + mB.toFixed(3));
+  /* The Tune panel is DERIVED: one slider per dial in the shelf's registry,
+     seeded from the world's live feel — the page repeats no default. A dial
+     declared on the shelf must appear here with nothing edited; a hand-typed
+     slider drifting from the registry is the bug this pins. */
+  check('the Tune panel builds itself from the shelf dial registry',
+        await solo.evaluate(() => {
+          const D = window.HubKit.table.dials, f = window.__bs.world.feel();
+          return D.length >= 10 && D.every(d => {
+            const el = document.getElementById('s-' + d.k);
+            return el && Math.abs(parseFloat(el.value) - f[d.k]) < 1e-6;
+          });
+        }),
+        await solo.evaluate(() =>
+          window.HubKit.table.dials.map(d => d.k + ':' + (document.getElementById('s-' + d.k) || {}).value).join(' ')));
   await short.close();
 
   /* The grid: an across word and a down word sharing their first letter are

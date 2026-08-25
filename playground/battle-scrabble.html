@@ -198,14 +198,9 @@
     <div class="ctl"><label>Multiplier rate</label><input id="s-mrate" type="range" min="0" max="0.5" step="0.05" value="0.15"><span class="val" id="v-mrate"></span></div>
     <div class="ctl"><label>Multiplier max</label><input id="s-mmax" type="range" min="1" max="3" step="0.25" value="2"><span class="val" id="v-mmax"></span></div>
     <div class="ctl"><label>Min vowels</label><input id="s-vow" type="range" min="0" max="4" step="1" value="2"><span class="val" id="v-vow"></span></div>
-    <div class="ctl"><label>Gravity</label><input id="s-grav" type="range" min="0" max="2" step="0.05" value="0.9"><span class="val" id="v-grav"></span></div>
-    <div class="ctl"><label>Bounce</label><input id="s-rest" type="range" min="0" max="0.95" step="0.05" value="0.45"><span class="val" id="v-rest"></span></div>
-    <div class="ctl"><label>Air drag</label><input id="s-air" type="range" min="0" max="0.08" step="0.005" value="0.01"><span class="val" id="v-air"></span></div>
-    <div class="ctl"><label>Box size</label><input id="s-size" type="range" min="40" max="140" step="5" value="56"><span class="val" id="v-size"></span></div>
-    <div class="ctl"><label>Swing</label><input id="s-swing" type="range" min="0" max="1" step="0.05" value="0.1"><span class="val" id="v-swing"></span></div>
-    <div class="ctl"><label>Throw power</label><input id="s-pow" type="range" min="0.4" max="3" step="0.1" value="1.3"><span class="val" id="v-pow"></span></div>
-    <div class="ctl"><label>Snap</label><input id="s-snap" type="range" min="0.15" max="0.8" step="0.05" value="0.38"><span class="val" id="v-snap"></span></div>
-    <div class="ctl"><label>Place below</label><input id="s-dock" type="range" min="2" max="30" step="1" value="8"><span class="val" id="v-dock"></span></div>
+    <!-- The physics rows are NOT here: Kit.table.dialsPanel builds them from
+         the shelf's dial registry, so this page holds no copy of any feel
+         default and a dial declared on the shelf appears here by existing. -->
   </div>
 
   <div class="joinbar" id="joinbar">
@@ -242,11 +237,11 @@
   <!-- Same shelf and same order as Throw Lab: matter.min.js → hub-kit.js (the
        object Kit.table hangs off) → hub-table.js. word-list.js is this page's own
        vendored dictionary — a <script src>, never a fetch, so file:// works. -->
-  <script src="../game-hub/hub-buzzer.js?v=20260825c"></script>
-  <script src="../game-hub/matter.min.js?v=20260825c"></script>
-  <script src="../game-hub/hub-kit.js?v=20260825c"></script>
-  <script src="../game-hub/hub-table.js?v=20260825c"></script>
-  <script src="word-list.js?v=20260825c"></script>
+  <script src="../game-hub/hub-buzzer.js?v=20260825d"></script>
+  <script src="../game-hub/matter.min.js?v=20260825d"></script>
+  <script src="../game-hub/hub-kit.js?v=20260825d"></script>
+  <script src="../game-hub/hub-table.js?v=20260825d"></script>
+  <script src="word-list.js?v=20260825d"></script>
   <script>
   (function(){
     'use strict';
@@ -363,11 +358,10 @@
     const status  = document.getElementById('status');
     const bankBtn = document.getElementById('bank');
 
+    /* No feel overrides: every tuning number comes from the shelf's dial
+       registry (Kit.table.dials), where it has its one home. */
     const world = K.table({
       canvas,
-      gravity: +val('s-grav'), restitution: +val('s-rest'), frictionAir: +val('s-air'),
-      size: +val('s-size'), power: +val('s-pow'), swing: +val('s-swing'),
-      snap: (+val('s-snap')) * 1000, dock: +val('s-dock'),
       onArrange(){ readBoard(); },
       /* a free tile crossed an open side edge: it has been thrown, mid-air,
          at whatever speed it was doing — same wire as a band release */
@@ -890,15 +884,11 @@
     bindSlider('s-mrate','v-mrate', v => '+' + v.toFixed(2) + '/s', null);
     bindSlider('s-mmax','v-mmax',   v => '×' + v.toFixed(2), null);
     bindSlider('s-vow','v-vow',     v => String(v), null);
-    bindSlider('s-grav','v-grav',   v => v.toFixed(2),       v => world.setFeel({ gravity:v }));
-    bindSlider('s-rest','v-rest',   v => v.toFixed(2),       v => world.setFeel({ restitution:v }));
-    bindSlider('s-air','v-air',     v => v.toFixed(3),       v => world.setFeel({ frictionAir:v }));
-    bindSlider('s-size','v-size',   v => v + 'px',           v => { world.setFeel({ size:v }); if(playing) deal([]); });
-    bindSlider('s-swing','v-swing', v => v.toFixed(2),       v => world.setFeel({ swing:v }));
-    bindSlider('s-pow','v-pow',     v => '×' + v.toFixed(1), v => world.setFeel({ power:v }));
-    bindSlider('s-snap','v-snap',   v => v.toFixed(2) + 's', v => world.setFeel({ snap: v*1000 }));
-    // release slower than this and the tile docks; faster and it flies
-    bindSlider('s-dock','v-dock',   v => String(v),          v => world.setFeel({ dock: v }));
+    /* The physics rows build themselves from the shelf's dial registry — one
+       row per dial, wired to setFeel, no defaults repeated on this page. */
+    K.table.dialsPanel(document.querySelector(".controls"), world, {
+      onChange(k){ if(k === 'size' && playing) deal([]); }   // a new box size wants a fresh rain
+    });
 
     /* ---- collapsible controls: folded away by default on a phone ---- */
     const btnTune = document.getElementById('btn-tune');
