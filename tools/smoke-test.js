@@ -8661,14 +8661,14 @@ async function testBattleScrabble(browser){
      The solo page above already runs at PHONES.standard (the realistic
      profile); the second page checks the smallest handset in the roster. */
   check('grid squares stay readable at the standard phone profile',
-        await solo.evaluate(() => window.__bs.world.slotBox(0).w) >= 38,
+        await solo.evaluate(() => window.__bs.world.slotBox(0).w) >= 40,
         String(await solo.evaluate(() => window.__bs.world.slotBox(0).w)));
   const short = await browser.newPage({ viewport:{ width: PHONES.small.w, height: PHONES.small.h } });
   short.__errors = []; short.on('pageerror', e => short.__errors.push(String(e)));
   await short.goto(BASE + '/playground/battle-scrabble.html');
   await short.waitForTimeout(800);
   check('and on the smallest profile in the roster',
-        await short.evaluate(() => window.__bs.world.slotBox(0).w) >= 34,
+        await short.evaluate(() => window.__bs.world.slotBox(0).w) >= 36,
         String(await short.evaluate(() => window.__bs.world.slotBox(0).w)));
   await short.close();
 

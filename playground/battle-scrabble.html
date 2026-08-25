@@ -70,9 +70,15 @@
   .stage{ flex:1 1 auto; position:relative; min-height:0; }
   canvas{ display:block; width:100%; height:100%; touch-action:none; cursor:grab; }
   canvas.grabbing{ cursor:grabbing; }
+  /* The status pill lives at the BOTTOM of the stage, floating over the pile
+     band, so the grid can start at the very top — reserving a header lane for
+     it cost every row 3-4px of square on a real phone. The pile is 1-2 tiles
+     deep at the floor, so the pill floats just above the settled heap. */
   .status{
-    position:absolute; left:14px; top:12px; color:var(--muted); font-size:0.75rem;
-    pointer-events:none; background:rgba(16,19,24,0.6); padding:4px 8px; border-radius:6px;
+    position:absolute; left:50%; bottom:62px; transform:translateX(-50%);
+    color:var(--muted); font-size:0.75rem; text-align:center; white-space:nowrap;
+    max-width:94%; overflow:hidden; text-overflow:ellipsis;
+    pointer-events:none; background:rgba(16,19,24,0.72); padding:4px 10px; border-radius:999px;
   }
   /* The banked-points flash: a reward beat that sells the redeal as a new hand
      rather than as the board being wiped. */
@@ -154,6 +160,18 @@
      see playground/phone-profiles.js) compacts the page chrome, so the height
      goes to the grid and the pile instead of headers. Without this the 8×8's
      squares fell well under the width-driven size on real handsets. */
+  /* A narrow screen (a real handset) gets ONE header row, whatever it costs in
+     button padding — the wrapped second row was ~55px that belonged to the
+     grid: on a 412px Samsung the squares fell to ~33px while the width could
+     carry 43. The board's mirror panels are the look this chases: the grid IS
+     the screen, chrome stays a sliver. */
+  @media (max-width:520px){
+    header{ flex-wrap:nowrap; align-items:center; gap:8px; padding:8px 10px 4px; }
+    h1{ font-size:0.92rem; white-space:nowrap; }
+    h1 small{ display:none; }
+    header button{ font-size:0.72rem; padding:5px 10px; }
+    #roomchip{ font-size:0.68rem; }
+  }
   @media (max-height:780px){
     header{ padding:6px 12px 2px; }
     h1{ font-size:0.95rem; }
@@ -248,7 +266,7 @@
     const LENGTH_BONUS = { 5:3, 6:6, 7:12, 8:20 };   // on top of letter values
     const RACK_SIZE  = 8;
     const COLS = 8, ROWS = 8;      // the grid: words read across AND down
-    const GRID = { cols: COLS, rows: ROWS, top: 36 };   // top: keeps row 0 clear of the status line
+    const GRID = { cols: COLS, rows: ROWS, top: 10 };   // the status pill sits at the stage's bottom, so row 0 owns the top
     const MIN_WORD   = 3;
     const HINT_COUNT = 3;
     /* ========================================================================= */
