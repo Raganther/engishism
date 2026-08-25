@@ -687,7 +687,7 @@ by an explicit `round:'toss'` on a clue (or `?type=r:toss` on the bench); the La
 unit's **L9 category** routes to it, no class-facing unit yet.
 
 **Battle Scrabble — a complete standalone playground game, awaiting its classroom
-run.** Board + phone pages on the phone room; each phone is an 8×8 grid where words
+run.** Board + phone pages on the phone room; each phone is a 7×7 grid where words
 read across and down and BANK cashes every valid word at once; a tile flicked off an
 open side edge **physically travels** to a ring neighbour with its speed, trajectory
 and colour, knocks a slotted letter out on a hard hit, and is theirs to use; each

@@ -8661,14 +8661,14 @@ async function testBattleScrabble(browser){
      The solo page above already runs at PHONES.standard (the realistic
      profile); the second page checks the smallest handset in the roster. */
   check('grid squares stay readable at the standard phone profile',
-        await solo.evaluate(() => window.__bs.world.slotBox(0).w) >= 40,
+        await solo.evaluate(() => window.__bs.world.slotBox(0).w) >= 45,
         String(await solo.evaluate(() => window.__bs.world.slotBox(0).w)));
   const short = await browser.newPage({ viewport:{ width: PHONES.small.w, height: PHONES.small.h } });
   short.__errors = []; short.on('pageerror', e => short.__errors.push(String(e)));
   await short.goto(BASE + '/playground/battle-scrabble.html');
   await short.waitForTimeout(800);
   check('and on the smallest profile in the roster',
-        await short.evaluate(() => window.__bs.world.slotBox(0).w) >= 36,
+        await short.evaluate(() => window.__bs.world.slotBox(0).w) >= 40,
         String(await short.evaluate(() => window.__bs.world.slotBox(0).w)));
   /* Tile MASS is screen-independent: Body.scale scales mass with area, so
      bigger squares on a bigger phone made every tile heavier and the drag
@@ -8688,8 +8688,9 @@ async function testBattleScrabble(browser){
     window.__bs.deal([]);
     const W = window.__bs.world;
     'CATOW'.split('').forEach(ch => W.addPiece(ch, { x: 200, y: 520 }));
+    const C = Math.round(Math.sqrt(W.cells().length));   // the grid's own width — the test follows the page's COLS
     W.place(0, 'C'); W.place(1, 'A'); W.place(2, 'T');   // row 0 across: CAT
-    W.place(8, 'O'); W.place(16, 'W');                   // column 0 down: C-O-W
+    W.place(C, 'O'); W.place(2 * C, 'W');                // column 0 down: C-O-W
     window.__bs.read();
   });
   check('an across word and a down word are both live',
@@ -8702,7 +8703,7 @@ async function testBattleScrabble(browser){
         JSON.stringify({ banked: afterBank.banked, score: afterBank.score }));
 
   /* The dock threshold: a tile carried to a square and released still docks;
-     one released mid-flick flies on — otherwise every throw over the 64-slot
+     one released mid-flick flies on — otherwise every throw over the grid's
      grid was sucked into whatever empty space it passed. Both driven through
      grab/move/drop, the real gesture path. */
   await solo.evaluate(() => {
@@ -8762,7 +8763,11 @@ async function testBattleScrabble(browser){
      time advances normally. The probe tile is found by its unique hue. */
   const fall = await solo.evaluate(() => {
     const W = window.__bs.world;
-    W.addPiece('Y', { x: 350, y: 60, hue: '#0f0f0f' });
+    /* x=200, NOT the right edge: the probe must fall clear to the pile, and
+       the dock check above parked a static J in the grid's rightmost column
+       (slot 20 = row 2, col 6 at 7 wide) — a probe dropped over that column
+       lands on the stack and reads as "never fell". */
+    W.addPiece('Y', { x: 200, y: 60, hue: '#0f0f0f' });
     const at = () => W.loose().find(p => p.hue === '#0f0f0f').y;
     const y0 = at();
     for(let i = 0; i < 30; i++) W.step();

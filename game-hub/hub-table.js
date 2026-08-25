@@ -81,7 +81,7 @@
       frictionAir: opts.frictionAir != null ? opts.frictionAir : 0.01,
       size:        opts.size != null ? opts.size : 82,
       power:       opts.power != null ? opts.power : 1.3,
-      swing:       opts.swing != null ? opts.swing : 0.25,  // 0 = rigid (tracks the finger), 1 = loose (dangles). 0.4 read as unresponsive under a real finger
+      swing:       opts.swing != null ? opts.swing : 0.1,   // 0 = rigid (tracks the finger), 1 = loose (dangles). 0.4, then 0.25, both read as lag under a real finger
       snap:        opts.snap != null ? opts.snap : 380,     // dock glide duration in ms
       dock:        opts.dock != null ? opts.dock : 8         // dock-on-release only below this speed (px/step)
     };
@@ -449,10 +449,12 @@
       const anchor = { x: body.position.x + dx, y: body.position.y + dy };
       const constraint = Constraint.create({
         pointA: { x: anchor.x, y: anchor.y }, bodyB: body, pointB: { x: dx, y: dy },
-        /* damping 0.3, up from 0.1: the swing should settle in a beat, not
-           oscillate under a held finger — the wobble was the drag reading as
-           broken rather than as playful. */
-        stiffness: stiffnessOf(feel.swing), damping: 0.3, length: 0
+        /* damping 0.15: enough to settle the pendulum in a beat (0.1 wobbled),
+           low enough not to fight the chase — damping resists the body's
+           velocity toward a MOVING finger, so every extra point here is drag
+           lag. Safe to keep modest now the throw rides the finger's velocity,
+           not the damped body's. */
+        stiffness: stiffnessOf(feel.swing), damping: 0.15, length: 0
       });
       Composite.add(engine.world, constraint);
       grips.set(id, { body, constraint, fingerStart: { x, y }, anchor,

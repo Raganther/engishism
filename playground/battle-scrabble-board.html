@@ -72,7 +72,10 @@
   .panel .lw.ok{ color:var(--gold); border-color:var(--gold); }
   .panel .cells{
     flex:0 0 auto;
-    display:grid; grid-template-columns:repeat(8, 1fr); gap:3px; margin-top:8px;
+    /* --gcols is set by render() from the grid the phone actually sent — the
+       grid's shape has ONE home, the phone's COLS, and it travels on the wire
+       as the message's length. 7 here is only the pre-first-message default. */
+    display:grid; grid-template-columns:repeat(var(--gcols, 7), 1fr); gap:3px; margin-top:8px;
   }
   .panel .cell{
     aspect-ratio:1; display:flex; align-items:center; justify-content:center;
@@ -122,9 +125,9 @@
     </aside>
   </main>
 
-<script src="../game-hub/hub-buzzer.js?v=20260825b"></script>
-<script src="../game-hub/hub-qr.js?v=20260825b"></script>
-<script src="bench-kit.js?v=20260825b"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260825c"></script>
+<script src="../game-hub/hub-qr.js?v=20260825c"></script>
+<script src="bench-kit.js?v=20260825c"></script>
 <script>
 (function(){
   'use strict';
@@ -140,8 +143,9 @@
          throw: the tile (letter and colour) plus the velocity it left the
          screen with — the tile itself travels to the neighbour
        {"t":"w","q":9,"w":"QUIZ","ok":1}   word in progress (ok = a real word)
-       {"t":"g","q":10,"b":"<64 chars, . = empty>","v":"<16-nibble valid mask>"}
-         the grid, row-major, for the main screen's live mirror
+       {"t":"g","q":10,"b":"<COLS*ROWS chars, . = empty>","v":"<hex valid mask, a nibble per 4 cells>"}
+         the grid, row-major, for the main screen's live mirror — this page
+         derives the grid's shape from b's length, never holds its own
      Down, to one phone via nope():
        {"t":"tile","by":"Maria","d":"L","l":"Q","c":"#F5C542","vx":-14.2,"vy":-3.1,"ny":0.42}
          an incoming tile, routed whole — the receiver spawns it moving as
@@ -230,9 +234,11 @@
           render();
           routeLive(v.id, m);
         } else if(m.t === 'g'){
-          // the player's grid, mirrored live on the main screen
-          pl.grid = String(m.b || '').slice(0, 64);
-          pl.gridV = String(m.v || '').slice(0, 16);
+          // the player's grid, mirrored live on the main screen. The length IS
+          // the shape (render derives cols from it); the relay's 120-char cap
+          // bounds it, the slice is only a guard against a malformed message.
+          pl.grid = String(m.b || '').slice(0, 100);
+          pl.gridV = String(m.v || '').slice(0, 25);
           render();
         }
       }
@@ -345,7 +351,10 @@
   function render(){
     /* One panel per seat, appended once in SEAT ORDER (seats only ever append,
        so DOM order stays ring order and neighbours stand side by side). The
-       64 cells are built once per panel and repainted in place. */
+       cells are built per panel and repainted in place; their COUNT follows
+       the grid the phone sends (length = shape, cols = its square root), so
+       the phone's COLS constant stays the one home and this page needs no
+       edit when the grid changes shape. 49 is only the pre-message default. */
     const box = $('grids');
     box.querySelectorAll('.panel').forEach(el => {
       if(seats.indexOf(el.dataset.id) === -1) el.remove();
@@ -356,7 +365,7 @@
         el = document.createElement('div');
         el.className = 'panel'; el.dataset.id = id;
         el.innerHTML = '<div class="head"><span class="nm"></span><span class="sc"></span></div>' +
-                       '<div class="cells">' + '<span class="cell"></span>'.repeat(64) + '</div>' +
+                       '<div class="cells"></div>' +
                        '<div class="lw"></div>';
         box.appendChild(el);
       }
@@ -367,9 +376,15 @@
       const lw = el.querySelector('.lw');
       lw.textContent = pl.live || (pl.lastWord ? pl.lastWord + ' · ' + pl.words : '');
       lw.classList.toggle('ok', !!pl.liveOk && !!pl.live);
-      const cells = el.querySelectorAll('.cell');
       const g = pl.grid || '', mask = pl.gridV || '';
-      for(let i = 0; i < 64; i++){
+      const n = g.length || 49;
+      const cellBox = el.querySelector('.cells');
+      if(cellBox.childElementCount !== n){
+        cellBox.innerHTML = '<span class="cell"></span>'.repeat(n);
+        cellBox.style.setProperty('--gcols', String(Math.round(Math.sqrt(n))));
+      }
+      const cells = cellBox.querySelectorAll('.cell');
+      for(let i = 0; i < n; i++){
         const ch = g[i] && g[i] !== '.' ? g[i] : '';
         if(cells[i].textContent !== ch) cells[i].textContent = ch;
         cells[i].classList.toggle('on', !!ch);
