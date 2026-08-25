@@ -8762,7 +8762,13 @@ async function testBattleScrabble(browser){
 
   /* A knock DURING the dock glide: the knock frees the slot while the tween
      still runs, and a tick on slots[null] threw — which killed the page's
-     whole rAF loop, freezing the game with no error on screen. */
+     whole rAF loop, freezing the game with no error on screen. The shelf now
+     defends in depth (the knock clears the tween, the tick guards its slot,
+     step() recovers from any throw and SAYS so on the console) — so the
+     check listens for both pageerrors and the recovery log: a clean run has
+     neither, and the loop keeps ticking. */
+  const conErrs = [];
+  solo.on('console', m => { if(m.type() === 'error') conErrs.push(m.text()); });
   const errsBefore = solo.__errors.length;
   await solo.evaluate(async () => {
     const W = window.__bs.world;
@@ -8783,8 +8789,32 @@ async function testBattleScrabble(browser){
     return W.loose().find(z => z.hue === '#118811').y - y0;
   });
   check('a knock during the dock glide leaves the physics loop alive',
-        solo.__errors.length === errsBefore && stillFalling > 50,
-        JSON.stringify({ errs: solo.__errors.slice(errsBefore).join('|'), fell: Math.round(stillFalling) }));
+        solo.__errors.length === errsBefore && conErrs.length === 0 && stillFalling > 50,
+        JSON.stringify({ errs: solo.__errors.slice(errsBefore).join('|'),
+                         con: conErrs.join('|').slice(0, 90), fell: Math.round(stillFalling) }));
+
+  /* Docked means CENTRED, enforced rather than trusted: real handsets have
+     shown docked tiles stranded a few px off their slots (a frozen loop was
+     one cause; a classroom screenshot proved at least one more). Displace a
+     docked body directly — standing in for whatever strands one — and the
+     re-seat sweep must put it back on centre within a beat. */
+  await solo.evaluate(() => {
+    const W = window.__bs.world;
+    W.addPiece('Z', { x: 200, y: 500 });
+    W.place(30, 'Z');
+    W._nudgeDocked(30);
+  });
+  const nudged = await solo.evaluate(() => {
+    const W = window.__bs.world, s = W.slotBox(30), b = W.pieceAt(30);
+    return Math.round(Math.hypot(b.x - s.x, b.y - s.y));
+  });
+  await solo.waitForTimeout(700);
+  const reseated = await solo.evaluate(() => {
+    const W = window.__bs.world, s = W.slotBox(30), b = W.pieceAt(30);
+    return +Math.hypot(b.x - s.x, b.y - s.y).toFixed(2);
+  });
+  check('a docked tile that drifts off its slot is re-seated on centre',
+        nudged >= 7 && reseated < 0.5, JSON.stringify({ nudged, reseated }));
 
   /* The grid: an across word and a down word sharing their first letter are
      both live at once, and one BANK press cashes the pair. The letters are

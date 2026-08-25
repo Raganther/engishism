@@ -451,6 +451,10 @@
       const t = now();
       for(const b of pieces){
         const dk = b.dock; if(!dk) continue;
+        /* a glide whose slot is gone (knocked out, rebuilt, any race) must
+           DIE, not dereference slots[null] — that throw killed the page's
+           whole rAF loop once, silently */
+        if(b.slot == null || !slots[b.slot]){ b.dock = null; continue; }
         let raw = (t - dk.t0) / dk.dur; if(raw > 1) raw = 1;
         const e = raw*raw*raw*(raw*(raw*6 - 15) + 10);   // smootherstep — a soft magnetic pull
         dk.p = e;
@@ -614,6 +618,19 @@
     const STEP_MS = 1000/60;
     let stepLast = 0, stepAcc = 0;
     function step(){
+      /* One throw in here killed the caller's whole rAF loop once — the page
+         froze mid-glide with tiles stranded off their slots and no error
+         anywhere. The loop must survive any single bad state: log it, drop
+         every glide (the known killer), and let the re-seat sweep put docked
+         tiles back on centre. */
+      try{ stepBody(); }
+      catch(e){
+        if(stepFails++ < 3) console.error('Kit.table step failed (recovering):', e);
+        for(const p of pieces) p.dock = null;
+      }
+    }
+    let stepFails = 0;
+    function stepBody(){
       const t = now();
       if(!stepLast) stepLast = t - STEP_MS;   // first call runs exactly one update
       stepAcc += t - stepLast;
@@ -646,6 +663,18 @@
        rain and real throws cross the grid at speed. */
     let lastSweep = 0;
     function sweepResters(){
+      /* The re-seat: DOCKED MEANS CENTRED, enforced rather than trusted.
+         Real handsets have produced docked tiles stranded a few px off their
+         slot (a frozen loop was one cause; a classroom screenshot proved at
+         least one more) — whatever moved them, a settled docked tile that
+         has drifted more than a pixel is put back on its centre. Gliding
+         tiles are mid-tween and left to arrive. */
+      for(const s of slots){
+        if(!s.piece || s.piece.dock) continue;
+        const b = s.piece.body;
+        if(Math.abs(b.position.x - s.x) > 1 || Math.abs(b.position.y - s.y) > 1)
+          Body.setPosition(b, { x: s.x, y: s.y });
+      }
       if(!grid) return;
       const held = heldBodies();
       for(const p of pieces){
@@ -731,6 +760,9 @@
          suite asserts the two agree */
       pieceAt: i => (slots[i] && slots[i].piece)
         ? { x: slots[i].piece.body.position.x, y: slots[i].piece.body.position.y } : null,
+      /* suite-only: displace a docked body off its slot, standing in for
+         whatever strands one in the wild — the re-seat sweep must undo it */
+      _nudgeDocked: i => { const s = slots[i]; if(s && s.piece) Body.setPosition(s.piece.body, { x: s.x + 6, y: s.y + 5 }); },
       tileSize: () => tile,
       /* a loose tile's mass — the suite pins that it is the same on every
          screen size, because the drag spring is tuned against it */
