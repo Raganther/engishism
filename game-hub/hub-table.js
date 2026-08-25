@@ -81,16 +81,20 @@
        0.4 and then 0.25 both read as lag on a real handset, where the finger
        hides the tile — so the default is OFF and the dial is its trial. */
     { k:'swing',       label:'Swing',       min:0,   max:1,    step:0.05,  def:0,    fmt:v => v.toFixed(2) },
-    { k:'damping',     label:'Wobble damp', min:0,   max:0.5,  step:0.05,  def:0.15, fmt:v => v.toFixed(2) },
+    /* damping 0, grabArm 0, reach 1.5, snap 200, dock 14: the first real
+       phone-tuned feel, saved on the bench 2026-08-25 — a fully rigid grab
+       centred dead under the finger, maximum fat-finger reach, quick docks,
+       forgiving placement. */
+    { k:'damping',     label:'Wobble damp', min:0,   max:0.5,  step:0.05,  def:0,    fmt:v => v.toFixed(2) },
     /* how far off-centre the grab may pin, as a fraction of the box — the
        pendulum's arm. 0 recentres every grab under the finger. */
-    { k:'grabArm',     label:'Grab arm',    min:0,   max:0.6,  step:0.05,  def:0.35, fmt:v => '×' + v.toFixed(2) },
+    { k:'grabArm',     label:'Grab arm',    min:0,   max:0.6,  step:0.05,  def:0,    fmt:v => '×' + v.toFixed(2) },
     /* the fat-finger forgiveness: how near a miss still grabs the nearest
        loose tile, as a fraction of the box */
-    { k:'reach',       label:'Grab reach',  min:0.3, max:1.5,  step:0.1,   def:0.9,  fmt:v => '×' + v.toFixed(1) },
+    { k:'reach',       label:'Grab reach',  min:0.3, max:1.5,  step:0.1,   def:1.5,  fmt:v => '×' + v.toFixed(1) },
     { k:'power',       label:'Throw power', min:0.4, max:3,    step:0.1,   def:1.3,  fmt:v => '×' + v.toFixed(1) },
-    { k:'snap',        label:'Snap',        min:150, max:800,  step:10,    def:380,  fmt:v => (v/1000).toFixed(2) + 's' },   // dock glide ms
-    { k:'dock',        label:'Place below', min:2,   max:30,   step:1,     def:8,    fmt:v => String(v) }                    // dock-on-release only below this speed (px/step)
+    { k:'snap',        label:'Snap',        min:150, max:800,  step:10,    def:200,  fmt:v => (v/1000).toFixed(2) + 's' },   // dock glide ms
+    { k:'dock',        label:'Place below', min:2,   max:30,   step:1,     def:14,   fmt:v => String(v) }                    // dock-on-release only below this speed (px/step)
   ];
 
   const now = () => (window.performance && performance.now) ? performance.now() : Date.now();
