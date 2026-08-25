@@ -8670,6 +8670,15 @@ async function testBattleScrabble(browser){
   check('and on the smallest profile in the roster',
         await short.evaluate(() => window.__bs.world.slotBox(0).w) >= 36,
         String(await short.evaluate(() => window.__bs.world.slotBox(0).w)));
+  /* Tile MASS is screen-independent: Body.scale scales mass with area, so
+     bigger squares on a bigger phone made every tile heavier and the drag
+     spring — tuned once — sagged and wobbled under a finger. normalizeMass
+     pins every loose tile to a 34px tile's weight; these two pages have
+     different square sizes, so equal masses prove the pin. */
+  const mA = await solo.evaluate(() => window.__bs.world.tileMass());
+  const mB = await short.evaluate(() => window.__bs.world.tileMass());
+  check('a tile weighs the same on every screen size', mA > 0 && Math.abs(mA - mB) < 0.01,
+        mA.toFixed(3) + ' vs ' + mB.toFixed(3));
   await short.close();
 
   /* The grid: an across word and a down word sharing their first letter are

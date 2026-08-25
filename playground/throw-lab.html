@@ -80,7 +80,7 @@
     <div class="ctl"><label>Bounce</label><input id="s-rest" type="range" min="0" max="0.95" step="0.05" value="0.45"><span class="val" id="v-rest"></span></div>
     <div class="ctl"><label>Air drag</label><input id="s-air" type="range" min="0" max="0.08" step="0.005" value="0.01"><span class="val" id="v-air"></span></div>
     <div class="ctl"><label>Box size</label><input id="s-size" type="range" min="40" max="140" step="5" value="82"><span class="val" id="v-size"></span></div>
-    <div class="ctl"><label>Swing</label><input id="s-swing" type="range" min="0" max="1" step="0.05" value="0.4"><span class="val" id="v-swing"></span></div>
+    <div class="ctl"><label>Swing</label><input id="s-swing" type="range" min="0" max="1" step="0.05" value="0.25"><span class="val" id="v-swing"></span></div>
     <div class="ctl"><label>Throw power</label><input id="s-pow" type="range" min="0.4" max="3" step="0.1" value="1.3"><span class="val" id="v-pow"></span></div>
     <div class="ctl"><label>Snap</label><input id="s-snap" type="range" min="0.15" max="0.8" step="0.05" value="0.38"><span class="val" id="v-snap"></span></div>
     <button id="btn-reset" type="button">Reset ⟳</button>
@@ -95,9 +95,9 @@
        Toss round will call. Throw Lab is its first caller — the workshop where the
        feel gets tuned. matter.min.js and hub-table.js live in game-hub/ beside the
        other shelves; hub-kit.js is the object Kit.table hangs off. -->
-  <script src="../game-hub/matter.min.js?v=20260824a"></script>
-  <script src="../game-hub/hub-kit.js?v=20260824a"></script>
-  <script src="../game-hub/hub-table.js?v=20260824a"></script>
+  <script src="../game-hub/matter.min.js?v=20260825a"></script>
+  <script src="../game-hub/hub-kit.js?v=20260825a"></script>
+  <script src="../game-hub/hub-table.js?v=20260825a"></script>
   <script>
   (function(){
     'use strict';
@@ -164,7 +164,7 @@
     (function loop(){ world.step(); world.draw(); requestAnimationFrame(loop); })();
 
     /* ---- pointer -> grab / move / drop (canvas-space coords) ---- */
-    function pt(e){ const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+    const pt = e => world.pt(e);   // the shelf maps a touch through the painted/natural ratio
     canvas.addEventListener('pointerdown', e => {
       const p = pt(e);
       if(world.grab(e.pointerId, p.x, p.y)){

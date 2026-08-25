@@ -21,7 +21,7 @@
      addPiece(label, {x,y,vx,vy,spin,hue,shot}), openSides({l,r}),
      read()->string, cells()->string[], filled()->bool, loose(),
      setResult(res[, slotIdx]), slotBox(i), tileSize(),
-     setFeel(partial), resize(),
+     setFeel(partial), resize(), pt(event),
      grab(id,x,y), move(id,x,y), drop(id), heldBy(id), anyHeld(),
      step(), draw()
    }
@@ -81,7 +81,7 @@
       frictionAir: opts.frictionAir != null ? opts.frictionAir : 0.01,
       size:        opts.size != null ? opts.size : 82,
       power:       opts.power != null ? opts.power : 1.3,
-      swing:       opts.swing != null ? opts.swing : 0.4,   // 0 = rigid (tracks the finger), 1 = loose (dangles)
+      swing:       opts.swing != null ? opts.swing : 0.25,  // 0 = rigid (tracks the finger), 1 = loose (dangles). 0.4 read as unresponsive under a real finger
       snap:        opts.snap != null ? opts.snap : 380,     // dock glide duration in ms
       dock:        opts.dock != null ? opts.dock : 8         // dock-on-release only below this speed (px/step)
     };
@@ -133,6 +133,19 @@
         for(const p of pieces) Body.scale(p.body, f, f);
       }
       tile = nt;
+      for(const p of pieces) normalizeMass(p.body);
+    }
+    /* Every tile weighs what a 34px tile weighs, whatever size the layout dealt —
+       34px at the build density 0.0016 is where the drag feel was last tuned (the
+       classroom-photos build). Body.scale scales mass with AREA, so when the grid
+       fix grew a phone's tiles from 33px to 43px every tile got 1.7x heavier — and
+       the drag spring, tuned on the lighter tiles, sagged and swung: the tile hung
+       visibly below the finger and wobbled. Same rule as the wall-clock step and
+       the fixed pile band: the feel numbers must not depend on what screen the
+       game landed on. Static (docked) tiles are skipped — their mass is pinned by
+       setStatic, and they re-normalize on the next fit once knocked loose. */
+    function normalizeMass(b){
+      if(!b.isStatic && b.area > 0) Body.setDensity(b, 0.0016 * (34 * 34) / b.area);
     }
     /* The sides can OPEN — the throw dynamic's exit doors. With a side open its
        wall is simply not built, a piece that crosses that edge leaves the world,
@@ -234,6 +247,7 @@
         friction: 0.3, density: 0.0016
       });
       if(tile !== s) Body.scale(body, tile / s, tile / s);
+      normalizeMass(body);   // addPiece never passes fitTiles, so weigh it here
       Body.setVelocity(body, { x: o.vx || 0, y: o.vy || 0 });
       Body.setAngularVelocity(body, clamp(o.spin || 0, -1, 1));
       /* A shot arrival gets a short hold too — without it a tile entering at
@@ -425,12 +439,20 @@
       // lurches its far side under the cursor. The off-centre pull makes torque,
       // which is what swings the tile.
       let dx = x - body.position.x, dy = y - body.position.y;
-      const maxR = feel.size * 0.6, len = Math.hypot(dx, dy);
+      /* The arm cap is the pendulum's length. At 0.6 a fat finger on a tile's
+         corner pinned it a whole half-tile off centre, and the tile dangled
+         below the touch point — on a phone the finger then hides the tile and
+         the game reads as "grabbing above the tile". 0.35 keeps the pin near
+         the centre while leaving enough arm for the swing to read. */
+      const maxR = feel.size * 0.35, len = Math.hypot(dx, dy);
       if(len > maxR){ dx = dx / len * maxR; dy = dy / len * maxR; }
       const anchor = { x: body.position.x + dx, y: body.position.y + dy };
       const constraint = Constraint.create({
         pointA: { x: anchor.x, y: anchor.y }, bodyB: body, pointB: { x: dx, y: dy },
-        stiffness: stiffnessOf(feel.swing), damping: 0.1, length: 0
+        /* damping 0.3, up from 0.1: the swing should settle in a beat, not
+           oscillate under a held finger — the wobble was the drag reading as
+           broken rather than as playful. */
+        stiffness: stiffnessOf(feel.swing), damping: 0.3, length: 0
       });
       Composite.add(engine.world, constraint);
       grips.set(id, { body, constraint, fingerStart: { x, y }, anchor,
@@ -589,6 +611,22 @@
          at real coordinates (the suite fires its test shots at a slot's row) */
       slotBox: i => slots[i] ? { x: slots[i].x, y: slots[i].y, w: slots[i].w } : null,
       tileSize: () => tile,
+      /* a loose tile's mass — the suite pins that it is the same on every
+         screen size, because the drag spring is tuned against it */
+      tileMass: () => { const p = pieces.find(q => !q.body.isStatic); return p ? p.body.mass : 0; },
+      /* Client event -> this canvas's NATURAL coordinate space. The canvas can be
+         painted at another size than its layout box (the scaled clue card), or the
+         layout box can drift from what a finger actually touches on a real phone
+         (browser zoom, font scaling, pinch) — either way the painted/natural ratio
+         maps the touch back onto the physics, and a raw clientX-rect offset lands
+         the grab ABOVE the tile, worst at the bottom of a stretched canvas. Four
+         callers each wrote this mapping; two of them wrote it without the ratio,
+         which is that bug. The shelf is its one home now. */
+      pt: e => {
+        const r = canvas.getBoundingClientRect();
+        const sx = (r.width / canvas.offsetWidth) || 1, sy = (r.height / canvas.offsetHeight) || 1;
+        return { x: (e.clientX - r.left) / sx, y: (e.clientY - r.top) / sy };
+      },
       setFeel, resize: sizeToCanvas,
       grab, move, drop,
       heldBy: id => grips.has(id), anyHeld: () => grips.size > 0,

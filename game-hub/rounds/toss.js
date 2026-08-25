@@ -141,13 +141,9 @@
       table.setPieces(s.pieces);
       table.slots(s.word.length);
 
-      // Pointer → table, converting client coords into the canvas's NATURAL space:
-      // the card is scaled, so divide the painted offset by the painted/natural ratio.
-      function pt(e){
-        const r = canvas.getBoundingClientRect();
-        const scale = (r.width / canvas.offsetWidth) || 1;
-        return { x: (e.clientX - r.left) / scale, y: (e.clientY - r.top) / scale };
-      }
+      // Pointer → table: the shelf maps client coords into the canvas's NATURAL
+      // space (the card is scaled, so the painted/natural ratio divides out).
+      const pt = e => table.pt(e);
       canvas.addEventListener('pointerdown', e => {
         const p = pt(e);
         if(table.grab(e.pointerId, p.x, p.y)) canvas.setPointerCapture(e.pointerId);
