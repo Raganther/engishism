@@ -352,6 +352,7 @@
         const v = shot.body.velocity;
         if(Math.hypot(v.x, v.y) < KNOCK_MIN) continue;
         freeSlotOf(hit);
+        hit.dock = null;   // a tile knocked MID-GLIDE keeps no tween: its slot is gone, and a tick on slots[null] threw
         Body.setStatic(hit.body, false);
         Body.setVelocity(hit.body, { x: v.x * 0.6, y: v.y * 0.6 - 2 });
         shot.shot = 0;
@@ -631,6 +632,34 @@
       }
       tickDocks();
       tickExits();
+      if(t - lastSweep > 250){ lastSweep = t; sweepResters(); }
+    }
+    /* A loose tile may never come to REST inside the grid. Settled flat on a
+       docked tile — a slow release onto a full cell, or a thrown tile that
+       petered out on a formed word — it sits a few px off a cell centre and
+       reads as a broken dock (a classroom screenshot showed a word column
+       wearing two such imposters). A slow loose tile lying on an occupied
+       cell gets a firm kick toward the board's centre — deliberately INWARD,
+       never toward an open side, or the kick itself would gift the tile to a
+       neighbour — and tumbles home to the pile, where loose tiles live. Held
+       tiles, gliding docks, and anything still moving are left alone: the
+       rain and real throws cross the grid at speed. */
+    let lastSweep = 0;
+    function sweepResters(){
+      if(!grid) return;
+      const held = heldBodies();
+      for(const p of pieces){
+        if(p.slot != null || p.dock || p.body.isStatic || held.has(p.body)) continue;
+        const b = p.body;
+        if(Math.hypot(b.velocity.x, b.velocity.y) > 0.5) continue;
+        const onWord = slots.some(s => s.piece &&
+          Math.abs(b.position.x - s.x) < s.w * 0.75 &&
+          b.position.y < s.y && s.y - b.position.y < s.w * 1.4);
+        if(onWord){
+          Body.setVelocity(b, { x: b.position.x < cssW/2 ? 4 : -4, y: 1 });
+          Body.setAngularVelocity(b, 0.12);
+        }
+      }
     }
     function draw(){
       ctx.clearRect(0, 0, cssW, cssH);
@@ -697,6 +726,11 @@
       /* slot geometry + the fitted tile size, for callers that aim or assert
          at real coordinates (the suite fires its test shots at a slot's row) */
       slotBox: i => slots[i] ? { x: slots[i].x, y: slots[i].y, w: slots[i].w } : null,
+      /* the docked piece's BODY centre for slot i — a docked tile must sit
+         dead on its slot centre whatever happened on the way in, and the
+         suite asserts the two agree */
+      pieceAt: i => (slots[i] && slots[i].piece)
+        ? { x: slots[i].piece.body.position.x, y: slots[i].piece.body.position.y } : null,
       tileSize: () => tile,
       /* a loose tile's mass — the suite pins that it is the same on every
          screen size, because the drag spring is tuned against it */

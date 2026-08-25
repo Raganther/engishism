@@ -8733,6 +8733,59 @@ async function testBattleScrabble(browser){
         await solo.evaluate(() => window.__bs.world.loose().length) === looseBefore,
         JSON.stringify({ before: looseBefore, open: drawerOpen }));
 
+  /* A loose tile may never REST inside the grid: settled flat on a docked
+     tile it sits a few px off the cell centre and reads as a broken dock —
+     a classroom screenshot showed a word column wearing two such imposters.
+     Deterministic: mint a tile lying exactly on top of a docked one; the
+     sweep must kick it inward and it tumbles home to the pile. */
+  await solo.evaluate(() => {
+    window.__bs.deal([]);
+    const W = window.__bs.world;
+    W.addPiece('K', { x: 200, y: 500 });
+    W.place(16, 'K');
+    const s = W.slotBox(16);
+    W.addPiece('V', { x: s.x, y: s.y - s.w, hue: '#111199' });
+  });
+  await solo.waitForTimeout(1800);
+  const imposter = await solo.evaluate(() => {
+    const W = window.__bs.world;
+    const q = W.loose().find(z => z.hue === '#111199');
+    const last = W.cells().length - 1;
+    /* out of the CELLS is the bar — below the last row's bottom edge. The
+       pile heap can stack 2-3 tiles high by this point in the suite, so
+       "a full tile below the grid" was stricter than the pile itself. */
+    return { y: q ? q.y : -1,
+             cellsBottom: Math.round(W.slotBox(last).y + W.slotBox(last).w / 2 + 2) };
+  });
+  check('a loose tile cannot rest on the grid — it tumbles to the pile',
+        imposter.y > imposter.cellsBottom, JSON.stringify(imposter));
+
+  /* A knock DURING the dock glide: the knock frees the slot while the tween
+     still runs, and a tick on slots[null] threw — which killed the page's
+     whole rAF loop, freezing the game with no error on screen. */
+  const errsBefore = solo.__errors.length;
+  await solo.evaluate(async () => {
+    const W = window.__bs.world;
+    const s = W.slotBox(20);
+    W.addPiece('G', { x: s.x, y: s.y + 90 });
+    W.grab(87, s.x, s.y + 90);
+    W.move(87, s.x, s.y);
+    await new Promise(r => setTimeout(r, 400));   // settle over the slot; the finger track goes stale = a slow release
+    W.drop(87);                                    // the 0.2s glide starts
+    W.addPiece('S', { x: s.x - 120, y: s.y, vx: 30, vy: 0, shot: true });   // lands its hit inside the glide
+  });
+  await solo.waitForTimeout(800);
+  const stillFalling = await solo.evaluate(async () => {
+    const W = window.__bs.world;
+    W.addPiece('Y', { x: 60, y: 60, hue: '#118811' });
+    const y0 = W.loose().find(z => z.hue === '#118811').y;
+    await new Promise(r => setTimeout(r, 500));
+    return W.loose().find(z => z.hue === '#118811').y - y0;
+  });
+  check('a knock during the dock glide leaves the physics loop alive',
+        solo.__errors.length === errsBefore && stillFalling > 50,
+        JSON.stringify({ errs: solo.__errors.slice(errsBefore).join('|'), fell: Math.round(stillFalling) }));
+
   /* The grid: an across word and a down word sharing their first letter are
      both live at once, and one BANK press cashes the pair. The letters are
      minted with addPiece so the check does not depend on the random rack. */
