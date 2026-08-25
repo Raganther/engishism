@@ -120,27 +120,33 @@
   #roomchip{ font-size:0.72rem; color:var(--muted); white-space:nowrap; align-self:center; }
   #roomchip b{ color:var(--accent); letter-spacing:0.1em; }
 
-  /* The neighbour tags: slim vertical labels at the side edges — WHO you are
-     throwing at, and the word they are spelling right now (lit when it is a
-     real word, so you know who to target). Not a drop target: the whole edge
-     is open and only a tile that actually flies out travels, so these carry
-     no border and steal no pointer. */
+  /* The neighbour tags: WHO each open edge throws at, and the word they are
+     spelling right now — gold once it is a real word, so you know who to
+     target. They were slim vertical labels on the side edges until the 7×7
+     made the grid edge-to-edge and buried them under the outer tile columns:
+     grey text on coloured tiles, invisible. Now they are pills in the lower
+     corners — left pill = left throw edge — floating over the pile band's
+     mostly-empty upper half, above the status pill. Not a drop target: the
+     whole edge is open and only a tile that actually flies out travels, so
+     they steal no pointer. */
   .nbtag{
-    position:absolute; top:50%; transform:translateY(-50%); display:none;
-    flex-direction:column; align-items:center; gap:8px; max-height:88%;
+    position:absolute; bottom:94px; display:none; align-items:baseline; gap:7px;
+    max-width:46%; padding:4px 10px; border-radius:999px;
+    background:rgba(16,19,24,0.82); border:1px solid var(--border);
     pointer-events:none; color:var(--muted);
-    font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em;
+    font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em;
   }
   .nbtag.on{ display:flex; }
   .nbtag.dim{ opacity:0.3; }
-  .nbtag b, .nbtag .nbword{ writing-mode:vertical-rl; overflow:hidden; }
-  .nbtag b{ font-size:0.8rem; max-height:34vh; }
+  .nbtag b{ font-size:0.7rem; white-space:nowrap; }
   .nbtag .nbword{
-    font-size:0.86rem; font-weight:800; letter-spacing:0.14em; max-height:38vh;
+    font-size:0.9rem; font-weight:800; letter-spacing:0.14em;
     color:var(--text); opacity:0.55;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
+  .nbtag.lit{ border-color:var(--gold); }
   .nbtag.lit .nbword{ color:var(--gold); opacity:1; }
-  #nb-l{ left:4px; } #nb-r{ right:4px; }
+  #nb-l{ left:6px; } #nb-r{ right:6px; }
 
   @keyframes bs-shake{
     0%,100%{ transform:translate(0,0); } 20%{ transform:translate(-9px,3px); }

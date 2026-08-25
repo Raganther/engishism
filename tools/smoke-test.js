@@ -8746,19 +8746,20 @@ async function testBattleScrabble(browser){
     const s = W.slotBox(16);
     W.addPiece('V', { x: s.x, y: s.y - s.w, hue: '#111199' });
   });
-  await solo.waitForTimeout(1800);
-  const imposter = await solo.evaluate(() => {
+  /* until(), not a fixed wait: the imposter must SETTLE on the docked tile
+     (its bounces decay for ~a second) before the sweep sees it as resting,
+     then fall clear — a fixed sample raced that chain and once caught the
+     tile mid-fall. Out of the CELLS is the bar — below the last row's bottom
+     edge; the pile heap can stack 2-3 tiles high by this point, so "a full
+     tile below the grid" was stricter than the pile itself. */
+  const imposterGone = await until(async () => await solo.evaluate(() => {
     const W = window.__bs.world;
     const q = W.loose().find(z => z.hue === '#111199');
     const last = W.cells().length - 1;
-    /* out of the CELLS is the bar — below the last row's bottom edge. The
-       pile heap can stack 2-3 tiles high by this point in the suite, so
-       "a full tile below the grid" was stricter than the pile itself. */
-    return { y: q ? q.y : -1,
-             cellsBottom: Math.round(W.slotBox(last).y + W.slotBox(last).w / 2 + 2) };
-  });
-  check('a loose tile cannot rest on the grid — it tumbles to the pile',
-        imposter.y > imposter.cellsBottom, JSON.stringify(imposter));
+    return !!q && q.y > W.slotBox(last).y + W.slotBox(last).w / 2 + 2;
+  }), 6000);
+  check('a loose tile cannot rest on the grid — it tumbles to the pile', imposterGone,
+        await solo.evaluate(() => JSON.stringify(window.__bs.world.loose().find(z => z.hue === '#111199'))));
 
   /* A knock DURING the dock glide: the knock frees the slot while the tween
      still runs, and a tick on slots[null] threw — which killed the page's
@@ -8798,14 +8799,14 @@ async function testBattleScrabble(browser){
      one cause; a classroom screenshot proved at least one more). Displace a
      docked body directly — standing in for whatever strands one — and the
      re-seat sweep must put it back on centre within a beat. */
-  await solo.evaluate(() => {
+  /* nudge and measure in ONE evaluate — the sweep runs on the page's rAF and
+     can re-seat between two separate evaluates, which read as "never nudged" */
+  const nudged = await solo.evaluate(() => {
     const W = window.__bs.world;
     W.addPiece('Z', { x: 200, y: 500 });
     W.place(30, 'Z');
     W._nudgeDocked(30);
-  });
-  const nudged = await solo.evaluate(() => {
-    const W = window.__bs.world, s = W.slotBox(30), b = W.pieceAt(30);
+    const s = W.slotBox(30), b = W.pieceAt(30);
     return Math.round(Math.hypot(b.x - s.x, b.y - s.y));
   });
   await solo.waitForTimeout(700);
