@@ -479,18 +479,19 @@
       g.hist.push({ x, y, t: now() });
       if(g.hist.length > 8) g.hist.shift();
     }
-    /* How fast the FINGER was moving at release, in px per physics step.
-       Matter's constraint solver moves a dragged body positionally, so the
-       body's own velocity under-reports even a violent flick — the finger
-       track is the honest gesture signal. Only the last ~120ms count: a drag
-       that pauses over a slot before letting go reads as stationary. */
-    function gripSpeed(g){
+    /* How the FINGER was moving at release, as a velocity vector in px per
+       physics step. Matter's constraint solver moves a dragged body
+       positionally — and the drag damper brakes it besides — so the body's
+       own velocity under-reports even a violent flick: the finger track is
+       the honest gesture signal. Only the last ~120ms count: a drag that
+       pauses over a slot before letting go reads as stationary. */
+    function gripVel(g){
       const cut = now() - 120;
       const h = (g.hist || []).filter(e => e.t >= cut);
-      if(h.length < 2) return 0;
+      if(h.length < 2) return { x: 0, y: 0 };
       const a = h[0], z = h[h.length - 1];
-      const dt = Math.max(8, z.t - a.t);
-      return Math.hypot(z.x - a.x, z.y - a.y) / dt * (1000 / 60);
+      const k = (1000 / 60) / Math.max(8, z.t - a.t);
+      return { x: (z.x - a.x) * k, y: (z.y - a.y) * k };
     }
     function drop(id){
       const g = grips.get(id);
@@ -502,12 +503,21 @@
          mid-flick is a throw, and sucking it into whichever empty slot it
          happened to pass over turned every throw over a grid into an
          accidental placement. feel.dock is the boundary; the speed is the
-         larger of the body's and the finger's (see gripSpeed). */
-      const speed = Math.max(Math.hypot(b.velocity.x, b.velocity.y), gripSpeed(g));
+         larger of the body's and the finger's (see gripVel). */
+      const fv = gripVel(g);
+      const fSpeed = Math.hypot(fv.x, fv.y), bSpeed = Math.hypot(b.velocity.x, b.velocity.y);
+      const speed = Math.max(bSpeed, fSpeed);
       const near = speed < feel.dock ? slotNear(b.position.x, b.position.y) : -1;
       if(near >= 0 && piece){ startDock(piece, near); return; }   // dropped over a slot: suck it home
+      /* The THROW rides the stronger signal too. It used to ride the body's
+         velocity alone, and the day the drag damper went up every flick died
+         at the release point: the damper had bled the body's speed while the
+         finger was plainly flicking — classified as a throw, thrown with
+         nothing. The finger vector also makes the tile fly the way the
+         GESTURE moved, which the position-corrected body never quite did. */
+      const v = fSpeed > bSpeed ? fv : b.velocity;
       const p = feel.power, cap = 55;
-      Body.setVelocity(b, { x: clamp(b.velocity.x * p, -cap, cap), y: clamp(b.velocity.y * p, -cap, cap) });
+      Body.setVelocity(b, { x: clamp(v.x * p, -cap, cap), y: clamp(v.y * p, -cap, cap) });
       Body.setAngularVelocity(b, clamp(b.angularVelocity * p, -1, 1));
     }
     function clearGrips(){
@@ -602,11 +612,12 @@
       reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; clearResult(); },
       setPieces, addPiece, slots: makeSlots, place, openSides,
       read, cells, filled, setResult,
-      /* the loose pieces (not slotted), letter + colour + height — a driven
-         test's only window onto what is lying on the table, since read()
-         sees slots alone */
+      /* the loose pieces (not slotted), letter + colour + height + velocity —
+         a driven test's only window onto what is lying on the table, since
+         read() sees slots alone. vx/vy are what a release just imparted. */
       loose: () => pieces.filter(p => p.slot == null)
-                         .map(p => ({ ch: p.ch, hue: p.hue, y: Math.round(p.body.position.y) })),
+                         .map(p => ({ ch: p.ch, hue: p.hue, y: Math.round(p.body.position.y),
+                                      vx: Math.round(p.body.velocity.x), vy: Math.round(p.body.velocity.y) })),
       /* slot geometry + the fitted tile size, for callers that aim or assert
          at real coordinates (the suite fires its test shots at a slot's row) */
       slotBox: i => slots[i] ? { x: slots[i].x, y: slots[i].y, w: slots[i].w } : null,

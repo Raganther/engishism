@@ -8735,6 +8735,26 @@ async function testBattleScrabble(browser){
                                   window.__bs.world.loose().some(p => p.ch === 'X')),
         await solo.evaluate(() => JSON.stringify(window.__bs.world.cells())));
 
+  /* The throw rides the FINGER's velocity. The drag damper brakes the held
+     body, so a real flick releases with a fast gesture track and a nearly
+     still body — the day the damper went up, every real flick died at the
+     release point while this suite's stepped-body flick stayed green. Here
+     the body is never stepped (velocity ~0) while the gesture history records
+     a violent rightward flick: the tile must leave with the gesture's speed
+     and direction, read in the same evaluate before physics touches it. */
+  const flungVx = await solo.evaluate(() => {
+    const W = window.__bs.world, h = document.getElementById('stage').offsetHeight;
+    W.addPiece('F', { x: 60, y: Math.round(h * 0.75), hue: '#0e0e0e' });
+    W.grab(79, 60, Math.round(h * 0.75));
+    W.move(79, 120, Math.round(h * 0.75));
+    W.move(79, 200, Math.round(h * 0.75));
+    W.drop(79);
+    const p = W.loose().find(q => q.hue === '#0e0e0e');
+    return p ? p.vx : 0;
+  });
+  check('a flick with a braked body still flies with the finger velocity',
+        flungVx > 8, String(flungVx));
+
   /* Real-time physics: step() advances by wall clock, not by call count — a
      120Hz screen's doubled frames must not run the game at double speed (a
      held tile whipped into a spin was the symptom on a real phone). A burst
