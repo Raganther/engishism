@@ -56,6 +56,14 @@
   }
   button:hover{ border-color:var(--accent); }
 
+  /* The QR of this page's own URL — the lab is the bench for the shared feel
+     dials, and the device that matters is a real phone, so the desktop header
+     offers the jump: scan, and the same lab opens in the hand. Hidden on
+     narrow screens (that IS the phone) and on file:// (nothing to scan). */
+  .pageqr{ display:none; background:#fff; padding:6px; border-radius:8px; line-height:0; align-self:center; }
+  .pageqr svg{ width:84px; height:84px; display:block; }
+  @media (min-width:720px){ body.qr-on .pageqr{ display:block; } }
+
   .stage{ flex:1 1 auto; position:relative; min-height:0; }
   canvas{ display:block; width:100%; height:100%; touch-action:none; cursor:grab; }
   canvas.grabbing{ cursor:grabbing; }
@@ -68,6 +76,7 @@
 <body>
   <header>
     <h1>Throw Lab <small>flick the scrambled letters into the slots to spell the word</small></h1>
+    <div class="pageqr" id="pageqr" title="Scan to open this lab on your phone"></div>
     <button id="btn-tune" type="button" class="tune">⚙ Tune</button>
   </header>
 
@@ -92,6 +101,7 @@
        Toss round will call. Throw Lab is its first caller — the workshop where the
        feel gets tuned. matter.min.js and hub-table.js live in game-hub/ beside the
        other shelves; hub-kit.js is the object Kit.table hangs off. -->
+  <script src="../game-hub/hub-qr.js?v=20260825d"></script>
   <script src="../game-hub/matter.min.js?v=20260825d"></script>
   <script src="../game-hub/hub-kit.js?v=20260825d"></script>
   <script src="../game-hub/hub-table.js?v=20260825d"></script>
@@ -200,6 +210,18 @@
 
     let rz;
     window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => world.resize(), 150); });
+
+    /* The phone jump: a QR of this page's own URL in the desktop header.
+       http(s) only — a file:// URL means nothing to another device. */
+    if(/^https?:/.test(location.protocol) && window.qrcode){
+      try{
+        const q = window.qrcode(0, 'M');
+        q.addData(location.href);
+        q.make();
+        document.getElementById('pageqr').innerHTML = q.createSvgTag({ cellSize:4, margin:0, scalable:true });
+        document.body.classList.add('qr-on');
+      }catch(e){}
+    }
 
   })();
   </script>
