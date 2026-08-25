@@ -8695,6 +8695,44 @@ async function testBattleScrabble(browser){
           window.HubKit.table.dials.map(d => d.k + ':' + (document.getElementById('s-' + d.k) || {}).value).join(' ')));
   await short.close();
 
+  /* Save makes the current feel this DEVICE's default: a fresh table on the
+     same origin inherits it on the next load, and Reset clears the save and
+     walks the world back to the code defaults. */
+  await solo.evaluate(() => {
+    window.__bs.world.setFeel({ gravity: 1.55 });
+    document.getElementById('dial-save').click();
+  });
+  await solo.reload();
+  await solo.waitForTimeout(900);
+  check('a Saved feel is inherited by the next table on this device',
+        Math.abs(await solo.evaluate(() => window.__bs.world.feel().gravity) - 1.55) < 1e-9,
+        String(await solo.evaluate(() => window.__bs.world.feel().gravity)));
+  await solo.evaluate(() => document.getElementById('dial-reset').click());
+  check('and Reset dials clears the save and restores the code defaults',
+        await solo.evaluate(() =>
+          window.__bs.world.feel().gravity === window.HubKit.table.dials.find(d => d.k === 'gravity').def &&
+          !localStorage.getItem('engishism.tableFeel')),
+        String(await solo.evaluate(() => window.__bs.world.feel().gravity)));
+
+  /* Opening the Tune drawer SHRINKS the stage — before the resize clamp,
+     every pile tile sat below the new floor, outside the walls, and fell
+     forever: "tiles disappear when I press Tune". The world must keep every
+     loose tile inside its new bounds through the shrink and back. */
+  const looseBefore = await solo.evaluate(() => window.__bs.world.loose().length);
+  await solo.evaluate(() => document.getElementById('btn-tune').click());
+  await solo.waitForTimeout(700);
+  const drawerOpen = await solo.evaluate(() => {
+    const h = document.getElementById('stage').offsetHeight;
+    return { n: window.__bs.world.loose().length,
+             inside: window.__bs.world.loose().every(p => p.y <= h + 1) };
+  });
+  await solo.evaluate(() => document.getElementById('btn-tune').click());
+  await solo.waitForTimeout(400);
+  check('opening the Tune drawer never eats a loose tile',
+        drawerOpen.n === looseBefore && drawerOpen.inside &&
+        await solo.evaluate(() => window.__bs.world.loose().length) === looseBefore,
+        JSON.stringify({ before: looseBefore, open: drawerOpen }));
+
   /* The grid: an across word and a down word sharing their first letter are
      both live at once, and one BANK press cashes the pair. The letters are
      minted with addPiece so the check does not depend on the random rack. */

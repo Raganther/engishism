@@ -50,11 +50,25 @@
      Tune panels BUILD themselves from this table via Kit.table.dialsPanel —
      so a new dial appears on every panel by being declared here, and a tuned
      value is one edit that every caller inherits (Battle Scrabble, the toss
-     round, join.html's table mode, Throw Lab). The numbers live here in code,
-     never in localStorage: they are developer tuning, and a persisted stale
-     copy would wear the mask of a bug forever (the settings panel's
-     stuck-default trap). Throw Lab is the bench — experiment there on a real
-     device, then write the number that felt right here, once. */
+     round, join.html's table mode, Throw Lab).
+
+     The values in this table are the truth for EVERY device. On top of them
+     sits one explicit, per-device overlay: the Tune panels' Save button
+     writes the current feel to localStorage, and every table built on that
+     device then inherits it (a caller's own constructor override still wins
+     — the toss card keeps its size). This is deliberately not the silent
+     seeding that makes the settings panel's stuck-default trap: a save only
+     exists because someone pressed Save, the panels SAY when one is active,
+     and Reset clears it. It reaches one device only — graduating a tuned
+     feel to every student's phone still means writing it here, once.
+     Throw Lab is the bench where the experimenting happens. */
+  const FEEL_STORE = 'engishism.tableFeel';
+  function savedFeel(){
+    try{
+      const o = JSON.parse(localStorage.getItem(FEEL_STORE) || 'null');
+      return (o && o.v) ? o.v : null;
+    }catch(e){ return null; }   // storage blocked (some file:// browsers) = no overlay
+  }
   const DIALS = [
     { k:'gravity',     label:'Gravity',     min:0,   max:2,    step:0.05,  def:0.9,  fmt:v => v.toFixed(2) },
     { k:'restitution', label:'Bounce',      min:0,   max:0.95, step:0.05,  def:0.45, fmt:v => v.toFixed(2) },
@@ -97,10 +111,16 @@
     const canvas = opts.canvas;
     const ctx = canvas.getContext('2d');
     const engine = Engine.create();
-    /* Every feel number seeds from the DIALS table above — the one home.
+    /* Every feel number seeds from the DIALS table above, under this
+       device's saved overlay if one was explicitly Saved on a Tune panel.
        A caller's constructor override wins for its own world only. */
+    const saved = savedFeel();
     const feel = {};
-    for(const d of DIALS) feel[d.k] = opts[d.k] != null ? opts[d.k] : d.def;
+    for(const d of DIALS){
+      feel[d.k] = opts[d.k] != null ? opts[d.k]
+                : (saved && saved[d.k] != null) ? saved[d.k]
+                : d.def;
+    }
     engine.gravity.y = feel.gravity;
     engine.constraintIterations = 6;   // pulls a held piece to the finger harder each frame, so a fast drag lags less
 
@@ -149,6 +169,23 @@
       buildWalls();
       layoutSlots();
       fitTiles();
+      /* A resize can SHRINK the world — the Tune drawer opening takes the
+         stage's height — and a loose tile left below the new floor is outside
+         the walls, falls forever, and "disappears" when the drawer closes.
+         A resize must never eat a tile: pull any free body back inside the
+         new bounds. Open sides stay open (a tile mid-exit is not yanked
+         back); docked tiles are static and follow their slots instead. */
+      for(const p of pieces){
+        const b = p.body;
+        if(b.isStatic) continue;
+        const s2 = tile / 2;
+        const nx = clamp(b.position.x, open.l ? -Infinity : s2, open.r ? Infinity : cssW - s2);
+        const ny = clamp(b.position.y, s2, cssH - s2);
+        if(nx !== b.position.x || ny !== b.position.y){
+          Body.setPosition(b, { x: nx, y: ny });
+          Body.setVelocity(b, { x: 0, y: 0 });
+        }
+      }
     }
     /* A loose tile is the SAME size as the slot it drops into. The slots shrink to fit
        the row (slotDims caps at feel.size, then reduces for width/count), so a piece left
@@ -713,6 +750,52 @@
       row.appendChild(lab); row.appendChild(inp); row.appendChild(out);
       mount.appendChild(row);
     });
+
+    /* Save / Reset, plus a line that always says which feel this device is
+       on — a saved overlay that nobody can see is the stuck-default trap,
+       so visibility is the price of having Save at all. Save writes the
+       CURRENT feel; every table built on this device inherits it from then
+       on. Reset clears the save and walks this world (and the sliders) back
+       to the code defaults. */
+    const act = document.createElement('div');
+    act.dataset.dialActions = '1';
+    act.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;';
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button'; saveBtn.id = 'dial-save'; saveBtn.textContent = 'Save feel';
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'button'; resetBtn.id = 'dial-reset'; resetBtn.textContent = 'Reset dials ↺';
+    const note = document.createElement('span');
+    note.id = 'dial-note';
+    note.style.cssText = 'font-size:0.72rem;opacity:0.75;';
+    const sayState = () => {
+      note.textContent = savedFeel() ? 'Saved feel active on this device'
+                                     : 'Using the code defaults';
+    };
+    saveBtn.addEventListener('click', () => {
+      const v = {};
+      const cur = world.feel();
+      DIALS.forEach(d => { v[d.k] = cur[d.k]; });
+      try{ localStorage.setItem(FEEL_STORE, JSON.stringify({ v })); }catch(e){}
+      sayState();
+    });
+    resetBtn.addEventListener('click', () => {
+      try{ localStorage.removeItem(FEEL_STORE); }catch(e){}
+      const cur = world.feel(), patch = {};
+      DIALS.forEach(d => {
+        if(cur[d.k] !== d.def){
+          patch[d.k] = d.def;
+          const inp = document.getElementById('s-' + d.k), out = document.getElementById('v-' + d.k);
+          if(inp) inp.value = d.def;
+          if(out) out.textContent = d.fmt(d.def);
+        }
+      });
+      world.setFeel(patch);
+      if(opts && opts.onChange) Object.keys(patch).forEach(k => opts.onChange(k, patch[k]));
+      sayState();
+    });
+    sayState();
+    act.appendChild(saveBtn); act.appendChild(resetBtn); act.appendChild(note);
+    mount.appendChild(act);
   };
   makeTable.dials = DIALS;
   window.HubKit.table = makeTable;
