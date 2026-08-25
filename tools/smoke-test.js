@@ -8569,6 +8569,20 @@ async function testBattleScrabble(browser){
   check('a thrown-out tile keeps the hint strip spellable', hintsFresh && thrown > 0,
         JSON.stringify({ thrown, hintsFresh }));
 
+  /* The tray lip: the open edge used to run the full height of the screen,
+     and a resting tile nudged along the floor drifted out to a neighbour
+     without ever being thrown. The bottom of each open edge is a wall the
+     height of the pile band now — this tile slides at the floor toward the
+     open edge and must still be on the board a beat later. */
+  await A.evaluate(() => {
+    const W = window.__bs.world, h = document.getElementById('stage').offsetHeight;
+    W.addPiece('L', { x: 45, y: h - 28, vx: -14, vy: 0, hue: '#445566' });
+  });
+  await A.waitForTimeout(900);
+  check('a resting tile cannot drift out through the open edge',
+        await A.evaluate(() => !!window.__bs.world.loose().find(z => z.hue === '#445566')),
+        'the tile left the world');
+
   /* The open edge: a tile flicked off the side mid-air travels too — no drop
      point needed — and it arrives wearing its own colour. Driven by spawning
      a fast leftward piece inside Anna's open left edge (both her neighbours

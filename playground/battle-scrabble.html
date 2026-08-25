@@ -243,11 +243,11 @@
   <!-- Same shelf and same order as Throw Lab: matter.min.js → hub-kit.js (the
        object Kit.table hangs off) → hub-table.js. word-list.js is this page's own
        vendored dictionary — a <script src>, never a fetch, so file:// works. -->
-  <script src="../game-hub/hub-buzzer.js?v=20260825i"></script>
-  <script src="../game-hub/matter.min.js?v=20260825i"></script>
-  <script src="../game-hub/hub-kit.js?v=20260825i"></script>
-  <script src="../game-hub/hub-table.js?v=20260825i"></script>
-  <script src="word-list.js?v=20260825i"></script>
+  <script src="../game-hub/hub-buzzer.js?v=20260825j"></script>
+  <script src="../game-hub/matter.min.js?v=20260825j"></script>
+  <script src="../game-hub/hub-kit.js?v=20260825j"></script>
+  <script src="../game-hub/hub-table.js?v=20260825j"></script>
+  <script src="word-list.js?v=20260825j"></script>
   <script>
   (function(){
     'use strict';
@@ -735,7 +735,9 @@
       let vx = Number(d.vx) || 0;
       const vy = Math.max(-30, Math.min(30, Number(d.vy) || 0));
       vx = fromRight ? Math.max(-MAXV, Math.min(vx, -MINV)) : Math.min(MAXV, Math.max(vx, MINV));
-      const ny = Math.max(0.08, Math.min(0.85, Number(d.ny) || 0.3));
+      /* ny caps at 0.68, above the tray lip at the bottom of each open edge —
+         an arrival aimed lower would hit the lip from OUTSIDE and never enter */
+      const ny = Math.max(0.08, Math.min(0.68, Number(d.ny) || 0.3));
       // the tile keeps the colour it wore on the thrower's board — it is the
       // SAME tile arriving, not a marker; palette fallback if none rode along
       const hue = /^#[0-9a-fA-F]{6}$/.test(String(d.c || '')) ? d.c : undefined;

@@ -244,8 +244,20 @@
       ];
       if(!open.l) walls.push(Bodies.rectangle(-t/2,   cssH/2, t, cssH + t*2, o));   // left
       if(!open.r) walls.push(Bodies.rectangle(cssW + t/2, cssH/2, t, cssH + t*2, o)); // right
+      /* An OPEN side still gets a LIP: a short wall at the bottom, the height
+         of the pile band, turning the pile into a tray. Without it the open
+         edge ran the full height of the screen and a resting tile nudged
+         along the floor drifted out to a neighbour without ever being thrown.
+         A real throw arcs above the band and leaves exactly as before. */
+      const lipH = lipHeight();
+      if(lipH > 0){
+        if(open.l) walls.push(Bodies.rectangle(-t/2,   cssH - lipH/2, t, lipH, o));
+        if(open.r) walls.push(Bodies.rectangle(cssW + t/2, cssH - lipH/2, t, lipH, o));
+      }
       Composite.add(engine.world, walls);
     }
+    // the tray lip is exactly the pile band — one fact, one home (the grid spec)
+    function lipHeight(){ return grid ? (grid.pile != null ? grid.pile : 130) : 0; }
     /* A free piece fully past an open edge has left: take it out of the world
        and hand it to the caller with everything a receiving table needs to
        continue its flight. Held, docking and slotted pieces never exit — a drag
@@ -410,6 +422,7 @@
         for(let i = 0; i < n; i++) slots.push({ x: x0 + i*(sw+gap) + sw/2, y, w: sw, h: sw, piece: null });
       }
       fitTiles();
+      if(open.l || open.r) buildWalls();   // the tray lip follows the grid's pile band
     }
     function layoutSlots(){          // recompute geometry on resize, keeping placed pieces
       const n = slots.length; if(!n) return;
@@ -710,6 +723,19 @@
         ctx.stroke();
         ctx.restore();
       });
+      /* the tray lips, drawn faintly — a tile bouncing off an invisible wall
+         at the bottom corner would read as a glitch; a visible rim reads as
+         the tray it is */
+      const lipH = lipHeight();
+      if(lipH > 0 && (open.l || open.r)){
+        ctx.save();
+        ctx.strokeStyle = '#39414f'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        if(open.l){ ctx.moveTo(1.5, cssH); ctx.lineTo(1.5, cssH - lipH); }
+        if(open.r){ ctx.moveTo(cssW - 1.5, cssH); ctx.lineTo(cssW - 1.5, cssH - lipH); }
+        ctx.stroke();
+        ctx.restore();
+      }
       for(const b of pieces){
         const p = b.body.position, docking = !!b.dock, inSlot = b.slot != null;
         let s, ang;
