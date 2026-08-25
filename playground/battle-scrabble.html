@@ -243,11 +243,11 @@
   <!-- Same shelf and same order as Throw Lab: matter.min.js → hub-kit.js (the
        object Kit.table hangs off) → hub-table.js. word-list.js is this page's own
        vendored dictionary — a <script src>, never a fetch, so file:// works. -->
-  <script src="../game-hub/hub-buzzer.js?v=20260825h"></script>
-  <script src="../game-hub/matter.min.js?v=20260825h"></script>
-  <script src="../game-hub/hub-kit.js?v=20260825h"></script>
-  <script src="../game-hub/hub-table.js?v=20260825h"></script>
-  <script src="word-list.js?v=20260825h"></script>
+  <script src="../game-hub/hub-buzzer.js?v=20260825i"></script>
+  <script src="../game-hub/matter.min.js?v=20260825i"></script>
+  <script src="../game-hub/hub-kit.js?v=20260825i"></script>
+  <script src="../game-hub/hub-table.js?v=20260825i"></script>
+  <script src="word-list.js?v=20260825i"></script>
   <script>
   (function(){
     'use strict';
@@ -723,10 +723,18 @@
          still has to actually enter, so the inward speed keeps a floor. */
       const fromRight = String(d.d || 'R').toUpperCase() === 'L';
       const w = canvas.offsetWidth, h = canvas.offsetHeight;
-      const MINV = 9;
+      /* Entry speed is clamped into [MINV, MAXV]. The floor makes a gently
+         dropped throw actually enter; the ceiling is the fix for "it comes in
+         faster than it was thrown": the wire transfers the exit speed exactly,
+         but a release is the flick times the Throw power dial, and the
+         thrower barely sees the boosted flight — it leaves their screen in a
+         couple of frames — while the receiver watches it cross their whole
+         screen. The throw FEEL stays the sender's; only the arrival is tamed.
+         Knocks still land: the knock threshold is 6, far under the cap. */
+      const MINV = 9, MAXV = 30;
       let vx = Number(d.vx) || 0;
       const vy = Math.max(-30, Math.min(30, Number(d.vy) || 0));
-      vx = fromRight ? Math.min(vx, -MINV) : Math.max(vx, MINV);
+      vx = fromRight ? Math.max(-MAXV, Math.min(vx, -MINV)) : Math.min(MAXV, Math.max(vx, MINV));
       const ny = Math.max(0.08, Math.min(0.85, Number(d.ny) || 0.3));
       // the tile keeps the colour it wore on the thrower's board — it is the
       // SAME tile arriving, not a marker; palette fallback if none rode along

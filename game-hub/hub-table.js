@@ -260,10 +260,15 @@
         const crossL = open.l && x < -m, crossR = open.r && x > cssW + m;
         if(!crossL && !crossR) continue;
         if(p.hold && now() < p.hold){
-          // too fresh to leave: the edge is a soft wall for the arrival beat
+          /* too fresh to leave: the edge is a soft wall for the arrival beat.
+             The bounce is HEAVY (35%, was 80%) — at 80% a hard arrival
+             crossed the receiving screen in a blink and then pinballed
+             between the two open edges, shedding almost nothing per bounce,
+             which read as "the tile came in faster than it was thrown". One
+             thud off the far wall and it settles. */
           const v = p.body.velocity;
           if((crossL && v.x < 0) || (crossR && v.x > 0))
-            Body.setVelocity(p.body, { x: -v.x * 0.8, y: v.y });
+            Body.setVelocity(p.body, { x: -v.x * 0.35, y: v.y });
           continue;
         }
         out.push({ p, side: crossL ? 'l' : 'r' });
