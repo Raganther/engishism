@@ -693,7 +693,11 @@ open side edge **physically travels** to a ring neighbour with its speed, trajec
 and colour, knocks a slotted letter out on a hard hit, and is theirs to use; a
 neighbour's **valid** word ghosts onto your own grid at the cells it occupies on
 theirs (translucent, no pointer, exploding when a knock breaks it — `Kit.table`'s
-`onKnock` hook is the signal), and every grid mirrors live on the board's circle. The `new-playground-game` skill is the procedure it taught. **Its graduation
+`onKnock` hook is the signal), and every grid mirrors live on the board's circle.
+**How that word shows is a board setting** (Word hints: on the grid · on the edges ·
+off, pushed to every phone as `hm`): in-place suits a duel, edge-anchored is the
+4-player candidate (edge = whose word and throw direction, height = aim), and which
+wins is undecided until a class plays them. The `new-playground-game` skill is the procedure it taught. **Its graduation
 door is deliberately undecided until a class plays it**: seventh hub game
 (`registerGame`) if it is a main event, or distilled into the toss round's territory
 if it is a spice. Every feel number (dock threshold 8, knock speed 6, the arrival

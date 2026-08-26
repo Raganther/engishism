@@ -8455,7 +8455,7 @@ async function testBattleScrabble(browser){
 
   /* Start with a game length that is NOT the phone slider's default, so the
      phones showing it proves the room seeded their clocks, not the slider. */
-  await board.locator('#settings-slot select').selectOption('180');
+  await board.locator('#secs').selectOption('180');   // by its declared id — the strip holds more than one select now
   await board.locator('#start').click();
   await until(async () => await A.evaluate(() => window.__bs.state().playing), 8000);
   await until(async () => await B.evaluate(() => window.__bs.state().playing), 8000);

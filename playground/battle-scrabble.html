@@ -608,6 +608,8 @@
            your left/right neighbour's word, position and knock flag carried
            through from their "w" — valid words ghost onto this grid in place
          {"t":"nb","l":"Maria","r":"Ken"}    your neighbours' names
+         {"t":"hm","m":"ghost"|"edge"|"off"}  the room's word-hint mode (a board
+           setting): in-place ghost, edge-anchored at row height, or none
          {"t":"sync","left":48}              clock sync for a late joiner
          {"t":"full"}                        the board seats four; wait out this game
        Start rides arm({mode:'answer',rethink:true,secs}); the board holds the
@@ -670,6 +672,10 @@
        progress stays off the grid. Geometry comes from world.slotBox, so a
        resize or a size-dial change wants a repaint. */
     const nbWords = { l:null, r:null };   // last state per side: {w, ok, x, y, o}
+    /* The room's hint mode, a BOARD setting pushed as {t:'hm'} — 'ghost' is
+       today's in-place overlay and stays the default so a phone that never
+       hears the message (old board, degraded room) plays exactly as before. */
+    let hintMode = 'ghost';
     const nbov = document.getElementById('nbov');
     function nbovCells(st){
       const out = [];
@@ -681,31 +687,56 @@
       }
       return out;
     }
+    function tileEl(side, ch, left, top, size){
+      const el = document.createElement('div');
+      el.className = 'nbov-tile';
+      el.dataset.side = side;
+      el.textContent = ch;
+      el.style.left = left + 'px';
+      el.style.top = top + 'px';
+      el.style.width = size + 'px';
+      el.style.height = size + 'px';
+      el.style.fontSize = Math.round(size * 0.5) + 'px';
+      nbov.appendChild(el);
+    }
     function nbovPaint(){
-      /* In a 2-player ring the one opponent is BOTH neighbours, so their word
-         arrives once per side — identical states paint once, or the stacked
-         ghosts read at double opacity. */
+      /* ghost mode only: in a 2-player ring the one opponent is BOTH
+         neighbours, so their word arrives once per side — identical states
+         paint once, or the stacked ghosts read at double opacity. Edge mode
+         wants the opposite: the same word on both edges says honestly that
+         either throw reaches them. */
       const dupR = nbWords.l && nbWords.r &&
                    JSON.stringify(nbWords.l) === JSON.stringify(nbWords.r);
       ['l','r'].forEach(side => {
         nbov.querySelectorAll('[data-side="' + side + '"]').forEach(el => el.remove());
         const st = nbWords[side];
-        if(side === 'r' && dupR) return;
-        if(!playing || !st || !st.ok || !st.w || st.x == null) return;
-        nbovCells(st).forEach((idx, j) => {
-          const box = world.slotBox(idx);
-          if(!box) return;
-          const el = document.createElement('div');
-          el.className = 'nbov-tile';
-          el.dataset.side = side;
-          el.textContent = st.w[j];
-          el.style.left = (box.x - box.w / 2) + 'px';
-          el.style.top = (box.y - box.w / 2) + 'px';
-          el.style.width = box.w + 'px';
-          el.style.height = box.w + 'px';
-          el.style.fontSize = Math.round(box.w * 0.5) + 'px';
-          nbov.appendChild(el);
-        });
+        if(!playing || hintMode === 'off' || !st || !st.ok || !st.w || st.x == null) return;
+        if(hintMode !== 'edge'){
+          /* in place: the word at the cells it occupies on their grid */
+          if(side === 'r' && dupR) return;
+          nbovCells(st).forEach((idx, j) => {
+            const box = world.slotBox(idx);
+            if(box) tileEl(side, st.w[j], box.x - box.w / 2, box.y - box.w / 2, box.w);
+          });
+          return;
+        }
+        /* on the edges: the word hugs its OWNER's edge at the row height it
+           sits at on their grid — the edge is who and which way to throw, the
+           height is where to aim (a thrown tile enters at the height it left).
+           Mini tiles so two neighbours' words never crowd the grid; across
+           words run inward from the edge, down words stack. */
+        const anchor = world.slotBox(Math.min(st.y, ROWS - 1) * COLS + Math.min(st.x, COLS - 1));
+        if(!anchor) return;
+        const mini = Math.max(16, Math.round((world.tileSize() || 56) * 0.4));
+        const gap = 2, W = canvas.offsetWidth, H = canvas.offsetHeight;
+        const vert = st.o === 'd';
+        const len = st.w.length * mini + (st.w.length - 1) * gap;
+        const top0 = Math.min(Math.max(0, anchor.y - mini / 2), Math.max(0, H - (vert ? len : mini)));
+        const left0 = side === 'l' ? 4 : W - 4 - (vert ? mini : len);
+        for(let j = 0; j < st.w.length; j++)
+          tileEl(side, st.w[j],
+                 vert ? left0 : left0 + j * (mini + gap),
+                 vert ? top0 + j * (mini + gap) : top0, mini);
       });
     }
     /* The knock beat: the ghosts scatter and fade. Each tile gets its own
@@ -927,6 +958,11 @@
           if(m.k && prev && prev.ok && prev.w) nbovBoom(side);
           nbWords[side] = next;
           document.getElementById('nb-' + side).classList.toggle('lit', next.ok && !!next.w);
+          nbovPaint();
+        }
+        else if(m.t === 'hm'){
+          // the room's word-hint mode, the board's setting — repaint in place
+          hintMode = (m.m === 'edge' || m.m === 'off') ? m.m : 'ghost';
           nbovPaint();
         }
         else if(m.t === 'full'){
