@@ -26,6 +26,22 @@ Also worth asking: **which game, which phone mode, and does ⚙ show the current
 build?** A stale shell serves cached assets silently, and "it didn't deploy" is
 usually that.
 
+## No phone ever joins — three answers before any code is read
+
+The symptom cluster "the board mints no code / the bench's code box stays empty /
+phones sit on the join screen forever" has been chased through the code once already
+and the code was innocent — the cause is almost always the **environment**. Three
+answers settle it, in order, and no fix should be guessed at until they are in:
+
+1. **`/buzzer/health` on the SAME address the board is opened from.** Render's free
+   instance sleeps when idle and wakes on the first request (give it a minute); the
+   GitHub Pages copy has **no relay at all**, so phones can never work there — that
+   is the wrong copy, not a bug.
+2. **Which build ⚙ reports.** A stale shell serves old assets silently.
+3. **Whether the board's own chip shows a room code.** No code = the board is not
+   hosting — on the hub that means **Phone buzzers is switched off** on that device
+   (`openBuzzRoom` returns immediately without it, silently).
+
 ## The seven shapes
 
 ### 1. It is configuration, not the game

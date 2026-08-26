@@ -112,6 +112,11 @@ walk('game-hub', '.css').forEach(checkCSS);
     const missing = all.filter(r => has.indexOf(r) === -1);
     if (missing.length)
       problems.push(`${rel} loads some rounds but not ${missing.join(', ')} — that content will draw as plain text`);
+    /* the other direction: a tag naming a round that no longer exists is a 404
+       script — a renamed round file must not leave its old name loading nothing */
+    const ghosts = has.filter(r => all.indexOf(r) === -1);
+    if (ghosts.length)
+      problems.push(`${rel} loads rounds/${ghosts.join('.js, rounds/')}.js, which do not exist on disk`);
   });
 })();
 

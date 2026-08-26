@@ -671,7 +671,7 @@ unverifiable.**
 ## Open
 What is true and unfinished. Not a changelog — an item leaves when it closes.
 
-**Build `20260823f`.** Three coursebooks, ~760 authored items, six games, nine rounds.
+**Build `20260826c`.** Three coursebooks, ~760 authored items, six games, nine rounds.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only.
 
@@ -700,8 +700,9 @@ off, pushed to every phone as `hm`): in-place suits a duel, edge-anchored is the
 wins is undecided until a class plays them. The `new-playground-game` skill is the procedure it taught. **Its graduation
 door is deliberately undecided until a class plays it**: seventh hub game
 (`registerGame`) if it is a main event, or distilled into the toss round's territory
-if it is a spice. Every feel number (dock threshold 8, knock speed 6, the arrival
-holds) is a guess wearing a slider, not a measurement.
+if it is a spice. The drag-and-dock feel is **measured, not guessed** — tuned on a
+real phone and promoted into `Kit.table.dials` (dock 14, rigid grab). Still guesses
+wearing sliders: the knock speed (6) and the arrival holds.
 
 **What real phones taught, now standing rules:** the harness's Chromium is 60Hz and
 never models browser chrome changing height — so physics steps by **wall clock**
@@ -717,31 +718,6 @@ are meant to be flipped, not trusted. Three things to watch the first time a cla
 it, likeliest wrong first: whether standings after *every* question drags
 (`roundWinBanner` turns it off), whether the podium beats `equal`, and whether the extra
 Reveal-then-Close press costs too much (`roundOpenToAll` off restores the race).
-
-**Being chased right now — the room bench hosts no room.** Four symptoms, all
-downstream of one thing: the board mints no code, so the bench's box stays empty and
-has to be typed; a typed code names a room nobody is hosting, so the phones never
-leave `#screen-join` — which is the team picker, hence "stuck on a team selection
-screen"; no host means no roster push, so teams-or-individuals never reaches them;
-and the bench's own names never arrive because its phones join by URL only after it
-has a code.
-
-**It is not the code that shipped today.** `main` was reverted whole to the build
-before the Connections work and the symptoms stayed, which eliminates both that and
-the two bench reads after it. Nor does it reproduce: a clean Chromium against a
-locally-run relay with **Phone buzzers on** auto-fills the code, racks a phone,
-carries names, and flips the rack the moment the board's team bar goes Solo.
-
-So the difference is the environment, and there are three candidates, likeliest
-first. **The relay is not answering** — Render's free instance sleeps when idle and
-every push restarts it, and six went out in one afternoon. **The wrong copy** —
-GitHub Pages has no relay behind it at all, so phones can never work there. **Phone
-buzzers switched off** on that device — `openBuzzRoom` returns immediately without
-it and the board hosts nothing, silently.
-
-Three answers settle it, and no more work should be guessed at until they are in:
-what `/buzzer/health` says on the same address the bench is opened from, what build
-⚙ reports, and whether the board's own chip shows five digits.
 
 **Known broken:**
 - The ordering climb card is 726px on a 720 board with the action strip on.
