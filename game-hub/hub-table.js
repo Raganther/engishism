@@ -345,8 +345,11 @@
       /* A shot arrival gets a short hold too — without it a tile entering at
          speed can carom off another piece and leave again through the edge it
          came in by, and two open boards ping-pong one tile forever. */
+      /* tag: an opaque value the caller attaches to a shot piece and gets back
+         in onKnock — the shelf never reads it (axiom 4). Battle Scrabble puts
+         the thrower's name here so the victim's flash can say who hit them. */
       pieces.push({ body, ch: String(label), hue: o.hue || HUES[pieces.length % HUES.length],
-                    slot: null, dock: null, shot: o.shot ? now() : 0,
+                    slot: null, dock: null, shot: o.shot ? now() : 0, tag: o.tag,
                     hold: o.shot ? now() + 900 : 0 });
       Composite.add(engine.world, body);
     }
@@ -377,7 +380,7 @@
         report();
         /* after report(): the page's onArrange has re-read the board, so a
            handler that broadcasts state broadcasts the post-knock truth */
-        if(opts.onKnock) opts.onKnock({ ch: hit.ch });
+        if(opts.onKnock) opts.onKnock({ ch: hit.ch, tag: shot.tag });
       }
     });
 

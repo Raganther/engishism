@@ -256,11 +256,11 @@
   <!-- Same shelf and same order as Throw Lab: matter.min.js → hub-kit.js (the
        object Kit.table hangs off) → hub-table.js. word-list.js is this page's own
        vendored dictionary — a <script src>, never a fetch, so file:// works. -->
-  <script src="../game-hub/hub-buzzer.js?v=20260826b"></script>
-  <script src="../game-hub/matter.min.js?v=20260826b"></script>
-  <script src="../game-hub/hub-kit.js?v=20260826b"></script>
-  <script src="../game-hub/hub-table.js?v=20260826b"></script>
-  <script src="word-list.js?v=20260826b"></script>
+  <script src="../game-hub/hub-buzzer.js?v=20260826c"></script>
+  <script src="../game-hub/matter.min.js?v=20260826c"></script>
+  <script src="../game-hub/hub-kit.js?v=20260826c"></script>
+  <script src="../game-hub/hub-table.js?v=20260826c"></script>
+  <script src="word-list.js?v=20260826c"></script>
   <script>
   (function(){
     'use strict';
@@ -389,7 +389,15 @@
          so readBoard has already re-read — resend the live word immediately,
          tagged k, and the neighbours' overlays explode instead of just
          swapping text */
-      onKnock(){ sendLiveWord(true, true); }
+      onKnock(k){
+        sendLiveWord(true, true);
+        /* the same quick self-clearing beat as INCOMING: who broke your word */
+        const flash = document.getElementById('flash');
+        flash.textContent = (k && k.tag ? k.tag : 'Someone') + ' hit your word!';
+        flash.classList.add('show', 'bad');
+        setTimeout(() => flash.classList.remove('show', 'bad'), 1100);
+        status.textContent = (k && k.tag ? k.tag : 'Someone') + ' knocked a letter out of your word!';
+      }
     });
     function val(id){ return document.getElementById(id).value; }
     function minVowels(){ return +val('s-vow'); }
@@ -885,7 +893,8 @@
          an exit), the arrival hold reflects only OUTWARD motion, and the
          MINV floor guarantees it comes in. */
       const half = (world.tileSize() || 56) / 2;
-      world.addPiece(ch, { x: fromRight ? w + half : -half, y: ny * h, vx, vy, hue, shot: true });
+      world.addPiece(ch, { x: fromRight ? w + half : -half, y: ny * h, vx, vy, hue, shot: true,
+                           tag: String(d.by || '').slice(0, 20) });   // the thrower's name rides the tile, so a knock can say who did it
       status.textContent = (d.by || 'Someone') + ' threw you a ' + ch + '!';
       const flash = document.getElementById('flash');
       flash.textContent = 'INCOMING ' + ch + '!';
