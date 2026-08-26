@@ -144,10 +144,10 @@
        {"t":"th","q":8,"d":"L","l":"Q","c":"#F5C542","vx":-14.2,"vy":-3.1,"ny":0.42}
          throw: the tile (letter and colour) plus the velocity it left the
          screen with — the tile itself travels to the neighbour
-       {"t":"w","q":9,"w":"QUIZ","ok":1[,"x":2,"y":0,"o":"a"][,"k":1]}
+       {"t":"w","q":9,"w":"QUIZ","ok":1[,"x":2,"y":0,"o":"a"][,"k":1,"h":"Ben"]}
          word in progress (ok = a real word); a valid word carries its start
          cell and orientation (o = a/d, across/down) so neighbours can ghost
-         it in place; k = this update is a knock's aftermath
+         it in place; k = this update is a knock's aftermath, h = who hit
        {"t":"g","q":10,"b":"<COLS*ROWS chars, . = empty>","v":"<hex valid mask, a nibble per 4 cells>"}
          the grid, row-major, for the main screen's live mirror — this page
          derives the grid's shape from b's length, never holds its own
@@ -259,6 +259,15 @@
           pl.liveOk = !!m.ok;
           render();
           routeLive(v.id, m);
+          /* a knock's aftermath: the projector gets the same beat the victim's
+             phone shows — who hit whose word — via the throw toast's mechanics,
+             and the victim's panel takes the hit shake */
+          if(m.k){
+            $('toast').textContent = String(m.h || 'Someone').slice(0, 20) + ' hit ' + pl.name + "'s word!";
+            setTimeout(() => { if(!$('banner').textContent) $('toast').textContent = ''; }, 2200);
+            const el = document.querySelector('.panel[data-id="' + v.id + '"]');
+            if(el){ el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
+          }
         } else if(m.t === 'g'){
           // the player's grid, mirrored live on the main screen. The length IS
           // the shape (render derives cols from it); the relay's 120-char cap

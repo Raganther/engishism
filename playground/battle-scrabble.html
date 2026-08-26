@@ -390,7 +390,7 @@
          tagged k, and the neighbours' overlays explode instead of just
          swapping text */
       onKnock(k){
-        sendLiveWord(true, true);
+        sendLiveWord(true, (k && k.tag) || 'Someone');
         /* the same quick self-clearing beat as INCOMING: who broke your word */
         const flash = document.getElementById('flash');
         flash.textContent = (k && k.tag ? k.tag : 'Someone') + ' hit your word!';
@@ -601,10 +601,10 @@
          {"t":"th","q":8,"d":"L","l":"Q","c":"#F5C542","vx":-14.2,"vy":-3.1,"ny":0.42}
            throw: the tile (letter and colour), plus the velocity it left the
            screen with and the release height as a fraction — the tile travels
-         {"t":"w","q":9,"w":"QUIZ","ok":1[,"x":2,"y":0,"o":"a"][,"k":1]}
+         {"t":"w","q":9,"w":"QUIZ","ok":1[,"x":2,"y":0,"o":"a"][,"k":1,"h":"Ben"]}
            word in progress (ok = a real word); a valid word carries its start
            cell and orientation (o = a/d, across/down) so neighbours can ghost
-           it in place; k = this update is a knock's aftermath
+           it in place; k = this update is a knock's aftermath, h = who hit
          {"t":"g","q":10,"b":"<COLS*ROWS chars, . = empty>","v":"<hex valid mask, a nibble per 4 cells>"}
            the grid, row-major, for the board's live mirror (v only when set);
            the board derives the grid's shape from b's length
@@ -769,7 +769,8 @@
        sends immediately (a bank or a fresh hand must not linger on a
        neighbour's screen). knocked marks the update as a knock's aftermath —
        it always sends (the same word could survive a knock elsewhere on the
-       grid, and the dedupe would swallow the bang). */
+       grid, and the dedupe would swallow the bang) and carries the hitter's
+       name for the board's toast. */
     let lwTimer = null, lastLw = null;
     function sendLiveWord(force, knocked){
       if(!client) return;
@@ -789,7 +790,12 @@
           o.y = Math.floor(best.idx[0] / COLS);
           o.o = (best.idx.length > 1 && best.idx[1] === best.idx[0] + 1) ? 'a' : 'd';
         }
-        if(knocked) o.k = 1;
+        if(knocked){
+          o.k = 1;
+          // who landed the hit, for the board's toast — the victim is the
+          // only one who knows (the tag came in riding the tile)
+          if(typeof knocked === 'string') o.h = knocked.slice(0, 20);
+        }
         send(o);
       };
       if(force || knocked){ fire(); return; }
