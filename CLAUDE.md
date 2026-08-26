@@ -380,7 +380,9 @@ They nest rather than compete: a ruleset sets the other two, so "which mode is i
 is never a real question — the switches are the truth.
 
 ## Asking the code
-Nothing in this file lists what exists. Ask:
+Nothing in this file lists what exists. **A fresh session orients here first** — these
+outrank any list written in this file, because they read the registries at the moment
+you ask, and prose can only be as fresh as its last edit:
 
 ```bash
 node tools/shelf.js            # every Kit.round / Kit / BenchKit helper, with its shape
@@ -389,7 +391,10 @@ node tools/question-types.js   # every round and question form, with its item sh
 Both load the registries rather than holding a list, so a thing added next month appears
 with nobody editing anything. `shelf.js` also names **what has been written three times**
 across the round files, and doubles as a hook before any edit to shared code.
-`dev.html` is the browser-side index of skills and pages.
+`dev.html` is the same derived truth for a browser — rounds, forms, the shelf map
+counted from real call sites, skill descriptions fetched from the skill files, and the
+build stamp, all computed at load (render it with Playwright if a browser-only fact is
+needed; the two tools above are its terminal face).
 
 In a page, `window.HubGames.ids()` / `.get(id)` is the game registry, `Kit.round.ids()`
 and `Kit.round.authored()` the rounds, `Kit.prompt.types()` / `.info(type)` the forms.

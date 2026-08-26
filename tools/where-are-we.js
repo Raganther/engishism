@@ -72,6 +72,11 @@ if (!remote){
     lines.push('or a fresh `git fetch`. `git log origin/main` on a fresh clone is a');
     lines.push('photograph taken when the workspace was made, and a session has already');
     lines.push('reported a day of shipped work as missing by trusting it.');
+    lines.push('');
+    lines.push('**What exists now is asked, never remembered:** `node tools/shelf.js` (every');
+    lines.push('shared helper) · `node tools/question-types.js` (every round and form).');
+    lines.push('`dev.html` is the same derived truth for a browser. All three read the');
+    lines.push('registries at the moment you ask; prose in any file can be stale.');
   }
 }
 
