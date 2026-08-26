@@ -375,6 +375,9 @@
         shot.shot = 0;
         clearResult();
         report();
+        /* after report(): the page's onArrange has re-read the board, so a
+           handler that broadcasts state broadcasts the post-knock truth */
+        if(opts.onKnock) opts.onKnock({ ch: hit.ch });
       }
     });
 

@@ -120,15 +120,13 @@
   #roomchip{ font-size:0.72rem; color:var(--muted); white-space:nowrap; align-self:center; }
   #roomchip b{ color:var(--accent); letter-spacing:0.1em; }
 
-  /* The neighbour tags: WHO each open edge throws at, and the word they are
-     spelling right now — gold once it is a real word, so you know who to
-     target. They were slim vertical labels on the side edges until the 7×7
-     made the grid edge-to-edge and buried them under the outer tile columns:
-     grey text on coloured tiles, invisible. Now they are pills in the lower
-     corners — left pill = left throw edge — floating over the pile band's
-     mostly-empty upper half, above the status pill. Not a drop target: the
-     whole edge is open and only a tile that actually flies out travels, so
-     they steal no pointer. */
+  /* The neighbour tags: WHO each open edge throws at — name only, in the lower
+     corners (left pill = left throw edge), floating over the pile band's
+     mostly-empty upper half, above the status pill. The word they are spelling
+     lives on the grid overlay below, WHERE it sits on their grid — the pill
+     merely goes gold when they have a live word worth attacking. Not a drop
+     target: the whole edge is open and only a tile that actually flies out
+     travels, so they steal no pointer. */
   .nbtag{
     position:absolute; bottom:94px; display:none; align-items:baseline; gap:7px;
     max-width:46%; padding:4px 10px; border-radius:999px;
@@ -139,14 +137,28 @@
   .nbtag.on{ display:flex; }
   .nbtag.dim{ opacity:0.3; }
   .nbtag b{ font-size:0.7rem; white-space:nowrap; }
-  .nbtag .nbword{
-    font-size:0.9rem; font-weight:800; letter-spacing:0.14em;
-    color:var(--text); opacity:0.55;
-    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  }
   .nbtag.lit{ border-color:var(--gold); }
-  .nbtag.lit .nbword{ color:var(--gold); opacity:1; }
   #nb-l{ left:6px; } #nb-r{ right:6px; }
+
+  /* The neighbour-word overlay: a neighbour's VALID word drawn as translucent
+     ghost tiles over this grid, at the same cells it occupies on theirs — so
+     the player knows where to aim a knock. pointer-events:none and see-through:
+     the player's own tiles stay grabbable and visible beneath. Knocked, the
+     ghosts explode (bs-boom scatters each tile by its own --dx/--dy) and the
+     next paint shows the post-knock truth. */
+  .nbov{ position:absolute; inset:0; pointer-events:none; }
+  .nbov-tile{
+    position:absolute; display:flex; align-items:center; justify-content:center;
+    border-radius:8px; border:2px solid var(--gold);
+    background:rgba(232,185,62,0.16); color:var(--gold);
+    font-weight:800; opacity:0.55; will-change:transform,opacity;
+  }
+  .nbov-tile.boom{ animation:bs-boom 0.5s forwards; }
+  @keyframes bs-boom{
+    0%{ transform:translate(0,0) scale(1); opacity:0.95; }
+    100%{ transform:translate(var(--dx,0), var(--dy,-60px)) scale(1.7) rotate(var(--rot,0deg));
+          opacity:0; filter:blur(2px); }
+  }
 
   @keyframes bs-shake{
     0%,100%{ transform:translate(0,0); } 20%{ transform:translate(-9px,3px); }
@@ -223,8 +235,9 @@
 
   <div class="stage">
     <canvas id="stage"></canvas>
-    <div class="nbtag" id="nb-l"><b id="nbname-l"></b><span class="nbword" id="nbword-l"></span></div>
-    <div class="nbtag" id="nb-r"><b id="nbname-r"></b><span class="nbword" id="nbword-r"></span></div>
+    <div class="nbov" id="nbov"></div>
+    <div class="nbtag" id="nb-l"><b id="nbname-l"></b></div>
+    <div class="nbtag" id="nb-r"><b id="nbname-r"></b></div>
     <div class="status" id="status">Flick letters into the slots to spell a word.</div>
     <div class="flash" id="flash"></div>
     <div class="over" id="over">
@@ -243,11 +256,11 @@
   <!-- Same shelf and same order as Throw Lab: matter.min.js → hub-kit.js (the
        object Kit.table hangs off) → hub-table.js. word-list.js is this page's own
        vendored dictionary — a <script src>, never a fetch, so file:// works. -->
-  <script src="../game-hub/hub-buzzer.js?v=20260825j"></script>
-  <script src="../game-hub/matter.min.js?v=20260825j"></script>
-  <script src="../game-hub/hub-kit.js?v=20260825j"></script>
-  <script src="../game-hub/hub-table.js?v=20260825j"></script>
-  <script src="word-list.js?v=20260825j"></script>
+  <script src="../game-hub/hub-buzzer.js?v=20260826a"></script>
+  <script src="../game-hub/matter.min.js?v=20260826a"></script>
+  <script src="../game-hub/hub-kit.js?v=20260826a"></script>
+  <script src="../game-hub/hub-table.js?v=20260826a"></script>
+  <script src="word-list.js?v=20260826a"></script>
   <script>
   (function(){
     'use strict';
@@ -371,7 +384,12 @@
       onArrange(){ readBoard(); },
       /* a free tile crossed an open side edge: it has been thrown, mid-air,
          at whatever speed it was doing — same wire as a band release */
-      onExit(t){ throwOut(t.side, t.ch, t.hue, t.vx, t.vy, t.ny); }
+      onExit(t){ throwOut(t.side, t.ch, t.hue, t.vx, t.vy, t.ny); },
+      /* a knock broke this board's word: the shelf fires this AFTER report(),
+         so readBoard has already re-read — resend the live word immediately,
+         tagged k, and the neighbours' overlays explode instead of just
+         swapping text */
+      onKnock(){ sendLiveWord(true, true); }
     });
     function val(id){ return document.getElementById(id).value; }
     function minVowels(){ return +val('s-vow'); }
@@ -460,6 +478,12 @@
       refreshHints();
       status.textContent = 'Flick letters into the grid — words read across and down.';
       paintBank();
+      /* The refill re-opens the edges. edgesPaint closes both sides when the
+         rack is down to its last spellable letters; without this call a bank
+         from a low rack left the walls built — throws bounced off a
+         visually-open edge until an INCOMING tile happened to repaint. */
+      edgesPaint();
+      nbovPaint();                 // slot geometry can change with the size dial
     }
 
     function renderHints(){
@@ -535,6 +559,7 @@
       secsLeft = Number(roomSecs) > 0 ? Math.round(Number(roomSecs)) : +val('s-secs');
       paintClock();
       playing = true;
+      nbWords.l = nbWords.r = null;   // a rematch starts with clean grids everywhere
       deal([]);
       clearInterval(tick);
       tick = setInterval(() => {
@@ -547,7 +572,7 @@
     function endGame(){
       clearInterval(tick); tick = null;
       playing = false;
-      paintBank(); edgesPaint();
+      paintBank(); edgesPaint(); nbovPaint();
       report(true);
       document.getElementById('final').textContent = score;
       document.getElementById('best-line').textContent =
@@ -566,7 +591,10 @@
          {"t":"th","q":8,"d":"L","l":"Q","c":"#F5C542","vx":-14.2,"vy":-3.1,"ny":0.42}
            throw: the tile (letter and colour), plus the velocity it left the
            screen with and the release height as a fraction — the tile travels
-         {"t":"w","q":9,"w":"QUIZ","ok":1}   word in progress (ok = a real word)
+         {"t":"w","q":9,"w":"QUIZ","ok":1[,"x":2,"y":0,"o":"a"][,"k":1]}
+           word in progress (ok = a real word); a valid word carries its start
+           cell and orientation (o = a/d, across/down) so neighbours can ghost
+           it in place; k = this update is a knock's aftermath
          {"t":"g","q":10,"b":"<COLS*ROWS chars, . = empty>","v":"<hex valid mask, a nibble per 4 cells>"}
            the grid, row-major, for the board's live mirror (v only when set);
            the board derives the grid's shape from b's length
@@ -574,7 +602,9 @@
          {"t":"tile","by":"Maria","d":"L","l":"Q","c":"#F5C542","vx":-14.2,"vy":-3.1,"ny":0.42}
            an incoming tile: it enters this board moving as it left theirs,
            wearing its own colour, and it is this player's from then on
-         {"t":"nw","d":"l","w":"QUIZ","ok":1}  your left/right neighbour's word
+         {"t":"nw","d":"l","w":"QUIZ","ok":1[,"x":2,"y":0,"o":"a"][,"k":1]}
+           your left/right neighbour's word, position and knock flag carried
+           through from their "w" — valid words ghost onto this grid in place
          {"t":"nb","l":"Maria","r":"Ken"}    your neighbours' names
          {"t":"sync","left":48}              clock sync for a late joiner
          {"t":"full"}                        the board seats four; wait out this game
@@ -631,13 +661,76 @@
       world.openSides(openTo);
     }
 
+    /* ---- the neighbour-word overlay ----
+       A neighbour's VALID word ghosts onto THIS grid at the cells it occupies
+       on theirs (both grids are COLS×ROWS, so cells map 1:1) — the player sees
+       WHERE the word is and aims the knock. Only valid words show; a work-in-
+       progress stays off the grid. Geometry comes from world.slotBox, so a
+       resize or a size-dial change wants a repaint. */
+    const nbWords = { l:null, r:null };   // last state per side: {w, ok, x, y, o}
+    const nbov = document.getElementById('nbov');
+    function nbovCells(st){
+      const out = [];
+      for(let j = 0; j < st.w.length; j++){
+        const cx = st.o === 'd' ? st.x : st.x + j;
+        const cy = st.o === 'd' ? st.y + j : st.y;
+        if(cx >= COLS || cy >= ROWS) break;   // a malformed position never paints off-grid
+        out.push(cy * COLS + cx);
+      }
+      return out;
+    }
+    function nbovPaint(){
+      /* In a 2-player ring the one opponent is BOTH neighbours, so their word
+         arrives once per side — identical states paint once, or the stacked
+         ghosts read at double opacity. */
+      const dupR = nbWords.l && nbWords.r &&
+                   JSON.stringify(nbWords.l) === JSON.stringify(nbWords.r);
+      ['l','r'].forEach(side => {
+        nbov.querySelectorAll('[data-side="' + side + '"]').forEach(el => el.remove());
+        const st = nbWords[side];
+        if(side === 'r' && dupR) return;
+        if(!playing || !st || !st.ok || !st.w || st.x == null) return;
+        nbovCells(st).forEach((idx, j) => {
+          const box = world.slotBox(idx);
+          if(!box) return;
+          const el = document.createElement('div');
+          el.className = 'nbov-tile';
+          el.dataset.side = side;
+          el.textContent = st.w[j];
+          el.style.left = (box.x - box.w / 2) + 'px';
+          el.style.top = (box.y - box.w / 2) + 'px';
+          el.style.width = box.w + 'px';
+          el.style.height = box.w + 'px';
+          el.style.fontSize = Math.round(box.w * 0.5) + 'px';
+          nbov.appendChild(el);
+        });
+      });
+    }
+    /* The knock beat: the ghosts scatter and fade. Each tile gets its own
+       flight, the data-side is dropped so the truth can paint underneath
+       while the explosion plays, and the debris removes itself. */
+    function nbovBoom(side){
+      nbov.querySelectorAll('[data-side="' + side + '"]').forEach(el => {
+        el.dataset.side = '';
+        el.style.setProperty('--dx', Math.round((Math.random() - 0.5) * 140) + 'px');
+        el.style.setProperty('--dy', Math.round((Math.random() - 0.5) * 100 - 40) + 'px');
+        el.style.setProperty('--rot', Math.round((Math.random() - 0.5) * 220) + 'deg');
+        el.classList.add('boom');
+        setTimeout(() => el.remove(), 550);
+      });
+    }
+
     /* The word-in-progress, sent up so the ring can see who is spelling what
-       — the neighbours' screens show it beside this player's name, lit when
-       it is a real word. Debounced (a drag can chatter) and deduped, so the
-       wire only carries changes; force sends immediately (a bank or a fresh
-       hand must not linger on a neighbour's screen). */
+       — the neighbours' grids ghost it at the cells it occupies here, the
+       board's panel prints it. A VALID word carries its position (x,y = start
+       cell, o = across/down), which is what places the ghost. Debounced (a
+       drag can chatter) and deduped, so the wire only carries changes; force
+       sends immediately (a bank or a fresh hand must not linger on a
+       neighbour's screen). knocked marks the update as a knock's aftermath —
+       it always sends (the same word could survive a knock elsewhere on the
+       grid, and the dedupe would swallow the bang). */
     let lwTimer = null, lastLw = null;
-    function sendLiveWord(force){
+    function sendLiveWord(force, knocked){
       if(!client) return;
       const best = validRuns[0] || null;
       const all = validRuns.concat(badRuns);
@@ -645,10 +738,21 @@
       const w = ((best || longest || { word: '' }).word).slice(0, 10);
       const ok = best ? 1 : 0;
       const key = w + '|' + ok;
-      if(key === lastLw){ clearTimeout(lwTimer); return; }
+      if(!knocked && key === lastLw){ clearTimeout(lwTimer); return; }
       clearTimeout(lwTimer);
-      if(force){ lastLw = key; send({ t:'w', w, ok }); return; }
-      lwTimer = setTimeout(() => { lastLw = key; send({ t:'w', w, ok }); }, 250);
+      const fire = () => {
+        lastLw = key;
+        const o = { t:'w', w, ok };
+        if(best){
+          o.x = best.idx[0] % COLS;
+          o.y = Math.floor(best.idx[0] / COLS);
+          o.o = (best.idx.length > 1 && best.idx[1] === best.idx[0] + 1) ? 'a' : 'd';
+        }
+        if(knocked) o.k = 1;
+        send(o);
+      };
+      if(force || knocked){ fire(); return; }
+      lwTimer = setTimeout(fire, 250);
     }
 
     /* The grid mirror: the board draws every player's grid live, so the whole
@@ -765,7 +869,7 @@
       document.getElementById('over').classList.remove('show');
       document.getElementById('clock').textContent = '–:––';
       status.textContent = 'Waiting for the board to start the game…';
-      paintBank(); edgesPaint();
+      paintBank(); edgesPaint(); nbovPaint();
     }
 
     /* The full room state arrives on `joined` (resent on every reconnect) and
@@ -801,12 +905,27 @@
         try{ m = JSON.parse((d && d.word) || ''); }catch(_){ return; }
         if(!m || !m.t) return;
         if(m.t === 'tile') onTile(m);
-        else if(m.t === 'nb'){ nbL = m.l || ''; nbR = m.r || ''; edgesPaint(); }
+        else if(m.t === 'nb'){
+          // a new neighbour on a side must not inherit the old one's ghost word
+          if((m.l || '') !== nbL) nbWords.l = null;
+          if((m.r || '') !== nbR) nbWords.r = null;
+          nbL = m.l || ''; nbR = m.r || '';
+          edgesPaint(); nbovPaint();
+        }
         else if(m.t === 'nw'){
-          // a neighbour's word-in-progress: show it on their tag, lit when real
+          /* a neighbour's word: ghosted onto this grid at its real cells when
+             valid, pill lit. k = a knock just broke it — explode the ghosts,
+             then paint whatever their grid truthfully holds now. */
           const side = m.d === 'l' ? 'l' : 'r';
-          document.getElementById('nbword-' + side).textContent = String(m.w || '');
-          document.getElementById('nb-' + side).classList.toggle('lit', !!m.ok && !!m.w);
+          const prev = nbWords[side];
+          const next = { w: String(m.w || '').slice(0, 10), ok: !!m.ok,
+                         x: m.x != null ? Math.max(0, Math.floor(+m.x) || 0) : null,
+                         y: m.y != null ? Math.max(0, Math.floor(+m.y) || 0) : null,
+                         o: m.o === 'd' ? 'd' : 'a' };
+          if(m.k && prev && prev.ok && prev.w) nbovBoom(side);
+          nbWords[side] = next;
+          document.getElementById('nb-' + side).classList.toggle('lit', next.ok && !!next.w);
+          nbovPaint();
         }
         else if(m.t === 'full'){
           /* The board seats four. The relay's armed replay may have started
@@ -925,7 +1044,7 @@
     btnTune.addEventListener('click', () => { document.body.classList.toggle('controls-hidden'); applyTune(); });
 
     let rz;
-    const refit = () => { clearTimeout(rz); rz = setTimeout(() => world.resize(), 150); };
+    const refit = () => { clearTimeout(rz); rz = setTimeout(() => { world.resize(); nbovPaint(); }, 150); };
     window.addEventListener('resize', refit);
     /* Mobile chrome collapsing/expanding fires on the VISUAL viewport, often
        without a window resize — without this the canvas keeps the height the

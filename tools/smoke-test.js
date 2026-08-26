@@ -8479,12 +8479,23 @@ async function testBattleScrabble(browser){
     await board.evaluate(() => window.__bsb.players[window.__bsb.seats[1]].live) === wordB, 6000);
   check('the board shows the word Ben is spelling', liveOnBoard,
         String(await board.evaluate(() => window.__bsb.players[window.__bsb.seats[1]].live)));
-  const litOnA = await until(async () => await A.evaluate(w =>
-    ['l', 'r'].some(s => document.getElementById('nbword-' + s).textContent === w &&
-                         document.getElementById('nb-' + s).classList.contains('lit')), wordB), 6000);
-  check('and Anna\'s edge tag lights up with it', litOnA,
-        await A.evaluate(() => document.getElementById('nbword-l').textContent + '/' +
-                               document.getElementById('nbword-r').textContent));
+  /* The word ghosts onto Anna's OWN grid at the cells it occupies on Ben's
+     (the positional overlay), and her edge pill lights gold. In this 2-ring
+     the same word arrives for both sides and paints once — the dedupe. */
+  const litOnA = await until(async () => await A.evaluate(w => {
+    const txt = Array.from(document.querySelectorAll('#nbov .nbov-tile')).map(t => t.textContent).join('');
+    return txt === w && ['l', 'r'].some(s => document.getElementById('nb-' + s).classList.contains('lit'));
+  }, wordB), 6000);
+  check('and Anna ghosts it on her own grid, pill lit', litOnA,
+        await A.evaluate(() => Array.from(document.querySelectorAll('#nbov .nbov-tile')).map(t => t.textContent).join('') || '(no ghost)'));
+  check('the ghost sits on the mirrored cells', await A.evaluate(() => {
+    const t = document.querySelector('#nbov .nbov-tile');
+    const b = window.__bs.world.slotBox(0);           // Ben laid the word from cell 0
+    if(!t || !b) return false;
+    const r = t.getBoundingClientRect(), c = document.getElementById('stage').getBoundingClientRect();
+    return Math.abs((r.left - c.left) + r.width / 2 - b.x) < 3 &&
+           Math.abs((r.top - c.top) + r.height / 2 - b.y) < 3;
+  }));
 
   /* The main screen mirrors every grid: Ben's word, placed on his row 0, must
      appear letter-for-letter in his panel on the board — data first, then the

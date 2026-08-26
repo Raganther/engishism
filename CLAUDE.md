@@ -690,9 +690,10 @@ unit's **L9 category** routes to it, no class-facing unit yet.
 run.** Board + phone pages on the phone room; each phone is a 7×7 grid where words
 read across and down and BANK cashes every valid word at once; a tile flicked off an
 open side edge **physically travels** to a ring neighbour with its speed, trajectory
-and colour, knocks a slotted letter out on a hard hit, and is theirs to use; each
-player's word-in-progress shows live on their neighbours' screens and the board's
-circle. The `new-playground-game` skill is the procedure it taught. **Its graduation
+and colour, knocks a slotted letter out on a hard hit, and is theirs to use; a
+neighbour's **valid** word ghosts onto your own grid at the cells it occupies on
+theirs (translucent, no pointer, exploding when a knock breaks it — `Kit.table`'s
+`onKnock` hook is the signal), and every grid mirrors live on the board's circle. The `new-playground-game` skill is the procedure it taught. **Its graduation
 door is deliberately undecided until a class plays it**: seventh hub game
 (`registerGame`) if it is a main event, or distilled into the toss round's territory
 if it is a spice. Every feel number (dock threshold 8, knock speed 6, the arrival
