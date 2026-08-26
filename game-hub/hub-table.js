@@ -717,11 +717,14 @@
         const res = resultMap.get(i) || result;
         const half = s.w/2, r = Math.round(s.w*0.16);
         ctx.save();
-        ctx.lineWidth = 2.5;
+        /* empty slots: a thin SOLID tile-shaped outline — the dashed marching
+           ants read as placeholder chrome; a quiet tile silhouette reads as
+           "a tile goes here". Filled slots keep the heavier stroke so the
+           right/wrong glow stays visible from arm's length. */
+        ctx.lineWidth = s.piece ? 2.5 : 1.25;
         ctx.strokeStyle = s.piece
           ? (res === 'right' ? '#6FB04A' : res === 'wrong' ? '#E2603B' : '#5a6473')
           : '#39414f';
-        if(!s.piece) ctx.setLineDash([6, 7]);
         roundRect(ctx, s.x - half, s.y - half, s.w, s.w, r);
         ctx.stroke();
         ctx.restore();
