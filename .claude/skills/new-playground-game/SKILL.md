@@ -72,8 +72,12 @@ Open it as `phone-bench.html?board=<your-board>.html`, and add your board to its
 ## 5. The wire
 
 - Up: `respond()` — **the relay truncates at 120 chars**. JSON tagged `t`, plus a
-  per-phone sequence `q`; the receiver drops `q <= lastQ`, because the relay stores one
-  value per player and REPLAYS it on reconnect.
+  per-phone sequence `q`; the receiver drops `q <= lastQ[t]` — **per message TYPE**,
+  because the relay stores one value per player and REPLAYS it on reconnect, and a
+  replay is of one stored value. One shared counter is the bug, not a simplification:
+  two messages sent in the same tick are two concurrent POSTs on two sockets, nothing
+  orders them, and when the later `q` arrives first the earlier message is dropped as
+  a "replay" — permanently, if the sender dedupes at send time.
 - Down: `host.nope(id, json)` — per-phone push, no length cap.
 - **Unknown `t` is silently ignored on both ends.** That is the compat rule; it is what
   makes a new message additive.

@@ -137,7 +137,9 @@
   /* ==================== the room — the protocol ====================
      Duplicated verbatim on the phone page (battle-scrabble.html): JSON rides
      the relay's existing messages — nothing new on the wire.
-     Up, via respond() (<=120 chars), tagged `t`, per-phone sequence `q`:
+     Up, via respond() (<=120 chars), tagged `t`, per-phone sequence `q`
+       (the receiver drops replays per TYPE — w and g leave as concurrent
+       POSTs, so one shared counter dropped whichever lost the race):
        {"t":"s","q":7,"sc":41.5,"w":"QUIZ","n":4[,"f":1]}   score (f = final)
        {"t":"th","q":8,"d":"L","l":"Q","c":"#F5C542","vx":-14.2,"vy":-3.1,"ny":0.42}
          throw: the tile (letter and colour) plus the velocity it left the
@@ -170,7 +172,7 @@
      disconnects and re-appends them on return; this array is why that cannot
      shuffle who is throwing at whom. */
   const seats = [];
-  const players = {};        // id -> { name, score, words, lastWord, lastQ, present, lastNb }
+  const players = {};        // id -> { name, score, words, lastWord, lastQ (per message type), present, lastNb }
   let running = false, endsAt = 0, tick = null;
 
   const settings = BenchKit.settings($('settings-slot'), [
@@ -196,7 +198,7 @@
               if(host) host.nope(p.id, JSON.stringify({ t:'full' }));
               return;
             }
-            players[p.id] = { name:p.name, score:0, words:0, lastWord:'', lastQ:0, present:true, lastNb:'',
+            players[p.id] = { name:p.name, score:0, words:0, lastWord:'', lastQ:{}, present:true, lastNb:'',
                               live:'', liveOk:false, lastNw:{ l:'', r:'' }, grid:'', gridV:'' };
             seats.push(p.id);
           }
@@ -222,8 +224,15 @@
         const pl = players[v.id];
         if(!pl) return;
         /* The relay stores one value per player and replays it, so the same
-           message can arrive twice — the sequence makes a replay a no-op. */
-        if(m.q != null){ if(m.q <= pl.lastQ) return; pl.lastQ = m.q; }
+           message can arrive twice — the sequence makes a replay a no-op.
+           Deduped PER TYPE: the phone's w and g leave the same readBoard as
+           two concurrent POSTs, and nothing orders two sockets — with one
+           shared counter, a g (q=n+1) beating its w (q=n) to the relay made
+           the board drop the w as a replay, permanently (the phone dedupes
+           at send time and never re-sends a word it believes delivered).
+           A replay is of ONE stored value, so per-type is what the guard
+           always needed. */
+        if(m.q != null){ if(m.q <= (pl.lastQ[m.t] || 0)) return; pl.lastQ[m.t] = m.q; }
         if(m.t === 's'){
           pl.score = Number(m.sc) || 0;
           pl.words = Number(m.n) || 0;
@@ -316,7 +325,7 @@
   /* ---- the game ---- */
   function start(){
     if(!host || !presentSeats().length) return;
-    seats.forEach(id => { players[id].score = 0; players[id].words = 0; players[id].lastWord = ''; players[id].lastQ = 0;
+    seats.forEach(id => { players[id].score = 0; players[id].words = 0; players[id].lastWord = ''; players[id].lastQ = {};
                           players[id].live = ''; players[id].liveOk = false; players[id].lastNw = { l:'', r:'' };
                           players[id].grid = ''; players[id].gridV = ''; });
     $('banner').textContent = ''; $('toast').textContent = '';
