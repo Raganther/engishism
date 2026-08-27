@@ -303,10 +303,20 @@
       if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body));
       pieces = [];
       const s = feel.size, chars = (labels || []).slice();
-      const spread = Math.min(cssW - s, chars.length * (s + 10));
-      const startX = (cssW - spread) / 2 + s/2;
+      /* Spread the drop using the width a piece will actually be drawn at,
+         not the square it is built at. A caller that declares its (wider)
+         bar slots before dealing — a word tile is far wider than a letter —
+         is spreading for the size fitTiles is about to scale these bodies
+         to; spreading at the narrow square size instead crammed a hand of
+         word tiles into the room five LETTERS need, so they landed already
+         overlapping and the solver never fully untangled them. A caller
+         that deals before declaring slots (every square-tile round so far)
+         sees no slots yet here and this is unchanged. */
+      const spreadUnit = slots.length ? slots[0].w : s;
+      const spread = Math.min(cssW - spreadUnit, chars.length * (spreadUnit + 10));
+      const startX = (cssW - spread) / 2 + spreadUnit/2;
       chars.forEach((ch, i) => {
-        const x = chars.length > 1 ? startX + (spread - s) * (i/(chars.length-1)) : cssW/2;
+        const x = chars.length > 1 ? startX + (spread - spreadUnit) * (i/(chars.length-1)) : cssW/2;
         const y = s/2 + 20 + (i % 2) * 8;
         const body = Bodies.rectangle(x, y, s, s, {
           chamfer:{ radius: Math.round(s*0.16) },
@@ -407,13 +417,34 @@
     function gridDims(cols, rows, top, pile, bar){
       const margin = 12, gap = Math.max(4, Math.round(feel.size * 0.10));
       const yTop = top != null ? top : margin;    // room for a caller's own chrome above row 0
-      const pileH = pile != null ? pile : 130;    // the loose-tile band below the grid (a settled heap is 1-2 tiles deep)
       /* bar: slots sized to the WORD, not the row — height fits the column
          exactly as a square grid does; width is measured from the longest
          label at the slot's own font size (draw()'s 0.56 ratio) plus
          padding, clamped to the row so a long scale never overflows. A
          square grid keeps one size for both, unchanged. */
       if(bar){
+        /* A bar pile is whole words, not letter squares — several genuinely
+           do not fit side by side, so the fixed 130px band tuned for a
+           compact letter heap left five words with nowhere to go but on top
+           of each other. Estimate a tile's nominal size (feel.size-capped
+           height, the longest label's measured width) BEFORE the band is
+           sized, work out how many of those fit per row and so how many
+           rows the pile needs, then grow the band to hold them — capped at
+           half the card so the ladder itself keeps the rest. An explicit
+           `pile` still wins outright, exactly as before. */
+        const nomH = feel.size;
+        const rowMax0 = Math.max(60, Math.floor((cssW - margin*2 - gap*(cols-1)) / cols));
+        let nomW = Math.round(rowMax0 * 0.62);
+        const n = (bar.labels && bar.labels.length) || rows;
+        if(bar.labels && bar.labels.length){
+          ctx.font = `700 ${Math.round(nomH*0.56)}px -apple-system, "Segoe UI", Roboto, sans-serif`;
+          const widest = Math.max(...bar.labels.map(w => ctx.measureText(String(w)).width));
+          nomW = Math.max(60, Math.round(widest / 0.88) + 24);
+        }
+        const perRow = Math.max(1, Math.floor((cssW - margin*2) / (nomW + gap)));
+        const pileRows = Math.ceil(n / perRow);
+        const pileH = pile != null ? pile
+          : Math.min(Math.round(cssH * 0.5), pileRows * (nomH + gap) + margin);
         const sh = Math.max(24, Math.min(feel.size,
           Math.floor((cssH - yTop - pileH - gap*(rows-1)) / rows)));
         /* rowMax can be 0 or negative on the very first frame (canvas not yet
@@ -430,6 +461,7 @@
         const x0 = (cssW - (cols*sw + (cols-1)*gap)) / 2;
         return { gap, sw, sh, x0, y0: yTop + sh/2 };
       }
+      const pileH = pile != null ? pile : 130;    // the loose-tile band below the grid (a settled heap is 1-2 tiles deep)
       const sw = Math.max(20, Math.min(feel.size,
         Math.floor((cssW - margin*2 - gap*(cols-1)) / cols),
         Math.floor((cssH - yTop - pileH - gap*(rows-1)) / rows)));

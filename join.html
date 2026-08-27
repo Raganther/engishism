@@ -952,8 +952,12 @@
     host.appendChild(canvas);
     tblCanvas = canvas;
     tbl = window.HubKit.table({ canvas, onArrange(){ sendTable(); } });   // every feel number from the shelf's dial registry
-    tbl.setPieces(list);
+    /* Slots before pieces: the pile's spread reads the declared slot width,
+       if any, so a bar shape's wide word tiles spread across the room they
+       need rather than the room square letters need — the reverse order
+       once landed a hand of words already overlapping. */
     tbl.slots(shape ? { cols: shape.cols, rows: shape.rows, bar: shape.bar, labels: shape.labels || list } : list.length);
+    tbl.setPieces(list);
 
     const pt = e => tbl.pt(e);   // the shelf maps a touch through the painted/natural ratio
     canvas.addEventListener('pointerdown', e => {

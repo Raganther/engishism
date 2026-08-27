@@ -354,8 +354,13 @@
           }
         });
         s._table = table;
-        table.setPieces(s.pool);
+        /* Slots before pieces: the pile's own spread math (hub-table.js) reads
+           the declared slot width, if any, so it spreads a hand of wide word
+           tiles across the room they actually need instead of the room five
+           square letters need — the reverse order once landed them dropped
+           already overlapping. */
         table.slots({ cols: 1, rows: s.need, bar: true, top: 8, labels: s.pool });
+        table.setPieces(s.pool);
         const pt = e => table.pt(e);
         canvas.addEventListener('pointerdown', e => {
           const p = pt(e);
