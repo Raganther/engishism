@@ -728,27 +728,6 @@
           const av = g.body.angularVelocity;
           if(av > 0.6 || av < -0.6) Body.setAngularVelocity(g.body, clamp(av, -0.6, 0.6));
         }
-        /* A bar tile is a whole word lying flat, not a letter free to
-           tumble — nothing here plays the role real gravity does for a
-           card that cannot balance on its edge, so a rotated tile just
-           stays rotated, and a wide rectangle standing on its short edge
-           needs far more room than it was ever budgeted, which is what
-           turned a contained pile back into a cascade of overlapping
-           cards. A gentle self-righting nudge toward the nearest flat
-           orientation, on every loose piece not currently in a hand or
-           mid-dock — held pieces keep the swing dial's own feel; docked
-           ones are already snapped upright by tickDocks. */
-        if(grid && grid.bar){
-          const held = new Set();
-          for(const g of grips.values()) held.add(g.body);
-          for(const p of pieces){
-            const b = p.body;
-            if(b.isStatic || p.dock || held.has(b)) continue;
-            const flat = Math.round(b.angle / Math.PI) * Math.PI;
-            const diff = b.angle - flat;
-            if(diff > 0.01 || diff < -0.01) Body.setAngularVelocity(b, b.angularVelocity - diff * 0.08);
-          }
-        }
       }
       tickDocks();
       tickExits();
