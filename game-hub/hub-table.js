@@ -125,6 +125,19 @@
                 : (saved && saved[d.k] != null) ? saved[d.k]
                 : d.def;
     }
+    /* Rotation lock is a per-round BEHAVIOUR, not a tuned number, so it is not
+       a dial: it carries no slider, is never written into the saved feel, and
+       a round declares it once at construction. Three states:
+         undefined  auto — freeze bar (word) tiles, let square letters tumble
+         true       freeze every tile's rotation, whatever its shape
+         false      let every tile rotate, words included
+       `rotLocked()` resolves it against the current grid; setPieces reads it
+       for the deal angle and normalizeMass for the inertia freeze. Held live
+       through setFeel + a re-deal, which is how Throw Lab flips it. */
+    feel.lockRot = opts.lockRot;
+    function rotLocked(){
+      return feel.lockRot == null ? !!(grid && grid.bar) : !!feel.lockRot;
+    }
     engine.gravity.y = feel.gravity;
     engine.constraintIterations = 6;   // pulls a held piece to the finger harder each frame, so a fast drag lags less
 
@@ -224,18 +237,18 @@
        setStatic, and they re-normalize on the next fit once knocked loose. */
     function normalizeMass(b){
       if(!b.isStatic && b.area > 0) Body.setDensity(b, 0.0016 * (34 * 34) / b.area);
-      /* A bar tile is a whole WORD, wide-and-short — it must stay readable and
-         cannot sensibly balance on its narrow edge, and a wide rectangle tipped
-         onto that edge is what turned a contained pile into a cascade. So a bar
-         tile's rotation is frozen outright: setInertia(Infinity) leaves it with
-         no rotational response, so no collision or drag force can ever spin it.
-         It is created flat (setPieces skips the random tilt in bar mode) and,
-         with zero angular velocity and no torque that can act, it stays flat
-         forever — no per-frame correction, nothing to oscillate. setDensity
-         above recomputes inertia from area, so the freeze is re-applied here,
-         which is the one choke point every fit/scale/deal passes through.
-         Square letter tiles are untouched and keep tumbling. */
-      if(grid && grid.bar && !b.isStatic) Body.setInertia(b, Infinity);
+      /* Rotation freeze, when this world locks it (rotLocked()): a wide word
+         tile must stay readable and cannot sensibly balance on its narrow
+         edge, and a rectangle tipped onto that edge is what turned a contained
+         pile into a cascade. setInertia(Infinity) leaves a tile with no
+         rotational response, so no collision or drag force can ever spin it;
+         dealt flat with zero angular velocity and no torque that can act, it
+         stays flat forever — no per-frame correction, nothing to oscillate.
+         setDensity above recomputes inertia from area, so the freeze is
+         re-applied here, the one choke point every fit/scale/deal passes
+         through — which is also what un-freezes a tile the moment a round (or
+         Throw Lab) clears the lock: the real inertia is simply left in place. */
+      if(rotLocked() && !b.isStatic) Body.setInertia(b, Infinity);
     }
     /* The sides can OPEN — the throw dynamic's exit doors. With a side open its
        wall is simply not built, a piece that crosses that edge leaves the world,
@@ -335,9 +348,9 @@
           restitution: feel.restitution, frictionAir: feel.frictionAir,
           friction: 0.3, density: 0.0016
         });
-        // A bar tile is dealt flat and stays flat (normalizeMass freezes its
-        // rotation); only free-tumbling letter tiles get the scattered tilt.
-        Body.setAngle(body, (grid && grid.bar) ? 0 : (Math.random() - 0.5) * 0.3);
+        // A rotation-locked tile is dealt flat and stays flat (normalizeMass
+        // freezes it); a free tile gets the scattered tilt and tumbles.
+        Body.setAngle(body, rotLocked() ? 0 : (Math.random() - 0.5) * 0.3);
         // hold: a fresh deal's rain must not leak out through an open side
         // while it settles — the edge reflects it back in until this expires
         pieces.push({ body, ch: String(ch), hue: HUES[i % HUES.length],
@@ -865,6 +878,20 @@
       if(next.swing != null || next.damping != null){
         const k = stiffnessOf(feel.swing);
         for(const g of grips.values()){ g.constraint.stiffness = k; g.constraint.damping = feel.damping; }
+      }
+      /* Flipping the rotation lock live: re-normalise every loose tile so the
+         freeze applies (or lifts) without waiting for the next deal —
+         normalizeMass recomputes the real inertia and re-freezes only if the
+         lock is now on. Snap a newly-locked tile flat so it does not sit
+         mid-tumble. Throw Lab re-deals on the toggle too, but this makes the
+         change correct on its own. */
+      if('lockRot' in next){
+        for(const p of pieces){
+          const b = p.body;
+          if(b.isStatic) continue;
+          normalizeMass(b);
+          if(rotLocked()){ Body.setAngle(b, 0); Body.setAngularVelocity(b, 0); }
+        }
       }
     }
 

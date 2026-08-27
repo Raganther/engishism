@@ -105,6 +105,20 @@
         <option value="words">Words (bar ladder)</option>
       </select>
     </div>
+    <!-- Rotation is a per-round behaviour, not a tuned number, so it is a
+         picker here rather than a saved dial. Auto is the shelf's own rule
+         (words frozen flat, letters tumble); Locked freezes every tile
+         whatever its shape; Free lets every tile rotate, words included —
+         which is how you watch a rectangle behave like a square. A round
+         declares the one it wants with K.table({ lockRot: true|false }). -->
+    <div class="word">
+      <label for="rot-in">Rotation</label>
+      <select id="rot-in">
+        <option value="auto">Auto (words locked)</option>
+        <option value="lock">Locked (all flat)</option>
+        <option value="free">Free (all rotate)</option>
+      </select>
+    </div>
     <div class="word">
       <label for="word-in" id="word-label">Word</label>
       <input id="word-in" type="text" value="THROW" maxlength="80" autocomplete="off" spellcheck="false">
@@ -128,10 +142,10 @@
        Toss round will call. Throw Lab is its first caller — the workshop where the
        feel gets tuned. matter.min.js and hub-table.js live in game-hub/ beside the
        other shelves; hub-kit.js is the object Kit.table hangs off. -->
-  <script src="../game-hub/hub-qr.js?v=20260827f"></script>
-  <script src="../game-hub/matter.min.js?v=20260827f"></script>
-  <script src="../game-hub/hub-kit.js?v=20260827f"></script>
-  <script src="../game-hub/hub-table.js?v=20260827f"></script>
+  <script src="../game-hub/hub-qr.js?v=20260827g"></script>
+  <script src="../game-hub/matter.min.js?v=20260827g"></script>
+  <script src="../game-hub/hub-kit.js?v=20260827g"></script>
+  <script src="../game-hub/hub-table.js?v=20260827g"></script>
   <script>
   (function(){
     'use strict';
@@ -279,6 +293,18 @@
       newWord();
     }
     modeIn.addEventListener('change', applyMode);
+
+    /* ---- the rotation picker: a per-round behaviour tried live ----
+       Auto lets the shelf decide by shape; Locked/Free force it either way.
+       setFeel carries it into the world, then a fresh deal shows it — the
+       same lockRot a round would pass to K.table at construction. */
+    const rotIn = document.getElementById('rot-in');
+    function applyRot(){
+      const v = rotIn.value;
+      world.setFeel({ lockRot: v === 'lock' ? true : v === 'free' ? false : undefined });
+      newWord();
+    }
+    rotIn.addEventListener('change', applyRot);
 
     /* ---- collapsible controls: folded away by default on a phone ---- */
     const btnTune = document.getElementById('btn-tune');
