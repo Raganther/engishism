@@ -221,6 +221,18 @@
         }
       }
     }
+    /* Declare slots or deal a hand BEFORE the first resize() and the canvas has
+       no measured size yet (cssW/cssH are 0). Slot dims computed against 0 come
+       out at a fallback size, the tiles are built to THAT, and the first real
+       resize then rescales them non-uniformly — which is exactly what stretches
+       a round corner into an ellipse and makes wide word tiles overlap at the
+       corners. The ordering round deals then resizes; Throw Lab resizes then
+       deals and never hit it. So the shelf measures itself before it builds:
+       call order stops mattering, and a caller that already sized sees a no-op.
+       Guarded on the canvas actually having a layout box to measure. */
+    function ensureSized(){
+      if((!cssW || !cssH) && (canvas.offsetWidth || canvas.offsetHeight)) sizeToCanvas();
+    }
     /* A loose tile is the SAME size as the slot it drops into. The slots shrink to fit
        the row (slotDims caps at feel.size, then reduces for width/count), so a piece left
        at feel.size looks bigger than its box. `tile` is that fitted size; scale the bodies
@@ -341,6 +353,7 @@
 
     /* ---- pieces ---- */
     function setPieces(labels){
+      ensureSized();   // build the tiles at the real slot size, even if dealt before resize()
       if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body));
       pieces = [];
       const chars = (labels || []).slice();
@@ -526,6 +539,7 @@
     }
     let grid = null;               // {cols, rows} when the slots are a grid
     function makeSlots(spec){
+      ensureSized();   // measure before computing slot dims, even if slots are declared before resize()
       slots = []; grid = null;
       if(!spec){ fitTiles(); return; }
       if(typeof spec === 'object'){

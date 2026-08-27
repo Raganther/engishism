@@ -696,7 +696,13 @@ square scaled to fit** (`setPieces` reads the declared slot's w×h): a non-unifo
 ~8px tall) while `draw()` rounds a uniform ~8px, so the graphic overhung the collision
 hull and wide neighbours looked to overlap at the corners — the letters never showed it
 because a square→square slot is a *uniform* scale that keeps the corner a circle. Built
-at w×h the chamfer stays a matched ~8px; a square tile is unchanged. Verified: the shelf change proven behaviour-neutral for Battle
+at w×h the chamfer stays a matched ~8px; a square tile is unchanged. **And the
+shelf measures its canvas before it builds** (`ensureSized` at the top of `slots`
+and `setPieces`): the ordering round declares its ladder and deals BEFORE its
+first `resize()`, so slot dims were computed against a 0-size canvas and the
+tiles built to that, then the first real resize rescaled them non-uniformly —
+the same ellipse-corner stretch, reintroduced by call order. Throw Lab resized
+first and never showed it; measuring in the shelf makes the order stop mattering. Verified: the shelf change proven behaviour-neutral for Battle
 Scrabble and `toss`; the stack mode's own bench probe (both faces, plus a wrong-order
 case judged correctly); the round suite at 265/266, the one red being the pre-existing
 `climb`-mode 726px card (reproduced identically on unmodified code, so unrelated).
