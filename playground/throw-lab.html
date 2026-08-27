@@ -96,8 +96,8 @@
          Thermometer's stack mode). A rectangle behaves differently from a
          square under the same physics — it can tip onto its narrow edge — so
          the feel has to be tuned against the real shape, which is why the
-         bench carries both. Words default to Upright (what the stack round
-         arms); Letters to Rotate — the Rotation picker overrides either. -->
+         bench carries both. Both default to Rotate — the single default every
+         round inherits; the Rotation picker tries Upright or Locked live. -->
     <div class="word">
       <label for="mode-in">Tiles</label>
       <select id="mode-in">
@@ -105,13 +105,13 @@
         <option value="words">Words (bar ladder)</option>
       </select>
     </div>
-    <!-- Rotation is a per-round behaviour, not a tuned number, so it is a
-         picker here rather than a saved dial. Rotate (default) lets every tile
-         swing and tumble the same way whatever its shape, so a word rectangle
-         behaves like a square letter. Upright lets a tile lean where it props
-         against another but settles it flat, never on its narrow edge —
-         K.table({ upright: true }), what the stack round arms. Locked pins every
-         tile dead flat — K.table({ lockRot: true }). -->
+    <!-- Rotation is a shelf behaviour, not a tuned number, so it is a picker
+         here rather than a saved dial. Rotate is the single default every round
+         inherits — every tile swings and tumbles the same way whatever its
+         shape. The other two are available to try but no round forces one:
+         Upright lets a tile lean where it props but settles it flat, never on
+         its edge (K.table({ upright: true })); Locked pins it dead flat
+         (K.table({ lockRot: true })). -->
     <div class="word">
       <label for="rot-in">Rotation</label>
       <select id="rot-in">
@@ -143,10 +143,10 @@
        Toss round will call. Throw Lab is its first caller — the workshop where the
        feel gets tuned. matter.min.js and hub-table.js live in game-hub/ beside the
        other shelves; hub-kit.js is the object Kit.table hangs off. -->
-  <script src="../game-hub/hub-qr.js?v=20260827k"></script>
-  <script src="../game-hub/matter.min.js?v=20260827k"></script>
-  <script src="../game-hub/hub-kit.js?v=20260827k"></script>
-  <script src="../game-hub/hub-table.js?v=20260827k"></script>
+  <script src="../game-hub/hub-qr.js?v=20260827l"></script>
+  <script src="../game-hub/matter.min.js?v=20260827l"></script>
+  <script src="../game-hub/hub-kit.js?v=20260827l"></script>
+  <script src="../game-hub/hub-table.js?v=20260827l"></script>
   <script>
   (function(){
     'use strict';
@@ -287,17 +287,13 @@
       if(mode === 'words'){
         wordLabel.textContent = 'Scale — weakest first, commas between';
         if(wordIn.value.indexOf(',') === -1) wordIn.value = SCALE.join(', ');
-        /* Words default to Upright, matching what the stack round actually arms.
-           A wide word tile dealt with the free scatter tips onto its edge, so
-           the bench used to show a mess the real round never produces. The
-           picker still overrides — this only sets the honest starting point. */
-        rotIn.value = 'upright';
       } else {
         wordLabel.textContent = 'Word';
         if(wordIn.value.indexOf(',') !== -1) wordIn.value = 'THROW';
-        rotIn.value = 'free';   // square letters keep the charm of the tumble
       }
-      world.setFeel({ lockRot: rotIn.value === 'lock', upright: rotIn.value === 'upright' });
+      // Rotation is NOT reset on a shape switch: Rotate is the single default for
+      // every shape now (no round overrides it); the picker still tries Upright
+      // or Locked live, but nothing forces one.
       newWord();
     }
     modeIn.addEventListener('change', applyMode);

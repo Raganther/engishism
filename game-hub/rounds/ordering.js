@@ -339,10 +339,10 @@
         s._canvas = canvas;
         const table = K.table({
           canvas,
-          /* Wide word tiles: lean where they prop against each other, but settle
-             flat and never rear onto a narrow edge — a tidy pile instead of the
-             free tumble a square letter wants. The phone face arms the same. */
-          upright: true,
+          /* No physics override: the round inherits the shelf's single default
+             (free rotation, tuned on Throw Lab) exactly as every other caller
+             does. `upright`/`lockRot` stay available on the shelf but no round
+             forces one — one default for every shape, for now. */
           onArrange(read, full){
             const cells = table.cells();
             s.cardCells = cells.slice();
@@ -682,7 +682,7 @@
           mode: 'table',
           prompt: s.text || 'Flick the words into order — strongest at the top',
           options: s.pool.slice(),
-          cols: 1, rows: s.need, bar: true, upright: true,
+          cols: 1, rows: s.need, bar: true,
           multi: s.need, holds: true, rethink: true,
           team: (c.team === 0 || Number(c.team) > 0) ? Number(c.team) : null
         };

@@ -713,32 +713,31 @@ width afterward, and the fixed loose-tile landing band was sized for a compact l
 heap, not five words. Both fixed generally in `hub-table.js`, so every bar-mode caller
 gets them.
 
-**Rotation is a per-`Kit.table` behaviour, and there are three.** A wide word tile left
-free tips onto its narrow edge and a stack pile cascades — the free tumble stays right
-for a square letter (the toss round, Battle Scrabble) and is still the unset default, so
-those callers are untouched. Two opt-in behaviours a round declares at construction,
-neither a saved feel dial because rotation is a round's choice, not a device tuning:
+**One physics default for every shape, no round overriding it.** Rotation is a
+per-`Kit.table` behaviour with three settings, but the decision (deliberate, the
+teacher's, for now) is that **every caller inherits the single unset default — free
+rotation — and no round declares an override**, so a change to how the tiles behave is
+made in ONE place (the shelf's dial defaults, tuned on Throw Lab) and every round and
+game that rides `Kit.table` inherits it. What made this safe was the corner fix (tiles
+built at real w×h): free rotation on a wide word now settles mostly flat, a readable
+lean where it props, only rarely a tile on its edge — the mess before was the elliptical
+collision corner, not the rotation. The other two settings still exist on the shelf and
+in the Throw Lab picker, available to try, but nothing forces one:
 - `lockRot:true` — rotation frozen dead flat (`setInertia(Infinity)`, re-applied at the
   `normalizeMass` choke point, dealt flat, nothing to oscillate — not a per-frame
   correction, which shook). No lean at all.
-- `upright:true` — **the stack round's choice, and what the pile wanted all along.** A
-  tile still rotates: it tumbles in flight and *leans where it props against a neighbour*,
-  but it is dealt flat, its bounce is quieted (restitution min'd to 0.08, no cartwheel on
-  landing), and once it slows `settleUpright()` bleeds its wobble so a tile alone on the
-  floor rests truly flat, and past a lean (>0.72 rad from **upright**, not nearest-flat)
-  rights it — so a tile is tipped off its narrow edge (~90°) AND off its head (~180°: a
-  word rotated flat-but-inverted reads upside down, which a tile that must be read may
-  never do). What it never does is force a genuine lean flat — under the lean angle the
-  contacts decide. Measured across widths: flat at 360/900px, a readable ≤37° lean at the
-  awkward 460–700px where five wide tiles neither fit a row nor stack a column, never
-  inverted, never on edge (free scattered to 100–124° and flopped upside down).
-  The stack round arms it on both faces: `K.table({upright:true})` on the card, `upright:true`
-  on the phone arm — carried through the relay beside `bar` (`armed`+`joined`, check-syntax
-  parity) so a real phone reads it off the arm, not a same-page shortcut.
-`lockRot` wins if both are set (a frozen tile has no rotation to settle). **Throw Lab is
-the bench:** a **Tiles** picker (Letters · Words) and a **Rotation** picker (Rotate ·
-Upright · Locked) watch either shape under any rule, with the QR jump for a real device.
-`loose()` gained `ang` so a driven test can read a tile's settled angle.
+- `upright:true` — a tile still rotates (tumbles in flight, leans where it props) but is
+  dealt flat, its bounce quieted, and `settleUpright()` bleeds its wobble and, past a lean
+  (>0.72 rad from **upright**, not nearest-flat), rights it — off its edge (~90°) and off
+  its head (~180°, which reads upside down). Measured tidy across widths; the plumbing to
+  carry it to a phone (arm `upright`, relay forward beside `bar`, join.html read) is in
+  place and dormant. **No round arms it now** — the stack round dropped its override so it
+  inherits the free default like every other caller.
+`lockRot` wins if both are set. **Throw Lab is the bench:** a **Tiles** picker (Letters ·
+Words) and a **Rotation** picker (Rotate · Upright · Locked) watch either shape under any
+rule, with the QR jump for a real device. Both shapes default to Rotate — the single
+default; the picker only tries the other two live. `loose()` gained `ang` so a driven
+test can read a tile's settled angle.
 
 **Untested: a real class.** Whether physics earns its pace cost against the tap version
 is exactly what the comparison is for — try both on the same scale and see which reads
