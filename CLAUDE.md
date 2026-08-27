@@ -690,7 +690,13 @@ runs the same table via `join.html`'s `table` mode, now able to take a slot *sha
 (`cols/rows/bar` on the arm) instead of always one row, and the card becomes a ladder
 per team fed by `Kit.round.arrangement`. `Kit.table` also gained text-fit for
 multi-character labels (a word tile, not a letter) — measured and shrunk to the box,
-floored for legibility. Verified: the shelf change proven behaviour-neutral for Battle
+floored for legibility. **A tile body is built at the real slot dimensions now, not a
+square scaled to fit** (`setPieces` reads the declared slot's w×h): a non-uniform
+`Body.scale` turned a round corner into an ellipse (a 9px chamfer became ~27px across,
+~8px tall) while `draw()` rounds a uniform ~8px, so the graphic overhung the collision
+hull and wide neighbours looked to overlap at the corners — the letters never showed it
+because a square→square slot is a *uniform* scale that keeps the corner a circle. Built
+at w×h the chamfer stays a matched ~8px; a square tile is unchanged. Verified: the shelf change proven behaviour-neutral for Battle
 Scrabble and `toss`; the stack mode's own bench probe (both faces, plus a wrong-order
 case judged correctly); the round suite at 265/266, the one red being the pre-existing
 `climb`-mode 726px card (reproduced identically on unmodified code, so unrelated).
@@ -719,11 +725,13 @@ neither a saved feel dial because rotation is a round's choice, not a device tun
   tile still rotates: it tumbles in flight and *leans where it props against a neighbour*,
   but it is dealt flat, its bounce is quieted (restitution min'd to 0.08, no cartwheel on
   landing), and once it slows `settleUpright()` bleeds its wobble so a tile alone on the
-  floor rests truly flat, and tips back any tile rearing past a lean (>0.72 rad) toward
-  standing on its edge. What it never does is force a genuine lean flat — under the edge
-  angle the contacts decide. The target it hits: tiles may lean and touch edge-to-edge,
-  none rests angled on a flat surface, and the pile is deterministic deal to deal (proven
-  on the bench at 900/420/360px — free scattered to 100–124°, upright to a tidy ladder).
+  floor rests truly flat, and past a lean (>0.72 rad from **upright**, not nearest-flat)
+  rights it — so a tile is tipped off its narrow edge (~90°) AND off its head (~180°: a
+  word rotated flat-but-inverted reads upside down, which a tile that must be read may
+  never do). What it never does is force a genuine lean flat — under the lean angle the
+  contacts decide. Measured across widths: flat at 360/900px, a readable ≤37° lean at the
+  awkward 460–700px where five wide tiles neither fit a row nor stack a column, never
+  inverted, never on edge (free scattered to 100–124° and flopped upside down).
   The stack round arms it on both faces: `K.table({upright:true})` on the card, `upright:true`
   on the phone arm — carried through the relay beside `bar` (`armed`+`joined`, check-syntax
   parity) so a real phone reads it off the arm, not a same-page shortcut.

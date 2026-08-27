@@ -343,24 +343,29 @@
     function setPieces(labels){
       if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body));
       pieces = [];
-      const s = feel.size, chars = (labels || []).slice();
-      /* Spread the drop using the width a piece will actually be drawn at,
-         not the square it is built at. A caller that declares its (wider)
-         bar slots before dealing — a word tile is far wider than a letter —
-         is spreading for the size fitTiles is about to scale these bodies
-         to; spreading at the narrow square size instead crammed a hand of
-         word tiles into the room five LETTERS need, so they landed already
-         overlapping and the solver never fully untangled them. A caller
-         that deals before declaring slots (every square-tile round so far)
-         sees no slots yet here and this is unchanged. */
-      const spreadUnit = slots.length ? slots[0].w : s;
+      const chars = (labels || []).slice();
+      /* Build each tile at the size it will actually be — the slot it drops
+         into, if the caller declared its slots first (a bar round does),
+         otherwise a feel.size square (every deal-before-slots caller). This
+         is why a WIDE word tile is built as a rectangle rather than a square
+         stretched into one: Body.scale with different x/y factors turns the
+         round corner into an ELLIPSE (a 9px corner becomes ~27px across and
+         ~8px tall), while draw() rounds it a uniform ~8px — so the graphic
+         overhung the collision hull by the difference and neighbouring tiles
+         looked like they overlapped at the corners. Built at real w×h the
+         chamfer stays a matched ~8px and the picture sits on the physics. A
+         square tile is unchanged: its slot is square, so w==h and there was
+         never a non-uniform stretch to distort. */
+      const bw = slots.length ? slots[0].w : feel.size;
+      const bh = slots.length ? slots[0].h : feel.size;
+      const spreadUnit = bw;
       const spread = Math.min(cssW - spreadUnit, chars.length * (spreadUnit + 10));
       const startX = (cssW - spread) / 2 + spreadUnit/2;
       chars.forEach((ch, i) => {
         const x = chars.length > 1 ? startX + (spread - spreadUnit) * (i/(chars.length-1)) : cssW/2;
-        const y = s/2 + 20 + (i % 2) * 8;
-        const body = Bodies.rectangle(x, y, s, s, {
-          chamfer:{ radius: Math.round(s*0.16) },
+        const y = bh/2 + 20 + (i % 2) * 8;
+        const body = Bodies.rectangle(x, y, bw, bh, {
+          chamfer:{ radius: Math.max(1, Math.round(Math.min(bw, bh) * 0.16)) },
           // Upright tiles barely bounce — a 0.45 restitution wide tile cartwheels
           // on landing and lands on an edge, which is the mess upright exists to
           // stop. The dial still rules a free or locked deal (the throw's lip
@@ -378,8 +383,9 @@
                       slot: null, dock: null, hold: now() + 1500 });
       });
       Composite.add(engine.world, pieces.map(p => p.body));
-      // Bodies are built at feel.size; fitTiles brings them to the slot size.
-      tile = feel.size; tileH = feel.size;
+      // Bodies are already at the slot size; fitTiles is a no-op scale here and
+      // just normalizes the mass (a no-slots deal is still a square to fit later).
+      tile = bw; tileH = bh;
       fitTiles();
     }
 
@@ -789,28 +795,31 @@
        Two forces, and only these:
          · a wobble bleed (ANG_DAMP) so a lone tile's residual tilt dies into a
            true flat rest instead of the couple of degrees the free solver leaves;
-         · an edge kick, and ONLY past LEAN_MAX — a tile tilted more than a lean,
-           i.e. rearing up toward standing on its narrow edge, gets a nudge back
-           toward the nearest flat orientation (0 or π: a wide tile lies flat
-           either way up). Under LEAN_MAX nothing is applied, so a tile genuinely
+         · a restoring kick, and ONLY past LEAN_MAX — a tile more than a lean away
+           from UPRIGHT (text-up, angle 0) gets nudged back toward it. The target
+           is 0, not the nearest flat: a word rotated to π lies flat but reads
+           upside down, and a tile that must be read has one right way up. So this
+           tips a tile off its narrow edge (~90°) AND rights one that has flopped
+           inverted (~180°). Under LEAN_MAX nothing is applied, so a tile genuinely
            propped against a neighbour keeps exactly the lean the contact gives it.
        Gravity still does the real flattening of an unsupported tile; this only
-       lets it come to rest there and refuses the one resting angle a flat surface
-       should never hold. */
+       lets it come to rest upright and refuses the angles a readable tile must
+       never hold — on its edge, or on its head. */
     const SETTLE_SPEED = 3;      // px/step — above this the tile is still in flight, untouched
     const ANG_DAMP = 0.8;        // per-frame angular-velocity bleed for a slow tile
-    const LEAN_MAX = 0.72;       // rad (~41°) — beyond this from flat is "standing up", tipped back
+    const LEAN_MAX = 0.72;       // rad (~41°) — beyond this from upright is tipped back
     const EDGE_KICK = 0.05;      // rad/step restoring velocity past LEAN_MAX
+    const TAU = Math.PI * 2;
     function settleUpright(){
       const held = grips.size ? heldBodies() : null;
       for(const p of pieces){
         const b = p.body;
         if(b.isStatic || p.slot != null || p.dock || (held && held.has(b))) continue;
         if(Math.hypot(b.velocity.x, b.velocity.y) > SETTLE_SPEED) continue;   // still flying
-        const target = Math.round(b.angle / Math.PI) * Math.PI;   // nearest flat, either way up
-        const err = b.angle - target;                             // in (-π/2, π/2]
-        let av = b.angularVelocity * ANG_DAMP;                    // bleed the wobble → a true flat rest
-        if(err > LEAN_MAX) av -= EDGE_KICK;                       // reared past a lean → tip back down
+        let err = b.angle % TAU;                                 // distance from UPRIGHT (0)
+        if(err > Math.PI) err -= TAU; else if(err <= -Math.PI) err += TAU;   // normalise to (-π, π]
+        let av = b.angularVelocity * ANG_DAMP;                   // bleed the wobble → a true rest
+        if(err > LEAN_MAX) av -= EDGE_KICK;                      // past a lean (edge, or inverted) → right it
         else if(err < -LEAN_MAX) av += EDGE_KICK;
         Body.setAngularVelocity(b, av);
       }
