@@ -139,6 +139,21 @@
        setFeel + a re-deal, which is how Throw Lab flips it. */
     feel.lockRot = opts.lockRot;
     function rotLocked(){ return !!feel.lockRot; }
+    /* Upright settling is the THIRD rotation behaviour, between free tumble and
+       the hard freeze. A round wants it when its tiles are WIDE words that must
+       read the right way up and pile tidily, but a stack of them looks dead if
+       they cannot lean at all (lockRot). So an upright tile still rotates — it
+       tumbles in flight and leans where it is propped — but it is dealt flat, it
+       barely bounces, and once it slows it settles: its wobble is bled off so a
+       tile alone on the floor comes to rest truly flat (not the few degrees the
+       free solver leaves), and a tile trying to balance on its narrow edge is
+       tipped back down. What it never does is force flat: a genuine lean against
+       a neighbour, under the edge angle, is left exactly as the contacts hold it.
+       Opt-in per round like lockRot; `settleUpright()` in the step does the work,
+       setPieces/addPiece deal it flat and quiet its bounce. lockRot wins if both
+       are set (a frozen tile has no rotation to settle). */
+    feel.upright = opts.upright;
+    function upright(){ return !rotLocked() && !!feel.upright; }
     engine.gravity.y = feel.gravity;
     engine.constraintIterations = 6;   // pulls a held piece to the finger harder each frame, so a fast drag lags less
 
@@ -346,12 +361,17 @@
         const y = s/2 + 20 + (i % 2) * 8;
         const body = Bodies.rectangle(x, y, s, s, {
           chamfer:{ radius: Math.round(s*0.16) },
-          restitution: feel.restitution, frictionAir: feel.frictionAir,
+          // Upright tiles barely bounce — a 0.45 restitution wide tile cartwheels
+          // on landing and lands on an edge, which is the mess upright exists to
+          // stop. The dial still rules a free or locked deal (the throw's lip
+          // bounce lives on it). One home for the number: min with the dial.
+          restitution: upright() ? Math.min(feel.restitution, 0.08) : feel.restitution,
+          frictionAir: feel.frictionAir,
           friction: 0.3, density: 0.0016
         });
-        // A rotation-locked tile is dealt flat and stays flat (normalizeMass
-        // freezes it); a free tile gets the scattered tilt and tumbles.
-        Body.setAngle(body, rotLocked() ? 0 : (Math.random() - 0.5) * 0.3);
+        // A locked or upright tile is dealt flat (locked stays flat; upright
+        // settles flat); a free tile gets the scattered tilt and tumbles.
+        Body.setAngle(body, (rotLocked() || upright()) ? 0 : (Math.random() - 0.5) * 0.3);
         // hold: a fresh deal's rain must not leak out through an open side
         // while it settles — the edge reflects it back in until this expires
         pieces.push({ body, ch: String(ch), hue: HUES[i % HUES.length],
@@ -376,7 +396,8 @@
       const s = feel.size;
       const body = Bodies.rectangle(o.x != null ? o.x : cssW/2, o.y != null ? o.y : s, s, s, {
         chamfer:{ radius: Math.round(s*0.16) },
-        restitution: feel.restitution, frictionAir: feel.frictionAir,
+        restitution: upright() ? Math.min(feel.restitution, 0.08) : feel.restitution,
+        frictionAir: feel.frictionAir,
         friction: 0.3, density: 0.0016
       });
       if(tile !== s || (tileH || s) !== s) Body.scale(body, tile / s, (tileH || s) / s);
@@ -757,9 +778,42 @@
           if(av > 0.6 || av < -0.6) Body.setAngularVelocity(g.body, clamp(av, -0.6, 0.6));
         }
       }
+      if(upright()) settleUpright();
       tickDocks();
       tickExits();
       if(t - lastSweep > 250){ lastSweep = t; sweepResters(); }
+    }
+    /* Settle a wide tile flat once it stops flying, without ever forcing a lean
+       flat. Runs only for an upright() world, on loose tiles that have slowed to
+       near rest — a tile still crossing the table under a flick is left alone.
+       Two forces, and only these:
+         · a wobble bleed (ANG_DAMP) so a lone tile's residual tilt dies into a
+           true flat rest instead of the couple of degrees the free solver leaves;
+         · an edge kick, and ONLY past LEAN_MAX — a tile tilted more than a lean,
+           i.e. rearing up toward standing on its narrow edge, gets a nudge back
+           toward the nearest flat orientation (0 or π: a wide tile lies flat
+           either way up). Under LEAN_MAX nothing is applied, so a tile genuinely
+           propped against a neighbour keeps exactly the lean the contact gives it.
+       Gravity still does the real flattening of an unsupported tile; this only
+       lets it come to rest there and refuses the one resting angle a flat surface
+       should never hold. */
+    const SETTLE_SPEED = 3;      // px/step — above this the tile is still in flight, untouched
+    const ANG_DAMP = 0.8;        // per-frame angular-velocity bleed for a slow tile
+    const LEAN_MAX = 0.72;       // rad (~41°) — beyond this from flat is "standing up", tipped back
+    const EDGE_KICK = 0.05;      // rad/step restoring velocity past LEAN_MAX
+    function settleUpright(){
+      const held = grips.size ? heldBodies() : null;
+      for(const p of pieces){
+        const b = p.body;
+        if(b.isStatic || p.slot != null || p.dock || (held && held.has(b))) continue;
+        if(Math.hypot(b.velocity.x, b.velocity.y) > SETTLE_SPEED) continue;   // still flying
+        const target = Math.round(b.angle / Math.PI) * Math.PI;   // nearest flat, either way up
+        const err = b.angle - target;                             // in (-π/2, π/2]
+        let av = b.angularVelocity * ANG_DAMP;                    // bleed the wobble → a true flat rest
+        if(err > LEAN_MAX) av -= EDGE_KICK;                       // reared past a lean → tip back down
+        else if(err < -LEAN_MAX) av += EDGE_KICK;
+        Body.setAngularVelocity(b, av);
+      }
     }
     /* A loose tile may never come to REST inside the grid. Settled flat on a
        docked tile — a slow release onto a full cell, or a thrown tile that

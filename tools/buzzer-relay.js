@@ -139,7 +139,7 @@ function getRoom(code, create){
              Null/false means the plain row every table round before it got.
              Carried unread, exactly like `mode`: the relay never draws a slot,
              only the handset does. */
-          cols:null, rows:null, bar:false };
+          cols:null, rows:null, bar:false, upright:false };
     rooms.set(code, r);
   }
   return r;
@@ -280,7 +280,7 @@ function openStream(req, res, q){
     armed:room.armed, locked:lockedNow(room),
     mode:room.mode, prompt:promptFor(room, id), note:room.note,
     options:optionsFor(room, team), done:doneFor(room, team), turnTeam:room.team,
-    cols:room.cols, rows:room.rows, bar:room.bar,
+    cols:room.cols, rows:room.rows, bar:room.bar, upright:room.upright,
     spent:[...room.spent],
     rethink: room.rethink, secs: secsLeft(room), multi: capFor(room, team),
     send: !!room.send, preview: !!room.preview,
@@ -427,6 +427,11 @@ function handleSend(req, res){
         room.cols = msg.cols ? Math.max(1, Math.min(20, Number(msg.cols) || 1)) : null;
         room.rows = msg.rows ? Math.max(1, Math.min(20, Number(msg.rows) || 1)) : null;
         room.bar  = !!msg.bar;
+        /* Upright: the tile-settling behaviour a bar arm carries (wide word tiles
+           lean but come to rest flat, never on edge). Carried unread beside the
+           slot shape — a real phone reads it straight off the arm to build its
+           table, exactly as it does cols/rows/bar. */
+        room.upright = !!msg.upright;
         /* Was six, which is right for a question with four answers and wrong for
            "which of the letters still on the board" — a Blockbusters board opens
            with eighteen. The phone lays short options out as a keypad rather than a
@@ -483,7 +488,7 @@ function handleSend(req, res){
         toEachPlayer(room, 'armed', p => ({ prompt: promptFor(room, p.id),
                                    note: room.note,
                                    mode: room.mode, options: optionsFor(room, p.team),
-                                   cols: room.cols, rows: room.rows, bar: room.bar,
+                                   cols: room.cols, rows: room.rows, bar: room.bar, upright: room.upright,
                                    done: doneFor(room, p.team),
                                    /* `turnTeam`, not `team`: the join payload already
                                       carries the player's own team under that name, and
