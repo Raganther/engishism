@@ -96,8 +96,8 @@
          Thermometer's stack mode). A rectangle behaves differently from a
          square under the same physics — it can tip onto its narrow edge — so
          the feel has to be tuned against the real shape, which is why the
-         bench carries both. By default both shapes rotate the same way (see
-         the Rotation picker). -->
+         bench carries both. Words default to Upright (what the stack round
+         arms); Letters to Rotate — the Rotation picker overrides either. -->
     <div class="word">
       <label for="mode-in">Tiles</label>
       <select id="mode-in">
@@ -143,10 +143,10 @@
        Toss round will call. Throw Lab is its first caller — the workshop where the
        feel gets tuned. matter.min.js and hub-table.js live in game-hub/ beside the
        other shelves; hub-kit.js is the object Kit.table hangs off. -->
-  <script src="../game-hub/hub-qr.js?v=20260827i"></script>
-  <script src="../game-hub/matter.min.js?v=20260827i"></script>
-  <script src="../game-hub/hub-kit.js?v=20260827i"></script>
-  <script src="../game-hub/hub-table.js?v=20260827i"></script>
+  <script src="../game-hub/hub-qr.js?v=20260827j"></script>
+  <script src="../game-hub/matter.min.js?v=20260827j"></script>
+  <script src="../game-hub/hub-kit.js?v=20260827j"></script>
+  <script src="../game-hub/hub-table.js?v=20260827j"></script>
   <script>
   (function(){
     'use strict';
@@ -287,10 +287,17 @@
       if(mode === 'words'){
         wordLabel.textContent = 'Scale — weakest first, commas between';
         if(wordIn.value.indexOf(',') === -1) wordIn.value = SCALE.join(', ');
+        /* Words default to Upright, matching what the stack round actually arms.
+           A wide word tile dealt with the free scatter tips onto its edge, so
+           the bench used to show a mess the real round never produces. The
+           picker still overrides — this only sets the honest starting point. */
+        rotIn.value = 'upright';
       } else {
         wordLabel.textContent = 'Word';
         if(wordIn.value.indexOf(',') !== -1) wordIn.value = 'THROW';
+        rotIn.value = 'free';   // square letters keep the charm of the tumble
       }
+      world.setFeel({ lockRot: rotIn.value === 'lock', upright: rotIn.value === 'upright' });
       newWord();
     }
     modeIn.addEventListener('change', applyMode);
