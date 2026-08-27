@@ -694,6 +694,23 @@ floored for legibility. Verified: the shelf change proven behaviour-neutral for 
 Scrabble and `toss`; the stack mode's own bench probe (both faces, plus a wrong-order
 case judged correctly); the round suite at 265/266, the one red being the pre-existing
 `climb`-mode 726px card (reproduced identically on unmodified code, so unrelated).
+**Two real-phone bugs a bench probe could not have caught, both fixed at the shelf.**
+`tools/buzzer-relay.js`'s `arm` handler carried a hand-typed field list that never
+included a `table` arm's slot shape (`cols`/`rows`/`bar`) — a same-page simulated phone
+never noticed, since it reads the shape straight off the object in memory, but a real
+phone through the real relay always fell back to the plain row. The relay now stores and
+forwards `cols`/`rows`/`bar` on both the `armed` push and the `joined` reconnect payload
+(`check-syntax`'s armed/joined parity check covers it). Separately, a bar pile's tiles
+were landing already overlapping: `setPieces()` spread a fresh deal at the square letter
+size and only scaled the bodies up to the slot's real (much wider, for a whole word)
+width afterward, and the fixed loose-tile landing band was sized for a compact letter
+heap, not five words. Both fixed generally in `hub-table.js`, so every bar-mode caller
+gets them. **Still open:** the settled pile still overlaps somewhat — gravity tumbles
+wide rectangles into a heap rather than laying them out, which is a design question (is
+a touching, fannable heap fine, or does a bar pile want a non-overlapping scatter
+instead?) rather than a bug, and it is exactly the kind of thing only a real phone in a
+real hand will settle.
+
 **Untested: a real class.** Whether physics earns its pace cost against the tap version
 is exactly what the comparison is for — try both on the same scale and see which reads
 faster and which teaches better. If it wins, the pattern (bar slots, a round hosting a
