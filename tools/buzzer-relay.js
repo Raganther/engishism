@@ -133,7 +133,13 @@ function getRoom(code, create){
              and another on the next cannot remember which is running, and the
              handset is the one screen actually in the room's hands. */
           note:'',
-          holds:false };
+          holds:false,
+          /* How a `table` arm's slots are shaped — a grid instead of the default
+             row (the thermometer's stack mode sends cols:1 for a vertical ladder).
+             Null/false means the plain row every table round before it got.
+             Carried unread, exactly like `mode`: the relay never draws a slot,
+             only the handset does. */
+          cols:null, rows:null, bar:false };
     rooms.set(code, r);
   }
   return r;
@@ -274,6 +280,7 @@ function openStream(req, res, q){
     armed:room.armed, locked:lockedNow(room),
     mode:room.mode, prompt:promptFor(room, id), note:room.note,
     options:optionsFor(room, team), done:doneFor(room, team), turnTeam:room.team,
+    cols:room.cols, rows:room.rows, bar:room.bar,
     spent:[...room.spent],
     rethink: room.rethink, secs: secsLeft(room), multi: capFor(room, team),
     send: !!room.send, preview: !!room.preview,
@@ -411,6 +418,15 @@ function handleSend(req, res){
            mode missing from it is silently downgraded to 'buzz', so every new handset
            dynamic must be added here or the phones fall back to a buzzer.** */
         room.mode  = ['buzz','vote','answer','type','card','arrange','table'].indexOf(msg.mode) !== -1 ? msg.mode : 'buzz';
+        /* A `table` arm's slot shape — cols/rows makes a grid instead of the
+           default row, bar makes the slots wide for whole words (the
+           thermometer's stack mode: cols:1 for a vertical ladder). Carried
+           unread, exactly like `mode`: the relay never draws a slot. Absent
+           (no `msg.cols`) means the plain row every table round before the
+           ladder got. */
+        room.cols = msg.cols ? Math.max(1, Math.min(20, Number(msg.cols) || 1)) : null;
+        room.rows = msg.rows ? Math.max(1, Math.min(20, Number(msg.rows) || 1)) : null;
+        room.bar  = !!msg.bar;
         /* Was six, which is right for a question with four answers and wrong for
            "which of the letters still on the board" — a Blockbusters board opens
            with eighteen. The phone lays short options out as a keypad rather than a
@@ -467,6 +483,7 @@ function handleSend(req, res){
         toEachPlayer(room, 'armed', p => ({ prompt: promptFor(room, p.id),
                                    note: room.note,
                                    mode: room.mode, options: optionsFor(room, p.team),
+                                   cols: room.cols, rows: room.rows, bar: room.bar,
                                    done: doneFor(room, p.team),
                                    /* `turnTeam`, not `team`: the join payload already
                                       carries the player's own team under that name, and
