@@ -676,9 +676,29 @@ unverifiable.**
 ## Open
 What is true and unfinished. Not a changelog — an item leaves when it closes.
 
-**Build `20260826c`.** Three coursebooks, ~760 authored items, six games, nine rounds.
+**Build `20260827a`.** Three coursebooks, ~760 authored items, six games, nine rounds.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only.
+
+**The first physics mode on an existing round: Word Thermometer's `stack`.** The
+identity experiment — order IS vertical position, so this is the round where a
+Matter.js interaction is expected to carry meaning rather than decorate a tap. Beside
+`climb`/`race`, unaffected. No phones → the round's own `Kit.table` canvas on the card,
+a 1-column bar ladder (`slots({cols:1,rows:need,bar:true})`, new on the shelf, additive
+— square slots and single-letter tiles draw exactly as before); phones → each handset
+runs the same table via `join.html`'s `table` mode, now able to take a slot *shape*
+(`cols/rows/bar` on the arm) instead of always one row, and the card becomes a ladder
+per team fed by `Kit.round.arrangement`. `Kit.table` also gained text-fit for
+multi-character labels (a word tile, not a letter) — measured and shrunk to the box,
+floored for legibility. Verified: the shelf change proven behaviour-neutral for Battle
+Scrabble and `toss`; the stack mode's own bench probe (both faces, plus a wrong-order
+case judged correctly); the round suite at 265/266, the one red being the pre-existing
+`climb`-mode 726px card (reproduced identically on unmodified code, so unrelated).
+**Untested: a real class.** Whether physics earns its pace cost against the tap version
+is exactly what the comparison is for — try both on the same scale and see which reads
+faster and which teaches better. If it wins, the pattern (bar slots, a round hosting a
+table two ways) is proven for Connections and the other question-bench rounds next; if
+it drags, the shelf additions still cost the other rounds nothing to have gained.
 
 **The throw dynamic is grown up; the `toss` round rides it.** `Kit.table` (see the map)
 is the shared physics; the `toss` round (`game-hub/rounds/toss.js`) plays it as a

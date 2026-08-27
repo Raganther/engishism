@@ -4845,7 +4845,7 @@
          until the player presses Send (`roundSend`). Decided here, not by the
          round — the roster mode is the host's live fact — and only for the tap
          dynamics: buzz already is a commit, and write/type have their own Send. */
-      if((round.mode === 'vote' || round.mode === 'arrange') &&
+      if((round.mode === 'vote' || round.mode === 'arrange' || round.mode === 'table') &&
          Roster.solo() && S.get('roundSend', game)) round.send = true;
       /* Previews only mean anything where a tap is *held* — with no Send the tap is
          already the answer and the bar has always followed it. So this rides on the

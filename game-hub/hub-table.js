@@ -17,7 +17,7 @@
 
    Kit.table({ canvas, gravity, restitution, frictionAir, size, power, swing,
                snap, dock, onArrange, onExit }) -> {
-     reset(), setPieces(labels[]), slots(n | {cols,rows}), place(i,label),
+     reset(), setPieces(labels[]), slots(n | {cols,rows,top,pile,bar}), place(i,label),
      addPiece(label, {x,y,vx,vy,spin,hue,shot}), openSides({l,r}),
      read()->string, cells()->string[], filled()->bool, loose(),
      setResult(res[, slotIdx]), slotBox(i), tileSize(),
@@ -129,7 +129,8 @@
     engine.constraintIterations = 6;   // pulls a held piece to the finger harder each frame, so a fast drag lags less
 
     let cssW = 0, cssH = 0, dpr = 1;
-    let tile;                    // effective tile size = the fitted slot size (see fitTiles)
+    let tile;                    // effective tile WIDTH = the fitted slot size (see fitTiles)
+    let tileH;                   // effective tile HEIGHT — equals tile except in a bar grid
     let walls = [];
     let pieces = [];       // { body, ch, hue, slot, dock }
     let slots = [];        // { x, y, w, h, piece }
@@ -182,9 +183,9 @@
       for(const p of pieces){
         const b = p.body;
         if(b.isStatic) continue;
-        const s2 = tile / 2;
+        const s2 = tile / 2, h2 = (tileH || tile) / 2;
         const nx = clamp(b.position.x, open.l ? -Infinity : s2, open.r ? Infinity : cssW - s2);
-        const ny = clamp(b.position.y, s2, cssH - s2);
+        const ny = clamp(b.position.y, h2, cssH - h2);
         if(nx !== b.position.x || ny !== b.position.y){
           Body.setPosition(b, { x: nx, y: ny });
           Body.setVelocity(b, { x: 0, y: 0 });
@@ -203,11 +204,13 @@
          feel.size, visibly larger than the slots they drop into. */
       const nt = slots.length ? slots[0].w
                               : slotDims(Math.max(pieces.length, 1)).sw;
-      if(pieces.length && Math.abs(nt - tile) > 0.5){
-        const f = nt / tile;
-        for(const p of pieces) Body.scale(p.body, f, f);
+      const nh = slots.length ? slots[0].h : nt;   // bar slots are wide-and-short; square slots keep h = w
+      if(tileH == null) tileH = tile;
+      if(pieces.length && (Math.abs(nt - tile) > 0.5 || Math.abs(nh - tileH) > 0.5)){
+        const fx = nt / tile, fy = nh / tileH;
+        for(const p of pieces) Body.scale(p.body, fx, fy);
       }
-      tile = nt;
+      tile = nt; tileH = nh;
       for(const p of pieces) normalizeMass(p.body);
     }
     /* Every tile weighs what a 34px tile weighs, whatever size the layout dealt —
@@ -318,7 +321,7 @@
       });
       Composite.add(engine.world, pieces.map(p => p.body));
       // Bodies are built at feel.size; fitTiles brings them to the slot size.
-      tile = feel.size;
+      tile = feel.size; tileH = feel.size;
       fitTiles();
     }
 
@@ -338,7 +341,7 @@
         restitution: feel.restitution, frictionAir: feel.frictionAir,
         friction: 0.3, density: 0.0016
       });
-      if(tile !== s) Body.scale(body, tile / s, tile / s);
+      if(tile !== s || (tileH || s) !== s) Body.scale(body, tile / s, (tileH || s) / s);
       normalizeMass(body);   // addPiece never passes fitTiles, so weigh it here
       Body.setVelocity(body, { x: o.vx || 0, y: o.vy || 0 });
       Body.setAngularVelocity(body, clamp(o.spin || 0, -1, 1));
@@ -401,27 +404,36 @@
        chrome top and bottom), and a fractional budget shrank the squares — and
        with them every tile — well below what the bench showed. With the fixed
        band both screens converge on the width-driven size and finally match. */
-    function gridDims(cols, rows, top, pile){
+    function gridDims(cols, rows, top, pile, bar){
       const margin = 12, gap = Math.max(4, Math.round(feel.size * 0.10));
       const yTop = top != null ? top : margin;    // room for a caller's own chrome above row 0
       const pileH = pile != null ? pile : 130;    // the loose-tile band below the grid (a settled heap is 1-2 tiles deep)
+      /* bar: WIDE slots for whole words (the thermometer ladder) — width fills
+         the row, height fits the column; a square grid keeps one size for both. */
+      if(bar){
+        const sw = Math.max(60, Math.floor((cssW - margin*2 - gap*(cols-1)) / cols));
+        const sh = Math.max(24, Math.min(feel.size,
+          Math.floor((cssH - yTop - pileH - gap*(rows-1)) / rows)));
+        const x0 = (cssW - (cols*sw + (cols-1)*gap)) / 2;
+        return { gap, sw, sh, x0, y0: yTop + sh/2 };
+      }
       const sw = Math.max(20, Math.min(feel.size,
         Math.floor((cssW - margin*2 - gap*(cols-1)) / cols),
         Math.floor((cssH - yTop - pileH - gap*(rows-1)) / rows)));
       const x0 = (cssW - (cols*sw + (cols-1)*gap)) / 2;
       const y0 = yTop + sw/2;
-      return { gap, sw, x0, y0 };
+      return { gap, sw, sh: sw, x0, y0 };
     }
     let grid = null;               // {cols, rows} when the slots are a grid
     function makeSlots(spec){
       slots = []; grid = null;
       if(!spec){ fitTiles(); return; }
       if(typeof spec === 'object'){
-        grid = { cols: spec.cols, rows: spec.rows, top: spec.top, pile: spec.pile };
-        const { gap, sw, x0, y0 } = gridDims(grid.cols, grid.rows, grid.top, grid.pile);
+        grid = { cols: spec.cols, rows: spec.rows, top: spec.top, pile: spec.pile, bar: spec.bar };
+        const { gap, sw, sh, x0, y0 } = gridDims(grid.cols, grid.rows, grid.top, grid.pile, grid.bar);
         for(let r = 0; r < grid.rows; r++)
           for(let c = 0; c < grid.cols; c++)
-            slots.push({ x: x0 + c*(sw+gap) + sw/2, y: y0 + r*(sw+gap), w: sw, h: sw, piece: null });
+            slots.push({ x: x0 + c*(sw+gap) + sw/2, y: y0 + r*(sh+gap), w: sw, h: sh, piece: null });
       } else {
         const n = spec;
         const { gap, sw, x0, y } = slotDims(n);
@@ -433,10 +445,10 @@
     function layoutSlots(){          // recompute geometry on resize, keeping placed pieces
       const n = slots.length; if(!n) return;
       if(grid){
-        const { gap, sw, x0, y0 } = gridDims(grid.cols, grid.rows, grid.top, grid.pile);
+        const { gap, sw, sh, x0, y0 } = gridDims(grid.cols, grid.rows, grid.top, grid.pile, grid.bar);
         slots.forEach((s, i) => {
           const r = Math.floor(i / grid.cols), c = i % grid.cols;
-          s.x = x0 + c*(sw+gap) + sw/2; s.y = y0 + r*(sw+gap); s.w = sw; s.h = sw;
+          s.x = x0 + c*(sw+gap) + sw/2; s.y = y0 + r*(sh+gap); s.w = sw; s.h = sh;
           if(s.piece) Body.setPosition(s.piece.body, { x: s.x, y: s.y });
         });
         return;
@@ -707,7 +719,7 @@
         if(Math.hypot(b.velocity.x, b.velocity.y) > 0.5) continue;
         const onWord = slots.some(s => s.piece &&
           Math.abs(b.position.x - s.x) < s.w * 0.75 &&
-          b.position.y < s.y && s.y - b.position.y < s.w * 1.4);
+          b.position.y < s.y && s.y - b.position.y < s.h * 1.4);
         if(onWord){
           Body.setVelocity(b, { x: b.position.x < cssW/2 ? 4 : -4, y: 1 });
           Body.setAngularVelocity(b, 0.12);
@@ -718,7 +730,7 @@
       ctx.clearRect(0, 0, cssW, cssH);
       slots.forEach((s, i) => {       // answer slots, behind the pieces; filled slots glow by result
         const res = resultMap.get(i) || result;
-        const half = s.w/2, r = Math.round(s.w*0.16);
+        const r = Math.round(Math.min(s.w, s.h)*0.16);
         ctx.save();
         /* empty slots: a thin SOLID tile-shaped outline — the dashed marching
            ants read as placeholder chrome; a quiet tile silhouette reads as
@@ -728,7 +740,7 @@
         ctx.strokeStyle = s.piece
           ? (res === 'right' ? '#6FB04A' : res === 'wrong' ? '#E2603B' : '#5a6473')
           : '#39414f';
-        roundRect(ctx, s.x - half, s.y - half, s.w, s.w, r);
+        roundRect(ctx, s.x - s.w/2, s.y - s.h/2, s.w, s.h, r);
         ctx.stroke();
         ctx.restore();
       });
@@ -747,22 +759,36 @@
       }
       for(const b of pieces){
         const p = b.body.position, docking = !!b.dock, inSlot = b.slot != null;
-        let s, ang;
-        if(docking){ s = tile + (slots[b.slot].w - tile) * b.dock.p; ang = b.body.angle; }
-        else if(inSlot){ s = slots[b.slot].w; ang = 0; }
-        else { s = tile; ang = b.body.angle; }
-        const r = Math.round(s*0.16);
+        const th = tileH || tile;
+        let w, h, ang;
+        if(docking){ const sl = slots[b.slot];
+          w = tile + (sl.w - tile) * b.dock.p; h = th + (sl.h - th) * b.dock.p; ang = b.body.angle; }
+        else if(inSlot){ const sl = slots[b.slot]; w = sl.w; h = sl.h; ang = 0; }
+        else { w = tile; h = th; ang = b.body.angle; }
+        const r = Math.round(Math.min(w, h)*0.16);
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(ang);
         ctx.fillStyle = b.hue;
-        roundRect(ctx, -s/2, -s/2, s, s, r);
+        roundRect(ctx, -w/2, -h/2, w, h, r);
         ctx.fill();
         ctx.fillStyle = '#101318';
-        ctx.font = `700 ${Math.round(s*0.56)}px -apple-system, "Segoe UI", Roboto, sans-serif`;
+        /* Text fits the tile: a single letter draws at the tuned 0.56 ratio;
+           a longer label (a bar tile's whole word) is measured and the font
+           shrunk until it fits the width, with a floor so it stays a word
+           rather than a smudge. */
+        let fs = Math.round(h*0.56);
+        ctx.font = `700 ${fs}px -apple-system, "Segoe UI", Roboto, sans-serif`;
+        if(b.ch.length > 1){
+          const max = w * 0.88, tw = ctx.measureText(b.ch).width;
+          if(tw > max){
+            fs = Math.max(9, Math.floor(fs * max / tw));
+            ctx.font = `700 ${fs}px -apple-system, "Segoe UI", Roboto, sans-serif`;
+          }
+        }
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(b.ch, 0, Math.round(s*0.03));
+        ctx.fillText(b.ch, 0, Math.round(h*0.03));
         ctx.restore();
       }
     }

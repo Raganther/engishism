@@ -61,7 +61,11 @@
        dropdown; the hub registers it as a setting. */
     modes: [
       { value:'climb', label:'One ladder — the whole room fills it together' },
-      { value:'race',  label:'A ladder each — teams race to finish theirs first' }
+      { value:'race',  label:'A ladder each — teams race to finish theirs first' },
+      /* The physics face: the words are Kit.table tiles flicked into a vertical
+         ladder of bar slots — order IS position. The first physics mode on an
+         existing round; the identity experiment the classroom A/Bs against drag. */
+      { value:'stack', label:'Stack — flick the words into order' }
     ],
 
     /* The item field this round owns. The normaliser copies it across on its own,
@@ -100,7 +104,7 @@
       const o = item && item.order;
       if(!o || !Array.isArray(o.scale) || o.scale.length < 3) return null;
       const scale = o.scale.map(String);
-      const mode = (ctx && ctx.mode === 'race') ? 'race' : 'climb';
+      const mode = (ctx && (ctx.mode === 'race' || ctx.mode === 'stack')) ? ctx.mode : 'climb';
       /* One lane per team in a race, so each side has its own ladder and its own
          remaining words. The picture is the point: you can see who is two rungs up
          without reading a scoreboard, which a shared pool with dots on it could
@@ -133,6 +137,9 @@
         by:     {},                 // team -> whose phone the answer came from
         won:    null,               // the team that finished first, `race` only
         hint:   0,                  // scale positions given away from the cold end, `race` only
+        got:    {},                 // team -> per-slot right counts, `stack` only (the arrangement stash)
+        cardCells: [],              // the board table's own ladder, `stack` with no phones
+        verdict: null,              // the board table's live verdict, `stack` only
         say:    '',
         done:   false
       };
@@ -253,6 +260,120 @@
         lane.appendChild(ladder);
         return lane;
       };
+
+      /* ---------- STACK: the physics face ----------
+         Slot 0 is the TOP of the ladder — the hot end — so slot i holds
+         scale[need-1-i]. Decided once, here; read()/judge() use the same map. */
+      if(s.mode === 'stack'){
+        /* After the reveal the truth is a plain filled ladder — the physics is
+           over, and a static picture never argues with the answer line. */
+        if(s.revealed || s.done){
+          if(s._canvas){ s._table = null; s._canvas = null; }
+          mount.appendChild(drawLadder((s.revealed ? s.scale : s.placed).slice(), null, true));
+          K.round.say(mount, s);
+          return;
+        }
+        /* Phones present → each handset runs its own table (join.html's table
+           mode, a 1-column bar ladder) and the card is the room's picture: a
+           ladder per team, a rung filled once that team has the right word in
+           that slot. Same standard as toss's lanes, drawn as ladders because
+           the ladder IS this round's identity. */
+        if(c.roster && c.roster.length){
+          if(s._canvas){ s._table = null; s._canvas = null; }
+          const teams = ((c.teams) || []).map((_, i) => i);
+          mount.appendChild(cap(s.high, 'hot'));
+          const lanes = document.createElement('div');
+          lanes.className = 'ord-lanes';
+          teams.forEach(t => {
+            const row = (s.got || {})[t] || [];
+            const lane = document.createElement('div');
+            lane.className = 'ord-lane';
+            const who = document.createElement('div');
+            who.className = 'ord-who';
+            who.style.color = K.round.teamColour(t);
+            const nm = document.createElement('span');
+            nm.className = 'ord-name';
+            nm.textContent = c.teamName ? c.teamName(t) : ('Team ' + (t + 1));
+            who.appendChild(nm);
+            const badge = K.round.placeBadge(t);
+            if(badge) who.appendChild(badge);
+            lane.appendChild(who);
+            const ladder = document.createElement('div');
+            ladder.className = 'ord-ladder';
+            for(let slot = 0; slot < s.need; slot++){     // slot 0 already IS the top
+              const rung = document.createElement('div');
+              rung.className = 'ord-rung';
+              if((row[slot] || 0) >= 1){
+                rung.classList.add('filled');
+                const w = document.createElement('span');
+                w.className = 'ord-word'; w.textContent = s.scale[s.need - 1 - slot];
+                rung.appendChild(w);
+              } else {
+                rung.classList.add('empty');
+                rung.innerHTML = '&nbsp;';
+              }
+              ladder.appendChild(rung);
+            }
+            lane.appendChild(ladder);
+            lanes.appendChild(lane);
+          });
+          mount.appendChild(lanes);
+          mount.appendChild(cap(s.low, 'cold'));
+          K.round.say(mount, s);
+          return;
+        }
+        /* No phones → the card is the play surface: Kit.table with a 1-column
+           ladder of BAR slots (wide word tiles), toss's board-face wiring
+           copied — reuse a live table across the bench's re-renders, shelf
+           pointer mapping (the scaled card divides out), self-stopping loop. */
+        if(s._table && s._canvas && s._canvas.isConnected){ s._table.resize(); return; }
+        mount.appendChild(cap(s.high, 'hot'));
+        const canvas = document.createElement('canvas');
+        canvas.className = 'toss-canvas';
+        canvas.style.display = 'block';
+        canvas.style.width = '100%';
+        canvas.style.height = Math.min(430, 170 + s.need * 42) + 'px';
+        canvas.style.touchAction = 'none';
+        mount.appendChild(canvas);
+        mount.appendChild(cap(s.low, 'cold'));
+        s._canvas = canvas;
+        const table = K.table({
+          canvas,
+          onArrange(read, full){
+            const cells = table.cells();
+            s.cardCells = cells.slice();
+            if(full){
+              const ok = cells.every((w, i) =>
+                String(w).toLowerCase() === String(s.scale[s.need - 1 - i]).toLowerCase());
+              s.verdict = ok ? 'right' : 'wrong';
+              table.setResult(s.verdict);
+            } else {
+              s.verdict = null;
+              table.setResult(null);
+            }
+          }
+        });
+        s._table = table;
+        table.setPieces(s.pool);
+        table.slots({ cols: 1, rows: s.need, bar: true, top: 8 });
+        const pt = e => table.pt(e);
+        canvas.addEventListener('pointerdown', e => {
+          const p = pt(e);
+          if(table.grab(e.pointerId, p.x, p.y)) canvas.setPointerCapture(e.pointerId);
+        });
+        canvas.addEventListener('pointermove', e => { if(table.heldBy(e.pointerId)){ const p = pt(e); table.move(e.pointerId, p.x, p.y); } });
+        const end = e => { if(table.heldBy(e.pointerId)){ table.drop(e.pointerId); try{ canvas.releasePointerCapture(e.pointerId); }catch(_){} } };
+        canvas.addEventListener('pointerup', end);
+        canvas.addEventListener('pointercancel', end);
+        (function loop(){ if(!canvas.isConnected) return; table.step(); table.draw(); requestAnimationFrame(loop); })();
+        requestAnimationFrame(() => { if(canvas.isConnected) table.resize(); });
+        table.resize();
+        /* a driven test's handle — world.place fires no onArrange, so a probe
+           places and then reads state; same kind of window as __bs */
+        window.__ordStack = { table, state: s };
+        K.round.say(mount, s);
+        return;
+      }
 
       if(s.mode === 'race'){
         /* The two ends of the scale are a property of the *question*, not of each
@@ -466,7 +587,8 @@
 
          A climb is the opposite case: there is one ladder, it *is* the answer, and
          filling it is the reveal. */
-      if(s.mode !== 'race') s.placed = s.scale.slice();
+      if(s.mode === 'stack'){ s.revealed = true; s._table = null; s._canvas = null; }
+      else if(s.mode !== 'race') s.placed = s.scale.slice();
       /* What the room was part-way to agreeing stops being news once the answer is
          out — and in a race it would leave a guess sitting above a finished lane. */
       s.picks = {}; s.leading = {}; s.votes = {};
@@ -542,11 +664,28 @@
        needs nothing the phones do not already do. */
     arm(s, ctx){
       const c = ctx || {};
+      /* stack → each handset runs its own physics ladder (join.html's table
+         mode). cols/rows/bar shape the slots into the 1-column bar ladder;
+         join.html threads them straight into Kit.table. The wire back is the
+         |-joined cells the drag rounds use — nothing new for the relay. */
+      if(s.mode === 'stack'){
+        return {
+          mode: 'table',
+          prompt: s.text || 'Flick the words into order — strongest at the top',
+          options: s.pool.slice(),
+          cols: 1, rows: s.need, bar: true,
+          multi: s.need, holds: true, rethink: true,
+          team: (c.team === 0 || Number(c.team) > 0) ? Number(c.team) : null
+        };
+      }
       const label = s.mode === 'race'
         ? 'Which comes next on your ladder?'
         : ('Which comes next? (' + (s.placed.length + 1) + ' of ' + s.need + ')');
       const arm = {
         mode:    'vote',
+        /* the question line the handset shows — built here since this round
+           was written and never sent until the stack mode found the gap */
+        prompt:  label,
         /* **Every word, always, in the one order the pool was shuffled into.**
            It used to send only what that side had left, which read as the answer
            being *taken away*: a class of sixteen found that the box under a thumb
@@ -616,6 +755,22 @@
        out — their own Check button never comes through here, so a class with one
        phone in a drawer is still playable. */
     read(replies, s, ctx){
+      if(s.mode === 'stack'){
+        if(replies && replies.length){
+          const p = K.round.arrangement(replies, {
+            need:   s.need,
+            clean:  x => String(x).trim(),
+            wordAt: i => s.scale[s.need - 1 - i],     // slot 0 = the hot end (top)
+            legal:  placed => placed.every(w => s.pool.indexOf(w) !== -1) &&
+                              new Set(placed).size === placed.length,
+            sizes:  (ctx && ctx.sizes) || [],
+            mode:   s.mode
+          });
+          s.leading = p.leading; s.votes = p.votes; s.by = p.by; s.got = p.got;
+          return p.picks;
+        }
+        return { 0: (s.cardCells || []).slice() };
+      }
       const p = K.round.poll(replies, {
         sizes: (ctx && ctx.sizes) || [],
         unanimous: true,
@@ -633,6 +788,13 @@
     },
 
     judge(answer, s, team){
+      if(s.mode === 'stack'){
+        const seq = (answer || []).map(x => String(x).toLowerCase());
+        if(seq.length !== s.need || seq.some(x => !x)) return { verdict:'incomplete', hits:0 };
+        const hits = seq.reduce((n, w, i) =>
+          n + (w === String(s.scale[s.need - 1 - i]).toLowerCase() ? 1 : 0), 0);
+        return { verdict: hits === s.need ? 'right' : 'wrong', hits, done: hits === s.need };
+      }
       const seq = answer || [];
       if(seq.length !== 1) return { verdict:'incomplete', hits:0 };
       const placed = (s.mode === 'race' && team != null) ? (s.lanes[team] || []) : s.placed;
@@ -647,6 +809,15 @@
     /* Commit a correct answer. Grouping leaves this out — being right *is* the
        ending there — and a climb is the case that needed it: right means progress. */
     accept(answer, s, team, ctx){
+      if(s.mode === 'stack'){
+        /* The whole ladder landed at once. `done` ends the QUESTION (the host's
+           meaning of the word), so it follows the host's open-question rule
+           exactly as race does: `won` records first to finish, never
+           overwritten, and the room stays open when the host says so. */
+        if(s.won == null && team != null) s.won = team;
+        if(!(ctx && ctx.openToAll)) s.done = true;
+        return;
+      }
       const word = (answer || [])[0];
       if(!word) return;
       if(s.mode === 'race' && team != null){
@@ -704,7 +875,13 @@
       return bad;
     },
 
-    saidOf(who, r, s){ return who + ': not that one yet.'; },
+    saidOf(who, r, s){
+      if(s.mode === 'stack'){
+        if(!r || r.verdict === 'incomplete') return who + ': ladder not full yet.';
+        return who + ': not it — ' + (r.hits || 0) + ' of ' + s.need + ' rungs are right.';
+      }
+      return who + ': not that one yet.';
+    },
 
     settleMs: 700
   });

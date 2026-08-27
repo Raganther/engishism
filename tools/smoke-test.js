@@ -6387,9 +6387,10 @@ async function testQuestionBench(browser){
 
   /* The picker is built from what the round declares, so the bench never learns what
      a mode means — a round with one way to play gets no picker at all. */
-  check('a round with two ways to play offers both',
+  check('a round with three ways to play offers all three',
         await ord.locator('#mode-pick').isVisible() &&
-        await ord.locator('#mode-pick option').count() === 2,
+        await ord.locator('#mode-pick option').count() === 3 &&
+        /stack/i.test((await ord.locator('#mode-pick option').allInnerTexts()).join(' ')),
         (await ord.locator('#mode-pick option').allInnerTexts()).join(' | '));
   check('the ladder is drawn with a rung per step and both ends named',
         await ord.locator('.ord-rung').count() === 5 &&

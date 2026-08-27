@@ -392,14 +392,14 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260826c"></script>
+<script src="game-hub/hub-buzzer.js?v=20260827a"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (the Toss round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260826c"></script>
+<script src="game-hub/matter.min.js?v=20260827a"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260826c"></script>
+<script src="game-hub/hub-table.js?v=20260827a"></script>
 <script>
 (function(){
   'use strict';
@@ -641,7 +641,7 @@
     client.respond(card.words[i]);
   }
 
-  function setMode(m, opts, mine){
+  function setMode(m, opts, mine, shape){
     mode = m || 'buzz';
     answered = false;
     if(mine === false) mode = 'watch';
@@ -752,7 +752,7 @@
       });
     }
     if(mode==='arrange') buildArrange(opts || []);
-    if(mode==='table') buildTable(opts || []);
+    if(mode==='table') buildTable(opts || [], shape);
     if(mode==='answer'){ $('reply').value=''; $('reply').disabled=false; $('send').disabled=false; }
     if(mode==='type'){
       $('reply').value=''; $('reply').disabled=false;
@@ -944,7 +944,7 @@
      physics and the draw; this wires the pointers (converting client → canvas-natural
      coords, scale 1 on a phone) and runs the loop. onArrange fires when a piece docks
      or is pulled out, which is the live-send trigger — the flick equivalent of anaPut. */
-  function buildTable(list){
+  function buildTable(list, shape){
     const host = $('table');
     host.innerHTML = '';
     const canvas = document.createElement('canvas');
@@ -953,7 +953,7 @@
     tblCanvas = canvas;
     tbl = window.HubKit.table({ canvas, onArrange(){ sendTable(); } });   // every feel number from the shelf's dial registry
     tbl.setPieces(list);
-    tbl.slots(list.length);
+    tbl.slots(shape ? { cols: shape.cols, rows: shape.rows, bar: shape.bar } : list.length);
 
     const pt = e => tbl.pt(e);   // the shelf maps a touch through the painted/natural ratio
     canvas.addEventListener('pointerdown', e => {
@@ -970,6 +970,9 @@
     (function loop(){ if(!canvas.isConnected || tblCanvas !== canvas) return; tbl.step(); tbl.draw(); requestAnimationFrame(loop); })();
     requestAnimationFrame(()=>{ if(canvas.isConnected) tbl.resize(); });
     tbl.resize();
+    /* a driven test's handle — place() fires no onArrange, so a probe places
+       and then calls send itself; same kind of window as battle-scrabble's __bs */
+    window.__tbl = { table: tbl, send: sendTable };
   }
 
   /* The answer, same shape as arrangeWire: box order, |-joined, empty slots kept as
@@ -1410,7 +1413,12 @@
         say('Still open — go!');
         return;
       }
-      setMode(d && d.mode, d && d.options, myRound(d));
+      /* A table arm may shape its slots: cols/rows makes a grid instead of the
+         row (the thermometer's stack mode sends cols:1 — a vertical ladder),
+         and bar makes the slots wide for whole words. Absent = the row, as
+         every table round before the ladder got. */
+      setMode(d && d.mode, d && d.options, myRound(d),
+              d && d.cols ? { cols: Number(d.cols), rows: Number(d.rows) || Math.ceil((d.options || []).length / Number(d.cols)), bar: !!d.bar } : null);
       if(!myRound(d)){
         const who = teamNames[Number(d.turnTeam)] || ('Team ' + (Number(d.turnTeam)+1));
         say(who + ' is choosing');
