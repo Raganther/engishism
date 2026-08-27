@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sort It — Engishism Playground</title>
+<style>
+  /* Playground page: deliberately NOT the hub skin — a sandbox for one dynamic.
+     "Sort It" is the classic two-column classroom exercise made physical: words
+     are Kit.table tiles you FLICK onto one of two shelves, and the shelf a tile
+     lands on IS the answer. Same meaning-carries-position bet as the thermometer's
+     stack and the anagram flick, one axis simpler — a binary category instead of a
+     full order. Teacher-operated on the projector for now (the required "playable
+     with no relay" baseline); phones are the graduation step, noted at the bottom. */
+  :root{
+    --bg:#fafaf8; --text:#121212; --muted:#6b6b6b; --border:#d4d4cc;
+    --btn-bg:#fff; --btn-border:#121212; --accent:#00A0DF;
+    --a:#3E7CB1;   /* top shelf */
+    --b:#B5651D;   /* bottom shelf */
+    --right:#6FB04A; --wrong:#E2603B;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display:flex; justify-content:center; min-height:100vh;
+  }
+  .app{ width:100%; max-width:1024px; padding:16px; }
+
+  header{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  h1{ font-size:1.6rem; margin:8px 0 2px; }
+  h1 small{ color:var(--muted); font-weight:400; font-size:0.9rem; }
+  .toolbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  select, .toolbar button{
+    font:inherit; font-size:0.85rem; padding:6px 12px; border-radius:999px;
+    border:1px solid var(--border); background:var(--btn-bg); color:var(--text); cursor:pointer;
+  }
+
+  /* The two category names, said once above the board — which shelf is which.
+     The colour on each matches the tint the shelf's tiles get when checked. */
+  .legend{ display:flex; gap:18px; align-items:center; flex-wrap:wrap; margin:10px 0 6px; font-size:1.05rem; }
+  .legend .lg{ display:inline-flex; align-items:center; gap:8px; font-weight:700; }
+  .legend .swatch{ width:16px; height:16px; border-radius:4px; }
+  .legend .top .swatch{ background:var(--a); } .legend .bot .swatch{ background:var(--b); }
+  .legend .arrow{ color:var(--muted); font-weight:400; }
+
+  /* The stage: the physics canvas, with a floating label pinned to each shelf row
+     (positioned from Kit.table's real slot geometry — see placeShelfLabels). */
+  .stage-wrap{ position:relative; width:100%; }
+  canvas#stage{
+    display:block; width:100%; height:min(64vh, 520px); touch-action:none;
+    border:1px solid var(--border); border-radius:12px; background:#fff;
+  }
+  .shelf-label{
+    position:absolute; left:10px; z-index:2; pointer-events:none;
+    font-weight:800; font-size:0.95rem; letter-spacing:0.04em; text-transform:uppercase;
+    padding:2px 10px; border-radius:999px; color:#fff; transform:translateY(-50%);
+    opacity:0.92; white-space:nowrap;
+  }
+  .shelf-label.top{ background:var(--a); } .shelf-label.bot{ background:var(--b); }
+
+  .status{ display:flex; justify-content:center; align-items:center; gap:10px;
+           min-height:1.6em; margin:12px 0 2px; font-size:1.2rem; font-weight:600; }
+  .status .good{ color:var(--right); } .status .bad{ color:var(--wrong); }
+  .score{ font-family:ui-monospace, monospace; color:var(--muted); }
+
+  .controls{ display:flex; justify-content:center; gap:10px; margin-top:8px; flex-wrap:wrap; }
+  .controls button{
+    font:inherit; font-weight:600; font-size:1rem; padding:12px 22px; border-radius:999px;
+    cursor:pointer; background:var(--btn-bg); color:var(--text); border:1px solid var(--btn-border);
+  }
+  .controls button.primary{ background:var(--text); color:var(--bg); border-color:var(--text); }
+  .controls button:disabled{ opacity:0.35; cursor:default; }
+
+  .how{ color:var(--muted); font-size:0.95rem; margin:8px 0 0; text-align:center; }
+  footer{ text-align:center; color:var(--muted); font-size:0.8rem; margin:22px 0 8px; }
+  footer a{ color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div><h1>Sort It <small>· playground</small></h1></div>
+    <div class="toolbar">
+      <select id="puzzle-select" aria-label="Choose puzzle"></select>
+      <button id="shuffle-btn">Re-deal</button>
+      <button id="restart-btn">Restart</button>
+    </div>
+  </header>
+
+  <div class="legend" id="legend">
+    <span class="lg top"><span class="swatch"></span><span id="lg-a"></span> <span class="arrow">— top shelf</span></span>
+    <span class="lg bot"><span class="swatch"></span><span id="lg-b"></span> <span class="arrow">— bottom shelf</span></span>
+  </div>
+
+  <div class="stage-wrap" id="stage-wrap">
+    <div class="shelf-label top" id="label-a"></div>
+    <div class="shelf-label bot" id="label-b"></div>
+    <canvas id="stage"></canvas>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="controls">
+    <button id="check-btn" class="primary">Check</button>
+    <button id="reveal-btn">Show answer</button>
+  </div>
+
+  <p class="how">Flick each word up onto the shelf it belongs to, then press <b>Check</b>.
+     A green tile is on the right shelf; a red one is on the wrong shelf; a word still in the
+     pile hasn't been sorted yet.</p>
+
+  <footer>Engishism playground — a sandbox for game dynamics. Puzzles are editable at the top of this file.
+    · <a href="../index.html">back to the hub</a></footer>
+</div>
+
+<script src="../game-hub/hub-qr.js?v=20260827o"></script>
+<script src="../game-hub/matter.min.js?v=20260827o"></script>
+<script src="../game-hub/hub-kit.js?v=20260827o"></script>
+<script src="../game-hub/hub-table.js?v=20260827o"></script>
+<script>
+'use strict';
+/* ================= PUZZLES — edit or add puzzles here =================
+   Each puzzle sorts single-word tiles onto ONE OF TWO shelves. Give each side a
+   short label and its words. Keep the two sides roughly the same size — the
+   shelves size themselves to the larger side — and keep every word to one tile's
+   worth (a short word or a tight phrase). All words in a puzzle must be different. */
+const PUZZLES = [
+  { title: "make or do?", level: "A2–B1",
+    a: { label: "make", words: ["a decision", "a mistake", "progress", "friends"] },
+    b: { label: "do",   words: ["homework", "exercise", "business", "the dishes"] } },
+
+  { title: "Countable or uncountable?", level: "B1",
+    a: { label: "countable",   words: ["apple", "chair", "idea", "suggestion"] },
+    b: { label: "uncountable", words: ["advice", "water", "information", "luggage"] } },
+
+  { title: "Regular or irregular past?", level: "A2–B1",
+    a: { label: "regular",   words: ["play", "want", "watch", "decide"] },
+    b: { label: "irregular", words: ["go", "buy", "think", "catch"] } },
+
+  { title: "Formal or informal?", level: "B2",
+    a: { label: "formal",   words: ["purchase", "assist", "require", "depart"] },
+    b: { label: "informal", words: ["buy", "help", "need", "leave"] } },
+
+  { title: "much or many?", level: "A2",
+    a: { label: "many (countable)",   words: ["books", "people", "chairs", "ideas"] },
+    b: { label: "much (uncountable)", words: ["water", "time", "money", "advice"] } }
+];
+/* ================= end of puzzles ================= */
+
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const K = window.HubKit;
+if(!K || !K.table){ $('status').textContent = 'Kit.table failed to load.'; }
+
+/* ---------------- state ---------------- */
+let puzzleIndex = 0;
+let perShelf = 4;                 // slots per shelf = the larger side, so a correct sort always fits
+let wordCat = {};                 // word -> 'a' (top) | 'b' (bottom)
+let canvas = $('stage');
+let checked = false;
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1; i>0; i--){ const j = Math.floor(Math.random()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; }
+  return a;
+}
+
+/* One live table for the page's whole life; re-dealt per puzzle. `upright` keeps a
+   word tile the right way up (the shelf's intended choice for wide word tiles).
+   onArrange clears a stale Check tint the moment the board changes, so a corrected
+   tile stops wearing last check's red. */
+const world = K.table({
+  canvas, upright: true,
+  onArrange(){ if(checked){ world.setResult(null); checked = false; setStatus('', ''); } }
+});
+
+function allWords(p){ return p.a.words.concat(p.b.words); }
+
+function deal(){
+  const p = PUZZLES[puzzleIndex];
+  wordCat = {};
+  p.a.words.forEach(w => wordCat[w] = 'a');
+  p.b.words.forEach(w => wordCat[w] = 'b');
+  perShelf = Math.max(p.a.words.length, p.b.words.length);
+  world.reset();
+  /* Two shelves: row 0 (top) = side A, row 1 (bottom) = side B. Slots before
+     pieces so the pile's spread reads the real bar-slot width (throw-lab / the
+     stack round do the same). `labels` = every word, so the slots size to the
+     widest tile whatever lands where. */
+  world.slots({ cols: perShelf, rows: 2, bar: true, top: 10, labels: allWords(p) });
+  world.setPieces(shuffle(allWords(p)));
+  world.setResult(null);
+  checked = false;
+  setStatus('', '');
+  world.resize();
+  placeShelfLabels();
+}
+
+/* Judge: for each docked tile, the ROW it is in says which shelf, and that must
+   match the word's authored side. Per-slot tint (green right / red wrong); a word
+   left in the pile is unsorted. cells() is row-major, so slot k is on row
+   floor(k/perShelf): row 0 = 'a', row 1 = 'b'. */
+function check(){
+  const cells = world.cells();
+  const right = [], wrong = [];
+  let placed = 0;
+  for(let k=0; k<cells.length; k++){
+    const w = cells[k];
+    if(!w) continue;
+    placed++;
+    const want = Math.floor(k / perShelf) === 0 ? 'a' : 'b';
+    (wordCat[w] === want ? right : wrong).push(k);
+  }
+  world.setResult(null);
+  if(right.length) world.setResult('right', right);
+  if(wrong.length) world.setResult('wrong', wrong);
+  checked = true;
+  const total = Object.keys(wordCat).length;
+  const unsorted = total - placed;
+  if(right.length === total){
+    setStatus('All sorted! ' + total + ' / ' + total + ' correct.', 'good');
+  } else {
+    let msg = right.length + ' / ' + total + ' on the right shelf.';
+    if(unsorted) msg += '  ' + unsorted + ' still in the pile.';
+    setStatus(msg, wrong.length ? 'bad' : '');
+  }
+}
+
+/* Show answer: dock every word into a correct-side slot, in order. A teaching
+   button — "here is where they go" — not a score. */
+function reveal(){
+  world.reset();
+  const p = PUZZLES[puzzleIndex];
+  world.slots({ cols: perShelf, rows: 2, bar: true, top: 10, labels: allWords(p) });
+  world.setPieces(allWords(p));
+  // place side A along row 0, side B along row 1
+  p.a.words.forEach((w, i) => world.place(i, w));
+  p.b.words.forEach((w, i) => world.place(perShelf + i, w));
+  world.setResult('right', p.a.words.map((_, i) => i).concat(p.b.words.map((_, i) => perShelf + i)));
+  checked = true;
+  setStatus('The answer.', '');
+  world.resize();
+  placeShelfLabels();
+}
+
+function setStatus(text, cls){
+  // colour comes from `.status .good` / `.status .bad` on the inner span
+  $('status').innerHTML = text ? '<span class="' + (cls || '') + '">' + text + '</span>' : '';
+}
+
+/* Pin each shelf's floating label to the real y of its row, read from Kit.table's
+   own slot geometry (natural coords) and scaled into CSS pixels by the canvas's
+   paint ratio. Re-run on every deal and resize — the card scales after layout. */
+function placeShelfLabels(){
+  const b0 = world.slotBox(0), b1 = world.slotBox(perShelf);
+  if(!b0 || !b1) return;
+  const sy = canvas.getBoundingClientRect().height / (canvas.height || 1);
+  $('label-a').style.top = (b0.y * sy) + 'px';
+  $('label-b').style.top = (b1.y * sy) + 'px';
+}
+
+/* ---------------- pointer -> grab / move / drop ---------------- */
+const pt = e => world.pt(e);
+canvas.addEventListener('pointerdown', e => {
+  const p = pt(e);
+  if(world.grab(e.pointerId, p.x, p.y)) canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', e => { if(world.heldBy(e.pointerId)){ const p = pt(e); world.move(e.pointerId, p.x, p.y); } });
+function endDrag(e){ if(world.heldBy(e.pointerId)){ world.drop(e.pointerId); try{ canvas.releasePointerCapture(e.pointerId); }catch(_){} } }
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+/* ---------------- loop + resize ---------------- */
+(function loop(){ world.step(); world.draw(); requestAnimationFrame(loop); })();
+window.addEventListener('resize', () => { world.resize(); placeShelfLabels(); });
+
+/* a driven test's handle — place() fires no onArrange, so a probe places tiles and
+   then calls check itself; same window style as throw-lab's __lab. */
+window.__sort = {
+  world,
+  deal, check, reveal,
+  state: () => ({ puzzle: PUZZLES[puzzleIndex].title, perShelf, wordCat: Object.assign({}, wordCat),
+                  cells: world.cells(), loose: world.loose().map(t => t.ch) }),
+  // sort every tile onto its CORRECT shelf (for a green-path test)
+  solveCorrect(){
+    const p = PUZZLES[puzzleIndex];
+    p.a.words.forEach((w, i) => world.place(i, w));
+    p.b.words.forEach((w, i) => world.place(perShelf + i, w));
+  },
+  // put one word on a chosen side ('a'/'b') at the first free slot of that row
+  put(word, side){
+    const base = side === 'b' ? perShelf : 0;
+    for(let i=0; i<perShelf; i++){ if(world.place(base + i, word)) return true; }
+    return false;
+  }
+};
+
+/* ---------------- toolbar ---------------- */
+function loadPuzzle(i){
+  puzzleIndex = i;
+  const p = PUZZLES[i];
+  $('lg-a').textContent = p.a.label;
+  $('lg-b').textContent = p.b.label;
+  $('label-a').textContent = p.a.label;
+  $('label-b').textContent = p.b.label;
+  deal();
+}
+
+function initToolbar(){
+  const sel = $('puzzle-select');
+  PUZZLES.forEach((p, i) => {
+    const o = document.createElement('option');
+    o.value = i; o.textContent = (i+1) + '. ' + p.title + ' (' + p.level + ')';
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', () => loadPuzzle(Number(sel.value)));
+  $('shuffle-btn').addEventListener('click', deal);
+  $('restart-btn').addEventListener('click', deal);
+  $('check-btn').addEventListener('click', check);
+  $('reveal-btn').addEventListener('click', reveal);
+}
+
+const start = params.has('p') ? (Number(params.get('p')) - 1)
+            : Math.floor(Date.now()/86400000) % PUZZLES.length;
+initToolbar();
+loadPuzzle(Math.min(Math.max(start, 0), PUZZLES.length - 1));
+$('puzzle-select').value = puzzleIndex;
+</script>
+</body>
+</html>
