@@ -224,6 +224,18 @@
        setStatic, and they re-normalize on the next fit once knocked loose. */
     function normalizeMass(b){
       if(!b.isStatic && b.area > 0) Body.setDensity(b, 0.0016 * (34 * 34) / b.area);
+      /* A bar tile is a whole WORD, wide-and-short — it must stay readable and
+         cannot sensibly balance on its narrow edge, and a wide rectangle tipped
+         onto that edge is what turned a contained pile into a cascade. So a bar
+         tile's rotation is frozen outright: setInertia(Infinity) leaves it with
+         no rotational response, so no collision or drag force can ever spin it.
+         It is created flat (setPieces skips the random tilt in bar mode) and,
+         with zero angular velocity and no torque that can act, it stays flat
+         forever — no per-frame correction, nothing to oscillate. setDensity
+         above recomputes inertia from area, so the freeze is re-applied here,
+         which is the one choke point every fit/scale/deal passes through.
+         Square letter tiles are untouched and keep tumbling. */
+      if(grid && grid.bar && !b.isStatic) Body.setInertia(b, Infinity);
     }
     /* The sides can OPEN — the throw dynamic's exit doors. With a side open its
        wall is simply not built, a piece that crosses that edge leaves the world,
@@ -323,7 +335,9 @@
           restitution: feel.restitution, frictionAir: feel.frictionAir,
           friction: 0.3, density: 0.0016
         });
-        Body.setAngle(body, (Math.random() - 0.5) * 0.3);
+        // A bar tile is dealt flat and stays flat (normalizeMass freezes its
+        // rotation); only free-tumbling letter tiles get the scattered tilt.
+        Body.setAngle(body, (grid && grid.bar) ? 0 : (Math.random() - 0.5) * 0.3);
         // hold: a fresh deal's rain must not leak out through an open side
         // while it settles — the edge reflects it back in until this expires
         pieces.push({ body, ch: String(ch), hue: HUES[i % HUES.length],
@@ -858,12 +872,14 @@
       reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; clearResult(); },
       setPieces, addPiece, slots: makeSlots, place, openSides,
       read, cells, filled, setResult,
-      /* the loose pieces (not slotted), letter + colour + height + velocity —
-         a driven test's only window onto what is lying on the table, since
-         read() sees slots alone. vx/vy are what a release just imparted. */
+      /* the loose pieces (not slotted), letter + colour + height + velocity +
+         angle — a driven test's only window onto what is lying on the table,
+         since read() sees slots alone. vx/vy are what a release just imparted;
+         `ang` (radians) is how the bench proves a bar tile stayed flat. */
       loose: () => pieces.filter(p => p.slot == null)
                          .map(p => ({ ch: p.ch, hue: p.hue, y: Math.round(p.body.position.y),
-                                      vx: Math.round(p.body.velocity.x), vy: Math.round(p.body.velocity.y) })),
+                                      vx: Math.round(p.body.velocity.x), vy: Math.round(p.body.velocity.y),
+                                      ang: +p.body.angle.toFixed(3) })),
       /* slot geometry + the fitted tile size, for callers that aim or assert
          at real coordinates (the suite fires its test shots at a slot's row) */
       slotBox: i => slots[i] ? { x: slots[i].x, y: slots[i].y, w: slots[i].w, h: slots[i].h } : null,

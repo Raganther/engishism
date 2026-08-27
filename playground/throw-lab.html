@@ -50,6 +50,16 @@
     width:150px; padding:5px 9px; border-radius:8px;
     border:1px solid var(--border); background:var(--panel); color:var(--text);
   }
+  /* A scale is several words with commas — the letter-spacing and uppercasing
+     that suit a single word make a comma-list hard to read, so word mode drops
+     both and gives the field room. */
+  body.words-mode .word input[type=text]{
+    text-transform:none; letter-spacing:0.02em; width:280px;
+  }
+  .word select{
+    font:inherit; font-size:0.9rem; padding:5px 9px; border-radius:8px;
+    border:1px solid var(--border); background:var(--panel); color:var(--text);
+  }
   button{
     font:inherit; font-size:0.82rem; padding:7px 14px; border-radius:999px;
     border:1px solid var(--border); background:var(--panel); color:var(--text); cursor:pointer;
@@ -81,9 +91,23 @@
   </header>
 
   <div class="controls">
+    <!-- Two shapes on one bench: square LETTER tiles (the throw dynamic's
+         original) and wide WORD tiles in a vertical bar ladder (Word
+         Thermometer's stack mode). A rectangle behaves nothing like a square
+         under the same physics — it can tip onto its narrow edge — so the
+         feel has to be tuned against the real shape, which is why the bench
+         now carries both. The word tile's rotation is frozen in the shelf, so
+         here it should lie flat and pack a neat pile. -->
     <div class="word">
-      <label for="word-in">Word</label>
-      <input id="word-in" type="text" value="THROW" maxlength="12" autocomplete="off" spellcheck="false">
+      <label for="mode-in">Tiles</label>
+      <select id="mode-in">
+        <option value="letters">Letters (square)</option>
+        <option value="words">Words (bar ladder)</option>
+      </select>
+    </div>
+    <div class="word">
+      <label for="word-in" id="word-label">Word</label>
+      <input id="word-in" type="text" value="THROW" maxlength="80" autocomplete="off" spellcheck="false">
     </div>
     <!-- The physics rows are NOT here: Kit.table.dialsPanel builds them from
          the shelf's dial registry. This page is the BENCH those dials get
@@ -92,7 +116,7 @@
     <!-- "New word", not "Reset": the dial panel below carries its own
          Reset (the dials), and two Resets meaning different things is a
          button nobody can trust. -->
-    <button id="btn-reset" type="button">New word ⟳</button>
+    <button id="btn-reset" type="button">New deal ⟳</button>
   </div>
 
   <div class="stage">
@@ -104,10 +128,10 @@
        Toss round will call. Throw Lab is its first caller — the workshop where the
        feel gets tuned. matter.min.js and hub-table.js live in game-hub/ beside the
        other shelves; hub-kit.js is the object Kit.table hangs off. -->
-  <script src="../game-hub/hub-qr.js?v=20260827e"></script>
-  <script src="../game-hub/matter.min.js?v=20260827e"></script>
-  <script src="../game-hub/hub-kit.js?v=20260827e"></script>
-  <script src="../game-hub/hub-table.js?v=20260827e"></script>
+  <script src="../game-hub/hub-qr.js?v=20260827f"></script>
+  <script src="../game-hub/matter.min.js?v=20260827f"></script>
+  <script src="../game-hub/hub-kit.js?v=20260827f"></script>
+  <script src="../game-hub/hub-table.js?v=20260827f"></script>
   <script>
   (function(){
     'use strict';
@@ -123,10 +147,19 @@
     const canvas = document.getElementById('stage');
     const status = document.getElementById('status');
 
-    let target = '';                       // the word to spell
+    /* Two shapes, one bench. `letters` spells one word into square slots (the
+       throw dynamic's original test); `words` orders a scale into a vertical
+       bar ladder (Word Thermometer's stack mode) — the shape whose physics
+       needed tuning. The mode picker chooses; everything below branches on it. */
+    let mode = 'letters';
+    let target = '';                       // letters mode: the word to spell
+    let targetOrder = [];                  // words mode: the scale, top-to-bottom
+
     function setStatus(res){
-      status.textContent = res === 'right' ? '✓ Correct — that spells the word.'
-        : res === 'wrong' ? '✗ Not the word yet — pull a letter out and try again.'
+      const noun = mode === 'words' ? 'order' : 'word';
+      status.textContent = res === 'right' ? '✓ Correct — that is the ' + noun + '.'
+        : res === 'wrong' ? '✗ Not the ' + noun + ' yet — pull a tile out and try again.'
+        : mode === 'words' ? 'Flick the words into order, top to bottom.'
         : 'Drag the scrambled letters into the slots to spell the word.';
       status.style.color = res === 'right' ? '#6FB04A' : res === 'wrong' ? '#E2603B' : '';
     }
@@ -136,7 +169,13 @@
     const world = K.table({
       canvas,
       onArrange(read, done){               // the table reports the arrangement; the caller judges
-        const res = done ? (read === target ? 'right' : 'wrong') : null;
+        let res = null;
+        if(done){
+          const ok = mode === 'words'
+            ? world.cells().join('|').toLowerCase() === targetOrder.join('|').toLowerCase()
+            : read === target;
+          res = ok ? 'right' : 'wrong';
+        }
         world.setResult(res);
         setStatus(res);
       }
@@ -145,19 +184,36 @@
     function letters(){
       return (document.getElementById('word-in').value || 'THROW').replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 12) || 'THROW';
     }
-    function shuffle(word){                 // Fisher-Yates, retried until it isn't the answer
-      const a = word.split('');
+    /* Words mode: the field is a comma-separated scale, weakest first. Falls
+       back to the anger scale so an empty field still deals something to feel. */
+    const SCALE = ['annoyed', 'irritated', 'angry', 'livid', 'furious'];
+    function words(){
+      const raw = String(document.getElementById('word-in').value || '')
+        .split(',').map(s => s.trim()).filter(Boolean).slice(0, 8);
+      return raw.length >= 2 ? raw : SCALE.slice();
+    }
+    function shuffleArr(arr){               // Fisher-Yates, retried until it isn't the answer
+      const a = arr.slice();
       for(let tries = 0; tries < 24; tries++){
         for(let i = a.length-1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); const t = a[i]; a[i] = a[j]; a[j] = t; }
-        if(a.length < 2 || a.join('') !== word) break;
+        if(a.length < 2 || a.join('|') !== arr.join('|')) break;
       }
       return a;
     }
     function newWord(){
-      target = letters();
       world.reset();
-      world.setPieces(shuffle(target));
-      world.slots(target.length);
+      if(mode === 'words'){
+        targetOrder = words();
+        /* Slots before pieces: the shelf's pile spread reads the declared slot
+           width, so a hand of wide word tiles is dealt across the room they
+           actually need — the same order Word Thermometer's stack mode uses. */
+        world.slots({ cols:1, rows:targetOrder.length, bar:true, labels:targetOrder });
+        world.setPieces(shuffleArr(targetOrder));
+      } else {
+        target = letters();
+        world.setPieces(shuffleArr(target.split('')));
+        world.slots(target.length);
+      }
       world.setResult(null);
       setStatus(null);
     }
@@ -167,6 +223,10 @@
 
     // Fixed-timestep loop: step the physics, draw what came out.
     (function loop(){ world.step(); world.draw(); requestAnimationFrame(loop); })();
+
+    /* a driven test's handle — same kind of window as join.html's __tbl. The
+       bench proves a bar tile settles flat, so it reads the loose tiles' angles. */
+    window.__lab = { world, loose: () => world.loose(), mode: () => mode };
 
     /* ---- pointer -> grab / move / drop (canvas-space coords) ---- */
     const pt = e => world.pt(e);   // the shelf maps a touch through the painted/natural ratio
@@ -199,6 +259,26 @@
 
     document.getElementById('btn-reset').addEventListener('click', newWord);
     document.getElementById('word-in').addEventListener('change', newWord);
+
+    /* ---- the tile-shape picker ---- */
+    const modeIn = document.getElementById('mode-in');
+    const wordIn = document.getElementById('word-in');
+    const wordLabel = document.getElementById('word-label');
+    function applyMode(){
+      mode = modeIn.value === 'words' ? 'words' : 'letters';
+      document.body.classList.toggle('words-mode', mode === 'words');
+      // the one field carries a word or a scale; swap its default and label so
+      // switching does not leave a single word sitting in a comma-list field
+      if(mode === 'words'){
+        wordLabel.textContent = 'Scale — weakest first, commas between';
+        if(wordIn.value.indexOf(',') === -1) wordIn.value = SCALE.join(', ');
+      } else {
+        wordLabel.textContent = 'Word';
+        if(wordIn.value.indexOf(',') !== -1) wordIn.value = 'THROW';
+      }
+      newWord();
+    }
+    modeIn.addEventListener('change', applyMode);
 
     /* ---- collapsible controls: folded away by default on a phone ---- */
     const btnTune = document.getElementById('btn-tune');
