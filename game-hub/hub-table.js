@@ -408,12 +408,25 @@
       const margin = 12, gap = Math.max(4, Math.round(feel.size * 0.10));
       const yTop = top != null ? top : margin;    // room for a caller's own chrome above row 0
       const pileH = pile != null ? pile : 130;    // the loose-tile band below the grid (a settled heap is 1-2 tiles deep)
-      /* bar: WIDE slots for whole words (the thermometer ladder) — width fills
-         the row, height fits the column; a square grid keeps one size for both. */
+      /* bar: slots sized to the WORD, not the row — height fits the column
+         exactly as a square grid does; width is measured from the longest
+         label at the slot's own font size (draw()'s 0.56 ratio) plus
+         padding, clamped to the row so a long scale never overflows. A
+         square grid keeps one size for both, unchanged. */
       if(bar){
-        const sw = Math.max(60, Math.floor((cssW - margin*2 - gap*(cols-1)) / cols));
         const sh = Math.max(24, Math.min(feel.size,
           Math.floor((cssH - yTop - pileH - gap*(rows-1)) / rows)));
+        /* rowMax can be 0 or negative on the very first frame (canvas not yet
+           laid out, cssW still 0) — floored at 60 before it clamps anything,
+           or a genuinely-narrow reading fed straight into Math.min went
+           negative and drew a piece with a negative roundRect radius. */
+        const rowMax = Math.max(60, Math.floor((cssW - margin*2 - gap*(cols-1)) / cols));
+        let sw = Math.round(rowMax * 0.62);   // default: no labels known yet
+        if(bar.labels && bar.labels.length){
+          ctx.font = `700 ${Math.round(sh*0.56)}px -apple-system, "Segoe UI", Roboto, sans-serif`;
+          const widest = Math.max(...bar.labels.map(w => ctx.measureText(String(w)).width));
+          sw = Math.max(60, Math.min(rowMax, Math.round(widest / 0.88) + 24));
+        }
         const x0 = (cssW - (cols*sw + (cols-1)*gap)) / 2;
         return { gap, sw, sh, x0, y0: yTop + sh/2 };
       }
@@ -429,7 +442,8 @@
       slots = []; grid = null;
       if(!spec){ fitTiles(); return; }
       if(typeof spec === 'object'){
-        grid = { cols: spec.cols, rows: spec.rows, top: spec.top, pile: spec.pile, bar: spec.bar };
+        grid = { cols: spec.cols, rows: spec.rows, top: spec.top, pile: spec.pile,
+                 bar: spec.bar ? { labels: spec.labels || null } : null };
         const { gap, sw, sh, x0, y0 } = gridDims(grid.cols, grid.rows, grid.top, grid.pile, grid.bar);
         for(let r = 0; r < grid.rows; r++)
           for(let c = 0; c < grid.cols; c++)
@@ -464,7 +478,7 @@
     function slotNear(x, y){         // nearest EMPTY slot within capture range, or -1
       let best = -1, bestD = Infinity;
       slots.forEach((s, i) => { if(s.piece) return; const dx = s.x - x, dy = s.y - y, d = dx*dx + dy*dy; if(d < bestD){ bestD = d; best = i; } });
-      const cap = (slots.length ? slots[0].w : feel.size) * 0.85;
+      const cap = (slots.length ? Math.min(slots[0].w, slots[0].h) : feel.size) * 0.85;
       return (best >= 0 && bestD <= cap*cap) ? best : -1;
     }
 
@@ -820,7 +834,7 @@
                                       vx: Math.round(p.body.velocity.x), vy: Math.round(p.body.velocity.y) })),
       /* slot geometry + the fitted tile size, for callers that aim or assert
          at real coordinates (the suite fires its test shots at a slot's row) */
-      slotBox: i => slots[i] ? { x: slots[i].x, y: slots[i].y, w: slots[i].w } : null,
+      slotBox: i => slots[i] ? { x: slots[i].x, y: slots[i].y, w: slots[i].w, h: slots[i].h } : null,
       /* the docked piece's BODY centre for slot i — a docked tile must sit
          dead on its slot centre whatever happened on the way in, and the
          suite asserts the two agree */

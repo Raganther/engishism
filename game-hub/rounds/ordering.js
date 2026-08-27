@@ -355,7 +355,7 @@
         });
         s._table = table;
         table.setPieces(s.pool);
-        table.slots({ cols: 1, rows: s.need, bar: true, top: 8 });
+        table.slots({ cols: 1, rows: s.need, bar: true, top: 8, labels: s.pool });
         const pt = e => table.pt(e);
         canvas.addEventListener('pointerdown', e => {
           const p = pt(e);
