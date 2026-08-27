@@ -93,11 +93,11 @@
   <div class="controls">
     <!-- Two shapes on one bench: square LETTER tiles (the throw dynamic's
          original) and wide WORD tiles in a vertical bar ladder (Word
-         Thermometer's stack mode). A rectangle behaves nothing like a square
-         under the same physics — it can tip onto its narrow edge — so the
-         feel has to be tuned against the real shape, which is why the bench
-         now carries both. The word tile's rotation is frozen in the shelf, so
-         here it should lie flat and pack a neat pile. -->
+         Thermometer's stack mode). A rectangle behaves differently from a
+         square under the same physics — it can tip onto its narrow edge — so
+         the feel has to be tuned against the real shape, which is why the
+         bench carries both. By default both shapes rotate the same way (see
+         the Rotation picker). -->
     <div class="word">
       <label for="mode-in">Tiles</label>
       <select id="mode-in">
@@ -106,17 +106,15 @@
       </select>
     </div>
     <!-- Rotation is a per-round behaviour, not a tuned number, so it is a
-         picker here rather than a saved dial. Auto is the shelf's own rule
-         (words frozen flat, letters tumble); Locked freezes every tile
-         whatever its shape; Free lets every tile rotate, words included —
-         which is how you watch a rectangle behave like a square. A round
-         declares the one it wants with K.table({ lockRot: true|false }). -->
+         picker here rather than a saved dial. The default is Rotate — every
+         tile swings and tumbles the same way whatever its shape, so a word
+         rectangle behaves like a square letter. Locked pins every tile flat,
+         the opt-in a round declares with K.table({ lockRot: true }). -->
     <div class="word">
       <label for="rot-in">Rotation</label>
       <select id="rot-in">
-        <option value="auto">Auto (words locked)</option>
+        <option value="free">Rotate (default)</option>
         <option value="lock">Locked (all flat)</option>
-        <option value="free">Free (all rotate)</option>
       </select>
     </div>
     <div class="word">
@@ -142,10 +140,10 @@
        Toss round will call. Throw Lab is its first caller — the workshop where the
        feel gets tuned. matter.min.js and hub-table.js live in game-hub/ beside the
        other shelves; hub-kit.js is the object Kit.table hangs off. -->
-  <script src="../game-hub/hub-qr.js?v=20260827g"></script>
-  <script src="../game-hub/matter.min.js?v=20260827g"></script>
-  <script src="../game-hub/hub-kit.js?v=20260827g"></script>
-  <script src="../game-hub/hub-table.js?v=20260827g"></script>
+  <script src="../game-hub/hub-qr.js?v=20260827h"></script>
+  <script src="../game-hub/matter.min.js?v=20260827h"></script>
+  <script src="../game-hub/hub-kit.js?v=20260827h"></script>
+  <script src="../game-hub/hub-table.js?v=20260827h"></script>
   <script>
   (function(){
     'use strict';
@@ -295,13 +293,12 @@
     modeIn.addEventListener('change', applyMode);
 
     /* ---- the rotation picker: a per-round behaviour tried live ----
-       Auto lets the shelf decide by shape; Locked/Free force it either way.
+       Rotate (default) lets every tile tumble; Locked pins them flat.
        setFeel carries it into the world, then a fresh deal shows it — the
        same lockRot a round would pass to K.table at construction. */
     const rotIn = document.getElementById('rot-in');
     function applyRot(){
-      const v = rotIn.value;
-      world.setFeel({ lockRot: v === 'lock' ? true : v === 'free' ? false : undefined });
+      world.setFeel({ lockRot: rotIn.value === 'lock' });
       newWord();
     }
     rotIn.addEventListener('change', applyRot);

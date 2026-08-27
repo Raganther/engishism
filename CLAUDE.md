@@ -705,11 +705,21 @@ were landing already overlapping: `setPieces()` spread a fresh deal at the squar
 size and only scaled the bodies up to the slot's real (much wider, for a whole word)
 width afterward, and the fixed loose-tile landing band was sized for a compact letter
 heap, not five words. Both fixed generally in `hub-table.js`, so every bar-mode caller
-gets them. **Still open:** the settled pile still overlaps somewhat — gravity tumbles
-wide rectangles into a heap rather than laying them out, which is a design question (is
-a touching, fannable heap fine, or does a bar pile want a non-overlapping scatter
-instead?) rather than a bug, and it is exactly the kind of thing only a real phone in a
-real hand will settle.
+gets them.
+
+**Rotation is a per-`Kit.table` behaviour now, and for the moment every shape rotates
+the same.** A wide word tile is free to tip onto its narrow edge, so a stack pile can
+cascade — the durable fix is `Kit.table`'s `lockRot` option: unset/false = every tile
+tumbles like a square (the current default, chosen deliberately to keep all shapes
+identical for now), `true` = rotation frozen flat (`setInertia(Infinity)`, re-applied at
+the `normalizeMass` choke point, dealt flat, nothing to oscillate — not a per-frame
+correction, which shook). It is **not** a saved feel dial — rotation is a round's choice,
+not a device tuning — so no round declares a freeze yet; when the pile's tumble proves
+too messy in a real class, the stack round (or a successor) opts in with `lockRot:true`,
+or a later round carries its own physics. **Throw Lab is the bench for it:** a **Tiles**
+picker (Letters · Words) and a **Rotation** picker (Rotate · Locked) let either shape be
+watched under either rule, with the page's QR jump for a real device. `loose()` gained
+`ang` so a driven test can read a tile's settled angle.
 
 **Untested: a real class.** Whether physics earns its pace cost against the tap version
 is exactly what the comparison is for — try both on the same scale and see which reads

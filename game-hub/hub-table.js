@@ -127,17 +127,18 @@
     }
     /* Rotation lock is a per-round BEHAVIOUR, not a tuned number, so it is not
        a dial: it carries no slider, is never written into the saved feel, and
-       a round declares it once at construction. Three states:
-         undefined  auto — freeze bar (word) tiles, let square letters tumble
-         true       freeze every tile's rotation, whatever its shape
-         false      let every tile rotate, words included
-       `rotLocked()` resolves it against the current grid; setPieces reads it
-       for the deal angle and normalizeMass for the inertia freeze. Held live
-       through setFeel + a re-deal, which is how Throw Lab flips it. */
+       a round declares it once at construction.
+         default (unset / false)  every tile rotates, whatever its shape — a
+                                   word rectangle swings and tumbles exactly
+                                   like a square letter
+         true                     freeze every tile's rotation flat
+       For now the shapes behave identically by default; a round that wants its
+       word tiles pinned flat opts in with lockRot:true, and later rounds can
+       carry their own physics. `rotLocked()` reads it; setPieces uses it for
+       the deal angle, normalizeMass for the inertia freeze. Held live through
+       setFeel + a re-deal, which is how Throw Lab flips it. */
     feel.lockRot = opts.lockRot;
-    function rotLocked(){
-      return feel.lockRot == null ? !!(grid && grid.bar) : !!feel.lockRot;
-    }
+    function rotLocked(){ return !!feel.lockRot; }
     engine.gravity.y = feel.gravity;
     engine.constraintIterations = 6;   // pulls a held piece to the finger harder each frame, so a fast drag lags less
 
