@@ -54,7 +54,13 @@
     blurb: 'A shuffled sentence, and a slot for each word.',
 
     // the shared pair — one wording for the two ideas across every slot round
-    modes: [ K.round.mode.first, K.round.mode.agree ],
+    modes: [ K.round.mode.first, K.round.mode.agree,
+      /* The physics face: the words are Kit.table tiles *flicked* into the row of
+         slots instead of dragged — order IS position, the same identity experiment
+         the anagram round's `flick` and the thermometer's `stack` make. One round,
+         one content bank, drag or flick chosen in ⚙. Word tiles are wide, so the
+         table gets BAR slots (see `arm`/`render`). */
+      { value:'flick', label:'Flick — throw the words into order' } ],
     teamMode: 'agree',
 
     /* Declared, not only described above, so `tools/question-types.js` can print it. */
@@ -95,10 +101,12 @@
         answer: sentence,
         pool,
         need:  words.length,
-        mode:  (ctx && ctx.mode === 'agree') ? 'agree' : 'first',
+        mode:  (ctx && (ctx.mode === 'agree' || ctx.mode === 'flick')) ? ctx.mode : 'first',
         chosen: [],
         picks: {}, leading: {}, votes: {}, by: {}, got: {},
         hint: [],                      // slot indexes given away, in no order
+        cardCells: [],                 // the board table's own row, `flick` with no phones
+        verdict: null,                 // the board table's live verdict, `flick` only
         say: '', shown: false, done: false
       };
     },
@@ -113,6 +121,123 @@
        placed anything. */
     render(mount, s, ctx){
       const c = ctx || {};
+
+      /* ---------- FLICK: the physics face ----------
+         The words are Kit.table BAR tiles (wide, whole-word) flicked into the row
+         of slots. Three faces, decided exactly as the anagram round's flick and
+         the thermometer's stack decide them; the board-face wiring is copied from
+         them, with two differences that follow from this being a horizontal
+         sentence of word tiles: the slots are a ROW of bar tiles
+         (`cols:need, rows:1, bar:true`, not a 1-column ladder), and slot `i` maps
+         straight to `s.words[i]` — no hot/cold inversion. */
+      if(s.mode === 'flick'){
+        /* Revealed / won → the physics is over; a static filled row never argues
+           with the answer line. Tear the live table down. */
+        if(s.shown || s.done){
+          if(s._canvas){ s._table = null; s._canvas = null; }
+          mount.innerHTML = '';
+          mount.className = 'round-scramble';
+          const line = document.createElement('div');
+          line.className = 'scr-line';
+          line.style.setProperty('--scr-n', String(colsFor(s.need)));
+          for(let i = 0; i < s.need; i++){
+            const slot = document.createElement('div');
+            slot.className = 'scr-slot filled right';
+            slot.textContent = s.words[i];
+            line.appendChild(slot);
+          }
+          mount.appendChild(line);
+          K.round.say(mount, s);
+          return;
+        }
+        /* Phones present → each handset runs its own Kit.table (join.html's table
+           mode, a row of bar tiles) and the card is the room's picture: a lane per
+           team, a cell lit once that team has the right word in that slot. The same
+           lanes standard the drag path draws, minus the tray — the students are
+           looking at their phones. */
+        if(c.roster && c.roster.length){
+          if(s._canvas){ s._table = null; s._canvas = null; }
+          mount.innerHTML = '';
+          mount.className = 'round-scramble';
+          K.round.lanes(mount, c, {
+            kind: 'scr',
+            progressed: Object.keys(s.got || {}),
+            lane(t){
+              const gotRow = (s.got || {})[t] || [];
+              const need = K.round.mustHold(s.mode, c, t);
+              const cells = [];
+              let right = 0;
+              for(let i = 0; i < s.need; i++){
+                const ok = (gotRow[i] || 0) >= need;
+                if(ok) right++;
+                cells.push({ got: ok, text: ok ? s.words[i] : '' });
+              }
+              return { cells, count: right + '/' + s.need, agree: null, full: right === s.need };
+            }
+          });
+          K.round.say(mount, s);
+          return;
+        }
+        /* No phones → board-operated: the physics runs on the card. Reuse the live
+           table if its canvas is still mounted — the bench calls render on every
+           beat, and rebuilding would restart the physics. */
+        if(s._table && s._canvas && s._canvas.isConnected){ s._table.resize(); return; }
+        mount.innerHTML = '';
+        mount.className = 'round-scramble';
+        const canvas = document.createElement('canvas');
+        canvas.className = 'toss-canvas';
+        canvas.style.display = 'block';
+        canvas.style.width = '100%';
+        canvas.style.height = '340px';
+        canvas.style.touchAction = 'none';
+        mount.appendChild(canvas);
+        s._canvas = canvas;
+        const table = K.table({
+          canvas,
+          /* Wide word tiles that must read the right way up and pile tidily —
+             `upright` is the shelf's intended choice for exactly this (dealt flat,
+             quiet bounce, righted past a lean). join.html forwards it on the arm. */
+          upright: true,
+          onArrange(){
+            const cells = table.cells();
+            s.cardCells = cells.slice();
+            if(cells.every(Boolean)){
+              const ok = cells.every((w, i) =>
+                String(w).toLowerCase() === String(s.words[i]).toLowerCase());
+              s.verdict = ok ? 'right' : 'wrong';
+              table.setResult(s.verdict);
+            } else {
+              s.verdict = null;
+              table.setResult(null);
+            }
+          }
+        });
+        s._table = table;
+        /* Slots before pieces: the pile's spread reads the declared bar-slot width,
+           so a hand of wide word tiles spreads across the room they need rather than
+           the room square letters need (ordering.js:366 — the reverse order dropped
+           a hand of words already overlapping). */
+        table.slots({ cols: s.need, rows: 1, bar: true, labels: s.pool.map(t => t.w) });
+        table.setPieces(s.pool.map(t => t.w));
+        const pt = e => table.pt(e);
+        canvas.addEventListener('pointerdown', e => {
+          const p = pt(e);
+          if(table.grab(e.pointerId, p.x, p.y)) canvas.setPointerCapture(e.pointerId);
+        });
+        canvas.addEventListener('pointermove', e => { if(table.heldBy(e.pointerId)){ const p = pt(e); table.move(e.pointerId, p.x, p.y); } });
+        const end = e => { if(table.heldBy(e.pointerId)){ table.drop(e.pointerId); try{ canvas.releasePointerCapture(e.pointerId); }catch(_){} } };
+        canvas.addEventListener('pointerup', end);
+        canvas.addEventListener('pointercancel', end);
+        (function loop(){ if(!canvas.isConnected) return; table.step(); table.draw(); requestAnimationFrame(loop); })();
+        requestAnimationFrame(() => { if(canvas.isConnected) table.resize(); });
+        table.resize();
+        /* a driven test's handle — place() fires no onArrange, so a probe places
+           and then reads state; same kind of window as anagram's __anaFlick. */
+        window.__scrFlick = { table, state: s };
+        K.round.say(mount, s);
+        return;
+      }
+
       mount.innerHTML = '';
       mount.className = 'round-scramble' + (s.mode === 'agree' ? ' agreeing' : '');
 
@@ -320,6 +445,24 @@
        on having built the anagram round first. */
     arm(s, ctx){
       const c = ctx || {};
+      /* flick → each handset runs its OWN Kit.table (join.html's table mode). The
+         words are wide, so the slots are a ROW of BAR tiles (`cols:need, rows:1,
+         bar:true`); `upright` keeps a word tile the right way up. join.html threads
+         cols/rows/bar/upright straight into Kit.table, and the wire back is the same
+         positional `|`-joined list the drag `arrange` sends — so `read`/`judge` are
+         unchanged. */
+      if(s.mode === 'flick'){
+        return {
+          mode:    'table',
+          prompt:  c.prompt === false ? 'Put the words in order' : (s.text || 'Put the words in order'),
+          options: s.pool.map(t => t.w),
+          cols: s.need, rows: 1, bar: true, upright: true,
+          multi:   s.need,
+          holds:   true,
+          rethink: true,
+          team:    (c.team === 0 || Number(c.team) > 0) ? Number(c.team) : null
+        };
+      }
       return {
         mode:    'arrange',
         prompt:  c.prompt === false ? 'Put the words in order' : (s.text || 'Put the words in order'),
@@ -332,6 +475,12 @@
     },
 
     read(replies, s, ctx){
+      /* flick with no phones → the card IS the input, so it reports the card
+         table's own row (team 0); the canvas's onArrange judges it on the board.
+         With phones the arrangement path below reads exactly as the drag modes do —
+         a flicked answer travels on the identical positional `|`-joined wire. */
+      if(s.mode === 'flick' && !(replies && replies.length))
+        return { 0: (s.cardCells || []).slice() };
       /* `Kit.round.arrangement` — the drag rounds' shared reader: positional
          (gaps stay gaps), per-position counts for the lanes, full sequences
          tallied for agree mode. See the shelf note in hub-rounds.js. */
@@ -358,6 +507,9 @@
        is read off the projector and still has to be placed. **Never the last word** —
        one slot left is one chip left, so the sentence finishes itself. */
     hintsLeft(s){
+      /* No card hint in flick: the words are physical tiles on a canvas, not a row
+         of boxes to write a hint into, so the Hint button stays away. */
+      if(s.mode === 'flick') return 0;
       return Math.max(0, s.need - 1 - (s.hint || []).length);
     },
 

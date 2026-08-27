@@ -676,7 +676,7 @@ unverifiable.**
 ## Open
 What is true and unfinished. Not a changelog — an item leaves when it closes.
 
-**Build `20260827n`.** Three coursebooks, ~760 authored items, six games, eight rounds.
+**Build `20260827o`.** Three coursebooks, ~760 authored items, six games, eight rounds.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only.
 
@@ -751,22 +751,30 @@ faster and which teaches better. If it wins, the pattern (bar slots, a round hos
 table two ways) is proven for Connections and the other question-bench rounds next; if
 it drags, the shelf additions still cost the other rounds nothing to have gained.
 
-**The throw dynamic rides on a round mode now, not its own round.** The standalone
-`toss` round folded into the `anagram` round (**Drag the Letters**) as a third mode,
-`flick`, beside `first`/`agree` — the same move the thermometer's `stack` made, so the
-two physics rounds now share one shape: one round, one content bank, drag or flick
-chosen in ⚙. `Kit.table` (see the map) is the shared physics; the flick mode plays it
-with **two faces, chosen by whether phones are in the room** (`ctx.roster`): no phones →
-the `<canvas>` on the clue card, board-operated, pointer coords divided by the card's
-`transform:scale`; phones → each handset runs its own table (join.html's `table` mode)
-and the card becomes the scoreboard (a lane per team). `arm` sends `mode:'table'` with
-the bare letters; `read`/`judge` are the drag round's own, unchanged, because a flicked
-answer travels on the identical positional `|`-joined wire — so folding in cost the read
-path nothing. **Because mode is a game-wide setting**, a board plays every anagram clue
-the one way; the Lab unit's **L9 category** is ordinary anagram content that demonstrates
-flick when the mode is set. The board-face canvas wiring is now copied in two rounds
-(anagram flick, ordering stack); **deferred extraction to a `Kit.round` card-table
-helper, trigger: a third physics-card round, or a board-face bug that must reach both.**
+**Physics is a round MODE now, in three rounds and counting — never its own round.**
+Each drag/sequence round grows a physics face beside its taps: **`stack`** on Word
+Thermometer (`ordering`), **`flick`** on Drag the Letters (`anagram`, the old standalone
+`toss` round folded in), and **`flick`** on Drag the Words (`scramble`). One round, one
+content bank, drag or flick chosen in ⚙. `Kit.table` (see the map) is the shared physics;
+a physics mode plays it with **two faces, chosen by whether phones are in the room**
+(`ctx.roster`): no phones → the `<canvas>` on the clue card, board-operated, pointer
+coords divided by the card's `transform:scale`; phones → each handset runs its own table
+(join.html's `table` mode) and the card becomes the scoreboard (a lane per team). `arm`
+sends `mode:'table'` (letters as square slots for anagram; **bar slots** — `cols/rows/bar`,
+`upright` — for the word tiles of scramble and ordering); `read`/`judge` are the drag
+round's own, **unchanged**, because a flicked answer travels on the identical positional
+`|`-joined wire — so each fold costs the read path nothing. **Because mode is a game-wide
+setting**, a board plays every clue of a round the one way; the Lab unit's **L9 category**
+is ordinary anagram content that demonstrates flick when the mode is set.
+
+**The board-face canvas wiring is now copied in THREE rounds** (anagram flick, ordering
+stack, scramble flick) — the create-canvas / `toss-canvas` / `K.table({onArrange})` /
+slots-before-pieces / pointer-wiring / self-stopping-loop / `window.__x` boilerplate.
+**The deferred extraction trigger ("a third physics-card round") is MET.** Held only
+because extracting a `Kit.round` card-table helper and rewiring all three (two of them
+shipped) wants the round suite and a focused session, not the overnight run that added
+the third. **Next focused task**; `docs/connections-4x4.md` names it a prerequisite for
+the 4-row Connections grid (the fourth caller).
 
 **Battle Scrabble — a complete standalone playground game, awaiting its classroom
 run.** Board + phone pages on the phone room; each phone is a 7×7 grid where words
