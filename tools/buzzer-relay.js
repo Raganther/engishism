@@ -412,8 +412,9 @@ function handleSend(req, res){
            the reply is the same `|`-joined list in the order they were placed; what
            differs is only what the handset draws, which is the handset's business
            and not the relay's. The relay learns nothing new by carrying it. */
-        /* 'table' is 'arrange' flicked instead of dragged — each phone runs the Toss
-           physics and reports the same positional `|`-joined list. The relay carries it
+        /* 'table' is 'arrange' flicked instead of dragged — each phone runs its own
+           Kit.table physics (the anagram round's flick mode, the thermometer's stack)
+           and reports the same positional `|`-joined list. The relay carries it
            identically; only the handset's draw differs. **This list is a whitelist: a
            mode missing from it is silently downgraded to 'buzz', so every new handset
            dynamic must be added here or the phones fall back to a buzzer.** */

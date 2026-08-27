@@ -46,17 +46,17 @@
   /* ---- the feel dials: ONE home for every touch-tuning number ----
      Each dial declares its default, range, label and print format. makeTable
      seeds its feel from the defaults (a caller may still override at
-     construction — the toss round's card wants size:64), and the playground
-     Tune panels BUILD themselves from this table via Kit.table.dialsPanel —
-     so a new dial appears on every panel by being declared here, and a tuned
-     value is one edit that every caller inherits (Battle Scrabble, the toss
-     round, join.html's table mode, Throw Lab).
+     construction — the anagram flick round's card wants size:64), and the
+     playground Tune panels BUILD themselves from this table via Kit.table.dialsPanel
+     — so a new dial appears on every panel by being declared here, and a tuned
+     value is one edit that every caller inherits (Battle Scrabble, the round
+     physics modes, join.html's table mode, Throw Lab).
 
      The values in this table are the truth for EVERY device. On top of them
      sits one explicit, per-device overlay: the Tune panels' Save button
      writes the current feel to localStorage, and every table built on that
      device then inherits it (a caller's own constructor override still wins
-     — the toss card keeps its size). This is deliberately not the silent
+     — the flick card keeps its size). This is deliberately not the silent
      seeding that makes the settings panel's stuck-default trap: a save only
      exists because someone pressed Save, the panels SAY when one is active,
      and Reset clears it. It reaches one device only — graduating a tuned

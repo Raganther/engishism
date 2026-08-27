@@ -99,7 +99,7 @@ Four facts about a classroom that outrank anything above when they conflict.
 | `game-hub/hub.css` | all shared styling, DCU theme and game-show skin. The one place to restyle |
 | `game-hub/hub-rounds.css` | the round card's own styling. **Not `hub.css`** — a playground page cannot load that without taking the whole hub theme |
 | `game-hub/hub-qr.js` | vendored QR encoder (qrcode-generator, MIT), unmodified. Vendored because the app must run offline with no build step |
-| `game-hub/hub-table.js` | **`Kit.table`** — the physics table shelf: throwable lettered pieces, slots as a row **or a grid** (`slots(n | {cols,rows,top})`), `addPiece` (a tile arriving mid-flight), `openSides`+`onExit` (open edges a flying tile leaves through — how a tile travels between players' screens), the knock rule, a dock-speed threshold (slow release places, a flick flies), and a **wall-clock `step()`** (same game speed at 60 or 120Hz). **Every touch-feel number lives in `Kit.table.dials`** — the one home for the defaults — and `Kit.table.dialsPanel` builds the playground Tune panels from it, so no page repeats a default and a new dial appears everywhere by being declared; **Throw Lab is the bench** where the dials get tuned on a real device. Four callers: `throw-lab.html`, the `toss` round, `join.html`'s table mode, Battle Scrabble |
+| `game-hub/hub-table.js` | **`Kit.table`** — the physics table shelf: throwable lettered pieces, slots as a row **or a grid** (`slots(n | {cols,rows,top})`), `addPiece` (a tile arriving mid-flight), `openSides`+`onExit` (open edges a flying tile leaves through — how a tile travels between players' screens), the knock rule, a dock-speed threshold (slow release places, a flick flies), and a **wall-clock `step()`** (same game speed at 60 or 120Hz). **Every touch-feel number lives in `Kit.table.dials`** — the one home for the defaults — and `Kit.table.dialsPanel` builds the playground Tune panels from it, so no page repeats a default and a new dial appears everywhere by being declared; **Throw Lab is the bench** where the dials get tuned on a real device. Four callers: `throw-lab.html`, the round physics modes (the `anagram` round's `flick`, the `ordering` round's `stack`), `join.html`'s table mode, Battle Scrabble |
 | `game-hub/matter.min.js` | vendored Matter.js (2D physics, MIT), unmodified. The engine behind `hub-table.js`; vendored beside `hub-qr.js` for offline / no build step |
 | `game-hub/content/*.js` | data-only banks, one file per unit; each does `window.UNITS.push({…})` |
 | `join.html` | the students' page |
@@ -676,7 +676,7 @@ unverifiable.**
 ## Open
 What is true and unfinished. Not a changelog — an item leaves when it closes.
 
-**Build `20260827a`.** Three coursebooks, ~760 authored items, six games, nine rounds.
+**Build `20260827n`.** Three coursebooks, ~760 authored items, six games, eight rounds.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only.
 
@@ -751,16 +751,22 @@ faster and which teaches better. If it wins, the pattern (bar slots, a round hos
 table two ways) is proven for Connections and the other question-bench rounds next; if
 it drags, the shelf additions still cost the other rounds nothing to have gained.
 
-**The throw dynamic is grown up; the `toss` round rides it.** `Kit.table` (see the map)
-is the shared physics; the `toss` round (`game-hub/rounds/toss.js`) plays it as a
-question with **two faces, chosen by whether phones are in the room** (`ctx.roster`):
-no phones → the `<canvas>` on the clue card, board-operated, pointer coords divided by
-the card's `transform:scale`; phones → each handset runs its own table (join.html's
-`table` mode, behind a `window.HubKit = {}` stub) and the card becomes the scoreboard.
-`arm` sends `mode:'table'`; `read` merges handset arrangements with
-`Kit.round.arrangement` on the positional `|`-joined wire the drag rounds use. Reached
-by an explicit `round:'toss'` on a clue (or `?type=r:toss` on the bench); the Lab
-unit's **L9 category** routes to it, no class-facing unit yet.
+**The throw dynamic rides on a round mode now, not its own round.** The standalone
+`toss` round folded into the `anagram` round (**Drag the Letters**) as a third mode,
+`flick`, beside `first`/`agree` — the same move the thermometer's `stack` made, so the
+two physics rounds now share one shape: one round, one content bank, drag or flick
+chosen in ⚙. `Kit.table` (see the map) is the shared physics; the flick mode plays it
+with **two faces, chosen by whether phones are in the room** (`ctx.roster`): no phones →
+the `<canvas>` on the clue card, board-operated, pointer coords divided by the card's
+`transform:scale`; phones → each handset runs its own table (join.html's `table` mode)
+and the card becomes the scoreboard (a lane per team). `arm` sends `mode:'table'` with
+the bare letters; `read`/`judge` are the drag round's own, unchanged, because a flicked
+answer travels on the identical positional `|`-joined wire — so folding in cost the read
+path nothing. **Because mode is a game-wide setting**, a board plays every anagram clue
+the one way; the Lab unit's **L9 category** is ordinary anagram content that demonstrates
+flick when the mode is set. The board-face canvas wiring is now copied in two rounds
+(anagram flick, ordering stack); **deferred extraction to a `Kit.round` card-table
+helper, trigger: a third physics-card round, or a board-face bug that must reach both.**
 
 **Battle Scrabble — a complete standalone playground game, awaiting its classroom
 run.** Board + phone pages on the phone room; each phone is a 7×7 grid where words
@@ -775,8 +781,8 @@ off, pushed to every phone as `hm`): in-place suits a duel, edge-anchored is the
 4-player candidate (edge = whose word and throw direction, height = aim), and which
 wins is undecided until a class plays them. The `new-playground-game` skill is the procedure it taught. **Its graduation
 door is deliberately undecided until a class plays it**: seventh hub game
-(`registerGame`) if it is a main event, or distilled into the toss round's territory
-if it is a spice. The drag-and-dock feel is **measured, not guessed** — tuned on a
+(`registerGame`) if it is a main event, or distilled into a `Kit.table` round mode
+(the anagram flick round's territory) if it is a spice. The drag-and-dock feel is **measured, not guessed** — tuned on a
 real phone and promoted into `Kit.table.dials` (dock 14, rigid grab). Still guesses
 wearing sliders: the knock speed (6) and the arrival holds.
 

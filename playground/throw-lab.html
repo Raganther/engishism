@@ -140,13 +140,13 @@
   </div>
 
   <!-- The physics table is a shared shelf now (Kit.table), the same one the hub's
-       Toss round will call. Throw Lab is its first caller — the workshop where the
+       physics rounds (anagram flick, ordering stack) call. Throw Lab is its first caller — the workshop where the
        feel gets tuned. matter.min.js and hub-table.js live in game-hub/ beside the
        other shelves; hub-kit.js is the object Kit.table hangs off. -->
-  <script src="../game-hub/hub-qr.js?v=20260827m"></script>
-  <script src="../game-hub/matter.min.js?v=20260827m"></script>
-  <script src="../game-hub/hub-kit.js?v=20260827m"></script>
-  <script src="../game-hub/hub-table.js?v=20260827m"></script>
+  <script src="../game-hub/hub-qr.js?v=20260827n"></script>
+  <script src="../game-hub/matter.min.js?v=20260827n"></script>
+  <script src="../game-hub/hub-kit.js?v=20260827n"></script>
+  <script src="../game-hub/hub-table.js?v=20260827n"></script>
   <script>
   (function(){
     'use strict';
@@ -157,7 +157,7 @@
        Throw Lab owns the word, the judging and the chrome; Kit.table owns the
        physics, the throw, the slots and the draw. The transport here is mouse
        and touch on this page, converted to canvas coords and handed to the
-       table — the hub's Toss round will hand it coords from a scaled card, and
+       table — a physics round hands it coords from a scaled card, and
        the same table won't know the difference. */
     const canvas = document.getElementById('stage');
     const status = document.getElementById('status');

@@ -3729,9 +3729,9 @@
        filtered copy of it. This used to be a whitelist of *claimed* fields
        (`Kit.round.fields()` plus a hand-carried `round`), and the filter dropped a
        feature three times — `reveal` when Story Reveal shipped, `order` the day the
-       whitelist was written, and `round:'toss'` last, which left a Toss clue
-       claimed by the anagram round and playing as Drag the Letters. A field only a
-       future round reads is carried today, by construction. The item wins where
+       whitelist was written, and an explicit `round:` override last, which the filter
+       dropped so a clue pinned to one round silently played as whichever round claimed
+       its shape. A field only a future round reads is carried today, by construction. The item wins where
        both define a key, so an alias can never be overwritten by the raw shape. */
     if(o.source){
       Object.keys(o.source).forEach(f => {

@@ -31,8 +31,9 @@ shared shelves so its organs are portable from day one. Battle Scrabble
 The size test: a round never scores and lives inside one question slot. The moment the
 idea owns points, a clock, a winner, or players acting on each other, it is a game.
 **Three fates, decided only after a real classroom run:** stay standalone, graduate
-whole via `registerGame`, or distil its dynamic into a round (the toss round is
-Battle Scrabble's dynamic distilled — same `Kit.table`, none of the session).
+whole via `registerGame`, or distil its dynamic into a round (the anagram round's
+`flick` mode is a `Kit.table` letter-throw distilled into a round — same physics,
+none of the session).
 
 ## 2. The lane's non-negotiables
 
@@ -137,8 +138,8 @@ Paid-for traps — every one cost a debugging session:
   slider's `value` attribute is NOT a revert — a range input clamps to min/max; flip
   the constructor value.
 - Suites: `--only=battlescrabble` for the worked example, `bench,playground` when the
-  bench or bench-kit moved, `qbench` when `hub-table.js` moved (the toss round rides
-  it).
+  bench or bench-kit moved, `qbench` when `hub-table.js` moved (the anagram flick and
+  thermometer stack rounds ride it).
 
 ## 8. Ship
 
