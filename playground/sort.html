@@ -152,17 +152,18 @@ let boxes = false;
 try{ boxes = localStorage.getItem('engishism.sort.boxes') === '1'; }catch(_){}
 function applyStyle(){ $('style-btn').classList.toggle('on', boxes); }
 
-/* The tile SIZE the wide bars inherit — whatever Throw Lab's saved feel (or the
-   default) resolved to at construction, captured once. Bars respect it; only the
-   square boxes override it, because a whole word needs more room than a tuned bar
-   height to read inside a square. */
+/* The tile SIZE both shapes inherit — whatever Throw Lab's saved feel (or the
+   default) resolved to at construction, captured once. BOTH shapes follow it; the
+   square boxes only add a floor, because a whole word cannot read inside a square
+   smaller than this and the default (56) would leave it a smudge. Tune Throw Lab
+   above the floor and the squares grow with it. */
 const barSize = (world && world.feel) ? world.feel().size : 56;
-const BOX_SIZE = 130;
+const BOX_MIN = 130;   // a square never shrinks below this — a word has to read inside it
 
 /* The slot shape for the current style. */
 function shapeSlots(p){
-  if(world.setFeel) world.setFeel({ size: boxes ? BOX_SIZE : barSize });
-  if(boxes) world.slots({ cols: 2, rows: perColumn, top: 8 });                           // square boxes
+  if(world.setFeel) world.setFeel({ size: boxes ? Math.max(barSize, BOX_MIN) : barSize });
+  if(boxes) world.slots({ cols: 2, rows: perColumn, top: 8 });                           // square boxes, floored
   else      world.slots({ cols: 2, rows: perColumn, bar: true, top: 8, labels: allWords(p) });  // wide bars, Throw-Lab size
 }
 
