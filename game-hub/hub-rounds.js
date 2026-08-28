@@ -1055,7 +1055,10 @@
     canvas.style.touchAction = 'none';
     if(o.frame) o.frame(canvas); else mount.appendChild(canvas);
     s._canvas = canvas;
-    const table = K.table(Object.assign({ canvas }, o.table));
+    /* `surface:null` — a board round's play surface is the clue card it draws on, so
+       the canvas stays transparent and the card shows through. Only a phone (no card)
+       lets Kit.table paint its own surface. A round may override in `o.table`. */
+    const table = K.table(Object.assign({ canvas, surface: null }, o.table));
     s._table = table;
     if(o.deal) o.deal(table);
     const pt = e => table.pt(e);

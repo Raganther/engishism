@@ -173,6 +173,18 @@
        250ms and never settled. On by default (BS and the arrangement rounds keep
        it); a game that wants natural rest opts out with sweepGrid:false. */
     feel.sweepGrid = opts.sweepGrid !== false;
+    /* The play SURFACE the canvas paints under everything — the design-once LOOK,
+       tuned on Throw Lab and inherited by every caller. Before this the background
+       was the host page's CSS on the canvas element, so the look drifted per page
+       and a phone needed a bordered "inner box"; now the canvas paints its own
+       surface and any caller that sizes it full-bleed gets the identical play area,
+       no per-page CSS. Resolved opts → Throw Lab's saved overlay → default, exactly
+       like a feel dial, so the colour is set in ONE place. A caller may pass
+       `surface:null` for a transparent canvas — the board's clue card IS its surface,
+       so `Kit.round.cardTable` opts out and the card shows through; a phone has no
+       card, so it keeps the painted default. */
+    feel.surface = opts.surface !== undefined ? opts.surface
+                 : (saved && saved.surface != null ? saved.surface : '#0e1230');
     engine.gravity.y = feel.gravity;
     engine.constraintIterations = 6;   // pulls a held piece to the finger harder each frame, so a fast drag lags less
 
@@ -898,6 +910,9 @@
     }
     function draw(){
       ctx.clearRect(0, 0, cssW, cssH);
+      /* The canvas paints its own play surface (design-once look). `surface:null`
+         leaves it transparent — the board's clue card showing through. */
+      if(feel.surface){ ctx.fillStyle = feel.surface; ctx.fillRect(0, 0, cssW, cssH); }
       slots.forEach((s, i) => {       // answer slots, behind the pieces; filled slots glow by result
         const res = resultMap.get(i) || result;
         const r = Math.round(Math.min(s.w, s.h)*0.16);

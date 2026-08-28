@@ -85,6 +85,25 @@
     position:absolute; left:14px; top:12px; color:var(--muted); font-size:0.75rem;
     pointer-events:none; background:rgba(16,19,24,0.6); padding:4px 8px; border-radius:6px;
   }
+
+  /* Phone preview: reframe the SAME canvas at a real handset's proportions with a
+     minimal top strip, so the play surface (painted by Kit.table now) is designed and
+     approved exactly as a phone shows it — full-bleed, no inner box. The canvas is
+     unchanged; only its frame is. This is the bench for the minimal phone look. */
+  .phone-strip{ display:none; }
+  body.phone-preview .controls{ display:none; }
+  body.phone-preview .hint{ display:none; }
+  body.phone-preview .stage{
+    max-width:390px; margin:10px auto; border:1px solid var(--border);
+    border-radius:18px; overflow:hidden; display:flex; flex-direction:column;
+  }
+  body.phone-preview .stage canvas{ flex:1 1 auto; height:auto; min-height:0; }
+  body.phone-preview .phone-strip{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    flex:0 0 auto; padding:9px 15px; font-size:0.72rem; letter-spacing:0.05em;
+    text-transform:uppercase; color:var(--muted); background:#0e1230;
+  }
+  .phone-strip b{ color:var(--text); font-weight:700; letter-spacing:0.08em; }
 </style>
 </head>
 <body>
@@ -92,6 +111,7 @@
     <h1>Throw Lab <small>flick the scrambled letters into the slots to spell the word</small></h1>
     <div class="pageqr" id="pageqr" title="Scan to open this lab on your phone"></div>
     <button id="btn-tune" type="button" class="tune">⚙ Tune</button>
+    <button id="btn-phone" type="button">📱 Phone</button>
   </header>
 
   <div class="controls">
@@ -159,6 +179,7 @@
   </div>
 
   <div class="stage">
+    <div class="phone-strip"><b>Ana</b><span>Room <b>53950</b></span></div>
     <canvas id="stage"></canvas>
     <div class="hint" id="status">Drag the scrambled letters into the slots to spell the word.</div>
   </div>
@@ -385,6 +406,13 @@
     if(window.innerWidth < 720) document.body.classList.add('controls-hidden');
     applyTune();
     btnTune.addEventListener('click', () => { document.body.classList.toggle('controls-hidden'); applyTune(); });
+
+    /* Phone preview: reframe the stage to a handset's proportions so the play surface
+       is seen as a phone shows it. Re-fit the canvas after the frame changes size. */
+    document.getElementById('btn-phone').addEventListener('click', () => {
+      document.body.classList.toggle('phone-preview');
+      requestAnimationFrame(() => world.resize());
+    });
 
     let rz;
     window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => world.resize(), 150); });
