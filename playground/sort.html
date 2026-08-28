@@ -39,6 +39,7 @@
     border:1px solid var(--border); background:#fff; color:var(--text); cursor:pointer;
   }
   .bar button.go{ border-color:var(--text); }
+  .bar button.on{ background:var(--text); color:var(--bg); border-color:var(--text); }
 
   /* The two topic columns, named once across the top — the swatch matches the tint
      a column's tiles get when checked. Split 50/50 to sit over the two tile columns. */
@@ -67,6 +68,7 @@
   <div class="bar">
     <select id="puzzle-select" aria-label="Choose puzzle"></select>
     <span class="spring"></span>
+    <button id="style-btn" title="Tile style: boxes or colour">▦</button>
     <button id="shuffle-btn" title="Re-deal">↻</button>
     <button id="reveal-btn" title="Show answer">👁</button>
     <button id="check-btn" class="go" title="Check">✓</button>
@@ -81,10 +83,10 @@
 
   <div class="status" id="status"></div>
 
-<script src="../game-hub/hub-qr.js?v=20260827p"></script>
-<script src="../game-hub/matter.min.js?v=20260827p"></script>
-<script src="../game-hub/hub-kit.js?v=20260827p"></script>
-<script src="../game-hub/hub-table.js?v=20260827p"></script>
+<script src="../game-hub/hub-qr.js?v=20260827q"></script>
+<script src="../game-hub/matter.min.js?v=20260827q"></script>
+<script src="../game-hub/hub-kit.js?v=20260827q"></script>
+<script src="../game-hub/hub-table.js?v=20260827q"></script>
 <script>
 'use strict';
 /* ================= PUZZLES — edit or add puzzles here =================
@@ -142,6 +144,16 @@ const world = K && K.table ? K.table({
   sweepGrid: false,
   onArrange(){ if(checked){ world.setResult(null); checked = false; } }
 }) : null;
+
+/* Tile style — white BOXES or coloured tiles. A draw-only setting (flips live, no
+   re-deal), persisted per device; localStorage may be blocked on file:// so fall
+   back to coloured. */
+let boxes = false;
+try{ boxes = localStorage.getItem('engishism.sort.boxes') === '1'; }catch(_){}
+function applyStyle(){
+  if(world) world.setBoxes(boxes);
+  $('style-btn').classList.toggle('on', boxes);
+}
 
 function deal(){
   if(!world) return;
@@ -267,6 +279,11 @@ function initToolbar(){
   $('shuffle-btn').addEventListener('click', deal);
   $('check-btn').addEventListener('click', check);
   $('reveal-btn').addEventListener('click', reveal);
+  $('style-btn').addEventListener('click', () => {
+    boxes = !boxes;
+    try{ localStorage.setItem('engishism.sort.boxes', boxes ? '1' : '0'); }catch(_){}
+    applyStyle();
+  });
 }
 
 const start = params.has('p') ? (Number(params.get('p')) - 1)
@@ -274,6 +291,7 @@ const start = params.has('p') ? (Number(params.get('p')) - 1)
 initToolbar();
 loadPuzzle(Math.min(Math.max(start, 0), PUZZLES.length - 1));
 $('puzzle-select').value = puzzleIndex;
+applyStyle();
 </script>
 </body>
 </html>

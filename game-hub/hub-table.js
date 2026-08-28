@@ -173,6 +173,12 @@
     let pieces = [];       // { body, ch, hue, slot, dock }
     let slots = [];        // { x, y, w, h, piece }
     let result = null;     // tint for filled slots: null | 'right' | 'wrong'
+    /* Tile look: solid coloured tiles (default) or clean white BOXES with a
+       coloured border. A draw-only flag — flip it live with setBoxes(), no
+       re-deal — so a caller can offer it as a setting. In box style a docked
+       tile's border carries the right/wrong result, since the white fill would
+       otherwise hide the slot's own glow. */
+    let drawBoxes = !!opts.boxes;
     /* Per-slot tint overrides — setResult(res, [indices]) scopes the glow to
        one word's slots, so a grid can show a green word and a red run at once.
        setResult(res) with no indices stays the global tint and clears these. */
@@ -926,12 +932,27 @@
         else if(inSlot){ const sl = slots[b.slot]; w = sl.w; h = sl.h; ang = 0; }
         else { w = tile; h = th; ang = b.body.angle; }
         const r = Math.round(Math.min(w, h)*0.16);
+        const res = inSlot ? (resultMap.get(b.slot) || result) : null;
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(ang);
-        ctx.fillStyle = b.hue;
-        roundRect(ctx, -w/2, -h/2, w, h, r);
-        ctx.fill();
+        if(drawBoxes){
+          /* A white box with a coloured border. The border is the tile's own hue
+             normally, and the right/wrong colour once checked — because the white
+             fill sits over the slot's glow, so the box must carry the verdict. */
+          ctx.fillStyle = '#ffffff';
+          roundRect(ctx, -w/2, -h/2, w, h, r);
+          ctx.fill();
+          const lw = Math.max(2, Math.round(Math.min(w, h) * 0.07));
+          ctx.lineWidth = lw;
+          ctx.strokeStyle = res === 'right' ? '#6FB04A' : res === 'wrong' ? '#E2603B' : b.hue;
+          roundRect(ctx, -w/2 + lw/2, -h/2 + lw/2, w - lw, h - lw, Math.max(0, r - lw/2));
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = b.hue;
+          roundRect(ctx, -w/2, -h/2, w, h, r);
+          ctx.fill();
+        }
         ctx.fillStyle = '#101318';
         /* Text fits the tile: a single letter draws at the tuned 0.56 ratio;
            a longer label (a bar tile's whole word) is measured and the font
@@ -986,6 +1007,9 @@
       reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; clearResult(); },
       setPieces, addPiece, slots: makeSlots, place, openSides,
       read, cells, filled, setResult,
+      /* Tile look, flipped live (draw-only) so a caller can wire it to a setting:
+         solid coloured tiles, or white boxes with a coloured border. */
+      setBoxes: v => { drawBoxes = !!v; }, boxes: () => drawBoxes,
       /* the loose pieces (not slotted), letter + colour + height + velocity +
          angle — a driven test's only window onto what is lying on the table,
          since read() sees slots alone. vx/vy are what a release just imparted;
