@@ -208,9 +208,10 @@
         mount.appendChild(canvas);
         s._canvas = canvas;
         const table = K.table({
-          canvas, size: 64,
-          /* No physics override: the round inherits the shelf's single default
-             (free rotation, tuned on Throw Lab) exactly as every other caller. */
+          canvas,
+          /* No override at all — size, rotation and every feel dial are Throw Lab's,
+             inherited by the world exactly as the phone table and every other caller
+             does. A game calls the shape it needs and sets nothing else. */
           onArrange(){
             const cells = table.cells();
             s.cardCells = cells.slice();
