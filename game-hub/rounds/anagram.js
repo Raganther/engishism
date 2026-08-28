@@ -194,56 +194,38 @@
           return;
         }
         /* No phones → board-operated: the physics runs on the card, mouse/touch
-           driven. Reuse the live table if its canvas is still mounted — the bench
-           calls render on every beat, and rebuilding would restart the physics. */
-        if(s._table && s._canvas && s._canvas.isConnected){ s._table.resize(); return; }
-        mount.innerHTML = '';
-        mount.className = 'round-anagram';
-        const canvas = document.createElement('canvas');
-        canvas.className = 'toss-canvas';
-        canvas.style.display = 'block';
-        canvas.style.width = '100%';
-        canvas.style.height = '340px';
-        canvas.style.touchAction = 'none';
-        mount.appendChild(canvas);
-        s._canvas = canvas;
-        const table = K.table({
-          canvas,
-          /* No override at all — size, rotation and every feel dial are Throw Lab's,
-             inherited by the world exactly as the phone table and every other caller
-             does. A game calls the shape it needs and sets nothing else. */
-          onArrange(){
-            const cells = table.cells();
-            s.cardCells = cells.slice();
-            if(cells.every(Boolean)){
-              const ok = cells.every((ch, i) => String(ch).toUpperCase() === s.word[i]);
-              s.verdict = ok ? 'right' : 'wrong';
-              table.setResult(s.verdict);
-            } else {
-              s.verdict = null;
-              table.setResult(null);
+           driven. The whole board face — canvas, reuse guard, pointer wiring, loop,
+           the closing say() — is K.round.cardTable now; this round hands it the two
+           facts that are its own (the shape/pieces, and how a settled row is judged).
+           No feel override: size and rotation are Throw Lab's, inherited by the
+           world exactly as the phone table and every other caller. */
+        K.round.cardTable(mount, s, {
+          handle: '__anaFlick',     // place() fires no onArrange — a probe places then reads state
+          frame(canvas){
+            mount.innerHTML = '';
+            mount.className = 'round-anagram';
+            mount.appendChild(canvas);
+          },
+          deal(table){
+            table.setPieces(s.pool.map(t => t.ch));
+            table.slots(s.need);                   // a plain row of square letter slots
+          },
+          table: {
+            onArrange(){
+              const table = s._table;              // built inside cardTable; read it back off state
+              const cells = table.cells();
+              s.cardCells = cells.slice();
+              if(cells.every(Boolean)){
+                const ok = cells.every((ch, i) => String(ch).toUpperCase() === s.word[i]);
+                s.verdict = ok ? 'right' : 'wrong';
+                table.setResult(s.verdict);
+              } else {
+                s.verdict = null;
+                table.setResult(null);
+              }
             }
           }
         });
-        s._table = table;
-        table.setPieces(s.pool.map(t => t.ch));
-        table.slots(s.need);                       // a plain row of square letter slots
-        const pt = e => table.pt(e);
-        canvas.addEventListener('pointerdown', e => {
-          const p = pt(e);
-          if(table.grab(e.pointerId, p.x, p.y)) canvas.setPointerCapture(e.pointerId);
-        });
-        canvas.addEventListener('pointermove', e => { if(table.heldBy(e.pointerId)){ const p = pt(e); table.move(e.pointerId, p.x, p.y); } });
-        const end = e => { if(table.heldBy(e.pointerId)){ table.drop(e.pointerId); try{ canvas.releasePointerCapture(e.pointerId); }catch(_){} } };
-        canvas.addEventListener('pointerup', end);
-        canvas.addEventListener('pointercancel', end);
-        (function loop(){ if(!canvas.isConnected) return; table.step(); table.draw(); requestAnimationFrame(loop); })();
-        requestAnimationFrame(() => { if(canvas.isConnected) table.resize(); });
-        table.resize();
-        /* a driven test's handle — place() fires no onArrange, so a probe places
-           and then reads state; same kind of window as ordering's __ordStack. */
-        window.__anaFlick = { table, state: s };
-        K.round.say(mount, s);
         return;
       }
 

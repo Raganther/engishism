@@ -178,63 +178,46 @@
           K.round.say(mount, s);
           return;
         }
-        /* No phones → board-operated: the physics runs on the card. Reuse the live
-           table if its canvas is still mounted — the bench calls render on every
-           beat, and rebuilding would restart the physics. */
-        if(s._table && s._canvas && s._canvas.isConnected){ s._table.resize(); return; }
-        mount.innerHTML = '';
-        mount.className = 'round-scramble';
-        const canvas = document.createElement('canvas');
-        canvas.className = 'toss-canvas';
-        canvas.style.display = 'block';
-        canvas.style.width = '100%';
-        canvas.style.height = '340px';
-        canvas.style.touchAction = 'none';
-        mount.appendChild(canvas);
-        s._canvas = canvas;
-        const table = K.table({
-          canvas,
-          /* Wide word tiles that must read the right way up and pile tidily —
-             `upright` is the shelf's intended choice for exactly this (dealt flat,
-             quiet bounce, righted past a lean). join.html forwards it on the arm. */
-          upright: true,
-          onArrange(){
-            const cells = table.cells();
-            s.cardCells = cells.slice();
-            if(cells.every(Boolean)){
-              const ok = cells.every((w, i) =>
-                String(w).toLowerCase() === String(s.words[i]).toLowerCase());
-              s.verdict = ok ? 'right' : 'wrong';
-              table.setResult(s.verdict);
-            } else {
-              s.verdict = null;
-              table.setResult(null);
+        /* No phones → board-operated: the physics runs on the card. The whole board
+           face — canvas, reuse guard, pointer wiring, loop, the closing say() — is
+           K.round.cardTable now; this round hands it its own two facts (the wide
+           word-tile shape, and how a settled row is judged). */
+        K.round.cardTable(mount, s, {
+          handle: '__scrFlick',     // place() fires no onArrange — a probe places then reads state
+          frame(canvas){
+            mount.innerHTML = '';
+            mount.className = 'round-scramble';
+            mount.appendChild(canvas);
+          },
+          deal(table){
+            /* Slots before pieces: the pile's spread reads the declared bar-slot
+               width, so a hand of wide word tiles spreads across the room they need
+               rather than the room square letters need (the reverse order once
+               dropped a hand of words already overlapping). */
+            table.slots({ cols: s.need, rows: 1, bar: true, labels: s.pool.map(t => t.w) });
+            table.setPieces(s.pool.map(t => t.w));
+          },
+          table: {
+            /* Wide word tiles that must read the right way up and pile tidily —
+               `upright` is the shelf's intended choice for exactly this (dealt flat,
+               quiet bounce, righted past a lean). join.html forwards it on the arm. */
+            upright: true,
+            onArrange(){
+              const table = s._table;              // built inside cardTable; read it back off state
+              const cells = table.cells();
+              s.cardCells = cells.slice();
+              if(cells.every(Boolean)){
+                const ok = cells.every((w, i) =>
+                  String(w).toLowerCase() === String(s.words[i]).toLowerCase());
+                s.verdict = ok ? 'right' : 'wrong';
+                table.setResult(s.verdict);
+              } else {
+                s.verdict = null;
+                table.setResult(null);
+              }
             }
           }
         });
-        s._table = table;
-        /* Slots before pieces: the pile's spread reads the declared bar-slot width,
-           so a hand of wide word tiles spreads across the room they need rather than
-           the room square letters need (ordering.js:366 — the reverse order dropped
-           a hand of words already overlapping). */
-        table.slots({ cols: s.need, rows: 1, bar: true, labels: s.pool.map(t => t.w) });
-        table.setPieces(s.pool.map(t => t.w));
-        const pt = e => table.pt(e);
-        canvas.addEventListener('pointerdown', e => {
-          const p = pt(e);
-          if(table.grab(e.pointerId, p.x, p.y)) canvas.setPointerCapture(e.pointerId);
-        });
-        canvas.addEventListener('pointermove', e => { if(table.heldBy(e.pointerId)){ const p = pt(e); table.move(e.pointerId, p.x, p.y); } });
-        const end = e => { if(table.heldBy(e.pointerId)){ table.drop(e.pointerId); try{ canvas.releasePointerCapture(e.pointerId); }catch(_){} } };
-        canvas.addEventListener('pointerup', end);
-        canvas.addEventListener('pointercancel', end);
-        (function loop(){ if(!canvas.isConnected) return; table.step(); table.draw(); requestAnimationFrame(loop); })();
-        requestAnimationFrame(() => { if(canvas.isConnected) table.resize(); });
-        table.resize();
-        /* a driven test's handle — place() fires no onArrange, so a probe places
-           and then reads state; same kind of window as anagram's __anaFlick. */
-        window.__scrFlick = { table, state: s };
-        K.round.say(mount, s);
         return;
       }
 

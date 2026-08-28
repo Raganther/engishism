@@ -1010,6 +1010,71 @@
     return el;
   }
 
+  /* **The board face of a physics round — the play surface drawn on the clue card
+     when no phones are in the room.** Three rounds (anagram `flick`, scramble
+     `flick`, ordering `stack`) each ran their no-phones face on a `Kit.table`
+     <canvas> and wrote the SAME wiring out verbatim: create the canvas and style
+     it, reuse the live table across the bench's per-beat re-renders, map pointer
+     events through `table.pt`, run a self-stopping draw loop, and hang a
+     driven-test handle on `window`. The third copy is what moves it here, so the
+     next physics round — the 4×4 Connections grid — is a call, not a fourth copy.
+
+     What is genuinely per-round is passed in, and nothing else:
+       frame(canvas)  place the styled canvas into the mount, plus whatever chrome
+                      surrounds it (ordering's two scale caps). Called ONLY on a
+                      fresh build, never on a reuse — so a round that clears its
+                      own mount does it here, exactly where it used to. A round
+                      with no chrome may omit it and the canvas appends to `mount`.
+       table          the object handed to `Kit.table` beside `canvas` — its own
+                      `onArrange`, and `upright`/`lockRot` if it wants one. Size
+                      and every feel dial are Throw Lab's, inherited by the world;
+                      a round sets none of them. **An `onArrange` reads the live
+                      table back off `s._table`** (set before the physics can fire),
+                      never a local — the table is built in here now.
+       deal(table)    the shape and the pieces — `slots()` and `setPieces()`, in
+                      the round's own order (they are not the same across callers).
+       height         canvas height in px (default 340).
+       handle         the `window` key for a driven test's `{ table, state }`.
+
+     The reuse guard, the canvas element and its styling, the pointer plumbing, the
+     loop, the resize and the closing `say()` line are identical in every caller and
+     live here. `say()` runs on the fresh path only — matching the early return on
+     reuse, so a reused card never appends a second prose line. Returns the table. */
+  function cardTable(mount, s, opts){
+    const o = opts || {};
+    /* Reuse the live table if its canvas is still mounted — the bench calls render
+       on every beat, and rebuilding would restart the physics. (A round that clears
+       its whole mount at the top of render, as ordering does, detaches the canvas
+       and so always rebuilds — same as before this was shared.) */
+    if(s._table && s._canvas && s._canvas.isConnected){ s._table.resize(); return s._table; }
+    const canvas = document.createElement('canvas');
+    canvas.className = 'toss-canvas';
+    canvas.style.display = 'block';
+    canvas.style.width = '100%';
+    canvas.style.height = (o.height || 340) + 'px';
+    canvas.style.touchAction = 'none';
+    if(o.frame) o.frame(canvas); else mount.appendChild(canvas);
+    s._canvas = canvas;
+    const table = K.table(Object.assign({ canvas }, o.table));
+    s._table = table;
+    if(o.deal) o.deal(table);
+    const pt = e => table.pt(e);
+    canvas.addEventListener('pointerdown', e => {
+      const p = pt(e);
+      if(table.grab(e.pointerId, p.x, p.y)) canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener('pointermove', e => { if(table.heldBy(e.pointerId)){ const p = pt(e); table.move(e.pointerId, p.x, p.y); } });
+    const end = e => { if(table.heldBy(e.pointerId)){ table.drop(e.pointerId); try{ canvas.releasePointerCapture(e.pointerId); }catch(_){} } };
+    canvas.addEventListener('pointerup', end);
+    canvas.addEventListener('pointercancel', end);
+    (function loop(){ if(!canvas.isConnected) return; table.step(); table.draw(); requestAnimationFrame(loop); })();
+    requestAnimationFrame(() => { if(canvas.isConnected) table.resize(); });
+    table.resize();
+    if(o.handle) window[o.handle] = { table, state: s };
+    if(o.say !== false) say(mount, s);
+    return table;
+  }
+
   /* Draw a round's own buttons into a mount — the commit button is not among them,
      because it is the host's and already lives in the host's own strip. Rebuilt
      rather than reconciled: the list is two or three buttons that change with the
@@ -1403,7 +1468,7 @@
       return null;
     },
     ctx: buildCtx, resolve,
-    shares, settle, clock, results, poll, agreement, lanes, placeBadge, crowd, crowdKnown, crowdMeter, mustHold, arrangement, cap, actions, strip, press, say, finish, shuffle, teamColour, dragTag, bare,
+    shares, settle, clock, results, poll, agreement, lanes, placeBadge, crowd, crowdKnown, crowdMeter, mustHold, arrangement, cardTable, cap, actions, strip, press, say, finish, shuffle, teamColour, dragTag, bare,
     /* A comma-separated field as a list. Three rounds' editors parse one, which
        is what puts it here rather than in each of them. */
     list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); },

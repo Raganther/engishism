@@ -323,64 +323,50 @@
           return;
         }
         /* No phones → the card is the play surface: Kit.table with a 1-column
-           ladder of BAR slots (wide word tiles), toss's board-face wiring
-           copied — reuse a live table across the bench's re-renders, shelf
-           pointer mapping (the scaled card divides out), self-stopping loop. */
-        if(s._table && s._canvas && s._canvas.isConnected){ s._table.resize(); return; }
-        mount.appendChild(cap(s.high, 'hot'));
-        const canvas = document.createElement('canvas');
-        canvas.className = 'toss-canvas';
-        canvas.style.display = 'block';
-        canvas.style.width = '100%';
-        canvas.style.height = Math.min(430, 170 + s.need * 42) + 'px';
-        canvas.style.touchAction = 'none';
-        mount.appendChild(canvas);
-        mount.appendChild(cap(s.low, 'cold'));
-        s._canvas = canvas;
-        const table = K.table({
-          canvas,
-          /* No physics override: the round inherits the shelf's single default
-             (free rotation, tuned on Throw Lab) exactly as every other caller
-             does. `upright`/`lockRot` stay available on the shelf but no round
-             forces one — one default for every shape, for now. */
-          onArrange(read, full){
-            const cells = table.cells();
-            s.cardCells = cells.slice();
-            if(full){
-              const ok = cells.every((w, i) =>
-                String(w).toLowerCase() === String(s.scale[s.need - 1 - i]).toLowerCase());
-              s.verdict = ok ? 'right' : 'wrong';
-              table.setResult(s.verdict);
-            } else {
-              s.verdict = null;
-              table.setResult(null);
+           ladder of BAR slots (wide word tiles). The board-face wiring — canvas,
+           reuse guard, shelf pointer mapping, self-stopping loop, the closing
+           say() — is K.round.cardTable now. This round's own facts: a canvas tall
+           enough for the ladder, the two scale caps sandwiching it, the 1-column
+           bar shape, and judging only when the whole ladder is full.
+           (render() clears the mount at the top, so this frame appends only.) */
+        K.round.cardTable(mount, s, {
+          handle: '__ordStack',     // world.place fires no onArrange — a probe places then reads state
+          height: Math.min(430, 170 + s.need * 42),
+          frame(canvas){
+            mount.appendChild(cap(s.high, 'hot'));
+            mount.appendChild(canvas);
+            mount.appendChild(cap(s.low, 'cold'));
+          },
+          deal(table){
+            /* Slots before pieces: the pile's own spread math (hub-table.js) reads
+               the declared slot width, if any, so it spreads a hand of wide word
+               tiles across the room they actually need instead of the room five
+               square letters need — the reverse order once landed them dropped
+               already overlapping. */
+            table.slots({ cols: 1, rows: s.need, bar: true, top: 8, labels: s.pool });
+            table.setPieces(s.pool);
+          },
+          table: {
+            /* No physics override: the round inherits the shelf's single default
+               (free rotation, tuned on Throw Lab) exactly as every other caller.
+               `upright`/`lockRot` stay available on the shelf but no round forces
+               one — one default for every shape, for now. */
+            onArrange(read, full){
+              const table = s._table;              // built inside cardTable; read it back off state
+              const cells = table.cells();
+              s.cardCells = cells.slice();
+              if(full){
+                const ok = cells.every((w, i) =>
+                  String(w).toLowerCase() === String(s.scale[s.need - 1 - i]).toLowerCase());
+                s.verdict = ok ? 'right' : 'wrong';
+                table.setResult(s.verdict);
+              } else {
+                s.verdict = null;
+                table.setResult(null);
+              }
             }
           }
         });
-        s._table = table;
-        /* Slots before pieces: the pile's own spread math (hub-table.js) reads
-           the declared slot width, if any, so it spreads a hand of wide word
-           tiles across the room they actually need instead of the room five
-           square letters need — the reverse order once landed them dropped
-           already overlapping. */
-        table.slots({ cols: 1, rows: s.need, bar: true, top: 8, labels: s.pool });
-        table.setPieces(s.pool);
-        const pt = e => table.pt(e);
-        canvas.addEventListener('pointerdown', e => {
-          const p = pt(e);
-          if(table.grab(e.pointerId, p.x, p.y)) canvas.setPointerCapture(e.pointerId);
-        });
-        canvas.addEventListener('pointermove', e => { if(table.heldBy(e.pointerId)){ const p = pt(e); table.move(e.pointerId, p.x, p.y); } });
-        const end = e => { if(table.heldBy(e.pointerId)){ table.drop(e.pointerId); try{ canvas.releasePointerCapture(e.pointerId); }catch(_){} } };
-        canvas.addEventListener('pointerup', end);
-        canvas.addEventListener('pointercancel', end);
-        (function loop(){ if(!canvas.isConnected) return; table.step(); table.draw(); requestAnimationFrame(loop); })();
-        requestAnimationFrame(() => { if(canvas.isConnected) table.resize(); });
-        table.resize();
-        /* a driven test's handle — world.place fires no onArrange, so a probe
-           places and then reads state; same kind of window as __bs */
-        window.__ordStack = { table, state: s };
-        K.round.say(mount, s);
         return;
       }
 
