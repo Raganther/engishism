@@ -154,6 +154,15 @@
        are set (a frozen tile has no rotation to settle). */
     feel.upright = opts.upright;
     function upright(){ return !rotLocked() && !!feel.upright; }
+    /* Whether loose tiles are swept OUT of the grid. "No tile may rest inside the
+       grid" is the crossword rule Battle Scrabble needs — a loose tile must never
+       sit on a placed word — so a resting loose tile over a filled slot gets a
+       sideways shove and a spin. That reads as a JIGGLE in a slots-as-bins game
+       (a category sort), where a flicked tile SHOULD rest naturally near the grid:
+       parked above a filled slot it was kicked (~4px) and spun (0.12rad) every
+       250ms and never settled. On by default (BS and the arrangement rounds keep
+       it); a game that wants natural rest opts out with sweepGrid:false. */
+    feel.sweepGrid = opts.sweepGrid !== false;
     engine.gravity.y = feel.gravity;
     engine.constraintIterations = 6;   // pulls a held piece to the finger harder each frame, so a fast drag lags less
 
@@ -862,7 +871,7 @@
         if(Math.abs(b.position.x - s.x) > 1 || Math.abs(b.position.y - s.y) > 1)
           Body.setPosition(b, { x: s.x, y: s.y });
       }
-      if(!grid) return;
+      if(!grid || !feel.sweepGrid) return;   // a sort wants loose tiles to rest naturally
       const held = heldBodies();
       for(const p of pieces){
         if(p.slot != null || p.dock || p.body.isStatic || held.has(p.body)) continue;

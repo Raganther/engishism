@@ -81,10 +81,10 @@
 
   <div class="status" id="status"></div>
 
-<script src="../game-hub/hub-qr.js?v=20260827o"></script>
-<script src="../game-hub/matter.min.js?v=20260827o"></script>
-<script src="../game-hub/hub-kit.js?v=20260827o"></script>
-<script src="../game-hub/hub-table.js?v=20260827o"></script>
+<script src="../game-hub/hub-qr.js?v=20260827p"></script>
+<script src="../game-hub/matter.min.js?v=20260827p"></script>
+<script src="../game-hub/hub-kit.js?v=20260827p"></script>
+<script src="../game-hub/hub-table.js?v=20260827p"></script>
 <script>
 'use strict';
 /* ================= PUZZLES — edit or add puzzles here =================
@@ -136,6 +136,10 @@ function allWords(p){ return p.a.words.concat(p.b.words); }
    onArrange clears a stale Check tint the moment the board changes. */
 const world = K && K.table ? K.table({
   canvas, upright: true,
+  /* sweepGrid:false — this is a sort, not a crossword. A flicked tile that lands
+     near the columns should rest naturally, not be shoved and spun out of the grid
+     (Battle Scrabble's "no tile rests in the grid" rule read as a jiggle here). */
+  sweepGrid: false,
   onArrange(){ if(checked){ world.setResult(null); checked = false; } }
 }) : null;
 
