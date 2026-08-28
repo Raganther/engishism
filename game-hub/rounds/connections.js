@@ -264,14 +264,18 @@
                                     : (s.text || 'Sort the sixteen into four groups'),
         options: s.words.slice(),
         cols:    s.cols, rows: s.rows, bar: true, upright: true,
+        bare:    true,   // the minimal full-bleed phone — the sixteen tiles are the puzzle
         multi:   s.need,
         holds:   true,
         rethink: true,
         team:    (c.team === 0 || Number(c.team) > 0) ? Number(c.team) : null
       };
-      /* tap mode → the handset places by tapping, not flicking. Carried unread to
-         the relay; join.html's table mode reads it. */
-      if(s.mode === 'tap') arm.tap = true;
+      /* The phone is DRAG in both modes — grab a tile and drag it into a box (the
+         physics table's grab/move/drop). The Tap/Flick toggle changes the no-phones
+         BOARD face (chips vs the physics grid); on a handset both sort by dragging,
+         which reads the way people expect. (An earlier tap-to-place — `arm.tap` — was
+         dropped; the relay still forwards the flag, dormant, for a future calm-dock
+         variant.) */
       return arm;
     },
 

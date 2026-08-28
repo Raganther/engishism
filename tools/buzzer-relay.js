@@ -280,7 +280,7 @@ function openStream(req, res, q){
     armed:room.armed, locked:lockedNow(room),
     mode:room.mode, prompt:promptFor(room, id), note:room.note,
     options:optionsFor(room, team), done:doneFor(room, team), turnTeam:room.team,
-    cols:room.cols, rows:room.rows, bar:room.bar, upright:room.upright, tap:room.tap,
+    cols:room.cols, rows:room.rows, bar:room.bar, upright:room.upright, tap:room.tap, bare:room.bare,
     spent:[...room.spent],
     rethink: room.rethink, secs: secsLeft(room), multi: capFor(room, team),
     send: !!room.send, preview: !!room.preview,
@@ -437,6 +437,10 @@ function handleSend(req, res){
            word into a slot instead of flicking it). Carried unread beside the slot
            shape, read straight off the arm by a real phone, exactly like bar/upright. */
         room.tap = !!msg.tap;
+        /* Bare: the minimal full-bleed phone treatment (Connections' sort — the tiles
+           are the puzzle, so the prompt/chrome is dropped). Carried unread beside the
+           slot shape, read off the arm by the phone exactly like tap/bar/upright. */
+        room.bare = !!msg.bare;
         /* Was six, which is right for a question with four answers and wrong for
            "which of the letters still on the board" — a Blockbusters board opens
            with eighteen. The phone lays short options out as a keypad rather than a
@@ -493,7 +497,7 @@ function handleSend(req, res){
         toEachPlayer(room, 'armed', p => ({ prompt: promptFor(room, p.id),
                                    note: room.note,
                                    mode: room.mode, options: optionsFor(room, p.team),
-                                   cols: room.cols, rows: room.rows, bar: room.bar, upright: room.upright, tap: room.tap,
+                                   cols: room.cols, rows: room.rows, bar: room.bar, upright: room.upright, tap: room.tap, bare: room.bare,
                                    done: doneFor(room, p.team),
                                    /* `turnTeam`, not `team`: the join payload already
                                       carries the player's own team under that name, and

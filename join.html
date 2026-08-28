@@ -131,6 +131,30 @@
     letter-spacing:0.01em; text-transform:none;
   }
   .qnote:empty{ display:none; }
+
+  /* Name + room: transparent to layout normally (they sit as before); the minimal
+     table view turns this wrapper into a small top strip holding them side by side. */
+  #phone-id{ display:contents; }
+
+  /* ===== Minimal physics phone (the table / drag-grid modes) =====
+     The play surface is the WHOLE screen: the canvas fills it edge to edge (Kit.table
+     paints its own surface now, so no inner box), the name + room shrink to a top
+     strip, and the prompt / note / hint are hidden — the tiles ARE the puzzle. Scoped
+     to the table mode, so every physics round inherits the same minimal phone;
+     Connections is simply the first to wear it. */
+  body.table-min{ padding:0; }
+  /* Fill the viewport (body is only min-height, so a % height would collapse to
+     content — use the viewport unit; dvh tracks the phone's shrinking chrome). */
+  body.table-min #screen-play{ max-width:none; height:100vh; height:100dvh; gap:0; justify-content:flex-start; }
+  body.table-min .qtext, body.table-min .qnote, body.table-min #state{ display:none; }
+  body.table-min #phone-id{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    width:100%; padding:9px 15px;
+  }
+  body.table-min .room, body.table-min .who{ margin:0; }
+  body.table-min #table{ flex:1 1 auto; width:100%; min-height:0; }
+  body.table-min #table canvas{ height:100%; min-height:0; border-radius:0; background:transparent; }
+  body.table-min #status, body.table-min .rejoin{ padding:5px 8px; }
   /* A sixteen-option vote is already tight; the rule is the first thing to give. */
   #screen-play.many-opts #qnote{ display:none; }
   /* The list scrolls within the screen as a last resort: the body deliberately
@@ -344,8 +368,13 @@
   <!-- Which room this phone is in, kept on screen. A student who joined on the
        wrong code, or drifted onto a neighbouring class's game, had no way to tell:
        every screen after joining looked identical whichever room it was. -->
-  <p class="room" id="room"></p>
-  <p class="who" id="who"></p>
+  <!-- name + room. `display:contents` normally (they lay out as before); in the
+       minimal table view this wrapper becomes the top strip that holds them side by
+       side. -->
+  <div id="phone-id">
+    <p class="room" id="room"></p>
+    <p class="who" id="who"></p>
+  </div>
   <!-- How this question is being played, in the round's own words — "A team answers
        only when all of them agree". A teacher sets that per game and cannot then
        remember which board is running which, and the phone is the one screen
@@ -392,14 +421,14 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260828b"></script>
+<script src="game-hub/hub-buzzer.js?v=20260828c"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260828b"></script>
+<script src="game-hub/matter.min.js?v=20260828c"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260828b"></script>
+<script src="game-hub/hub-table.js?v=20260828c"></script>
 <script>
 (function(){
   'use strict';
@@ -664,6 +693,12 @@
     $('commit').disabled = true;
     $('commit').textContent = 'Send';
     $('screen-play').classList.toggle('mode-type', mode==='type');
+    /* The minimal physics phone: full-bleed play surface, a top strip, no
+       instructional text. Opt-in per round via `bare` on the arm — right for a sort
+       where the tiles ARE the puzzle (Connections), wrong for a round whose clue
+       lives in the prompt (anagram/scramble), so those keep their normal layout.
+       Connections is the first to wear it; a round standardises by sending `bare`. */
+    document.body.classList.toggle('table-min', mode==='table' && !!(shape && shape.bare));
     /* Cleared on every round, not only when a vote sets it: it hides the buzzer,
        so a leftover from the previous question would leave a buzz round with no
        button at all. */
@@ -1462,7 +1497,7 @@
          every table round before the ladder got. */
       setMode(d && d.mode, d && d.options, myRound(d),
               d && d.cols ? { cols: Number(d.cols), rows: Number(d.rows) || Math.ceil((d.options || []).length / Number(d.cols)),
-                               bar: !!d.bar, upright: !!d.upright, tap: !!d.tap, labels: d.options || [] } : null);
+                               bar: !!d.bar, upright: !!d.upright, tap: !!d.tap, bare: !!d.bare, labels: d.options || [] } : null);
       if(!myRound(d)){
         const who = teamNames[Number(d.turnTeam)] || ('Team ' + (Number(d.turnTeam)+1));
         say(who + ' is choosing');
