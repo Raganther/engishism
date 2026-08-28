@@ -197,6 +197,19 @@
         if(s._canvas){ s._table = null; s._canvas = null; }
         mount.innerHTML = '';
         mount.className = 'round-connections';
+        /* The crowd reveal bar: how close the room is to collectively solving the
+           next group. The keys are the four GROUPS; a group's "count" is how many
+           competitors have it fully right. Same shelf helper the other rounds use;
+           it draws itself only in a big room (>5 competitors), returns null
+           otherwise, and never jumps the card. */
+        const cw = {
+          keys:    s.groups.map((_, i) => i),
+          count:   gi => Object.keys(s.picks || {}).filter(t =>
+                     solvedGroups((s.picks[t] || {}).rowOf, s.groups).indexOf(gi) !== -1).length,
+          started: Object.keys(s.picks || {}).length,
+          sig:     s.groups.map(g => g.label).join('|'),
+          live:    !s.done
+        };
         K.round.lanes(mount, c, {
           kind: 'conn',
           progressed: Object.keys(s.picks || {}),
@@ -208,10 +221,21 @@
               if(i < solved.length) cells.push({ got:true, text: s.groups[solved[i]].label });
               else cells.push({ got:false });
             }
-            return { cells, count: solved.length + '/' + NG + ' groups', full: solved.length === NG,
+            let count = solved.length + '/' + NG + ' groups';
+            /* The per-competitor verdict on its own lane — "two groups right" — the
+               same commentary grouping shows. The engine populates `verdictBy` from
+               `missNote` on every miss, and in lane mode it deliberately leaves the
+               headline free for the round to show it HERE. Without this line the
+               commentary is invisible in lane mode. */
+            if(c.commentary === 'lane' && solved.length < NG && s.verdictBy && s.verdictBy[t])
+              count += ' · ' + s.verdictBy[t].text;
+            return { cells, count, full: solved.length === NG,
                      tone: solved.length === NG ? 'good' : null };
           }
         });
+        /* Always drawn (empty and hidden in a small room), so the card never grows
+           under the room when the first meter would otherwise appear. */
+        K.round.crowdMeter(mount, c, cw);
         K.round.say(mount, s);
         return;
       }
@@ -342,8 +366,14 @@
       return bad;
     },
 
+    /* The verdict on a COMPLETE-but-wrong answer, name-free — the engine puts it on
+       the say line (headline mode) and this round puts it on the competitor's own lane
+       (lane mode). Says more than the live count does: that all sixteen are placed and
+       how far off, with a nudge, so a student who has filled the grid knows they are
+       wrong rather than still working. */
     missNote(r){
-      return r.hits === NG - 1 ? 'Three groups right — one row is wrong.' : (r.hits + ' of ' + NG + ' groups.');
+      return r.hits === NG - 1 ? 'So close — one row is wrong, swap two words.'
+                               : 'All placed, but only ' + r.hits + ' group' + (r.hits === 1 ? '' : 's') + ' right — keep swapping.';
     },
     saidOf(who, r){ return who + ': ' + this.missNote(r).toLowerCase(); },
 
