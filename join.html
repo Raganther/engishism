@@ -392,14 +392,14 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260828a"></script>
+<script src="game-hub/hub-buzzer.js?v=20260828b"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260828a"></script>
+<script src="game-hub/matter.min.js?v=20260828b"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260828a"></script>
+<script src="game-hub/hub-table.js?v=20260828b"></script>
 <script>
 (function(){
   'use strict';
@@ -962,15 +962,52 @@
     tbl.setPieces(list);
 
     const pt = e => tbl.pt(e);   // the shelf maps a touch through the painted/natural ratio
-    canvas.addEventListener('pointerdown', e => {
-      if(timeUp || cooling || !client) return;             // a wrong Send is being waited out
-      const p = pt(e);
-      if(tbl.grab(e.pointerId, p.x, p.y)){ try{ canvas.setPointerCapture(e.pointerId); }catch(_){ } }
-    });
-    canvas.addEventListener('pointermove', e => { if(tbl.heldBy(e.pointerId)){ const p = pt(e); tbl.move(e.pointerId, p.x, p.y); } });
-    function end(e){ if(tbl.heldBy(e.pointerId)){ tbl.drop(e.pointerId); try{ canvas.releasePointerCapture(e.pointerId); }catch(_){ } } }
-    canvas.addEventListener('pointerup', end);
-    canvas.addEventListener('pointercancel', end);
+    if(shape && shape.tap){
+      /* Tap-to-place, not flick: the accessible sort (Connections' `tap` mode). A tap
+         on a loose tile sends it to the next empty slot; a tap on a filled slot frees
+         that tile back to the pile. No dragging — the same physics table and the same
+         `cells()` wire, just a gentler gesture. Which cell was tapped is decided from
+         `slotBox`; the tile's name comes from `heldCh` after a grab identifies it. */
+      canvas.addEventListener('pointerdown', e => {
+        if(timeUp || cooling || !client) return;
+        const p = pt(e);
+        // over a filled slot? → send that tile back to the pile. Grabbing frees it
+        // from the slot; dropping it AT the slot centre would just re-dock it (a slow
+        // release docks), so move it down into the pile first, then drop.
+        const cells = tbl.cells();
+        for(let i = 0; i < cells.length; i++){
+          if(!cells[i]) continue;
+          const b = tbl.slotBox(i);
+          if(b && Math.abs(p.x - b.x) <= b.w / 2 && Math.abs(p.y - b.y) <= b.h / 2){
+            if(tbl.grab(e.pointerId, p.x, p.y)){
+              const last = tbl.slotBox(cells.length - 1);
+              const pileY = last ? last.y + last.h + 60 : p.y + 180;
+              tbl.move(e.pointerId, p.x, pileY);
+              tbl.drop(e.pointerId);
+              sendTable();
+            }
+            return;
+          }
+        }
+        // else a loose tile → grab to name it, then place into the next empty slot
+        if(tbl.grab(e.pointerId, p.x, p.y)){
+          const ch = tbl.heldCh(e.pointerId);
+          tbl.drop(e.pointerId);
+          const empty = tbl.cells().indexOf('');
+          if(ch && empty !== -1){ tbl.place(empty, ch); sendTable(); }   // place() fires no onArrange
+        }
+      });
+    } else {
+      canvas.addEventListener('pointerdown', e => {
+        if(timeUp || cooling || !client) return;             // a wrong Send is being waited out
+        const p = pt(e);
+        if(tbl.grab(e.pointerId, p.x, p.y)){ try{ canvas.setPointerCapture(e.pointerId); }catch(_){ } }
+      });
+      canvas.addEventListener('pointermove', e => { if(tbl.heldBy(e.pointerId)){ const p = pt(e); tbl.move(e.pointerId, p.x, p.y); } });
+      function end(e){ if(tbl.heldBy(e.pointerId)){ tbl.drop(e.pointerId); try{ canvas.releasePointerCapture(e.pointerId); }catch(_){ } } }
+      canvas.addEventListener('pointerup', end);
+      canvas.addEventListener('pointercancel', end);
+    }
 
     // Self-driving loop; stops itself when this canvas leaves the DOM (a re-arm or a mode change).
     (function loop(){ if(!canvas.isConnected || tblCanvas !== canvas) return; tbl.step(); tbl.draw(); requestAnimationFrame(loop); })();
@@ -1425,7 +1462,7 @@
          every table round before the ladder got. */
       setMode(d && d.mode, d && d.options, myRound(d),
               d && d.cols ? { cols: Number(d.cols), rows: Number(d.rows) || Math.ceil((d.options || []).length / Number(d.cols)),
-                               bar: !!d.bar, upright: !!d.upright, labels: d.options || [] } : null);
+                               bar: !!d.bar, upright: !!d.upright, tap: !!d.tap, labels: d.options || [] } : null);
       if(!myRound(d)){
         const who = teamNames[Number(d.turnTeam)] || ('Team ' + (Number(d.turnTeam)+1));
         say(who + ' is choosing');

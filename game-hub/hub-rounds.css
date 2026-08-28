@@ -1030,3 +1030,61 @@ body.theme-gameshow .round-actions button.round-action{
 .bg-player.won{ border-color:var(--gw-good, #2FA84F);
   background:var(--gw-goodwash, rgba(47,168,79,0.16));
   color:var(--gw-goodink, inherit); font-weight:700; }
+
+/* ================= Connections 4×4 (connections.js) =================
+   Reuses the --gw-* palette above, so the card themes itself in the light hub and
+   the dark game-show/bench skin with no second colour set. Row = group; a solved
+   group goes green (the same --gw-good the other rounds win in). The panel of four
+   group slots is drawn from the first frame (empty), never appended late, so the
+   card never grows under the room — the standard every played round owes. */
+.round-connections{ display:flex; flex-direction:column; gap:12px; }
+
+/* --- the tap face: four rows of slots above a tray of loose words --- */
+.conn-tap{ display:flex; flex-direction:column; gap:10px; }
+.conn-rows{ display:flex; flex-direction:column; gap:7px; }
+.conn-row{ display:grid; grid-template-columns:repeat(4, 1fr); gap:7px; }
+.conn-cell{
+  font:inherit; font-size:0.82em; line-height:1.1; min-height:2.4em;
+  display:flex; align-items:center; justify-content:center; text-align:center;
+  padding:6px 4px; border-radius:9px; cursor:default;
+  border:2px dashed var(--gw-line, rgba(18,38,63,0.22));
+  background:transparent; color:var(--gw-fg, #12263F);
+}
+.conn-cell.filled{ border-style:solid; cursor:pointer;
+  border-color:var(--gw-ink, rgba(18,38,63,0.6));
+  background:var(--gw-bg, #fff); }
+.conn-cell.filled:hover{ border-color:var(--gw-hot, rgba(0,122,201,0.5)); }
+.conn-tray{ display:flex; flex-wrap:wrap; justify-content:center; gap:6px;
+  min-height:2.6em; align-content:flex-start; }
+.conn-chip{
+  font:inherit; font-size:0.82em; line-height:1.1; cursor:pointer;
+  padding:6px 12px; border-radius:9px;
+  border:2px solid var(--gw-line, rgba(18,38,63,0.3));
+  background:var(--gw-bg, #fff); color:var(--gw-fg, #12263F);
+}
+.conn-chip:hover{ border-color:var(--gw-hot, rgba(0,122,201,0.5)); }
+
+/* --- the panel: four group slots that light as rows become valid groups --- */
+.conn-panel{ display:grid; grid-template-columns:repeat(4, 1fr); gap:7px; }
+.conn-slot{
+  font-size:0.78em; line-height:1.15; text-align:center; min-height:2.2em;
+  display:flex; align-items:center; justify-content:center; padding:5px 6px;
+  border-radius:8px; opacity:0.7;
+  border:1.5px dashed var(--gw-line, rgba(18,38,63,0.3));
+  color:var(--gw-fg, #12263F);
+}
+.conn-slot.solved{ opacity:1; font-weight:700; border-style:solid;
+  border-color:var(--gw-good, #2FA84F);
+  background:var(--gw-goodwash, rgba(47,168,79,0.14));
+  color:var(--gw-goodink, #1B6B32); }
+
+/* --- the solved / reveal board: one labelled row per group --- */
+.conn-board{ display:flex; flex-direction:column; gap:7px; }
+.conn-grp{ display:flex; flex-direction:column; gap:4px; padding:8px 10px;
+  border-radius:10px;
+  border:2px solid var(--gw-good, #2FA84F);
+  background:var(--gw-goodwash, rgba(47,168,79,0.14)); }
+.conn-grp-label{ font-size:0.72em; letter-spacing:0.04em; text-transform:uppercase;
+  font-weight:700; color:var(--gw-goodink, #1B6B32); }
+.conn-grp-words{ display:flex; flex-wrap:wrap; gap:8px; }
+.conn-w{ font-size:0.86em; color:var(--gw-fg, #12263F); }

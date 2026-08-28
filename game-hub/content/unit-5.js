@@ -30,6 +30,7 @@
     '5B': "5B · It's essential to have the right qualifications",
     '5C': "5C · I'd hazard a guess",
     '5D': "5D · It's a way of making the application process more efficient",
+    '5E': "5E · Sort the whole field — four groups of four",
   },
 
   /* Every clue on this board is a **round** — a question the room plays from their
@@ -417,6 +418,48 @@
       {v:300, q:"open, and easy for anyone to see into", anagram:{ word:"transparent" }},
       {v:400, q:"to treat someone unfairly because of their age or health", anagram:{ word:"discriminate" }},
       {v:500, q:"the one-word linker meaning 'what is more'", anagram:{ word:"moreover" }},
+    ]},
+
+    /* ================= 5E · Connections 4×4 — sort the whole field =================
+       The `connections` round (sixteen words, four hidden groups of four), drawn
+       from the vocabulary 5A–5D already teach so the puzzle is revision, not new
+       words. Every group sits in the same semantic field as its neighbours, which
+       is the trap: "sentenced" is a verdict and "imprisonment" a punishment;
+       "reckon" is a guess and "recall" a memory. The label is the payoff — naming
+       the category is half the lesson. Its own section so the four themed columns
+       above keep their length; a teacher who wants the flick/tap physics picks it
+       here. */
+    { id:'5e-connections4', section:'5E', clues:[
+      {v:100, q:"Crime and justice — sort the sixteen into four groups of four.",
+        connections:{ groups:[
+          { label:"People in a courtroom", words:["jury","witness","defendant","judge"] },
+          { label:"Crimes",                words:["fraud","murder","laundering","theft"] },
+          { label:"The court found you did it", words:["convicted","guilty","sentenced","condemned"] },
+          { label:"Punishments",           words:["imprisonment","fine","probation","curfew"] } ] }},
+      {v:200, q:"The world of work — sort the sixteen into four groups.",
+        connections:{ groups:[
+          { label:"Sectors of work",    words:["financial","retail","construction","agricultural"] },
+          { label:"Leave and benefits", words:["flexitime","sabbatical","paternity","pension"] },
+          { label:"Losing your job",    words:["redundancy","dismissal","sacking","layoffs"] },
+          { label:"Qualifications",     words:["degree","diploma","certificate","apprenticeship"] } ] }},
+      {v:300, q:"Memory and speculation — sort the sixteen into four groups.",
+        connections:{ groups:[
+          { label:"Ways to remember",       words:["recall","remember","recollect","reminisce"] },
+          { label:"Showing you are certain",words:["definitely","certainly","undoubtedly","clearly"] },
+          { label:"Describing a memory",    words:["vague","vivid","painful","lasting"] },
+          { label:"Rough guessing",         words:["guess","estimate","reckon","suppose"] } ] }},
+      {v:400, q:"Building an opinion essay — sort the sixteen into four groups.",
+        connections:{ groups:[
+          { label:"Adding a point",       words:["moreover","furthermore","besides","additionally"] },
+          { label:"Parts of an essay",    words:["introduction","argument","counterargument","conclusion"] },
+          { label:"Narrowing to one case",words:["notably","especially","particularly","chiefly"] },
+          { label:"What applicants worry about", words:["privacy","discrimination","transparency","fairness"] } ] }},
+      {v:500, q:"Rights and processes — sort the sixteen into four groups.",
+        connections:{ groups:[
+          { label:"Before a trial",         words:["arrested","charged","remanded","questioned"] },
+          { label:"Ways to say “required”", words:["compulsory","mandatory","required","obliged"] },
+          { label:"Checking an applicant",  words:["trawling","screening","vetting","researching"] },
+          { label:"Types of workplace",     words:["office","warehouse","site","farm"] } ] }},
     ]},
   ],
 

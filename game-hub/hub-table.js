@@ -22,7 +22,7 @@
      read()->string, cells()->string[], filled()->bool, loose(),
      setResult(res[, slotIdx]), slotBox(i), tileSize(),
      setFeel(partial), feel(), resize(), pt(event),
-     grab(id,x,y), move(id,x,y), drop(id), heldBy(id), anyHeld(),
+     grab(id,x,y), move(id,x,y), drop(id), heldBy(id), heldCh(id), anyHeld(),
      step(), draw()
    }
    Kit.table.dials is the feel-dial registry (one home for every tuning
@@ -1038,6 +1038,10 @@
       feel: () => Object.assign({}, feel),
       grab, move, drop,
       heldBy: id => grips.has(id), anyHeld: () => grips.size > 0,
+      /* the label of the piece a pointer is holding, for a tap-to-place caller
+         (join.html's tap table) that grabs to identify a tile, then places it into
+         a slot by name rather than dragging it there. Read-only; null if nothing held. */
+      heldCh: id => { const g = grips.get(id); const p = g && pieceOf(g.body); return p ? p.ch : null; },
       step, draw
     };
   }
