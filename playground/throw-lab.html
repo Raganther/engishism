@@ -60,6 +60,10 @@
     font:inherit; font-size:0.9rem; padding:5px 9px; border-radius:8px;
     border:1px solid var(--border); background:var(--panel); color:var(--text);
   }
+  .word input.dim{
+    font:inherit; font-size:0.9rem; width:56px; padding:5px 9px; border-radius:8px;
+    border:1px solid var(--border); background:var(--panel); color:var(--text);
+  }
   button{
     font:inherit; font-size:0.82rem; padding:7px 14px; border-radius:999px;
     border:1px solid var(--border); background:var(--panel); color:var(--text); cursor:pointer;
@@ -105,6 +109,26 @@
         <option value="words">Words (bar ladder)</option>
       </select>
     </div>
+    <!-- Layout: the slot ARRANGEMENT, composed with the Tiles shape above. Row is
+         one line (1×N — a spelled word, a scale); Grid is cols×rows — a crossword
+         like Battle Scrabble, a 2-column sort, anything. A game calls
+         slots({cols,rows}); this is where you design and feel one first. Grid fills
+         itself with tiles so the whole layout can be tried, not just a word's worth. -->
+    <div class="word">
+      <label for="layout-in">Layout</label>
+      <select id="layout-in">
+        <option value="row">Row (one line)</option>
+        <option value="grid">Grid (cols × rows)</option>
+      </select>
+    </div>
+    <div class="word" id="grid-dims" style="display:none;">
+      <label>Grid — cols × rows</label>
+      <span style="display:flex; gap:6px; align-items:center;">
+        <input id="cols-in" type="number" min="1" max="9" value="3" class="dim">
+        <span style="color:var(--muted);">×</span>
+        <input id="rows-in" type="number" min="1" max="9" value="3" class="dim">
+      </span>
+    </div>
     <!-- Rotation is a shelf behaviour, not a tuned number, so it is a picker
          here rather than a saved dial. Rotate is the single default every round
          inherits — every tile swings and tumbles the same way whatever its
@@ -143,10 +167,10 @@
        physics rounds (anagram flick, ordering stack) call. Throw Lab is its first caller — the workshop where the
        feel gets tuned. matter.min.js and hub-table.js live in game-hub/ beside the
        other shelves; hub-kit.js is the object Kit.table hangs off. -->
-  <script src="../game-hub/hub-qr.js?v=20260827t"></script>
-  <script src="../game-hub/matter.min.js?v=20260827t"></script>
-  <script src="../game-hub/hub-kit.js?v=20260827t"></script>
-  <script src="../game-hub/hub-table.js?v=20260827t"></script>
+  <script src="../game-hub/hub-qr.js?v=20260827u"></script>
+  <script src="../game-hub/matter.min.js?v=20260827u"></script>
+  <script src="../game-hub/hub-kit.js?v=20260827u"></script>
+  <script src="../game-hub/hub-table.js?v=20260827u"></script>
   <script>
   (function(){
     'use strict';
@@ -167,10 +191,16 @@
        bar ladder (Word Thermometer's stack mode) — the shape whose physics
        needed tuning. The mode picker chooses; everything below branches on it. */
     let mode = 'letters';
+    let gridMode = false;                  // Layout picker: a cols×rows grid vs a row
     let target = '';                       // letters mode: the word to spell
     let targetOrder = [];                  // words mode: the scale, top-to-bottom
 
     function setStatus(res){
+      if(gridMode){                        // a grid is a layout to feel, not a puzzle
+        status.textContent = 'Flick the tiles into the grid — a layout to design and feel, no answer to check.';
+        status.style.color = '';
+        return;
+      }
       const noun = mode === 'words' ? 'order' : 'word';
       status.textContent = res === 'right' ? '✓ Correct — that is the ' + noun + '.'
         : res === 'wrong' ? '✗ Not the ' + noun + ' yet — pull a tile out and try again.'
@@ -185,7 +215,7 @@
       canvas,
       onArrange(read, done){               // the table reports the arrangement; the caller judges
         let res = null;
-        if(done){
+        if(done && !gridMode){             // a grid has no answer — it is a layout to feel
           const ok = mode === 'words'
             ? world.cells().join('|').toLowerCase() === targetOrder.join('|').toLowerCase()
             : read === target;
@@ -215,9 +245,25 @@
       }
       return a;
     }
+    // Grid layout deals enough tiles to fill the whole cols×rows, so the layout can
+    // be felt full: word tiles cycle the scale, letter tiles are random A–Z (a
+    // Scrabble-ish board). A game never does this — it deals its own content — but
+    // the bench needs something in every cell to design against.
+    function clampDim(id){ const v = parseInt(document.getElementById(id).value, 10); return Math.max(1, Math.min(9, isNaN(v) ? 3 : v)); }
+    function gridPieces(n){
+      if(mode === 'words'){ const ws = words(); return Array.from({ length:n }, (_, i) => ws[i % ws.length]); }
+      return Array.from({ length:n }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26)));
+    }
     function newWord(){
       world.reset();
-      if(mode === 'words'){
+      if(gridMode){
+        const cols = clampDim('cols-in'), rows = clampDim('rows-in');
+        /* Slots before pieces (the pile spread reads the declared slot width).
+           Words → bar slots sized to the widest; letters → square cells. */
+        world.slots(mode === 'words' ? { cols, rows, bar:true, labels: words() } : { cols, rows });
+        world.setPieces(gridPieces(cols * rows));
+        target = ''; targetOrder = [];
+      } else if(mode === 'words'){
         targetOrder = words();
         /* Slots before pieces: the shelf's pile spread reads the declared slot
            width, so a hand of wide word tiles is dealt across the room they
@@ -268,7 +314,9 @@
     /* ---- feel sliders: built from the shelf's dial registry ---- */
     const controls = document.querySelector('.controls');
     K.table.dialsPanel(controls, world, {
-      onChange(k){ if(k === 'size') newWord(); }   // a new box size wants a fresh scramble
+      // size and grid gap change the LAYOUT, so re-deal to reflow; grid line is
+      // draw-only and updates live with no re-deal.
+      onChange(k){ if(k === 'size' || k === 'gridGap') newWord(); }
     });
     controls.appendChild(document.getElementById('btn-reset'));   // Reset stays last
 
@@ -297,6 +345,22 @@
       newWord();
     }
     modeIn.addEventListener('change', applyMode);
+
+    /* ---- the layout picker: a row or a cols×rows grid ----
+       Composes with the Tiles shape: Grid + Letters is a crossword of square
+       cells (Battle Scrabble), Grid + Words a board of bar tiles, Row is the
+       single line the rounds use. A game calls slots({cols,rows}); this designs
+       and feels one before it does. */
+    const layoutIn = document.getElementById('layout-in');
+    const gridDims = document.getElementById('grid-dims');
+    function applyLayout(){
+      gridMode = layoutIn.value === 'grid';
+      gridDims.style.display = gridMode ? '' : 'none';
+      newWord();
+    }
+    layoutIn.addEventListener('change', applyLayout);
+    document.getElementById('cols-in').addEventListener('change', () => { if(gridMode) newWord(); });
+    document.getElementById('rows-in').addEventListener('change', () => { if(gridMode) newWord(); });
 
     /* ---- the rotation picker: a per-round behaviour tried live ----
        Rotate (default) lets every tile tumble; Locked pins them flat.

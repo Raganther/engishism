@@ -95,7 +95,16 @@
     { k:'reach',       label:'Grab reach',  min:0.3, max:1.5,  step:0.1,   def:1.5,  fmt:v => '×' + v.toFixed(1) },
     { k:'power',       label:'Throw power', min:0.4, max:3,    step:0.1,   def:1.3,  fmt:v => '×' + v.toFixed(1) },
     { k:'snap',        label:'Snap',        min:150, max:800,  step:10,    def:200,  fmt:v => (v/1000).toFixed(2) + 's' },   // dock glide ms
-    { k:'dock',        label:'Place below', min:2,   max:30,   step:1,     def:14,   fmt:v => String(v) }                    // dock-on-release only below this speed (px/step)
+    { k:'dock',        label:'Place below', min:2,   max:30,   step:1,     def:14,   fmt:v => String(v) },                   // dock-on-release only below this speed (px/step)
+    /* Grid LOOK — the visual framework every grid caller inherits, tuned here and
+       nowhere else. MULTIPLIERS on the shelf's own defaults, so ×1 is exactly
+       today's look and nothing moves until tuned. `gridLine` scales the slot
+       outline (draw-only, live); `gridGap` scales the space between cells (layout,
+       so it lands on the next deal). Corner radius is deliberately NOT a dial: it
+       is shared with the physics chamfer set when a tile is built, and the two
+       must match or the drawn corner overhangs the collision hull. */
+    { k:'gridLine',    label:'Grid line',   min:0.5, max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2) },
+    { k:'gridGap',     label:'Grid gap',    min:0,   max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2) }
   ];
 
   const now = () => (window.performance && performance.now) ? performance.now() : Date.now();
@@ -480,7 +489,7 @@
        centred row; slots({cols, rows}) is a grid — words read across each row
        and down each column, and cells()/read()/place(i) index it unchanged. */
     function slotDims(n){
-      const margin = 16, gap = Math.max(6, Math.round(feel.size * 0.12));
+      const margin = 16, gap = Math.max(6, Math.round(feel.size * 0.12 * feel.gridGap));
       const sw = Math.max(36, Math.min(feel.size, Math.floor((cssW - margin*2 - gap*(n-1)) / n)));
       const rowW = n*sw + (n-1)*gap, x0 = (cssW - rowW) / 2, y = Math.round(cssH * 0.46);
       return { gap, sw, x0, y };
@@ -493,7 +502,7 @@
        with them every tile — well below what the bench showed. With the fixed
        band both screens converge on the width-driven size and finally match. */
     function gridDims(cols, rows, top, pile, bar){
-      const margin = 12, gap = Math.max(4, Math.round(feel.size * 0.10));
+      const margin = 12, gap = Math.max(4, Math.round(feel.size * 0.10 * feel.gridGap));
       const yTop = top != null ? top : margin;    // room for a caller's own chrome above row 0
       /* bar: slots sized to the WORD, not the row — height fits the column
          exactly as a square grid does; width is measured from the longest
@@ -897,7 +906,7 @@
            ants read as placeholder chrome; a quiet tile silhouette reads as
            "a tile goes here". Filled slots keep the heavier stroke so the
            right/wrong glow stays visible from arm's length. */
-        ctx.lineWidth = s.piece ? 2.5 : 1.25;
+        ctx.lineWidth = (s.piece ? 2.5 : 1.25) * feel.gridLine;
         ctx.strokeStyle = s.piece
           ? (res === 'right' ? '#6FB04A' : res === 'wrong' ? '#E2603B' : '#5a6473')
           : '#39414f';
