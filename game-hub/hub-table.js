@@ -45,9 +45,10 @@
 
   /* ---- the feel dials: ONE home for every touch-tuning number ----
      Each dial declares its default, range, label and print format. makeTable
-     seeds its feel from the defaults (a caller may still override at
-     construction — the anagram flick round's card wants size:64), and the
-     playground Tune panels BUILD themselves from this table via Kit.table.dialsPanel
+     seeds its feel from the defaults (a caller MAY still override a dial at
+     construction, but after the size standardisation none does — every physics
+     space takes its size and feel from here, and a game only picks its own
+     shape), and the playground Tune panels BUILD themselves via Kit.table.dialsPanel
      — so a new dial appears on every panel by being declared here, and a tuned
      value is one edit that every caller inherits (Battle Scrabble, the round
      physics modes, join.html's table mode, Throw Lab).
