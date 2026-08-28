@@ -68,7 +68,7 @@
   <div class="bar">
     <select id="puzzle-select" aria-label="Choose puzzle"></select>
     <span class="spring"></span>
-    <button id="style-btn" title="Tile style: boxes or colour">▦</button>
+    <button id="style-btn" title="Tile shape: square boxes or wide bars">▦</button>
     <button id="shuffle-btn" title="Re-deal">↻</button>
     <button id="reveal-btn" title="Show answer">👁</button>
     <button id="check-btn" class="go" title="Check">✓</button>
@@ -83,10 +83,10 @@
 
   <div class="status" id="status"></div>
 
-<script src="../game-hub/hub-qr.js?v=20260827q"></script>
-<script src="../game-hub/matter.min.js?v=20260827q"></script>
-<script src="../game-hub/hub-kit.js?v=20260827q"></script>
-<script src="../game-hub/hub-table.js?v=20260827q"></script>
+<script src="../game-hub/hub-qr.js?v=20260827r"></script>
+<script src="../game-hub/matter.min.js?v=20260827r"></script>
+<script src="../game-hub/hub-kit.js?v=20260827r"></script>
+<script src="../game-hub/hub-table.js?v=20260827r"></script>
 <script>
 'use strict';
 /* ================= PUZZLES — edit or add puzzles here =================
@@ -145,14 +145,19 @@ const world = K && K.table ? K.table({
   onArrange(){ if(checked){ world.setResult(null); checked = false; } }
 }) : null;
 
-/* Tile style — white BOXES or coloured tiles. A draw-only setting (flips live, no
-   re-deal), persisted per device; localStorage may be blocked on file:// so fall
-   back to coloured. */
+/* Tile SHAPE — square boxes (like the letter tiles) or wide bars fitted to the
+   word. A deal-time choice (the slots are square vs bar), persisted per device;
+   localStorage may be blocked on file:// so fall back to bars. */
 let boxes = false;
 try{ boxes = localStorage.getItem('engishism.sort.boxes') === '1'; }catch(_){}
-function applyStyle(){
-  if(world) world.setBoxes(boxes);
-  $('style-btn').classList.toggle('on', boxes);
+function applyStyle(){ $('style-btn').classList.toggle('on', boxes); }
+
+/* The slot shape for the current style. Square boxes want a bigger tile than the
+   bar default so a word still reads inside one; bars fit the word's width. */
+function shapeSlots(p){
+  if(world.setFeel) world.setFeel({ size: boxes ? 130 : 56 });
+  if(boxes) world.slots({ cols: 2, rows: perColumn, top: 8 });                           // square boxes
+  else      world.slots({ cols: 2, rows: perColumn, bar: true, top: 8, labels: allWords(p) });  // wide bars
 }
 
 function deal(){
@@ -164,8 +169,8 @@ function deal(){
   perColumn = Math.max(p.a.words.length, p.b.words.length);
   world.reset();
   /* TWO COLUMNS: col 0 (left) = side A, col 1 (right) = side B, `perColumn` rows
-     each. Slots before pieces so the pile spreads at the real bar-slot width. */
-  world.slots({ cols: 2, rows: perColumn, bar: true, top: 8, labels: allWords(p) });
+     each. Slots before pieces so the pile spreads at the real slot width. */
+  shapeSlots(p);
   world.setPieces(shuffle(allWords(p)));
   world.setResult(null);
   checked = false;
@@ -204,7 +209,7 @@ function reveal(){
   if(!world) return;
   const p = PUZZLES[puzzleIndex];
   world.reset();
-  world.slots({ cols: 2, rows: perColumn, bar: true, top: 8, labels: allWords(p) });
+  shapeSlots(p);
   world.setPieces(allWords(p));
   p.a.words.forEach((w, i) => world.place(i*2, w));       // col 0 slots: 0,2,4,…
   p.b.words.forEach((w, i) => world.place(i*2 + 1, w));   // col 1 slots: 1,3,5,…
@@ -283,6 +288,7 @@ function initToolbar(){
     boxes = !boxes;
     try{ localStorage.setItem('engishism.sort.boxes', boxes ? '1' : '0'); }catch(_){}
     applyStyle();
+    deal();               // the shape is chosen when the slots are built
   });
 }
 
