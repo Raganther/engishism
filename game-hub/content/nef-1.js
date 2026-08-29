@@ -30,7 +30,8 @@ window.UNITS.push({
 
   jeopardySectionLabels: {
     '1A': '1A · How we eat — food, cooking, present simple & continuous',
-    '1B': '1B · Happy families — family, future forms'
+    '1B': '1B · Happy families — family, future forms',
+    '1C': '1C · Sort the whole field — four groups of four'
   },
 
   topicNames: {
@@ -335,6 +336,47 @@ window.UNITS.push({
         infogap:{ sentence:"Don't worry — I promise I will not *tell* anyone about the *engagement*" }},
       {v:500, q:"Closing a topic down politely — ask your team for your missing words.",
         infogap:{ sentence:"I would *rather* not talk about that, because it *depends* on the *situation*" }},
+    ]},
+
+    /* ================= 1C · Connections 4×4 — sort the whole field =================
+       The `connections` round (sixteen words, four hidden groups of four), built
+       from 1A and 1B's own vocabulary so the puzzle is revision, not new words.
+       Each group sits in the same field as its neighbours — cooking against
+       preparing, family by marriage against family by blood — so the sort is a
+       discrimination, which is the lesson. Naming the group is the payoff. Its own
+       section so the 1A/1B columns keep their five-clue length; a teacher who wants
+       the flick/tap physics picks it here. */
+    { id:'nef1-connections4', section:'1C', clues:[
+      {v:100, q:"All from the kitchen — sort the sixteen into four groups of four.",
+        connections:{ groups:[
+          { label:"Cooked with heat",        words:["grilled","steamed","roasted","fried"] },
+          { label:"Prepared before cooking", words:["chopped","sliced","peeled","grated"] },
+          { label:"Food to throw away",      words:["stale","mouldy","rotten","sour"] },
+          { label:"Food at its best",        words:["ripe","crisp","tender","juicy"] } ] }},
+      {v:200, q:"Setting the table — sort the sixteen into four groups.",
+        connections:{ groups:[
+          { label:"Made from milk",   words:["cheese","butter","yogurt","cream"] },
+          { label:"Plant foods",      words:["tofu","hummus","olives","lentils"] },
+          { label:"Things you drink", words:["coffee","juice","smoothie","cordial"] },
+          { label:"Not food at all",  words:["cutlery","saucer","kettle","napkin"] } ] }},
+      {v:300, q:"All about families — sort the sixteen into four groups.",
+        connections:{ groups:[
+          { label:"Related by marriage",      words:["stepmother","stepfather","mother-in-law","brother-in-law"] },
+          { label:"Your brothers and sisters", words:["siblings","brothers","sisters","twins"] },
+          { label:"Other blood relatives",     words:["nephew","niece","cousin","grandson"] },
+          { label:"Kinds of household",         words:["extended","blended","nuclear","multi-generational"] } ] }},
+      {v:400, q:"Little words that do a big job — sort the sixteen into four groups.",
+        connections:{ groups:[
+          { label:"Pointing to the future", words:["tomorrow","soon","shortly","eventually"] },
+          { label:"Pointing to the past",   words:["yesterday","previously","formerly","recently"] },
+          { label:"You completely agree",   words:["absolutely","exactly","definitely","precisely"] },
+          { label:"Almost never",           words:["hardly","barely","scarcely","rarely"] } ] }},
+      {v:500, q:"Odds and ends from the whole unit — sort the sixteen into four groups.",
+        connections:{ groups:[
+          { label:"Growing up",            words:["baby","toddler","teenager","adult"] },
+          { label:"A relationship over time", words:["date","engagement","marriage","divorce"] },
+          { label:"How much you eat",      words:["mouthful","snack","meal","feast"] },
+          { label:"How hot it is",         words:["mild","warm","spicy","fiery"] } ] }},
     ]},
   ],
 
