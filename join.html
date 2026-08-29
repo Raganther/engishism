@@ -421,14 +421,14 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260828d"></script>
+<script src="game-hub/hub-buzzer.js?v=20260828e"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260828d"></script>
+<script src="game-hub/matter.min.js?v=20260828e"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260828d"></script>
+<script src="game-hub/hub-table.js?v=20260828e"></script>
 <script>
 (function(){
   'use strict';
@@ -993,7 +993,7 @@
        if any, so a bar shape's wide word tiles spread across the room they
        need rather than the room square letters need — the reverse order
        once landed a hand of words already overlapping. */
-    tbl.slots(shape ? { cols: shape.cols, rows: shape.rows, bar: shape.bar, labels: shape.labels || list } : list.length);
+    tbl.slots(shape && shape.cols ? { cols: shape.cols, rows: shape.rows, bar: shape.bar, labels: shape.labels || list } : list.length);
     tbl.setPieces(list);
 
     const pt = e => tbl.pt(e);   // the shelf maps a touch through the painted/natural ratio
@@ -1495,9 +1495,16 @@
          row (the thermometer's stack mode sends cols:1 — a vertical ladder),
          and bar makes the slots wide for whole words. Absent = the row, as
          every table round before the ladder got. */
+      /* A shape rides whenever the arm asks for a GRID (cols) OR for a table
+         behaviour that is not about the grid — `bare` (the minimal full-bleed phone)
+         or `tap`. A plain-row table (anagram's flick, no cols) still needs to carry
+         `bare`, so the condition is not `cols` alone; `cols` null means the row. */
       setMode(d && d.mode, d && d.options, myRound(d),
-              d && d.cols ? { cols: Number(d.cols), rows: Number(d.rows) || Math.ceil((d.options || []).length / Number(d.cols)),
-                               bar: !!d.bar, upright: !!d.upright, tap: !!d.tap, bare: !!d.bare, labels: d.options || [] } : null);
+              d && (d.cols || d.bare || d.tap)
+                ? { cols: d.cols ? Number(d.cols) : null,
+                    rows: d.cols ? (Number(d.rows) || Math.ceil((d.options || []).length / Number(d.cols))) : null,
+                    bar: !!d.bar, upright: !!d.upright, tap: !!d.tap, bare: !!d.bare, labels: d.options || [] }
+                : null);
       if(!myRound(d)){
         const who = teamNames[Number(d.turnTeam)] || ('Team ' + (Number(d.turnTeam)+1));
         say(who + ' is choosing');

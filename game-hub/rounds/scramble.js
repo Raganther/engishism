@@ -440,6 +440,7 @@
           prompt:  c.prompt === false ? 'Put the words in order' : (s.text || 'Put the words in order'),
           options: s.pool.map(t => t.w),
           cols: s.need, rows: 1, bar: true, upright: true,
+          bare:    true,   // the minimal full-bleed phone — the sentence is on the board
           multi:   s.need,
           holds:   true,
           rethink: true,

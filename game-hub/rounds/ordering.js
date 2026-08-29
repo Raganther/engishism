@@ -669,6 +669,7 @@
           prompt: s.text || 'Flick the words into order — strongest at the top',
           options: s.pool.slice(),
           cols: 1, rows: s.need, bar: true,
+          bare: true,   // the minimal full-bleed phone — the scale and its ends are on the board
           multi: s.need, holds: true, rethink: true,
           team: (c.team === 0 || Number(c.team) > 0) ? Number(c.team) : null
         };

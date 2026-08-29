@@ -355,6 +355,7 @@
           mode:    'table',
           prompt:  c.prompt === false ? 'Spell the word' : (s.text || 'Spell the word'),
           options: s.pool.map(t => t.ch),
+          bare:    true,   // the minimal full-bleed phone — the clue is on the board
           multi:   s.need,
           holds:   true,
           rethink: true,
