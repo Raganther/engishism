@@ -31,6 +31,7 @@
     '4B': '4B · He got himself locked in a shed',
     '4C': "4C · I see where you're coming from",
     '4D': '4D · So what was her breakthrough moment?',
+    '4E': '4E · Sort the whole field — four groups of four',
   },
 
   /* Every clue on this board is a **round** — a question the room plays from their
@@ -439,6 +440,47 @@
       {v:300, q:"slowly, over a period rather than at one moment", anagram:{ word:"gradually" }},
       {v:400, q:"the clothes she always wears, so people know her by them", anagram:{ word:"trademark" }},
       {v:500, q:"someone who never quite belongs to the group", anagram:{ word:"outsider" }},
+    ]},
+
+    /* ================= 4E · Connections 4×4 — sort the whole field =================
+       The `connections` round (sixteen words, four hidden groups of four), built
+       from the vocabulary 4A–4D already teach so the puzzle is revision, not new
+       words. Each group sits in the same field as its neighbours — that is the
+       trap: `considered` weighs a decision, `considerate` spares someone's feelings;
+       `the instant` is immediate, `subsequently` is later. Naming the group is the
+       payoff. Its own section so the four themed columns above keep their length; a
+       teacher who wants the flick/tap physics picks it here. */
+    { id:'4e-connections', section:'4E', clues:[
+      {v:100, q:"The mind at work — sort the sixteen into four groups of four.",
+        connections:{ groups:[
+          { label:"Trusting your gut",          words:["gut","hunch","instinct","intuition"] },
+          { label:"Acting on a sudden urge",    words:["whim","impulse","snap","spur"] },
+          { label:"Thinking it through",        words:["rational","objective","considered","deliberate"] },
+          { label:"A doubt with nothing behind it", words:["nagging","groundless","uneasy","lingering"] } ] }},
+      {v:200, q:"Memory and evidence — sort the sixteen into four groups.",
+        connections:{ groups:[
+          { label:"A memory you can still feel", words:["vivid","painful","lasting","photographic"] },
+          { label:"A memory that has faded",     words:["vague","distant","faded","dim"] },
+          { label:"From the eyewitness account", words:["witness","perpetrator","testimony","line-up"] },
+          { label:"Something you had done",       words:["stolen","broken","renovated","fixed"] } ] }},
+      {v:300, q:"How it comes across — sort the sixteen into four groups.",
+        connections:{ groups:[
+          { label:"Handling it with tact",   words:["tactful","diplomatic","considerate","sensitive"] },
+          { label:"Saying it too bluntly",   words:["blunt","harsh","tactless","abrupt"] },
+          { label:"Giving nothing away",     words:["guarded","reserved","reticent","withdrawn"] },
+          { label:"Words that mark a contrast", words:["however","although","whereas","nevertheless"] } ] }},
+      {v:400, q:"When things happen — sort the sixteen into four groups.",
+        connections:{ groups:[
+          { label:"Straight away",             words:["the moment","the instant","immediately","instantly"] },
+          { label:"Some time later",           words:["subsequently","gradually","eventually","before long"] },
+          { label:"These invert what follows", words:["no sooner","not until","only when","never before"] },
+          { label:"Parts of a profile article", words:["background","achievements","quotes","plans"] } ] }},
+      {v:500, q:"Corners of the whole unit — sort the sixteen into four groups.",
+        connections:{ groups:[
+          { label:"The five senses",              words:["sight","hearing","touch","smell"] },
+          { label:"Ways of agreeing",             words:["exactly","precisely","absolutely","quite"] },
+          { label:"The correctly-spelled homophone", words:["whole","scene","weight","bear"] },
+          { label:"Words from the profile article", words:["breakthrough","trademark","sensation","outsider"] } ] }},
     ]},
   ],
 
