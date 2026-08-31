@@ -159,6 +159,37 @@
           if(s._canvas){ s._table = null; s._canvas = null; }
           mount.innerHTML = '';
           mount.className = 'round-scramble';
+
+          /* The crowd reveal's cw, built first so crowdKnown can read it. */
+          const cw = {
+            keys: Array.from({ length: s.need }, (_, i) => i),
+            count: i => Object.keys(s.got || {}).filter(t =>
+              ((s.got[t] || [])[i] || 0) >= K.round.mustHold(s.mode, c, t)).length,
+            started: Object.keys(s.leading || {}).length,
+            given: s.hint || [],
+            sig: s.words.join('|'),
+            live: !s.shown && !s.done
+          };
+          const known = (s.hint || []).concat(K.round.crowdKnown(c, cw));
+
+          /* The shared answer row — the words the whole room has earned (the crowd
+             reveal) plus any the teacher gave, each in its own slot. The flick face
+             has no tray or teacher-placed tiles (students flick on their phones), so
+             this row shows only what is revealed to everyone; a slot number
+             otherwise. The row the drag face draws, and the piece that was missing
+             here — the meter filled but the word it promised had nowhere to land. */
+          const line = document.createElement('div');
+          line.className = 'scr-line';
+          for(let i = 0; i < s.need; i++){
+            const b = document.createElement('div');
+            b.className = 'scr-slot';
+            if(s.shown){ b.className = 'scr-slot filled right'; b.textContent = s.words[i]; }
+            else if(known.indexOf(i) !== -1){ b.classList.add('hinted'); b.textContent = s.words[i]; }
+            else { b.classList.add('empty'); b.textContent = String(i + 1); }
+            line.appendChild(b);
+          }
+          mount.appendChild(line);
+
           K.round.lanes(mount, c, {
             kind: 'scr',
             progressed: Object.keys(s.got || {}),
@@ -175,20 +206,8 @@
               return { cells, count: right + '/' + s.need, agree: null, full: right === s.need };
             }
           });
-          /* The reveal meter — the same crowd-progress bar the drag/tap face draws,
-             so a flicking room reads how close it is to the next slot exactly as a
-             dragging one does. No box-reveal on this face (only lanes — students
-             are on their phones), so the meter is the whole signal, as it is on
-             Connections' matter face. */
-          const cw = {
-            keys: Array.from({ length: s.need }, (_, i) => i),
-            count: i => Object.keys(s.got || {}).filter(t =>
-              ((s.got[t] || [])[i] || 0) >= K.round.mustHold(s.mode, c, t)).length,
-            started: Object.keys(s.leading || {}).length,
-            given: s.hint || [],
-            sig: s.words.join('|'),
-            live: !s.shown && !s.done
-          };
+          /* The reveal meter — the same crowd-progress bar the drag face draws; now
+             its promised word lands in the shared row above. */
           K.round.crowdMeter(mount, c, cw);
           K.round.say(mount, s);
           return;
