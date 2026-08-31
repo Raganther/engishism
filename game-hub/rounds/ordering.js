@@ -319,6 +319,19 @@
           });
           mount.appendChild(lanes);
           mount.appendChild(cap(s.low, 'cold'));
+          /* The reveal meter — the same crowd-progress bar the climb/race face
+             draws, so a stacking room reads how close it is to the next rung
+             exactly as a climbing one does. The count mirrors what the lanes above
+             show (a rung is filled at got >= 1), so the bar and the ladders agree. */
+          const cw = {
+            keys: Array.from({ length: s.need }, (_, i) => i),
+            count: i => teams.filter(t => ((s.got[t] || [])[i] || 0) >= 1).length,
+            started: Object.keys(s.got || {}).length,
+            given: [],
+            sig: s.scale.join('|'),
+            live: !s.shown && !s.done
+          };
+          K.round.crowdMeter(mount, c, cw);
           K.round.say(mount, s);
           return;
         }

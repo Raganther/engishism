@@ -190,6 +190,21 @@
               return { cells, count: right + ' of ' + s.need, agree: null, full: right === s.need };
             }
           });
+          /* The reveal meter — the same crowd-progress bar the drag/tap face draws,
+             so a flicking room reads how close it is to the next slot exactly as a
+             dragging one does. No box-reveal on this face (it shows only lanes —
+             the students are looking at their hands), so the meter is the whole
+             signal, exactly as it is on Connections' matter face. */
+          const cw = {
+            keys: Array.from({ length: s.need }, (_, i) => i),
+            count: i => Object.keys(s.got || {}).filter(t =>
+              ((s.got[t] || [])[i] || 0) >= K.round.mustHold(s.mode, c, t)).length,
+            started: Object.keys(s.leading || {}).length,
+            given: s.hint || [],
+            sig: s.word,
+            live: !s.shown && !s.done
+          };
+          K.round.crowdMeter(mount, c, cw);
           K.round.say(mount, s);
           return;
         }
