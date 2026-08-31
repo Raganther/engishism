@@ -1276,6 +1276,9 @@
       solo: false, prompt: true,
       team: null,      // null is the whole room; a scoped host overrides it
       mode: null, forTeam: null,
+      /* The input axis (drag/flick) beside the team rule (`mode`). Null means the
+         round's own default — a round with no `inputs` never reads it. */
+      input: null,
       hideVotes: false, lockIn: false, countVotes: false,
       onPick: function(){}
     }, d.host || {});
@@ -1484,8 +1487,18 @@
        vocabulary. A round whose modes are genuinely different things — ordering's
        one-ladder-or-a-ladder-each — still writes its own. */
     mode: {
-      first: { value:'first', label:'First team with the right answer takes it' },
-      agree: { value:'agree', label:'A team answers only when all of them agree on the answer' }
+      first: { value:'first', label:'One correct answer counts' },
+      agree: { value:'agree', label:'The whole team must agree' }
+    },
+    /* The input axis — HOW the answer is put into the slots, kept separate from the
+       team rule above. Shared by the two drag rounds (Drag the Letters, Drag the
+       Words), which is why it lives here beside the team-rule pair rather than in
+       each round. A round declares `inputs:[…]` and the hub builds a second picker
+       from it, exactly as it builds the mode picker from `modes`. The two axes are
+       orthogonal: drag or flick can each carry `first` or `agree`. */
+    input: {
+      drag:  { value:'drag',  label:'Drag the tiles into place' },
+      flick: { value:'flick', label:'Flick the tiles into place' }
     }
   };
 })();

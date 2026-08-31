@@ -65,14 +65,15 @@
     label: 'Drag the Letters',
     blurb: 'Scrambled letters, and boxes to drag them into.',
 
-    // the shared pair — one wording for the two ideas across every slot round
-    modes: [ K.round.mode.first, K.round.mode.agree,
-      /* The physics face: the letters are Kit.table tiles *flicked* into the row of
-         boxes instead of dragged into it — position IS the answer, judged first to
-         spell. The old `toss` round folded in here as a mode, matching Word
-         Thermometer's `stack`: one round, one content shape (`anagram.word`), drag
-         or flick chosen in ⚙. */
-      { value:'flick', label:'Flick — throw the letters into the boxes' } ],
+    // the shared pair — the TEAM RULE (how a team's answer is decided)
+    modes: [ K.round.mode.first, K.round.mode.agree ],
+    /* The INPUT axis, orthogonal to the team rule above and its own picker: the
+       letters are dragged into the boxes, or they are Kit.table tiles *flicked* in —
+       position IS the answer either way. The old `toss` round folded in here,
+       matching Word Thermometer's `stack`: one round, one content shape
+       (`anagram.word`). Because it is separate from `modes`, every pairing works —
+       flick + "whole team agrees" as much as drag + "one answer counts". */
+    inputs: [ K.round.input.drag, K.round.input.flick ],
     /* The whole-team mode, for a board that asks for one — see `teamMode` in
        hub-rounds.js. A tile is a team's answer, not the fastest thumb's. */
     teamMode: 'agree',
@@ -119,7 +120,8 @@
         answer: word,
         pool,                              // the scrambled tiles, in the order drawn
         need:  word.length,
-        mode:  (ctx && (ctx.mode === 'agree' || ctx.mode === 'flick')) ? ctx.mode : 'first',
+        mode:  (ctx && ctx.mode === 'agree') ? 'agree' : 'first',   // the team rule
+        input: (ctx && ctx.input === 'flick') ? 'flick' : 'drag',   // how it is entered
         chosen: [],                        // the teacher's own arrangement, as tokens
         /* The same three-way split grouping, ordering and choice all keep, and for
            the same reason: `picks` is what gets judged, `leading` is what the card
@@ -146,7 +148,7 @@
          no phones → the card IS the play surface. Board-face wiring — reuse a live
          table across re-renders, shelf pointer mapping, a self-stopping loop —
          copied from toss's board face verbatim. */
-      if(s.mode === 'flick'){
+      if(s.input === 'flick'){
         /* Revealed / won → the physics is over, and a static filled row never
            argues with the answer line. Tear the live table down. */
         if(s.shown || s.done){
@@ -218,7 +220,9 @@
                 if(ok) right++;
                 cells.push({ got: ok, text: ok ? s.word[i] : '', colour: true });
               }
-              return { cells, count: right + ' of ' + s.need, agree: null, full: right === s.need };
+              return { cells, count: right + ' of ' + s.need,
+                       agree: s.mode === 'agree' ? K.round.agreement(s, c, t) : null,
+                       full: right === s.need };
             }
           });
           /* The reveal meter — the same crowd-progress bar the drag face draws; now
@@ -384,7 +388,7 @@
          is exactly what a plain `table` arm has always got. The wire back is the
          same |-joined cells the drag `arrange` sends, so nothing about the relay or
          the read path changes. */
-      if(s.mode === 'flick'){
+      if(s.input === 'flick'){
         return {
           mode:    'table',
           prompt:  c.prompt === false ? 'Spell the word' : (s.text || 'Spell the word'),
@@ -424,7 +428,7 @@
       /* flick with no phones → the card IS the input, so it reports the card
          table's own row (team 0), judged on the board by the canvas's onArrange.
          With phones the replies path below reads exactly as the drag modes do. */
-      if(s.mode === 'flick' && !(replies && replies.length))
+      if(s.input === 'flick' && !(replies && replies.length))
         return { 0: (s.cardCells || []).slice() };
       /* `Kit.round.arrangement` — the drag rounds' shared reader: positional
          (gaps stay gaps), per-position counts for the lanes, full sequences
@@ -462,7 +466,7 @@
       /* No card hint in flick: there is no tray of boxes to write a letter into —
          the letters are physical tiles on a canvas — so the Hint button stays away
          rather than firing into nothing. */
-      if(s.mode === 'flick') return 0;
+      if(s.input === 'flick') return 0;
       return Math.max(0, s.need - 1 - (s.hint || []).length);
     },
 

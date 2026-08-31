@@ -53,14 +53,15 @@
     label: 'Drag the Words',
     blurb: 'A shuffled sentence, and a slot for each word.',
 
-    // the shared pair — one wording for the two ideas across every slot round
-    modes: [ K.round.mode.first, K.round.mode.agree,
-      /* The physics face: the words are Kit.table tiles *flicked* into the row of
-         slots instead of dragged — order IS position, the same identity experiment
-         the anagram round's `flick` and the thermometer's `stack` make. One round,
-         one content bank, drag or flick chosen in ⚙. Word tiles are wide, so the
-         table gets BAR slots (see `arm`/`render`). */
-      { value:'flick', label:'Flick — throw the words into order' } ],
+    // the shared pair — the TEAM RULE (how a team's answer is decided)
+    modes: [ K.round.mode.first, K.round.mode.agree ],
+    /* The INPUT axis, its own picker and orthogonal to the team rule: the words are
+       dragged into the slots, or they are Kit.table tiles *flicked* in — order IS
+       position either way, the same identity experiment the anagram round and the
+       thermometer's `stack` make. One round, one content bank. Word tiles are wide,
+       so the flick table gets BAR slots (see `arm`/`render`). Being separate from
+       `modes` is what makes flick + "whole team agrees" a real pairing. */
+    inputs: [ K.round.input.drag, K.round.input.flick ],
     teamMode: 'agree',
 
     /* Declared, not only described above, so `tools/question-types.js` can print it. */
@@ -101,7 +102,8 @@
         answer: sentence,
         pool,
         need:  words.length,
-        mode:  (ctx && (ctx.mode === 'agree' || ctx.mode === 'flick')) ? ctx.mode : 'first',
+        mode:  (ctx && ctx.mode === 'agree') ? 'agree' : 'first',   // the team rule
+        input: (ctx && ctx.input === 'flick') ? 'flick' : 'drag',   // how it is entered
         chosen: [],
         picks: {}, leading: {}, votes: {}, by: {}, got: {},
         hint: [],                      // slot indexes given away, in no order
@@ -130,7 +132,7 @@
          sentence of word tiles: the slots are a ROW of bar tiles
          (`cols:need, rows:1, bar:true`, not a 1-column ladder), and slot `i` maps
          straight to `s.words[i]` — no hot/cold inversion. */
-      if(s.mode === 'flick'){
+      if(s.input === 'flick'){
         /* Revealed / won → the physics is over; a static filled row never argues
            with the answer line. Tear the live table down. */
         if(s.shown || s.done){
@@ -203,7 +205,9 @@
                 if(ok) right++;
                 cells.push({ got: ok, text: ok ? s.words[i] : '' });
               }
-              return { cells, count: right + '/' + s.need, agree: null, full: right === s.need };
+              return { cells, count: right + '/' + s.need,
+                       agree: s.mode === 'agree' ? K.round.agreement(s, c, t) : null,
+                       full: right === s.need };
             }
           });
           /* The reveal meter — the same crowd-progress bar the drag face draws; now
@@ -468,7 +472,7 @@
          cols/rows/bar/upright straight into Kit.table, and the wire back is the same
          positional `|`-joined list the drag `arrange` sends — so `read`/`judge` are
          unchanged. */
-      if(s.mode === 'flick'){
+      if(s.input === 'flick'){
         return {
           mode:    'table',
           prompt:  c.prompt === false ? 'Put the words in order' : (s.text || 'Put the words in order'),
@@ -497,7 +501,7 @@
          table's own row (team 0); the canvas's onArrange judges it on the board.
          With phones the arrangement path below reads exactly as the drag modes do —
          a flicked answer travels on the identical positional `|`-joined wire. */
-      if(s.mode === 'flick' && !(replies && replies.length))
+      if(s.input === 'flick' && !(replies && replies.length))
         return { 0: (s.cardCells || []).slice() };
       /* `Kit.round.arrangement` — the drag rounds' shared reader: positional
          (gaps stay gaps), per-position counts for the lanes, full sequences
@@ -527,7 +531,7 @@
     hintsLeft(s){
       /* No card hint in flick: the words are physical tiles on a canvas, not a row
          of boxes to write a hint into, so the Hint button stays away. */
-      if(s.mode === 'flick') return 0;
+      if(s.input === 'flick') return 0;
       return Math.max(0, s.need - 1 - (s.hint || []).length);
     },
 

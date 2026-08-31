@@ -441,6 +441,22 @@
         const solo = def.modes.filter(m => m.value !== def.teamMode)[0];
         return solo ? 'A room of individuals — playing as “' + solo.label + '”' : null;
       } });
+
+    /* A round may declare a SECOND axis — how the answer is entered (drag vs flick) —
+       kept apart from the team rule because they are orthogonal: either input can
+       carry either rule. Built the same way `round_<id>` is, from the round's own
+       `inputs` list, so a round with no `inputs` grows no row. Not `byRoster`: the
+       input method is not a team-vs-individual choice the way the team rule is, so
+       one value serves both room types. */
+    if(def.inputs && def.inputs.length){
+      S.register({ id:'round_' + id + '_input', type:'variant',
+        group: own.group || 'Questions',
+        default: def.inputs[0].value,
+        games: own.games || ROUND_GAMES,
+        label: 'How ' + (def.label || id) + ' is entered',
+        variants: def.inputs.slice(),
+        help: 'How the answer is put into the slots — dragged into place, or flicked in with the physics. Set apart from how the answer is decided.' });
+    }
   });
 
 
@@ -550,6 +566,35 @@
      it appears in no other key. */
   (function dropRoundScoped(){
     const dead = (S.keys ? S.keys() : []).filter(k => k.indexOf('~') !== -1);
+    if(dead.length) S.drop(dead);
+  })();
+
+  /* One-time: split a stored `round_<id>` value of 'flick' — the old single picker's
+     third option — into the two axes it became. Faithful mapping, because old flick
+     judged first-to-spell: input='flick' + rule='first'. Input is not byRoster, so
+     its one value covers both room types, and a solo-only 'flick' still lands. The
+     `!solo` mode value is dropped so it follows the migrated team value rather than
+     lingering as a variant the picker no longer offers. The presence of a 'flick'
+     value is itself the signal (register() seeds the input default, so asking whether
+     the new key is unset never fires — the same trap the migrations above carry), and
+     after this pass no 'flick' remains, so it runs once. */
+  (function migrateRoundInput(){
+    const ids = Kit.round ? Kit.round.ids() : [];
+    const dead = [];
+    ids.forEach(id => {
+      const def = Kit.round.get(id);
+      if(!def || !def.inputs || !def.inputs.length) return;
+      const modeKey = 'round_' + id, inKey = 'round_' + id + '_input';
+      [''].concat(gameIds().map(g => '@' + g)).forEach(sfx => {
+        const game = sfx ? sfx.slice(1) : null;
+        [sfx, sfx + '!solo'].forEach(full => {
+          if(String(S.raw(modeKey + full)) !== 'flick') return;
+          S.set(inKey, 'flick', game);   // one value serves both room types (not byRoster)
+          if(full.indexOf('!solo') === -1) S.set(modeKey, 'first', game);
+          else dead.push(modeKey + full);
+        });
+      });
+    });
     if(dead.length) S.drop(dead);
   })();
 
@@ -2582,6 +2627,8 @@
         // `null` is the whole room; a scoped round belongs to the team on turn
         team:   S.get('roundWho', roundHost.game) === 'turn' ? roundHost.turn() : null,
         mode:   roundModeOf(id || roundId),
+        // the input axis (drag/flick), beside the team rule; null for a round with no `inputs`
+        input:  roundInputOf(id || roundId),
         // which lane the teacher's own clicks act on, when a round gives each team one
         forTeam: roundHost.turn(),
         /* A host may collect votes and not show them yet — Millionaire's Ask the class
@@ -2670,6 +2717,15 @@
   /* Which way a round is being played, when it offers more than one. The row is
      built from what the round *declares*, so the engine never learns what a mode
      means — and a round added later gets its own row for free. */
+  /* The input axis's resolver — simpler than roundModeOf: input has no whole-team
+     mode to fall away in a solo room, so it is just the stored value (or the
+     round's default). Null for a round that declares no `inputs`. */
+  function roundInputOf(id){
+    const def = id ? Kit.round.get(id) : null;
+    if(!def || !def.inputs || !def.inputs.length) return null;
+    return S.get('round_' + id + '_input', roundHost.game);
+  }
+
   function roundModeOf(id){
     const def = id ? Kit.round.get(id) : null;
     if(!def || !def.modes || !def.modes.length) return null;
