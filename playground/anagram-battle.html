@@ -349,7 +349,13 @@
        shut) so a dead relay still leaves a fully playable game (the playground rule). */
 
     const parts = new URLSearchParams(location.search);
-    const RELAY = parts.get('relay') || '';         // '' = the default relay, as Battle Scrabble
+    /* Which relay to reach. Same-origin ('') by default — right when the site is served
+       from the relay (Render) itself, and for the local test relay. But GitHub Pages is
+       static with NO relay at its origin, so the shareable Pages link would never form a
+       room; there, reach across to the deployed Render relay so the plain link just works.
+       `?relay=` always overrides. */
+    const RELAY = parts.get('relay') ||
+      (/github\.io$/i.test(location.hostname) ? 'https://engishism-buzzer.onrender.com' : '');
     function joinURL(code){
       return location.origin + location.pathname + '?code=' + code +
         (parts.get('relay') ? '&relay=' + encodeURIComponent(parts.get('relay')) : '');
@@ -449,6 +455,17 @@
       const players = { [HOST]: { name:'You', score:0, present:true, lastQ:{} } };
       let host = null;
 
+      /* Show the lobby the moment we start hosting, in a "connecting" state — the relay
+         (Render, free tier) can take 30–60s to wake, and a blank Start screen looks like
+         a dead solo game. `ready` below fills in the QR/code/seating; a fallback says so
+         if it never connects (Start still plays solo — host stays null). */
+      $('lobby').hidden = false; $('room-qr').hidden = true;
+      $('code-val').textContent = '…';
+      $('room-players').textContent = 'Connecting to the room server…';
+      const connWait = setTimeout(()=>{
+        if(!host) $('room-players').textContent = "Couldn't reach the room server — you can still play solo (tap Start).";
+      }, 45000);
+
       const presentSeats = () => seats.filter(id => id === HOST || (players[id] && players[id].present));
       function neighbourId(fromId, side){
         const ring = presentSeats();
@@ -504,6 +521,7 @@
         mount: sink, board:'anagram-battle.html', joinPath:'/playground/anagram-battle.html',
         on: {
           ready(h){
+            clearTimeout(connWait);
             host = h; $('lobby').hidden = false; $('code-val').textContent = h.code;
             showQR(joinURL(h.code)); renderLobby();
             const pick = $('layout-pick'); pick.hidden = false;
