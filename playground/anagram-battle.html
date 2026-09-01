@@ -85,6 +85,13 @@
   #room-code small{ display:block; font-size:0.55rem; letter-spacing:0.18em;
     text-transform:uppercase; color:var(--muted); letter-spacing:0.2em; margin-bottom:2px; }
   #room-players{ font-size:0.85rem; color:var(--muted); min-height:1.2em; }
+  #layout-pick[hidden]{ display:none; }
+  #layout-pick small{ display:block; font-size:0.55rem; letter-spacing:0.2em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+  #layout-pick .segs{ display:inline-flex; border:1px solid var(--border); border-radius:999px; overflow:hidden; }
+  .seg{ font:inherit; font-size:0.85rem; font-weight:700; padding:7px 16px; border:none;
+    background:transparent; color:var(--muted); cursor:pointer; }
+  .seg.on{ background:var(--accent); color:#04121b; }
   /* Standings — a thin fixed strip, OUT of flow so it never shoves the board under a
      thumb mid-drag. Every phone shows it, because there is no projector to hold it. */
   #stand{ position:fixed; left:0; right:0; bottom:0; z-index:4; display:flex; gap:12px;
@@ -118,6 +125,14 @@
       <div id="room-qr" hidden></div>
       <div id="room-code"><small>Room</small><span id="code-val">—</span></div>
       <div id="room-players">Waiting for players…</div>
+      <!-- Host only: how are players sitting? Decides which edge a thrown tile enters. -->
+      <div id="layout-pick" hidden>
+        <small>Seating</small>
+        <div class="segs">
+          <button type="button" class="seg on" data-v="row">In a row</button>
+          <button type="button" class="seg" data-v="facing">Facing</button>
+        </div>
+      </div>
     </div>
     <div class="score" id="veil-score" hidden>0</div>
     <button class="go" id="veil-btn">Start</button>
@@ -156,7 +171,13 @@
        scrambled letters; a correct arrangement scores and deals the next. */
     const G = { word:'', score:0, left:ROUND_SECS, running:false, tick:null };
     let net = null;              // the room layer (Stage 2), assigned once a room exists
+    let layout = 'row';          // seating: 'row' (beside) | 'facing' (across) — host-set, pushed
     const ROOM_DECOYS = 2;       // spare letters dealt as ammo when playing in a room
+
+    /* Tell a phone-aware bench (phone-bench) that this "board" is itself a handset, so
+       the host pane is sized as a phone rather than a 1280 projector. Harmless
+       elsewhere — only phone-bench reads it. */
+    window.HubBoardSize = (window.PHONE_PROFILES && PHONE_PROFILES.standard) || { w:390, h:664 };
 
     /* The table. onArrange(read, done) — the shelf reports the spelled word and
        whether every slot is filled; the page judges (the anagram round's rule:
@@ -348,13 +369,24 @@
     function onIncoming(tile){
       if(!tile || !tile.ch) return;
       const w = canvas.clientWidth || 360, h = canvas.clientHeight || 500;
-      const side = tile.side === 'l' ? 'r' : 'l';
-      const x = side === 'l' ? 14 : w - 14;
-      const vx = (side === 'l' ? 1 : -1) * Math.abs(Number(tile.vx) || 10);
+      const exit = tile.side === 'l' ? 'l' : 'r';
+      const ny0 = tile.ny != null ? tile.ny : 0.3;
+      let entry, ny, vy;
+      if(layout === 'facing'){
+        /* The neighbour's phone is 180° to me: a tile off their right comes at my right,
+           and top/bottom flips. */
+        entry = exit; ny = 1 - ny0; vy = -(Number(tile.vy) || 0);
+      } else {
+        /* Row / beside, same way up: their right edge faces my left — mirror L↔R,
+           vertical unchanged. (This is Stage 2's original mapping.) */
+        entry = exit === 'l' ? 'r' : 'l'; ny = ny0; vy = Number(tile.vy) || 0;
+      }
+      const x = entry === 'l' ? 14 : w - 14;
+      const vx = (entry === 'l' ? 1 : -1) * Math.abs(Number(tile.vx) || 10);
       world.addPiece(String(tile.ch).toUpperCase(), {
-        x, y:(tile.ny != null ? tile.ny : 0.3) * h,
-        vx, vy:Number(tile.vy) || 0, hue:tile.hue, shot:true, tag:tile.by || '?'
+        x, y:ny * h, vx, vy, hue:tile.hue, shot:true, tag:tile.by || '?'
       });
+      window.__ab.lastIn = { entrySide:entry, ny:Math.round(ny*100)/100, layout, ch:String(tile.ch).toUpperCase() };
     }
 
     function renderStand(rows){
@@ -402,6 +434,7 @@
         let m = null; try{ m = JSON.parse((d && d.word) || ''); }catch(_){ return; }
         if(!m || !m.t) return;
         if(m.t === 'tile') onIncoming(m);
+        else if(m.t === 'layout') layout = (m.v === 'facing') ? 'facing' : 'row';
         else if(m.t === 'stand') renderStand((m.rows || []).map(r => ({ name:r.name, score:r.score, me:r.id === myId })));
       });
       $('lobby').hidden = false; $('room-qr').hidden = true;
@@ -451,6 +484,15 @@
           ? others + (others === 1 ? ' player joined — tap Start' : ' players joined — tap Start')
           : 'Waiting for players to scan…';
       }
+      function pushLayout(){
+        if(host) presentSeats().forEach(id => { if(id !== HOST) host.nope(id, JSON.stringify({ t:'layout', v:layout })); });
+      }
+      function setLayout(v){
+        layout = (v === 'facing') ? 'facing' : 'row';
+        const pick = $('layout-pick');
+        if(pick) pick.querySelectorAll('.seg').forEach(b => b.classList.toggle('on', b.dataset.v === layout));
+        pushLayout();
+      }
       net = {
         live: ()=> presentSeats().length > 1,            // decoys/throwing only once someone joined
         report(score){ players[HOST].score = score; broadcastStand(); },
@@ -461,7 +503,12 @@
       BenchKit.room({
         mount: sink, board:'anagram-battle.html', joinPath:'/playground/anagram-battle.html',
         on: {
-          ready(h){ host = h; $('lobby').hidden = false; $('code-val').textContent = h.code; showQR(joinURL(h.code)); renderLobby(); },
+          ready(h){
+            host = h; $('lobby').hidden = false; $('code-val').textContent = h.code;
+            showQR(joinURL(h.code)); renderLobby();
+            const pick = $('layout-pick'); pick.hidden = false;
+            pick.querySelectorAll('.seg').forEach(b => b.addEventListener('click', ()=> setLayout(b.dataset.v)));
+          },
           players(list){
             (list || []).forEach(p => {
               if(seats.indexOf(p.id) === -1) seats.push(p.id);
@@ -471,7 +518,7 @@
             });
             const ids = (list || []).map(p => p.id);
             seats.forEach(id => { if(id !== HOST) players[id].present = ids.indexOf(id) !== -1; });
-            renderLobby(); pushNb(); broadcastStand();
+            renderLobby(); pushNb(); pushLayout(); broadcastStand();
           },
           response(d){
             const v = d && d.latest; if(!v || !host) return;
@@ -489,6 +536,7 @@
 
       /* Expose the ring for a driven room test (the host side of __ab). */
       window.__ab.host = { deliver:(from, tile)=>deliver(from, tile), seats:()=>seats.slice(), present:presentSeats, players:()=>players };
+      window.__ab.setLayout = setLayout;
     }
     // else: no room layer (file:// or no BenchKit) → pure solo; the veil's Start plays.
   })();

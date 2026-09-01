@@ -316,12 +316,18 @@ if(params.get('code')) $('code').value = params.get('code');
    A real board page in a frame, laid out at a projector's logical size and
    scaled to fit: a board squeezed into a 500px-wide pane would re-fit itself to
    a phone-shaped screen and stop being the thing under test. */
-const STAGE_W = 1280, STAGE_H = 720;
+/* Default projector size. A board that is itself a handset (a phone-only game hosting
+   its own room) declares `window.HubBoardSize = {w,h}`; pollBoard reads it and shrinks
+   the stage to that, so the host pane renders as a phone rather than a stretched 1280.
+   `let`, not `const`, for exactly that. Default is unchanged, so every projector board
+   is unaffected — the size is declared by the board, not listed here. */
+let STAGE_W = 1280, STAGE_H = 720;
 function openBoard(){
   const pick = $('board-pick').value;
   const url  = pick === 'custom' ? $('board-url').value.trim() : pick;
   if(!url) return;
   const box = $('stage-box');
+  STAGE_W = 1280; STAGE_H = 720;      // reset to projector; a phone board re-declares via pollBoard
   box.innerHTML = '';
   const f = document.createElement('iframe');
   f.id = 'stage-frame';
@@ -351,8 +357,12 @@ if(window.ResizeObserver) new ResizeObserver(fitStage).observe($('stage-box'));
 function pollBoard(){
   const f = $('stage-frame');
   if(!f || !f.contentWindow) return;
-  let host = null;
-  try{ host = f.contentWindow.HubHost; }catch(e){ return; }   // cross-origin custom URL
+  let host = null, size = null;
+  try{ host = f.contentWindow.HubHost; size = f.contentWindow.HubBoardSize; }catch(e){ return; }   // cross-origin custom URL
+  /* A board that is a handset asks for a phone-sized stage — apply once (guard on change). */
+  if(size && size.w && size.h && (STAGE_W !== size.w || STAGE_H !== size.h)){
+    STAGE_W = size.w; STAGE_H = size.h; f.width = STAGE_W; f.height = STAGE_H; fitStage();
+  }
   if(host && host.code && $('code').value.trim() !== String(host.code)){
     $('code').value = String(host.code);
     loadTeams(true);
