@@ -6,8 +6,8 @@
 <title>Lab · question dynamics — Game Hub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="game-hub/hub.css?v=20260829e">
-<link rel="stylesheet" href="game-hub/hub-rounds.css?v=20260829e">
+<link rel="stylesheet" href="game-hub/hub.css?v=20260901a">
+<link rel="stylesheet" href="game-hub/hub-rounds.css?v=20260901a">
 </head>
 <body>
 <div id="game-hub-root"></div>
@@ -17,40 +17,40 @@
      without any of it reaching a class. Everything below is the ordinary hub —
      same engine, same clue card, same scoring, same phones. That is the point of
      the experiment; a special engine would prove nothing about the real one. -->
-<script src="game-hub/content/unit-lab.js?v=20260829e"></script>
-<script src="game-hub/hub-qr.js?v=20260829e"></script>
-<script src="game-hub/hub-buzzer.js?v=20260829e"></script>
-<script src="game-hub/hub-kit.js?v=20260829e"></script>
+<script src="game-hub/content/unit-lab.js?v=20260901a"></script>
+<script src="game-hub/hub-qr.js?v=20260901a"></script>
+<script src="game-hub/hub-buzzer.js?v=20260901a"></script>
+<script src="game-hub/hub-kit.js?v=20260901a"></script>
 <!-- Physics table shelf (Kit.table) for the flick & stack physics rounds:
      Matter first (hub-table
      destructures window.Matter at load), then the shelf onto window.HubKit. -->
-<script src="game-hub/matter.min.js?v=20260829e"></script>
-<script src="game-hub/hub-table.js?v=20260829e"></script>
-<script src="game-hub/hub-rounds.js?v=20260829e"></script>
-<script src="game-hub/rounds/default.js?v=20260829e"></script>
-<script src="game-hub/rounds/grouping.js?v=20260829e"></script>
-<script src="game-hub/rounds/ordering.js?v=20260829e"></script>
-<script src="game-hub/rounds/choice.js?v=20260829e"></script>
-<script src="game-hub/rounds/anagram.js?v=20260829e"></script>
-<script src="game-hub/rounds/scramble.js?v=20260829e"></script>
-<script src="game-hub/rounds/infogap.js?v=20260829e"></script>
-<script src="game-hub/rounds/drop.js?v=20260829e"></script>
-<script src="game-hub/rounds/bingo.js?v=20260829e"></script>
-<script src="game-hub/rounds/connections.js?v=20260829e"></script>
-<script src="game-hub/hub-settings.js?v=20260829e"></script>
-<script src="game-hub/hub-round-settings.js?v=20260829e"></script>
-<script src="game-hub/hub-games.js?v=20260829e"></script>
+<script src="game-hub/matter.min.js?v=20260901a"></script>
+<script src="game-hub/hub-table.js?v=20260901a"></script>
+<script src="game-hub/hub-rounds.js?v=20260901a"></script>
+<script src="game-hub/rounds/default.js?v=20260901a"></script>
+<script src="game-hub/rounds/grouping.js?v=20260901a"></script>
+<script src="game-hub/rounds/ordering.js?v=20260901a"></script>
+<script src="game-hub/rounds/choice.js?v=20260901a"></script>
+<script src="game-hub/rounds/anagram.js?v=20260901a"></script>
+<script src="game-hub/rounds/scramble.js?v=20260901a"></script>
+<script src="game-hub/rounds/infogap.js?v=20260901a"></script>
+<script src="game-hub/rounds/drop.js?v=20260901a"></script>
+<script src="game-hub/rounds/bingo.js?v=20260901a"></script>
+<script src="game-hub/rounds/connections.js?v=20260901a"></script>
+<script src="game-hub/hub-settings.js?v=20260901a"></script>
+<script src="game-hub/hub-round-settings.js?v=20260901a"></script>
+<script src="game-hub/hub-games.js?v=20260901a"></script>
 <!-- Games in their own files register here, before the engine loads and consumes
      everything registered — the same pattern as rounds/*.js into hub-rounds.js. -->
-<script src="game-hub/games/jeopardy.js?v=20260829e"></script>
-<script src="game-hub/games/bingo.js?v=20260829e"></script>
-<script src="game-hub/games/quickfire.js?v=20260829e"></script>
-<script src="game-hub/games/millionaire.js?v=20260829e"></script>
-<script src="game-hub/games/race.js?v=20260829e"></script>
-<script src="game-hub/games/blockbusters.js?v=20260829e"></script>
+<script src="game-hub/games/jeopardy.js?v=20260901a"></script>
+<script src="game-hub/games/bingo.js?v=20260901a"></script>
+<script src="game-hub/games/quickfire.js?v=20260901a"></script>
+<script src="game-hub/games/millionaire.js?v=20260901a"></script>
+<script src="game-hub/games/race.js?v=20260901a"></script>
+<script src="game-hub/games/blockbusters.js?v=20260901a"></script>
 <!-- Round-first PROBE — lab board only, deliberately not in the class shells. -->
-<script src="game-hub/games/connections.js?v=20260829e"></script>
-<script src="game-hub/hub-engine.js?v=20260829e"></script>
+<script src="game-hub/games/connections.js?v=20260901a"></script>
+<script src="game-hub/hub-engine.js?v=20260901a"></script>
 <script>
 /* The reveal clues have nothing to reveal with hints switched off, and this board
    exists to try them — so it turns them on once, the first time it is opened, and

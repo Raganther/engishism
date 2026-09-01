@@ -150,13 +150,13 @@
     ];
   </script>
 
-  <script src="../game-hub/hub-qr.js?v=20260829e"></script>
-  <script src="../game-hub/hub-buzzer.js?v=20260829e"></script>
-  <script src="../game-hub/matter.min.js?v=20260829e"></script>
-  <script src="../game-hub/hub-kit.js?v=20260829e"></script>
-  <script src="../game-hub/hub-table.js?v=20260829e"></script>
-  <script src="phone-profiles.js?v=20260829e"></script>
-  <script src="bench-kit.js?v=20260829e"></script>
+  <script src="../game-hub/hub-qr.js?v=20260901a"></script>
+  <script src="../game-hub/hub-buzzer.js?v=20260901a"></script>
+  <script src="../game-hub/matter.min.js?v=20260901a"></script>
+  <script src="../game-hub/hub-kit.js?v=20260901a"></script>
+  <script src="../game-hub/hub-table.js?v=20260901a"></script>
+  <script src="phone-profiles.js?v=20260901a"></script>
+  <script src="bench-kit.js?v=20260901a"></script>
   <script>
   (function(){
     const K = window.HubKit;
@@ -523,7 +523,7 @@
 
       const sink = document.createElement('div');        // BenchKit's own chip lands here, unused
       BenchKit.room({
-        mount: sink, board:'anagram-battle.html', joinPath:'/playground/anagram-battle.html',
+        mount: sink, relay: RELAY, board:'anagram-battle.html', joinPath:'/playground/anagram-battle.html',
         on: {
           ready(h){
             connTimers.forEach(clearTimeout);

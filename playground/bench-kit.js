@@ -52,6 +52,12 @@ window.BenchKit = (function(){
   function room(opts){
     const o = opts || {};
     const board = o.board || '';
+    /* The relay this room talks to. Defaults to the module `RELAY` (`?relay=`), which
+       is what every existing caller relies on. A caller may override it — a standalone
+       shareable page served from GitHub Pages (which has no relay at its own origin)
+       reaches across to a hosted one, so its plain link forms a room instead of dying
+       on `hopeless()`. Passing nothing keeps today's behaviour exactly. */
+    const relay = (o.relay != null ? o.relay : RELAY);
     /* Where the QR and the join line send a phone. Every existing board wants
        join.html; a board whose phones run a full game page of their own
        (Battle Scrabble) names it here. Path from the site root, so the `?v=`
@@ -113,7 +119,7 @@ window.BenchKit = (function(){
     panel.addEventListener('click', e=>{ if(e.target === panel) panel.classList.remove('on'); });
 
     function base(){
-      if(RELAY) return RELAY;
+      if(relay) return relay;
       if(location.protocol === 'file:') return lan ? 'http://' + lan : '';
       return location.origin;
     }
@@ -174,7 +180,7 @@ window.BenchKit = (function(){
        on the Pages copy watched it try to connect forever. An explicit `?relay=` is
        always worth trying, whatever the page is served from. */
     function hopeless(){
-      if(RELAY) return '';
+      if(relay) return '';
       if(location.protocol === 'file:')
         return { chip:'phones off · opened as a file',
                  why:'Run: node tools/buzzer-relay.js, then open the address it prints.' };
@@ -196,10 +202,10 @@ window.BenchKit = (function(){
       chip.textContent = 'connecting…';
       chip.title = 'Looking for a relay. A hosted one that has been idle takes a while to wake.';
       say('connecting');
-      HubBuzzer.newCode(RELAY).then(d=>{
+      HubBuzzer.newCode(relay).then(d=>{
         if(!d) return again();
         lan = d.lan || '';
-        host = HubBuzzer.host({ relay:RELAY, code:d.code });
+        host = HubBuzzer.host({ relay:relay, code:d.code });
         /* What room this page is hosting, stated rather than scraped — the phone
            bench asks exactly this of whatever board it has loaded, so it needs to
            know nothing about which game is being played. */
@@ -234,7 +240,7 @@ window.BenchKit = (function(){
 
     return {
       host(){ return host; },
-      relay: RELAY,
+      relay: relay,
       players(){ return count; },
       close(){ if(panel) panel.classList.remove('on'); }
     };
