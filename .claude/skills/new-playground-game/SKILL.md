@@ -4,6 +4,7 @@ description: Build a standalone game in the Engishism playground — its own pag
 covers:
   - "playground/battle-scrabble.html"
   - "playground/battle-scrabble-board.html"
+  - "playground/anagram-battle.html"
   - "playground/throw-lab.html"
   - "playground/phone-bench.html"
   - "playground/bench-kit.js"

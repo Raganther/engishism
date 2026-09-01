@@ -74,6 +74,27 @@
     background:var(--accent); color:#04121b;
   }
   button.go:active{ transform:translateY(1px); }
+  button.go[disabled]{ opacity:0.5; }
+  /* Lobby (host: QR + code + who has joined; joiner: waiting). Lives in the veil. */
+  #lobby{ display:flex; flex-direction:column; align-items:center; gap:14px; }
+  #lobby[hidden]{ display:none; }
+  #room-qr{ width:172px; height:172px; background:#fff; border-radius:12px; padding:8px; }
+  #room-qr[hidden]{ display:none; }
+  #room-qr svg{ width:100%; height:100%; display:block; }
+  #room-code{ font-size:1.5rem; font-weight:800; letter-spacing:0.28em; }
+  #room-code small{ display:block; font-size:0.55rem; letter-spacing:0.18em;
+    text-transform:uppercase; color:var(--muted); letter-spacing:0.2em; margin-bottom:2px; }
+  #room-players{ font-size:0.85rem; color:var(--muted); min-height:1.2em; }
+  /* Standings — a thin fixed strip, OUT of flow so it never shoves the board under a
+     thumb mid-drag. Every phone shows it, because there is no projector to hold it. */
+  #stand{ position:fixed; left:0; right:0; bottom:0; z-index:4; display:flex; gap:12px;
+    justify-content:center; flex-wrap:wrap; align-items:center;
+    padding:5px 10px calc(5px + env(safe-area-inset-bottom));
+    background:rgba(8,10,26,0.72); font-size:0.72rem; letter-spacing:0.04em; }
+  #stand[hidden]{ display:none; }
+  #stand .p{ color:var(--muted); }
+  #stand .p b{ color:var(--text); font-weight:800; }
+  #stand .p.me b{ color:var(--accent); }
 </style>
 </head>
 <body>
@@ -85,11 +106,19 @@
     </div>
   </div>
   <div id="stage"><canvas id="board"></canvas></div>
+  <div id="stand" hidden></div>
 
   <div id="veil">
     <h1>Anagram Battle</h1>
     <p id="veil-msg">Flick the letters into the boxes to spell the word. Complete as many
        as you can before the clock runs out.</p>
+    <!-- Lobby: shown only once a real room exists. Host sees the QR + code + who has
+         joined and the Start button; a joiner sees the code and waits for the host. -->
+    <div id="lobby" hidden>
+      <div id="room-qr" hidden></div>
+      <div id="room-code"><small>Room</small><span id="code-val">—</span></div>
+      <div id="room-players">Waiting for players…</div>
+    </div>
     <div class="score" id="veil-score" hidden>0</div>
     <button class="go" id="veil-btn">Start</button>
   </div>
@@ -106,9 +135,13 @@
     ];
   </script>
 
+  <script src="../game-hub/hub-qr.js?v=20260829e"></script>
+  <script src="../game-hub/hub-buzzer.js?v=20260829e"></script>
   <script src="../game-hub/matter.min.js?v=20260829e"></script>
   <script src="../game-hub/hub-kit.js?v=20260829e"></script>
   <script src="../game-hub/hub-table.js?v=20260829e"></script>
+  <script src="phone-profiles.js?v=20260829e"></script>
+  <script src="bench-kit.js?v=20260829e"></script>
   <script>
   (function(){
     const K = window.HubKit;
@@ -122,6 +155,8 @@
     /* Game state. `word` is the current target (UPPERCASE); the table holds its
        scrambled letters; a correct arrangement scores and deals the next. */
     const G = { word:'', score:0, left:ROUND_SECS, running:false, tick:null };
+    let net = null;              // the room layer (Stage 2), assigned once a room exists
+    const ROOM_DECOYS = 2;       // spare letters dealt as ammo when playing in a room
 
     /* The table. onArrange(read, done) — the shelf reports the spelled word and
        whether every slot is filled; the page judges (the anagram round's rule:
@@ -135,6 +170,7 @@
       if(done && String(read).toUpperCase() === G.word){
         world.setResult('right');
         G.score++; $('score').textContent = G.score;
+        if(net) net.report(G.score);                          // push my score to the room's standings
         setTimeout(()=>{ if(G.running) nextWord(); }, 480);   // brief green flash, then next
         return 'right';
       }
@@ -143,7 +179,14 @@
     }
     const world = K.table({
       canvas,
-      onArrange(read, done){ evaluate(read, done); }
+      onArrange(read, done){ evaluate(read, done); },
+      /* A tile flicked off an open side edge travels to a neighbour (Stage 2). Fires
+         only once a room has opened the sides; solo keeps both sides closed. */
+      onExit(t){ if(net) net.throw(t); },
+      /* A thrown tile knocked one of my placed letters out. The shelf has already
+         freed that slot and made the victim loose again, so there is nothing to undo
+         here — the letter is back in play for the player to re-place. */
+      onKnock(){ /* freed-slot feedback is the loose tile itself */ }
     });
 
     function shuffled(word){
@@ -160,23 +203,38 @@
       const src = pool.length ? pool : (window.WORDS || ['PLANET']);
       return String(src[Math.floor(Math.random()*src.length)]).toUpperCase();
     }
+    /* Spare letters, dealt only in a room: they are clutter you must sort around AND
+       your ammo — flick one off an edge and it flies at a neighbour. Drawn from a
+       common-letter bag; a decoy that happens to match a needed letter is harmless
+       (either copy spells the word). */
+    function decoys(n){
+      const bag = 'ETAOINSRHLDCUMPFGWYB'.split('');
+      const out = [];
+      for(let i = 0; i < n; i++) out.push(bag[Math.floor(Math.random()*bag.length)]);
+      return out;
+    }
     function nextWord(){
       G.word = pickWord();
       $('word').textContent = G.word;
       world.reset();
-      world.setPieces(shuffled(G.word));   // scattered tiles
-      world.slots(G.word.length);          // a row of square slots
+      const spare = !!(net && net.live && net.live());   // an opponent to throw at?
+      const tiles = shuffled(G.word).concat(spare ? decoys(ROOM_DECOYS) : []);
+      world.setPieces(tiles);              // word letters (+ decoys when opposed), scattered
+      world.slots(G.word.length);          // only the word's slots; decoys stay loose
       world.setResult(null);
+      world.openSides(spare ? { l:true, r:true } : { l:false, r:false });  // travel only when opposed
     }
 
     function paintClock(){
       $('clock').textContent = G.left;
       $('time').classList.toggle('low', G.left <= 10);
     }
-    function startGame(){
-      G.score = 0; G.left = ROUND_SECS; G.running = true;
+    function beginPlay(secs){
+      G.score = 0; G.left = secs || ROUND_SECS; G.running = true;
       $('score').textContent = '0'; paintClock();
       $('veil').hidden = true;
+      $('stand').hidden = true;              // renderStand reveals it once ≥2 are playing
+      if(net) net.report(0);
       nextWord();
       clearInterval(G.tick);
       G.tick = setInterval(()=>{
@@ -187,15 +245,21 @@
     function endGame(){
       G.running = false;
       clearInterval(G.tick); G.tick = null;
+      if(net) world.openSides({ l:false, r:false });   // no more travel between screens
       world.reset();
       $('word').textContent = '—';
+      if(net) net.report(G.score);
       $('veil-msg').hidden = true;
       $('veil-score').hidden = false; $('veil-score').textContent = G.score +
         (G.score === 1 ? ' word' : ' words');
-      $('veil-btn').textContent = 'Play again';
+      $('veil-btn').hidden = false;
+      $('veil-btn').textContent = net ? 'New game' : 'Play again';
       $('veil').hidden = false;
     }
-    $('veil-btn').addEventListener('click', startGame);
+    /* The veil button's job depends on the role, so it is swappable. Solo: play. Host:
+       arm the room then play (set by the room layer). Joiner: hidden — the host starts. */
+    let onGo = ()=> beginPlay(ROUND_SECS);
+    $('veil-btn').addEventListener('click', ()=> onGo());
 
     /* Boot + the fixed-timestep loop. step() advances by WALL CLOCK, so a 120Hz phone
        and a 60Hz one play at the same speed. */
@@ -235,7 +299,7 @@
     window.__ab = {
       world,
       state: ()=>({ word:G.word, score:G.score, left:G.left, running:G.running }),
-      start: startGame,
+      start: ()=> beginPlay(ROUND_SECS),
       next: nextWord,
       loose: ()=> world.loose(),
       read: ()=> world.read(),
@@ -247,10 +311,186 @@
         return evaluate(world.read(), world.filled());
       },
       /* Solve the current word (place its letters in order) and score it. */
-      solve(){ return this.fill(G.word.split('')); }
+      solve(){ return this.fill(G.word.split('')); },
+      /* Wire-level throw for a driven room test — sends a tile up the same path a real
+         flick's onExit would (host loopback or joiner→relay→host), skipping the
+         physics timing that makes a real flick flaky headless. */
+      wireThrow(tile){ return net && net.throw(tile); },
+      inRoom(){ return !!net; }
     };
 
-    // Solo game is ready; the veil's Start button begins it.
+    /* ============================ Stage 2 — the room ============================
+       Everyone opens the SAME page. No `?code` → this phone HOSTS: mints a room, shows
+       the QR, runs the ring, AND plays as seat 0 — the local loopback in `deliver()` is
+       what lets the host be a player despite there being no self-`nope` path. `?code`
+       present → this phone JOINS. The solo loop above is untouched; this only adds the
+       wire, and a host playing alone stays pure solo (no opponent → no decoys, sides
+       shut) so a dead relay still leaves a fully playable game (the playground rule). */
+
+    const parts = new URLSearchParams(location.search);
+    const RELAY = parts.get('relay') || '';         // '' = the default relay, as Battle Scrabble
+    function joinURL(code){
+      return location.origin + location.pathname + '?code=' + code +
+        (parts.get('relay') ? '&relay=' + encodeURIComponent(parts.get('relay')) : '');
+    }
+    function showQR(url){
+      const el = $('room-qr');
+      if(/^https?:/.test(location.protocol) && window.qrcode){
+        const q = window.qrcode(0, 'M'); q.addData(url); q.make();
+        el.innerHTML = q.createSvgTag({ cellSize:4, margin:0, scalable:true });
+        el.hidden = false;
+      } else el.hidden = true;                       // file:// → no QR; the code still shows
+    }
+
+    /* A tile arriving from a neighbour — identical on both roles. Spawn it as a loose,
+       "shot" body entering from the correct edge (it left their L → enters my R), so it
+       can knock a placed letter out. `hue` keeps the thrower's colour; `tag` their name. */
+    function onIncoming(tile){
+      if(!tile || !tile.ch) return;
+      const w = canvas.clientWidth || 360, h = canvas.clientHeight || 500;
+      const side = tile.side === 'l' ? 'r' : 'l';
+      const x = side === 'l' ? 14 : w - 14;
+      const vx = (side === 'l' ? 1 : -1) * Math.abs(Number(tile.vx) || 10);
+      world.addPiece(String(tile.ch).toUpperCase(), {
+        x, y:(tile.ny != null ? tile.ny : 0.3) * h,
+        vx, vy:Number(tile.vy) || 0, hue:tile.hue, shot:true, tag:tile.by || '?'
+      });
+    }
+
+    function renderStand(rows){
+      const el = $('stand');
+      const show = G.running && rows && rows.length >= 2;
+      if(!show){ el.hidden = true; return; }
+      rows = rows.slice().sort((a, b) => (b.score||0) - (a.score||0));
+      el.innerHTML = '';
+      rows.forEach(r => {
+        const s = document.createElement('span');
+        s.className = 'p' + (r.me ? ' me' : '');
+        s.innerHTML = (r.name || '?') + ' <b>' + (r.score||0) + '</b>';
+        el.appendChild(s);
+      });
+      el.hidden = false;
+    }
+
+    const simSeat = (window.HubBuzzer && HubBuzzer.sim) ? HubBuzzer.sim() : null;
+    const joinCode = simSeat ? simSeat.code : parts.get('code');
+
+    if(joinCode && window.HubBuzzer){
+      /* -------------------------------- JOINER -------------------------------- */
+      const seq = {};
+      const nextq = t => (seq[t] = (seq[t] || 0) + 1);
+      const SEAT_KEY = 'engishism.anagrambattle.seat';   // our own key, never join.html's
+      const nm = (simSeat && simSeat.name) || ('P' + Math.floor(Math.random()*90 + 10));
+      let myId = simSeat && simSeat.id;
+      if(!myId && !simSeat){                              // a real phone reuses its seat on reconnect
+        try{ const s = JSON.parse(localStorage.getItem(SEAT_KEY) || 'null'); if(s && s.code === joinCode) myId = s.id; }catch(_){}
+      }
+      if(!myId) myId = 'p' + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36);
+      if(!simSeat){ try{ localStorage.setItem(SEAT_KEY, JSON.stringify({ code:joinCode, id:myId })); }catch(_){} }
+
+      const client = HubBuzzer.player({ relay:RELAY, code:joinCode, name:nm, id:myId });
+      net = {
+        live: ()=> true,                                 // a joiner is in a real room
+        report(score){ client.respond(JSON.stringify({ t:'s', sc:score, q:nextq('s') })); },
+        throw(tile){ client.respond(JSON.stringify({ t:'th', ch:tile.ch, hue:tile.hue, side:tile.side, vx:tile.vx, vy:tile.vy, ny:tile.ny, q:nextq('th') })); }
+      };
+      const armState = (d, live) => { if(!G.running && (live || (d && d.armed))) beginPlay(d && d.secs); };
+      client.on('armed',  d => armState(d, true));
+      client.on('joined', d => armState(d, false));
+      client.on('disarmed', ()=>{ if(G.running) endGame(); });
+      client.on('nope', d => {
+        let m = null; try{ m = JSON.parse((d && d.word) || ''); }catch(_){ return; }
+        if(!m || !m.t) return;
+        if(m.t === 'tile') onIncoming(m);
+        else if(m.t === 'stand') renderStand((m.rows || []).map(r => ({ name:r.name, score:r.score, me:r.id === myId })));
+      });
+      $('lobby').hidden = false; $('room-qr').hidden = true;
+      $('code-val').textContent = joinCode;
+      $('room-players').textContent = 'Joined — waiting for the host to start.';
+      $('veil-btn').hidden = true;                       // the host starts the game
+
+    } else if(window.BenchKit && /^https?:/.test(location.protocol)){
+      /* --------------------------- HOST (also plays) -------------------------- */
+      const HOST = 'HOST';
+      const seats = [HOST];                              // append-only; seat 0 is me
+      const players = { [HOST]: { name:'You', score:0, present:true, lastQ:{} } };
+      let host = null;
+
+      const presentSeats = () => seats.filter(id => id === HOST || (players[id] && players[id].present));
+      function neighbourId(fromId, side){
+        const ring = presentSeats();
+        const i = ring.indexOf(fromId);
+        if(i === -1 || ring.length < 2) return null;
+        const j = side === 'l' ? (i - 1 + ring.length) % ring.length : (i + 1) % ring.length;
+        return ring[j];
+      }
+      function deliver(fromId, tile){                    // the ring router — adapted from battle-scrabble-board
+        const target = neighbourId(fromId, tile.side);
+        if(!target) return;                              // nobody to throw at yet
+        if(target === HOST) onIncoming(tile);            // the local loopback — host is a player
+        else if(host) host.nope(target, JSON.stringify({ t:'tile', ch:tile.ch, hue:tile.hue, side:tile.side, vx:tile.vx, vy:tile.vy, ny:tile.ny, by:'You' }));
+      }
+      function rowsOf(){ return presentSeats().map(id => ({ id, name:players[id].name, score:players[id].score || 0 })); }
+      function broadcastStand(){
+        const rs = rowsOf();
+        if(host) presentSeats().forEach(id => { if(id !== HOST) host.nope(id, JSON.stringify({ t:'stand', rows:rs })); });
+        renderStand(rs.map(r => ({ name:r.name, score:r.score, me:r.id === HOST })));
+      }
+      function pushNb(){
+        if(!host) return;
+        const ring = presentSeats();
+        ring.forEach((id, i) => {
+          if(id === HOST) return;
+          const l = ring[(i - 1 + ring.length) % ring.length], r = ring[(i + 1) % ring.length];
+          host.nope(id, JSON.stringify({ t:'nb', l:players[l].name, r:players[r].name }));
+        });
+      }
+      function renderLobby(){
+        const others = presentSeats().length - 1;
+        $('room-players').textContent = others
+          ? others + (others === 1 ? ' player joined — tap Start' : ' players joined — tap Start')
+          : 'Waiting for players to scan…';
+      }
+      net = {
+        live: ()=> presentSeats().length > 1,            // decoys/throwing only once someone joined
+        report(score){ players[HOST].score = score; broadcastStand(); },
+        throw(tile){ deliver(HOST, tile); }
+      };
+
+      const sink = document.createElement('div');        // BenchKit's own chip lands here, unused
+      BenchKit.room({
+        mount: sink, board:'anagram-battle.html', joinPath:'/playground/anagram-battle.html',
+        on: {
+          ready(h){ host = h; $('lobby').hidden = false; $('code-val').textContent = h.code; showQR(joinURL(h.code)); renderLobby(); },
+          players(list){
+            (list || []).forEach(p => {
+              if(seats.indexOf(p.id) === -1) seats.push(p.id);
+              players[p.id] = players[p.id] || { name:p.name, score:0, lastQ:{} };
+              if(p.name) players[p.id].name = p.name;
+              players[p.id].present = true;
+            });
+            const ids = (list || []).map(p => p.id);
+            seats.forEach(id => { if(id !== HOST) players[id].present = ids.indexOf(id) !== -1; });
+            renderLobby(); pushNb(); broadcastStand();
+          },
+          response(d){
+            const v = d && d.latest; if(!v || !host) return;
+            let m = null; try{ m = JSON.parse(v.value || ''); }catch(_){ return; }
+            if(!m || !m.t) return;
+            const pl = players[v.id]; if(!pl) return;
+            if(m.q != null){ if(m.q <= (pl.lastQ[m.t] || 0)) return; pl.lastQ[m.t] = m.q; }   // per-type replay guard
+            if(m.t === 'th' && G.running) deliver(v.id, m);
+            else if(m.t === 's'){ pl.score = Number(m.sc) || 0; broadcastStand(); }
+          }
+        }
+      });
+      onGo = ()=>{ if(host) host.arm('', { mode:'answer', rethink:true, secs:ROUND_SECS }); beginPlay(ROUND_SECS); };
+      $('veil-btn').textContent = 'Start';
+
+      /* Expose the ring for a driven room test (the host side of __ab). */
+      window.__ab.host = { deliver:(from, tile)=>deliver(from, tile), seats:()=>seats.slice(), present:presentSeats, players:()=>players };
+    }
+    // else: no room layer (file:// or no BenchKit) → pure solo; the veil's Start plays.
   })();
   </script>
 </body>
