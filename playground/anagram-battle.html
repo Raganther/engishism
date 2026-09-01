@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Anagram Battle — Engishism Playground</title>
+<!--
+  ANAGRAM BATTLE — a phone-only party game (playground, standalone).
+
+  Stage 1 (this file so far): the SOLO word-stream, which is also the degradation
+  path — a plain URL is a complete single-player game with no relay, exactly as the
+  playground rule demands. A target word appears, its letters rain in as Kit.table
+  tiles, you flick/drag them into the slots; a correct fill scores and the next word
+  appears; most words before the clock wins. Stages 2–3 (rooms, tiles thrown between
+  phones, one phone hosting the ring while also playing) build on top without
+  touching this loop.
+
+  Reuse, not reinvention (see docs/dynamics-three-hosts.md):
+    - the physics is Kit.table (game-hub/hub-table.js) — the same shelf throw-lab,
+      the anagram flick round and Battle Scrabble ride;
+    - the completion check is lifted from the anagram round (rounds/anagram.js:256) —
+      every slot filled AND positionally equal to the target word.
+-->
+<style>
+  :root{
+    --surface:#0e1230; --text:#f2f2ec; --muted:#9aa0aa; --accent:#00A0DF;
+    --good:#3ddc84; --bad:#ff5d5d;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{
+    /* A handset game: size to the REAL visible viewport (browser chrome changes the
+       height without a window resize — refit on visualViewport below), and stop the
+       page itself panning/zooming under a flick so the canvas owns the gesture. */
+    height:100dvh; overflow:hidden;
+    background:var(--surface); color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display:flex; flex-direction:column;
+    touch-action:none; -webkit-user-select:none; user-select:none; overscroll-behavior:none;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  /* A small top strip — the one bit of chrome. Target word left, score + clock right. */
+  #strip{
+    flex:0 0 auto; display:flex; align-items:center; justify-content:space-between;
+    gap:12px; padding:8px 14px; min-height:46px;
+  }
+  #target{ font-size:1.5rem; font-weight:800; letter-spacing:0.16em; }
+  #target small{ display:block; font-size:0.6rem; font-weight:600; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--muted); letter-spacing:0.18em; margin-bottom:1px; }
+  #meta{ display:flex; gap:16px; align-items:baseline; }
+  #meta b{ font-size:1.4rem; font-weight:800; }
+  #meta span{ display:block; font-size:0.55rem; font-weight:600; letter-spacing:0.16em;
+    text-transform:uppercase; color:var(--muted); text-align:right; }
+  #time.low b{ color:var(--bad); }
+  /* The play surface fills everything under the strip. Kit.table paints its own
+     background, so the canvas is edge to edge. */
+  #stage{ flex:1 1 auto; position:relative; min-height:0; }
+  #board{ width:100%; height:100%; display:block; touch-action:none; }
+  #board.grabbing{ cursor:grabbing; }
+  /* Overlays — start and game over. Fixed, out of flow (a banner in the flow would
+     shove the board under a thumb mid-drag). */
+  #veil{
+    position:fixed; inset:0; z-index:5; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:18px; text-align:center;
+    background:rgba(8,10,26,0.94); padding:24px;
+  }
+  #veil[hidden]{ display:none; }
+  #veil h1{ margin:0; font-size:2rem; font-weight:900; letter-spacing:0.02em; }
+  #veil p{ margin:0; color:var(--muted); max-width:22rem; line-height:1.5; }
+  #veil .score{ font-size:3rem; font-weight:900; color:var(--good); }
+  button.go{
+    font:inherit; font-weight:800; font-size:1.1rem; letter-spacing:0.04em;
+    padding:14px 34px; border:none; border-radius:999px; cursor:pointer;
+    background:var(--accent); color:#04121b;
+  }
+  button.go:active{ transform:translateY(1px); }
+</style>
+</head>
+<body>
+  <div id="strip">
+    <div id="target"><small>Spell</small><span id="word">—</span></div>
+    <div id="meta">
+      <div><span>Words</span><b id="score">0</b></div>
+      <div id="time"><span>Time</span><b id="clock">—</b></div>
+    </div>
+  </div>
+  <div id="stage"><canvas id="board"></canvas></div>
+
+  <div id="veil">
+    <h1>Anagram Battle</h1>
+    <p id="veil-msg">Flick the letters into the boxes to spell the word. Complete as many
+       as you can before the clock runs out.</p>
+    <div class="score" id="veil-score" hidden>0</div>
+    <button class="go" id="veil-btn">Start</button>
+  </div>
+
+  <!-- Content: the word bank. A teacher can edit this list. Short, common words so the
+       tiles and slots read on a phone. (Stage 1 shows the target word; a later mode can
+       hide it behind a clue, which is the anagram round's real puzzle.) -->
+  <script>
+    window.WORDS = [
+      "PLANET","GARDEN","ORANGE","SILVER","MARKET","WINTER","FRIEND","BRIDGE",
+      "CASTLE","PENCIL","ROCKET","JUNGLE","ISLAND","MONKEY","GUITAR","YELLOW",
+      "PURPLE","DRAGON","FLOWER","WIZARD","CAMERA","TIGER","LEMON","CLOUD",
+      "RIVER","STORM","BEACH","HONEY","PIANO","CANDLE","FOREST","PICNIC"
+    ];
+  </script>
+
+  <script src="../game-hub/matter.min.js?v=20260829e"></script>
+  <script src="../game-hub/hub-kit.js?v=20260829e"></script>
+  <script src="../game-hub/hub-table.js?v=20260829e"></script>
+  <script>
+  (function(){
+    const K = window.HubKit;
+    if(!K || !K.table){ document.getElementById('veil-msg').textContent =
+      'Physics failed to load — check the script tags.'; return; }
+
+    const ROUND_SECS = 90;
+    const $ = id => document.getElementById(id);
+    const canvas = $('board');
+
+    /* Game state. `word` is the current target (UPPERCASE); the table holds its
+       scrambled letters; a correct arrangement scores and deals the next. */
+    const G = { word:'', score:0, left:ROUND_SECS, running:false, tick:null };
+
+    /* The table. onArrange(read, done) — the shelf reports the spelled word and
+       whether every slot is filled; the page judges (the anagram round's rule:
+       done AND the read equals the target, positionally). No feel overrides — the
+       throw-feel is Throw Lab's, inherited. */
+    /* The judge, one function so the pointer path (onArrange) and a driven test run
+       identical code. The anagram round's rule: every slot filled AND the spelled
+       word equals the target, positionally. */
+    function evaluate(read, done){
+      if(!G.running) return null;
+      if(done && String(read).toUpperCase() === G.word){
+        world.setResult('right');
+        G.score++; $('score').textContent = G.score;
+        setTimeout(()=>{ if(G.running) nextWord(); }, 480);   // brief green flash, then next
+        return 'right';
+      }
+      world.setResult(done ? 'wrong' : null);
+      return done ? 'wrong' : null;
+    }
+    const world = K.table({
+      canvas,
+      onArrange(read, done){ evaluate(read, done); }
+    });
+
+    function shuffled(word){
+      const a = word.split('');
+      for(let tries = 0; tries < 24; tries++){
+        for(let i = a.length-1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; }
+        if(a.join('') !== word) break;
+      }
+      return a;
+    }
+    /* Pick a fresh word (avoid repeating the one just done). */
+    function pickWord(){
+      const pool = (window.WORDS || []).filter(w => w && w !== G.word);
+      const src = pool.length ? pool : (window.WORDS || ['PLANET']);
+      return String(src[Math.floor(Math.random()*src.length)]).toUpperCase();
+    }
+    function nextWord(){
+      G.word = pickWord();
+      $('word').textContent = G.word;
+      world.reset();
+      world.setPieces(shuffled(G.word));   // scattered tiles
+      world.slots(G.word.length);          // a row of square slots
+      world.setResult(null);
+    }
+
+    function paintClock(){
+      $('clock').textContent = G.left;
+      $('time').classList.toggle('low', G.left <= 10);
+    }
+    function startGame(){
+      G.score = 0; G.left = ROUND_SECS; G.running = true;
+      $('score').textContent = '0'; paintClock();
+      $('veil').hidden = true;
+      nextWord();
+      clearInterval(G.tick);
+      G.tick = setInterval(()=>{
+        G.left--; paintClock();
+        if(G.left <= 0) endGame();
+      }, 1000);
+    }
+    function endGame(){
+      G.running = false;
+      clearInterval(G.tick); G.tick = null;
+      world.reset();
+      $('word').textContent = '—';
+      $('veil-msg').hidden = true;
+      $('veil-score').hidden = false; $('veil-score').textContent = G.score +
+        (G.score === 1 ? ' word' : ' words');
+      $('veil-btn').textContent = 'Play again';
+      $('veil').hidden = false;
+    }
+    $('veil-btn').addEventListener('click', startGame);
+
+    /* Boot + the fixed-timestep loop. step() advances by WALL CLOCK, so a 120Hz phone
+       and a 60Hz one play at the same speed. */
+    world.resize();
+    (function loop(){ world.step(); world.draw(); requestAnimationFrame(loop); })();
+
+    /* Size to the real visible viewport, and refit when mobile chrome changes it
+       (no window resize fires for that). */
+    function refit(){ world.resize(); }
+    window.addEventListener('resize', refit);
+    if(window.visualViewport) window.visualViewport.addEventListener('resize', refit);
+
+    /* Pointer → grab / move / drop, in canvas-space coords (world.pt maps through the
+       painted/natural ratio). */
+    const pt = e => world.pt(e);
+    canvas.addEventListener('pointerdown', e => {
+      const p = pt(e);
+      if(world.grab(e.pointerId, p.x, p.y)){ canvas.classList.add('grabbing'); canvas.setPointerCapture(e.pointerId); }
+    });
+    canvas.addEventListener('pointermove', e => {
+      if(world.heldBy(e.pointerId)){ const p = pt(e); world.move(e.pointerId, p.x, p.y); }
+    });
+    function endDrag(e){
+      if(world.heldBy(e.pointerId)){
+        world.drop(e.pointerId);
+        try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
+        if(!world.anyHeld()) canvas.classList.remove('grabbing');
+      }
+    }
+    canvas.addEventListener('pointerup', endDrag);
+    canvas.addEventListener('pointercancel', endDrag);
+
+    /* A driven-test handle (the __bs style the playground skill asks for): the world,
+       game state, and the entry points a test needs to place letters and read the
+       board without a pointer. `place(order)` fills the slots in a given letter order;
+       `solve()` places the correct order; `read()` re-derives the spelled word. */
+    window.__ab = {
+      world,
+      state: ()=>({ word:G.word, score:G.score, left:G.left, running:G.running }),
+      start: startGame,
+      next: nextWord,
+      loose: ()=> world.loose(),
+      read: ()=> world.read(),
+      /* Fill the slots with a letter sequence, then run the SAME judge the pointer
+         path runs — `place()` docks without firing onArrange (the shelf contract), so
+         a driven test calls evaluate() itself, exactly as a real drop would. */
+      fill(order){
+        order.forEach((ch, i)=> world.place(i, String(ch).toUpperCase()));
+        return evaluate(world.read(), world.filled());
+      },
+      /* Solve the current word (place its letters in order) and score it. */
+      solve(){ return this.fill(G.word.split('')); }
+    };
+
+    // Solo game is ready; the veil's Start button begins it.
+  })();
+  </script>
+</body>
+</html>
