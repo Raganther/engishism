@@ -462,9 +462,14 @@
       $('lobby').hidden = false; $('room-qr').hidden = true;
       $('code-val').textContent = '…';
       $('room-players').textContent = 'Connecting to the room server…';
-      const connWait = setTimeout(()=>{
-        if(!host) $('room-players').textContent = "Couldn't reach the room server — you can still play solo (tap Start).";
-      }, 45000);
+      /* Render's free tier sleeps and can take ~a minute to wake on the first hit, and
+         BenchKit keeps retrying under us — so a cold start reads as "waking", not
+         failure. Only after a long wait do we call it unreachable; a later `ready`
+         still clears both and shows the QR. */
+      const connTimers = [
+        setTimeout(()=>{ if(!host) $('room-players').textContent = 'Waking the room server — this can take up to a minute on the first go…'; }, 8000),
+        setTimeout(()=>{ if(!host) $('room-players').textContent = "Still can't reach the room server. You can play solo (tap Start), or reload."; }, 90000)
+      ];
 
       const presentSeats = () => seats.filter(id => id === HOST || (players[id] && players[id].present));
       function neighbourId(fromId, side){
@@ -521,7 +526,7 @@
         mount: sink, board:'anagram-battle.html', joinPath:'/playground/anagram-battle.html',
         on: {
           ready(h){
-            clearTimeout(connWait);
+            connTimers.forEach(clearTimeout);
             host = h; $('lobby').hidden = false; $('code-val').textContent = h.code;
             showQR(joinURL(h.code)); renderLobby();
             const pick = $('layout-pick'); pick.hidden = false;
