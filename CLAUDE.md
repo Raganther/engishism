@@ -348,14 +348,15 @@ it suits**, because an anagram in Millionaire is given away by its own four opti
   path and never a value that shadows them. Every row a bundle touches carries an advisory
   note — "Classic sets this to 10s" — beside the control, which stays the truth.
 
-**One gear, two forms.** ⚙ outside a game opens the full panel; **during play it opens the
-docked drawer** for that game (`L` toggles it), and a change made there is **an override
-for that game**, never the master — which is what makes trying an idea mid-round safe.
-Both are `buildRow`, so a new setting appears in both by being registered. The drawer owes
-three things, each of which was a bug first: **stop short of the header** (`fitLab()`
-measures both edges); **make the board give up the width** (`body.lab-open` insets the
-screen and `hook('onResize')` re-fits, or the drawer hides the options you are trying to
-watch); and **stack its rows** at narrow widths.
+**The board carries no settings UI.** No gear, no clue-card Tune pill, no docked drawer.
+Every setting is edited from the **room bench's Tune pane** (`playground/phone-bench.html`,
+the Tune button) — one tab per game plus *All games* — which reaches the board's registry
+through the frame (`win.HubSettings.renderOnce`), so there is one place to change anything
+and it cannot disagree with itself. A change made on a game's tab is **an override for that
+game**, never the master. The question bench has its own Tune pane for the round rows
+(master values only). Both are the registry's own `buildRow`, so a new setting appears in
+both by being registered. The full panel (`HubSettings.open`) still exists, built on
+demand for the benches and the tests; nothing on the board opens it.
 
 **Organisation is derived, not listed.** A game's view leads with Ruleset, then the game's
 own groups, then the shared ones in a fixed order (Competition, Questions, Phones, Clue
