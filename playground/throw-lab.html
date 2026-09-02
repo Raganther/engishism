@@ -80,6 +80,8 @@
 
   .stage{ flex:1 1 auto; position:relative; min-height:0; }
   canvas{ display:block; width:100%; height:100%; touch-action:none; cursor:grab; }
+  .looks-row{ display:flex; gap:6px; flex-wrap:wrap; }
+  .looks-row button{ padding:6px 10px; }
   canvas.grabbing{ cursor:grabbing; }
   .hint{
     position:absolute; left:14px; top:12px; color:var(--muted); font-size:0.75rem;
@@ -188,10 +190,10 @@
        physics rounds (anagram flick, ordering stack) call. Throw Lab is its first caller — the workshop where the
        feel gets tuned. matter.min.js and hub-table.js live in game-hub/ beside the
        other shelves; hub-kit.js is the object Kit.table hangs off. -->
-  <script src="../game-hub/hub-qr.js?v=20260902d"></script>
-  <script src="../game-hub/matter.min.js?v=20260902d"></script>
-  <script src="../game-hub/hub-kit.js?v=20260902d"></script>
-  <script src="../game-hub/hub-table.js?v=20260902d"></script>
+  <script src="../game-hub/hub-qr.js?v=20260903a"></script>
+  <script src="../game-hub/matter.min.js?v=20260903a"></script>
+  <script src="../game-hub/hub-kit.js?v=20260903a"></script>
+  <script src="../game-hub/hub-table.js?v=20260903a"></script>
   <script>
   (function(){
     'use strict';
@@ -232,9 +234,14 @@
 
     /* No feel overrides: the bench must feel exactly like the games it tunes
        for, so every number comes from the shelf's dial registry. */
+    /* `parked`: the Looks block's Right/Wrong buttons set a tint by hand, and the
+       next dock would judge and overwrite it — so while parked the bench stops
+       judging. New deal, Hint and Celebrate all unpark. */
+    let parked = false;
     const world = K.table({
       canvas,
       onArrange(read, done){               // the table reports the arrangement; the caller judges
+        if(parked) return;
         let res = null;
         if(done && !gridMode){             // a grid has no answer — it is a layout to feel
           const ok = mode === 'words'
@@ -296,9 +303,38 @@
         world.setPieces(shuffleArr(target.split('')));
         world.slots(target.length);
       }
+      parked = false;
       world.setResult(null);
       setStatus(null);
     }
+
+    /* ---- the Looks bench: fire each effect without playing for it ----
+       Right/Wrong tint what is docked (parked, see above); Hint flies the next
+       word or letter in on the shelf's give(); Celebrate gives the whole answer,
+       so the docks land, the bench judges it right and the word burst fires by
+       the same path a class sees. The effect dials sit in the Tune panel with the
+       feel dials, from the same registry. */
+    function answerAt(i){
+      return mode === 'words' ? targetOrder[i] : gridMode ? null : target[i];
+    }
+    const looks = {
+      right(){ parked = true; world.setResult('right'); setStatus('right'); },
+      wrong(){ parked = true; world.setResult('wrong'); setStatus('wrong'); },
+      hint(){
+        parked = false;
+        const cells = world.cells();
+        for(let i = 0; i < cells.length; i++){
+          const want = answerAt(i);
+          if(want && String(cells[i]).toLowerCase() !== String(want).toLowerCase()){ world.give(i, want); return i; }
+        }
+        return -1;
+      },
+      celebrate(){
+        parked = false;
+        const n = world.cells().length;
+        for(let i = 0; i < n; i++){ const want = answerAt(i); if(want) world.give(i, want); }
+      }
+    };
 
     world.resize();
     newWord();
@@ -308,7 +344,7 @@
 
     /* a driven test's handle — same kind of window as join.html's __tbl. The
        bench proves a bar tile settles flat, so it reads the loose tiles' angles. */
-    window.__lab = { world, loose: () => world.loose(), mode: () => mode };
+    window.__lab = { world, loose: () => world.loose(), mode: () => mode, looks, fx: () => world.fx() };
 
     /* ---- pointer -> grab / move / drop (canvas-space coords) ---- */
     const pt = e => world.pt(e);   // the shelf maps a touch through the painted/natural ratio
@@ -339,6 +375,19 @@
       // draw-only and updates live with no re-deal.
       onChange(k){ if(k === 'size' || k === 'gridGap') newWord(); }
     });
+    /* The Looks block — four buttons beside the dials, folding away with them. */
+    const looksBox = document.createElement('div');
+    looksBox.className = 'word';
+    looksBox.innerHTML = '<label>Looks</label><div class="looks-row">' +
+      '<button type="button" id="look-right">Right</button>' +
+      '<button type="button" id="look-wrong">Wrong</button>' +
+      '<button type="button" id="look-hint">Hint</button>' +
+      '<button type="button" id="look-party">Celebrate</button></div>';
+    controls.appendChild(looksBox);
+    document.getElementById('look-right').addEventListener('click', looks.right);
+    document.getElementById('look-wrong').addEventListener('click', looks.wrong);
+    document.getElementById('look-hint').addEventListener('click', looks.hint);
+    document.getElementById('look-party').addEventListener('click', looks.celebrate);
     controls.appendChild(document.getElementById('btn-reset'));   // Reset stays last
 
     document.getElementById('btn-reset').addEventListener('click', newWord);

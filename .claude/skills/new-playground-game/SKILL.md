@@ -116,6 +116,13 @@ Paid-for traps — every one cost a debugging session:
 - **On a real phone, size from the real viewport**: `height:100dvh` on the body and a
   refit on `visualViewport` resize — mobile browser chrome changes the visible height
   without a window resize.
+- **An effect is paint from a stamp, never a body impulse.** The shelf stamps `landed`
+  (a dock completing), `resultAt` (a slot judged) and `wordAt` (a word completed right);
+  `draw()` derives the pop, glow, shake and burst from `now() - stamp`, each behind a
+  draw-only dial (`pop`, `glow`, `shake`, `party`, 0 = off). Never `ctx.shadowBlur` per
+  tile per frame — halos are cached sprites. Colours come from the canvas's CSS
+  variables via the shelf's palette; a page needs no colour of its own. Tune on Throw
+  Lab's Looks block, on the phone preview AND a card round (transparent surface).
 - **Phone geometry comes from `phone-profiles.js` — never a hardcoded viewport.** The
   one home for what a handset's VISIBLE screen is (browser bars subtracted); the Room
   bench racks at it and the suite opens phone pages at it, `standard` by default. The

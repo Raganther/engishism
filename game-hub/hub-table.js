@@ -104,8 +104,35 @@
        is shared with the physics chamfer set when a tile is built, and the two
        must match or the drawn corner overhangs the collision hull. */
     { k:'gridLine',    label:'Grid line',   min:0.5, max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2) },
-    { k:'gridGap',     label:'Grid gap',    min:0,   max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2) }
+    { k:'gridGap',     label:'Grid gap',    min:0,   max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2) },
+    /* LOOKS — the effects every table paints, each a draw-only dial (live, no
+       setFeel branch, 0 = off). An effect is paint from a STAMP the shelf wrote
+       when the fact happened (a tile landed, a slot was judged, a word completed)
+       and never a body impulse: the physics is untouched and a phone at 120Hz
+       draws the same picture as the board at 60. Tuned on Throw Lab's Looks
+       block, against the phone's painted surface AND a card round's transparent
+       one, because a halo composites differently on each. */
+    { k:'pop',         label:'Landing pop', min:0,   max:0.5,  step:0.02,  def:0.18, fmt:v => '×' + v.toFixed(2) },   // scale overshoot after a dock
+    { k:'glow',        label:'Correct glow',min:0,   max:1,    step:0.05,  def:0.7,  fmt:v => v.toFixed(2) },          // halo strength behind a right tile
+    { k:'shake',       label:'Wrong shake', min:0,   max:14,   step:1,     def:6,    fmt:v => v + 'px' },              // paint offset on a wrong tile
+    { k:'party',       label:'Word burst',  min:0,   max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2) }     // particle count when a word completes
   ];
+
+  /* A colour with its alpha replaced — hex (#rgb, #rrggbb) or rgb()/rgba(); anything
+     else is handed back as is. The halo sprite's gradient needs the theme colour
+     fading to transparent, and a theme hands it over as either shape. */
+  function withAlpha(col, a){
+    const c = String(col || '').trim();
+    let m = c.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if(m){
+      let h = m[1]; if(h.length === 3) h = h.split('').map(x => x + x).join('');
+      const n = parseInt(h, 16);
+      return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+    }
+    m = c.match(/^rgba?\(([^)]+)\)$/i);
+    if(m){ const parts = m[1].split(',').slice(0, 3).map(x => x.trim()); return `rgba(${parts.join(',')},${a})`; }
+    return c;
+  }
 
   const now = () => (window.performance && performance.now) ? performance.now() : Date.now();
   const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
@@ -211,10 +238,80 @@
        one word's slots, so a grid can show a green word and a red run at once.
        setResult(res) with no indices stays the global tint and clears these. */
     const resultMap = new Map();
-    function clearResult(){ result = null; resultMap.clear(); }
+    /* ---- the looks: theme palette, stamps, and what draw() builds from them ----
+       `palette` is read from the canvas's CSS custom properties once per real
+       resize (the card declares --gw-good/--gw-bad/... per theme; a phone has none
+       and keeps these literals, which are the colours the table always had). The
+       tile text stays dark whatever the theme: the tile fills are fixed bright
+       hues, and a theme's light ink would vanish on a yellow tile. */
+    const palette = { good:'#6FB04A', bad:'#E2603B', accent:'#FFC83D', line:'#39414f', lineHot:'#5a6473', ink:'#101318' };
+    function readPalette(){
+      let cs = null;
+      try{ cs = getComputedStyle(canvas); }catch(e){ return; }
+      const get = (name, fb) => { const v = cs.getPropertyValue(name); return v && v.trim() ? v.trim() : fb; };
+      palette.good    = get('--gw-good', '#6FB04A');
+      palette.bad     = get('--gw-bad',  '#E2603B');
+      palette.accent  = get('--gold',    '#FFC83D');
+      palette.line    = get('--gw-line', '#39414f');
+      palette.lineHot = get('--gw-hot',  '#5a6473');
+      halos.clear();   // sprites carry a colour and a size; both may have moved
+    }
+    const resultAt = new Map();   // slot -> when it was last judged (the shake's clock)
+    let resultAt0 = 0;            // the unscoped judgement's clock
+    let wordAt = 0;               // when a word last completed right (the burst's clock)
+    let partyFrom = null;         // the slots that word occupied, or null for all right slots
+    let wasRight = false;         // unscoped: so a repeated setResult('right') is one burst, not many
+    const rightKeys = new Set();  // scoped: which idx-groups are currently right
+    const halos = new Map();      // `${colour}|${w}|${h}` -> pre-rendered halo sprite
+    let particles = null;         // the live burst, or null
+    let lastDraw = 0;
+    function clearResult(){ result = null; resultMap.clear(); resultAt.clear(); resultAt0 = 0; wasRight = false; rightKeys.clear(); }
     function setResult(res, idx){
-      if(idx){ for(const i of idx){ if(res == null) resultMap.delete(i); else resultMap.set(i, res); } }
-      else { result = res; resultMap.clear(); }
+      const t = now();
+      if(idx){
+        for(const i of idx){ if(res == null) resultMap.delete(i); else resultMap.set(i, res); resultAt.set(i, t); }
+        const key = idx.join(',');
+        if(res === 'right' && !rightKeys.has(key)){ wordAt = t; partyFrom = idx.slice(); particles = null; }
+        if(res === 'right') rightKeys.add(key); else rightKeys.delete(key);
+      } else {
+        result = res; resultMap.clear(); resultAt0 = t;
+        if(res === 'right' && !wasRight && filled()){ wordAt = t; partyFrom = null; particles = null; }
+        wasRight = res === 'right';
+      }
+    }
+    /* The halo behind a right tile: one offscreen sprite per colour and size, a
+       soft elliptical gradient from the theme colour to nothing, blitted with
+       the glow dial as its alpha. Never ctx.shadowBlur — a blurred shadow per
+       tile per frame is what makes a phone stutter. */
+    function haloFor(col, w, h){
+      const key = col + '|' + Math.round(w) + '|' + Math.round(h);
+      let sp = halos.get(key);
+      if(sp) return sp;
+      const W = Math.ceil(w * 2.2), H = Math.ceil(h * 2.2);
+      sp = document.createElement('canvas'); sp.width = W; sp.height = H;
+      const g = sp.getContext('2d');
+      g.translate(W/2, H/2); g.scale(W/2, H/2);
+      const grad = g.createRadialGradient(0, 0, 0.30, 0, 0, 1);
+      grad.addColorStop(0,    withAlpha(col, 0.55));
+      grad.addColorStop(0.55, withAlpha(col, 0.18));
+      grad.addColorStop(1,    withAlpha(col, 0));
+      g.fillStyle = grad; g.fillRect(-1, -1, 2, 2);
+      halos.set(key, sp);
+      return sp;
+    }
+    function spawnBurst(){
+      const from = partyFrom
+        ? partyFrom.map(i => slots[i]).filter(Boolean)
+        : slots.filter((s, i) => s.piece && (resultMap.get(i) || result) === 'right');
+      if(!from.length){ particles = []; return; }
+      const n = Math.round(24 * feel.party);
+      particles = [];
+      for(let k = 0; k < n; k++){
+        const s = from[k % from.length];
+        const a = -Math.PI/2 + (Math.random() - 0.5) * 1.6, sp = 2.2 + Math.random() * 2.6;
+        particles.push({ x: s.x + (Math.random() - 0.5) * s.w * 0.6, y: s.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+                         r: 2 + Math.random() * 2.5, col: Math.random() < 0.5 ? palette.accent : palette.good });
+      }
     }
     tile = feel.size;            // until the first fit, a tile is its requested size
     // Drag stiffness from the swing dial. Firm enough to track the finger without
@@ -247,6 +344,7 @@
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       cssW = Math.max(1, Math.round(w));
       cssH = Math.max(1, Math.round(h));
+      readPalette();
       canvas.width = Math.round(cssW * dpr);
       canvas.height = Math.round(cssH * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -712,7 +810,7 @@
         const s = slots[b.slot];
         Body.setPosition(b.body, { x: dk.fromX + (s.x - dk.fromX)*e, y: dk.fromY + (s.y - dk.fromY)*e });
         Body.setAngle(b.body, dk.fromA + (dk.toA - dk.fromA)*e);
-        if(raw >= 1){ b.dock = null; Body.setAngle(b.body, 0); report(); }   // arrangement changed once it is home
+        if(raw >= 1){ b.dock = null; b.landed = t; Body.setAngle(b.body, 0); report(); }   // arrangement changed once it is home; `landed` is the pop's clock
       }
     }
 
@@ -1023,12 +1121,16 @@
       }
     }
     function draw(){
+      const t = now();
+      const dt = lastDraw ? Math.min(50, t - lastDraw) : 16; lastDraw = t;
       ctx.clearRect(0, 0, cssW, cssH);
       /* The canvas paints its own play surface (design-once look). `surface:null`
          leaves it transparent — the board's clue card showing through. */
       if(feel.surface){ ctx.fillStyle = feel.surface; ctx.fillRect(0, 0, cssW, cssH); }
+      const resOf = i => resultMap.get(i) || result;
+      const judgedAt = i => resultMap.has(i) ? (resultAt.get(i) || 0) : resultAt0;
       slots.forEach((s, i) => {       // answer slots, behind the pieces; filled slots glow by result
-        const res = resultMap.get(i) || result;
+        const res = resOf(i);
         const r = Math.round(Math.min(s.w, s.h)*0.16);
         ctx.save();
         /* empty slots: a thin SOLID tile-shaped outline — the dashed marching
@@ -1037,25 +1139,41 @@
            right/wrong glow stays visible from arm's length. */
         ctx.lineWidth = (s.piece ? 2.5 : 1.25) * feel.gridLine;
         ctx.strokeStyle = s.piece
-          ? (res === 'right' ? '#6FB04A' : res === 'wrong' ? '#E2603B' : '#5a6473')
-          : '#39414f';
+          ? (res === 'right' ? palette.good : res === 'wrong' ? palette.bad : palette.lineHot)
+          : palette.line;
         roundRect(ctx, s.x - s.w/2, s.y - s.h/2, s.w, s.h, r);
         ctx.stroke();
         ctx.restore();
       });
+      /* The correct glow: a pre-rendered halo behind every right tile, breathing
+         slowly (about one breath a second) so a finished word reads as alive
+         rather than merely outlined. Drawn behind the pieces so the letters stay
+         crisp on top of it. */
+      if(feel.glow > 0){
+        const pulse = 0.6 + 0.4 * Math.sin(t / 160);
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, feel.glow * pulse);
+        slots.forEach((s, i) => {
+          if(!s.piece || resOf(i) !== 'right') return;
+          const sp = haloFor(palette.good, s.w, s.h);
+          ctx.drawImage(sp, s.x - sp.width/2, s.y - sp.height/2);
+        });
+        ctx.restore();
+      }
       /* the tray lips, drawn faintly — a tile bouncing off an invisible wall
          at the bottom corner would read as a glitch; a visible rim reads as
          the tray it is */
       const lipH = lipHeight();
       if(lipH > 0 && (open.l || open.r)){
         ctx.save();
-        ctx.strokeStyle = '#39414f'; ctx.lineWidth = 3;
+        ctx.strokeStyle = palette.line; ctx.lineWidth = 3;
         ctx.beginPath();
         if(open.l){ ctx.moveTo(1.5, cssH); ctx.lineTo(1.5, cssH - lipH); }
         if(open.r){ ctx.moveTo(cssW - 1.5, cssH); ctx.lineTo(cssW - 1.5, cssH - lipH); }
         ctx.stroke();
         ctx.restore();
       }
+      const breath = (wordAt && t - wordAt < 500) ? 1 + 0.04 * Math.sin(Math.PI * (t - wordAt) / 500) : 1;
       for(const b of pieces){
         const p = b.body.position, docking = !!b.dock, inSlot = b.slot != null;
         const th = tileH || tile;
@@ -1065,9 +1183,26 @@
         else if(inSlot){ const sl = slots[b.slot]; w = sl.w; h = sl.h; ang = 0; }
         else { w = tile; h = th; ang = b.body.angle; }
         const r = Math.round(Math.min(w, h)*0.16);
+        /* The paint-only effects. `sc` scales the tile about its centre, `dx`
+           slides it; neither touches the body, so what the physics knows is
+           exactly what it knew. */
+        let sc = 1, dx = 0;
+        if(inSlot){
+          const res = resOf(b.slot);
+          if(feel.pop > 0 && b.landed){                      // the landing pop: a swell that settles
+            const u = (t - b.landed) / 320;
+            if(u < 1) sc *= 1 + feel.pop * Math.sin(Math.PI * u) * (1 - u);
+          }
+          if(res === 'right') sc *= breath;                   // the whole word breathes once when it completes
+          if(res === 'wrong' && feel.shake > 0){              // the wrong shake: a shudder that dies out
+            const ms = t - judgedAt(b.slot);
+            if(ms >= 0 && ms < 360) dx = feel.shake * Math.sin(ms / 18) * Math.exp(-ms / 120);
+          }
+        }
         ctx.save();
-        ctx.translate(p.x, p.y);
+        ctx.translate(p.x + dx, p.y);
         ctx.rotate(ang);
+        if(sc !== 1) ctx.scale(sc, sc);
         ctx.fillStyle = b.hue;
         roundRect(ctx, -w/2, -h/2, w, h, r);
         ctx.fill();
@@ -1076,7 +1211,7 @@
           roundRect(ctx, -w/2 + 3, -h/2 + 3, w - 6, h - 6, Math.max(1, r - 2));
           ctx.stroke();
         }
-        ctx.fillStyle = '#101318';
+        ctx.fillStyle = palette.ink;
         /* Text fits the tile: a single letter draws at the tuned 0.56 ratio;
            a longer label (a bar tile's whole word) is measured and the font
            shrunk until it fits the width, with a floor so it stays a word
@@ -1095,6 +1230,25 @@
         ctx.fillText(b.ch, 0, Math.round(h*0.03));
         ctx.restore();
       }
+      /* The word burst: a handful of dots from the finished word's slots, gold
+         and green, under a little paint-space gravity, gone inside a second.
+         Spawned on the first frame after the word completed, dropped when they
+         expire, so a table with no burst pays nothing per frame. */
+      if(wordAt && feel.party > 0){
+        const age = t - wordAt;
+        if(age < 800){
+          if(!particles) spawnBurst();
+          const k = dt / 16.7, fade = 1 - age / 800;
+          ctx.save();
+          for(const q of particles){
+            q.x += q.vx * k; q.y += q.vy * k; q.vy += 0.12 * k;
+            ctx.globalAlpha = fade;
+            ctx.fillStyle = q.col;
+            ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2); ctx.fill();
+          }
+          ctx.restore();
+        } else if(particles){ particles = null; }
+      } else if(particles){ particles = null; }   // the dial went to 0 mid-burst: drop it
     }
 
     function setFeel(next){
@@ -1127,7 +1281,7 @@
     }
 
     return {
-      reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; pendingDeal = null; given.clear(); clearResult(); },
+      reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; pendingDeal = null; given.clear(); clearResult(); wordAt = 0; particles = null; },
       setPieces, addPiece, slots: makeSlots, place, give, openSides,
       read, cells, filled, setResult,
       /* the loose pieces (not slotted), letter + colour + height + velocity +
@@ -1150,6 +1304,10 @@
          whatever strands one in the wild — the re-seat sweep must undo it */
       _nudgeDocked: i => { const s = slots[i]; if(s && s.piece) Body.setPosition(s.piece.body, { x: s.x + 6, y: s.y + 5 }); },
       tileSize: () => tile,
+      /* the looks, for a driven test: the palette in use, the live burst's size,
+         how many halo sprites are cached, and when the last word completed */
+      fx: () => ({ palette: Object.assign({}, palette), particles: particles ? particles.length : 0,
+                   halos: halos.size, wordAt, landed: pieces.filter(p => p.landed).length }),
       /* a loose tile's mass — the suite pins that it is the same on every
          screen size, because the drag spring is tuned against it */
       tileMass: () => { const p = pieces.find(q => !q.body.isStatic); return p ? p.body.mass : 0; },
