@@ -237,6 +237,13 @@
       // two measures are identical.
       const w = canvas.offsetWidth || canvas.getBoundingClientRect().width;
       const h = canvas.offsetHeight || canvas.getBoundingClientRect().height;
+      /* No layout box (the card hidden, detached, mid-swap) means nothing to size
+         to — NOT a 1px world. Sized to 1px, the walls closed in and the resize's
+         own keep-inside clamp pinned every tile to the top-left corner; the next
+         real measure then let the whole hand fall from there, which reads as the
+         deal happening again. Leave the world as it was; ensureSized() and the next
+         real resize take over when there is a box to measure. */
+      if(!w || !h) return;
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       cssW = Math.max(1, Math.round(w));
       cssH = Math.max(1, Math.round(h));

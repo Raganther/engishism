@@ -1051,6 +1051,20 @@
        on every beat, and rebuilding would restart the physics. (A round that clears
        its whole mount at the top of render, as ordering does, detaches the canvas
        and so always rebuilds — same as before this was shared.) */
+    /* **A detached canvas is re-hung, never rebuilt.** The physics world lives in
+       the table object, not in the DOM: when something else empties the card's
+       text (a prompt redraw, a face swap, a host repaint) the canvas comes off
+       the page but every tile is still exactly where it was. Rebuilding here dealt
+       the whole hand again — tiles warping back to the top and falling, mid-word,
+       every time the card was touched. So the same canvas goes back into the frame
+       and its draw loop is restarted; a fresh table is built only when there is
+       none. */
+    if(s._table && s._canvas && !s._canvas.isConnected && !mount.contains(s._canvas)){
+      if(o.frame) o.frame(s._canvas); else mount.appendChild(s._canvas);
+      const canvas = s._canvas, table = s._table;
+      (function loop(){ if(!canvas.isConnected) return; table.step(); table.draw(); requestAnimationFrame(loop); })();
+      requestAnimationFrame(() => { if(canvas.isConnected) table.resize(); });
+    }
     if(s._table && s._canvas && s._canvas.isConnected){
       s._table.resize();
       /* The say line is the one thing on this face that changes between redraws

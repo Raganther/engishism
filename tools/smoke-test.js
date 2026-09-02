@@ -8747,16 +8747,27 @@ async function testBattleScrabble(browser){
   const looseBefore = await solo.evaluate(() => window.__bs.world.loose().length);
   await solo.evaluate(() => document.getElementById('btn-tune').click());
   await solo.waitForTimeout(700);
+  /* On a phone the open drawer takes the whole stage — 0px — and a 0px world
+     has no inside. The shelf now holds the world still while the canvas has no
+     box (sizing to 1px teleported every tile to the top-left corner, which read
+     as a re-deal on the hub's card); so the rule while open is "no tile lost",
+     and "every tile inside" is asserted only against a stage that has a height,
+     and again once the drawer closes and the stage is back. */
   const drawerOpen = await solo.evaluate(() => {
     const h = document.getElementById('stage').offsetHeight;
     return { n: window.__bs.world.loose().length,
-             inside: window.__bs.world.loose().every(p => p.y <= h + 1) };
+             inside: h === 0 || window.__bs.world.loose().every(p => p.y <= h + 1) };
   });
   await solo.evaluate(() => document.getElementById('btn-tune').click());
   await solo.waitForTimeout(400);
+  const drawerShut = await solo.evaluate(() => {
+    const h = document.getElementById('stage').offsetHeight;
+    return { n: window.__bs.world.loose().length, h,
+             inside: h > 0 && window.__bs.world.loose().every(p => p.y <= h + 1) };
+  });
   check('opening the Tune drawer never eats a loose tile',
         drawerOpen.n === looseBefore && drawerOpen.inside &&
-        await solo.evaluate(() => window.__bs.world.loose().length) === looseBefore,
+        drawerShut.n === looseBefore && drawerShut.inside,
         JSON.stringify({ before: looseBefore, open: drawerOpen }));
 
   /* A loose tile may never REST inside the grid: settled flat on a docked
