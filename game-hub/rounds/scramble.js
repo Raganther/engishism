@@ -220,8 +220,11 @@
            face — canvas, reuse guard, pointer wiring, loop, the closing say() — is
            K.round.cardTable now; this round hands it its own two facts (the wide
            word-tile shape, and how a settled row is judged). */
-        K.round.cardTable(mount, s, {
+        const table = K.round.cardTable(mount, s, {
           handle: '__scrFlick',     // place() fires no onArrange — a probe places then reads state
+          /* Room for the wrapped slot rows AND a heap of word tiles under them — a
+             ten-word sentence is four rows of each. cardTable caps it to the screen. */
+          height: Math.min(520, 220 + s.need * 30),
           frame(canvas){
             mount.innerHTML = '';
             mount.className = 'round-scramble';
@@ -232,7 +235,10 @@
                width, so a hand of wide word tiles spreads across the room they need
                rather than the room square letters need (the reverse order once
                dropped a hand of words already overlapping). */
-            table.slots({ cols: s.need, rows: 1, bar: true, labels: s.pool.map(t => t.w) });
+            /* `cols:'auto'` — the shelf wraps the sentence to as many word-wide slots
+               as fit a row, the rest below, row-major so slot i is still word i.
+               One row of nine was nine 62px boxes with the words shrunk to fit. */
+            table.slots({ cols: 'auto', bar: true, labels: s.pool.map(t => t.w) });
             table.setPieces(s.pool.map(t => t.w));
           },
           table: {
@@ -256,6 +262,10 @@
             }
           }
         });
+        /* The hint's move on this face: the given word flies into its slot and is
+           pinned there (the shelf remembers it across a deal that has not landed
+           yet). Same `s.hint` list the drag face marks its boxes from. */
+        (s.hint || []).forEach(i => table.give(i, s.words[i]));
         return;
       }
 
@@ -477,7 +487,7 @@
           mode:    'table',
           prompt:  c.prompt === false ? 'Put the words in order' : (s.text || 'Put the words in order'),
           options: s.pool.map(t => t.w),
-          cols: s.need, rows: 1, bar: true, upright: true,
+          cols: 'auto', bar: true, upright: true,   // 'auto': each handset wraps the row to its own width
           bare:    true,   // the minimal full-bleed phone — the sentence is on the board
           multi:   s.need,
           holds:   true,
@@ -529,9 +539,8 @@
        is read off the projector and still has to be placed. **Never the last word** —
        one slot left is one chip left, so the sentence finishes itself. */
     hintsLeft(s){
-      /* No card hint in flick: the words are physical tiles on a canvas, not a row
-         of boxes to write a hint into, so the Hint button stays away. */
-      if(s.input === 'flick') return 0;
+      /* Flick has the hint too: the word's tile flies into its slot and is pinned
+         (`table.give`), the physics answer to a box being written into. */
       return Math.max(0, s.need - 1 - (s.hint || []).length);
     },
 
@@ -540,7 +549,11 @@
       const open = [];
       for(let i = 0; i < s.need; i++) if((s.hint || []).indexOf(i) === -1) open.push(i);
       if(!open.length) return false;
-      const at = K.round.shuffle(open)[0];
+      /* On the board table a hint about a slot already holding its right word would
+         fly nothing anywhere — prefer a slot still empty or wrong, when there is one. */
+      const cells = s.cardCells || [];
+      const unmet = open.filter(i => String(cells[i] || '').toLowerCase() !== String(s.words[i]).toLowerCase());
+      const at = K.round.shuffle(unmet.length ? unmet : open)[0];
       s.hint = (s.hint || []).concat([at]);
       s.say  = 'Hint: word ' + (at + 1) + ' is "' + s.words[at] + '".'; s.sayTeam = null;
       /* `'card'` — the projector changed and the handsets did not, so the host must

@@ -99,7 +99,7 @@ Four facts about a classroom that outrank anything above when they conflict.
 | `game-hub/hub.css` | all shared styling, DCU theme and game-show skin. The one place to restyle |
 | `game-hub/hub-rounds.css` | the round card's own styling. **Not `hub.css`** — a playground page cannot load that without taking the whole hub theme |
 | `game-hub/hub-qr.js` | vendored QR encoder (qrcode-generator, MIT), unmodified. Vendored because the app must run offline with no build step |
-| `game-hub/hub-table.js` | **`Kit.table`** — the physics table shelf: throwable lettered pieces, slots as a row **or a grid** (`slots(n | {cols,rows,top})`), `addPiece` (a tile arriving mid-flight), `openSides`+`onExit` (open edges a flying tile leaves through — how a tile travels between players' screens), the knock rule, a dock-speed threshold (slow release places, a flick flies), and a **wall-clock `step()`** (same game speed at 60 or 120Hz). **Every touch-feel number lives in `Kit.table.dials`** — the one home for the defaults — and `Kit.table.dialsPanel` builds the playground Tune panels from it, so no page repeats a default and a new dial appears everywhere by being declared; **Throw Lab is the bench** where the dials get tuned on a real device. Four callers: `throw-lab.html`, the round physics modes (the `anagram` round's `flick`, the `ordering` round's `stack`), `join.html`'s table mode, Battle Scrabble |
+| `game-hub/hub-table.js` | **`Kit.table`** — the physics table shelf: throwable lettered pieces, slots as a row **or a grid** (`slots(n | {cols,rows,top})`), **or a grid that wraps to fit** (`{cols:'auto', bar:true, labels}` — as many word-wide slots across as seat, row-major; the relay and `join.html` carry `'auto'` as the word), `give(i, label)` (the hint's move — the tile flies into its slot and is **pinned**: grab refuses it, a knock passes it by, and a give asked for before the deal is honoured when the tiles exist), a **deal that waits for a size** (the hub renders a round while the card is still `display:none`, so a deal into that 0px world spread nothing; the hand is held until the first real measure, and wide tiles are dealt in column-aligned rows so the heap stacks rather than fans), `addPiece` (a tile arriving mid-flight), `openSides`+`onExit` (open edges a flying tile leaves through — how a tile travels between players' screens), the knock rule, a dock-speed threshold (slow release places, a flick flies), and a **wall-clock `step()`** (same game speed at 60 or 120Hz). **Every touch-feel number lives in `Kit.table.dials`** — the one home for the defaults — and `Kit.table.dialsPanel` builds the playground Tune panels from it, so no page repeats a default and a new dial appears everywhere by being declared; **Throw Lab is the bench** where the dials get tuned on a real device. Four callers: `throw-lab.html`, the round physics modes (the `anagram` round's `flick`, the `ordering` round's `stack`), `join.html`'s table mode, Battle Scrabble |
 | `game-hub/matter.min.js` | vendored Matter.js (2D physics, MIT), unmodified. The engine behind `hub-table.js`; vendored beside `hub-qr.js` for offline / no build step |
 | `game-hub/content/*.js` | data-only banks, one file per unit; each does `window.UNITS.push({…})` |
 | `join.html` | the students' page |
@@ -676,7 +676,7 @@ unverifiable.**
 ## Open
 What is true and unfinished. Not a changelog — an item leaves when it closes.
 
-**Build `20260827o`.** Three coursebooks, ~760 authored items, six games, eight rounds.
+**Build `20260902a`.** Three coursebooks, ~760 authored items, six games, eight rounds.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only.
 
@@ -737,7 +737,7 @@ in the Throw Lab picker, available to try, but nothing forces one:
   (>0.72 rad from **upright**, not nearest-flat), rights it — off its edge (~90°) and off
   its head (~180°, which reads upside down). Measured tidy across widths; the plumbing to
   carry it to a phone (arm `upright`, relay forward beside `bar`, join.html read) is in
-  place and dormant. **No round arms it now** — the stack round dropped its override so it
+  place and dormant. **Only `scramble` arms it** (its word tiles, both faces) — the stack round dropped its override so it
   inherits the free default like every other caller.
 `lockRot` wins if both are set. **Throw Lab is the bench:** a **Tiles** picker (Letters ·
 Words) and a **Rotation** picker (Rotate · Upright · Locked) watch either shape under any
@@ -810,7 +810,6 @@ it, likeliest wrong first: whether standings after *every* question drags
 Reveal-then-Close press costs too much (`roundOpenToAll` off restores the race).
 
 **Known broken:**
-- The ordering climb card is 726px on a 720 board with the action strip on.
 - **The clue card covers the phone strip** — on Jeopardy and Blockbusters the cooling
   countdown sits behind the card for exactly the seconds it describes. The precedent is
   `#buzzer-chip` at z-index 51 over the card's 50, which would draw across the card's own

@@ -1046,12 +1046,25 @@
        on every beat, and rebuilding would restart the physics. (A round that clears
        its whole mount at the top of render, as ordering does, detaches the canvas
        and so always rebuilds — same as before this was shared.) */
-    if(s._table && s._canvas && s._canvas.isConnected){ s._table.resize(); return s._table; }
+    if(s._table && s._canvas && s._canvas.isConnected){
+      s._table.resize();
+      /* The say line is the one thing on this face that changes between redraws
+         (a hint, a verdict) — a reused table kept the stale one, so a flick hint
+         flew its tile in and said nothing. */
+      if(o.say !== false){ const old = mount.querySelector('.group-say'); if(old) old.remove(); say(mount, s); }
+      return s._table;
+    }
     const canvas = document.createElement('canvas');
     canvas.className = 'toss-canvas';
     canvas.style.display = 'block';
     canvas.style.width = '100%';
-    canvas.style.height = (o.height || 340) + 'px';
+    /* The canvas is as tall as the round asks — capped by the screen. The card
+       around it costs ~370px (title, prompt, caps, strip) plus the modal's padding,
+       so a 380px canvas on a 720-line board made a 744px card: title off the top,
+       buttons off the bottom. The floor keeps a usable table on any screen the
+       card can open on; a 1080-line board gets the full request. */
+    const room = (window.innerHeight || 720) - 420;
+    canvas.style.height = Math.max(220, Math.min(o.height || 340, room)) + 'px';
     canvas.style.touchAction = 'none';
     if(o.frame) o.frame(canvas); else mount.appendChild(canvas);
     s._canvas = canvas;

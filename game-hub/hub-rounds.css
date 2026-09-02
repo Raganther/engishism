@@ -243,7 +243,9 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
    taller than the row under it holding "on impulse", and the odd one out looked like
    a mistake. `1fr` on auto rows makes them all equal to the tallest, without
    reserving space that nothing needs when every word is short. */
-.ord-pool{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px;
+/* `--ord-cols`: the round sets three columns for a five-word pool (two rows instead
+   of three), which is what brings the climb card under a 720-line screen. */
+.ord-pool{ display:grid; grid-template-columns:repeat(var(--ord-cols, 2), minmax(0, 1fr)); gap:8px;
   grid-auto-rows:1fr; }
 
 /* ---- a ladder per team ----

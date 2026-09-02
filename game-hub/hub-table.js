@@ -192,8 +192,20 @@
     let tile;                    // effective tile WIDTH = the fitted slot size (see fitTiles)
     let tileH;                   // effective tile HEIGHT — equals tile except in a bar grid
     let walls = [];
-    let pieces = [];       // { body, ch, hue, slot, dock }
+    let pieces = [];       // { body, ch, hue, slot, dock, pinned }
     let slots = [];        // { x, y, w, h, piece }
+    /* A deal asked for before the canvas has a size — the hub's clue card renders
+       its round while the modal is still display:none, so every board-face round
+       dealt into a 0px world, the spread came out negative, and the first real
+       resize clamped the whole hand against the left wall (a column of word tiles
+       on top of the first slot). The hand waits here until sizeToCanvas() has a
+       real box to deal it into. */
+    let pendingDeal = null;
+    /* Slots given away — slot index -> label. A hint's move: the tile flies into
+       its slot and is pinned there. Kept as a map so a give asked for before the
+       deal lands (see pendingDeal), or after a re-deal, is honoured when the tiles
+       exist. */
+    const given = new Map();
     let result = null;     // tint for filled slots: null | 'right' | 'wrong'
     /* Per-slot tint overrides — setResult(res, [indices]) scopes the glow to
        one word's slots, so a grid can show a green word and a red run at once.
@@ -213,7 +225,7 @@
     // Multi-touch: one grip per pointer id.
     const grips = new Map();   // id -> { body, constraint, fingerStart, anchor }
 
-    function report(){ if(opts.onArrange) opts.onArrange(read(), filled()); }
+    function report(){ if(given.size) unmetGives(); if(opts.onArrange) opts.onArrange(read(), filled()); }
 
     /* ---- canvas + walls ---- */
     function sizeToCanvas(){
@@ -251,6 +263,8 @@
           Body.setVelocity(b, { x: 0, y: 0 });
         }
       }
+      // the hand that was dealt while the canvas had no size lands now, into the real world
+      if(pendingDeal && !unmeasured()){ const hand = pendingDeal; pendingDeal = null; setPieces(hand); }
     }
     /* Declare slots or deal a hand BEFORE the first resize() and the canvas has
        no measured size yet (cssW/cssH are 0). Slot dims computed against 0 come
@@ -262,8 +276,9 @@
        call order stops mattering, and a caller that already sized sees a no-op.
        Guarded on the canvas actually having a layout box to measure. */
     function ensureSized(){
-      if((!cssW || !cssH) && (canvas.offsetWidth || canvas.offsetHeight)) sizeToCanvas();
+      if((cssW <= 1 || cssH <= 1) && (canvas.offsetWidth || canvas.offsetHeight)) sizeToCanvas();
     }
+    const unmeasured = () => cssW <= 1 || cssH <= 1;
     /* A loose tile is the SAME size as the slot it drops into. The slots shrink to fit
        the row (slotDims caps at feel.size, then reduces for width/count), so a piece left
        at feel.size looks bigger than its box. `tile` is that fitted size; scale the bodies
@@ -388,6 +403,8 @@
       if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body));
       pieces = [];
       const chars = (labels || []).slice();
+      if(unmeasured()){ pendingDeal = chars; return; }   // no world to spread a hand across yet — see pendingDeal
+      pendingDeal = null;
       /* Build each tile at the size it will actually be — the slot it drops
          into, if the caller declared its slots first (a bar round does),
          otherwise a feel.size square (every deal-before-slots caller). This
@@ -402,12 +419,21 @@
          never a non-uniform stretch to distort. */
       const bw = slots.length ? slots[0].w : feel.size;
       const bh = slots.length ? slots[0].h : feel.size;
-      const spreadUnit = bw;
-      const spread = Math.min(cssW - spreadUnit, chars.length * (spreadUnit + 10));
-      const startX = (cssW - spread) / 2 + spreadUnit/2;
+      /* Dealt in ROWS, column-aligned: as many across as the canvas seats, the
+         rest in rows above that fall later onto the ones below. A hand of wide
+         word tiles spread evenly across a width they could not all fit came down
+         as a fan — each landing half on its neighbour, the heap leaning like a
+         dropped deck — and a fan of words cannot be read. Stacked in columns the
+         heap is a tidy pile of legible words; a hand of square letters that fits
+         one row comes out exactly as it always did. */
+      const dgap = 6;
+      const perRow = Math.max(1, Math.min(chars.length, Math.floor((cssW - 24 + dgap) / (bw + dgap))));
+      const rowW = perRow * bw + (perRow - 1) * dgap;
+      const rowX0 = (cssW - rowW) / 2 + bw/2;
       chars.forEach((ch, i) => {
-        const x = chars.length > 1 ? startX + (spread - spreadUnit) * (i/(chars.length-1)) : cssW/2;
-        const y = bh/2 + 20 + (i % 2) * 8;
+        const col = i % perRow, row = Math.floor(i / perRow);
+        const x = rowX0 + col * (bw + dgap);
+        const y = bh/2 + 20 + row * (bh + 30) + (col % 2) * 6;
         const body = Bodies.rectangle(x, y, bw, bh, {
           chamfer:{ radius: Math.max(1, Math.round(Math.min(bw, bh) * 0.16)) },
           // Upright tiles barely bounce — a 0.45 restitution wide tile cartwheels
@@ -431,6 +457,7 @@
       // just normalizes the mass (a no-slots deal is still a square to fit later).
       tile = bw; tileH = bh;
       fitTiles();
+      for(const k of given.keys()) applyGive(k);   // slots already given away take their tiles from the fresh deal
     }
 
     /* Add ONE piece without touching the rest — the arrival path for a tile
@@ -480,7 +507,7 @@
         if(!shot) continue;
         if(now() - shot.shot > SHOT_MS){ shot.shot = 0; continue; }
         const hit = shot === a ? b : a;
-        if(!hit || hit.slot == null) continue;
+        if(!hit || hit.slot == null || hit.pinned) continue;   // a given tile cannot be knocked out
         const v = shot.body.velocity;
         if(Math.hypot(v.x, v.y) < KNOCK_MIN) continue;
         freeSlotOf(hit);
@@ -513,7 +540,9 @@
        chrome top and bottom), and a fractional budget shrank the squares — and
        with them every tile — well below what the bench showed. With the fixed
        band both screens converge on the width-driven size and finally match. */
-    function gridDims(cols, rows, top, pile, bar){
+    function gridDims(g){
+      const { top, pile, bar } = g;
+      let cols = g.cols, rows = g.rows;
       const margin = 12, gap = Math.max(4, Math.round(feel.size * 0.10 * feel.gridGap));
       const yTop = top != null ? top : margin;    // room for a caller's own chrome above row 0
       /* bar: slots sized to the WORD, not the row — height fits the column
@@ -525,48 +554,79 @@
         /* A bar pile is whole words, not letter squares — several genuinely
            do not fit side by side, so the fixed 130px band tuned for a
            compact letter heap left five words with nowhere to go but on top
-           of each other. Estimate a tile's nominal size (feel.size-capped
-           height, the longest label's measured width) BEFORE the band is
-           sized, work out how many of those fit per row and so how many
-           rows the pile needs, then grow the band to hold them — capped at
-           half the card so the ladder itself keeps the rest. An explicit
-           `pile` still wins outright, exactly as before. */
-        const nomH = feel.size;
-        const rowMax0 = Math.max(60, Math.floor((cssW - margin*2 - gap*(cols-1)) / cols));
-        let nomW = Math.round(rowMax0 * 0.62);
-        const n = (bar.labels && bar.labels.length) || rows;
-        if(bar.labels && bar.labels.length){
-          ctx.font = `700 ${Math.round(nomH*0.56)}px -apple-system, "Segoe UI", Roboto, sans-serif`;
-          const widest = Math.max(...bar.labels.map(w => ctx.measureText(String(w)).width));
-          nomW = Math.max(60, Math.round(widest / 0.88) + 24);
+           of each other. Estimate a tile's nominal width (the longest label,
+           measured) BEFORE the band is sized, work out how many of those fit
+           per row and so how many rows the pile needs, then size the band to
+           hold them — capped at half the card so the ladder itself keeps the
+           rest. An explicit `pile` still wins outright, exactly as before.
+
+           **A word tile is at least a third of the row wide.** Measured alone,
+           a five-word ladder came out 121px wide on a 636px card — a rung you
+           could not read from the back — and its heap stood five deep, which
+           is what left word tiles resting on their edges. A third seats
+           exactly three across, so the heap is two rows for a scale and the
+           rung is a rung; on a handset the measured word is already wider
+           than a third and nothing changes.
+
+           **`cols:'auto'` wraps the row to fit** — as many slots across as
+           tiles of that width seat, the rest on the rows below, row-major so
+           slot i is still the i-th word. A nine-word sentence in ONE row was
+           nine 62px boxes with the words shrunk to fit them; wrapped it is
+           three rows of three at a width the word can be read at. The count
+           comes from the labels (or `count`) rather than cols×rows. */
+        const usable = cssW - margin*2;
+        const third = Math.max(60, Math.floor((usable + gap) / 3) - gap);
+        const rowMaxFor = k => Math.max(60, Math.floor((usable - gap*(k-1)) / k));
+        const labels = bar.labels && bar.labels.length ? bar.labels : null;
+        const measure = h => {
+          if(!labels) return Math.round(rowMaxFor(cols === 'auto' ? 1 : cols) * 0.62);
+          ctx.font = `700 ${Math.round(h*0.56)}px -apple-system, "Segoe UI", Roboto, sans-serif`;
+          const widest = Math.max(...labels.map(w => ctx.measureText(String(w)).width));
+          return Math.max(60, Math.round(widest / 0.88) + 24);
+        };
+        let n = g.count || (labels ? labels.length : 0) || (cols === 'auto' ? 0 : cols * rows);
+        if(!(n > 0)) n = 1;
+        /* Three facts decide each other: the tile's WIDTH (the longest word at the
+           tile's font, which follows its height), how many tiles that width seats
+           per row (the pile's rows, and the slot columns when wrapping), and the
+           tile's HEIGHT (what is left of the canvas once the slot rows and the
+           heap's rows share it). Measured at the nominal height alone, a handset
+           chose one column for a nine-word sentence because the words were wide
+           at 56px — and then drew 35px slots two of which would have fitted. So
+           the three are settled together, a few rounds until the width stops
+           moving; the heap's rows are then derived from the same height rather
+           than capped at a fraction, so the picture always adds up. */
+        const auto = cols === 'auto';
+        let sh = feel.size, perRow = 1, wAt = Math.max(measure(sh), third);
+        for(let k = 0; k < 6; k++){
+          perRow = Math.max(1, Math.min(n, Math.floor((usable + gap) / (wAt + gap))));
+          if(auto){ cols = perRow; rows = Math.ceil(n / cols); }
+          const pileRows = Math.ceil(n / perRow);
+          const next = pile != null
+            ? Math.floor((cssH - yTop - pile - gap*(rows-1)) / rows)
+            : Math.floor((cssH - yTop - margin) / (rows + pileRows)) - gap;
+          sh = Math.max(24, Math.min(feel.size, next));
+          const w2 = Math.max(measure(sh), third);
+          if(w2 === wAt) break;
+          wAt = w2;
         }
-        const perRow = Math.max(1, Math.floor((cssW - margin*2) / (nomW + gap)));
-        const pileRows = Math.ceil(n / perRow);
-        const pileH = pile != null ? pile
-          : Math.min(Math.round(cssH * 0.5), pileRows * (nomH + gap) + margin);
-        const sh = Math.max(24, Math.min(feel.size,
-          Math.floor((cssH - yTop - pileH - gap*(rows-1)) / rows)));
+        const rowMax = rowMaxFor(cols);
         /* rowMax can be 0 or negative on the very first frame (canvas not yet
            laid out, cssW still 0) — floored at 60 before it clamps anything,
            or a genuinely-narrow reading fed straight into Math.min went
            negative and drew a piece with a negative roundRect radius. */
-        const rowMax = Math.max(60, Math.floor((cssW - margin*2 - gap*(cols-1)) / cols));
-        let sw = Math.round(rowMax * 0.62);   // default: no labels known yet
-        if(bar.labels && bar.labels.length){
-          ctx.font = `700 ${Math.round(sh*0.56)}px -apple-system, "Segoe UI", Roboto, sans-serif`;
-          const widest = Math.max(...bar.labels.map(w => ctx.measureText(String(w)).width));
-          sw = Math.max(60, Math.min(rowMax, Math.round(widest / 0.88) + 24));
-        }
+        const sw = Math.max(60, Math.min(rowMax, wAt));
         const x0 = (cssW - (cols*sw + (cols-1)*gap)) / 2;
-        return { gap, sw, sh, x0, y0: yTop + sh/2 };
+        return { gap, sw, sh, x0, y0: yTop + sh/2, cols, rows, count: n };
       }
+      if(cols === 'auto'){ cols = Math.max(1, Math.round(Math.sqrt(g.count || 1))); rows = Math.ceil((g.count || 1) / cols); }
       const pileH = pile != null ? pile : 130;    // the loose-tile band below the grid (a settled heap is 1-2 tiles deep)
       const sw = Math.max(20, Math.min(feel.size,
         Math.floor((cssW - margin*2 - gap*(cols-1)) / cols),
         Math.floor((cssH - yTop - pileH - gap*(rows-1)) / rows)));
       const x0 = (cssW - (cols*sw + (cols-1)*gap)) / 2;
       const y0 = yTop + sw/2;
-      return { gap, sw, sh: sw, x0, y0 };
+      return { gap, sw, sh: sw, x0, y0, cols, rows, count: g.count || cols * rows };
     }
     let grid = null;               // {cols, rows} when the slots are a grid
     function makeSlots(spec){
@@ -575,11 +635,13 @@
       if(!spec){ fitTiles(); return; }
       if(typeof spec === 'object'){
         grid = { cols: spec.cols, rows: spec.rows, top: spec.top, pile: spec.pile,
+                 count: spec.count || (spec.cols === 'auto' && spec.labels ? spec.labels.length : null),
                  bar: spec.bar ? { labels: spec.labels || null } : null };
-        const { gap, sw, sh, x0, y0 } = gridDims(grid.cols, grid.rows, grid.top, grid.pile, grid.bar);
-        for(let r = 0; r < grid.rows; r++)
-          for(let c = 0; c < grid.cols; c++)
-            slots.push({ x: x0 + c*(sw+gap) + sw/2, y: y0 + r*(sh+gap), w: sw, h: sh, piece: null });
+        const d = gridDims(grid);
+        for(let i = 0; i < d.count; i++){
+          const r = Math.floor(i / d.cols), c = i % d.cols;
+          slots.push({ x: d.x0 + c*(d.sw+d.gap) + d.sw/2, y: d.y0 + r*(d.sh+d.gap), w: d.sw, h: d.sh, piece: null });
+        }
       } else {
         const n = spec;
         const { gap, sw, x0, y } = slotDims(n);
@@ -591,9 +653,9 @@
     function layoutSlots(){          // recompute geometry on resize, keeping placed pieces
       const n = slots.length; if(!n) return;
       if(grid){
-        const { gap, sw, sh, x0, y0 } = gridDims(grid.cols, grid.rows, grid.top, grid.pile, grid.bar);
+        const { gap, sw, sh, x0, y0, cols } = gridDims(grid);
         slots.forEach((s, i) => {
-          const r = Math.floor(i / grid.cols), c = i % grid.cols;
+          const r = Math.floor(i / cols), c = i % cols;
           s.x = x0 + c*(sw+gap) + sw/2; s.y = y0 + r*(sh+gap); s.w = sw; s.h = sh;
           if(s.piece) Body.setPosition(s.piece.body, { x: s.x, y: s.y });
         });
@@ -677,6 +739,48 @@
       return true;
     }
 
+    /* ---- a given tile: the hint's move ----
+       Fly the free tile carrying `label` into slot i on the same suck-and-spin glide
+       a finger's release uses, and PIN it: a given tile is a fact on the board, not
+       a move to undo, so grab refuses it and a knock passes it by. A wrong occupant
+       is popped out first; the right tile already home is simply pinned; the right
+       tile sitting in another slot is pulled from there. Remembered per slot, so a
+       give asked for before the deal has landed (the card was still hidden — see
+       pendingDeal) or across a re-deal is honoured once the tiles exist, and the
+       arrangement report re-tries any give a held tile was blocking. */
+    function give(i, label){
+      if(i < 0 || i >= slots.length) return false;
+      given.set(i, String(label));
+      return applyGive(i);
+    }
+    function applyGive(i){
+      const label = given.get(i), s = slots[i];
+      if(label == null || !s) return false;
+      if(s.piece && s.piece.ch === label){ s.piece.pinned = true; return true; }
+      const held = heldBodies();
+      let p = pieces.find(pp => pp.slot == null && !pp.dock && !held.has(pp.body) && pp.ch === label);
+      if(!p) p = pieces.find(pp => pp.ch === label && !pp.pinned && !held.has(pp.body));   // docked in the wrong slot
+      if(!p) return false;
+      if(s.piece && s.piece !== p) pop(s.piece);
+      if(p.slot != null){ freeSlotOf(p); }
+      p.dock = null; p.shot = 0; p.pinned = true;
+      startDock(p, i);
+      return true;
+    }
+    // a wrong occupant leaves its slot with a small hop, so the eviction reads as a move
+    function pop(p){
+      freeSlotOf(p); p.dock = null;
+      Body.setStatic(p.body, false);
+      Body.setVelocity(p.body, { x: (Math.random() - 0.5) * 4, y: -6 });
+      Body.setAngularVelocity(p.body, (Math.random() - 0.5) * 0.2);
+    }
+    function unmetGives(){
+      for(const i of given.keys()){
+        const s = slots[i];
+        if(s && !(s.piece && s.piece.ch === given.get(i))) applyGive(i);
+      }
+    }
+
     /* ---- input surface (one grip per pointer id) ---- */
     function heldBodies(){ const set = new Set(); for(const g of grips.values()) set.add(g.body); return set; }
     function grab(id, x, y){
@@ -684,7 +788,9 @@
       // nearest-centre fallback (a fat fingertip lands slightly off a small tile).
       // A piece another finger holds is off-limits, or two fingers fight over it.
       const taken = heldBodies();
-      const free = pieces.filter(p => !taken.has(p.body)).map(p => p.body);
+      // a pinned (given) tile is a fact on the board, not a move to undo — neither a
+      // hit nor the forgiving nearest-centre fallback may pick it up
+      const free = pieces.filter(p => !taken.has(p.body) && !p.pinned).map(p => p.body);
       const hit = Query.point(free, { x, y });
       const body = hit.length ? hit[hit.length - 1] : nearest(x, y, taken);
       if(!body) return false;
@@ -726,6 +832,7 @@
       let best = null, bestD = Infinity;
       for(const p of pieces){
         if(exclude && exclude.has(p.body)) continue;
+        if(p.pinned) continue;
         const dx = p.body.position.x - x, dy = p.body.position.y - y, d = dx*dx + dy*dy;
         if(d < bestD){ bestD = d; best = p.body; }
       }
@@ -957,6 +1064,11 @@
         ctx.fillStyle = b.hue;
         roundRect(ctx, -w/2, -h/2, w, h, r);
         ctx.fill();
+        if(b.pinned){   // the given mark: a thin inner ring, the tile's own colour showing through
+          ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;
+          roundRect(ctx, -w/2 + 3, -h/2 + 3, w - 6, h - 6, Math.max(1, r - 2));
+          ctx.stroke();
+        }
         ctx.fillStyle = '#101318';
         /* Text fits the tile: a single letter draws at the tuned 0.56 ratio;
            a longer label (a bar tile's whole word) is measured and the font
@@ -1008,8 +1120,8 @@
     }
 
     return {
-      reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; clearResult(); },
-      setPieces, addPiece, slots: makeSlots, place, openSides,
+      reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; pendingDeal = null; given.clear(); clearResult(); },
+      setPieces, addPiece, slots: makeSlots, place, give, openSides,
       read, cells, filled, setResult,
       /* the loose pieces (not slotted), letter + colour + height + velocity +
          angle — a driven test's only window onto what is lying on the table,

@@ -151,6 +151,21 @@
        want to see how far up each side has got without reading a scoreboard. */
     render(mount, s, ctx){
       const c = ctx || {};
+      /* The stack's rungs given away by hints: scale index k (cold end first) is
+         slot need-1-k (slot 0 is the top). The shelf flies the word in and pins it. */
+      const giveRungs = table => { for(let k = 0; k < (s.hint || 0); k++) table.give(s.need - 1 - k, s.scale[k]); };
+      /* **A live board table survives a redraw.** This render clears the mount, and
+         the stack face's canvas went with it — so a hint (which redraws the card)
+         re-dealt the whole table and threw away every word the teacher had placed.
+         While the physics is in play, a redraw refreshes only what can change: the
+         say line and the given rungs. */
+      if(s.mode === 'stack' && !(s.revealed || s.done) && !(c.roster && c.roster.length)
+         && s._table && s._canvas && s._canvas.isConnected && mount.contains(s._canvas)){
+        const old = mount.querySelector('.group-say'); if(old) old.remove();
+        giveRungs(s._table);
+        K.round.say(mount, s);
+        return;
+      }
       mount.innerHTML = '';
       mount.className = 'round-ordering' + (s.mode === 'race' ? ' racing' : '');
 
@@ -342,9 +357,10 @@
            enough for the ladder, the two scale caps sandwiching it, the 1-column
            bar shape, and judging only when the whole ladder is full.
            (render() clears the mount at the top, so this frame appends only.) */
-        K.round.cardTable(mount, s, {
+        const table = K.round.cardTable(mount, s, {
           handle: '__ordStack',     // world.place fires no onArrange — a probe places then reads state
-          height: Math.min(430, 170 + s.need * 42),
+          // as tall as a readable ladder wants; cardTable caps it to the screen
+          height: Math.min(520, 170 + s.need * 60),
           frame(canvas){
             mount.appendChild(cap(s.high, 'hot'));
             mount.appendChild(canvas);
@@ -380,6 +396,7 @@
             }
           }
         });
+        giveRungs(table);
         return;
       }
 
@@ -492,6 +509,9 @@
       if(!s.done && left.length){
         const pool = document.createElement('div');
         pool.className = 'ord-pool';
+        /* Three columns for a pool of five or more: two rows instead of three, which
+           is the height that brought the climb card under a 720-line screen. */
+        if(left.length >= 5) pool.style.setProperty('--ord-cols', '3');
         left.forEach(w=>{
           const b = document.createElement('button');
           b.type = 'button'; b.className = 'gword'; b.dataset.word = w;

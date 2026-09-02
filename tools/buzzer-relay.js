@@ -425,7 +425,10 @@ function handleSend(req, res){
            unread, exactly like `mode`: the relay never draws a slot. Absent
            (no `msg.cols`) means the plain row every table round before the
            ladder got. */
-        room.cols = msg.cols ? Math.max(1, Math.min(20, Number(msg.cols) || 1)) : null;
+        /* `'auto'` is a shape too — wrap the row to whatever fits the handset's width
+           (the drag-the-words flick face) — carried as the word rather than coerced
+           to a count, which is what a Number() here silently did. */
+        room.cols = msg.cols === 'auto' ? 'auto' : msg.cols ? Math.max(1, Math.min(20, Number(msg.cols) || 1)) : null;
         room.rows = msg.rows ? Math.max(1, Math.min(20, Number(msg.rows) || 1)) : null;
         room.bar  = !!msg.bar;
         /* Upright: the tile-settling behaviour a bar arm carries (wide word tiles

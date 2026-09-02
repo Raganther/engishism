@@ -421,14 +421,14 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260901a"></script>
+<script src="game-hub/hub-buzzer.js?v=20260902a"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260901a"></script>
+<script src="game-hub/matter.min.js?v=20260902a"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260901a"></script>
+<script src="game-hub/hub-table.js?v=20260902a"></script>
 <script>
 (function(){
   'use strict';
@@ -1501,8 +1501,8 @@
          `bare`, so the condition is not `cols` alone; `cols` null means the row. */
       setMode(d && d.mode, d && d.options, myRound(d),
               d && (d.cols || d.bare || d.tap)
-                ? { cols: d.cols ? Number(d.cols) : null,
-                    rows: d.cols ? (Number(d.rows) || Math.ceil((d.options || []).length / Number(d.cols))) : null,
+                ? { cols: d.cols === 'auto' ? 'auto' : d.cols ? Number(d.cols) : null,   // 'auto': wrap to this handset's width
+                    rows: d.cols && d.cols !== 'auto' ? (Number(d.rows) || Math.ceil((d.options || []).length / Number(d.cols))) : null,
                     bar: !!d.bar, upright: !!d.upright, tap: !!d.tap, bare: !!d.bare, labels: d.options || [] }
                 : null);
       if(!myRound(d)){

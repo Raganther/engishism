@@ -237,7 +237,7 @@
            facts that are its own (the shape/pieces, and how a settled row is judged).
            No feel override: size and rotation are Throw Lab's, inherited by the
            world exactly as the phone table and every other caller. */
-        K.round.cardTable(mount, s, {
+        const table = K.round.cardTable(mount, s, {
           handle: '__anaFlick',     // place() fires no onArrange — a probe places then reads state
           frame(canvas){
             mount.innerHTML = '';
@@ -263,6 +263,14 @@
               }
             }
           }
+        });
+        /* The hint's move on this face: the given letter's tile flies into its slot
+           and is pinned there (the shelf remembers it across a deal that has not
+           landed yet). Same `s.hint` list the drag face marks its boxes from; the
+           label is the pool's own tile for that letter, whatever case it was dealt in. */
+        (s.hint || []).forEach(i => {
+          const t = s.pool.find(q => String(q.ch).toUpperCase() === s.word[i]);
+          table.give(i, t ? t.ch : s.word[i]);
         });
         return;
       }
@@ -463,10 +471,8 @@
        **Never the last letter.** With one box left there is one tile left, so the
        word is finished either way. */
     hintsLeft(s){
-      /* No card hint in flick: there is no tray of boxes to write a letter into —
-         the letters are physical tiles on a canvas — so the Hint button stays away
-         rather than firing into nothing. */
-      if(s.input === 'flick') return 0;
+      /* Flick has the hint too: the letter's tile flies into its slot and is pinned
+         (`table.give`), the physics answer to a box being written into. */
       return Math.max(0, s.need - 1 - (s.hint || []).length);
     },
 
@@ -475,7 +481,11 @@
       const open = [];
       for(let i = 0; i < s.need; i++) if((s.hint || []).indexOf(i) === -1) open.push(i);
       if(!open.length) return false;
-      const at = K.round.shuffle(open)[0];
+      /* On the board table a hint about a slot already holding its right letter would
+         fly nothing anywhere — prefer a slot still empty or wrong, when there is one. */
+      const cells = s.cardCells || [];
+      const unmet = open.filter(i => String(cells[i] || '').toUpperCase() !== s.word[i]);
+      const at = K.round.shuffle(unmet.length ? unmet : open)[0];
       s.hint = (s.hint || []).concat([at]);
       s.say  = 'Hint: letter ' + (at + 1) + ' is ' + s.word[at] + '.'; s.sayTeam = null;
       /* `'card'` — the projector changed and the handsets did not, so the host must
