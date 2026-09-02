@@ -677,7 +677,7 @@ unverifiable.**
 ## Open
 What is true and unfinished. Not a changelog — an item leaves when it closes.
 
-**Build `20260903a`.** Three coursebooks, ~760 authored items, six games, eight rounds.
+**Build `20260903b`.** Three coursebooks, ~760 authored items, six games, eight rounds.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only.
 
