@@ -677,7 +677,7 @@ unverifiable.**
 ## Open
 What is true and unfinished. Not a changelog — an item leaves when it closes.
 
-**Build `20260902b`.** Three coursebooks, ~760 authored items, six games, eight rounds.
+**Build `20260902c`.** Three coursebooks, ~760 authored items, six games, eight rounds.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only.
 
@@ -751,6 +751,14 @@ is exactly what the comparison is for — try both on the same scale and see whi
 faster and which teaches better. If it wins, the pattern (bar slots, a round hosting a
 table two ways) is proven for Connections and the other question-bench rounds next; if
 it drags, the shelf additions still cost the other rounds nothing to have gained.
+
+**A physics face is decided once per question** (`Kit.round.face`): board or phones,
+by whether handsets were in the room as the question opened, never re-read. A tap face
+keeps its picks in state and may follow the roster; a physics face keeps them in the
+table, and following the roster tore the table down and re-dealt it every time a
+handset's stream flapped. A latecomer waits for the next question. The board's Check
+button judges the docked tiles (`cardCells`) on that face, and the table's arrangement
+event (`round:arranged`) keeps its count live.
 
 **Physics is a round MODE now, in three rounds and counting — never its own round.**
 Each drag/sequence round grows a physics face beside its taps: **`stack`** on Word

@@ -1128,7 +1128,7 @@
          since read() sees slots alone. vx/vy are what a release just imparted;
          `ang` (radians) is how the bench proves a bar tile stayed flat. */
       loose: () => pieces.filter(p => p.slot == null)
-                         .map(p => ({ ch: p.ch, hue: p.hue, y: Math.round(p.body.position.y),
+                         .map(p => ({ ch: p.ch, hue: p.hue, x: Math.round(p.body.position.x), y: Math.round(p.body.position.y),
                                       vx: Math.round(p.body.velocity.x), vy: Math.round(p.body.velocity.y),
                                       ang: +p.body.angle.toFixed(3) })),
       /* slot geometry + the fitted tile size, for callers that aim or assert

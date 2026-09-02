@@ -2920,7 +2920,12 @@
     /* `roundCap()`, not the whole answer: an ordering climb asks for one word at a
        time, so guarding on the full scale meant the button could be pressed and
        silently did nothing. */
-    if(!roundLive() || roundState.chosen.length !== roundCap()) return;
+    if(!roundLive()) return;
+    /* The teacher's answer is the tray's picks — or, on a physics face, the tiles
+       docked on the board's own table (`cardCells`), which the tray never sees. */
+    const picked = roundState.chosen.length ? roundState.chosen.slice()
+                 : (roundState.cardCells || []).filter(Boolean);
+    if(picked.length !== roundCap()) return;
     const def = roundDef();
     /* The teacher's own answer, which deliberately does not go through `read()` — so
        a round that holds a rung until every handset agrees does not hold *this* one.
@@ -2933,9 +2938,9 @@
        steal the question belongs to a team that is not `active`, and that is exactly
        the moment the difference shows. */
     const team = roundHost.scorer ? roundHost.scorer() : active;
-    const r = def.judge(roundState.chosen, roundState, team, ctx);
+    const r = def.judge(picked, roundState, team, ctx);
     if(r.verdict === 'right'){
-      def.accept(roundState.chosen.slice(), roundState, team, ctx);
+      def.accept(picked.slice(), roundState, team, ctx);
       roundState.chosen = [];
       /* The teacher's own answer goes on the record too, with no arrival stamp — a
          click carries none, and sorting last is right: it is a judgement made after
@@ -2970,6 +2975,8 @@
     renderRound();
   }
   document.getElementById('group-btn').addEventListener('click', roundCommit);
+  // a tile docking on a physics face is not a render: re-read the Check count
+  document.addEventListener('round:arranged', ()=>{ if(roundLive()) renderRoundButton(); });
 
   /* Where a round's own buttons go: beside the host's commit button, whichever
      element that is — the clue card's Check, Millionaire's "Final answer?",

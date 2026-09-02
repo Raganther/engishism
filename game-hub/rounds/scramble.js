@@ -162,7 +162,7 @@
            team, a cell lit once that team has the right word in that slot. The same
            lanes standard the drag path draws, minus the tray — the students are
            looking at their phones. */
-        if(c.roster && c.roster.length){
+        if(K.round.face(s, c) === 'phones'){   // decided once per question — see K.round.face
           if(s._canvas){ s._table = null; s._canvas = null; }
           mount.innerHTML = '';
           mount.className = 'round-scramble';

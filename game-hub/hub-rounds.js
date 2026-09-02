@@ -872,7 +872,12 @@
     const o = opts || {};
     if(!def || !state) return [];
     const n = cap(def, state, ctx);
-    const held = (state.chosen || []).length;
+    /* What the teacher has in hand: the tray's picks on a tap face, the tiles
+       docked on the board's own table on a physics face (`cardCells`, written by
+       the table's onArrange — empty on every other face). Without the second the
+       Check button read 0/7 over a finished word and never enabled. */
+    const held = Math.max((state.chosen || []).length,
+                          (state.cardCells || []).filter(Boolean).length);
     const commit = {
       id:'commit', primary:true,
       disabled: !!state.done || held !== n,
@@ -1071,7 +1076,17 @@
     /* `surface:null` — a board round's play surface is the clue card it draws on, so
        the canvas stays transparent and the card shows through. Only a phone (no card)
        lets Kit.table paint its own surface. A round may override in `o.table`. */
-    const table = K.table(Object.assign({ canvas, surface: null }, o.table));
+    /* The caller's onArrange, then a DOM event the host may listen for: the strip's
+       Check count is drawn from state at render time, and a tile docking is not a
+       render, so the host re-reads the button on this. Bubbles from the mount; the
+       bench, which has no such button, simply never listens. */
+    const topts = Object.assign({ canvas, surface: null }, o.table);
+    const inner = topts.onArrange;
+    topts.onArrange = function(){
+      if(inner) inner.apply(this, arguments);
+      mount.dispatchEvent(new CustomEvent('round:arranged', { bubbles: true }));
+    };
+    const table = K.table(topts);
     s._table = table;
     if(o.deal) o.deal(table);
     const pt = e => table.pt(e);
@@ -1488,6 +1503,20 @@
     },
     ctx: buildCtx, resolve,
     shares, settle, clock, results, poll, agreement, lanes, placeBadge, crowd, crowdKnown, crowdMeter, mustHold, arrangement, cardTable, cap, actions, strip, press, say, finish, shuffle, teamColour, dragTag, bare,
+    /* **Which face a physics question is played on, decided ONCE per question.**
+       'phones' when handsets were in the room as the question opened, else 'board'.
+       Read live, the face followed the roster: a phone joining mid-question tore the
+       board's table down for the lanes, and the same phone dropping off brought a
+       fresh table back — every tile re-dealt, every placed letter lost. On classroom
+       wifi a handset's stream flaps, so the board reset itself while the teacher
+       was mid-word. A tap face keeps its picks in state and can follow the roster
+       freely; a physics face keeps them in the table, so it commits to a face and a
+       latecomer waits for the next question. Stored on the state, which is new per
+       question. */
+    face(state, ctx){
+      if(!state.face) state.face = (ctx && ctx.roster && ctx.roster.length) ? 'phones' : 'board';
+      return state.face;
+    },
     /* A comma-separated field as a list. Three rounds' editors parse one, which
        is what puts it here rather than in each of them. */
     list(str){ return String(str == null ? '' : str).split(',').map(w => w.trim()).filter(Boolean); },

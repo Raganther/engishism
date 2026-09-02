@@ -177,7 +177,7 @@
            per team, a box lit once that team has the right letter in that slot.
            The same lanes standard the drag path draws, minus the tray/boxes —
            the students are looking at their hands. */
-        if(c.roster && c.roster.length){
+        if(K.round.face(s, c) === 'phones'){   // decided once per question — see K.round.face
           if(s._canvas){ s._table = null; s._canvas = null; }
           mount.innerHTML = '';
           mount.className = 'round-anagram';

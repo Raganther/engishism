@@ -165,7 +165,7 @@
          re-dealt the whole table and threw away every word the teacher had placed.
          While the physics is in play, a redraw refreshes only what can change: the
          say line and the given rungs. */
-      if(s.mode === 'stack' && !(s.revealed || s.done) && !(c.roster && c.roster.length)
+      if(s.mode === 'stack' && !(s.revealed || s.done) && K.round.face(s, c) === 'board'
          && s._table && s._canvas && s._canvas.isConnected && mount.contains(s._canvas)){
         const old = mount.querySelector('.group-say'); if(old) old.remove();
         giveRungs(s._table);
@@ -299,7 +299,7 @@
            ladder per team, a rung filled once that team has the right word in
            that slot. Same standard as toss's lanes, drawn as ladders because
            the ladder IS this round's identity. */
-        if(c.roster && c.roster.length){
+        if(K.round.face(s, c) === 'phones'){   // decided once per question — see K.round.face
           if(s._canvas){ s._table = null; s._canvas = null; }
           const teams = ((c.teams) || []).map((_, i) => i);
           mount.appendChild(cap(s.high, 'hot'));
