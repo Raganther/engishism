@@ -81,6 +81,7 @@
   .stage{ flex:1 1 auto; position:relative; min-height:0; }
   canvas{ display:block; width:100%; height:100%; touch-action:none; cursor:grab; }
   .looks-row{ display:flex; gap:6px; flex-wrap:wrap; }
+  .ctl-group{ flex-basis:100%; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; opacity:0.6; margin:6px 0 -4px; }
   .looks-row button{ padding:6px 10px; }
   canvas.grabbing{ cursor:grabbing; }
   .hint{
@@ -190,10 +191,10 @@
        physics rounds (anagram flick, ordering stack) call. Throw Lab is its first caller — the workshop where the
        feel gets tuned. matter.min.js and hub-table.js live in game-hub/ beside the
        other shelves; hub-kit.js is the object Kit.table hangs off. -->
-  <script src="../game-hub/hub-qr.js?v=20260903c"></script>
-  <script src="../game-hub/matter.min.js?v=20260903c"></script>
-  <script src="../game-hub/hub-kit.js?v=20260903c"></script>
-  <script src="../game-hub/hub-table.js?v=20260903c"></script>
+  <script src="../game-hub/hub-qr.js?v=20260903d"></script>
+  <script src="../game-hub/matter.min.js?v=20260903d"></script>
+  <script src="../game-hub/hub-kit.js?v=20260903d"></script>
+  <script src="../game-hub/hub-table.js?v=20260903d"></script>
   <script>
   (function(){
     'use strict';
@@ -329,10 +330,27 @@
         }
         return -1;
       },
+      /* Place the whole answer (the reconnect path's silent place, not the hint's
+         give — a given tile is pinned and could never be knocked, which the Hit
+         button is for), then say it is right: the shelf stamps the word and bursts. */
       celebrate(){
-        parked = false;
+        parked = true;
         const n = world.cells().length;
-        for(let i = 0; i < n; i++){ const want = answerAt(i); if(want) world.give(i, want); }
+        for(let i = 0; i < n; i++){ const want = answerAt(i); if(want && !world.cells()[i]) world.place(i, want); }
+        world.setResult('right'); setStatus('right');
+      },
+      /* Fire a spare tile across the table from the left edge, aimed at the first
+         docked tile if there is one (a knock, and the knock burst) or at the heap
+         (a plain hit, sparks and squash). A shot tile is the shelf's own idea —
+         Battle Scrabble's thrown letter — so nothing here is bench-only physics. */
+      hit(){
+        const target = (world.cells().findIndex(Boolean) !== -1)
+          ? world.slotBox(world.cells().findIndex(Boolean))
+          : world.loose()[0];
+        if(!target) return false;
+        const w = target.w || world.tileSize();
+        world.addPiece('•', { x: Math.max(w * 0.6, target.x - w * 1.6), y: target.y - 2, vx: 14, vy: -0.4, hue: '#ffffff', shot: true });
+        return true;
       }
     };
 
@@ -382,12 +400,14 @@
       '<button type="button" id="look-right">Right</button>' +
       '<button type="button" id="look-wrong">Wrong</button>' +
       '<button type="button" id="look-hint">Hint</button>' +
-      '<button type="button" id="look-party">Celebrate</button></div>';
+      '<button type="button" id="look-party">Celebrate</button>' +
+      '<button type="button" id="look-hit">Hit</button></div>';
     controls.appendChild(looksBox);
     document.getElementById('look-right').addEventListener('click', looks.right);
     document.getElementById('look-wrong').addEventListener('click', looks.wrong);
     document.getElementById('look-hint').addEventListener('click', looks.hint);
     document.getElementById('look-party').addEventListener('click', looks.celebrate);
+    document.getElementById('look-hit').addEventListener('click', looks.hit);
     controls.appendChild(document.getElementById('btn-reset'));   // Reset stays last
 
     document.getElementById('btn-reset').addEventListener('click', newWord);

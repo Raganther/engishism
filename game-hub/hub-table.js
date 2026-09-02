@@ -112,10 +112,22 @@
        draws the same picture as the board at 60. Tuned on Throw Lab's Looks
        block, against the phone's painted surface AND a card round's transparent
        one, because a halo composites differently on each. */
-    { k:'pop',         label:'Landing pop', min:0,   max:0.5,  step:0.02,  def:0.18, fmt:v => '×' + v.toFixed(2) },   // scale overshoot after a dock
-    { k:'glow',        label:'Correct glow',min:0,   max:1,    step:0.05,  def:0.7,  fmt:v => v.toFixed(2) },          // halo strength behind a right tile
-    { k:'shake',       label:'Wrong shake', min:0,   max:14,   step:1,     def:6,    fmt:v => v + 'px' },              // paint offset on a wrong tile
-    { k:'party',       label:'Word burst',  min:0,   max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2) }     // particle count when a word completes
+    { k:'pop',         label:'Landing pop', min:0,   max:0.5,  step:0.02,  def:0.18, fmt:v => '×' + v.toFixed(2), group:'Looks' },   // scale overshoot after a dock
+    { k:'glow',        label:'Correct glow',min:0,   max:1,    step:0.05,  def:0.7,  fmt:v => v.toFixed(2),        group:'Looks' },   // halo strength behind a right tile
+    { k:'shake',       label:'Wrong shake', min:0,   max:14,   step:1,     def:6,    fmt:v => v + 'px',            group:'Looks' },   // paint offset on a wrong tile
+    { k:'party',       label:'Word burst',  min:0,   max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2), group:'Looks' },   // particle count when a word completes
+    /* Hits. The engine reports every pair of tiles that start touching (the knock
+       rule already listens); above a speed the shelf stamps the contact — where,
+       how hard, which way — and paints from it: sparks at the point of contact,
+       the struck tile squashed along the hit and springing back. A fresh deal is a
+       heap of collisions at once, so a floor speed and a per-tile cooldown keep it
+       from reading as fireworks. A knock (a shot tile punching a placed one out)
+       is the same stamp at full strength in the accent colour. */
+    { k:'sparks',      label:'Hit sparks',  min:0,   max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2), group:'Looks' },   // dots at a tile-on-tile hit
+    { k:'squash',      label:'Hit squash',  min:0,   max:0.3,  step:0.02,  def:0.12, fmt:v => '×' + v.toFixed(2), group:'Looks' },   // the struck tile flattens along the hit
+    /* The held tile drawn lifted: a little larger, a soft shadow under it, so a
+       drag reads as picking the tile up off the table. */
+    { k:'lift',        label:'Held lift',   min:0,   max:0.15, step:0.01,  def:0.06, fmt:v => '×' + v.toFixed(2), group:'Looks' }    // scale of the tile under the finger
   ];
 
   /* A colour with its alpha replaced — hex (#rgb, #rrggbb) or rgb()/rgba(); anything
@@ -264,6 +276,9 @@
     const rightKeys = new Set();  // scoped: which idx-groups are currently right
     const halos = new Map();      // `${colour}|${w}|${h}` -> pre-rendered halo sprite
     let particles = null;         // the live burst, or null
+    const hits = [];              // contacts stamped by the engine and not yet painted: {x,y,t,v,nx,ny,knock}
+    let sparks = null;            // the live hit sparks, or null
+    let hitCount = 0;             // every stamped hit, for a probe
     let lastDraw = 0;
     function clearResult(){ result = null; resultMap.clear(); resultAt.clear(); resultAt0 = 0; wasRight = false; rightKeys.clear(); }
     function setResult(res, idx){
@@ -605,9 +620,27 @@
        per shot, and the flag ages out so a tile that rolled to rest is just
        a tile. Grabbing a shot tile also disarms it (see grab). */
     const KNOCK_MIN = 6, SHOT_MS = 4000;
+    const HIT_MIN = 2.5, HIT_COOL = 150;   // px/step below which a touch is not a hit; ms a tile stays stamped
+    function stampHit(a, b, pair){
+      const va = a.body.velocity, vb = b.body.velocity;
+      const rel = Math.hypot(va.x - vb.x, va.y - vb.y);
+      if(rel < HIT_MIN) return;
+      const t = now();
+      if(a.hitAt && t - a.hitAt < HIT_COOL && b.hitAt && t - b.hitAt < HIT_COOL) return;
+      const col = pair.collision || {};
+      const sup = col.supports && col.supports[0];
+      const cx = sup ? sup.x : (a.body.position.x + b.body.position.x) / 2;
+      const cy = sup ? sup.y : (a.body.position.y + b.body.position.y) / 2;
+      const nx = col.normal ? col.normal.x : 1, ny = col.normal ? col.normal.y : 0;
+      hits.push({ x: cx, y: cy, t, v: rel, nx, ny, knock: false });
+      if(hits.length > 8) hits.shift();
+      hitCount++;
+      for(const p of [a, b]){ p.hitAt = t; p.hitV = rel; p.hitNx = nx; p.hitNy = ny; }
+    }
     Events.on(engine, 'collisionStart', ev => {
       for(const pair of ev.pairs){
         const a = pieceOf(pair.bodyA), b = pieceOf(pair.bodyB);
+        if(a && b) stampHit(a, b, pair);   // the looks: sparks and squash hang off this
         const shot = (a && a.shot) ? a : (b && b.shot) ? b : null;
         if(!shot) continue;
         if(now() - shot.shot > SHOT_MS){ shot.shot = 0; continue; }
@@ -620,6 +653,9 @@
         Body.setStatic(hit.body, false);
         Body.setVelocity(hit.body, { x: v.x * 0.6, y: v.y * 0.6 - 2 });
         shot.shot = 0;
+        hits.push({ x: hit.body.position.x, y: hit.body.position.y, t: now(),
+                    v: Math.max(Math.hypot(v.x, v.y), 10), nx: v.x, ny: v.y, knock: true });   // the knock burst
+        hitCount++;
         clearResult();
         report();
         /* after report(): the page's onArrange has re-read the board, so a
@@ -1174,6 +1210,7 @@
         ctx.restore();
       }
       const breath = (wordAt && t - wordAt < 500) ? 1 + 0.04 * Math.sin(Math.PI * (t - wordAt) / 500) : 1;
+      const heldNow = (feel.lift > 0 && grips.size) ? heldBodies() : null;
       for(const b of pieces){
         const p = b.body.position, docking = !!b.dock, inSlot = b.slot != null;
         const th = tileH || tile;
@@ -1199,8 +1236,29 @@
             if(ms >= 0 && ms < 360) dx = feel.shake * Math.sin(ms / 18) * Math.exp(-ms / 120);
           }
         }
+        const lifted = heldNow && heldNow.has(b.body);
+        if(lifted) sc *= 1 + feel.lift;
         ctx.save();
         ctx.translate(p.x + dx, p.y);
+        /* The held lift's shadow: under the tile, offset with the lift, so the tile
+           reads as picked up off the table. Drawn before the tile in the tile's own
+           frame, unrotated by the squash. */
+        if(lifted){
+          ctx.save(); ctx.rotate(ang);
+          ctx.fillStyle = 'rgba(0,0,0,0.28)';
+          roundRect(ctx, -w/2 * sc + 2, -h/2 * sc + 120 * feel.lift, w * sc, h * sc, r);
+          ctx.fill(); ctx.restore();
+        }
+        /* The hit squash: a loose tile struck within the last 140ms flattens along the
+           hit's normal and springs back; docked tiles are static and never squash. */
+        if(feel.squash > 0 && b.hitAt && !inSlot && !docking){
+          const u = (t - b.hitAt) / 140;
+          if(u < 1){
+            const k = Math.sin(Math.PI * u) * Math.min(1, (b.hitV || 0) / 8);
+            const ha = Math.atan2(b.hitNy || 0, b.hitNx || 1);
+            ctx.rotate(ha); ctx.scale(1 - feel.squash * k, 1 + feel.squash * k * 0.5); ctx.rotate(-ha);
+          }
+        }
         ctx.rotate(ang);
         if(sc !== 1) ctx.scale(sc, sc);
         ctx.fillStyle = b.hue;
@@ -1229,6 +1287,43 @@
         ctx.textBaseline = 'middle';
         ctx.fillText(b.ch, 0, Math.round(h*0.03));
         ctx.restore();
+      }
+      /* Hit sparks: each stamped contact becomes a few dots thrown along the
+         contact's tangent, gone in a third of a second; a knock is the same at
+         full strength in the accent colour, and lives twice as long. The stamps
+         are drained whether or not the dial is on, so nothing accumulates. */
+      while(hits.length){
+        const h = hits.shift();
+        if(feel.sparks <= 0) continue;
+        if(!sparks) sparks = [];
+        const strength = Math.max(0.5, Math.min(2.5, h.v / 6));
+        const n = Math.round(feel.sparks * strength * (h.knock ? 12 : 4));
+        const tx = -h.ny, ty = h.nx;                                  // the tangent of the contact
+        const tl = Math.hypot(tx, ty) || 1;
+        for(let k = 0; k < n && sparks.length < 80; k++){
+          const side = k % 2 ? 1 : -1, sp = 1.5 + Math.random() * 2.5 * strength;
+          sparks.push({ x: h.x, y: h.y, born: h.t, life: h.knock ? 600 : 320,
+                        vx: (tx / tl) * side * sp + (Math.random() - 0.5) * 1.5,
+                        vy: (ty / tl) * side * sp + (Math.random() - 0.5) * 1.5 - (h.knock ? 2 : 0.5),
+                        r: (h.knock ? 2.5 : 1.5) + Math.random() * 1.5,
+                        col: h.knock ? palette.accent : 'rgba(255,255,255,0.9)' });
+        }
+      }
+      if(sparks){
+        const k = dt / 16.7;
+        ctx.save();
+        let live = 0;
+        for(const q of sparks){
+          const age = t - q.born;
+          if(age > q.life) continue;
+          live++;
+          q.x += q.vx * k; q.y += q.vy * k; q.vy += 0.08 * k;
+          ctx.globalAlpha = 1 - age / q.life;
+          ctx.fillStyle = q.col;
+          ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+        if(!live) sparks = null;
       }
       /* The word burst: a handful of dots from the finished word's slots, gold
          and green, under a little paint-space gravity, gone inside a second.
@@ -1281,7 +1376,7 @@
     }
 
     return {
-      reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; pendingDeal = null; given.clear(); clearResult(); wordAt = 0; particles = null; },
+      reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; pendingDeal = null; given.clear(); clearResult(); wordAt = 0; particles = null; hits.length = 0; sparks = null; },
       setPieces, addPiece, slots: makeSlots, place, give, openSides,
       read, cells, filled, setResult,
       /* the loose pieces (not slotted), letter + colour + height + velocity +
@@ -1307,7 +1402,10 @@
       /* the looks, for a driven test: the palette in use, the live burst's size,
          how many halo sprites are cached, and when the last word completed */
       fx: () => ({ palette: Object.assign({}, palette), particles: particles ? particles.length : 0,
-                   halos: halos.size, wordAt, landed: pieces.filter(p => p.landed).length }),
+                   halos: halos.size, wordAt, landed: pieces.filter(p => p.landed).length,
+                   sparks: sparks ? sparks.length : 0, hits: hitCount,
+                   squashed: pieces.filter(p => p.hitAt && now() - p.hitAt < 140).length,
+                   held: grips.size }),
       /* a loose tile's mass — the suite pins that it is the same on every
          screen size, because the drag spring is tuned against it */
       tileMass: () => { const p = pieces.find(q => !q.body.isStatic); return p ? p.body.mass : 0; },
@@ -1348,7 +1446,16 @@
      when the box size moves). */
   makeTable.dialsPanel = function(mount, world, opts){
     const f = world.feel();
+    let lastGroup = null;
     DIALS.forEach(d => {
+      /* A dial that names a `group` opens a heading the first time the group
+         changes — the looks sit under one, the feel under none. */
+      if(d.group && d.group !== lastGroup){
+        const h = document.createElement('div');
+        h.className = 'ctl-group'; h.dataset.dialGroup = d.group; h.textContent = d.group;
+        mount.appendChild(h);
+      }
+      lastGroup = d.group || lastGroup;
       const row = document.createElement('div');
       row.className = 'ctl'; row.dataset.dial = d.k;
       const lab = document.createElement('label'); lab.textContent = d.label;
