@@ -65,14 +65,14 @@
       /* The physics face: the words are Kit.table tiles flicked into a vertical
          ladder of bar slots — order IS position. The first physics mode on an
          existing round; the identity experiment the classroom A/Bs against drag. */
-      { value:'stack', label:'Stack — flick the words into order' }
+      { value:'stack', label:'Flick — throw the words into order on the ladder (physics)' }
     ],
     /* The physics face, for the picker: a category of this round gets a Ladder/Stack
        toggle on the content screen, and a clue picked as Stack plays `stack` whatever
        the game-wide mode row says (picked as Ladder it plays the row's non-physics
        mode). The round declares what "physics" means for it; the engine only flips
        the axis named here. */
-    physics: { axis:'mode', value:'stack', on:'Stack', off:'Ladder' },
+    physics: { axis:'mode', value:'stack', on:'Flick', off:'Ladder' },
 
     /* The item field this round owns. The normaliser copies it across on its own,
        so nobody has to remember to widen a whitelist — see `Kit.round.fields()`. */

@@ -95,7 +95,9 @@ const suits = t => {
   return g && g.length ? g.join(', ') : 'all boards';
 };
 (Kit.prompt.types() || []).forEach(t => {
-  line('  ' + t.padEnd(12) + ' suits: ' + suits(t));
+  const info = Kit.prompt.info ? Kit.prompt.info(t) : null;
+  const label = info && info.label && info.label !== t ? '  "' + info.label + '"' : '';
+  line('  ' + t.padEnd(12) + ' suits: ' + suits(t) + label);
 });
 
 line('');

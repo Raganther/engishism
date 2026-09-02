@@ -49,7 +49,10 @@ HubKit.round.register('ordering', {
   inputs: [...],                  // HOW the answer is entered (drag/flick), a second axis
   physics: { axis:'input', value:'flick', on:'Flick', off:'Drag' },
                                   // which value on which axis is the physics face — the
-                                  // content picker grows a per-category toggle from it
+                                  // content picker grows a per-category toggle from it,
+                                  // and it becomes the DEFAULT on that axis (physics is
+                                  // the principal face; the first entry is the fallback).
+                                  // `on` is always the word Flick; `off` is the round's own.
   modeSetting: {...},             // how the hub should register your `round_<id>` row
   internal: true,                 // keep me out of the "write a question for me" list
   settleMs: 700

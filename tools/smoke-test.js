@@ -173,6 +173,16 @@ async function boardFits(page, selector){
 async function testJeopardy(browser){
   section('Jeopardy');
   const page = await openHub(browser);
+  /* Physics is the principal face: on a fresh device every category made of a round
+     with a physics face opens the picker with Flick lit. The rows come from the
+     registries, so a fourth physics round is covered the day it declares `physics`. */
+  await page.getByText('Unit 5', { exact:false }).first().click(); await page.waitForTimeout(200);
+  await page.locator('h3:visible', { hasText: 'Jeopardy' }).first().click(); await page.waitForTimeout(250);
+  const faces = await page.evaluate(() => [...document.querySelectorAll('.cat-check .face')]
+    .map(f => (f.querySelector('button.on') || {}).textContent || '(none lit)'));
+  check('physics is the default face on every category that has one',
+        faces.length >= 3 && faces.every(t => t === 'Flick'), faces.join(','));
+  await page.reload(); await page.waitForTimeout(350);   // back to the unit screen for startGame's own walk
   await startGame(page, 'Jeopardy', { sections: 3 });
 
   const tiles = await page.locator('.tile').count();
@@ -6384,13 +6394,16 @@ async function testQuestionBench(browser){
   });
   await ord.goto(BASE + '/playground/question-bench.html'); await ord.waitForTimeout(1300);
   await ord.locator('#type-pick').selectOption('r:ordering'); await ord.waitForTimeout(800);
+  // the bench opens a round on its physics face now; these checks are about the climb ladder
+  await ord.locator('#mode-pick').selectOption('climb'); await ord.waitForTimeout(700);
 
   /* The picker is built from what the round declares, so the bench never learns what
      a mode means — a round with one way to play gets no picker at all. */
   check('a round with three ways to play offers all three',
         await ord.locator('#mode-pick').isVisible() &&
         await ord.locator('#mode-pick option').count() === 3 &&
-        /stack/i.test((await ord.locator('#mode-pick option').allInnerTexts()).join(' ')),
+        // the physics mode by its id, not its wording — the label is the round's to change
+        (await ord.evaluate(() => [...document.querySelectorAll('#mode-pick option')].map(o => o.value))).includes('stack'),
         (await ord.locator('#mode-pick option').allInnerTexts()).join(' | '));
   check('the ladder is drawn with a rung per step and both ends named',
         await ord.locator('.ord-rung').count() === 5 &&
@@ -6492,6 +6505,7 @@ async function testQuestionBench(browser){
   });
   await una.goto(BASE + '/playground/question-bench.html'); await una.waitForTimeout(1300);
   await una.locator('#type-pick').selectOption('r:ordering'); await una.waitForTimeout(800);
+  await una.locator('#mode-pick').selectOption('climb'); await una.waitForTimeout(700);   // the climb ladder, by name
   const unaCode = ((await una.locator('#room-chip').innerText()).match(/(\d{5})/)||[])[1];
   if(unaCode){
     // four phones, two teams — the bench seats them alternately, so 0 and 2 are one team
@@ -6931,6 +6945,9 @@ async function testAnagramRound(browser){
          finds the click intercepted by a modal it never asked for. The `standings`
          suite is where that screen is actually covered. */
       window.HubSettings.set('roundWinBanner', false);
+      /* This suite is about the tap face (tray, boxes, hints written into boxes).
+         Physics is the principal face now, so the tap face is asked for by name. */
+      window.HubSettings.set('round_anagram_input', 'drag');
     }, { phones: !!(opts||{}).phones });
     await page.getByText('Lab', { exact:false }).first().click();
     await page.waitForTimeout(220);

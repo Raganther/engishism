@@ -114,6 +114,11 @@
       { value:'tap',    label:'Tap — tap each word into a group' },
       { value:'matter', label:'Flick — throw the words into their groups (physics)' }
     ],
+    /* The physics face, for the picker and the default: `matter` is this round's
+       Flick, `tap` its fallback — the same declaration the drag rounds and the
+       thermometer make, so all four read alike on a content row. The value stays
+       `matter` (a storage key and a wire value); only the word a teacher sees is Flick. */
+    physics: { axis:'mode', value:'matter', on:'Flick', off:'Tap' },
     teamMode: null,
     modeSetting: { group:'Questions', label:'Connections',
                    help:'How the room sorts the sixteen words into four groups.' },

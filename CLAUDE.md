@@ -376,6 +376,7 @@ Say which one. The interface gets this right (`jRules` is registered with
 | **Ruleset** | Classic · Hub · Together | a whole game show | a named bundle that **writes** the smaller settings |
 | **Round mode** | first · agree · climb · race | one question | how that question is played. Declared by the round |
 | **Default-round mode** | off · buzz · write · type | one *ordinary* question | what the handsets do when no shaped round owns them |
+| **Face** | Flick · Drag/Ladder/Tap | one category, or a game | which of a physics round's two answer areas is used. Declared by the round's `physics`; Flick by default; the content-row toggle overrides per category |
 
 They nest rather than compete: a ruleset sets the other two, so "which mode is in charge"
 is never a real question — the switches are the truth.
@@ -677,7 +678,7 @@ unverifiable.**
 ## Open
 What is true and unfinished. Not a changelog — an item leaves when it closes.
 
-**Build `20260903b`.** Three coursebooks, ~760 authored items, six games, eight rounds.
+**Build `20260903c`.** Three coursebooks, ~760 authored items, six games, eight rounds.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only.
 
@@ -720,7 +721,17 @@ width afterward, and the fixed loose-tile landing band was sized for a compact l
 heap, not five words. Both fixed generally in `hub-table.js`, so every bar-mode caller
 gets them.
 
-**One physics default for every shape, no round overriding it.** Rotation is a
+**Physics is the principal face.** A round that declares `physics` defaults to it: the
+engine seeds `round_<id>` / `round_<id>_input` from the declaration, so no round reorders
+its `inputs`/`modes` and nothing lists which rounds are physics. Tap, Drag and Ladder are
+the fallback, still pickable per category on the content screen. **The word is always
+Flick** (`physics.on`); the ids `flick`/`stack`/`matter` are storage keys and wire values
+and do not change. Devices seeded with the old default are migrated once
+(`engishism.physicsPrincipal` in localStorage marks it): a master still on the old first
+value moves to the physics one, per-game overrides and a solo fork are left as the
+teacher set them. The question bench opens a round on the same face. The two forms that
+share an id with a round (`anagram`, `scramble`) carry a `label` and the bench lists them
+as forms. **One rotation default for every shape, no round overriding it.** Rotation is a
 per-`Kit.table` behaviour with three settings, but the decision (deliberate, the
 teacher's, for now) is that **every caller inherits the single unset default — free
 rotation — and no round declares an override**, so a change to how the tiles behave is

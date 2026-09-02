@@ -219,7 +219,11 @@ window.HubKit = (function(){
       info(type){
         const impl = impls[type];
         if(!impl) return null;
-        return { type, games: Array.isArray(impl.games) ? impl.games.slice() : null };
+        /* `label` — what a human calls the form. Optional; the id stands in. Two forms
+           share their id with an unrelated round (`anagram`, `scramble`), and a menu
+           listing both by id could not tell a text-only clue from the round the room
+           plays; the label is how a form says it is a form. */
+        return { type, label: impl.label || type, games: Array.isArray(impl.games) ? impl.games.slice() : null };
       }
     };
   })();
@@ -320,6 +324,7 @@ window.HubKit = (function(){
   }
 
   prompt.register('anagram', {
+    label:'Scrambled letters (text clue)',   // not Drag the Letters, the round of the same id
     games:['jeopardy','blockbusters'],
     render(mount, item){
       const answer = String((item && item.answer) || '').trim();
@@ -366,6 +371,7 @@ window.HubKit = (function(){
      Jeopardy only: the answer is a whole sentence, so Blockbusters (one word, fixed
      initial) and Race (single-word board tiles) structurally cannot host it. */
   prompt.register('scramble', {
+    label:'Scrambled sentence (text clue)',  // not Drag the Words, the round of the same id
     games:['jeopardy'],
     render(mount, item){
       const answer = String((item && item.answer) || '').trim();

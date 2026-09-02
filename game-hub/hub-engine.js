@@ -411,7 +411,13 @@
     const perGame = {};
     ROUND_GAMES.forEach(g => {
       const host = ROUND_HOSTS[g];
-      const want = (host.modeDefaults || {})[id] || (host.teamMode ? def.teamMode : null);
+      /* Physics is the principal face: a round's declared physics mode outranks both
+         asks below. Jeopardy's ordering ask ('race', a ladder each) predates the
+         physics face, one shared ladder the room flicks into order. The fallback stays one
+         toggle away on the content row. */
+      const want = (def.physics && def.physics.axis === 'mode' && def.modes.some(m => m.value === def.physics.value))
+        ? def.physics.value
+        : ((host.modeDefaults || {})[id] || (host.teamMode ? def.teamMode : null));
       if(want && def.modes.some(m => m.value === want)) perGame[g] = want;
     });
     S.register({ id:'round_' + id, type:'variant',
@@ -422,7 +428,10 @@
          value until set apart. The storage and the row wording are the
          registry's (`byRoster` in hub-settings.js); this line only opts in. */
       byRoster: true,
-      default: def.modes[0].value,
+      /* **Physics is the principal face** (the teacher's decision): a round that
+         declares a `physics` face on this axis defaults to it, and its first mode
+         is the fallback. The round says what physics means; this only picks it. */
+      default: (def.physics && def.physics.axis === 'mode') ? def.physics.value : def.modes[0].value,
       defaults: Object.keys(perGame).length ? perGame : undefined,
       games: own.games || ROUND_GAMES,
       label: own.label || ('How ' + (def.label || id) + ' is played'),
@@ -451,13 +460,45 @@
     if(def.inputs && def.inputs.length){
       S.register({ id:'round_' + id + '_input', type:'variant',
         group: own.group || 'Questions',
-        default: def.inputs[0].value,
+        // physics is the principal face: the declared physics input is the default, the first input the fallback
+        default: (def.physics && def.physics.axis === 'input') ? def.physics.value : def.inputs[0].value,
         games: own.games || ROUND_GAMES,
         label: 'How ' + (def.label || id) + ' is entered',
         variants: def.inputs.slice(),
-        help: 'How the answer is put into the slots — dragged into place, or flicked in with the physics. Set apart from how the answer is decided.' });
+        help: 'How the answer is put into the slots. Flick (the physics) is the default face; Drag is the fallback. Set apart from how the answer is decided.' });
     }
   });
+
+  /* **The physics default reaches devices that already ran the old build.** register()
+     seeds every master into localStorage the first time a device runs the app, so
+     flipping a `default:` in code never reaches a browser that has one — the key is
+     present and the new default is ignored forever (CLAUDE.md, "the stuck default").
+     So the flip is a migration: once per device, a master still sitting on the old
+     non-physics default (the round's first mode/input) is moved to the physics face.
+     A per-game override is a teacher's deliberate choice and is left exactly as
+     stored. The marker lives beside the settings in localStorage; where storage is
+     blocked the migration re-runs each load, which is harmless — it only ever moves a
+     value that equals the old default. */
+  (function migratePhysicsPrincipal(){
+    const MARK = 'engishism.physicsPrincipal';
+    let done = false;
+    try{ done = localStorage.getItem(MARK) === '1'; }catch(e){}
+    if(done) return;
+    (Kit.round ? Kit.round.ids() : []).forEach(id => {
+      const def = Kit.round.get(id);
+      const ph = def && def.physics;
+      if(!ph) return;
+      const list = ph.axis === 'input' ? def.inputs : def.modes;
+      if(!list || !list.length || !list.some(m => m.value === ph.value)) return;
+      const key = 'round_' + id + (ph.axis === 'input' ? '_input' : '');
+      const oldDefault = list[0].value;
+      if(oldDefault === ph.value) return;
+      /* The master only. A `!solo` fork exists only where a teacher set individuals
+         apart on purpose, and a per-game override is a choice too — both stay. */
+      if(S.raw(key) === oldDefault) S.set(key, ph.value);
+    });
+    try{ localStorage.setItem(MARK, '1'); }catch(e){}
+  })();
 
 
   /* The Questions-group round settings (Everyone-finishes, the pay split, the crowd
