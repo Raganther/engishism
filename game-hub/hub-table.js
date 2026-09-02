@@ -125,6 +125,11 @@
        is the same stamp at full strength in the accent colour. */
     { k:'sparks',      label:'Hit sparks',  min:0,   max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2), group:'Looks' },   // dots at a tile-on-tile hit
     { k:'squash',      label:'Hit squash',  min:0,   max:0.3,  step:0.02,  def:0.12, fmt:v => '×' + v.toFixed(2), group:'Looks' },   // the struck tile flattens along the hit
+    /* How wide the fan of sparks is, in degrees, centred on the contact's tangent.
+       0 is the two neat jets a first cut fired at right angles to every hit, which
+       read as unnatural; a wide fan plus a third of the hitter's own motion carried
+       into every spark is what makes debris look like debris. */
+    { k:'spread',      label:'Spark spread',min:0,   max:180,  step:10,    def:140,  fmt:v => v + '°',             group:'Looks' },
     /* The held tile drawn lifted: a little larger, a soft shadow under it, so a
        drag reads as picking the tile up off the table. */
     { k:'lift',        label:'Held lift',   min:0,   max:0.15, step:0.01,  def:0.06, fmt:v => '×' + v.toFixed(2), group:'Looks' }    // scale of the tile under the finger
@@ -632,7 +637,13 @@
       const cx = sup ? sup.x : (a.body.position.x + b.body.position.x) / 2;
       const cy = sup ? sup.y : (a.body.position.y + b.body.position.y) / 2;
       const nx = col.normal ? col.normal.x : 1, ny = col.normal ? col.normal.y : 0;
-      hits.push({ x: cx, y: cy, t, v: rel, nx, ny, knock: false });
+      /* the hitter is the faster of the two; sparks carry a share of its motion and
+         are pushed along the normal AWAY from the struck tile (Matter's normal points
+         from bodyA toward bodyB) */
+      const sa = Math.hypot(va.x, va.y), sb = Math.hypot(vb.x, vb.y);
+      const hitter = sa >= sb ? va : vb;
+      const away = (sa >= sb) ? 1 : -1;   // struck tile is B when A is the hitter: away = +normal
+      hits.push({ x: cx, y: cy, t, v: rel, nx, ny, knock: false, mx: hitter.x, my: hitter.y, ax: nx * away, ay: ny * away });
       if(hits.length > 8) hits.shift();
       hitCount++;
       for(const p of [a, b]){ p.hitAt = t; p.hitV = rel; p.hitNx = nx; p.hitNy = ny; }
@@ -654,7 +665,8 @@
         Body.setVelocity(hit.body, { x: v.x * 0.6, y: v.y * 0.6 - 2 });
         shot.shot = 0;
         hits.push({ x: hit.body.position.x, y: hit.body.position.y, t: now(),
-                    v: Math.max(Math.hypot(v.x, v.y), 10), nx: v.x, ny: v.y, knock: true });   // the knock burst
+                    v: Math.max(Math.hypot(v.x, v.y), 10), nx: v.x, ny: v.y, knock: true,
+                    mx: v.x, my: v.y, ax: 0, ay: -1 });   // the knock burst: carries the shot's motion, lifts
         hitCount++;
         clearResult();
         report();
@@ -1298,13 +1310,17 @@
         if(!sparks) sparks = [];
         const strength = Math.max(0.5, Math.min(2.5, h.v / 6));
         const n = Math.round(feel.sparks * strength * (h.knock ? 12 : 4));
-        const tx = -h.ny, ty = h.nx;                                  // the tangent of the contact
-        const tl = Math.hypot(tx, ty) || 1;
+        const tl = Math.hypot(h.nx, h.ny) || 1;
+        const tang = Math.atan2(h.nx / tl, -h.ny / tl);                  // the tangent of the contact, as an angle
+        const cone = (feel.spread || 0) * Math.PI / 180;
+        const carry = 0.33;                                              // the hitter's motion every spark keeps
         for(let k = 0; k < n && sparks.length < 80; k++){
-          const side = k % 2 ? 1 : -1, sp = 1.5 + Math.random() * 2.5 * strength;
+          const side = k % 2 ? 0 : Math.PI;                                // both ways along the tangent…
+          const ang = tang + side + (Math.random() - 0.5) * cone;          // …fanned out by the spread dial
+          const sp = (1 + Math.random() * 2) * strength;                   // a glancing touch puffs, a hard hit sprays
           sparks.push({ x: h.x, y: h.y, born: h.t, life: h.knock ? 600 : 320,
-                        vx: (tx / tl) * side * sp + (Math.random() - 0.5) * 1.5,
-                        vy: (ty / tl) * side * sp + (Math.random() - 0.5) * 1.5 - (h.knock ? 2 : 0.5),
+                        vx: Math.cos(ang) * sp + (h.mx || 0) * carry + (h.ax || 0) * 0.8,
+                        vy: Math.sin(ang) * sp + (h.my || 0) * carry + (h.ay || 0) * 0.8 - (h.knock ? 1.5 : 0.3),
                         r: (h.knock ? 2.5 : 1.5) + Math.random() * 1.5,
                         col: h.knock ? palette.accent : 'rgba(255,255,255,0.9)' });
         }
@@ -1318,9 +1334,10 @@
           if(age > q.life) continue;
           live++;
           q.x += q.vx * k; q.y += q.vy * k; q.vy += 0.08 * k;
-          ctx.globalAlpha = 1 - age / q.life;
+          const f = age / q.life;
+          ctx.globalAlpha = 1 - f;
           ctx.fillStyle = q.col;
-          ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(q.x, q.y, q.r * (1 - 0.7 * f), 0, Math.PI * 2); ctx.fill();   // shrinks as it fades
         }
         ctx.restore();
         if(!live) sparks = null;
