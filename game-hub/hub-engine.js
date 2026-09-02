@@ -2369,7 +2369,53 @@
                     kindChip(items || []) +
                     `<span class="count">${n}</span>`;
     div.querySelector('input').addEventListener('change', onContentToggle);
+    faceToggle(div, items || []);
     list.appendChild(div);
+  }
+
+  /* ---- the face toggle: Drag/Flick, Ladder/Stack, per row ----
+     A row whose round declares a `physics` face gets a two-way toggle, so a board
+     can carry a flicked category beside a dragged one instead of playing every clue
+     of a round the one way the game-wide row says. The choice is written onto the
+     row's own items (`item.physics`, a boolean) — the same objects a clue opens
+     from — and the resolvers below read it off the open clue ahead of the setting.
+     Untouched, a row shows what the game-wide row would do, so the toggle is also
+     the place a teacher sees which face a category is about to play. Kept on the
+     items rather than in a table keyed by row id, so a fifth board that draws rows
+     through contentRow gets it without learning what a category is. */
+  function physicsOf(items){
+    let found = null;                                  // {id, def} — the def carries no id of its own
+    for(const it of items){
+      const hit = Kit.round.of(hook('asRound', it) || it);
+      if(!hit || !hit.def.physics) return null;      // a plain question or a round with one face
+      if(found && found.def !== hit.def) return null; // a mixed row has no single face to flip
+      found = hit;
+    }
+    return found;
+  }
+  function faceToggle(row, items){
+    const rnd = physicsOf(items);
+    if(!rnd || !items.length) return;
+    const ph = rnd.def.physics;
+    const setting = ph.axis === 'input'
+      ? S.get('round_' + rnd.id + '_input', activeGame) === ph.value
+      : S.get('round_' + rnd.id, activeGame) === ph.value;
+    const picked = typeof items[0].physics === 'boolean' ? items[0].physics : setting;
+    const box = document.createElement('span');
+    box.className = 'face';
+    box.title = 'How this category is played on the card and the phones';
+    [[false, ph.off], [true, ph.on]].forEach(([on, text]) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = text; b.dataset.face = on ? 'on' : 'off';
+      if(picked === on) b.classList.add('on');
+      b.addEventListener('click', e => {
+        e.preventDefault(); e.stopPropagation();   // inside a <label>: a plain click would flip the tick
+        items.forEach(it => { it.physics = on; });
+        box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+      });
+      box.appendChild(b);
+    });
+    row.insertBefore(box, row.querySelector('.count'));
   }
   /* A topic name is authored with its section on the front — "5A · Relative
      clauses" — which was right when the row was the only thing on screen. With a
@@ -2720,9 +2766,21 @@
   /* The input axis's resolver — simpler than roundModeOf: input has no whole-team
      mode to fall away in a solo room, so it is just the stored value (or the
      round's default). Null for a round that declares no `inputs`. */
+  /* The open clue's own face, when the picker gave it one — `item.physics` is the
+     Drag/Flick (Ladder/Stack) toggle on its content row, copied onto the clue with
+     the rest of its source fields. Undefined means "whatever the game-wide row
+     says", which is every clue on a board nobody toggled. */
+  function clueFace(def, axis){
+    if(!def || !def.physics || def.physics.axis !== axis) return undefined;
+    const it = currentClueItem;
+    return (it && typeof it.physics === 'boolean') ? it.physics : undefined;
+  }
   function roundInputOf(id){
     const def = id ? Kit.round.get(id) : null;
     if(!def || !def.inputs || !def.inputs.length) return null;
+    const face = clueFace(def, 'input');
+    if(face === true)  return def.physics.value;
+    if(face === false) return (def.inputs.find(i => i.value !== def.physics.value) || def.inputs[0]).value;
     return S.get('round_' + id + '_input', roundHost.game);
   }
 
@@ -2731,7 +2789,14 @@
     if(!def || !def.modes || !def.modes.length) return null;
     const key  = 'round_' + id;
     const game = roundHost.game;
-    const mode = S.get(key, game);
+    let mode = S.get(key, game);
+    /* The picker's face wins over the row: Stack when the category was picked as
+       Stack; the row's own non-physics mode (or the first one) when it was picked
+       as Ladder while the row says Stack. */
+    const face = clueFace(def, 'mode');
+    if(face === true) return def.physics.value;
+    if(face === false && mode === def.physics.value)
+      mode = (def.modes.find(m => m.value !== def.physics.value) || def.modes[0]).value;
     /* **A board's `teamMode` ask only means anything in a room of teams.** Jeopardy
        and Blockbusters say "give me whichever mode each round calls its whole-team
        one", which is right when a name is four students who have to agree — and is

@@ -46,6 +46,10 @@ HubKit.round.register('ordering', {
   saidOf(who, r, s),              // how a wrong answer is described
   modes: [...],                   // the ways it can be played, if more than one
   teamMode: 'agree',              // which of those means "the whole team commits"
+  inputs: [...],                  // HOW the answer is entered (drag/flick), a second axis
+  physics: { axis:'input', value:'flick', on:'Flick', off:'Drag' },
+                                  // which value on which axis is the physics face — the
+                                  // content picker grows a per-category toggle from it
   modeSetting: {...},             // how the hub should register your `round_<id>` row
   internal: true,                 // keep me out of the "write a question for me" list
   settleMs: 700

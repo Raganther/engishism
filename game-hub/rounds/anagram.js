@@ -74,6 +74,11 @@
        (`anagram.word`). Because it is separate from `modes`, every pairing works —
        flick + "whole team agrees" as much as drag + "one answer counts". */
     inputs: [ K.round.input.drag, K.round.input.flick ],
+    /* The physics face, for the picker: a category of this round gets a Drag/Flick
+       toggle on the content screen, and a clue picked as Flick plays the `flick`
+       input whatever the game-wide row says. The round declares what "physics"
+       means for it; the engine only flips the axis named here. */
+    physics: { axis:'input', value:'flick', on:'Flick', off:'Drag' },
     /* The whole-team mode, for a board that asks for one — see `teamMode` in
        hub-rounds.js. A tile is a team's answer, not the fastest thumb's. */
     teamMode: 'agree',

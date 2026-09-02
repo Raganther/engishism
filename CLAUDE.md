@@ -677,7 +677,7 @@ unverifiable.**
 ## Open
 What is true and unfinished. Not a changelog — an item leaves when it closes.
 
-**Build `20260902a`.** Three coursebooks, ~760 authored items, six games, eight rounds.
+**Build `20260902b`.** Three coursebooks, ~760 authored items, six games, eight rounds.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only.
 
@@ -764,9 +764,13 @@ coords divided by the card's `transform:scale`; phones → each handset runs its
 sends `mode:'table'` (letters as square slots for anagram; **bar slots** — `cols/rows/bar`,
 `upright` — for the word tiles of scramble and ordering); `read`/`judge` are the drag
 round's own, **unchanged**, because a flicked answer travels on the identical positional
-`|`-joined wire — so each fold costs the read path nothing. **Because mode is a game-wide
-setting**, a board plays every clue of a round the one way; the Lab unit's **L9 category**
-is ordinary anagram content that demonstrates flick when the mode is set.
+`|`-joined wire — so each fold costs the read path nothing. **The face is picked per category on the content screen.** A round that declares
+`physics` (`{axis, value, on, off}` — which value on which axis is its physics face) grows a
+Drag/Flick or Ladder/Stack toggle on every picker row made of it; the pick is written onto
+that row's items (`item.physics`) and the open clue's face wins over the game-wide row, so
+one board can carry a flicked category beside a dragged one. Untouched, a row shows what
+the game-wide row would do. The Lab unit's **L9 category** is ordinary anagram content
+that demonstrates flick.
 
 **The board-face canvas wiring is now copied in THREE rounds** (anagram flick, ordering
 stack, scramble flick) — the create-canvas / `toss-canvas` / `K.table({onArrange})` /

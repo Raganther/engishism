@@ -62,6 +62,11 @@
        so the flick table gets BAR slots (see `arm`/`render`). Being separate from
        `modes` is what makes flick + "whole team agrees" a real pairing. */
     inputs: [ K.round.input.drag, K.round.input.flick ],
+    /* The physics face, for the picker: a category of this round gets a Drag/Flick
+       toggle on the content screen, and a clue picked as Flick plays the `flick`
+       input whatever the game-wide row says. The round declares what "physics"
+       means for it; the engine only flips the axis named here. */
+    physics: { axis:'input', value:'flick', on:'Flick', off:'Drag' },
     teamMode: 'agree',
 
     /* Declared, not only described above, so `tools/question-types.js` can print it. */
