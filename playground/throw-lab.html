@@ -191,10 +191,10 @@
        physics rounds (anagram flick, ordering stack) call. Throw Lab is its first caller — the workshop where the
        feel gets tuned. matter.min.js and hub-table.js live in game-hub/ beside the
        other shelves; hub-kit.js is the object Kit.table hangs off. -->
-  <script src="../game-hub/hub-qr.js?v=20260903f"></script>
-  <script src="../game-hub/matter.min.js?v=20260903f"></script>
-  <script src="../game-hub/hub-kit.js?v=20260903f"></script>
-  <script src="../game-hub/hub-table.js?v=20260903f"></script>
+  <script src="../game-hub/hub-qr.js?v=20260903g"></script>
+  <script src="../game-hub/matter.min.js?v=20260903g"></script>
+  <script src="../game-hub/hub-kit.js?v=20260903g"></script>
+  <script src="../game-hub/hub-table.js?v=20260903g"></script>
   <script>
   (function(){
     'use strict';
@@ -343,13 +343,18 @@
          docked tile if there is one (a knock, and the knock burst) or at the heap
          (a plain hit, sparks and squash). A shot tile is the shelf's own idea —
          Battle Scrabble's thrown letter — so nothing here is bench-only physics. */
-      hit(){
+      hit(speed){
         const target = (world.cells().findIndex(Boolean) !== -1)
           ? world.slotBox(world.cells().findIndex(Boolean))
           : world.loose()[0];
         if(!target) return false;
         const w = target.w || world.tileSize();
-        world.addPiece('•', { x: Math.max(w * 0.6, target.x - w * 1.6), y: target.y - 2, vx: 14, vy: -0.4, hue: '#ffffff', shot: true });
+        /* A different speed every press, soft to hard, so the bench shows the hit
+           effects scaling and the "Hard hit at" dial can be tuned against it. `speed`
+           may be handed in (a probe wants a known soft and a known hard shot). */
+        const vx = (typeof speed === 'number') ? speed : 6 + Math.random() * 38;
+        world.addPiece('•', { x: Math.max(w * 0.6, target.x - w * 1.6), y: target.y - 2, vx, vy: -0.4, hue: '#ffffff', shot: true });
+        setTimeout(() => { const h = world.fx().lastHit; if(h) status.textContent = 'Hit at ' + h.v.toFixed(1) + ' px/step — strength ' + h.s.toFixed(2); }, 160);
         return true;
       }
     };

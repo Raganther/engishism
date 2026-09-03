@@ -133,6 +133,13 @@
        read as unnatural; a wide fan plus a third of the hitter's own motion carried
        into every spark is what makes debris look like debris. */
     { k:'spread',      label:'Spark spread',min:0,   max:180,  step:10,    def:140,  fmt:v => v + '°',             group:'Hits' },
+    /* How hard a hit has to be to count as full strength, in px/step of relative
+       speed. Every hit effect — spark count, speed, size and life, the ring's size
+       and brightness, the squash — scales with a 0..1 strength from the contact's
+       speed against this. A flick lands at 20–45; a tile falling off the heap at
+       ~20; a nudge at 3–6. Set lower and everything hits hard; higher and only a
+       real throw does. */
+    { k:'hitRef',      label:'Hard hit at', min:10,  max:60,   step:2,     def:30,   fmt:v => v + 'px/step',       group:'Hits' },
     { k:'sparkSpeed',  label:'Spark speed', min:0.25,max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2), group:'Hits' },    // launch speed multiplier
     { k:'sparkSize',   label:'Spark size',  min:0.25,max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2), group:'Hits' },    // dot radius multiplier
     { k:'sparkLife',   label:'Spark life',  min:100, max:1000, step:20,    def:320,  fmt:v => v + 'ms',            group:'Hits' },    // how long a spark lives (a knock's ×2)
@@ -638,6 +645,9 @@
        a tile. Grabbing a shot tile also disarms it (see grab). */
     const KNOCK_MIN = 6, SHOT_MS = 4000;
     const HIT_MIN = 2.5, HIT_COOL = 150;   // px/step below which a touch is not a hit; ms a tile stays stamped
+    // 0..1: how hard, from the relative speed against the hitRef dial
+    const strengthOf = v => Math.max(0, Math.min(1, (v - HIT_MIN) / (Math.max(HIT_MIN + 1, feel.hitRef || 30) - HIT_MIN)));
+    let lastHit = null;                    // {v, s} of the last stamp, for a probe and the bench's status line
     function stampHit(a, b, pair){
       const va = a.body.velocity, vb = b.body.velocity;
       const rel = Math.hypot(va.x - vb.x, va.y - vb.y);
@@ -655,10 +665,11 @@
       const sa = Math.hypot(va.x, va.y), sb = Math.hypot(vb.x, vb.y);
       const hitter = sa >= sb ? va : vb;
       const away = (sa >= sb) ? 1 : -1;   // struck tile is B when A is the hitter: away = +normal
-      hits.push({ x: cx, y: cy, t, v: rel, nx, ny, knock: false, mx: hitter.x, my: hitter.y, ax: nx * away, ay: ny * away });
+      const sv = strengthOf(rel);
+      hits.push({ x: cx, y: cy, t, v: rel, s: sv, nx, ny, knock: false, mx: hitter.x, my: hitter.y, ax: nx * away, ay: ny * away });
       if(hits.length > 8) hits.shift();
-      hitCount++;
-      for(const p of [a, b]){ p.hitAt = t; p.hitV = rel; p.hitNx = nx; p.hitNy = ny; }
+      hitCount++; lastHit = { v: rel, s: sv };
+      for(const p of [a, b]){ p.hitAt = t; p.hitV = rel; p.hitS = sv; p.hitNx = nx; p.hitNy = ny; }
     }
     Events.on(engine, 'collisionStart', ev => {
       for(const pair of ev.pairs){
@@ -676,10 +687,11 @@
         Body.setStatic(hit.body, false);
         Body.setVelocity(hit.body, { x: v.x * 0.6, y: v.y * 0.6 - 2 });
         shot.shot = 0;
+        const kv = Math.max(Math.hypot(v.x, v.y), 10), ks = strengthOf(kv);
         hits.push({ x: hit.body.position.x, y: hit.body.position.y, t: now(),
-                    v: Math.max(Math.hypot(v.x, v.y), 10), nx: v.x, ny: v.y, knock: true,
+                    v: kv, s: ks, nx: v.x, ny: v.y, knock: true,
                     mx: v.x, my: v.y, ax: 0, ay: -1 });   // the knock burst: carries the shot's motion, lifts
-        hitCount++;
+        hitCount++; lastHit = { v: kv, s: ks };
         clearResult();
         report();
         /* after report(): the page's onArrange has re-read the board, so a
@@ -1278,7 +1290,7 @@
         if(feel.squash > 0 && b.hitAt && !inSlot && !docking){
           const u = (t - b.hitAt) / 140;
           if(u < 1){
-            const k = Math.sin(Math.PI * u) * Math.min(1, (b.hitV || 0) / 8);
+            const k = Math.sin(Math.PI * u) * (0.3 + 0.7 * (b.hitS || 0));
             const ha = Math.atan2(b.hitNy || 0, b.hitNx || 1);
             ctx.rotate(ha); ctx.scale(1 - feel.squash * k, 1 + feel.squash * k * 0.5); ctx.rotate(-ha);
           }
@@ -1318,19 +1330,19 @@
          are drained whether or not the dial is on, so nothing accumulates. */
       while(hits.length){
         const h = hits.shift();
-        const strength = Math.max(0.5, Math.min(2.5, h.v / 6));
+        const sv = h.s != null ? h.s : strengthOf(h.v);   // 0..1, how hard
         if(feel.ring > 0){
           if(!rings) rings = [];
           if(rings.length < 12){
-            const big = Math.max(0.6, Math.min(1.4, h.v / 6)) * (h.knock ? 1.6 : 1);
-            rings.push({ x: h.x, y: h.y, born: h.t, life: feel.ringLife, a0: feel.ring,
-                         r0: tile * 0.25, r1: tile * feel.ringSize * big,
+            rings.push({ x: h.x, y: h.y, born: h.t, life: feel.ringLife * (0.7 + 0.5 * sv),
+                         a0: feel.ring * (0.35 + 0.65 * sv),
+                         r0: tile * 0.25, r1: tile * feel.ringSize * (0.35 + 0.95 * sv) * (h.knock ? 1.6 : 1),
                          col: h.knock ? palette.accent : 'rgba(255,255,255,1)' });
           }
         }
         if(feel.sparks <= 0) continue;
         if(!sparks) sparks = [];
-        const n = Math.round(feel.sparks * strength * (h.knock ? 12 : 4));
+        const n = Math.round(feel.sparks * (2 + 10 * sv) * (h.knock ? 3 : 1));
         const tl = Math.hypot(h.nx, h.ny) || 1;
         const tang = Math.atan2(h.nx / tl, -h.ny / tl);                  // the tangent of the contact, as an angle
         const cone = (feel.spread || 0) * Math.PI / 180;
@@ -1338,11 +1350,11 @@
         for(let k = 0; k < n && sparks.length < 80; k++){
           const side = k % 2 ? 0 : Math.PI;                                // both ways along the tangent…
           const ang = tang + side + (Math.random() - 0.5) * cone;          // …fanned out by the spread dial
-          const sp = (1 + Math.random() * 2) * strength * feel.sparkSpeed;  // a glancing touch puffs, a hard hit sprays
-          sparks.push({ x: h.x, y: h.y, born: h.t, life: feel.sparkLife * (h.knock ? 2 : 1),
+          const sp = (0.6 + 2.4 * sv) * (1 + Math.random()) * feel.sparkSpeed;   // a glancing touch puffs, a hard hit sprays
+          sparks.push({ x: h.x, y: h.y, born: h.t, life: feel.sparkLife * (0.6 + 0.6 * sv) * (h.knock ? 2 : 1),
                         vx: Math.cos(ang) * sp + (h.mx || 0) * carry + (h.ax || 0) * 0.8,
                         vy: Math.sin(ang) * sp + (h.my || 0) * carry + (h.ay || 0) * 0.8 - (h.knock ? 1.5 : 0.3),
-                        r: ((h.knock ? 2.5 : 1.5) + Math.random() * 1.5) * feel.sparkSize,
+                        r: ((h.knock ? 2.5 : 1.5) + Math.random() * 1.5) * feel.sparkSize * (0.7 + 0.6 * sv),
                         col: h.knock ? palette.accent : 'rgba(255,255,255,0.9)' });
         }
       }
@@ -1458,6 +1470,7 @@
       fx: () => ({ palette: Object.assign({}, palette), particles: particles ? particles.length : 0,
                    halos: halos.size, wordAt, landed: pieces.filter(p => p.landed).length,
                    sparks: sparks ? sparks.length : 0, rings: rings ? rings.length : 0, hits: hitCount,
+                   lastHit, ringMax: rings ? Math.max(0, ...rings.map(q => q.r1)) : 0,
                    squashed: pieces.filter(p => p.hitAt && now() - p.hitAt < 140).length,
                    held: grips.size }),
       /* a loose tile's mass — the suite pins that it is the same on every
