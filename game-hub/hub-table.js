@@ -116,6 +116,9 @@
     { k:'glow',        label:'Correct glow',min:0,   max:1,    step:0.05,  def:0.7,  fmt:v => v.toFixed(2),        group:'Looks' },   // halo strength behind a right tile
     { k:'shake',       label:'Wrong shake', min:0,   max:14,   step:1,     def:6,    fmt:v => v + 'px',            group:'Looks' },   // paint offset on a wrong tile
     { k:'party',       label:'Word burst',  min:0,   max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2), group:'Looks' },   // particle count when a word completes
+    /* The held tile drawn lifted: a little larger, a soft shadow under it, so a
+       drag reads as picking the tile up off the table. */
+    { k:'lift',        label:'Held lift',   min:0,   max:0.15, step:0.01,  def:0.06, fmt:v => '×' + v.toFixed(2), group:'Looks' },   // scale of the tile under the finger
     /* Hits. The engine reports every pair of tiles that start touching (the knock
        rule already listens); above a speed the shelf stamps the contact — where,
        how hard, which way — and paints from it: sparks at the point of contact,
@@ -123,16 +126,24 @@
        heap of collisions at once, so a floor speed and a per-tile cooldown keep it
        from reading as fireworks. A knock (a shot tile punching a placed one out)
        is the same stamp at full strength in the accent colour. */
-    { k:'sparks',      label:'Hit sparks',  min:0,   max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2), group:'Looks' },   // dots at a tile-on-tile hit
-    { k:'squash',      label:'Hit squash',  min:0,   max:0.3,  step:0.02,  def:0.12, fmt:v => '×' + v.toFixed(2), group:'Looks' },   // the struck tile flattens along the hit
+    { k:'sparks',      label:'Hit sparks',  min:0,   max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2), group:'Hits' },    // dots at a tile-on-tile hit
+    { k:'squash',      label:'Hit squash',  min:0,   max:0.3,  step:0.02,  def:0.12, fmt:v => '×' + v.toFixed(2), group:'Hits' },    // the struck tile flattens along the hit
     /* How wide the fan of sparks is, in degrees, centred on the contact's tangent.
        0 is the two neat jets a first cut fired at right angles to every hit, which
        read as unnatural; a wide fan plus a third of the hitter's own motion carried
        into every spark is what makes debris look like debris. */
-    { k:'spread',      label:'Spark spread',min:0,   max:180,  step:10,    def:140,  fmt:v => v + '°',             group:'Looks' },
-    /* The held tile drawn lifted: a little larger, a soft shadow under it, so a
-       drag reads as picking the tile up off the table. */
-    { k:'lift',        label:'Held lift',   min:0,   max:0.15, step:0.01,  def:0.06, fmt:v => '×' + v.toFixed(2), group:'Looks' }    // scale of the tile under the finger
+    { k:'spread',      label:'Spark spread',min:0,   max:180,  step:10,    def:140,  fmt:v => v + '°',             group:'Hits' },
+    { k:'sparkSpeed',  label:'Spark speed', min:0.25,max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2), group:'Hits' },    // launch speed multiplier
+    { k:'sparkSize',   label:'Spark size',  min:0.25,max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2), group:'Hits' },    // dot radius multiplier
+    { k:'sparkLife',   label:'Spark life',  min:100, max:1000, step:20,    def:320,  fmt:v => v + 'ms',            group:'Hits' },    // how long a spark lives (a knock's ×2)
+    /* The impact ring: a circle that expands from the point of contact and fades,
+       painted from the same hit stamp as the sparks. `ring` is its stroke alpha at
+       birth (0 = off), `ringSize` its final radius as a multiple of the tile,
+       `ringLife` how long it takes to get there. A knock rings bigger, in the
+       accent colour. */
+    { k:'ring',        label:'Impact ring', min:0,   max:1,    step:0.05,  def:0.6,  fmt:v => v.toFixed(2),        group:'Hits' },
+    { k:'ringSize',    label:'Ring size',   min:0.5, max:3,    step:0.1,   def:1.6,  fmt:v => '×' + v.toFixed(1), group:'Hits' },
+    { k:'ringLife',    label:'Ring life',   min:100, max:800,  step:20,    def:260,  fmt:v => v + 'ms',            group:'Hits' },
   ];
 
   /* A colour with its alpha replaced — hex (#rgb, #rrggbb) or rgb()/rgba(); anything
@@ -283,6 +294,7 @@
     let particles = null;         // the live burst, or null
     const hits = [];              // contacts stamped by the engine and not yet painted: {x,y,t,v,nx,ny,knock}
     let sparks = null;            // the live hit sparks, or null
+    let rings = null;             // the live impact rings, or null
     let hitCount = 0;             // every stamped hit, for a probe
     let lastDraw = 0;
     function clearResult(){ result = null; resultMap.clear(); resultAt.clear(); resultAt0 = 0; wasRight = false; rightKeys.clear(); }
@@ -1306,9 +1318,18 @@
          are drained whether or not the dial is on, so nothing accumulates. */
       while(hits.length){
         const h = hits.shift();
+        const strength = Math.max(0.5, Math.min(2.5, h.v / 6));
+        if(feel.ring > 0){
+          if(!rings) rings = [];
+          if(rings.length < 12){
+            const big = Math.max(0.6, Math.min(1.4, h.v / 6)) * (h.knock ? 1.6 : 1);
+            rings.push({ x: h.x, y: h.y, born: h.t, life: feel.ringLife, a0: feel.ring,
+                         r0: tile * 0.25, r1: tile * feel.ringSize * big,
+                         col: h.knock ? palette.accent : 'rgba(255,255,255,1)' });
+          }
+        }
         if(feel.sparks <= 0) continue;
         if(!sparks) sparks = [];
-        const strength = Math.max(0.5, Math.min(2.5, h.v / 6));
         const n = Math.round(feel.sparks * strength * (h.knock ? 12 : 4));
         const tl = Math.hypot(h.nx, h.ny) || 1;
         const tang = Math.atan2(h.nx / tl, -h.ny / tl);                  // the tangent of the contact, as an angle
@@ -1317,11 +1338,11 @@
         for(let k = 0; k < n && sparks.length < 80; k++){
           const side = k % 2 ? 0 : Math.PI;                                // both ways along the tangent…
           const ang = tang + side + (Math.random() - 0.5) * cone;          // …fanned out by the spread dial
-          const sp = (1 + Math.random() * 2) * strength;                   // a glancing touch puffs, a hard hit sprays
-          sparks.push({ x: h.x, y: h.y, born: h.t, life: h.knock ? 600 : 320,
+          const sp = (1 + Math.random() * 2) * strength * feel.sparkSpeed;  // a glancing touch puffs, a hard hit sprays
+          sparks.push({ x: h.x, y: h.y, born: h.t, life: feel.sparkLife * (h.knock ? 2 : 1),
                         vx: Math.cos(ang) * sp + (h.mx || 0) * carry + (h.ax || 0) * 0.8,
                         vy: Math.sin(ang) * sp + (h.my || 0) * carry + (h.ay || 0) * 0.8 - (h.knock ? 1.5 : 0.3),
-                        r: (h.knock ? 2.5 : 1.5) + Math.random() * 1.5,
+                        r: ((h.knock ? 2.5 : 1.5) + Math.random() * 1.5) * feel.sparkSize,
                         col: h.knock ? palette.accent : 'rgba(255,255,255,0.9)' });
         }
       }
@@ -1341,6 +1362,22 @@
         }
         ctx.restore();
         if(!live) sparks = null;
+      }
+      /* The impact rings: expand fast then ease out, thinning and fading as they go. */
+      if(rings){
+        ctx.save();
+        let live = 0;
+        for(const q of rings){
+          const f = (t - q.born) / q.life;
+          if(f >= 1) continue;
+          live++;
+          const e = 1 - (1 - f) * (1 - f);
+          ctx.globalAlpha = q.a0 * (1 - f);
+          ctx.strokeStyle = q.col; ctx.lineWidth = Math.max(1, 3 * (1 - f));
+          ctx.beginPath(); ctx.arc(q.x, q.y, q.r0 + (q.r1 - q.r0) * e, 0, Math.PI * 2); ctx.stroke();
+        }
+        ctx.restore();
+        if(!live) rings = null;
       }
       /* The word burst: a handful of dots from the finished word's slots, gold
          and green, under a little paint-space gravity, gone inside a second.
@@ -1393,7 +1430,7 @@
     }
 
     return {
-      reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; pendingDeal = null; given.clear(); clearResult(); wordAt = 0; particles = null; hits.length = 0; sparks = null; },
+      reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; pendingDeal = null; given.clear(); clearResult(); wordAt = 0; particles = null; hits.length = 0; sparks = null; rings = null; },
       setPieces, addPiece, slots: makeSlots, place, give, openSides,
       read, cells, filled, setResult,
       /* the loose pieces (not slotted), letter + colour + height + velocity +
@@ -1420,7 +1457,7 @@
          how many halo sprites are cached, and when the last word completed */
       fx: () => ({ palette: Object.assign({}, palette), particles: particles ? particles.length : 0,
                    halos: halos.size, wordAt, landed: pieces.filter(p => p.landed).length,
-                   sparks: sparks ? sparks.length : 0, hits: hitCount,
+                   sparks: sparks ? sparks.length : 0, rings: rings ? rings.length : 0, hits: hitCount,
                    squashed: pieces.filter(p => p.hitAt && now() - p.hitAt < 140).length,
                    held: grips.size }),
       /* a loose tile's mass — the suite pins that it is the same on every
