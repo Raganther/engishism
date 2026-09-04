@@ -428,6 +428,24 @@
        at feel.size looks bigger than its box. `tile` is that fitted size; scale the bodies
        to it so the physics matches the drawn square, and the draw uses it for loose pieces. */
     function fitTiles(){
+      /* Flowed sentence: every tile is its OWN word's width. A docked tile takes
+         its slot's width; a loose tile re-measures its own label at the new
+         height (identical words measure identically, so a loose tile stays the
+         width of the slot it will drop into). One scale each — a single uniform
+         factor would squash the narrow words and stretch the wide ones. */
+      if(flowedGrid() && pieces.length){
+        const nh = slots.length ? slots[0].h : feel.size;
+        for(const p of pieces){
+          const nw = (p.slot != null && slots[p.slot]) ? slots[p.slot].w
+                     : Math.min(cssW - 24, barTileWidth(p.ch, nh));
+          const ow = p.w || tile, oh = p.h || (tileH || tile);
+          if(Math.abs(nw - ow) > 0.5 || Math.abs(nh - oh) > 0.5) Body.scale(p.body, nw/ow, nh/oh);
+          p.w = nw; p.h = nh;
+          normalizeMass(p.body);
+        }
+        tile = slots.length ? slots[0].w : feel.size; tileH = nh;
+        return;
+      }
       /* A loose tile is the SAME size as a slot square, always. When slots
          exist their fitted width IS the tile size; with none, fit for the
          piece count. Called from makeSlots/setPieces/addPiece as well as
@@ -561,25 +579,41 @@
          chamfer stays a matched ~8px and the picture sits on the physics. A
          square tile is unchanged: its slot is square, so w==h and there was
          never a non-uniform stretch to distort. */
-      const bw = slots.length ? slots[0].w : feel.size;
+      const flowed = flowedGrid();
       const bh = slots.length ? slots[0].h : feel.size;
-      /* Dealt in ROWS, column-aligned: as many across as the canvas seats, the
-         rest in rows above that fall later onto the ones below. A hand of wide
-         word tiles spread evenly across a width they could not all fit came down
-         as a fan — each landing half on its neighbour, the heap leaning like a
-         dropped deck — and a fan of words cannot be read. Stacked in columns the
-         heap is a tidy pile of legible words; a hand of square letters that fits
-         one row comes out exactly as it always did. */
-      const dgap = 6;
-      const perRow = Math.max(1, Math.min(chars.length, Math.floor((cssW - 24 + dgap) / (bw + dgap))));
-      const rowW = perRow * bw + (perRow - 1) * dgap;
-      const rowX0 = (cssW - rowW) / 2 + bw/2;
+      const bw = slots.length ? slots[0].w : feel.size;      // the loose fallback / uniform width
+      // Per-tile built width: its own word's slot when the grid flows like text
+      // (slot i is word i), otherwise the one uniform slot width.
+      const widthOf = i => (flowed && slots[i]) ? slots[i].w : bw;
+      /* Dealt in ROWS: as many across as the canvas seats, the rest in rows above
+         that fall later onto the ones below. A hand of wide word tiles spread
+         evenly across a width they could not all fit came down as a fan — each
+         landing half on its neighbour, the heap leaning like a dropped deck — and
+         a fan of words cannot be read. Packed by their OWN widths (a flowed
+         sentence has narrow tiles beside wide ones) the heap is a tidy row-wrapped
+         pile; a hand of square letters that fits one row comes out as it always
+         did. */
+      const dgap = 6, usableD = cssW - 24;
+      // group indices into rows by each tile's own width, centre each row
+      const rowsD = []; { let cur = [], curW = 0;
+        for(let i = 0; i < chars.length; i++){ const w = widthOf(i);
+          if(cur.length && curW + w > usableD){ rowsD.push(cur); cur = []; curW = 0; }
+          cur.push(i); curW += w + dgap; }
+        if(cur.length) rowsD.push(cur); }
+      const posD = [];
+      rowsD.forEach((row, r) => {
+        const totW = row.reduce((a, i) => a + widthOf(i) + dgap, -dgap);
+        let x = Math.max(12, (cssW - totW) / 2);
+        row.forEach((i, c) => {
+          const w = widthOf(i);
+          posD[i] = { x: x + w/2, y: bh/2 + 20 + r * (bh + 30) + (c % 2) * 6, w, h: bh };
+          x += w + dgap;
+        });
+      });
       chars.forEach((ch, i) => {
-        const col = i % perRow, row = Math.floor(i / perRow);
-        const x = rowX0 + col * (bw + dgap);
-        const y = bh/2 + 20 + row * (bh + 30) + (col % 2) * 6;
-        const body = Bodies.rectangle(x, y, bw, bh, {
-          chamfer:{ radius: Math.max(1, Math.round(Math.min(bw, bh) * 0.16)) },
+        const P = posD[i], w = P.w, h = P.h;
+        const body = Bodies.rectangle(P.x, P.y, w, h, {
+          chamfer:{ radius: Math.max(1, Math.round(Math.min(w, h) * 0.16)) },
           // Upright tiles barely bounce — a 0.45 restitution wide tile cartwheels
           // on landing and lands on an edge, which is the mess upright exists to
           // stop. The dial still rules a free or locked deal (the throw's lip
@@ -592,9 +626,13 @@
         // settles flat); a free tile gets the scattered tilt and tumbles.
         Body.setAngle(body, (rotLocked() || upright()) ? 0 : (Math.random() - 0.5) * 0.3);
         // hold: a fresh deal's rain must not leak out through an open side
-        // while it settles — the edge reflects it back in until this expires
-        pieces.push({ body, ch: String(ch), hue: HUES[i % HUES.length],
-                      slot: null, dock: null, hold: now() + 1500 });
+        // while it settles — the edge reflects it back in until this expires.
+        // A flowed tile remembers its own w/h so draw() and fitTiles size it by
+        // its word, not the one uniform `tile`; a uniform tile leaves them unset.
+        const p = { body, ch: String(ch), hue: HUES[i % HUES.length],
+                    slot: null, dock: null, hold: now() + 1500 };
+        if(flowed){ p.w = w; p.h = h; }
+        pieces.push(p);
       });
       Composite.add(engine.world, pieces.map(p => p.body));
       // Bodies are already at the slot size; fitTiles is a no-op scale here and
@@ -717,6 +755,18 @@
        chrome top and bottom), and a fractional budget shrank the squares — and
        with them every tile — well below what the bench showed. With the fixed
        band both screens converge on the width-driven size and finally match. */
+    /* A bar tile's width from its OWN label, at the tile's own font (draw()'s
+       0.56 ratio) plus padding — the one measure both the flowed-slot layout
+       and fitTiles use, so a loose word tile is exactly as wide as the slot it
+       drops into. */
+    function barTileWidth(label, h){
+      ctx.font = `700 ${Math.round(h*0.56)}px -apple-system, "Segoe UI", Roboto, sans-serif`;
+      return Math.max(60, Math.round(ctx.measureText(String(label)).width / 0.88) + 24);
+    }
+    /* True only for the flowed sentence: cols:'auto' + bar + labels, where each
+       slot and tile is its own word's width. Fixed-cols bar grids (the 1-col
+       ladder, the 4×4) return false and keep one uniform width. */
+    function flowedGrid(){ return !!(grid && grid.bar && grid.cols === 'auto' && grid.bar.labels && grid.bar.labels.length); }
     function gridDims(g){
       const { top, pile, bar } = g;
       let cols = g.cols, rows = g.rows;
@@ -774,6 +824,40 @@
            moving; the heap's rows are then derived from the same height rather
            than capped at a fraction, so the picture always adds up. */
         const auto = cols === 'auto';
+        /* FLOWED SENTENCE — the only path with per-word slots. Each slot is its
+           OWN word's width and the row wraps like text (left-aligned from the
+           margin), so one long word no longer drops the whole sentence to a
+           two-column grid with every word shrunk to fit. Height is solved a few
+           rounds (rows depend on widths, widths on the font that follows height),
+           then the boxes are handed back per slot. Fixed-cols bars fall through
+           to the uniform code below; the `third` floor lives only there. */
+        if(auto && labels){
+          const flow = h => {
+            const boxes = []; let x = 0, r = 0;
+            for(let i = 0; i < labels.length; i++){
+              const w = Math.min(usable, barTileWidth(labels[i], h));
+              if(x > 0 && x + w > usable + 0.5){ r++; x = 0; }
+              boxes.push({ x: margin + x + w/2, y: yTop + h/2 + r*(h+gap), w, h });
+              x += w + gap;
+            }
+            return { boxes, rows: r + 1 };
+          };
+          let sh2 = feel.size, f = flow(sh2);
+          for(let k = 0; k < 6; k++){
+            f = flow(sh2);
+            const next = pile != null
+              ? Math.floor((cssH - yTop - pile - gap*(f.rows-1)) / f.rows)
+              : Math.floor((cssH - yTop - margin) / (f.rows * 2)) - gap;   // slot rows + a heap of about the same
+            const nsh = Math.max(24, Math.min(feel.size, next));
+            if(Math.abs(nsh - sh2) < 0.5){ sh2 = nsh; break; }
+            sh2 = nsh;
+          }
+          f = flow(sh2);
+          return { boxes: f.boxes, gap, sw: f.boxes[0] ? f.boxes[0].w : 60, sh: sh2,
+                   x0: margin, y0: yTop + sh2/2,
+                   cols: f.rows ? Math.ceil(labels.length / f.rows) : labels.length,
+                   rows: f.rows, count: labels.length };
+        }
         let sh = feel.size, perRow = 1, wAt = Math.max(measure(sh), third);
         for(let k = 0; k < 6; k++){
           perRow = Math.max(1, Math.min(n, Math.floor((usable + gap) / (wAt + gap))));
@@ -815,7 +899,9 @@
                  count: spec.count || (spec.cols === 'auto' && spec.labels ? spec.labels.length : null),
                  bar: spec.bar ? { labels: spec.labels || null } : null };
         const d = gridDims(grid);
-        for(let i = 0; i < d.count; i++){
+        if(d.boxes){                        // flowed sentence: one box per word, already positioned
+          d.boxes.forEach(bx => slots.push({ x: bx.x, y: bx.y, w: bx.w, h: bx.h, piece: null }));
+        } else for(let i = 0; i < d.count; i++){
           const r = Math.floor(i / d.cols), c = i % d.cols;
           slots.push({ x: d.x0 + c*(d.sw+d.gap) + d.sw/2, y: d.y0 + r*(d.sh+d.gap), w: d.sw, h: d.sh, piece: null });
         }
@@ -830,7 +916,16 @@
     function layoutSlots(){          // recompute geometry on resize, keeping placed pieces
       const n = slots.length; if(!n) return;
       if(grid){
-        const { gap, sw, sh, x0, y0, cols } = gridDims(grid);
+        const d = gridDims(grid);
+        if(d.boxes){                        // flowed sentence: refit each slot to its word's box, by index
+          slots.forEach((s, i) => {
+            const bx = d.boxes[i]; if(!bx) return;
+            s.x = bx.x; s.y = bx.y; s.w = bx.w; s.h = bx.h;
+            if(s.piece) Body.setPosition(s.piece.body, { x: s.x, y: s.y });
+          });
+          return;
+        }
+        const { gap, sw, sh, x0, y0, cols } = d;
         slots.forEach((s, i) => {
           const r = Math.floor(i / cols), c = i % cols;
           s.x = x0 + c*(sw+gap) + sw/2; s.y = y0 + r*(sh+gap); s.w = sw; s.h = sh;
@@ -849,8 +944,12 @@
     function slotNear(x, y){         // nearest EMPTY slot within capture range, or -1
       let best = -1, bestD = Infinity;
       slots.forEach((s, i) => { if(s.piece) return; const dx = s.x - x, dy = s.y - y, d = dx*dx + dy*dy; if(d < bestD){ bestD = d; best = i; } });
-      const cap = (slots.length ? Math.min(slots[0].w, slots[0].h) : feel.size) * 0.85;
-      return (best >= 0 && bestD <= cap*cap) ? best : -1;
+      if(best < 0) return -1;
+      // capture range from the CANDIDATE slot's own size, not slots[0] — a flowed
+      // sentence has slots of many widths, and a narrow word's slot must not
+      // borrow a wide neighbour's reach.
+      const s = slots[best], cap = Math.min(s.w, s.h) * 0.85;
+      return bestD <= cap*cap ? best : -1;
     }
 
     /* ---- the suck-and-spin dock ---- */
@@ -1252,9 +1351,10 @@
         const th = tileH || tile;
         let w, h, ang;
         if(docking){ const sl = slots[b.slot];
-          w = tile + (sl.w - tile) * b.dock.p; h = th + (sl.h - th) * b.dock.p; ang = b.body.angle; }
+          const fw = b.w || tile, fh = b.h || th;   // a flowed tile tweens from its OWN width, not the global one
+          w = fw + (sl.w - fw) * b.dock.p; h = fh + (sl.h - fh) * b.dock.p; ang = b.body.angle; }
         else if(inSlot){ const sl = slots[b.slot]; w = sl.w; h = sl.h; ang = 0; }
-        else { w = tile; h = th; ang = b.body.angle; }
+        else { w = b.w || tile; h = b.h || th; ang = b.body.angle; }   // b.w set only on a flowed (per-word) tile
         const r = Math.round(Math.min(w, h)*0.16);
         /* The paint-only effects. `sc` scales the tile about its centre, `dx`
            slides it; neither touches the body, so what the physics knows is

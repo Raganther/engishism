@@ -142,6 +142,7 @@
       <select id="layout-in">
         <option value="row">Row (one line)</option>
         <option value="grid">Grid (cols × rows)</option>
+        <option value="sentence">Sentence (flowed words)</option>
       </select>
     </div>
     <div class="word" id="grid-dims" style="display:none;">
@@ -216,6 +217,7 @@
        needed tuning. The mode picker chooses; everything below branches on it. */
     let mode = 'letters';
     let gridMode = false;                  // Layout picker: a cols×rows grid vs a row
+    let sentenceMode = false;              // Layout picker: cols:'auto' word tiles that flow like text (scramble's Drag the Words)
     let target = '';                       // letters mode: the word to spell
     let targetOrder = [];                  // words mode: the scale, top-to-bottom
 
@@ -225,9 +227,10 @@
         status.style.color = '';
         return;
       }
-      const noun = mode === 'words' ? 'order' : 'word';
+      const noun = sentenceMode ? 'sentence' : mode === 'words' ? 'order' : 'word';
       status.textContent = res === 'right' ? '✓ Correct — that is the ' + noun + '.'
         : res === 'wrong' ? '✗ Not the ' + noun + ' yet — pull a tile out and try again.'
+        : sentenceMode ? 'Flick the words into a sentence — they flow and wrap like text.'
         : mode === 'words' ? 'Flick the words into order, top to bottom.'
         : 'Drag the scrambled letters into the slots to spell the word.';
       status.style.color = res === 'right' ? '#6FB04A' : res === 'wrong' ? '#E2603B' : '';
@@ -245,7 +248,7 @@
         if(parked) return;
         let res = null;
         if(done && !gridMode){             // a grid has no answer — it is a layout to feel
-          const ok = mode === 'words'
+          const ok = (mode === 'words' || sentenceMode)   // a sentence is judged by word order, like a scale
             ? world.cells().join('|').toLowerCase() === targetOrder.join('|').toLowerCase()
             : read === target;
           res = ok ? 'right' : 'wrong';
@@ -283,9 +286,24 @@
       if(mode === 'words'){ const ws = words(); return Array.from({ length:n }, (_, i) => ws[i % ws.length]); }
       return Array.from({ length:n }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26)));
     }
+    /* Sentence layout: the field is a sentence (spaces or commas between words).
+       Falls back to the demo sentence so an empty field still deals something. */
+    function sentenceWords(){
+      const raw = String(document.getElementById('word-in').value || '')
+        .split(/[,\s]+/).map(s => s.trim()).filter(Boolean).slice(0, 14);
+      return raw.length >= 2 ? raw : 'I had my bike stolen outside the station'.split(' ');
+    }
     function newWord(){
       world.reset();
-      if(gridMode){
+      if(sentenceMode){
+        targetOrder = sentenceWords();
+        target = '';
+        /* cols:'auto' + bar + labels → the shelf sizes each slot and tile to its
+           own word and wraps the row like text. This is exactly scramble's Drag
+           the Words flick face; the bench is where its feel gets tuned. */
+        world.slots({ cols:'auto', bar:true, labels: targetOrder });
+        world.setPieces(shuffleArr(targetOrder));
+      } else if(gridMode){
         const cols = clampDim('cols-in'), rows = clampDim('rows-in');
         /* Slots before pieces (the pile spread reads the declared slot width).
            Words → bar slots sized to the widest; letters → square cells. */
@@ -450,7 +468,12 @@
     const gridDims = document.getElementById('grid-dims');
     function applyLayout(){
       gridMode = layoutIn.value === 'grid';
+      sentenceMode = layoutIn.value === 'sentence';
       gridDims.style.display = gridMode ? '' : 'none';
+      // switching to Sentence: seed a demo sentence if the field holds a single
+      // word or a comma-scale, so the layout deals something sentence-shaped
+      if(sentenceMode && String(wordIn.value || '').trim().split(/\s+/).length < 2)
+        wordIn.value = 'I had my bike stolen outside the station';
       newWord();
     }
     layoutIn.addEventListener('change', applyLayout);
