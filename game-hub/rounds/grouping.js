@@ -32,6 +32,17 @@
     label: 'Connections',
     blurb: 'Eight words, four that belong together. The room assembles them from their phones.',
 
+    /* Two ways to play, on the `mode` axis. `tap` is the original — a multi-pick
+       vote, the team answer the union of its players' taps. `flick` is a physics
+       face: eight word tiles and a row of four slots, drag the four that belong
+       into the row. **`principal:false`**: the vote stays the default (this round
+       has always voted), flick is turned on per category from the content screen's
+       Tap/Flick toggle. Only when phones are absent does the physics run on the
+       card; with phones each handset runs its own table (the `mode:'table'` arm)
+       and the card is the scoreboard. */
+    modes: [ { value:'tap', label:'Tap the words' }, { value:'flick', label:'Flick the words in' } ],
+    physics: { axis:'mode', value:'flick', on:'Flick', off:'Tap', principal:false },
+
     /* An item carries a `group`, or it is not this round. Asked this way so a host
        never has to learn the field name. */
     /* The item field this round owns. The normaliser copies it across on its own,
@@ -60,7 +71,7 @@
        null and the host plays it as an ordinary question — the same way a
        mis-authored question form declines to plain text rather than rendering
        nonsense. */
-    setup(item){
+    setup(item, ctx){
       const g = item && item.group;
       if(!g || !Array.isArray(g.pick) || g.pick.length < 2) return null;
       const pick = g.pick.map(String);
@@ -73,6 +84,9 @@
         pick,
         need:   pick.length,
         words:  K.round.shuffle(pick.concat(rest)),
+        mode:   (ctx && ctx.mode === 'flick') ? 'flick' : 'tap',   // flick = the physics face; tap = the vote
+        cardCells: [],  // what is docked on the board flick face (the host's Check reads it)
+        verdict:   null,// the flick face's live right/wrong tint, cleared while a tile moves
         chosen: [],     // what the teacher has clicked, with no phones in the room
         hint:   [],     // words given away as belonging to the group, one per press
         picks:  {},     // team index -> the union of that team's players' picks
@@ -93,6 +107,53 @@
        different things on a clue card and on a bench. */
     render(mount, s, ctx){
       const c = ctx || {};
+
+      /* ---------- FLICK: the physics face ----------
+         Eight word tiles and a row of four slots — flick the four that belong
+         into the row. Only the board face (no phones, still live) runs the
+         physics on the card; with phones each handset runs its own table and the
+         card falls through to the word grid + lanes below. A settled row of four
+         is judged as a set against the group (order irrelevant). */
+      if(s.mode === 'flick' && !s.done && K.round.face(s, c) === 'board'){
+        const table = K.round.cardTable(mount, s, {
+          handle: '__grpFlick',     // place() fires no onArrange — a probe places then reads state
+          height: 300,
+          frame(canvas){
+            mount.innerHTML = '';
+            mount.className = 'round-grouping';
+            mount.appendChild(canvas);
+          },
+          deal(t){
+            /* Four word-wide slots in a row (`count:4` — eight labels would build
+               eight), the eight tiles heaped below. */
+            t.slots({ cols:s.need, rows:1, bar:true, labels:s.words, count:s.need, top:8 });
+            t.setPieces(s.words.slice());
+          },
+          table: {
+            upright: true,
+            onArrange(){
+              const table = s._table;              // built inside cardTable; read it back off state
+              const cells = table.cells();
+              s.cardCells = cells.slice();
+              s.chosen = cells.filter(Boolean);
+              if(s.chosen.length === s.need){
+                const want = s.pick.map(w => String(w).toLowerCase());
+                const ok = s.chosen.every(w => want.indexOf(String(w).toLowerCase()) !== -1);
+                s.verdict = ok ? 'right' : 'wrong';
+                table.setResult(s.verdict);
+              } else {
+                s.verdict = null;
+                table.setResult(null);
+              }
+            }
+          }
+        });
+        return;
+      }
+      // Any DOM path (tap, or flick with phones, or a decided round) tears down a
+      // stale flick canvas so the word grid is not drawn under a live physics loop.
+      if(s._canvas){ s._table = null; s._canvas = null; }
+
       mount.innerHTML = '';
       mount.className = 'round-grouping';
 
@@ -216,6 +277,24 @@
        round can ask for a shape the engine has never heard of. */
     arm(s, ctx){
       const c = ctx || {};
+      /* flick → each handset runs its own Kit.table: eight word tiles and a row of
+         `need` slots, flick the ones that belong into the row. `count:need` builds
+         a row of slots rather than one per label. The wire back is the docked cells
+         (`|`-joined), which is the SAME shape a multi-pick vote sends, so `read`
+         merges them by union unchanged. */
+      if(s.mode === 'flick'){
+        return {
+          mode:    'table',
+          prompt:  c.prompt === false ? ('Find the group of ' + s.need) : (s.text || ('Find the group of ' + s.need)),
+          options: s.words.slice(),
+          cols: s.need, rows: 1, count: s.need, bar: true, upright: true,
+          bare:    true,   // the minimal full-bleed phone — the words are the puzzle
+          multi:   s.need,
+          holds:   true,
+          rethink: true,
+          team:    (c.team === 0 || Number(c.team) > 0) ? Number(c.team) : null
+        };
+      }
       return {
         mode:    'vote',
         /* A label, not a sentence, when the host is not sending the question: eight
@@ -241,6 +320,11 @@
        also what forces the negotiation, since six words up means agreeing which two
        to drop. */
     read(replies, s){
+      /* Board flick, no phones: the answer is the set docked on the card, as team 0.
+         With phones the docked cells arrive as ordinary replies (`|`-joined, the same
+         shape a multi-pick vote sends), so they fall through to the union below. */
+      if(s && s.mode === 'flick' && !(replies && replies.length))
+        return { 0: (s.cardCells || []).filter(Boolean) };
       const out = {};
       (replies || []).forEach(r=>{
         const t = Number(r && r.team) || 0;

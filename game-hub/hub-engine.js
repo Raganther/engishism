@@ -415,7 +415,7 @@
          asks below. Jeopardy's ordering ask ('race', a ladder each) predates the
          physics face, one shared ladder the room flicks into order. The fallback stays one
          toggle away on the content row. */
-      const want = (def.physics && def.physics.axis === 'mode' && def.modes.some(m => m.value === def.physics.value))
+      const want = (def.physics && def.physics.axis === 'mode' && def.physics.principal !== false && def.modes.some(m => m.value === def.physics.value))
         ? def.physics.value
         : ((host.modeDefaults || {})[id] || (host.teamMode ? def.teamMode : null));
       if(want && def.modes.some(m => m.value === want)) perGame[g] = want;
