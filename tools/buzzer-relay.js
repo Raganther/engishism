@@ -280,7 +280,7 @@ function openStream(req, res, q){
     armed:room.armed, locked:lockedNow(room),
     mode:room.mode, prompt:promptFor(room, id), note:room.note,
     options:optionsFor(room, team), done:doneFor(room, team), turnTeam:room.team,
-    cols:room.cols, rows:room.rows, bar:room.bar, upright:room.upright, tap:room.tap, bare:room.bare,
+    cols:room.cols, rows:room.rows, bar:room.bar, upright:room.upright, tap:room.tap, bare:room.bare, count:room.count,
     spent:[...room.spent],
     rethink: room.rethink, secs: secsLeft(room), multi: capFor(room, team),
     send: !!room.send, preview: !!room.preview,
@@ -444,6 +444,11 @@ function handleSend(req, res){
            are the puzzle, so the prompt/chrome is dropped). Carried unread beside the
            slot shape, read off the arm by the phone exactly like tap/bar/upright. */
         room.bare = !!msg.bare;
+        /* Count: how many SLOTS to build, when it differs from the number of labels
+           (Multiple Choice's flick face: four option tiles but ONE slot — a 1×1 grid
+           with four labels would otherwise build four slots). Carried unread beside
+           the slot shape, read off the arm by the phone exactly like bar/upright. */
+        room.count = msg.count ? Math.max(1, Math.min(20, Number(msg.count) || 1)) : null;
         /* Was six, which is right for a question with four answers and wrong for
            "which of the letters still on the board" — a Blockbusters board opens
            with eighteen. The phone lays short options out as a keypad rather than a
@@ -500,7 +505,7 @@ function handleSend(req, res){
         toEachPlayer(room, 'armed', p => ({ prompt: promptFor(room, p.id),
                                    note: room.note,
                                    mode: room.mode, options: optionsFor(room, p.team),
-                                   cols: room.cols, rows: room.rows, bar: room.bar, upright: room.upright, tap: room.tap, bare: room.bare,
+                                   cols: room.cols, rows: room.rows, bar: room.bar, upright: room.upright, tap: room.tap, bare: room.bare, count: room.count,
                                    done: doneFor(room, p.team),
                                    /* `turnTeam`, not `team`: the join payload already
                                       carries the player's own team under that name, and

@@ -994,7 +994,7 @@
        if any, so a bar shape's wide word tiles spread across the room they
        need rather than the room square letters need — the reverse order
        once landed a hand of words already overlapping. */
-    tbl.slots(shape && shape.cols ? { cols: shape.cols, rows: shape.rows, bar: shape.bar, labels: shape.labels || list } : list.length);
+    tbl.slots(shape && shape.cols ? { cols: shape.cols, rows: shape.rows, count: shape.count, bar: shape.bar, labels: shape.labels || list } : list.length);
     tbl.setPieces(list);
 
     const pt = e => tbl.pt(e);   // the shelf maps a touch through the painted/natural ratio
@@ -1504,6 +1504,9 @@
               d && (d.cols || d.bare || d.tap)
                 ? { cols: d.cols === 'auto' ? 'auto' : d.cols ? Number(d.cols) : null,   // 'auto': wrap to this handset's width
                     rows: d.cols && d.cols !== 'auto' ? (Number(d.rows) || Math.ceil((d.options || []).length / Number(d.cols))) : null,
+                    // count: slots to build when it differs from the label count (Multiple
+                    // Choice's flick face — four option tiles, one slot). Null = one per label.
+                    count: d.count ? Number(d.count) : null,
                     bar: !!d.bar, upright: !!d.upright, tap: !!d.tap, bare: !!d.bare, labels: d.options || [] }
                 : null);
       if(!myRound(d)){

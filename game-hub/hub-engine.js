@@ -430,8 +430,12 @@
       byRoster: true,
       /* **Physics is the principal face** (the teacher's decision): a round that
          declares a `physics` face on this axis defaults to it, and its first mode
-         is the fallback. The round says what physics means; this only picks it. */
-      default: (def.physics && def.physics.axis === 'mode') ? def.physics.value : def.modes[0].value,
+         is the fallback. The round says what physics means; this only picks it.
+         A round may opt OUT with `physics.principal:false` — its physics face still
+         exists and still gets the per-category toggle, but the first mode stays the
+         default (Multiple Choice: the fast tap vote is the default, flick per
+         category). */
+      default: (def.physics && def.physics.axis === 'mode' && def.physics.principal !== false) ? def.physics.value : def.modes[0].value,
       defaults: Object.keys(perGame).length ? perGame : undefined,
       games: own.games || ROUND_GAMES,
       label: own.label || ('How ' + (def.label || id) + ' is played'),
@@ -460,8 +464,10 @@
     if(def.inputs && def.inputs.length){
       S.register({ id:'round_' + id + '_input', type:'variant',
         group: own.group || 'Questions',
-        // physics is the principal face: the declared physics input is the default, the first input the fallback
-        default: (def.physics && def.physics.axis === 'input') ? def.physics.value : def.inputs[0].value,
+        // physics is the principal face: the declared physics input is the default, the
+        // first input the fallback — unless the round opts out with physics.principal:false
+        // (Multiple Choice keeps the fast tap vote as default; flick is per-category).
+        default: (def.physics && def.physics.axis === 'input' && def.physics.principal !== false) ? def.physics.value : def.inputs[0].value,
         games: own.games || ROUND_GAMES,
         label: 'How ' + (def.label || id) + ' is entered',
         variants: def.inputs.slice(),
@@ -487,7 +493,7 @@
     (Kit.round ? Kit.round.ids() : []).forEach(id => {
       const def = Kit.round.get(id);
       const ph = def && def.physics;
-      if(!ph) return;
+      if(!ph || ph.principal === false) return;   // a non-principal physics face has no default to migrate to
       const list = ph.axis === 'input' ? def.inputs : def.modes;
       if(!list || !list.length || !list.some(m => m.value === ph.value)) return;
       const key = 'round_' + id + (ph.axis === 'input' ? '_input' : '');

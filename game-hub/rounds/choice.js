@@ -54,6 +54,17 @@
     modes: [ K.round.mode.first, K.round.mode.agree ],
     teamMode: 'agree',
 
+    /* A second axis — how the answer is entered — beside the team rule, exactly as
+       the drag rounds carry it. `tap` is the fast four-button vote (the default);
+       `flick` is the physics face, four word tiles and one slot, drag the answer in.
+       **`principal:false`**: unlike the drag rounds, Multiple Choice does NOT make
+       physics its default — the tap vote stays the everyday face in every game, and
+       flick is turned on per category from the content screen's Tap/Flick toggle. The
+       flag is the engine's (hub-engine builds `round_choice_input` at `tap`), so the
+       toggle still appears and a clue may still open on flick. */
+    inputs: [ { value:'tap', label:'Tap an answer' }, K.round.input.flick ],
+    physics: { axis:'input', value:'flick', on:'Flick', off:'Tap', principal:false },
+
     /* Declared, not only described above, so `tools/question-types.js` can print it. */
     sample: { text:"Which verb goes with 'a sentence', when a judge delivers one?",
               choice:{ options:["pass","make","do","give"], answer:"pass" } },
@@ -86,6 +97,11 @@
         options: K.round.shuffle(options.slice()),
         need:    1,
         mode:    (ctx && ctx.mode === 'agree') ? 'agree' : 'first',
+        // how the answer is entered — flick (the physics face) or the tap vote (default).
+        // The face is decided per clue by the host/bench; the round just reads it.
+        input:   (ctx && ctx.input === 'flick') ? 'flick' : 'tap',
+        cardCells: [],              // what is docked on the board flick face (the host's Check reads it)
+        verdict:   null,            // the flick face's live right/wrong tint, cleared while a tile moves
         chosen:  [],                // the teacher's own pick, with no phones
         /* Options a **host** has taken out of play — Millionaire's 50:50 is the
            first caller. Generic on purpose: "narrow the choice" is a hint mechanic
@@ -122,6 +138,57 @@
        are the whole screen and a letter would just be noise. */
     render(mount, s, ctx){
       const c = ctx || {};
+
+      /* ---------- FLICK: the physics face ----------
+         Four word tiles and one slot — drag the answer in. Only the board face
+         (no phones, question still live) runs the physics on the card; with phones
+         each handset runs its own table (join.html's table mode, the `mode:'table'`
+         arm) and the card falls through to the option grid + lanes below, which is
+         the scoreboard the room reads. A revealed clue is a static picture too, so
+         it also falls through — the right option lights as it always did. The board
+         wiring (canvas, reuse guard, pointer plumbing, loop, closing say) is
+         `K.round.cardTable`; this round hands it the one slot and how the docked
+         tile is judged. */
+      if(s.input === 'flick' && !s.shown && !s.done && K.round.face(s, c) === 'board'){
+        const opts = s.options.filter(w => (s.hidden || []).indexOf(w) === -1);
+        const table = K.round.cardTable(mount, s, {
+          handle: '__mcFlick',      // place() fires no onArrange — a probe places then reads state
+          height: 300,
+          frame(canvas){
+            mount.innerHTML = '';
+            mount.className = 'round-choice';
+            mount.appendChild(canvas);
+          },
+          deal(t){
+            /* One slot (`count:1`, or four labels would build four), a row of word
+               tiles below it. Slots before pieces so the pile spreads at the bar
+               width the whole-word tiles need. */
+            t.slots({ cols:1, rows:1, bar:true, labels:opts, count:1, top:8 });
+            t.setPieces(opts);
+          },
+          table: {
+            upright: true,          // wide word tiles read the right way up and settle flat
+            onArrange(){
+              const table = s._table;              // built inside cardTable; read it back off state
+              const cells = table.cells();
+              s.cardCells = cells.slice();
+              const pick = cells[0];
+              if(pick){
+                s.verdict = same(pick, s.answer) ? 'right' : 'wrong';
+                table.setResult(s.verdict);
+              } else {
+                s.verdict = null;
+                table.setResult(null);
+              }
+            }
+          }
+        });
+        return;
+      }
+      // Any DOM path (tap, or flick with phones, or a revealed clue) tears down a
+      // stale flick canvas so the option grid is not drawn under a live physics loop.
+      if(s._canvas){ s._table = null; s._canvas = null; }
+
       mount.innerHTML = '';
       mount.className = 'round-choice' + (s.mode === 'agree' ? ' agreeing' : '');
 
@@ -267,6 +334,24 @@
        looking up from their phone finds what they just tapped in the same place. */
     arm(s, ctx){
       const c = ctx || {};
+      /* flick → each handset runs its own Kit.table (join.html's table mode): four
+         word tiles and ONE slot, drag the answer in. `count:1` is load-bearing — a
+         1×1 grid with four labels would build four slots — and rides the relay
+         beside cols/rows/bar. The wire back is the docked cell (one option string),
+         so `read` below routes it through the same poll the tap vote uses. */
+      if(s.input === 'flick'){
+        return {
+          mode:    'table',
+          prompt:  c.prompt === false ? 'Drag the answer in' : (s.text || 'Drag the answer in'),
+          options: s.options.filter(w => (s.hidden || []).indexOf(w) === -1),
+          cols: 1, rows: 1, count: 1, bar: true, upright: true,
+          bare:    true,   // the minimal full-bleed phone — the question is on the board
+          multi:   1,
+          holds:   true,
+          rethink: !(c.lockIn && s.mode !== 'agree'),   // same rule as the tap vote below
+          team:    (c.team === 0 || Number(c.team) > 0) ? Number(c.team) : null
+        };
+      }
       return {
         mode:    'vote',
         prompt:  c.prompt === false ? 'Pick an answer' : (s.text || 'Pick an answer'),
@@ -293,6 +378,12 @@
     },
 
     read(replies, s, ctx){
+      /* Board flick, no phones: the answer is the tile docked on the card, judged
+         as team 0's single pick — the same shape a one-reply vote produces. With
+         phones the docked cell arrives as an ordinary reply (one slot, the option
+         string on the wire), so it falls through to poll unchanged. */
+      if(s.input === 'flick' && !(replies && replies.length))
+        return { 0: [ (s.cardCells || [])[0] ].filter(Boolean) };
       const p = K.round.poll(replies, {
         sizes: (ctx && ctx.sizes) || [],
         unanimous: s.mode === 'agree',

@@ -709,7 +709,7 @@ function fillModes(){
   });
   /* Physics is the principal face: the bench opens a round on the face the hub
      would — the declared physics mode when the round has one on this axis. */
-  if(def && def.physics && def.physics.axis === 'mode' && modes.some(m => m.value === def.physics.value))
+  if(def && def.physics && def.physics.principal !== false && def.physics.axis === 'mode' && modes.some(m => m.value === def.physics.value))
     sel.value = def.physics.value;
 }
 /* The second picker — the input axis (drag/flick), built from the round's own
@@ -726,8 +726,9 @@ function fillInputs(){
     o.value = m.value; o.textContent = m.label;
     sel.appendChild(o);
   });
-  // physics is the principal face — see fillModes
-  if(def && def.physics && def.physics.axis === 'input' && inputs.some(m => m.value === def.physics.value))
+  // physics is the principal face — see fillModes — unless the round opts out
+  // (physics.principal:false: the picker opens on the fallback, flick is selected by hand)
+  if(def && def.physics && def.physics.principal !== false && def.physics.axis === 'input' && inputs.some(m => m.value === def.physics.value))
     sel.value = def.physics.value;
 }
 $('mode-pick').addEventListener('change', ()=>{ fillTeamPick(); build(); if(host) ask(); });
