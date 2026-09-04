@@ -49,7 +49,7 @@
      time expressions with the book's own three-way split (p53 3e). */
   jeopardyCategories: [
     /* ================= 4A · instinct, reason and doubt ================= */
-    { id:'4a-connections', section:'4A', clues:[
+    { id:'4a-connections', section:'4A', name:'Instinct or Reason?', clues:[
       {v:100, q:"Four of these are about acting without thinking it through. Find the four.",
         group:{ pick:["impulse","whim","instinct","gut"],
                 with:["rational","objective","logical","considered"] }},
@@ -66,7 +66,7 @@
         group:{ pick:["sight","hearing","touch","smell"],
                 with:["instinct","intuition","hunch","premonition"] }},
     ]},
-    { id:'4a-thermometer', section:'4A', clues:[
+    { id:'4a-thermometer', section:'4A', name:'From Gut to Reason', clues:[
       {v:100, q:"Put these in order — least thought first.",
         order:{ scale:["on a whim","on impulse","gut feeling","weighing up","rational analysis"],
                 low:"no thought at all", high:"worked through step by step",
@@ -110,7 +110,7 @@
     ]},
     /* Vocabulary 4A exercise 2b (p44): each bold expression is replaced by a word
        or phrase from the box, so the pairs are the book's own. */
-    { id:'4a-choice', section:'4A', clues:[
+    { id:'4a-choice', section:'4A', name:'The Words of Instinct', clues:[
       {v:100, q:"'It's important to be rational.' Which word from the box replaces it?",
         choice:{ options:["objective","deep down","on a whim","consider"], answer:"objective" }},
       {v:200, q:"'On impulse, I applied for a new job.' Which phrase replaces it?",
@@ -122,7 +122,7 @@
       {v:500, q:"'You're left with a nagging ___ that all is not quite as it seems.'",
         choice:{ options:["doubt","feeling","pattern","anxiety"], answer:"doubt" }},
     ]},
-    { id:'4a-scramble', section:'4A', clues:[
+    { id:'4a-scramble', section:'4A', name:'Trust Your Gut', clues:[
       {v:100, q:"Put the words in order — a doubt you cannot shake.",
         scramble:{ sentence:"You are left with a nagging doubt about it" }},
       {v:200, q:"Put the words in order — the book's phrase for knowing without evidence.",
@@ -134,36 +134,49 @@
       {v:500, q:"Put the words in order — what the unit is about.",
         scramble:{ sentence:"Most doctors will admit to following their gut instincts" }},
     ]},
-    { id:'4a-anagram', section:'4A', clues:[
-      {v:100, q:"based on logic and evidence rather than feeling", anagram:{ word:"rational" }},
-      {v:200, q:"not influenced by your own feelings about it", anagram:{ word:"objective" }},
-      {v:300, q:"below the level you are aware of", anagram:{ word:"subconscious" }},
-      {v:400, q:"the sixth sense the unit's quiz is about", anagram:{ word:"intuition" }},
-      {v:500, q:"a worry that keeps returning, said of a doubt", anagram:{ word:"nagging" }},
+    { id:'4a-anagram', section:'4A', name:'Thinking Words', clues:[
+      {v:100, q:"'A good scientist stays ___, following the evidence rather than a feeling.' (8 letters)", anagram:{ word:"rational" }},
+      {v:200, q:"'Try to stay ___ — do not let your own feelings decide it for you.' (9 letters)", anagram:{ word:"objective" }},
+      {v:300, q:"'At a ___ level I already knew, before I could explain why.' Below what you are aware of. (12 letters)", anagram:{ word:"subconscious" }},
+      {v:400, q:"'Doctors often follow their ___ — a sense of what is right they cannot explain.' (9 letters)", anagram:{ word:"intuition" }},
+      {v:500, q:"'You are left with a ___ doubt that keeps returning and will not leave you.' (7 letters)", anagram:{ word:"nagging" }},
     ]},
 
-    /* ================= 4B · have, get and memory ================= */
-    /* Grammar 4B (p47 1d): six sentences, four uses. The uses are the book's own
-       wording, which is what makes this a grammar question rather than a guess. */
-    { id:'4b-connections', section:'4B', clues:[
-      {v:100, q:"Four of these are memory collocations from the unit. Find the four.",
-        group:{ pick:["vague","vivid","lasting","distant"],
-                with:["rational","objective","uneasy","groundless"] }},
+    /* ================= 4B · have, get and memory =================
+       Columns by LANGUAGE POINT now, each mixing round types and rising in
+       difficulty ($100 Multiple Choice → $200 Connections → $300 Drag the Letters
+       → $400 Word Thermometer → $500 Drag the Words), so a column played top to
+       bottom is five ways of meeting one point rather than the same round five
+       times. Have/Get has no natural scale, so its $400 is an error-correction
+       (the causative is exactly what an error-fix teaches); the other four columns
+       carry the book's own scales from the memory and eyewitness pages (pp47-49).
+       Every clue states its own context — a teacher who has not read the unit can
+       still play it. */
+    { id:'4b-have-get', section:'4B', name:'Have / Get Something Done', clues:[
+      {v:100, q:"'My parents were having the kitchen renovated.' Which meaning is it?",
+        choice:{ options:["they paid somebody else to do a job","their possessions were harmed",
+                          "they caused somebody to do something","they caused what happened to them"],
+                 answer:"they paid somebody else to do a job" }},
+      {v:200, q:"Four of these are jobs you pay a professional to do — 'have something done'. Find the four.",
+        group:{ pick:["renovated","serviced","decorated","installed"],
+                with:["stolen","burgled","vandalised","damaged"] }},
+      {v:300, q:"'They had the whole kitchen ___ last spring — a builder did the work, not them.' (9 letters)",
+        anagram:{ word:"renovated" }},
+      {v:400, q:"Correct the causative: 'Before the wedding I am going to *cut my hair* at the salon.'",
+        a:"have my hair cut", type:"errorfix"},
+      {v:500, q:"Put the words in order — something was done to me.",
+        scramble:{ sentence:"I had my bike stolen outside the station" }},
+    ]},
+    { id:'4b-memory', section:'4B', name:'Memory Collocations', clues:[
+      {v:100, q:"Which collocation means 'you can remember anything perfectly'?",
+        choice:{ options:["a photographic memory","a lasting memory","a vivid memory","a distant memory"],
+                 answer:"a photographic memory" }},
       {v:200, q:"Four of these describe a memory you can still feel. Find the four.",
         group:{ pick:["vivid","painful","lasting","photographic"],
                 with:["vague","distant","faded","forgotten"] }},
-      {v:300, q:"Four of these are things done TO you, not BY you. Find the four.",
-        group:{ pick:["stolen","renovated","broken","punished"],
-                with:["remembered","recalled","imagined","forgot"] }},
-      {v:400, q:"Four of these are from the eyewitness text. Find the four.",
-        group:{ pick:["fallible","susceptible","perpetrator","line-up"],
-                with:["objective","impulse","whim","hunch"] }},
-      {v:500, q:"Four of these are idioms about remembering. Find the four.",
-        group:{ pick:["comes to mind","cast your mind back","slipped my mind","trigger a memory"],
-                with:["weigh up","deep down","on a whim","beg to differ"] }},
-    ]},
-    { id:'4b-thermometer', section:'4B', clues:[
-      {v:100, q:"Put these in order — faintest memory first.",
+      {v:300, q:"'A ___ memory comes back with clear sensations — you can still feel it.' (5 letters)",
+        anagram:{ word:"vivid" }},
+      {v:400, q:"Put these in order — faintest memory first.",
         order:{ scale:["forgotten","vague","distant","vivid","photographic"],
                 low:"nothing is left", high:"perfect recall",
                 gloss:{ forgotten:"gone entirely.",
@@ -171,22 +184,17 @@
                         distant:"it happened a long time ago.",
                         vivid:"with clear sensations — you can still feel it.",
                         photographic:"you can remember anything perfectly." } }},
-      {v:200, q:"Put these in order — shortest-lived first.",
-        order:{ scale:["fleeting","passing","distant","lasting","permanent"],
-                low:"gone in a moment", high:"never leaves you",
-                gloss:{ fleeting:"there and gone.",
-                        passing:"it does not stay with you.",
-                        distant:"old, and faded by time.",
-                        lasting:"the book's word — it stays with you.",
-                        permanent:"the definition the book gives for 'lasting'." } }},
-      {v:300, q:"Put these in order — least involvement first.",
-        order:{ scale:["witnessed","remembered","reconstructed","assumed","imagined"],
-                low:"you actually saw it", high:"your mind made it",
-                gloss:{ witnessed:"you were there and saw it happen.",
-                        remembered:"you brought it back, more or less intact.",
-                        reconstructed:"the text's word — you fused bits together.",
-                        assumed:"you filled the gap with what must have happened.",
-                        imagined:"none of it happened at all." } }},
+      {v:500, q:"Put the words in order — a smell brings it all back.",
+        scramble:{ sentence:"The smell of rain always brings back a vivid childhood memory" }},
+    ]},
+    { id:'4b-eyewitness', section:'4B', name:'Eyewitness Evidence', clues:[
+      {v:100, q:"In a police ___, a witness tries to pick out the person who did it.",
+        choice:{ options:["line-up","verdict","sentence","appeal"], answer:"line-up" }},
+      {v:200, q:"Four of these are from the eyewitness account. Find the four.",
+        group:{ pick:["fallible","susceptible","perpetrator","line-up"],
+                with:["vague","distant","lasting","vivid"] }},
+      {v:300, q:"'The witness was asked to identify the ___ from the photographs.' The one who did the crime. (11 letters)",
+        anagram:{ word:"perpetrator" }},
       {v:400, q:"Put these in order — least reliable first.",
         order:{ scale:["fallible","susceptible","cautious","neutral","accurate"],
                 low:"gets it wrong", high:"gets it right",
@@ -195,7 +203,37 @@
                         cautious:"aware it might be wrong, and careful.",
                         neutral:"not leaning either way — how a line-up should be run.",
                         accurate:"matches what actually happened." } }},
-      {v:500, q:"Put these in order — how a case unfolds, earliest first.",
+      {v:500, q:"Put the words in order — the text's warning about memory.",
+        scramble:{ sentence:"The witness felt sure but memory is often fallible" }},
+    ]},
+    { id:'4b-how-memory', section:'4B', name:'How Memory Plays Tricks', clues:[
+      {v:100, q:"The text says memory is not neutral but ___ to influence from what we believe.",
+        choice:{ options:["susceptible","immune","resistant","opposed"], answer:"susceptible" }},
+      {v:200, q:"Four of these are why the text says memory goes wrong. Find the four.",
+        group:{ pick:["shock","trauma","influence","belief"],
+                with:["camera","precision","record","detail"] }},
+      {v:300, q:"'We are good at ___ bits of visual information into a single memory.' Joining them together. (6 letters)",
+        anagram:{ word:"fusing" }},
+      {v:400, q:"Put these in order — least of your own mind in it first.",
+        order:{ scale:["witnessed","remembered","reconstructed","assumed","imagined"],
+                low:"you actually saw it", high:"your mind made it",
+                gloss:{ witnessed:"you were there and saw it happen.",
+                        remembered:"you brought it back, more or less intact.",
+                        reconstructed:"the text's word — you fused bits together.",
+                        assumed:"you filled the gap with what must have happened.",
+                        imagined:"none of it happened at all." } }},
+      {v:500, q:"Put the words in order — why we misremember.",
+        scramble:{ sentence:"Our memories are not like cameras that record everything perfectly" }},
+    ]},
+    { id:'4b-in-court', section:'4B', name:'A Case in Court', clues:[
+      {v:100, q:"Eyewitness ___ is what sways the jury, the text says.",
+        choice:{ options:["testimony","gossip","rumour","opinion"], answer:"testimony" }},
+      {v:200, q:"Four of these are steps in a criminal case. Find the four.",
+        group:{ pick:["crime","witness","line-up","court"],
+                with:["vivid","vague","lasting","distant"] }},
+      {v:300, q:"'There is nothing more convincing than eyewitness ___.' What a witness swears to in court. (9 letters)",
+        anagram:{ word:"testimony" }},
+      {v:400, q:"Put these in order — how a case unfolds, earliest first.",
         order:{ scale:["crime","witness","description","line-up","court"],
                 low:"it happens", high:"the jury hears it",
                 gloss:{ crime:"the event itself.",
@@ -203,52 +241,13 @@
                         description:"what the police ask for first.",
                         'line-up':"the witness is invited to identify the perpetrator.",
                         court:"by now, time has elapsed." } }},
-    ]},
-    { id:'4b-choice', section:'4B', clues:[
-      {v:100, q:"'My parents were having the kitchen renovated.' Which use is it?",
-        choice:{ options:["they paid somebody to do a job","their possessions were harmed",
-                          "they caused somebody to do something","they caused what happened to them"],
-                 answer:"they paid somebody to do a job" }},
-      {v:200, q:"'I had all my toys stolen.' Which use is it?",
-        choice:{ options:["my possessions were harmed by somebody else","I paid somebody to do a job",
-                          "I caused somebody to do something","I caused what happened to me"],
-                 answer:"my possessions were harmed by somebody else" }},
-      {v:300, q:"'He got himself locked in the garden shed.' Which use is it?",
-        choice:{ options:["he caused what happened to him","he paid somebody to do a job",
-                          "his possessions were harmed","he caused somebody to do something"],
-                 answer:"he caused what happened to him" }},
-      {v:400, q:"'His disappearance got everyone looking for him.' Which use is it?",
-        choice:{ options:["it caused somebody to do something","it paid somebody to do a job",
-                          "his possessions were harmed","he caused what happened to him"],
-                 answer:"it caused somebody to do something" }},
-      {v:500, q:"Which collocation means 'you can remember anything perfectly'?",
-        choice:{ options:["a photographic memory","a lasting memory","a vivid memory","a distant memory"],
-                 answer:"a photographic memory" }},
-    ]},
-    /* The book's own pronunciation sentences (p47 2a), put back out of order. */
-    { id:'4b-scramble', section:'4B', clues:[
-      {v:100, q:"Put the words in order — something was done to me.",
-        scramble:{ sentence:"I had my bike stolen outside the station" }},
-      {v:200, q:"Put the words in order — she caused me to do it.",
-        scramble:{ sentence:"They had me doing all the cleaning for weeks" }},
-      {v:300, q:"Put the words in order — I caused it to happen to me.",
-        scramble:{ sentence:"I got myself locked out of the house again" }},
-      {v:400, q:"Put the words in order — I persuaded her.",
-        scramble:{ sentence:"I got my mum to say I was sick" }},
-      {v:500, q:"Put the words in order — somebody else caused it.",
-        scramble:{ sentence:"My brother got me punished quite unfairly" }},
-    ]},
-    { id:'4b-anagram', section:'4B', clues:[
-      {v:100, q:"unclear — the book's word for a memory with no detail", anagram:{ word:"vague" }},
-      {v:200, q:"with clear sensations, so you can still feel it", anagram:{ word:"vivid" }},
-      {v:300, q:"the person who actually committed the crime", anagram:{ word:"perpetrator" }},
-      {v:400, q:"capable of being wrong — said of eyewitness testimony", anagram:{ word:"fallible" }},
-      {v:500, q:"someone who saw the crime happen", anagram:{ word:"eyewitness" }},
+      {v:500, q:"Put the words in order — the classic courtroom scene.",
+        scramble:{ sentence:"The prosecution produced a witness at the very last minute" }},
     ]},
 
     /* ================= 4C · tact, idioms and homophones ================= */
     /* Useful Language 4C (p50 2a): seven expressions, three uses, all the book's. */
-    { id:'4c-connections', section:'4C', clues:[
+    { id:'4c-connections', section:'4C', name:'Softening a Disagreement', clues:[
       {v:100, q:"Four of these soften a disagreement. Find the four.",
         group:{ pick:["differ","respect","offence","personally"],
                 with:["stolen","renovated","punished","locked"] }},
@@ -265,7 +264,7 @@
         group:{ pick:["Well","Look","Actually","Honestly"],
                 with:["Subsequently","Gradually","Shortly","Immediately"] }},
     ]},
-    { id:'4c-thermometer', section:'4C', clues:[
+    { id:'4c-thermometer', section:'4C', name:'How Blunt Is It?', clues:[
       {v:100, q:"Put these in order — most tactful first.",
         order:{ scale:["I see where you're coming from","I do take your point","I beg to differ",
                        "That's not the way I see it","With all due respect"],
@@ -309,7 +308,7 @@
                         "I'm afraid I have to say":"you present it as something you must say.",
                         'With all due respect':"the strongest warning of all." } }},
     ]},
-    { id:'4c-choice', section:'4C', clues:[
+    { id:'4c-choice', section:'4C', name:'Tact & Homophones', clues:[
       {v:100, q:"Which expression softens a strong or unpopular opinion?",
         choice:{ options:["I'm afraid I have to say","I beg to differ",
                           "I see where you're coming from","Tell me about it"],
@@ -325,7 +324,7 @@
       {v:500, q:"Complete the idiom: 'You've ___ the nail on the head!'",
         choice:{ options:["hit","struck","banged","knocked"], answer:"hit" }},
     ]},
-    { id:'4c-scramble', section:'4C', clues:[
+    { id:'4c-scramble', section:'4C', name:'Being Tactful', clues:[
       {v:100, q:"Put the words in order — asking permission to criticise.",
         scramble:{ sentence:"Well if you don't mind me saying so" }},
       {v:200, q:"Put the words in order — accepting their view, then differing.",
@@ -337,37 +336,30 @@
       {v:500, q:"Put the words in order — the politest warning there is.",
         scramble:{ sentence:"With all due respect I don't think so" }},
     ]},
-    { id:'4c-anagram', section:'4C', clues:[
-      {v:100, q:"the skill of saying a hard thing without wounding", anagram:{ word:"tact" }},
-      {v:200, q:"willing to say what you think without being asked", anagram:{ word:"forthcoming" }},
-      {v:300, q:"criticism meant to help rather than to wound", anagram:{ word:"constructive" }},
-      {v:400, q:"two words that sound the same but are spelt differently", anagram:{ word:"homophone" }},
-      {v:500, q:"upset caused by something that was said", anagram:{ word:"offence" }},
+    { id:'4c-anagram', section:'4C', name:'The Language of Tact', clues:[
+      {v:100, q:"'She broke the bad news with great ___, so nobody felt wounded.' (4 letters)", anagram:{ word:"tact" }},
+      {v:200, q:"'He was not very ___ — he gave nothing away when I asked.' Willing to say what you think. (11 letters)", anagram:{ word:"forthcoming" }},
+      {v:300, q:"'I mean this as ___ criticism — it is meant to help, not to wound.' (12 letters)", anagram:{ word:"constructive" }},
+      {v:400, q:"'Due and dew are a ___ pair — same sound, different spelling.' (9 letters)", anagram:{ word:"homophone" }},
+      {v:500, q:"'No ___ intended, but I am afraid I have to disagree.' Upset caused by what was said. (7 letters)", anagram:{ word:"offence" }},
     ]},
 
-    /* ================= 4D · profile writing and time expressions ================= */
-    /* Writing 4D (p53 3e/3f): the book sorts its time expressions into three
-       groups — immediately, after a short time, some time later — which is
-       exactly a scale, and it is the book's own. */
-    { id:'4d-connections', section:'4D', clues:[
-      {v:100, q:"Four of these mean 'immediately'. Find the four.",
-        group:{ pick:["the moment","the instant","no sooner","as soon as"],
-                with:["subsequently","gradually","in time","before long"] }},
+    /* ================= 4D · profile writing and time expressions =================
+       Columns by LANGUAGE POINT, mixed rounds rising in difficulty, every clue
+       self-contained — all from the Noni-K profile and the time-expression /
+       inversion work (pp52-53). Time Expressions, Profile Writing and Noni-K's
+       Story carry the book's own scales at $400; Inversion and the cleft have no
+       scale, so theirs is an error-correction, which is exactly what the two
+       structures need taught. */
+    { id:'4d-time', section:'4D', name:'Time Expressions', clues:[
+      {v:100, q:"Which one means 'immediately', with no gap at all?",
+        choice:{ options:["the instant","in time","before long","subsequently"], answer:"the instant" }},
       {v:200, q:"Four of these mean 'some time later'. Find the four.",
         group:{ pick:["subsequently","gradually","in time","eventually"],
                 with:["the moment","the instant","immediately","instantly"] }},
-      {v:300, q:"Four of these are from the profile article. Find the four.",
-        group:{ pick:["breakthrough","trademark","sensation","outsider"],
-                with:["perpetrator","line-up","testimony","eyewitness"] }},
-      {v:400, q:"Four of these open a sentence by inverting it. Find the four.",
-        group:{ pick:["No sooner","Not until","Only when","Never before"],
-                with:["Gradually","Subsequently","Shortly","Before"] }},
-      {v:500, q:"Four of these are parts of a profile article. Find the four.",
-        group:{ pick:["quotes","background","achievements","plans"],
-                with:["verdict","testimony","line-up","sentence"] }},
-    ]},
-    { id:'4d-thermometer', section:'4D', clues:[
-      {v:100, q:"Put these in order — soonest first.",
+      {v:300, q:"'They moved first to Bristol and ___ to London.' The formal word for 'some time later'. (12 letters)",
+        anagram:{ word:"subsequently" }},
+      {v:400, q:"Put these in order — soonest first.",
         order:{ scale:["the instant","shortly afterwards","before long","subsequently","gradually"],
                 low:"immediately", high:"over a long stretch of time",
                 gloss:{ 'the instant':"the book files this under 'immediately'.",
@@ -375,31 +367,44 @@
                         'before long':"also after a short time, but vaguer.",
                         subsequently:"some time later — and formal.",
                         gradually:"over a period, not at one moment." } }},
-      {v:200, q:"Put these in order — earliest in her story first.",
-        order:{ scale:["outsider","breakthrough","sensation","waning","forgotten"],
-                low:"nobody knows her", high:"nobody remembers her",
-                gloss:{ outsider:"how Noni-K says she felt as a teenager.",
-                        breakthrough:"the moment it changes.",
-                        sensation:"the article's word once the album lands.",
-                        waning:"popularity beginning to fade — the article says hers is not.",
-                        forgotten:"the end of the arc, which is not hers." } }},
-      {v:300, q:"Put these in order — most formal last.",
-        order:{ scale:["then","after that","later","afterwards","subsequently"],
-                low:"how you would say it", high:"how the article writes it",
-                gloss:{ then:"speech, and the plainest of the five.",
-                        'after that':"still spoken English.",
-                        later:"neutral — fine anywhere.",
-                        afterwards:"leaning formal.",
-                        subsequently:"the article's own word." } }},
-      {v:400, q:"Put these in order — shortest span first.",
-        order:{ scale:["the moment","immediately","before long","in time","eventually"],
-                low:"no gap at all", high:"after everything else",
-                gloss:{ 'the moment':"at the very instant it happened.",
-                        immediately:"with no delay.",
-                        'before long':"soon, but not at once.",
-                        'in time':"after a while has passed.",
-                        eventually:"in the end, after a long wait." } }},
-      {v:500, q:"Put these in order — the order a profile article puts them in.",
+      {v:500, q:"Put the words in order — some time later.",
+        scramble:{ sentence:"They moved first to Bristol and subsequently to London" }},
+    ]},
+    { id:'4d-inversion', section:'4D', name:'Inversion after Negatives', clues:[
+      {v:100, q:"'___ had I started singing than I realised what I wanted to do.'",
+        choice:{ options:["No sooner","Not until","The instant","Before long"], answer:"No sooner" }},
+      {v:200, q:"Four of these force the subject and verb to swap when they open a sentence. Find the four.",
+        group:{ pick:["no sooner","not until","only when","never before"],
+                with:["gradually","subsequently","shortly","before"] }},
+      {v:300, q:"'No sooner HAD I started than I knew.' The grammar name for swapping subject and verb after a negative. (9 letters)",
+        anagram:{ word:"inversion" }},
+      {v:400, q:"Correct the inversion: 'Not until many years later *she became* famous.'",
+        a:"did she become", type:"errorfix"},
+      {v:500, q:"Put the words in order — the inversion after 'not until'.",
+        scramble:{ sentence:"Not until many years later did she become famous" }},
+    ]},
+    { id:'4d-cleft', section:'4D', name:"It Wasn't Until… That", clues:[
+      {v:100, q:"Complete the cleft: 'It wasn't ___ she released her album that she became a sensation.'",
+        choice:{ options:["until","when","after","since"], answer:"until" }},
+      {v:200, q:"Four of these mean 'at the exact moment'. Find the four.",
+        group:{ pick:["the moment","the instant","as soon as","the second"],
+                with:["gradually","eventually","in time","before long"] }},
+      {v:300, q:"'It was only when she released her first album that she had her ___.' The moment everything changed. (12 letters)",
+        anagram:{ word:"breakthrough" }},
+      {v:400, q:"Correct the cleft: 'It was only when she released her album *when* she became a sensation.'",
+        a:"that", type:"errorfix"},
+      {v:500, q:"Put the words in order — the cleft that delays the point.",
+        scramble:{ sentence:"It was not until she was seventeen that she felt confident" }},
+    ]},
+    { id:'4d-profile', section:'4D', name:'Profile Writing', clues:[
+      {v:100, q:"Which part of a profile article is used to BEGIN it?",
+        choice:{ options:["the hook","the plans","the achievements","the background"], answer:"the hook" }},
+      {v:200, q:"Four of these are parts of a profile article. Find the four.",
+        group:{ pick:["background","achievements","quotes","plans"],
+                with:["verdict","testimony","line-up","sentence"] }},
+      {v:300, q:"'Her baggy grey jumper is her ___ style — people know her by it.' (9 letters)",
+        anagram:{ word:"trademark" }},
+      {v:400, q:"Put these in order — the order a profile article puts them in.",
         order:{ scale:["hook","background","breakthrough","achievements","plans"],
                 low:"the opening line", high:"the closing line",
                 gloss:{ hook:"the most interesting part, used to begin.",
@@ -407,39 +412,27 @@
                         breakthrough:"the moment everything changed.",
                         achievements:"what she has done since.",
                         plans:"what comes next — where a profile ends." } }},
+      {v:500, q:"Put the words in order — how a profile ends.",
+        scramble:{ sentence:"A good profile ends with her plans for the future" }},
     ]},
-    { id:'4d-choice', section:'4D', clues:[
-      {v:100, q:"'___ had I started singing than I realised what I wanted.'",
-        choice:{ options:["No sooner","Not until","The instant","Before long"], answer:"No sooner" }},
-      {v:200, q:"'___ many years later did she become famous.'",
-        choice:{ options:["Not until","No sooner","The moment","Subsequently"], answer:"Not until" }},
-      {v:300, q:"Which one means 'immediately'?",
-        choice:{ options:["the instant","in time","before long","subsequently"], answer:"the instant" }},
-      {v:400, q:"'They moved first to Bristol and ___ to London.'",
-        choice:{ options:["subsequently","the instant","no sooner","gradually"], answer:"subsequently" }},
-      {v:500, q:"What is unusual about 'Not until many years later did she become famous'?",
-        choice:{ options:["the subject and verb are inverted","it has no main verb",
-                          "the tense is wrong","it is a question"],
-                 answer:"the subject and verb are inverted" }},
-    ]},
-    { id:'4d-scramble', section:'4D', clues:[
-      {v:100, q:"Put the words in order — some time later.",
-        scramble:{ sentence:"They moved first to Bristol and subsequently to London" }},
-      {v:200, q:"Put the words in order — after a short time.",
-        scramble:{ sentence:"Before long she was creating songs in a new style" }},
-      {v:300, q:"Put the words in order — the inversion after 'not until'.",
-        scramble:{ sentence:"Not until many years later did she become famous" }},
-      {v:400, q:"Put the words in order — at the very moment.",
-        scramble:{ sentence:"The instant I heard her music I knew" }},
+    { id:'4d-noni', section:'4D', name:"Noni-K's Story", clues:[
+      {v:100, q:"Where did Noni-K feel she truly belonged?",
+        choice:{ options:["South Africa","Bristol","London","Asia"], answer:"South Africa" }},
+      {v:200, q:"Four of these trace Noni-K's rise. Find the four.",
+        group:{ pick:["outsider","breakthrough","sensation","trademark"],
+                with:["perpetrator","testimony","fallible","line-up"] }},
+      {v:300, q:"'As a teenager she always felt like a bit of an ___.' Someone who never quite belongs. (8 letters)",
+        anagram:{ word:"outsider" }},
+      {v:400, q:"Put these in order — earliest in her story first.",
+        order:{ scale:["outsider","breakthrough","sensation","waning","forgotten"],
+                low:"nobody knows her", high:"nobody remembers her",
+                gloss:{ outsider:"how Noni-K says she felt as a teenager.",
+                        breakthrough:"the moment it changes.",
+                        sensation:"the article's word once the album lands.",
+                        waning:"popularity beginning to fade — the article says hers is not.",
+                        forgotten:"the end of the arc, which is not hers." } }},
       {v:500, q:"Put the words in order — the article's closing idea.",
         scramble:{ sentence:"Her popularity shows no sign of waning any time soon" }},
-    ]},
-    { id:'4d-anagram', section:'4D', clues:[
-      {v:100, q:"the moment everything changed for her", anagram:{ word:"breakthrough" }},
-      {v:200, q:"some time later — the article's formal word", anagram:{ word:"subsequently" }},
-      {v:300, q:"slowly, over a period rather than at one moment", anagram:{ word:"gradually" }},
-      {v:400, q:"the clothes she always wears, so people know her by them", anagram:{ word:"trademark" }},
-      {v:500, q:"someone who never quite belongs to the group", anagram:{ word:"outsider" }},
     ]},
 
     /* ================= 4E · Connections 4×4 — sort the whole field =================
