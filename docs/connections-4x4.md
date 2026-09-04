@@ -1,8 +1,12 @@
 # True 4×4 Connections — a design for the physics grid where a row IS a group
 
-**Status: design only. Not built.** Written the night Drag the Words got its `flick`
-mode, when the question "can Connections get physics too?" turned out to have a longer
-answer than yes.
+**Status: the grid itself is still design only, but its two prerequisites shipped.**
+The board-face card table is extracted (`Kit.round.cardTable`, used by anagram, scramble,
+ordering, choice and grouping), and the single-group **Connections (`grouping`) now has an
+8-word `flick` face** — eight tiles into a row of four slots (`count:4`), the same
+`Kit.table` bar path. What remains unbuilt is the true **16-word 4×4 grid where a row IS a
+group** (step 3 below). Written the night Drag the Words got its `flick` mode, when the
+question "can Connections get physics too?" turned out to have a longer answer than yes.
 
 ## Why this exists
 

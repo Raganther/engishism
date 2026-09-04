@@ -53,6 +53,10 @@ HubKit.round.register('ordering', {
                                   // and it becomes the DEFAULT on that axis (physics is
                                   // the principal face; the first entry is the fallback).
                                   // `on` is always the word Flick; `off` is the round's own.
+                                  // Add `principal:false` to KEEP the first entry as the
+                                  // default (the face still exists and still gets the
+                                  // per-category toggle) — Multiple Choice and the 8-word
+                                  // Connections do this so the fast tap/vote stays default.
   modeSetting: {...},             // how the hub should register your `round_<id>` row
   internal: true,                 // keep me out of the "write a question for me" list
   settleMs: 700
@@ -82,6 +86,18 @@ it explicitly in `modeDefaults`.
 belong to the host. Jeopardy pays a tile and passes a turn when the round says a
 team has it; the bench pays nothing at all. A round holding one of them can only
 ever live in one game, which defeats the entire point.
+
+**A physics face has two sides, decided by `Kit.round.face(s, c)`.** No phones →
+`Kit.round.cardTable(mount, s, {...})` runs the tiles on the clue card; phones → an
+`arm` with `mode:'table'` and the slot shape (`cols/rows/bar/upright/count`), each
+handset running its own `Kit.table` through `join.html`. The wire back is
+`cells().join('|')`, so `read`/`judge` usually need no change — a docked row is the
+same positional string a drag or a multi-pick vote already sent. **The `count` trap:
+a grid with more labels than slots (four option tiles into ONE slot, eight words into
+a row of four) builds one slot *per label* unless the arm and the `slots({...})` call
+both pass `count:<slots>`.** `count` rides the relay and `join.html` beside `cols/bar`.
+And `Kit.table` copies a live table across re-renders, so tear down `s._table`/
+`s._canvas` on the DOM path or the option grid draws under a running physics loop.
 
 **`ctx` is what the host lends you**, passed in rather than reached for, because the
 bench has no team bar and the hub does. **`roundCtx()` in `hub-engine.js` is the list** —

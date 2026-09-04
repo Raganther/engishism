@@ -80,7 +80,14 @@ The tool prints these; they are here because getting one wrong wastes a whole ru
 
 - **Jeopardy** — every category needs **exactly five** clues at 100–500. A category
   short of one is not a narrower column, it is a crash. Categories stay grouped by
-  section in array order or the section heading prints twice.
+  section in array order or the section heading prints twice. **A column may carry a
+  human `name` AND mix round types** — a clue's round is resolved from its own field
+  when it opens, so `{name:'Have / Get Something Done', clues:[…choice…, …group…,
+  …anagram…, …order…, …scramble…]}` is a valid column. Prefer naming a column by its
+  **language point** and mixing rounds rising in difficulty ($100 easiest) over five
+  clues of one round type; where a point has no scale, substitute a form (an
+  error-fix teaches the causative or an inversion well). `ef2a-the-scam` in
+  `content/ef-2a.js` is the precedent.
 - **Blockbusters** — an ordinary answer is **one word beginning with its letter**.
   A round hexagon still carries a letter (it is how a team says which square they
   are attacking) and carries **no** answer, because a grouping set has four.
@@ -109,6 +116,14 @@ The content gate catches form, never quality. These are yours:
 - **Vary the question type.** An audit found 71% of Unit 5 was gap fills, because gap
   fills are the easiest thing to write. Set the target on the language point, not on
   the shape.
+- **Every clue states its own context — a teacher who has not read the unit still
+  plays it.** A Drag the Letters clue is a *gapped, cued sentence*, never a bare
+  gloss: not `"the moment everything changed for her"` (who? what article?) but
+  `"'It was only when she released her album that she had her ___.' The moment
+  everything changed. (12 letters)"`. Grammar-led prompts name the pattern ("Complete
+  with the causative…", "Correct the inversion…"). No "her" or "the article" without
+  saying who or what. This is the difference between content that reads as a lesson to
+  a manager or a supply teacher and content only its author can run.
 
 ## 7. Check it, then look at it
 
