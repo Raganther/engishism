@@ -1090,11 +1090,17 @@
     /* `surface:null` — a board round's play surface is the clue card it draws on, so
        the canvas stays transparent and the card shows through. Only a phone (no card)
        lets Kit.table paint its own surface. A round may override in `o.table`. */
+    /* `sweepGrid:false` — a round face is a SORT, never a crossword: a spare tile
+       resting on a docked answer is fine, and the crossword sweep (which kicks such
+       a tile off toward the pile) has nowhere to send it on a round's small grid, so
+       it bounces the tile forever. Off here means a flicked tile comes to rest
+       naturally on the one below it, the same reason `playground/sort.html` opts out.
+       (Battle Scrabble keeps the sweep — it IS a crossword.) A round may override. */
     /* The caller's onArrange, then a DOM event the host may listen for: the strip's
        Check count is drawn from state at render time, and a tile docking is not a
        render, so the host re-reads the button on this. Bubbles from the mount; the
        bench, which has no such button, simply never listens. */
-    const topts = Object.assign({ canvas, surface: null }, o.table);
+    const topts = Object.assign({ canvas, surface: null, sweepGrid: false }, o.table);
     const inner = topts.onArrange;
     topts.onArrange = function(){
       if(inner) inner.apply(this, arguments);

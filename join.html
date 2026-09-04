@@ -421,14 +421,14 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260904a"></script>
+<script src="game-hub/hub-buzzer.js?v=20260904b"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260904a"></script>
+<script src="game-hub/matter.min.js?v=20260904b"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260904a"></script>
+<script src="game-hub/hub-table.js?v=20260904b"></script>
 <script>
 (function(){
   'use strict';
@@ -989,7 +989,11 @@
     // upright: a bar arm's wide word tiles lean but settle flat (the stack
     // round). Absent for a plain row/toss table, which keeps the free tumble.
     // a tile moving clears the last verdict's paint — the picture must not say "right" about an arrangement that has changed
-    tbl = window.HubKit.table({ canvas, upright: !!(shape && shape.upright), onArrange(){ if(tbl) tbl.setResult(null); sendTable(); } });   // every feel number from the shelf's dial registry
+    // sweepGrid:false — a round on a phone is a SORT, not a crossword: a spare
+    // tile rests naturally on the one below it instead of being kicked off toward
+    // a pile the small grid has no room for (which bounced it forever). Same reason
+    // the board face opts out in Kit.round.cardTable.
+    tbl = window.HubKit.table({ canvas, upright: !!(shape && shape.upright), sweepGrid: false, onArrange(){ if(tbl) tbl.setResult(null); sendTable(); } });   // every feel number from the shelf's dial registry
     /* Slots before pieces: the pile's spread reads the declared slot width,
        if any, so a bar shape's wide word tiles spread across the room they
        need rather than the room square letters need — the reverse order

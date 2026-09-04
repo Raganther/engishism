@@ -1279,16 +1279,25 @@
       if(!grid || !feel.sweepGrid) return;   // a sort wants loose tiles to rest naturally
       const held = heldBodies();
       for(const p of pieces){
-        if(p.slot != null || p.dock || p.body.isStatic || held.has(p.body)) continue;
+        if(p.slot != null || p.dock || p.body.isStatic || held.has(p.body)){ p.sweptN = 0; continue; }
         const b = p.body;
-        if(Math.hypot(b.velocity.x, b.velocity.y) > 0.5) continue;
+        if(Math.hypot(b.velocity.x, b.velocity.y) > 0.5) continue;   // moving (mid-shove, or a real throw) — leave it, keep the count
         const onWord = slots.some(s => s.piece &&
           Math.abs(b.position.x - s.x) < s.w * 0.75 &&
           b.position.y < s.y && s.y - b.position.y < s.h * 1.4);
-        if(onWord){
-          Body.setVelocity(b, { x: b.position.x < cssW/2 ? 4 : -4, y: 1 });
-          Body.setAngularVelocity(b, 0.12);
-        }
+        if(!onWord){ p.sweptN = 0; continue; }   // landed clear of every word — nothing to clear, reset the count
+        /* **Bounded, or the sweep becomes the bug it was written against.** A tile
+           boxed in on a docked word — a full row of neighbours, or a grid that fills
+           the canvas with nowhere to fall — is kicked back into the same zone every
+           250ms, which reads as the tile vibrating in place and never settling.
+           Two shoves toward the pile, then it is left at rest: in an open crossword
+           the first kick clears it, and where it genuinely cannot escape a spare
+           tile resting on a word beats one that bounces forever. The count resets
+           the instant it lands clear (above) or is grabbed/docked. */
+        if((p.sweptN || 0) >= 2) continue;
+        Body.setVelocity(b, { x: b.position.x < cssW/2 ? 4 : -4, y: 1 });
+        Body.setAngularVelocity(b, 0.12);
+        p.sweptN = (p.sweptN || 0) + 1;
       }
     }
     function draw(){
