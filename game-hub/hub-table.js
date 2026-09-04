@@ -1690,5 +1690,10 @@
     mount.appendChild(act);
   };
   makeTable.dials = DIALS;
+  /* The tile palette, exported so a caller can paint a DOM element the SAME colour
+     the physics dealt a given tile — the thermometer's board ladder colours each
+     filled rung to match the word's tile on the phone. One home for the seven hues;
+     a copy hand-typed into CSS is a copy that will drift. */
+  makeTable.hues = HUES.slice();
   window.HubKit.table = makeTable;
 })();

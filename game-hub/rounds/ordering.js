@@ -180,6 +180,25 @@
         e.className = 'ord-cap ' + cls; e.textContent = txt; return e;
       };
 
+      /* The colour the physics dealt this word — hue k for the k-th tile in the
+         shuffled pool the phone (and the board canvas) deal, straight off the
+         shelf's exported palette. So a filled rung on the board wears the same
+         colour as that word's tile in the room's hands. Only the stack (physics)
+         face uses it; climb/race keep the green "got it right" rung. */
+      const hueFor = word => {
+        const hues = (K.table && K.table.hues) || null;
+        if(!hues || !hues.length) return null;
+        const k = s.pool ? s.pool.indexOf(word) : -1;
+        return k >= 0 ? hues[k % hues.length] : null;
+      };
+      const paintTile = (rung, word) => {
+        const hue = hueFor(word);
+        if(!hue) return;
+        rung.classList.add('tile');
+        rung.style.background = hue;      // inline: the per-word colour, one home in Kit.table.hues
+        rung.style.color = '#101318';     // the tiles' fixed dark ink, readable on every hue
+      };
+
       /* One ladder, drawn top-down so the strongest sits where a room expects it.
          `placed` is stored cold-end-first because that is the order it is filled in,
          and the two are deliberately not the same thing. */
@@ -229,6 +248,7 @@
                two different signals fighting over one border. Which lane is whose is
                already answered at the top of the lane, once, where a name is. */
             rung.classList.add('filled');
+            if(s.mode === 'stack') paintTile(rung, word);   // the stack face wears the tile's own colour
             const w = document.createElement('span');
             w.className = 'ord-word'; w.textContent = word;
             rung.appendChild(w);
@@ -326,6 +346,7 @@
               rung.className = 'ord-rung';
               if((row[slot] || 0) >= 1){
                 rung.classList.add('filled');
+                paintTile(rung, s.scale[s.need - 1 - slot]);   // same tile colour the phone dealt that word
                 const w = document.createElement('span');
                 w.className = 'ord-word'; w.textContent = s.scale[s.need - 1 - slot];
                 rung.appendChild(w);

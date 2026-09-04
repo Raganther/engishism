@@ -226,6 +226,13 @@ body.theme-gameshow #clue-actions #group-btn{ border-color:rgba(255,200,61,0.5);
   opacity:0.85; letter-spacing:0.12em; text-transform:uppercase; }
 .ord-rung.filled{ border-style:solid; border-color:var(--gw-good, #2FA84F);
   background:var(--gw-goodwash, rgba(47,168,79,0.14)); color:var(--gw-goodink, #1B6B32); }
+/* A stack-mode rung wears the tile's OWN colour (an inline background from
+   Kit.table.hues, set by the round) so the board ladder and the handset tiles
+   read as one thing. The green "got it right" wash is dropped — the tile colour
+   is the signal now — the border is quieted to sit under the fill, and the corner
+   matches the canvas tile's chamfer. Works under both themes because the fill and
+   ink are inline literals, not theme tokens. */
+.ord-rung.tile.filled{ border-color:rgba(0,0,0,0.22); border-radius:6px; }
 /* A crowd-revealed rung on the big-room reference ladder — given away, not earned,
    so it wears the hint's colours and never the right-answer green. */
 .ord-rung.hinted{ border-style:solid; border-color:var(--gw-hint, #D68A10);
