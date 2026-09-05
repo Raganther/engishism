@@ -275,94 +275,24 @@
     return h && h.clock ? (Number(h.clock()) || 0) : 0;
   }
 
-  /* ---- feature switches. Adding a feature? Register it here and the settings
-     panel picks it up automatically — there is no panel markup to edit. ---- */
-  S.register({ id:'sound', group:'Sound', type:'toggle', default:true, games:'*',
-    label:'Sound effects', help:'Short tones for a right answer, a wrong one, and a cleared board.' });
-  S.register({ id:'soundVolume', group:'Sound', type:'select', default:'med', games:'*',
-    label:'Volume', help:'Classroom speakers are usually louder than they sound at your desk.',
-    options:[{value:'quiet',label:'Quiet'},{value:'med',label:'Medium'},{value:'loud',label:'Loud'}] });
-  /* The music bed is the one sound that runs *continuously* under a live question,
-     so it is the one a teacher may want gone while keeping the cues. Volume alone
-     could not do that — turning it down takes the right-answer tone with it. */
-  S.register({ id:'musicBed', group:'Sound', type:'select', default:'normal', games:'*',
-    adv:true, label:'Background music', help:'Music that plays under a question nobody has answered yet. Off leaves every other sound alone.',
-    options:[{value:'normal',label:'On'},{value:'quiet',label:'On, quieter'},{value:'off',label:'Off'}] });
-
-  /* ---- phones: one mode, not four switches ----
-     These began as four independent toggles and immediately contradicted each
-     other — with typing and buzzing both on, one had to silently win, and it was
-     decided by a hard-coded precedence nobody could see. A dynamic is a *choice*
-     between iterations, so it is one variant with named values: pick one, compare
-     it against another next round, no combination that means nothing.
-
-     A variant may name the games it suits, so a dynamic only appears on the boards
-     it works on.
-
-     Voting is *not* one of these values, deliberately. It is not an alternative to
-     buzzing or typing — it is what the phones do for the few seconds Ask the class
-     is running, and then they go back to whatever mode says. Making it a mode meant
-     choosing between a class that can buzz and a class that can vote, when the
-     Millionaire round wants both at different moments. So the mode is what the
-     phones do *for a question*, and the lifeline borrows the room. */
-  /* `phoneMode` used to be registered here, by hand, with its four values written
-     out. It is `round_default` now and the row is built from what the default round
-     declares — same loop, same shape as `round_grouping`. See `rounds/default.js`
-     and the registration block below. */
-
-  /* Two weights for the typing race, both here rather than in the source because
-     the right numbers are a classroom question. A wrong answer costs *time*, never
-     points — long enough to hurt, short enough that they stay in the round. */
-  S.register({ id:'typeCooldown', group:'Phones', adv:true, type:'range', default:3,
-    min:0, max:10, step:0.5, unit:'s', games:'*',
-    label:'Wait after a wrong buzz',
-    help:'How long that phone is out before it can buzz again. Nobody loses points; they lose the race.' });
-
-  S.register({ id:'typeStrict', group:'Phones', adv:true, type:'toggle', default:false,
-    games:'*',
-    label:'Spelling has to be exact',
-    help:'Off: a near miss takes the floor and the phone is told to check its spelling. On: only the exact word counts.' });
-
-  S.register({ id:'phoneOneEach', group:'Phones', type:'toggle', default:true,
-    games:'*',
-    label:'One answer each per question',
-    help:'A student who has answered cannot answer again until the next question. Stops the fastest thumbs owning the game.' });
-
-  S.register({ id:'phonePrompt', group:'Phones', type:'toggle', default:true,
-    games:'*',
-    label:'Show the question on the phones',
-    help:'The back of the room reads its own screen. Off keeps their eyes on the board.' });
+  /* ---- feature switches ----
+     Every app-wide setting (Sound, Phones, Competition, the Clue card, Presentation,
+     the roster and the relay) is now DECLARED in `hub-app-settings.js`, which
+     self-registers into `S` when its <script> loads — so the question bench holds the
+     same registry the board does. What stays here is the engine's *reaction* to those
+     settings: the onChange handlers and the code that reads them. Adding a feature? Its
+     row goes in `hub-app-settings.js` (or, for a game, `games/<id>-settings.js`); its
+     behaviour goes here. The `phoneMode` toggles became `round_default`, built by the
+     round-mode loop below (`registerRoundModeSettings`); `rounds/default.js` declares it. */
 
   /* The migrations that used to sit here — three booleans into `phoneMode`, and
      the retired `vote` value — moved below the round-setting registration, because
      both now write `round_default` and `S.set` cannot write an id that has not been
      registered yet. Same trap `migrateRoundSettings` already carried a note about. */
 
-  /* ---- competitive dynamics ----
-     All per-game, so a teacher can run steal in Jeopardy and not in Blockbusters and
-     compare. **Nothing here ever deducts points**: a steal transfers the chance, not
-     the score, which keeps the decision recorded in the Millionaire section below
-     (never taking anything away) true of the whole app.
-
-     Steal and keep-control default ON — they only add ways to score, and between
-     them they fix the thing that most flattens a room: nothing being at stake when
-     it is not your turn. The streak defaults off because it changes how big the
-     numbers get, which is a taste question. */
-  /* Named games rather than '*', deliberately: a steal is a question passing to the
-     other team, and Bingo has no such beat — a wrong tap costs nothing and the call
-     stays open for everybody. Divergence by declaration is the point; the bug is
-     only when a list is standing in for "all of them". */
-  S.register({ id:'stealOnWrong', group:'Competition', type:'toggle', default:true,
-    games:['jeopardy','blockbusters','millionaire','race'],
-    label:'Steal on a wrong answer',
-    help:'A missed question passes to the other team for one shot at the points. Off: a wrong answer simply ends the question, as before.' });
-
-  /* Only the two games that score in values: a Blockbusters hex is one point and a
-     Race word is one word, so halving them has nothing to halve. */
-  S.register({ id:'stealFullValue', group:'Competition', under:'stealOnWrong', type:'toggle', default:false,
-    games:['jeopardy','millionaire'],
-    label:'Steal pays the full value',
-    help:'As the show plays the rebound — a stolen question earns everything it was worth. Off: a steal pays half, so the miss still cost something.' });
+  /* Competitive dynamics (stealOnWrong, stealFullValue, keepControl, streak) are
+     declared in `hub-app-settings.js`. **Nothing here ever deducts points**: a steal
+     transfers the chance, not the score. */
 
   /* A grouping clue is the one clue every team can genuinely play at the same time,
      and whether they should is a teaching decision rather than a number to tune —
@@ -372,108 +302,15 @@
      is running away with it. Written as a switch because a choice between
      iterations is exactly what a variant is for, and the room bench is where a
      teacher tries the other one between rounds. */
-  /* One row per round that offers ways to be played, built from what each round
-     declares. The engine never learns what a mode *means* — it hands the chosen
-     value back through `ctx.mode` and the round does the rest. Registered here with
-     everything else, because a setting registered later than init is a row the
-     panel has already been built without. */
-  /* `Questions`, not `Jeopardy`, and the ids carry no game in them — a round is
-     drawn in the shared clue card and every board that opens one hosts the same
-     code. A group is a game's own when everything in it names exactly one game, so
-     naming two is what puts these where they belong without a list anywhere. */
-  /* A round may say how its own row should read. Every shaped round wants the same
-     thing — offered to the boards that can host one, filed under Questions — so
-     saying nothing gets that. The **default round** wants neither: it applies to all
-     five games, because every game has phones, and it belongs beside the other phone
-     switches where a teacher has always found it. Declared by the round rather than
-     branched on here, or this loop would grow an `if (id === 'default')` and the next
-     round like it would need a second one. */
-  (Kit.round ? Kit.round.ids() : []).forEach(id => {
-    const def = Kit.round.get(id);
-    if(!def || !def.modes || !def.modes.length) return;
-    const own = def.modeSetting || {};
-    /* A host may declare which mode suits its board — the round says what modes
-       exist, the skin says which one its geometry wants, and neither learns the
-       other's business. Two ways to say it, and the general one comes second so a
-       named exception always wins:
-
-       `modeDefaults[id]` names a mode for one round, for a board with a reason
-       peculiar to that round — Jeopardy's ordering ladder is the only one.
-
-       `teamMode:true` says "this board is team-based, so give me whichever mode
-       each round calls its whole-team one" (`teamMode` on the round). That is the
-       one that scales: a round registered next month lands on the right mode with
-       no host edited, where the per-round list had to be joined by hand.
-
-       Both are checked against the round's own list, because a default naming a
-       mode that does not exist would select nothing and look exactly like the
-       setting being ignored. */
-    const perGame = {};
-    ROUND_GAMES.forEach(g => {
-      const host = ROUND_HOSTS[g];
-      /* Physics is the principal face: a round's declared physics mode outranks both
-         asks below. Jeopardy's ordering ask ('race', a ladder each) predates the
-         physics face, one shared ladder the room flicks into order. The fallback stays one
-         toggle away on the content row. */
-      const want = (def.physics && def.physics.axis === 'mode' && def.physics.principal !== false && def.modes.some(m => m.value === def.physics.value))
-        ? def.physics.value
-        : ((host.modeDefaults || {})[id] || (host.teamMode ? def.teamMode : null));
-      if(want && def.modes.some(m => m.value === want)) perGame[g] = want;
-    });
-    S.register({ id:'round_' + id, type:'variant',
-      group: own.group || 'Questions',
-      /* Team rules and whole-class rules are two different lessons, so how a
-         round is played forks by room type: a change made while a solo room is
-         up is the individuals' value, and individuals follow the team-room
-         value until set apart. The storage and the row wording are the
-         registry's (`byRoster` in hub-settings.js); this line only opts in. */
-      byRoster: true,
-      /* **Physics is the principal face** (the teacher's decision): a round that
-         declares a `physics` face on this axis defaults to it, and its first mode
-         is the fallback. The round says what physics means; this only picks it.
-         A round may opt OUT with `physics.principal:false` — its physics face still
-         exists and still gets the per-category toggle, but the first mode stays the
-         default (Multiple Choice: the fast tap vote is the default, flick per
-         category). */
-      default: (def.physics && def.physics.axis === 'mode' && def.physics.principal !== false) ? def.physics.value : def.modes[0].value,
-      defaults: Object.keys(perGame).length ? perGame : undefined,
-      games: own.games || ROUND_GAMES,
-      label: own.label || ('How ' + (def.label || id) + ' is played'),
-      variants: def.modes.slice(),
-      help: own.help || 'The same question played more than one way. These are different lessons rather than two speeds of the same one, so it is a teaching choice.',
-      /* The row says what the room will actually play. In a room of individuals a
-         whole-team mode resolves to the round's solo mode at play time
-         (`roundModeOf` — "everyone agrees" is meaningless for a competitor of
-         one), and a row that went on showing the team wording was the pane
-         quietly disagreeing with the board beside it. Mirrors roundModeOf's
-         conditions exactly, including the teacher's override outranking it. */
-      stateNote: g => {
-        if(!def.teamMode || !Roster.solo()) return null;
-        if(S.get('round_' + id, g) !== def.teamMode) return null;
-        if(S.hasOverride('round_' + id, g)) return null;
-        const solo = def.modes.filter(m => m.value !== def.teamMode)[0];
-        return solo ? 'A room of individuals — playing as “' + solo.label + '”' : null;
-      } });
-
-    /* A round may declare a SECOND axis — how the answer is entered (drag vs flick) —
-       kept apart from the team rule because they are orthogonal: either input can
-       carry either rule. Built the same way `round_<id>` is, from the round's own
-       `inputs` list, so a round with no `inputs` grows no row. Not `byRoster`: the
-       input method is not a team-vs-individual choice the way the team rule is, so
-       one value serves both room types. */
-    if(def.inputs && def.inputs.length){
-      S.register({ id:'round_' + id + '_input', type:'variant',
-        group: own.group || 'Questions',
-        // physics is the principal face: the declared physics input is the default, the
-        // first input the fallback — unless the round opts out with physics.principal:false
-        // (Multiple Choice keeps the fast tap vote as default; flick is per-category).
-        default: (def.physics && def.physics.axis === 'input' && def.physics.principal !== false) ? def.physics.value : def.inputs[0].value,
-        games: own.games || ROUND_GAMES,
-        label: 'How ' + (def.label || id) + ' is entered',
-        variants: def.inputs.slice(),
-        help: 'How the answer is put into the slots. Flick (the physics) is the default face; Drag is the fallback. Set apart from how the answer is decided.' });
-    }
-  });
+  /* One row per round that offers ways to be played (round_<id>) and one for how it is
+     entered (round_<id>_input), built from what each round declares. **Defined once in
+     hub-round-settings.js** (`registerRoundModeSettings`) so the question bench registers
+     the same rows; handed this board's hosts so a skin's baked per-game default
+     (Jeopardy's ordering ladder, a team-based board's whole-team mode) is registered.
+     The engine never learns what a mode *means* — it hands the chosen value back through
+     `ctx.mode` and the round does the rest. Runs BEFORE the migrations below, which write
+     some of these ids. */
+  registerRoundModeSettings(S, { roundGames: ROUND_GAMES, hosts: ROUND_HOSTS });
 
   /* **The physics default reaches devices that already ran the old build.** register()
      seeds every master into localStorage the first time a device runs the app, so
@@ -504,6 +341,27 @@
       if(S.raw(key) === oldDefault) S.set(key, ph.value);
     });
     try{ localStorage.setItem(MARK, '1'); }catch(e){}
+  })();
+
+  /* **Settings flattened to one value each: drop the per-game overrides.** The panel and
+     every read used to fork by game (`id@game`, and `id@game!solo` for a solo room). The
+     app is tuned from one place now (the question bench) and a shared setting has a single
+     value, so those keys are dead — a value nothing reads is the quiet kind of wrong,
+     because it comes back the day a scope does and applies a choice made about a different
+     build (CLAUDE.md, "a retired scope's keys get dropped, not orphaned"). Found by shape:
+     every stored key carrying '@'. The room-type fork (`id!solo`, no '@') and the master
+     survive.
+
+     **Runs FIRST, before the @-walking migrations below, and needs no marker.** `set()`
+     can no longer write an '@' key, so once these are dropped none can return — the drop
+     is naturally idempotent (a no-op every load after the first), exactly like the
+     `S.drop(dead)` the phone-mode migrations already carry. Running first is load-bearing:
+     those migrations read old `phoneMode@game`-shaped keys and now write the master, so a
+     surviving per-game key would clobber the one value with a game's old choice; dropping
+     them first leaves each migration only the master to carry forward. */
+  (function dropPerGameOverrides(){
+    const dead = S.keys().filter(k => k.indexOf('@') !== -1);
+    if(dead.length) S.drop(dead);
   })();
 
 
@@ -645,77 +503,10 @@
     if(dead.length) S.drop(dead);
   })();
 
-  // the two games with a turn that can be *kept*: Race and Bingo have no pick to
-  // hand over, and Millionaire's ladder rotates by design
-  S.register({ id:'keepControl', group:'Competition', type:'toggle', default:true,
-    games:['jeopardy','blockbusters'],
-    label:'Keep the board on a correct answer',
-    help:'A team that answers correctly picks again instead of handing over. Runs build, which is what steal is there to punish.' });
-
-  /* Registered exactly like every other weight, which is the point: the panel and
-     the Lab both grow a row for it without either being edited. */
-
-  /* `'*'`, not a list: this rides on award(), which every game that scores calls,
-     so naming the games that existed when it was written left the fifth one out. */
-  S.register({ id:'streak', group:'Competition', adv:true, type:'toggle', default:false,
-    games:'*',
-    label:'Streak bonus',
-    help:'Two in a row scores 1.5×, three or more scores 2×. A wrong answer resets it.' });
-
-  // only the two games that open a clue card have a card to animate
-  S.register({ id:'cardFlip', group:'Clue card', type:'variant', default:'morph',
-    games:['jeopardy','blockbusters'],
-    label:'Card animation', help:'How the clue card arrives. Try them mid-game and keep whichever reads best in your room.',
-    variants:[{value:'off',       label:'None — opens instantly'},
-              {value:'morph',     label:'Unfold from the shape you clicked'},
-              {value:'grow-turn', label:'Grow, then turn over'},
-              {value:'turn-only', label:'Turn on the spot'},
-              {value:'rise',      label:'Rise up — no 3D'}] });
-
-  S.register({ id:'flipSpeed', group:'Clue card', under:'cardFlip', type:'select', default:'normal',
-    games:['jeopardy','blockbusters'],
-    label:'Flip speed', help:'How long the card takes to turn over and come back.',
-    options:[{value:'relaxed',label:'Relaxed'},{value:'normal',label:'Normal'},{value:'snappy',label:'Snappy'}] });
-
-  /* Blockbusters' weakness is that two students play and twenty-eight watch. The
-     bench choosing the hexagon is the cheapest fix for that.
-
-     It lives in the phones group rather than the Blockbusters one because that is
-     where a teacher looks for "what do the phones do" — but it is deliberately not
-     a `phoneMode` *value*. A mode is a choice between things that cannot both be
-     true during a question; this is a button that borrows the room for ten seconds
-     between questions and hands it straight back, exactly like Ask the class. Making
-     it a mode would mean a Blockbusters class could pick the hexagon or buzz on the
-     clue, never both, when the round wants both at different moments. */
-  S.register({ id:'bbTeamVote', group:'Phones', type:'toggle', default:true,
-    games:['blockbusters'],
-    label:'The team picks its hexagon on their phones',
-    help:'Adds a button that asks the team on turn which letter to attack. Their votes land beside the legend and the hexagons light up; you still click the one that plays. Works alongside whatever the phones are doing during a clue. Needs a room; with no phones the button stays hidden.' });
-
-  /* Blockbusters' own settings (bbWinRoute, bbEdges) moved with the game into
-     game-hub/games/blockbusters.js. The shared keepControl (Competition) and bbTeamVote
-     (Phones) stay here, in their shared groups. */
-
-  /* A skin, not a rewrite. Game show is the default: the app is a classroom
-     presentation tool and the lit look is what makes a class sit up, so it should be
-     what you get without going and finding a setting. DCU remains one switch away and
-     is unchanged.
-
-     The skin covers the whole app, setup screens included — choosing a unit under
-     stage lights is part of the moment. Which value applies: the game's own setting
-     once a game is picked, the master before that. */
-  S.register({ id:'theme', group:'Presentation', type:'variant', default:'gameshow',
-    games:'*',
-    label:'Look and feel', help:'Game show mode darkens the room and adds chase lights, an intro and music. DCU is the school-colours look.',
-    variants:[{value:'gameshow', label:'Game show — lights, music, intro'},
-              {value:'dcu',      label:'DCU — school colours'}] });
-
-  S.register({ id:'intro', group:'Presentation', adv:true, type:'select', default:'once',
-    games:'*',
-    label:'Title sequence', help:'The lights-and-logo opening. Any key or click skips it.',
-    options:[{value:'once',  label:'Once per session'},
-             {value:'every', label:'Every round'},
-             {value:'off',   label:'Never'}] });
+  /* keepControl, streak, cardFlip, flipSpeed, bbTeamVote, theme and intro are declared
+     in `hub-app-settings.js` (with roster/buzzers/relay). Their behaviour stays in this
+     engine. Blockbusters' own settings (bbWinRoute, bbEdges) live in
+     game-hub/games/blockbusters.js. */
 
 
   /* Millionaire's own settings (mLifelines, mFinalAnswer, mConferSeconds) moved with
@@ -744,29 +535,9 @@
     S.drop([''].concat(gameIds().map(g => '@' + g)).map(sfx => 'roundTune' + sfx));
   })();
 
-  /* **Who is competing: sides, or people.** Deliberately *not* per game. It is a
-     fact about the room — the roster persists across games and unit switches, so a
-     lesson cannot be in teams on one board and individual on the next without the
-     scoreboard being rebuilt underneath the class. Which boards *can* do it is the
-     game's own `solo` declaration, and the game screen only offers those; this row
-     says what the room is doing.
-
-     Registered with no `games`, the same as the relay address, because a per-game
-     override here would offer a control that cannot mean anything. */
-  S.register({ id:'roster', group:'Competition', type:'variant', default:'teams',
-    label:'Who is competing',
-    help:'Teams is the classroom default. Individuals gives everybody their own score, and only the boards built for it are offered.',
-    variants:[{ value:'teams', label:'Teams — a name is a group of students' },
-              { value:'solo',  label:'Individuals — everyone against everyone' }] });
-
-  S.register({ id:'buzzers', group:'Phones', type:'toggle', default:false,
-    label:'Phone buzzers', help:'Students join on their phones and buzz to win the right to answer. Needs a relay — this will not work from the GitHub Pages copy. See docs/buzzers.md.' });
-  S.register({ id:'buzzerRelay', group:'Phones', adv:true, type:'text', default:'',
-    label:'Relay address', placeholder:'same site as this page',
-    help:'Leave blank unless you run your own relay server elsewhere — then put its https address here.' });
-
-  /* Race's own settings (raceRescatter, raceRoundSeconds, raceShowSection) moved with
-     the game into game-hub/games/race.js. */
+  /* roster, buzzers and buzzerRelay are declared in `hub-app-settings.js`. The roster
+     is a fact about the room, not a per-game value; Race's own settings live in
+     game-hub/games/race.js. */
 
   /* ---- sound: synthesised, so it needs no audio files and still works offline ---- */
   const Sound = (function(){

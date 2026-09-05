@@ -94,7 +94,10 @@ Four facts about a classroom that outrank anything above when they conflict.
 | `game-hub/hub-kit.js` | **`Kit`** — the shelf every *game* calls, plus the `Kit.prompt` question forms |
 | `game-hub/hub-rounds.js` | **`Kit.round`** — the shelf every *round* calls, and the round registry |
 | `game-hub/rounds/*.js` | one file per round. `default.js` is the ordinary question |
-| `game-hub/hub-settings.js` | the settings registry and panel. **Loads before `hub-engine.js`**, with `hub-kit.js` — the engine throws without either |
+| `game-hub/hub-settings.js` | the settings registry and the **one flat panel** (no per-game tabs). **Loads before `hub-engine.js`**, with `hub-kit.js` — the engine throws without either |
+| `game-hub/hub-app-settings.js` | **`registerAppSettings(S)`** — every app-wide setting DECLARED (Sound, Phones, Competition, Clue card, Presentation, roster, buzzers). Self-registers on load, apart from the engine that reacts. Loaded by every shell AND the question bench, so both hold the same registry |
+| `game-hub/games/<id>-settings.js` | one file per game — **`register<Game>Settings(S)`**, that game's own rows (Jeopardy's also carries the Rules ruleset + its applier). Self-registers; loaded before the game module and by the question bench. The game module keeps only behaviour |
+| `game-hub/hub-round-settings.js` | **`registerRoundSettings(S,ctx)`** (the Questions-group rows) and **`registerRoundModeSettings(S,ctx)`** (round_<id>/round_<id>_input, built from each round's `modes`/`inputs`; hosts optional). Loaded by every shell and the question bench |
 | `game-hub/hub-buzzer.js` | the phone client, shared by the hub (host) and `join.html` (players) |
 | `game-hub/hub.css` | all shared styling, DCU theme and game-show skin. The one place to restyle |
 | `game-hub/hub-rounds.css` | the round card's own styling. **Not `hub.css`** — a playground page cannot load that without taking the whole hub theme |
@@ -114,9 +117,11 @@ Four facts about a classroom that outrank anything above when they conflict.
 | `.claude/skills/` | the procedures |
 | `docs/`, `material/` | specs, brand, coursebook scans, the classroom log |
 
-**Load order in the shells is load-bearing**: `hub-games.js` (the registry) → the
-`games/*.js` files (which register into it) → `hub-engine.js` (which consumes
-everything). Same shape as `hub-rounds.js` → `rounds/*.js` → engine.
+**Load order in the shells is load-bearing**: `hub-settings.js` → the declarative settings
+files (`hub-app-settings.js`, `hub-round-settings.js`, `games/<id>-settings.js`, which
+self-register) → `hub-games.js` (the registry) → the `games/*.js` files (which register
+into it) → `hub-engine.js` (which consumes everything and calls `registerRoundModeSettings`
+with its hosts). Same shape as `hub-rounds.js` → `rounds/*.js` → engine.
 
 **The older two generations are kept, not deleted.** `app.html` → `engine/unit-app.js`
 (with `engine/events.js` and `engine/session.js`) is a paused unit-first rebuild;
@@ -310,53 +315,55 @@ it suits**, because an anagram in Millionaire is given away by its own four opti
   shipped, invisible only because no content used it.
 
 ### A setting — the panel builds itself
-`S.register(...)` and the panel grows the row. Always pass the game when reading one:
+`S.register(...)` and the panel grows the row. **A registration is pure declarative data
+and lives apart from the engine that reacts to it** — app-wide rows in `hub-app-settings.js`,
+a game's own in `games/<id>-settings.js`, the round rows in `hub-round-settings.js`, each
+self-registering so the question bench holds the same registry the board does. Behaviour
+(onChange, readers) stays in the engine/game. Always pass the game when reading one:
 `S.get('myThing', activeGame)`.
 
-- **Naming `games` makes it per-game overridable.** The panel grows an *All games* tab
-  plus one tab per game; a game follows the master until overridden. `S.setContext` opens
-  ⚙ on the game being played.
-- **A game can carry its own default** (`defaults:{jeopardy:'agree'}`), ranking below a
-  teacher's override and *above* the master — deliberately, because such a game does not
-  follow the master and pretending it did would make the All-games row a control that
-  silently does nothing.
-- **Storage:** `id` is the master, `id@game` an override, and `byRoster:true` keeps a
-  second value for rooms of individuals under `…!solo`. Values persist in `localStorage`
-  per device; a browser blocking storage on `file://` falls back to memory and says so.
-- **Two axes and deliberately not three.** A per-round scope was built, shipped and
-  retired the same day: it worked, and it read as complicated in front of the person it
-  was for, which is the only test that counts. **Every round inherits its game's value.**
-  What is kept is the *fact* of which round is open — `S.setRound` at the two seams where
-  `roundId` moves, `S.roundNow()` to read it — because the room bench opens its rules
-  band on the question that is up and the board is the only thing that knows. A fact
-  something asks for, not a scope nothing needed.
-- **A retired scope's keys get dropped, not orphaned.** `S.keys()` finds them by shape;
-  a value nothing reads is the quiet kind of wrong, because it comes back the day the
-  scope does and applies a choice made about a different build. Nothing is promoted
-  either — a per-round value existed to make one round *differ*.
+- **One editable value per setting — no teacher per-game override.** The app is tuned from
+  one place (the question bench), so a shared setting has a single value; `S.set(id,v,game)`
+  ignores `game` and writes the one value (its `…!solo` fork in a room of individuals). The
+  panel is one flat view, no tabs.
+- **A game can carry its own baked default** (`defaults:{jeopardy:'agree'}`) — a *rule*,
+  read-only, ranking *above* the master for that game. This is what keeps a game's rules
+  unchanged while everything else shares one value. The flat panel **names the games a
+  master row cannot reach** ("Has its own fixed value in Jeopardy"), so it is never
+  silently inert. Naming `games` still scopes which games a setting applies to and gets the
+  advisory; it no longer makes it teacher-overridable.
+- **Storage:** `id` is the value, and `byRoster:true` keeps a second value for rooms of
+  individuals under `…!solo` (the one surviving fork — team rules vs whole-class rules).
+  `id@game` keys are the retired per-game overrides: `dropPerGameOverrides` (hub-engine.js)
+  drops every '@'-shaped key on load, before the '@'-walking migrations, so an old per-game
+  value can never clobber the one value. Values persist in `localStorage` per device; a
+  browser blocking storage on `file://` falls back to memory and says so.
+- **The room type is the only scope besides the value.** No per-round scope (built,
+  shipped and retired the same day — it read as complicated), no per-game override. What is
+  kept is the *fact* of which round is open — `S.setRound`/`S.roundNow()` — because the
+  question bench's round rows want it.
 - **Every control carries `data-setting="id"`.** The panel does not need it; anything
   looking *at* the panel does, and without it the only handle on a control is prose.
-- **The stuck default.** `register()` seeds every master value into `localStorage` the
-  first time a device runs the app, so **changing a `default:` in code never reaches a
-  browser that already ran the old build** — the key is present and the new default is
-  ignored forever. It reads exactly like a bug in the feature. Changing a shipped default
-  means migrating it, or telling the teacher to flip it once.
-- **Replacing a setting is a migration, not a deletion.** A per-game override is something
-  a teacher set deliberately, so `S.raw(key)` and `S.drop(keys)` exist. String literals
-  that are storage keys of old builds must survive any rename.
+- **The stuck default.** `register()` seeds every value into `localStorage` the first time
+  a device runs the app, so **changing a `default:` in code never reaches a browser that
+  already ran the old build** — the key is present and the new default is ignored forever.
+  Changing a shipped default means migrating it, or telling the teacher to flip it once.
+- **Replacing a setting is a migration, not a deletion.** `S.raw(key)`, `S.keys()` and
+  `S.drop(keys)` exist so an old value is translated or dropped, never orphaned. String
+  literals that are storage keys of old builds must survive any rename.
 - **A ruleset is a named bundle that writes the smaller switches**, never a second code
-  path and never a value that shadows them. Every row a bundle touches carries an advisory
-  note — "Classic sets this to 10s" — beside the control, which stays the truth.
+  path and never a value that shadows them (its applier lives with the rows in
+  `jeopardy-settings.js`). Every row a bundle touches carries an advisory note — "Classic
+  sets this to 10s" — beside the control, which stays the truth.
 
-**The board carries no settings UI.** No gear, no clue-card Tune pill, no docked drawer.
-Every setting is edited from the **room bench's Tune pane** (`playground/phone-bench.html`,
-the Tune button) — one tab per game plus *All games* — which reaches the board's registry
-through the frame (`win.HubSettings.renderOnce`), so there is one place to change anything
-and it cannot disagree with itself. A change made on a game's tab is **an override for that
-game**, never the master. The question bench has its own Tune pane for the round rows
-(master values only). Both are the registry's own `buildRow`, so a new setting appears in
-both by being registered. The full panel (`HubSettings.open`) still exists, built on
-demand for the benches and the tests; nothing on the board opens it.
+**Neither the board nor the room bench carries any settings UI.** No gear, no clue-card
+Tune pill, no docked drawer, no room-bench Tune pane. **The one settings surface is the
+question bench** (`playground/question-bench.html`, the Settings pane) — it loads every
+declarative settings file and renders `S.renderOnce(mount, null, {})`, the one flat view of
+every group, so there is one place to change anything and it cannot disagree with itself. A
+change there writes the one value and takes effect on every board (same `localStorage`). The
+full panel (`HubSettings.open`) still exists, built on demand for the tests; nothing on the
+board or the room bench opens it.
 
 **Organisation is derived, not listed.** A game's view leads with Ruleset, then the game's
 own groups, then the shared ones in a fixed order (Competition, Questions, Phones, Clue
@@ -678,11 +685,23 @@ unverifiable.**
 ## Open
 What is true and unfinished. Not a changelog — an item leaves when it closes.
 
-**Build `20260904a`.** Three coursebooks, four units, ~760 authored items, six games, eight rounds.
+**Build `20260905a`.** Three coursebooks, four units, ~760 authored items, six games, eight rounds.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only. Multiple Choice and the 8-word Connections have flick faces (tap/vote still their
 default); the `cols:'auto'` bar path flows a sentence per word; the thermometer ladder
 wears its tiles' colours; Unit 4 Jeopardy is columns by language point with rounds mixed.
+
+**Settings are flat now, and the question bench is their one home.** There is one editable
+value per setting (its `…!solo` room-type fork aside) — the teacher per-game override and
+its tabs are gone. Every registration is declarative and lives apart from the engine:
+`hub-app-settings.js` (app-wide), `games/<id>-settings.js` (per game), and
+`registerRoundModeSettings` in `hub-round-settings.js` (round_<id>) — each self-registering,
+loaded by every shell AND the question bench, so the bench holds the whole registry (all
+13 groups) and is the ONE settings surface. No settings UI on the game hub board or the
+room bench. A game's baked `defaults:{game}` stays as a rule (read-only, wins for its game,
+the flat panel names it); `dropPerGameOverrides` drops every stored `@` key once. What's
+untested by a class: whether one surface for everything actually reads simpler in front of
+a teacher than the tabs did.
 
 **The first physics mode on an existing round: Word Thermometer's `stack`.** The
 identity experiment — order IS vertical position, so this is the round where a
@@ -730,8 +749,9 @@ the fallback, still pickable per category on the content screen. **The word is a
 Flick** (`physics.on`); the ids `flick`/`stack`/`matter` are storage keys and wire values
 and do not change. Devices seeded with the old default are migrated once
 (`engishism.physicsPrincipal` in localStorage marks it): a master still on the old first
-value moves to the physics one, per-game overrides and a solo fork are left as the
-teacher set them. The question bench opens a round on the same face. The two forms that
+value moves to the physics one, the solo fork left as the teacher set it (per-game
+overrides no longer exist — `dropPerGameOverrides` clears them). The question bench opens a
+round on the same face. The two forms that
 share an id with a round (`anagram`, `scramble`) carry a `label` and the bench lists them
 as forms. **One rotation default for every shape, no round overriding it.** Rotation is a
 per-`Kit.table` behaviour with three settings, but the decision (deliberate, the

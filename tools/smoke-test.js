@@ -626,38 +626,20 @@ async function testSettings(browser){
   await page.reload(); await page.waitForTimeout(400);
   check('a changed setting survives reload', await page.evaluate(() => window.HubSettings.get('sound')) === false);
 
-  /* The trap this covers: change a value on "All games" while a per-game override
-     already exists and nothing on the master row said so — the master read Off,
-     a game kept its own value of On, and there was no way to see why short of
-     clicking through every tab. The master row must name the game and jump to it. */
-  await page.evaluate(() => {
-    window.HubSettings.set('phonePrompt', false);
-    window.HubSettings.set('phonePrompt', true, 'millionaire');
-  });
+  /* **One value per setting, one flat panel — no per-game tabs, no teacher override.**
+     A setting registered with its own baked per-game default (a game rule kept
+     unchanged — roundPay is Podium for Jeopardy) still resolves to that default for its
+     game and ABOVE the master; the flat panel names the games a master row cannot reach,
+     so it is never silently inert. */
   await page.evaluate(() => window.HubSettings.open()); await page.waitForTimeout(250);
-  await page.locator('.settings-tab', { hasText:'All games' }).click(); await page.waitForTimeout(150);
-  const masterRow = page.locator('.settings-row', { hasText:'Show the question on the phones' });
-  /* **Asserted on the marker and the game's name, not on the sentence.** This asked
-     for the words "overridden in millionaire" and had been red since that line was
-     deliberately reworded — a game can differ because a teacher set it *or* because
-     it registered its own default, so the row says "Has its own value in …" and
-     carries a comment saying why it must not say "overridden". Pinning prose pins
-     the wrong thing: what this check is about is that the master row does not
-     silently reach a game it cannot change, and that there is a way to get there. */
-  check('the master row names the game overriding it',
-        await masterRow.locator('.settings-state.overridden').count() === 1 &&
-        (await textOf(masterRow.locator('.settings-state.overridden .settings-undo')))
-          .toLowerCase().includes('millionaire'),
-        (await textOf(masterRow)).replace(/\n/g,' · '));
-  await masterRow.locator('.settings-undo').click(); await page.waitForTimeout(200);
-  check('clicking the name jumps straight to that game\'s tab',
-        (await page.locator('.settings-tab.on').innerText()).toLowerCase() === 'millionaire');
-  check('and the row there confirms the override, matching what the master claimed',
-        /set for this game/i.test(await page.locator('.settings-row', { hasText:'Show the question on the phones' }).innerText()));
-  await page.locator('.settings-undo', { hasText:/match all games/i }).click(); await page.waitForTimeout(200);
-  await page.locator('.settings-tab', { hasText:'All games' }).click(); await page.waitForTimeout(150);
-  check('clearing the override removes the master-row warning',
-        !/overridden/i.test(await masterRow.innerText()));
+  check('the flat panel has no per-game tabs', await page.locator('.settings-tab').count() === 0);
+  check('a baked per-game default still wins for its game, above the master',
+        await page.evaluate(() => {
+          const S = window.HubSettings;
+          return S.get('roundPay') !== 'podium' && S.get('roundPay', 'jeopardy') === 'podium';
+        }));
+  check('the panel names a game a baked default shadows, so no master row is silently inert',
+        (await page.locator('.settings-state.overridden').allInnerTexts()).some(t => /jeopardy/i.test(t)));
   await page.keyboard.press('Escape'); await page.waitForTimeout(150);
 
   await page.evaluate(() => window.HubSettings.open()); await page.waitForTimeout(200);
@@ -681,45 +663,49 @@ async function testSettings(browser){
   await page.close();
 }
 
-async function testPerGameSettings(browser){
-  section('Per-game settings');
+/* Settings are flat now: one editable value each (its solo fork aside), no per-game
+   teacher override. What survives is a game's own *baked* default — a rule, read-only —
+   and the room-type fork. This test pins that contract: a write lands on the one value
+   every game without a baked default reads, and a baked default still wins for its game. */
+async function testFlatSettings(browser){
+  section('Flat settings');
   const page = await openHub(browser);
 
   await page.evaluate(() => window.HubSettings.open()); await page.waitForTimeout(250);
-  const tabs = await page.locator('.settings-tab').allInnerTexts();
-  check('a tab per game plus All games', tabs.length >= 5, tabs.join('|'));
-  const masterRows = await page.locator('.settings-row').count();
-  await page.locator('.settings-tab', { hasText:'Jeopardy' }).click(); await page.waitForTimeout(200);
-  const jeoRows = await page.locator('.settings-row').count();
-  check('a game tab shows only what applies to it', jeoRows > 0 && jeoRows < masterRows,
-        jeoRows + ' of ' + masterRows);
-  /* A game may be *registered* with its own default (Jeopardy's multiple choice
-     starts on all-agree) — that is not an override, and the row says so in its
-     own words. What this check pins is that a fresh device carries nothing a
-     teacher has set. */
-  check('nothing is overridden to begin with',
-        (await page.locator('.settings-state').allInnerTexts()).every(t => /matching|own default/i.test(t)));
+  check('one flat panel, no per-game tabs', await page.locator('.settings-tab').count() === 0);
+  /* Every group is on the one surface — the shared ones and each game's own — because the
+     panel no longer slices by game. */
+  const groups = (await page.locator('.settings-group').allInnerTexts()).map(t => t.replace(/[▾▴\s]+$/,'').trim().toLowerCase());
+  check('every group is on the one flat surface',
+        ['sound','phones','competition','presentation','jeopardy','blockbusters'].every(g => groups.includes(g)),
+        groups.join('|'));
   await page.locator('#settings-close').click();
 
-  // the whole point: off in one game, untouched in another
+  // a write lands on the one value; a setting with no baked default is shared by all games
   await page.evaluate(() => window.HubSettings.set('cardFlip', 'off', 'blockbusters'));
   await page.reload(); await page.waitForTimeout(400);
   const read = g => page.evaluate(x => window.HubSettings.get('cardFlip', x), g);
-  const master = await page.evaluate(() => window.HubSettings.get('cardFlip'));
-  check('override survives reload', await read('blockbusters') === 'off');
-  check('the other game is unaffected', await read('jeopardy') === master, await read('jeopardy'));
-  check('the master value is unaffected', master !== 'off', master);
+  check('a write survives reload', await read('blockbusters') === 'off');
+  check('and it is the one value every game without a baked default reads',
+        await read('jeopardy') === 'off' && await page.evaluate(() => window.HubSettings.get('cardFlip')) === 'off');
 
   // and it changes behaviour, not just storage
   await startGame(page, 'Blockbusters', { sections:'all' });
   await page.locator('.hex').first().click(); await page.waitForTimeout(150);
-  check('override actually suppresses the animation',
+  check('the value actually suppresses the animation',
         await page.evaluate(() => document.getElementById('clue-card').getAnimations().length) === 0);
   check('the card still opens', await page.locator('#clue-modal').isVisible());
   await page.locator('#skip-btn').click(); await page.waitForTimeout(300);
 
-  await page.evaluate(() => window.HubSettings.clearOverride('cardFlip', 'blockbusters'));
-  check('clearing an override falls back to master', await read('blockbusters') === master);
+  // a baked per-game default is a rule, kept: it wins for its game, above the master
+  check('a baked per-game default still wins for its game',
+        await page.evaluate(() => {
+          const S = window.HubSettings;
+          return S.get('roundPay') !== 'podium' && S.get('roundPay', 'jeopardy') === 'podium';
+        }));
+
+  await page.evaluate(() => window.HubSettings.set('cardFlip', 'morph'));
+  check('resetting the one value restores it everywhere', await read('blockbusters') === 'morph');
 
   checkClean(page);
   await page.close();
@@ -2891,10 +2877,11 @@ async function testSettingsMigration(browser){
   check('a pre-scoping value is read as the master', got.sound === false, JSON.stringify(got));
   check('and applies to every game', got.volume === 'loud' && got.round === 90, JSON.stringify(got));
 
-  /* The three phone booleans became one `phoneMode`. A per-game override is
-     exactly what a teacher sets deliberately, so it must be translated rather
-     than silently ignored — and the dead keys must go, or the translation runs
-     again over a choice since changed. */
+  /* The three phone booleans became one `phoneMode`, then `round_default`. **Settings are
+     flat now**, so a per-game override is not a thing any more: `dropPerGameOverrides`
+     drops every '@' key BEFORE these migrations run, so an old per-game phone switch is
+     discarded and the game follows the one master value. The old master switch still
+     carries forward, and the dead keys still go. */
   await page.evaluate(() => localStorage.setItem('engishism.gamehub.settings',
     JSON.stringify({ phoneWrite:true,
                      'phoneBuzzGames@race':true,
@@ -2906,18 +2893,14 @@ async function testSettingsMigration(browser){
     mill:   window.HubSettings.get('round_default','millionaire'),
     jeo:    window.HubSettings.get('round_default','jeopardy'),
     left:   Object.keys(JSON.parse(localStorage.getItem('engishism.gamehub.settings')))
-              .filter(k => /^phone(Write|Vote|BuzzGames|Mode)/.test(k))
+              .filter(k => /^phone(Write|Vote|BuzzGames|Mode)/.test(k) || k.indexOf('@') !== -1)
   }));
   check('an old master phone switch becomes the mode', ph.master === 'write', JSON.stringify(ph));
-  check('and an old per-game one becomes that game\'s mode',
-        ph.race === 'buzz', JSON.stringify(ph));
-  /* `phoneVote` translates to nothing at all: voting stopped being a mode and became
-     what Ask the class does with whatever room is open, so the teacher who had only
-     that switched on wants no per-question dynamic — and still gets the vote. */
-  check('the old vote switch leaves no mode behind, because voting is not one',
-        ph.mill === 'write', ph.mill);
-  check('a game with no override still follows the master', ph.jeo === 'write', ph.jeo);
-  check('the replaced keys are cleared, so it runs once', ph.left.length === 0, ph.left.join(','));
+  check('and an old per-game switch is dropped, so its game follows the one master value',
+        ph.race === 'write', JSON.stringify(ph));
+  check('the same for the vote switch — every game follows the master',
+        ph.mill === 'write' && ph.jeo === 'write', JSON.stringify(ph));
+  check('the replaced keys and every per-game key are cleared', ph.left.length === 0, ph.left.join(','));
 
   /* Once translated, a later choice must stand: reloading again cannot resurrect
      the old value, because there is nothing left to translate from. */
@@ -2940,17 +2923,15 @@ async function testSettingsMigration(browser){
   }));
   check('a mode that no longer exists becomes off, not a dead value',
         vm.master === 'off' && vm.mill === 'off', JSON.stringify(vm));
-  check('and a mode that still exists is left alone', vm.race === 'buzz', vm.race);
+  check('and a per-game key is dropped, so that game follows the master too', vm.race === 'off', vm.race);
   check('vote is no longer offered as something the phones do',
         await page.evaluate(() => window.HubSettings.variantsFor('round_default','millionaire')
           .every(v => v.value !== 'vote')));
 
-  /* F3.8.16: `phoneMode` itself became `round_default`, so a third generation of
-     stored value has to survive. The same two traps as every migration before it —
-     the old key being present is the signal, and dropping it is what makes this run
-     once — but with one addition worth pinning: a *per-game override* is what a
-     teacher set deliberately, and it is the thing a careless migration loses while
-     the master value looks fine. */
+  /* F3.8.16: `phoneMode` itself became `round_default`, so a third generation of stored
+     value has to survive. The master carries forward; the per-game keys, which a flat
+     settings model no longer has a place for, are dropped, and every game follows the one
+     master value. */
   await page.evaluate(() => localStorage.setItem('engishism.gamehub.settings',
     JSON.stringify({ phoneMode:'write', 'phoneMode@jeopardy':'buzz',
                      'phoneMode@bingo':'type' })));
@@ -2961,17 +2942,15 @@ async function testSettingsMigration(browser){
     bingo:  window.HubSettings.get('round_default','bingo'),
     race:   window.HubSettings.get('round_default','race'),
     left:   Object.keys(JSON.parse(localStorage.getItem('engishism.gamehub.settings')))
-              .filter(k => /^phoneMode/.test(k))
+              .filter(k => /^phoneMode/.test(k) || k.indexOf('@') !== -1)
   }));
   check('the old phone mode becomes the default round\'s mode',
         dr.master === 'write', JSON.stringify(dr));
-  check('and every per-game override comes with it',
-        dr.jeo === 'buzz' && dr.bingo === 'type', JSON.stringify(dr));
-  check('a game that never had an override still follows the master',
-        dr.race === 'write', dr.race);
-  check('the old key is dropped, so a later choice cannot be overwritten',
+  check('and the per-game keys are dropped, so every game follows the one master value',
+        dr.jeo === 'write' && dr.bingo === 'write' && dr.race === 'write', JSON.stringify(dr));
+  check('the old key and every per-game key are dropped, so a later choice cannot be overwritten',
         dr.left.length === 0, dr.left.join(','));
-  await page.evaluate(() => window.HubSettings.set('round_default','off','jeopardy'));
+  await page.evaluate(() => window.HubSettings.set('round_default','off'));
   await page.reload(); await page.waitForTimeout(400);
   check('and a mode chosen after that migration survives a reload',
         await page.evaluate(() => window.HubSettings.get('round_default','jeopardy')) === 'off');
@@ -2996,14 +2975,13 @@ async function testSettingsMigration(browser){
   await page.close();
 }
 
-/* The board carries no settings UI of its own any more — the gear, the clue-card
-   Tune pill and the docked drawer were removed when settings moved to the room
-   bench. The registry stays (the bench edits it through the frame); this asserts
-   the on-board entrances are gone, and that the panel *logic* the bench renders is
-   still correct — tested by rendering a game's view into a throwaway host with
-   `renderFor`, the same call the bench makes. */
+/* The board carries no settings UI of its own — the gear, the clue-card Tune pill and
+   the docked drawer are gone; the one settings surface is the question bench. The registry
+   stays (the bench renders it with `renderOnce`); this asserts the on-board entrances are
+   gone, and that the panel *logic* the bench renders is still correct — one flat view,
+   every setting, tested by rendering into a throwaway host with `renderOnce`. */
 async function testLabDrawer(browser){
-  section('The board has no settings UI — the panel logic lives in the bench');
+  section('The board has no settings UI — the panel logic lives in the question bench');
   const page = await openHub(browser);
   check('no gear button on the board', await page.locator('#settings-btn').count() === 0);
   check('no docked drawer', await page.locator('#lab-drawer').count() === 0);
@@ -3018,34 +2996,32 @@ async function testLabDrawer(browser){
         await page.locator('#lab-drawer').count() === 0 &&
         !(await page.locator('#settings-modal').isVisible()));
 
-  /* A game's view carries that game's switches and not another game's, and the
-     phone dynamic is one picker — rendered into a host, not read off any on-board UI. */
+  /* One flat view carries every setting — the shared ones AND every game's own — because
+     the panel no longer slices by game. The phone dynamic is still one picker. */
   const view = await page.evaluate(() => {
     const host = document.createElement('div'); document.body.appendChild(host);
-    window.HubSettings.renderOnce(host, 'race');
+    window.HubSettings.renderOnce(host, null);
     const labels = [...host.querySelectorAll('.settings-row')].map(r => r.textContent).join(' | ');
     const modeSel = host.querySelectorAll('[data-setting="round_default"]');
     const out = {
       rows: host.querySelectorAll('.settings-row').length,
-      hasOwn: /re-scatter|round length/i.test(labels),
-      notOther: !/lifelines/i.test(labels),
+      hasRace: /re-scatter|round length/i.test(labels),
+      hasMill: /lifelines/i.test(labels),
       onePicker: modeSel.length === 1 && modeSel[0].tagName === 'SELECT'
     };
     host.remove();
     return out;
   });
-  check('a game view carries that game\'s switches', view.rows > 0 && view.hasOwn, String(view.rows));
-  check('and not one that belongs to another game only', view.notOther);
+  check('the flat view carries every game\'s switches on one surface',
+        view.rows > 0 && view.hasRace && view.hasMill, String(view.rows));
   check('the phone dynamic is one picker, not a row of switches', view.onePicker);
 
-  /* A change through the registry is an override scoped to that game, not the others. */
-  const before = await page.evaluate(() => window.HubSettings.get('round_default'));
-  await page.evaluate(() => window.HubSettings.set('round_default','write','race'));
-  check('a change is scoped to this game',
-        await page.evaluate(() => window.HubSettings.get('round_default','race')) === 'write');
-  check('and leaves every other game alone',
-        await page.evaluate(() => window.HubSettings.get('round_default')) === before,
-        String(await page.evaluate(() => window.HubSettings.get('round_default'))));
+  /* A change through the registry writes the one value — every game reads it (a setting
+     with no baked default has no per-game divergence any more). */
+  await page.evaluate(() => window.HubSettings.set('round_default','write'));
+  check('a change writes the one value every game reads',
+        await page.evaluate(() => window.HubSettings.get('round_default','race')) === 'write' &&
+        await page.evaluate(() => window.HubSettings.get('round_default','bingo')) === 'write');
 
   /* The ruleset leads a game's settings and every row a bundle touches says what the
      chosen mode set it to — checked on Jeopardy, the game that has a ruleset. */
@@ -7813,40 +7789,11 @@ async function testPhoneBench(browser){
   check('a classroom-division preset sets the board’s team count exactly, both ways',
         agreed.join(' ') === '3×3:3/3 2×2:2/2 4×4:4/4', agreed.join(' '));
 
-  /* ---- the tune pane: the rules board beside the board ----
-     The rows are the board's own settings rows rendered through the frame
-     (`renderOnce`, the HubTeams reach-in pattern), so a row here and a row in
-     the ⚙ drawer cannot disagree. What the pane itself owes: an edit is a real
-     per-game override, and the state line tells a default from a customization. */
-  /* A tab per registered game **plus the All-games master tab** — the pane has
-     rendered ids+1 since the day it existed (the same shape as the ⚙ drawer),
-     and the first cut of this check counted ids alone, so it was born red and
-     never once able to pass. The master tab is asserted by name so a count that
-     drifts is told apart from a master tab that vanished. */
-  check('the tune pane is open with a tab per registered game',
-        await hub.locator('#tune-pane').isVisible() &&
-        /all games/i.test((await hub.locator('#tune-tabs button').allInnerTexts())[0] || '') &&
-        await hub.locator('#tune-tabs button').count() ===
-          await hub.evaluate(() => document.getElementById('stage-frame')
-                                    .contentWindow.HubGames.ids().length) + 1,
-        (await hub.locator('#tune-tabs button').allInnerTexts()).join(' '));
-  await until(async () =>
-    await hub.locator('#tune-body [data-setting="round_anagram"]').count() === 1, 8000);
-  const tuneRow = hub.locator('#tune-body [data-setting="round_anagram"]')
-    .locator('xpath=ancestor::div[contains(@class,"settings-row")]');
-  await hub.locator('#tune-body [data-setting="round_anagram"]').selectOption('first');
-  await hub.waitForTimeout(700);
-  const overrideNow = () => hub.evaluate(() =>
-    JSON.parse(localStorage.getItem('engishism.gamehub.settings') || '{}')['round_anagram@jeopardy']);
-  check('an edit in the pane is a real per-game override', await overrideNow() === 'first',
-        String(await overrideNow()));
-  check('and its state line says so',
-        /set for this game/i.test(await tuneRow.locator('.settings-state').innerText()),
-        await tuneRow.locator('.settings-state').innerText());
-  await tuneRow.locator('.settings-undo').click();
-  await hub.waitForTimeout(700);
-  check('reset puts the game back on its default', await overrideNow() === undefined,
-        String(await overrideNow()));
+  /* The room bench carries no settings UI now — no Tune pane, no #bar-tune button. The
+     one settings surface is the question bench (its own test exercises the flat panel);
+     here we just confirm the room bench does not put settings back on the board. */
+  check('the room bench has no Tune button', await hub.locator('#bar-tune').count() === 0);
+  check('and no settings pane', await hub.locator('#tune-pane').count() === 0);
 
   check('the hub bench had no errors', hub.__errors.length === 0, hub.__errors[0]);
   await hub.close();
@@ -9046,7 +8993,7 @@ async function main(){
   const suites = {
     jeopardy: testJeopardy, blockbusters: testBlockbusters, race: testRace,
     millionaire: testMillionaire, fit: testBoardFitAcrossScreens, phone: testPhoneLayout,
-    settings: testSettings, scoping: testPerGameSettings, migration: testSettingsMigration,
+    settings: testSettings, scoping: testFlatSettings, migration: testSettingsMigration,
     card: testFloatingCard, turns: testTurnsAndPoints, phoneteams: testPhoneTeams,
     strip: testPhoneStrip, bbteams: testBlockbustersTeams, jointeams: testJoinTeams,
     variants: testFlipVariants, winroute: testWinRouteVariants, gameshow: testGameShow, gsjeopardy: testGameShowJeopardy, gsblockbusters: testGameShowBlockbusters, gsrace: testGameShowRace, idents: testIdentsAreDistinct, registry: testGameRegistry, prompts: testPromptTypes, content: testContentIntegrity, topics: testTopicPicking, defaultlook: testDefaultLook, jfinish: testJeopardyFinish, standings: testStandings, competition: testCompetition, lab: testLabDrawer, range: testRangeSetting,

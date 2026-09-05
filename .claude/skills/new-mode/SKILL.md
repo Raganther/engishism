@@ -3,6 +3,8 @@ name: new-mode
 description: Add a game mode or ruleset to the Engishism Game Hub — a named bundle of settings like Jeopardy's "Classic" rules, a team mode, or any variation on how an existing game plays. Use this whenever the user wants a game to play a different way, mentions modes, rulesets, variations, presets, "play it like the show", or asks for a dynamic that changes scoring, turns, or what the phones do. Also use it when a new option needs to appear in the settings panel or the Lab drawer.
 covers:
   - "game-hub/hub-settings.js"
+  - "game-hub/hub-app-settings.js"
+  - "game-hub/hub-round-settings.js"
 ---
 
 # Adding a mode
@@ -39,10 +41,11 @@ K.round.register('ordering', {
 });
 ```
 
-The hub registers `round_<id>` from that at init — in the shared `Questions` group,
-and offered to every board in `ROUND_HOSTS` — so **a round's modes need nothing
-in this procedure** — no `S.register` call, no preset, no panel edit. The bench builds
-a dropdown from the same declaration. Neither host ever learns what a mode *means*.
+`registerRoundModeSettings` (in `hub-round-settings.js`, called by the engine with its
+hosts and by the question bench without) registers `round_<id>` from that — in the shared
+`Questions` group, offered to every board in `ROUND_HOSTS` — so **a round's modes need
+nothing in this procedure**: no `S.register` call, no preset, no panel edit. The bench
+builds a dropdown from the same declaration. Neither host ever learns what a mode *means*.
 
 Use this skill for a mode that belongs to the **game show** — how it scores, whose
 turn it is, what its board does. Use `new-round` for one that belongs to the question.
@@ -58,9 +61,14 @@ for having all three on.
 
 ## 2. Register the settings
 
-The panel and the Lab drawer build their own rows — **there is no markup to edit.**
+The panel builds its own rows — **there is no markup to edit.** A setting's registration is
+declarative and lives apart from the engine: a game's own rows go in
+`game-hub/games/<id>-settings.js` (self-registers; the engine keeps only the behaviour),
+an app-wide row in `hub-app-settings.js`. Loaded by every shell AND the question bench, so
+the bench (the one settings surface) holds it.
 
 ```js
+// in game-hub/games/jeopardy-settings.js
 S.register({ id:'jDeduct', group:'Jeopardy', type:'toggle', default:false,
              games:['jeopardy'],
              label:'Wrong answers cost the value',
@@ -78,8 +86,11 @@ S.register({ id:'jDeduct', group:'Jeopardy', type:'toggle', default:false,
   unless the exclusion is real, and then say why in a comment. A list is a snapshot
   of the games that existed when it was written, and the next game silently misses
   out.
-- Naming `games` is what makes a setting per-game overridable: the panel grows an
-  *All games* tab plus one per game, and the Lab shows just this game's rows.
+- Naming `games` scopes which boards a setting applies to; it no longer makes it
+  teacher-overridable. **Settings are flat — one editable value each** (its `…!solo`
+  room-type fork aside), edited on the one flat panel. A game may still carry a baked
+  `defaults:{game:value}` — a *rule*, read-only, that wins for its game above the value;
+  the panel names the games such a default shadows so no row is silently inert.
 - Reach for `range` when the mode needs a **weight** — points per square, a
   cooldown, an off-turn fraction. Those numbers are classroom questions, not source
   code questions, and a teacher tuning them mid-round is exactly what the Lab is for.
@@ -87,6 +98,11 @@ S.register({ id:'jDeduct', group:'Jeopardy', type:'toggle', default:false,
 Read the value with the game: `S.get('jDeduct', 'jeopardy')`.
 
 ## 3. Add the preset
+
+The preset and its applier are pure `S` manipulation, so they live in the game's
+`-settings.js` beside the rows, not in the game module. `S.set` writes the one value now
+(the `,'jeopardy'` arg is ignored) — fine for a game's own keys, and for a shared key it
+means the ruleset sets it app-wide.
 
 ```js
 const J_PRESETS = {
@@ -180,10 +196,11 @@ switching a dynamic must not make thirty people rejoin.
 
 ## 6. Replacing an existing setting
 
-A setting that gets replaced leaves values behind under keys nothing reads any more,
-and **a per-game override is exactly what a teacher set deliberately** — so translate
-it rather than ignoring it. `migrateDefaultRound` in `hub-engine.js` is the worked
-example. Two traps it paid for:
+A setting that gets replaced leaves values behind under keys nothing reads any more, so
+translate the **master** value rather than ignoring it. (Per-game `@` keys are no longer a
+thing a teacher can set — `dropPerGameOverrides` clears them on load, before the migrations
+run, so a migration only ever carries the one value forward.) `migrateDefaultRound` in
+`hub-engine.js` is the worked example. Two traps it paid for:
 
 - **The old key still being present is the signal that nothing has chosen yet.**
   Asking whether the new id is unset never fires, because `register()` seeds every

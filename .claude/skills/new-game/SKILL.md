@@ -86,6 +86,15 @@ the card row. Add its `<script>` tag to the four shells between
 `game-hub/hub-games.js` and `hub-engine.js`. Loading before the engine is what
 retires the register-before-init trap for you.
 
+**Your game's own settings go in a second file, `game-hub/games/<id>-settings.js`** —
+a `window.register<Game>Settings(S)` of nothing but `S.register` calls (and, if it has a
+ruleset, its preset + applier), self-registering on load. It loads with the other
+declarative settings files (before `hub-games.js` in the shells) AND in the question
+bench, which is the one settings surface — so a game whose rows lived only in its module
+would be invisible there. The game module keeps only the behaviour that reads them. See
+`jeopardy-settings.js` (with its ruleset) or `bingo-settings.js` (the plain case). Settings
+are flat — one editable value each, no per-game tab.
+
 The in-engine alternative: `registerGame({...})` calls live together near the
 top of `game-hub/hub-engine.js`, before `S.register(...)` and before init.
 **There, the ordering is load-bearing and nothing enforces it.**

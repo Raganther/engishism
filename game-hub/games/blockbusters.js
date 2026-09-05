@@ -58,18 +58,9 @@
     teamMode: true
   };
 
-  /* Blockbusters' own settings (the shared keepControl/bbTeamVote stay in the engine). */
-  S.register({ id:'bbWinRoute', group:'Blockbusters', adv:true, type:'variant', default:'trace',
-    games:['blockbusters'],
-    label:'Winning route', help:'How the completed line is shown when a team connects its two edges.',
-    variants:[{value:'trace', label:'Light up along the route'},
-              {value:'pulse', label:'Flash the whole route at once'},
-              {value:'off',   label:'Just mark it — no animation'}] });
-
-  S.register({ id:'bbEdges', group:'Blockbusters', adv:true, type:'toggle', default:true,
-    games:['blockbusters'],
-    label:'Team edges around the board',
-    help:'Yellow teeth down the sides and blue along the top and bottom, so which way each team has to connect is on the board itself.' });
+  /* Blockbusters' settings (bbWinRoute, bbEdges) are declared in
+     game-hub/games/blockbusters-settings.js; the shared keepControl/bbTeamVote are
+     app-wide, in hub-app-settings.js. */
 
   /* The board's own controls exist only after the engine injects the stage, so the
      hexagon vote button is wired on the first load rather than at parse. */

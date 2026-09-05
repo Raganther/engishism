@@ -75,13 +75,8 @@
     teamMode: true
   };
 
-  S.register({ id:'raceRescatter', group:'Race to the Board', type:'toggle', default:true, games:['race'],
-    label:'Re-scatter after every claim', help:'Moves the words each time one is won, so nobody wins on memory alone.' });
-  S.register({ id:'raceRoundSeconds', group:'Race to the Board', type:'select', default:60, games:['race'],
-    label:'Timed round length', help:'Only used in timed team rounds.',
-    options:[{value:45,label:'45 seconds'},{value:60,label:'60 seconds'},{value:90,label:'90 seconds'}] });
-  S.register({ id:'raceShowSection', group:'Race to the Board', adv:true, type:'toggle', default:true, games:['race'],
-    label:'Show the section tag', help:'The small 5A / 5B label above the sentence.' });
+  /* Race's settings (raceRescatter, raceRoundSeconds, raceShowSection) are declared in
+     game-hub/games/race-settings.js. */
 
   /* The board's controls and the mode picker exist only after the engine injects the
      stage (and the mode picker lives in the always-present content screen), so they are

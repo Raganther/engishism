@@ -141,100 +141,8 @@
     transform-origin:top left; transform:scale(var(--phone-scale));
   }
 
-  /* ---------------- the tune pane ----------------
-     The rules board: every round's mode and the game's key rules, beside the
-     projector, each row saying whether it is the default or a customization.
-     The rows themselves are built by the BOARD's own settings machinery
-     (HubSettings.renderOnce through the frame, same-origin — the HubTeams
-     pattern), so there is exactly one row builder in the app. What has to live
-     here is only their styling, because this page loads none of the hub's CSS
-     (hub.css restyles the whole page body, which the bench cannot swallow). */
-  /* A band under the stage rather than a column beside it, so the rows lay out in
-     as many columns as the width allows instead of one. `auto-fill` and not a
-     count: the bench is opened at every width from a laptop to a second monitor,
-     and a fixed column count is a number that is wrong at one of them. */
-  #tune-pane{ margin-top:16px; border-top:1px solid var(--border); padding-top:12px; }
-  /* Marked with a class rather than matched by position: the open question's rows
-     sit one box deeper than the rest, so `#tune-body > div` styled the list and
-     quietly left the box it was written for in a single column. */
-  /* The columns go on the *rows*, not on the mount. `renderOnce` emits a group
-     heading and a group body as siblings, so gridding the mount put each heading
-     in a column of its own and left two of four columns holding one word. The
-     heading stays a full-width block and its rows below it flow into as many
-     columns as fit. */
-  #tune-pane .tune-grid .settings-groupbody{
-    display:grid; gap:10px 18px; align-items:start;
-    grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); }
-  /* The open question's own rules, lifted out of the list and marked, because the
-     reason to look at this pane mid-round is the question on screen. */
-  #tune-pane .tune-round-now{ border:1px solid var(--accent); border-radius:10px;
-                              padding:10px 12px 12px; margin:0 0 14px;
-                              background:color-mix(in srgb, var(--accent) 7%, transparent); }
-  #tune-pane .tune-round-now .tune-section{ margin-top:0; color:var(--accent); }
-  #bar-tune.on{ background:var(--text); color:var(--bg); border-color:var(--text); }
-  #tune-tabs{ display:flex; gap:4px; flex-wrap:wrap; margin:0 0 8px; }
-  #tune-tabs button{
-    font:inherit; font-size:0.72rem; letter-spacing:0.06em; text-transform:uppercase;
-    padding:5px 9px; border-radius:999px; border:1px solid var(--border);
-    background:var(--btn-bg); color:var(--muted); cursor:pointer;
-  }
-  #tune-tabs button.on{ background:var(--text); color:var(--bg); border-color:var(--text); }
-  #tune-tabs button .live{ color:var(--accent); }
-  #tune-tabs button.on .live{ color:#9fd8f2; }
-  .tune-note{ color:var(--muted); font-size:0.84rem; line-height:1.5; margin:10px 0; }
-  .tune-section{
-    font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent);
-    margin:16px 0 2px; border-bottom:2px solid var(--border); padding-bottom:3px;
-  }
-
-  /* A MIRROR of hub.css's .settings-* rules, scoped to this pane — the same
-     declared-mirror convention the question bench uses for the clue card's
-     metrics. If rows look wrong here first, check whether hub.css moved.
-     The switch track is the load-bearing part: the input itself is invisible. */
-  #tune-pane .settings-row{ display:flex; flex-direction:column; align-items:stretch;
-    gap:8px; padding:10px 0; border-bottom:1px solid var(--border); }
-  #tune-pane .settings-label{ font-weight:600; font-size:0.9rem; }
-  #tune-pane .settings-help{ color:var(--muted); font-size:0.78rem; line-height:1.4; margin-top:2px; }
-  #tune-pane .settings-state{ font-family:ui-monospace,monospace; font-size:0.66rem;
-    letter-spacing:0.05em; text-transform:uppercase; color:var(--muted); margin-top:4px; }
-  #tune-pane .settings-state.overridden{ color:var(--accent); }
-  #tune-pane .settings-undo{ background:none; border:none; padding:0; cursor:pointer;
-    color:var(--accent); text-decoration:underline; font:inherit; letter-spacing:inherit;
-    text-transform:inherit; }
-  #tune-pane .settings-intro{ color:var(--muted); font-size:0.8rem; line-height:1.5; margin:8px 0 2px; }
-  #tune-pane .settings-select{ font:inherit; font-size:0.85rem; padding:7px 9px;
-    border:2px solid var(--border); border-radius:8px; background:var(--btn-bg); cursor:pointer;
-    max-width:100%; }
-  #tune-pane .settings-input{ font:inherit; font-size:0.85rem; padding:7px 9px;
-    border:2px solid var(--border); border-radius:8px; max-width:100%; }
-  #tune-pane .settings-range{ display:flex; align-items:center; gap:10px; }
-  #tune-pane .settings-range input[type=range]{ flex:1; width:auto; accent-color:var(--accent); }
-  #tune-pane .settings-range output{ font-family:ui-monospace,monospace; font-size:0.8rem; }
-  #tune-pane .settings-switch{ position:relative; flex-shrink:0; width:52px; height:30px; cursor:pointer; }
-  #tune-pane .settings-switch input{ opacity:0; width:0; height:0; position:absolute; }
-  #tune-pane .switch-track{ position:absolute; inset:0; background:rgba(18,38,63,0.22);
-    border-radius:999px; transition:background .15s; }
-  #tune-pane .switch-track::after{ content:''; position:absolute; top:3px; left:3px;
-    width:24px; height:24px; border-radius:50%; background:#fff; transition:transform .15s;
-    box-shadow:0 1px 3px rgba(0,0,0,0.3); }
-  #tune-pane .settings-switch input:checked + .switch-track{ background:var(--accent); }
-  #tune-pane .settings-switch input:checked + .switch-track::after{ transform:translateX(22px); }
-  #tune-pane .settings-group{ font-family:ui-monospace,monospace; font-size:0.68rem;
-    letter-spacing:0.1em; text-transform:uppercase; color:var(--accent); margin:14px 0 4px; }
-  #tune-pane .settings-group.foldable{ cursor:pointer; user-select:none; }
-  #tune-pane .settings-group.foldable::after{ content:'▾'; margin-left:8px; display:inline-block; }
-  #tune-pane .settings-group.foldable.closed::after{ transform:rotate(-90deg); }
-  #tune-pane .settings-groupbody.closed{ display:none; }
-  #tune-pane .settings-ruleset{ border-bottom:2px solid #E8C547; padding-bottom:3px; }
-  /* Nesting + the Advanced fold, mirrored from hub.css for this pane. */
-  #tune-pane .settings-child{ margin-left:16px; border-left:2px solid var(--border); padding-left:12px; }
-  #tune-pane .settings-inert{ opacity:0.45; }
-  #tune-pane .settings-inert input, #tune-pane .settings-inert select, #tune-pane .settings-inert button, #tune-pane .settings-inert .settings-switch{ pointer-events:none; }
-  #tune-pane .settings-advanced{ font-family:ui-monospace,monospace; font-size:0.62rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); margin:12px 0 6px; cursor:pointer; user-select:none; }
-  #tune-pane .settings-advanced::after{ content:'▾'; margin-left:6px; display:inline-block; }
-  #tune-pane .settings-advanced.closed::after{ transform:rotate(-90deg); }
-  #tune-pane .settings-preset-note{ font-family:ui-monospace,monospace; font-size:0.66rem;
-    letter-spacing:0.03em; color:#B8860B; margin-top:3px; }
+  /* The room bench carries no settings UI — the settings pane and its mirrored
+     .settings-* styling were removed. The one settings surface is the question bench. */
 </style>
 </head>
 <body>
@@ -271,7 +179,6 @@
          same strip the question bench carries, from bench-kit. -->
     <span id="bar-layouts"></span>
     <select id="phone-size" title="What a racked phone's visible screen is — real sizes with browser bars subtracted, from phone-profiles.js"></select>
-    <button id="bar-tune" title="The rules board — every round's mode and the game's key rules, beside the projector">Tune</button>
     <span id="status"></span>
   </div>
 
@@ -279,16 +186,6 @@
     <div id="stage-pane">
       <p class="pane-label">The projector</p>
       <div id="stage-box"><div id="stage-empty">Pick a board and press <b>&nbsp;Open board</b>&nbsp; — its room code arrives here by itself.</div></div>
-      <!-- Under the board, not beside it. A projector is 16:9 and the page is not,
-           so the room below the stage is the widest empty space on this bench, and
-           a rules board 320px wide in a column was showing four rows where the same
-           height under the stage shows twelve. It also puts the control and the
-           thing it changes in one eyeline, which is the whole point of a bench. -->
-      <div id="tune-pane" style="display:none;">
-        <p class="pane-label">The rules — what you set here is what a real lesson gets</p>
-        <div id="tune-tabs"></div>
-        <div id="tune-body"></div>
-      </div>
     </div>
     <div id="rack-pane">
       <p class="pane-label">The room's phones</p>
@@ -296,8 +193,8 @@
     </div>
   </div>
 
-<script src="phone-profiles.js?v=20260904b"></script>
-<script src="bench-kit.js?v=20260904b"></script>
+<script src="phone-profiles.js?v=20260905a"></script>
+<script src="bench-kit.js?v=20260905a"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -385,35 +282,8 @@ function pollBoard(){
        auto-rack shipped. Those guards (`navigator.webdriver`, the `?rack=auto`
        opt-in) are gone with it, so a person and the suite now see the same bench. */
   }
-  /* The tune pane follows the board's game. Watched here because this loop is
-     already the bench's heartbeat into the frame; a hand-picked tab holds until
-     the board actually changes game, then the pane snaps back to following.
-     A fresh board document (`w !== tuneWired`) also re-renders — the first
-     render happens before any game is chosen, and waiting for a game change
-     would leave the pane saying "open a board" over a board that is open. */
-  try{
-    const w = boardWin();
-    const g = w && w.HubGames;
-    const live = g && g.active ? g.active() : null;
-    if(live !== tuneLive || (w && w !== tuneWired)){ tuneLive = live; tunePick = null; renderTune(); }
-    /* A round card opening is the moment this pane is worth looking at, so it
-       opens itself then — the board already knows which round is up, and says so
-       through `roundNow()` rather than the bench guessing from the DOM.
-
-       **Opening is automatic; closing is not.** A pane that shut itself when the
-       card went down would take the rules away at the exact moment you turn to
-       them to decide what to change before the next question. And a teacher who
-       pressed Tune to close it keeps it closed — the auto-open respects a
-       deliberate close for as long as that round is up, or it becomes a pane that
-       will not stay shut. */
-    const now = (w && w.HubSettings && w.HubSettings.roundNow) ? w.HubSettings.roundNow() : null;
-    if(now !== tuneRound){
-      const opened = now && !tuneRound;
-      tuneRound = now;
-      if(opened && !tuneWanted()) setTuneWanted(true);
-      renderTune();
-    }
-  }catch(e){}
+  /* Settings are no longer edited here — the room bench carries no settings UI. The
+     one settings surface for the whole app is the question bench. */
 }
 setInterval(pollBoard, 1000);
 
@@ -557,7 +427,7 @@ function joinSrc(name, team){
   // `?v=` first and literal, so the cache-stamp sed one-liner keeps it current: the
   // rack always loads the CURRENT phone shell, not a cached one from before a
   // mode it is armed with existed.
-  return page + '?v=20260904b&' + qs.toString();
+  return page + '?v=20260905a&' + qs.toString();
 }
 
 /* Phones rack up under their team, so a team dynamic reads as a team.
@@ -672,109 +542,12 @@ function applyLayout(n, m){
 $('add').addEventListener('click', ()=> addPhone(solo ? 0 : (Number($('team-pick').value) || 0)));
 const layoutCtl = BenchKit.layout($('bar-layouts'), applyLayout);
 
-/* ---------------- the tune pane ----------------
-   The rules board: the rows are the BOARD's own settings rows, rendered by its
-   own machinery into this pane (`HubSettings.renderOnce` through the frame,
-   same-origin — the HubTeams pattern), so a row here and a row in the ⚙ drawer
-   can never disagree. `renderOnce`, deliberately not `renderFor`: renderFor
-   claims the drawer's single live-refresh slot and this pane must not steal it.
-
-   The settings themselves are the app's real ones — the same localStorage the
-   teaching hub reads — which is the point: what is tuned here is what the next
-   lesson gets, and it survives closing the bench. */
-const TUNE_KEY = 'engishism.benchTune';
-function tuneWanted(){ try{ return localStorage.getItem(TUNE_KEY) !== 'closed'; }catch(e){ return true; } }
-function setTuneWanted(on){ try{ localStorage.setItem(TUNE_KEY, on ? 'open' : 'closed'); }catch(e){} }
-let tunePick = null;      // a tab picked by hand; null = follow the board
-let tuneLive = null;      // the game the board was last seen playing
-let tuneWired = null;     // the contentWindow whose onChange this pane follows
-let tuneTimer = null;
-let tuneRound = null;     // the round the board has open, or null between questions
-
-function boardWin(){
-  const f = $('stage-frame');
-  if(!f || !f.contentWindow) return null;
-  try{ return f.contentWindow.HubSettings ? f.contentWindow : null; }catch(e){ return null; }
-}
-
-function renderTune(){
-  const on = tuneWanted();
-  $('bar-tune').classList.toggle('on', on);
-  $('tune-pane').style.display = on ? '' : 'none';
-  if(!on) return;
-  const win = boardWin();
-  const tabs = $('tune-tabs'), body = $('tune-body');
-  if(!win){
-    tabs.innerHTML = '';
-    body.innerHTML = '<p class="tune-note">Open a hub board — playground pages carry no hub settings to tune.</p>';
-    return;
-  }
-  /* Re-render whenever any setting changes anywhere — this pane, the drawer,
-     the card's TUNE pill — so the state lines stay the truth. Subscribed once
-     per board document; pressing Open board makes a new window, which
-     re-subscribes here. Debounced, because a range slider fires per notch. */
-  if(tuneWired !== win){
-    tuneWired = win;
-    try{ win.HubSettings.onChange(()=>{ clearTimeout(tuneTimer); tuneTimer = setTimeout(renderTune, 400); }); }catch(e){}
-  }
-  const G = win.HubGames, K = win.HubKit, S = win.HubSettings;
-  if(!G || !K || !S){ body.innerHTML = '<p class="tune-note">This board has no settings registry.</p>'; return; }
-  const games = G.ids();
-  const live  = G.active ? G.active() : null;
-  /* `master` is the All-games tab — the globals (teams-or-individuals, Phone buzzers,
-     the relay address) and every shared rule. Otherwise a game id. Defaults to the game
-     the board is playing, so a teacher lands on what is live. */
-  const sel  = (tunePick === 'master') ? 'master'
-             : (tunePick && games.indexOf(tunePick) !== -1) ? tunePick
-             : (live || games[0]);
-  const game = (sel === 'master') ? null : sel;
-  /* One tab per game plus All games, derived from the registry — a game registered
-     next month appears here with nothing edited. The dot marks the one being played. */
-  tabs.innerHTML = '';
-  const mkTab = (id, label, isLive)=>{
-    const b = document.createElement('button');
-    b.className = id === sel ? 'on' : '';
-    b.textContent = label;
-    if(isLive){
-      const s = document.createElement('span');
-      s.className = 'live'; s.textContent = ' ●'; s.title = 'being played on the board';
-      b.appendChild(s);
-    }
-    b.addEventListener('click', ()=>{ tunePick = id; renderTune(); });
-    tabs.appendChild(b);
-  };
-  mkTab('master', 'All games', false);
-  games.forEach(g => mkTab(g, (win.HUB_GAME_TITLES || {})[g] || g, g === live));
-
-  body.innerHTML = '';
-  /* The open question first, in its own box — the round's own mode and the quick rules
-     together and on top, so a teacher watching a card decide something is not hunting
-     for them in the full list below. A shortcut to those rows, never a second copy.
-     Only on a real game tab; the All-games view has no card. */
-  const openId = S.roundNow ? S.roundNow() : null;
-  if(openId && game){
-    const def = (K.round.get ? K.round.get(openId) : null) || {};
-    const box = document.createElement('div'); box.className = 'tune-round-now';
-    const h = document.createElement('p'); h.className = 'tune-section';
-    h.textContent = 'On the card now · ' + (def.label || openId);
-    const m = document.createElement('div'); m.className = 'tune-grid';
-    box.appendChild(h); box.appendChild(m); body.appendChild(box);
-    const modeId = (def.modes || []).length ? ['round_' + openId] : [];
-    try{ S.renderOnce(m, game, { only: modeId.concat(S.quickIds(game).filter(id => id !== 'roundTune')) }); }catch(e){}
-  }
-  /* Every setting for this tab, categorised — Ruleset, the game's own groups, then the
-     shared ones — with the nesting and Advanced folds the panel already builds. On the
-     All-games tab (`game` null) this is the globals and the shared rules. One render, so
-     there is one place to change anything and it can never disagree with the board. */
-  const full = document.createElement('div'); full.className = 'tune-grid tune-full';
-  body.appendChild(full);
-  try{ S.renderOnce(full, game, {}); }catch(e){}
-}
-$('bar-tune').addEventListener('click', ()=>{ setTuneWanted(!tuneWanted()); renderTune(); });
+/* The room bench carries NO settings UI. The one settings surface for the whole app is
+   the question bench (playground/question-bench.html) — no settings on the game hub board
+   or here — so this bench is the room only: the projected board and the rack of handsets. */
 
 renderTeamPick();     // the default pair until a room says otherwise — never empty
 loadTeams();
-renderTune();         // the rules board, open by default — this bench is where tuning happens
 if(params.get('board')){                       // ?board=… opens one straight away
   const v = params.get('board');
   const known = [...$('board-pick').options].some(o => o.value === v);

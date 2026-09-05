@@ -76,20 +76,8 @@
     commitText: () => 'Lock it in'
   };
 
-  /* Quickfire's three weights. All classroom questions rather than design ones —
-     every one is a guess until a class has met them. */
-  S.register({ id:'kQuestions', group:'Quickfire', type:'range', default:15,
-    min:5, max:30, step:1, unit:'', games:['kahoot'],
-    label:'Questions in a run',
-    help:'The run ends after this many. Fewer if the sections you picked hold fewer.' });
-  S.register({ id:'kSeconds', group:'Quickfire', type:'range', default:20,
-    min:5, max:60, step:5, unit:'s', games:['kahoot'],
-    label:'Seconds per question',
-    help:'How long the room has to read the question and answer it. The clock is the whole game here.' });
-  S.register({ id:'kPoints', group:'Quickfire', type:'range', default:100,
-    min:20, max:500, step:20, unit:'', games:['kahoot'],
-    label:'Points for a right answer',
-    help:'What an instant answer pays. One that arrives as the clock dies pays half, and everything in between scales.' });
+  /* Quickfire's weights (kQuestions, kSeconds, kPoints) are declared in
+     game-hub/games/quickfire-settings.js. */
 
   /* The two buttons exist only after the engine injects the stage, so they are
      wired on the first `load` rather than at parse — the one ordering fact an

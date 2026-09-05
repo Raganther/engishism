@@ -19,24 +19,9 @@
      after this file, so `HubEnv` does not exist at parse. */
   const E = () => window.HubEnv;
 
-  /* Cards on the board or cards in their hands. The board version is two to four
-     cards a class shares and watches; the phone version gives every student their
-     own, which is what bingo actually is — and it is the first dynamic where the
-     room holds state between questions rather than answering one and forgetting it.
-     Board stays the default and the fallback: no relay, no wifi, or phones banned
-     that week and the game still runs. */
-  S.register({ id:'bingoCards', group:'Bingo', type:'variant', default:'board', games:['bingo'],
-    label:'Where the cards live',
-    help:'On the board is one card per team, shared. On the phones is one card per student.',
-    variants:[
-      {value:'board',  label:'On the board — one card per team'},
-      {value:'phones', label:'On the phones — one card each'}
-    ] });
-
-  S.register({ id:'bingoPoints', group:'Bingo', type:'range', default:1,
-    min:1, max:5, step:1, unit:' pts', games:['bingo'],
-    label:'Points per square',
-    help:'What marking a word off is worth. A line ends the round whatever this is.' });
+  /* Bingo's settings (bingoCards, bingoPoints) are declared in
+     game-hub/games/bingo-settings.js. Board stays the default and the fallback: no
+     relay, no wifi, or phones banned that week and the game still runs. */
 
   /* The stage exists only after the engine injects it, so the two buttons are
      wired on the first `load` rather than at parse. */

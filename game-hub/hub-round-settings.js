@@ -235,4 +235,64 @@
       label:'Draw the question type',
       help:'Gap fills show a real blank, anagrams show letter tiles, odd-one-out shows chips. Off prints every question as plain text.' });
   };
+
+  /* The round-MODE rows — round_<id> ("how a round is played") and round_<id>_input ("how
+     it is entered") — built from each round's own `modes`/`inputs`, so a round registered
+     next month grows its rows with nothing edited. Extracted here so the question bench
+     registers the SAME rows the hub does (axiom 2). The hub hands in its `hosts`
+     (ROUND_HOSTS) so a board's baked per-game default is registered — Jeopardy's ordering
+     ladder (`modeDefaults`), a team-based board's whole-team mode (`teamMode`); the bench
+     omits `hosts` and gets one master value per round, which is all it edits. Reads
+     `Kit.round` from window.HubKit (present in both the hub and the bench).
+
+       registerRoundModeSettings(S, { roundGames, hosts })   // hub
+       registerRoundModeSettings(S)                          // bench — master-only
+
+     Physics is the principal face and outranks a host's asks, unless the round opts out
+     with `physics.principal:false`. (The solo-room downgrade of a whole-team mode is done
+     live in the engine's `roundModeOf`, not described on the row, so this registration
+     needs no roster.) */
+  window.registerRoundModeSettings = function(S, ctx){
+    ctx = ctx || {};
+    const hosts      = ctx.hosts || {};
+    const roundGames = ctx.roundGames || Object.keys(hosts);
+    const Kit = window.HubKit;
+    const ids = (Kit && Kit.round) ? Kit.round.ids() : [];
+    ids.forEach(id => {
+      const def = Kit.round.get(id);
+      if(!def || !def.modes || !def.modes.length) return;
+      const own = def.modeSetting || {};
+      const physMode = def.physics && def.physics.axis === 'mode' && def.physics.principal !== false;
+      const perGame = {};
+      roundGames.forEach(g => {
+        const host = hosts[g] || {};
+        const want = (physMode && def.modes.some(m => m.value === def.physics.value))
+          ? def.physics.value
+          : ((host.modeDefaults || {})[id] || (host.teamMode ? def.teamMode : null));
+        if(want && def.modes.some(m => m.value === want)) perGame[g] = want;
+      });
+      S.register({ id:'round_' + id, type:'variant',
+        group: own.group || 'Questions',
+        /* Team rules and whole-class rules are two different lessons, so how a round is
+           played forks by room type (`byRoster` in hub-settings.js); this only opts in. */
+        byRoster: true,
+        default: physMode ? def.physics.value : def.modes[0].value,
+        defaults: Object.keys(perGame).length ? perGame : undefined,
+        games: own.games || roundGames,
+        label: own.label || ('How ' + (def.label || id) + ' is played'),
+        variants: def.modes.slice(),
+        help: own.help || 'The same question played more than one way. These are different lessons rather than two speeds of the same one, so it is a teaching choice.' });
+
+      if(def.inputs && def.inputs.length){
+        const physIn = def.physics && def.physics.axis === 'input' && def.physics.principal !== false;
+        S.register({ id:'round_' + id + '_input', type:'variant',
+          group: own.group || 'Questions',
+          default: physIn ? def.physics.value : def.inputs[0].value,
+          games: own.games || roundGames,
+          label: 'How ' + (def.label || id) + ' is entered',
+          variants: def.inputs.slice(),
+          help: 'How the answer is put into the slots. Flick (the physics) is the default face; Drag is the fallback. Set apart from how the answer is decided.' });
+      }
+    });
+  };
 })();

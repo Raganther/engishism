@@ -36,7 +36,6 @@ window.HubSettings = (function(){
   const listeners = [];
   let values = {};
   let storageOK = true;
-  let context = null;       // which game's tab the panel opens on
 
   function load(){
     try{
@@ -113,60 +112,65 @@ window.HubSettings = (function(){
     return def.id;
   }
 
-  /* Override for this game if one is set, otherwise the game's own registered
-     default if it has one, otherwise the master value, otherwise whatever the
-     feature registered as its default.
+  /* One editable value per setting. **There is no teacher-set per-game override any
+     more** — the whole app is tuned from one place (the question bench), so a shared
+     setting has a single value and cannot disagree with itself across surfaces.
 
-     `defaults: {game: value}` on a definition is how a skin gets its own starting
-     point — Jeopardy is team-based, so its multiple choice round starts on "all
-     agree" while the master stays "first team". It ranks below a teacher's
-     override and *above* the master, deliberately: a game registered with its own
-     default does not follow the master, and pretending it did would make the
-     master row a control that silently does nothing for that game. The panel says
-     which games have their own value, so nothing is silent. */
+     Two scopes survive, because they are rules rather than knobs:
+     - the **room-type fork** (`byRoster` → `id!solo`): team rooms and rooms of
+       individuals are two different lessons, so a forked setting keeps a second
+       value for solo rooms and follows the team-room value until set apart.
+     - a **registered per-game default** (`defaults: {game: value}`): how a skin
+       starts — Jeopardy's multiple-choice round begins on "all agree", `roundPay`
+       is Podium for Jeopardy. It is baked into the game (read here, not editable),
+       ranks *above* the master, and is what keeps a game's own rules unchanged
+       while the master is the one value everything else shares. The panel names the
+       games that carry their own default, so a master row that one shadows is never
+       silently inert. */
   function get(id, game){
     const d = byId[id];
     if(!d) return undefined;
     /* A solo room's own choice outranks everything; with none made, the solo
        room inherits whatever the team-room chain below resolves to. */
     if(forked(d) && soloNow()){
-      if(game && scoped(d)){
-        const so = values[key(id, game) + SOLO_SUF];
-        if(so !== undefined && so !== null) return so;
-      }
       const sm = values[id + SOLO_SUF];
       if(sm !== undefined && sm !== null) return sm;
     }
-    if(game && scoped(d)){
-      const o = values[key(id, game)];
-      if(o !== undefined && o !== null) return o;
-      if(d.defaults && d.defaults[game] != null) return d.defaults[game];
-    }
+    if(game && scoped(d) && d.defaults && d.defaults[game] != null)
+      return d.defaults[game];
     const v = values[id];
     return (v===undefined || v===null) ? d.default : v;
   }
 
+  /* A write always lands on the one shared value (its solo fork in a room of
+     individuals). The `game` argument is ignored — kept in the signature so the
+     ~80 `set(id, v, game)` call sites and the ruleset applier compile unchanged;
+     a per-game key is never written again. */
   function set(id, v, game){
     const d = byId[id];
     if(!d) return;
-    values[liveKey(d, id, game && scoped(d) ? game : null)] = v;
+    values[liveKey(d, id, null)] = v;
     save();
-    listeners.forEach(fn=>{ try{ fn(id, v, game || null); }catch(e){} });
+    listeners.forEach(fn=>{ try{ fn(id, v, null); }catch(e){} });
   }
 
-  /* Both of these ask about the room type the teacher is standing in: in a solo
-     room a forked setting's "override" is its solo value, so `roundModeOf`'s
-     downgrade and every row's state line stay correct with no caller changed. */
+  /* Clearing and asking "was this set" now mean the one live scope — the master, or
+     its solo fork in a room of individuals. `clearOverride` is kept for the reset
+     paths and the tests; `hasOverride`'s only live consumer is `roundModeOf`, which
+     asks it solely inside a solo room (to leave a deliberate solo choice alone). The
+     `game` argument is ignored in both. */
   function clearOverride(id, game){
-    if(!game) return;
-    delete values[liveKey(byId[id], id, game)];
+    delete values[liveKey(byId[id], id, null)];
     save();
-    listeners.forEach(fn=>{ try{ fn(id, get(id, game), game); }catch(e){} });
+    listeners.forEach(fn=>{ try{ fn(id, get(id, null), null); }catch(e){} });
   }
 
   function hasOverride(id, game){
-    if(!game) return false;
-    const v = values[liveKey(byId[id], id, game)];
+    /* In a team room this is the master key, seeded at register() and so always
+       present — meaningless there, and `roundModeOf` never calls it there. In a solo
+       room `liveKey` resolves to `id!solo`, which is *not* seeded, so this is true
+       only when the teacher set a solo value. That is the fact the downgrade wants. */
+    const v = values[liveKey(byId[id], id, null)];
     return v !== undefined && v !== null;
   }
 
@@ -180,7 +184,9 @@ window.HubSettings = (function(){
   }
 
   function onChange(fn){ listeners.push(fn); }
-  function setContext(game){ context = game || null; }
+  // vestigial: the flat panel has no per-game tab to land on. Kept as a no-op so the
+  // two hub-engine callers (⚙ open/close) compile without change.
+  function setContext(){}
 
   /* ---------- migration ----------
      A setting that gets replaced leaves values behind under keys nothing reads
@@ -221,6 +227,8 @@ window.HubSettings = (function(){
      beside the note is always the truth. */
   function describePresets(id, presets){ if(byId[id]) byId[id].presets = presets; }
   function presetPickerFor(game){
+    // game null → the flat panel: return the app's ruleset picker whatever it scopes to
+    if(game == null) return defs.find(d => d.presets) || null;
     return defs.find(d => d.presets && scoped(d) && gamesOf(d).indexOf(game) !== -1) || null;
   }
   function optionLabel(d, v){
@@ -235,17 +243,15 @@ window.HubSettings = (function(){
     return String(v) + (d.unit || '');
   }
 
-  /* ---------- panel ---------- */
-  let panel=null, body=null, tabsEl=null, activeTab='master';
+  /* ---------- panel ----------
+     One flat panel, no per-game tabs: every setting is edited once, from the
+     question bench (the app's single settings surface) or this on-demand panel
+     (the tests and `open()` reach it). The game hub board and the room bench carry
+     no settings UI. */
+  let panel=null, body=null;
   const collapsed = new Set();   // groups folded shut, per session — not worth persisting
   const advOpen   = new Set();   // which groups have their Advanced fold open, per session
 
-  // every game any registered setting mentions, in first-registered order
-  function gameTabs(){
-    const seen = [];
-    defs.forEach(d=>{ if(scoped(d)) gamesOf(d).forEach(g=>{ if(!seen.includes(g)) seen.push(g); }); });
-    return seen;
-  }
   function gameLabel(g){
     return (window.HUB_GAME_TITLES && window.HUB_GAME_TITLES[g]) ||
            g.charAt(0).toUpperCase() + g.slice(1);
@@ -258,7 +264,6 @@ window.HubSettings = (function(){
       '<div id="settings-card">' +
         '<div id="settings-head"><h2>Settings</h2>' +
         '<button id="settings-close" type="button">Close</button></div>' +
-        '<div id="settings-tabs"></div>' +
         '<div id="settings-body"></div>' +
         '<div id="settings-foot">' +
           '<span class="settings-note"></span>' +
@@ -267,7 +272,6 @@ window.HubSettings = (function(){
       '</div>';
     document.body.appendChild(panel);
     body   = panel.querySelector('#settings-body');
-    tabsEl = panel.querySelector('#settings-tabs');
 
     panel.querySelector('#settings-close').addEventListener('click', close);
     panel.querySelector('#settings-reset').addEventListener('click', ()=>{ resetAll(); render(); });
@@ -278,18 +282,6 @@ window.HubSettings = (function(){
     // the build stamp makes a stale cached copy visible instead of silent
     panel.querySelector('.settings-note').textContent =
       note + (window.HUB_BUILD ? '  ·  Build ' + window.HUB_BUILD : '');
-  }
-
-  function renderTabs(){
-    tabsEl.innerHTML='';
-    const tabs = [['master','All games']].concat(gameTabs().map(g=>[g, gameLabel(g)]));
-    tabs.forEach(([id,label])=>{
-      const b=document.createElement('button');
-      b.className='settings-tab' + (id===activeTab ? ' on' : '');
-      b.textContent=label;
-      b.addEventListener('click', ()=>{ activeTab=id; render(); });
-      tabsEl.appendChild(b);
-    });
   }
 
   /* Every control carries the id it writes to. The panel doesn't need it — it
@@ -384,101 +376,35 @@ window.HubSettings = (function(){
       text.appendChild(hp);
     }
     /* What the chosen ruleset does to this row — why the value is what it is, and
-       what picking the mode again would write back. */
-    if(game && !d.presets){
-      const picker = presetPickerFor(game);
-      const bundle = picker && picker.presets[String(get(picker.id, game))];
+       what picking the mode again would write back. One flat panel, so the picker
+       is found game-agnostically (there is a single ruleset picker in the app). */
+    if(!d.presets){
+      const picker = presetPickerFor(null);
+      const bundle = picker && picker.presets[String(get(picker.id, null))];
       if(bundle && (d.id in bundle)){
         const pn=document.createElement('div');
         pn.className='settings-preset-note';
-        pn.textContent = optionLabel(picker, get(picker.id, game)) +
+        pn.textContent = optionLabel(picker, get(picker.id, null)) +
                          ' sets this to ' + displayValue(d, bundle[d.id]);
         text.appendChild(pn);
       }
     }
-    // on a game's view, say plainly whether this game is following the default
-    if(game){
-      const ownDefault = !!(d.defaults && d.defaults[game] != null);
-      const soloRow = forked(d) && soloNow();
+    /* The one flat panel edits a single value per setting. The only state a row
+       still owns to declare is the master row that a baked per-game default
+       shadows — naming those games so a control that does not reach them is never
+       silently inert. A room of individuals is a whole-panel fact (the roster), not
+       a per-row one, so a forked setting's solo value is edited here like any
+       other and needs no per-row wording. */
+    const shadowed = scoped(d)
+      ? gamesOf(d).filter(g => d.defaults && d.defaults[g] != null)
+      : [];
+    if(shadowed.length){
       const state=document.createElement('div');
-      state.className='settings-state';
-      if(hasOverride(d.id, game)){
-        state.classList.add('overridden');
-        state.textContent = soloRow ? 'Set for rooms of individuals · ' : 'Set for this game · ';
-        const undo=document.createElement('button');
-        undo.type='button'; undo.className='settings-undo';
-        /* Undoing an override returns to whatever ranks next — for a solo-room
-           value that is the team-room rules, for a game with a registered
-           default of its own, its default rather than the master — and the
-           button must not claim otherwise. */
-        undo.textContent = soloRow ? 'back to the team-room rules'
-                         : ownDefault ? 'back to this game’s default' : 'match All games';
-        undo.addEventListener('click', ()=>{ clearOverride(d.id, game); render(); });
-        state.appendChild(undo);
-      } else {
-        /* "Matching All games" would be a lie for a game registered with its own
-           default — it is not following the master and never was. In a solo room
-           a forked row is following the team-room rules, which is the truer fact
-           than which scope those rules came from. */
-        state.textContent = soloRow ? 'Individuals — following the team-room rules'
-                          : ownDefault ? 'This game’s own default' : 'Matching All games';
-      }
+      state.className='settings-state overridden';
+      state.textContent =
+        (shadowed.length === 1 ? 'Has its own fixed value in ' : shadowed.length + ' games have their own fixed value: ') +
+        shadowed.map(gameLabel).join(', ');
       text.appendChild(state);
-      /* The mirror of the line above: a team room whose individuals have gone
-         their own way should say so, or the fork is a silent mismatch — the
-         same trap the master tab already names per game. */
-      if(forked(d) && !soloNow() && values[key(d.id, game) + SOLO_SUF] != null){
-        const rn=document.createElement('div');
-        rn.className='settings-preset-note';
-        rn.textContent='Rooms of individuals have their own value for this.';
-        text.appendChild(rn);
-      }
-      /* A row whose stored value is not what the room will actually play — the
-         registrar knows why (a solo room downgrading a whole-team mode, say) and
-         says so through this hook, evaluated at draw time because the reason is
-         a live fact about the room, not a property of the definition. */
-      if(d.stateNote){
-        let note = null;
-        try{ note = d.stateNote(game); }catch(e){}
-        if(note){
-          const ln=document.createElement('div');
-          ln.className='settings-preset-note';
-          ln.textContent=note;
-          text.appendChild(ln);
-        }
-      }
-    } else if(scoped(d)){
-      /* On the master tab, changing this value silently does nothing for a game
-         that already has its own — and there was no way to tell, which is
-         exactly the trap that cost a real debugging session: "All games" was
-         set to Off and the drone kept playing, because whichever game had been
-         played with the panel open (it opens on the current game's tab) had
-         quietly picked up its own value the first time a control was touched
-         there. Naming the game and linking straight to its tab turns that from
-         a silent mismatch into one click to fix. */
-      /* A game with a registered default of its own is not following the master
-         either — leaving it off this list would recreate the same silent-mismatch
-         trap for exactly the games most likely to differ. */
-      const overriding = gamesOf(d).filter(g => hasOverride(d.id, g) ||
-                                               (d.defaults && d.defaults[g] != null));
-      if(overriding.length){
-        const state=document.createElement('div');
-        state.className='settings-state overridden';
-        /* "Has its own value", not "overridden" — a game can differ because a
-           teacher set it *or* because it registered its own default, and this
-           line's job is only to say the master row does not reach it. */
-        state.appendChild(document.createTextNode(
-          (overriding.length === 1 ? 'Has its own value in ' : overriding.length + ' games have their own value: ')));
-        overriding.forEach((g, i)=>{
-          if(i) state.appendChild(document.createTextNode(', '));
-          const jump=document.createElement('button');
-          jump.type='button'; jump.className='settings-undo';
-          jump.textContent=gameLabel(g);
-          jump.addEventListener('click', ()=>{ activeTab=g; render(); });
-          state.appendChild(jump);
-        });
-        text.appendChild(state);
-      }
     }
     row.appendChild(text);
     row.appendChild(buildControl(d, game));
@@ -540,16 +466,15 @@ window.HubSettings = (function(){
   const SHARED_GROUP_ORDER = ['Competition','Questions','Phones','Clue card','Presentation','Sound'];
 
   function renderRows(mount, game, shown){
-    if(game){
-      const pickers = shown.filter(d => d.presets);
-      if(pickers.length){
-        const h=document.createElement('div');
-        h.className='settings-group settings-ruleset';
-        h.textContent='Ruleset';
-        mount.appendChild(h);
-        pickers.forEach(d => mount.appendChild(buildRow(d, game)));
-        shown = shown.filter(d => !d.presets);
-      }
+    // the ruleset picker leads its own section, above every group
+    const pickers = shown.filter(d => d.presets);
+    if(pickers.length){
+      const h=document.createElement('div');
+      h.className='settings-group settings-ruleset';
+      h.textContent='Ruleset';
+      mount.appendChild(h);
+      pickers.forEach(d => mount.appendChild(buildRow(d, game)));
+      shown = shown.filter(d => !d.presets);
     }
     const groups=[];
     shown.forEach(d=>{ const g=d.group||'General'; if(!groups.includes(g)) groups.push(g); });
@@ -576,78 +501,64 @@ window.HubSettings = (function(){
 
   function renderBody(){
     body.innerHTML='';
-    const game = activeTab==='master' ? null : activeTab;
-    const shown = game ? defs.filter(d=>scoped(d) && gamesOf(d).indexOf(game)!==-1) : defs;
-
-    if(game){
-      const intro=document.createElement('p');
-      intro.className='settings-intro';
-      intro.textContent = 'These apply to ' + gameLabel(game) +
-        ' only. Anything left alone follows the All games setting.';
-      body.appendChild(intro);
-    }
-    renderRows(body, game, shown);
+    // one flat view — every setting, the globals included, edited once
+    renderRows(body, null, defs);
   }
 
   function render(){
-    /* The panel is built lazily — a board that never opened ⚙ has no `panel`,
-       `tabsEl` or `body`. But the control builders are shared with `renderOnce`
-       (the room bench's tune pane embeds them), and a select change, range
-       change or undo click each call render() after writing — which threw on
-       every interaction from the bench, after the value had already landed, so
-       the write worked and the page error was the only symptom. An embedder
-       repaints itself through `onChange`; the panel repaints only if it exists. */
-    if(!panel || !tabsEl || !body) return;
-    renderTabs(); renderBody();
+    /* The panel is built lazily — a board that never opened it has no `panel` or
+       `body`. But the control builders are shared with `renderOnce` (the question
+       bench embeds them), and a select change, range change or reset each call
+       render() after writing — which threw on every interaction from the bench,
+       after the value had already landed, so the write worked and the page error
+       was the only symptom. An embedder repaints itself through `onChange`; the
+       panel repaints only if it exists. */
+    if(!panel || !body) return;
+    renderBody();
   }
 
   function renderInto(mount, game, opts){
     if(!mount) return;
     const o = opts || {};
     mount.innerHTML = '';
-    /* `game == null` is the All-games / master view — every setting, the globals
-       included, the same set `renderBody` shows on its master tab. So the room bench
-       can render the whole registry into its own pane, not only a game's slice. */
+    /* One flat view. `game` is accepted for signature compatibility (callers pass
+       null) but no longer slices the panel — every setting, the globals included,
+       is shown and edited once. `groups`/`only` still filter, for an embedder that
+       wants a subset. */
     const shown = defs.filter(d =>
-      (game == null ? true : (scoped(d) && gamesOf(d).indexOf(game) !== -1)) &&
       (!o.groups || o.groups.indexOf(d.group || 'General') !== -1) &&
       (!o.only || o.only.indexOf(d.id) !== -1));
-    renderRows(mount, game, shown);
+    renderRows(mount, null, shown);
     if(!shown.length){
       const none=document.createElement('p');
       none.className='settings-intro';
-      none.textContent = 'Nothing to tune for this game yet.';
+      none.textContent = 'Nothing to tune yet.';
       mount.appendChild(none);
     }
   }
 
   function open(){
     /* The board no longer mounts a gear, so the panel is not built at load. It is
-       still available on demand — the room bench and the tests reach it this way —
-       so build it the first time it is opened. */
+       still available on demand — the tests reach it this way — so build it the
+       first time it is opened. One flat view, no tab to land on. */
     if(!panel) buildPanel();
     if(!panel) return;
-    // land on the tab for whatever is being played, so ⚙ during a game shows that
-    // game's settings without hunting for them
-    const tabs = gameTabs();
-    activeTab = (context && tabs.indexOf(context)!==-1) ? context : 'master';
     render();
     panel.style.display='flex';
   }
   function close(){ if(panel) panel.style.display='none'; }
 
-  /* Render one game's settings into any element (game == null → the whole
-     registry). The room bench is the only caller: it renders each game's slice
-     into its own pane rather than opening the full panel. Distinct from the panel
-     because it writes into a host the caller owns, not <body>. */
+  /* Render every setting into any element the caller owns (the question bench's
+     Tune pane). `game` is accepted but ignored — one flat view. Distinct from the
+     panel because it writes into a host the caller owns, not <body>. */
   function renderOnce(mount, game, opts){ renderInto(mount, game, opts); }
 
-  /* The settings that declared themselves quick-tunable (`quick:true` on their
-     registration) — the room bench's per-game quick view shows these first.
-     Derived, never a hand-kept list of ids, for the same reason `games:'*'` asks
-     the registry: a list typed out goes stale the day the next setting matters. */
+  /* The settings that declared themselves quick-tunable (`quick:true`). Derived,
+     never a hand-kept list of ids, for the same reason `games:'*'` asks the
+     registry: a list typed out goes stale the day the next setting matters. A game
+     may be named to narrow to that game's quick settings; null gives them all. */
   function quickIds(game){
-    return defs.filter(d => d.quick && scoped(d) && gamesOf(d).indexOf(game) !== -1)
+    return defs.filter(d => d.quick && (game == null || (scoped(d) && gamesOf(d).indexOf(game) !== -1)))
                .map(d => d.id);
   }
 

@@ -78,17 +78,9 @@
     miss: team => mMissed(team)
   };
 
-  /* Millionaire's three weights, declared here so the game owns its own settings. The
-     shared Competition switches it also reads (stealOnWrong, stealFullValue) stay in
-     the engine, because a steal is not this board's alone. */
-  S.register({ id:'mLifelines', group:'Millionaire', type:'toggle', default:true, games:['millionaire'],
-    label:'Lifelines', help:'50:50, Ask the class, and Confer — one use each per team.' });
-  S.register({ id:'mFinalAnswer', group:'Millionaire', type:'toggle', default:true, games:['millionaire'],
-    label:'Final answer?',
-    help:'A picked option locks in highlighted and waits for "Final answer?" before the reveal. The team can change their mind until then. Off reveals on the first click.' });
-  S.register({ id:'mConferSeconds', group:'Millionaire', under:'mLifelines', type:'select', default:30, games:['millionaire'],
-    label:'Confer time', help:'How long a team gets to consult when they use Confer.',
-    options:[{value:30,label:'30 seconds'},{value:45,label:'45 seconds'},{value:60,label:'60 seconds'}] });
+  /* Millionaire's weights (mLifelines, mFinalAnswer, mConferSeconds) are declared in
+     game-hub/games/millionaire-settings.js; the shared Competition switches it reads
+     (stealOnWrong, stealFullValue) are app-wide, in hub-app-settings.js. */
 
   /* The lifeline, final and next buttons exist only after the engine injects the
      stage, so they are wired on the first `load` rather than at parse. */
