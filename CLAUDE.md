@@ -838,7 +838,14 @@ the 4-row Connections grid (the fourth caller).
 
 **Battle Scrabble — a complete standalone playground game, awaiting its classroom
 run.** Board + phone pages on the phone room; each phone is a 7×7 grid where words
-read across and down and BANK cashes every valid word at once; a tile flicked off an
+read across and down and **bank themselves**: a valid word earns from the instant it
+forms (its base at once, climbing to base × the full-hold bonus over the Hold-to-cash
+time), the climbing total is *provisional* — shown as locked+provisional on the strip,
+locked in and burst only when it reaches full, forfeited the moment the word breaks,
+changes, is redealt or time runs out (so the live trickle can't be farmed) — and the
+points fly into the score bar as motes (a thin stream while climbing, a cluster
+explosion at the lock), tuned by Points stream / Bonus burst / Suck speed sliders.
+There is no Bank button. A tile flicked off an
 open side edge **physically travels** to a ring neighbour with its speed, trajectory
 and colour, knocks a slotted letter out on a hard hit, and is theirs to use; a
 neighbour's **valid** word ghosts onto your own grid at the cells it occupies on

@@ -59,6 +59,13 @@
   }
   .score{ font-size:1.05rem; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; }
   .score small{ color:var(--muted); font-weight:400; font-size:0.68rem; display:block; text-transform:uppercase; letter-spacing:0.05em; }
+  /* the score number pulses each time a mote lands in it */
+  #score{ display:inline-block; transform-origin:left center; transition:transform 0.12s ease, color 0.12s ease; }
+  #score.bump{ transform:scale(1.32); color:var(--gold); }
+  /* the points-FX overlay: gold motes flying into the score bar. Fixed over the
+     whole viewport so a mote can travel from the tiles up to the score; never
+     catches a pointer. */
+  #fxlayer{ position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:40; }
   .hints{ flex:1 1 auto; display:flex; gap:6px; flex-wrap:wrap; justify-content:center; min-width:0; }
   .hint-chip{
     font-size:0.78rem; letter-spacing:0.08em; text-transform:uppercase;
@@ -228,6 +235,9 @@
     <div class="ctl"><label>Hold to cash</label><input id="s-mrate" type="range" min="3" max="20" step="1" value="10"><span class="val" id="v-mrate"></span></div>
     <div class="ctl"><label>Full-hold bonus</label><input id="s-mmax" type="range" min="1" max="3" step="0.25" value="2"><span class="val" id="v-mmax"></span></div>
     <div class="ctl"><label>Min vowels</label><input id="s-vow" type="range" min="0" max="4" step="1" value="2"><span class="val" id="v-vow"></span></div>
+    <div class="ctl"><label>Points stream</label><input id="s-stream" type="range" min="0" max="3" step="0.5" value="1"><span class="val" id="v-stream"></span></div>
+    <div class="ctl"><label>Bonus burst</label><input id="s-burst" type="range" min="0" max="40" step="2" value="20"><span class="val" id="v-burst"></span></div>
+    <div class="ctl"><label>Suck speed</label><input id="s-suck" type="range" min="0.3" max="3" step="0.1" value="1.2"><span class="val" id="v-suck"></span></div>
     <!-- The physics rows are NOT here: Kit.table.dialsPanel builds them from
          the shelf's dial registry, so this page holds no copy of any feel
          default and a dial declared on the shelf appears here by existing. -->
@@ -264,6 +274,7 @@
     <div id="cashmeter"><i id="cashfill"></i><span id="cashlabel">Spell a word — it banks itself</span></div>
     <button id="redeal" type="button">Redeal ⟳</button>
   </div>
+  <canvas id="fxlayer"></canvas>
 
   <!-- Same shelf and same order as Throw Lab: matter.min.js → hub-kit.js (the
        object Kit.table hangs off) → hub-table.js. word-list.js is this page's own
@@ -499,6 +510,88 @@
       updateScore();
       if(fillFrac() >= 1) cashWord();
     }
+
+    /* ===== points FX: motes that fly into the score bar =====
+       A full-viewport overlay, drawn in CSS pixels (the context is pre-scaled by
+       devicePixelRatio). Two emitters: a trickle while a word's provisional total
+       climbs, and a cluster burst when it locks. Every mote accelerates toward the
+       score element's live screen position and pulses it on arrival. Flat filled
+       circles only — no per-tile shadowBlur, which is what stutters a phone. */
+    const fxCanvas = document.getElementById('fxlayer');
+    const fxCtx = fxCanvas.getContext('2d');
+    let motes = [], fxLast = performance.now();
+    let streamAcc = 0, lastProvFx = 0, bumpTimer = null;
+    const FX = { gold:'#E8B93E', accent:'#00A0DF' };
+    (function(){ const cs = getComputedStyle(document.body);
+      FX.gold = (cs.getPropertyValue('--gold') || '').trim() || FX.gold;
+      FX.accent = (cs.getPropertyValue('--accent') || '').trim() || FX.accent; })();
+    function fxResize(){
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      fxCanvas.width = Math.round(innerWidth * dpr);
+      fxCanvas.height = Math.round(innerHeight * dpr);
+      fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);   // draw in CSS px
+    }
+    function streamRate(){ return +val('s-stream'); }
+    function burstCount(){ return +val('s-burst'); }
+    function suckSpeed(){ return +val('s-suck'); }
+    function rectPoint(el, fx, fy){ const r = el.getBoundingClientRect(); return { x:r.left + r.width*fx, y:r.top + r.height*fy }; }
+    function scoreTarget(){ return rectPoint(document.getElementById('score'), 0.5, 0.5); }
+    function addMote(from, vx, vy, o){ o = o || {};
+      motes.push({ x:from.x, y:from.y, vx, vy, r:o.r || 5, hue:o.hue || FX.gold, born:performance.now(), arrived:false }); }
+    const STREAM_COST = 6;   // one mote per this many points earned (scaled by the stream slider)
+    function fxTrickle(){
+      const sr = streamRate();
+      if(sr <= 0 || !validRuns.length){ lastProvFx = provisional; return; }
+      if(provisional < lastProvFx){ lastProvFx = provisional; return; }   // a reset/lock, not a climb
+      streamAcc += (provisional - lastProvFx) * sr;
+      lastProvFx = provisional;
+      let guard = 0;
+      while(streamAcc >= STREAM_COST && guard++ < 3){
+        streamAcc -= STREAM_COST;
+        addMote(rectPoint(meterEl, 0.15 + Math.random()*0.7, 0.35),
+                (Math.random()*2 - 1) * 0.02, -0.03 - Math.random()*0.03, { r:4 + Math.random()*2 });
+      }
+    }
+    function fxBonus(){
+      const n = Math.round(burstCount());
+      if(n <= 0) return;
+      const c = rectPoint(canvas, 0.5, 0.42);   // roughly where the word sat on the stage
+      for(let i = 0; i < n; i++){
+        const a = Math.PI*2 * (i/n) + Math.random()*0.6, sp = 0.18 + Math.random()*0.24;
+        addMote(c, Math.cos(a)*sp, Math.sin(a)*sp - 0.05,
+                { r:5 + Math.random()*4, hue: i % 3 === 0 ? FX.accent : FX.gold });
+      }
+    }
+    function bumpScore(){
+      const el = document.getElementById('score');
+      el.classList.add('bump');
+      clearTimeout(bumpTimer);
+      bumpTimer = setTimeout(() => el.classList.remove('bump'), 130);
+    }
+    function fxStep(dt){
+      const target = scoreTarget();
+      const pull = suckSpeed() * 0.0016;    // acceleration toward the bar — strong enough to arrive in ~1s
+      let landed = false;
+      for(const m of motes){
+        const dx = target.x - m.x, dy = target.y - m.y, dist = Math.hypot(dx, dy) || 1;
+        m.vx += (dx/dist) * pull * dt; m.vy += (dy/dist) * pull * dt;
+        m.vx *= 0.9; m.vy *= 0.9;              // drag, so they curve in rather than orbit
+        m.x += m.vx * dt; m.y += m.vy * dt;
+        if(dist < 20){ m.arrived = true; landed = true; }
+      }
+      if(landed) bumpScore();
+      const now = performance.now();
+      motes = motes.filter(m => !m.arrived && now - m.born < 5000);
+      fxCtx.clearRect(0, 0, innerWidth, innerHeight);
+      for(const m of motes){
+        const age = now - m.born;
+        fxCtx.globalAlpha = age < 120 ? age/120 : 1;   // quick fade-in
+        fxCtx.fillStyle = m.hue;
+        fxCtx.beginPath(); fxCtx.arc(m.x, m.y, m.r, 0, Math.PI*2); fxCtx.fill();
+      }
+      fxCtx.globalAlpha = 1;
+    }
+
     function paintMeter(){
       if(!playing || !validRuns.length){
         meterEl.classList.remove('armed', 'full');
@@ -608,6 +701,7 @@
          rain, which carries the same "new hand" feel. */
       const cashedIdx = [...used];
       world.setResult('right', cashedIdx);
+      fxBonus();               // the bonus cluster explodes off the tiles and is sucked into the score bar
       deal(kept);
       report(false);           // the board's standings follow every bank
     }
@@ -1093,6 +1187,7 @@
     }
 
     world.resize();
+    fxResize();
     /* No code and no Join press = stage 1, byte for byte: solo starts at once.
        A ?code= (the board's QR) opens the join strip instead — the lobby. */
     if(!maybeRoomBoot()) startGame();
@@ -1103,6 +1198,11 @@
          instant it reaches the full "Hold to cash" time. No button, no press. */
       if(playing && validRuns.length) accrue();
       paintMeter();
+      /* the points FX advance by wall clock, like the physics — a 120Hz phone
+         must not fling motes twice as fast as a 60Hz board. */
+      const tnow = performance.now(), dt = Math.min(60, tnow - fxLast); fxLast = tnow;
+      fxTrickle();
+      fxStep(dt);
       requestAnimationFrame(loop);
     })();
 
@@ -1151,6 +1251,9 @@
     bindSlider('s-mrate','v-mrate', v => v + 's', null);
     bindSlider('s-mmax','v-mmax',   v => '×' + v.toFixed(2), null);
     bindSlider('s-vow','v-vow',     v => String(v), null);
+    bindSlider('s-stream','v-stream', v => v === 0 ? 'off' : '×' + v.toFixed(1), null);
+    bindSlider('s-burst','v-burst',   v => v === 0 ? 'off' : v + ' motes', null);
+    bindSlider('s-suck','v-suck',     v => '×' + v.toFixed(1), null);
     /* The physics rows build themselves from the shelf's dial registry — one
        row per dial, wired to setFeel, no defaults repeated on this page. */
     K.table.dialsPanel(document.querySelector(".controls"), world, {
@@ -1169,7 +1272,7 @@
     btnTune.addEventListener('click', () => { document.body.classList.toggle('controls-hidden'); applyTune(); });
 
     let rz;
-    const refit = () => { clearTimeout(rz); rz = setTimeout(() => { world.resize(); nbovPaint(); }, 150); };
+    const refit = () => { clearTimeout(rz); rz = setTimeout(() => { world.resize(); fxResize(); nbovPaint(); }, 150); };
     window.addEventListener('resize', refit);
     /* Mobile chrome collapsing/expanding fires on the VISUAL viewport, often
        without a window resize — without this the canvas keeps the height the
@@ -1182,6 +1285,7 @@
        drives) fires no onArrange — a driven board must ask for the re-read a
        real dock performs itself. */
     window.__bs = { world, deal, bank: cashWord, cashWord, startGame, endGame, read: readBoard,
+      fxBonus, fxMotes: () => motes.length,
       /* the suite's throw — the same path as a zone drop, minus the pointer.
          Returns the letter thrown, so a test can watch for it arriving. */
       throw: dir => {
