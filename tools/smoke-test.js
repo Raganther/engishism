@@ -72,7 +72,7 @@ async function openHub(browser, viewport){
   return page;
 }
 
-async function startGame(page, gameTitle, { sections = 1, unit = 'Unit 5', keepIntro = false, raceMode = null } = {}){
+async function startGame(page, gameTitle, { sections = 1, unit = 'Unit 5', keepIntro = false, raceMode = null, plain = false } = {}){
   // callers may already be mid-game; walk back to the unit screen first
   const newGame = page.locator('#new-game-btn');
   if (await newGame.isVisible().catch(()=>false)){ await newGame.click(); await page.waitForTimeout(180); }
@@ -81,8 +81,13 @@ async function startGame(page, gameTitle, { sections = 1, unit = 'Unit 5', keepI
 
   await page.getByText(unit, { exact:false }).first().click();
   await page.waitForTimeout(180);
+  if(page.__plainLab) await preparePlainLab(page);
   await page.locator('h3:visible', { hasText: gameTitle }).first().click();
   await page.waitForTimeout(180);
+  if (plain) {
+    const filter = page.locator('#round-filter [data-round=plain]');
+    if(await filter.count()) await filter.click();
+  }
   const boxes = page.locator('#content-list input');
   const total = await boxes.count();
   const want  = sections === 'all' ? total : Math.min(sections, total);
@@ -178,10 +183,19 @@ async function testJeopardy(browser){
      registries, so a fourth physics round is covered the day it declares `physics`. */
   await page.getByText('Unit 5', { exact:false }).first().click(); await page.waitForTimeout(200);
   await page.locator('h3:visible', { hasText: 'Jeopardy' }).first().click(); await page.waitForTimeout(250);
-  const faces = await page.evaluate(() => [...document.querySelectorAll('.cat-check .face')]
-    .map(f => (f.querySelector('button.on') || {}).textContent || '(none lit)'));
-  check('physics is the default face on every category that has one',
-        faces.length >= 3 && faces.every(t => t === 'Flick'), faces.join(','));
+  const faces = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('.cat-check .face')];
+    const missing = rows.filter(f => !f.querySelector('button.on')).length;
+    const defaults = HubKit.round.ids().map(id => {
+      const ph = HubKit.round.get(id).physics;
+      if(!ph) return true;
+      const key = 'round_' + id + (ph.axis === 'input' ? '_input' : '');
+      return (HubSettings.get(key, 'jeopardy') === ph.value) === (ph.principal !== false);
+    });
+    return {count:rows.length, missing, defaults};
+  });
+  check('each physics round uses its declared principal face',
+        faces.count >= 3 && !faces.missing && faces.defaults.every(Boolean), JSON.stringify(faces));
   await page.reload(); await page.waitForTimeout(350);   // back to the unit screen for startGame's own walk
   await startGame(page, 'Jeopardy', { sections: 3 });
 
@@ -327,6 +341,26 @@ async function openLabHub(browser, viewport){
   openHub.shell = '/game-hub-lab.html';
   try { return await openHub(browser, viewport); }
   finally { openHub.shell = null; }
+}
+
+/* A complete plain bank for tests of manual claims and legacy phone modes.
+   Derive it from authored Lab questions, rather than letting a randomly dealt
+   interactive round change which behaviour this test is exercising. */
+async function openPlainLabHub(browser, viewport){
+  const page = await openLabHub(browser, viewport);
+  page.__plainLab = true;
+  return page;
+}
+async function preparePlainLab(page){
+  await page.evaluate(() => {
+    const unit = window.UNITS.find(u => u.id === 'unit-lab');
+    const questions = unit.jeopardyCategories.flatMap(c => c.clues)
+      .filter(c => typeof c.a === 'string' && /^[a-z]+$/i.test(c.a));
+    unit.blockbustersBank = questions.map(c => ({section:'LB1', letter:c.a[0].toUpperCase(), clue:c.q, answer:c.a}));
+    unit.raceBank = [...new Map(questions.map(c => [c.a.toLowerCase(), c])).values()].map(c => ({section:'LR1', prompt:c.q, answer:c.a}));
+    HubGames.ids().forEach(id=>HubGames.get(id).load(unit));
+  });
+
 }
 
 /* Blockbusters awards through its own two buttons today; after the shared team
@@ -718,13 +752,13 @@ async function testFlatSettings(browser){
    mark the route; only the animation differs. */
 async function testWinRouteVariants(browser){
   section('Winning route variants');
-  const page = await openHub(browser);
+  const page = await openPlainLabHub(browser);
   const names = await page.evaluate(() => window.HubKit.anim.names('winRoute'));
   check('several route animations are registered', names.length >= 3, names.join(','));
 
   for (const name of names){
     await page.evaluate(n => window.HubSettings.set('bbWinRoute', n, 'blockbusters'), name);
-    await startGame(page, 'Blockbusters', { sections:'all' });
+    await startGame(page, 'Blockbusters', { sections:'all', unit:'Lab', plain:true });
     for (const c of [0,1,2,3,4]) await claimHexAt(page, 0, c, 0);
     await page.waitForTimeout(2500);
     const got = await page.evaluate(() => ({
@@ -739,10 +773,11 @@ async function testWinRouteVariants(browser){
   // reduced motion must not skip the answer, only the movement
   const reduced = await browser.newContext({ reducedMotion:'reduce' });
   const rp = await reduced.newPage();
+  rp.__plainLab = true;
   await rp.goto(page.url());
   await rp.waitForTimeout(300);
   await rp.evaluate(() => window.HubSettings.set('bbWinRoute', 'trace', 'blockbusters'));
-  await startGame(rp, 'Blockbusters', { sections:'all' });
+  await startGame(rp, 'Blockbusters', { sections:'all', unit:'Lab', plain:true });
   for (const c of [0,1,2,3,4]) await claimHexAt(rp, 0, c, 0);
   await rp.waitForTimeout(1200);
   check('reduced motion still shows the route',
@@ -839,12 +874,12 @@ async function testGameShow(browser){
    rather than by a ladder. */
 async function testGameShowJeopardy(browser){
   section('Game show — Jeopardy');
-  const page = await openHub(browser);
+  const page = await openLabHub(browser);
   const stress = () => page.evaluate(() =>
     document.getElementById('play-jeopardy').style.getPropertyValue('--tension'));
 
   await page.evaluate(() => window.HubSettings.set('theme','dcu','jeopardy'));
-  await startGame(page, 'Jeopardy', { sections:'all' });
+  await startGame(page, 'Jeopardy', { sections:'all', unit:'Lab', plain:true });
   check('DCU strips the skin completely',
         await page.evaluate(() => !document.getElementById('play-jeopardy').classList.contains('lit')));
 
@@ -852,7 +887,7 @@ async function testGameShowJeopardy(browser){
     window.HubSettings.set('theme', 'gameshow', 'jeopardy');
     window.HubSettings.set('intro', 'every', 'jeopardy');
   });
-  await startGame(page, 'Jeopardy', { sections:'all', keepIntro:true });
+  await startGame(page, 'Jeopardy', { sections:'all', unit:'Lab', plain:true, keepIntro:true });
   check('the titles name this game',
         (await page.locator('#intro-title').textContent()).trim() === 'JEOPARDY');
   await page.keyboard.press('Space'); await page.waitForTimeout(200);
@@ -903,12 +938,12 @@ async function testGameShowJeopardy(browser){
    actually gets tense about. */
 async function testGameShowBlockbusters(browser){
   section('Game show — Blockbusters');
-  const page = await openHub(browser);
+  const page = await openPlainLabHub(browser);
   const stress = () => page.evaluate(() =>
     document.getElementById('play-blockbusters').style.getPropertyValue('--tension'));
 
   await page.evaluate(() => window.HubSettings.set('theme','dcu','blockbusters'));
-  await startGame(page, 'Blockbusters', { sections:'all' });
+  await startGame(page, 'Blockbusters', { sections:'all', unit:'Lab', plain:true });
   check('DCU strips the skin completely',
         await page.evaluate(() => !document.getElementById('play-blockbusters').classList.contains('lit')));
 
@@ -916,7 +951,7 @@ async function testGameShowBlockbusters(browser){
     window.HubSettings.set('theme', 'gameshow', 'blockbusters');
     window.HubSettings.set('intro', 'every', 'blockbusters');
   });
-  await startGame(page, 'Blockbusters', { sections:'all', keepIntro:true });
+  await startGame(page, 'Blockbusters', { sections:'all', unit:'Lab', plain:true, keepIntro:true });
   check('the titles name this game',
         (await page.locator('#intro-title').textContent()).trim() === 'BLOCKBUSTERS');
   await page.keyboard.press('Space'); await page.waitForTimeout(180);
@@ -1275,7 +1310,7 @@ async function testTopicPicking(browser){
     check(game + ': at least one section is split into its two strands',
           Object.values(bySection).some(n => n > 1), rows.join(' / '));
     check(game + ': each topic shows how much is in it',
-          rows.every(r => /\(\d+\)/.test(r)), rows.find(r => !/\(\d+\)/.test(r)) || '');
+          rows.every(r => /(?:^|\n)\d+\s*$/.test(r)), rows.find(r => !/(?:^|\n)\d+\s*$/.test(r)) || '');
     /* A teacher cannot otherwise tell a clue the room *plays* on their phones from
        one the teacher reveals, and those are two different lessons. Every row says
        which, on every board — the chip is derived from the items, so a category can
@@ -2377,13 +2412,13 @@ async function testPhoneStrip(browser){
   section('The phone strip is the same in every game');
 
   const openRoom = async (game, mode, opts) => {
-    const page = await openHub(browser);
+    const page = await openPlainLabHub(browser);
     await page.evaluate(m => {
       window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
       window.HubSettings.set('buzzers', true);
       window.HubGames.ids().forEach(g => window.HubSettings.set('round_default', m, g));
     }, mode);
-    await startGame(page, game, Object.assign({ sections:'all' }, opts || {}));
+    await startGame(page, game, Object.assign({ sections:'all', unit:'Lab', plain:true }, opts || {}));
     await page.waitForTimeout(900);
     const chip = await page.locator('#buzzer-chip').innerText().catch(()=>'');
     return { page, code:(chip.match(/CODE\s+(\d{5})/i)||[])[1] };
@@ -2501,7 +2536,7 @@ async function testPhoneStrip(browser){
    that matters: the two-team game is untouched. */
 async function testBlockbustersTeams(browser){
   section('Blockbusters with four teams');
-  const page = await openHub(browser);
+  const page = await openPlainLabHub(browser);
   await page.evaluate(() => {
     window.HubSettings.set('intro','off'); window.HubSettings.set('cardFlip','off');
     document.getElementById('add-team-btn').click();
@@ -2513,7 +2548,7 @@ async function testBlockbustersTeams(browser){
     await page.locator('.team .tname').nth(i).fill(names[i]);
     await page.locator('.team .tname').nth(i).dispatchEvent('change');
   }
-  await startGame(page, 'Blockbusters', { sections:'all' });
+  await startGame(page, 'Blockbusters', { sections:'all', unit:'Lab', plain:true });
   await page.waitForTimeout(900);
 
   const legend = await page.locator('#legend').innerText();
@@ -3749,7 +3784,7 @@ async function testPhoneModes(browser){
        states it is in. Both are asserted, because the chip was right by accident
        until a room could outlive the mode: every game with the mode off used to
        park, and parking is what redrew the chip. */
-    await lesson.host.evaluate(() => window.HubSettings.set('bbTeamVote', false, 'blockbusters'));
+    await lesson.host.evaluate(() => { HubSettings.set('round_default','off'); HubSettings.set('bbTeamVote',false); });
     await lesson.host.locator('#new-game-btn').click(); await lesson.host.waitForTimeout(300);
     await startGame(lesson.host, 'Blockbusters', { sections:'all' });
     await lesson.host.waitForTimeout(700);
@@ -5691,7 +5726,7 @@ async function testGroupingClue(browser){
   /* This block drives the *climb* lesson — one shared ladder, a rung at a time.
      Jeopardy's own default is a ladder each now (`modeDefaults` in ROUND_HOSTS),
      so the mode under test is stated rather than inherited. */
-  await page.evaluate(() => window.HubSettings.set('round_ordering', 'climb', 'jeopardy'));
+  await page.evaluate(() => { HubSettings.set('roster','solo'); HubTeams.ensure(2); HubSettings.set('round_ordering', 'climb'); });
   await openTile(page, 'Word Thermometer', 0);
   check('an ordering clue draws its ladder on a Jeopardy card',
         await page.locator('#clue-group .ord-rung').count() === 5 &&
@@ -5737,7 +5772,7 @@ async function testGroupingClue(browser){
      wiring at the host — where the buttons are mounted, whether a press re-asks the
      handsets, and whether the strip still clears. */
   page = await openLab(['Word Thermometer','Anagram','Gap Fill'], { phones:false });
-  await page.evaluate(() => window.HubSettings.set('round_ordering', 'climb', 'jeopardy'));
+  await page.evaluate(() => { HubSettings.set('roster','solo'); HubTeams.ensure(2); HubSettings.set('round_ordering', 'climb'); });
   await openTile(page, 'Word Thermometer', 0);
   const strip = () => page.evaluate(() => ({
     own: [...document.querySelectorAll('#round-actions button')]
@@ -5794,7 +5829,7 @@ async function testGroupingClue(browser){
      the scale, which is one fact about the question that four lanes can be told at
      once, and each team still has to drag it onto their own ladder. */
   page = await openLab(['Word Thermometer','Anagram','Gap Fill'], { phones:false });
-  await page.evaluate(() => window.HubSettings.set('round_ordering', 'race', 'jeopardy'));
+  await page.evaluate(() => { HubSettings.set('roster','solo'); HubTeams.ensure(2); HubSettings.set('round_ordering', 'race'); });
   await openTile(page, 'Word Thermometer', 0);
   check('a race offers the hint, and nothing else',
         await page.locator('#round-actions button').count() === 1 &&
@@ -5885,6 +5920,8 @@ async function testGroupingClue(browser){
     window.HubSettings.set('buzzers', true);
   });
   await page.getByText('Lab', { exact:false }).first().click(); await page.waitForTimeout(220);
+  // This fixture tests one-rung-at-a-time replies, so select the ladder face explicitly.
+  await page.evaluate(()=>HubGames.get('blockbusters').bank().forEach(item=>{if(item.order)item.physics=false;}));
   await page.locator('h3:visible', { hasText:'Blockbusters' }).first().click();
   await page.waitForTimeout(220);
   // LB1 alone is exactly 18 items, so every one of them is on the board
@@ -6030,7 +6067,7 @@ async function testGroupingClue(browser){
                     { width:390,  height:844, tag:'a handset' }]){
     const p2 = await openLab(['Word Thermometer','Anagram','Gap Fill'], { phones:false });
     // the shared ladder is the tall case being measured — state it, as above
-    await p2.evaluate(() => window.HubSettings.set('round_ordering', 'climb', 'jeopardy'));
+    await p2.evaluate(() => { HubSettings.set('roster','solo'); HubTeams.ensure(2); HubSettings.set('round_ordering', 'climb'); });
     await p2.setViewportSize({ width:vp.width, height:vp.height });
     await p2.waitForTimeout(250);
     await openTile(p2, 'Word Thermometer', 4);
@@ -7964,7 +8001,7 @@ async function testJeopardyClassic(browser){
     return out;
   });
   check('each ruleset says what the phones are for',
-        phones.hub === 'off' && phones.classic === 'buzz' && phones.together === 'write',
+        phones.hub === 'buzz' && phones.classic === 'buzz' && phones.together === 'write',
         JSON.stringify(phones));
   /* And it writes rather than shadows, so the row a teacher reads is the truth and
      they can still change it afterwards without the mode contradicting them. */
@@ -8171,7 +8208,7 @@ async function testJeopardyClassic(browser){
     return g.phoneRound ? g.phoneRound() : null;
   });
   check('every team writes the final, whatever the mode says',
-        !!finalRound && finalRound.mode === 'write', JSON.stringify(finalRound));
+        !!finalRound && finalRound.mode === 'answer', JSON.stringify(finalRound));
   check('and the mode itself is still buzz, so it is the beat that differs',
         (await fin.evaluate(() => window.HubSettings.get('round_default','jeopardy'))) === 'buzz');
 
@@ -9026,6 +9063,8 @@ async function main(){
     catch (e) {
       failed++; failures.push(key + ' threw: ' + (e && e.message));
       console.log('\n  THREW in ' + key + '  ' + (e && e.message));
+    } finally {
+      if (!keepOpen) await Promise.all(browser.contexts().map(context => context.close()));
     }
   }
   if (!keepOpen || !failed) await browser.close();

@@ -132,11 +132,10 @@ task's own completion.
 **Do not edit files while a run is going.** It voids the run and costs it twice — that
 has already burned about half an hour in one day.
 
-## The known red
+## Known failures
 
-**`ordering on a projector: the whole card is on screen` — 726px on a 720 board**, 6px
-over with the action strip on. It is a real layout item, listed under **Open** in
-`CLAUDE.md`, deliberately still red. **It is not your change.** Any other red is.
+There is no intentionally failing check. Investigate every red; do not carry an old
+exception forward after its defect is fixed.
 
 ## Merging
 

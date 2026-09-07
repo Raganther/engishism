@@ -801,7 +801,8 @@
            nine 62px boxes with the words shrunk to fit them; wrapped it is
            three rows of three at a width the word can be read at. The count
            comes from the labels (or `count`) rather than cols×rows. */
-        const usable = cssW - margin*2;
+        // A hidden canvas still needs positive provisional slots until its first resize.
+        const usable = Math.max(60, cssW - margin*2);
         const third = Math.max(60, Math.floor((usable + gap) / 3) - gap);
         const rowMaxFor = k => Math.max(60, Math.floor((usable - gap*(k-1)) / k));
         const labels = bar.labels && bar.labels.length ? bar.labels : null;

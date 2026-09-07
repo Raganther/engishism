@@ -1183,11 +1183,7 @@
     const at = fx.at || function(){ return Infinity; };
     /* Ordered rounds key by the sequence, the rest by the set — so a re-ordered
        wrong answer re-announces and the same set re-tried does not. */
-    const keyOf = set => {
-      const seq = (set || []).slice();
-      if(!def.ordered) seq.sort();
-      return seq.join('\u0000');
-    };
+    const keyOf = answer => def.answerKey(answer);
     /* Start each cycle with no owner on the say line: a verdict that names a
        competitor sets `sayTeam` beside its `say`, and this makes a site that
        forgets fall back to a neutral line rather than wearing the *previous*
@@ -1216,6 +1212,9 @@
       }
       let again = false;              // did any right answer move the question on
       rights.forEach(v => {
+        // A completed competitor can rearrange or reconnect, but cannot earn this
+        // question again. Freshness alone only guards the identical answer.
+        if((results.of(v.team) || {}).done) return;
         if(!settler.fresh(v.team, 'ok:' + keyOf(v.set))) return;
         def.accept(v.set, state, v.team, ctx);
         /* `done` separates a rung from a finish: a step re-arms for the next one;
@@ -1364,6 +1363,14 @@
            whether the *round* is over (`done`) and this is where getting there is
            recorded. */
         accept(){},
+        /* The round owns its answer's identity and its readable receipt. Most
+           answers are sets/sequences; a partition can declare its own shape. */
+        answerKey(answer){
+          const seq = Array.isArray(answer) ? answer.slice() : [];
+          if(!this.ordered) seq.sort();
+          return seq.join('\u0000');
+        },
+        answerText(answer){ return Array.isArray(answer) ? answer.join(', ') : ''; },
         /* **Why an authored item is not usable**, as a list of sentences — empty
            means it is fine. `setup` returning null already says *that* something is
            wrong; this says *what*, which is the difference between an editor that

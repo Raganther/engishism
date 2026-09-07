@@ -136,6 +136,9 @@ window.HubBuzzer = (function(){
     const relay = opts.relay || '';
     const code  = String(opts.code || '');
     const ev    = emitter();
+    // Preserve the order of room commands: an old disarm cannot overtake a new arm.
+    let pending = Promise.resolve();
+    const send = msg => (pending = pending.then(() => post(relay, msg)));
     const src   = stream(relay, { room:code, role:'host' }, ev);
     let players = [];
 
@@ -166,25 +169,25 @@ window.HubBuzzer = (function(){
       /* Per-player state, which is new: everything else here is per-question and
          forgotten. The host deals the cards and judges the taps; the relay only
          stores and carries them, so it still never learns an answer. */
-      deal: cards => post(relay, { room:code, type:'deal', cards }),
-      mark: (id, word) => post(relay, { room:code, type:'mark', id, word }),
-      nope: (id, word) => post(relay, { room:code, type:'nope', id, word }),
+      deal: cards => send({ room:code, type:'deal', cards }),
+      mark: (id, word) => send({ room:code, type:'mark', id, word }),
+      nope: (id, word) => send({ room:code, type:'nope', id, word }),
       /* `arm(text)` still races for the floor. `arm(text, {mode:'vote', options})`
          or `{mode:'answer'}` asks the whole class instead, and the answers arrive
          on the 'response' event rather than 'buzz'. */
-      arm:      (prompt, opts) => post(relay, Object.assign(
+      arm:      (prompt, opts) => send(Object.assign(
                   { room:code, type:'arm', prompt }, opts || {})),
       /* Tell one phone what its typed answer was worth. Only the host can do this:
          the relay never learns the answer, so it cannot be asked for it. */
-      judge:    (id, verdict, opts) => post(relay, Object.assign(
+      judge:    (id, verdict, opts) => send(Object.assign(
                   { room:code, type:'judge', id, verdict }, opts || {})),
       /* Remove one phone from the room — the teacher's way out of a phantom. The
          relay tells the phone first, so a live handset kicked by mistake knows. */
-      kick:     id => post(relay, { room:code, type:'kick', id }),
+      kick:     id => send({ room:code, type:'kick', id }),
       /* A team was removed on the host: shift every joined phone's team index to
          match, because an index is a team's identity on both ends and the first
          live class paid a win to a team that no longer existed. */
-      remap:    removed => post(relay, { room:code, type:'remap', removed }),
+      remap:    removed => send({ room:code, type:'remap', removed }),
       /* One phone's competitor, named by the host. `remap` renumbers everybody after
          a removal; this seats one person, which is what individual play is made of.
 
@@ -205,30 +208,30 @@ window.HubBuzzer = (function(){
       seat:     (id, team) => {
         const p = players.find(x => x && x.id === id);
         if(p) p.team = team;
-        return post(relay, { room:code, type:'seat', id, team });
+        return send({ room:code, type:'seat', id, team });
       },
       /* How many options one phone may hold, per team. Separate from `arm` on
          purpose: a team's share changes when somebody joins or drops, and a fresh
          arm would clear every handset's picks — throwing away a negotiation in
          progress because a latecomer walked in. This changes the cap and leaves
          what they are holding alone. */
-      shares:   per    => post(relay, { room:code, type:'shares', multiByTeam:per }),
+      shares:   per    => send({ room:code, type:'shares', multiByTeam:per }),
       /* The deal of per-player views moved under a live round — same shape as
          `shares`: pushed, never re-armed, so nobody's half-typed word is wiped. */
-      prompts:  per    => post(relay, { room:code, type:'prompts', promptByPlayer:per }),
+      prompts:  per    => send({ room:code, type:'prompts', promptByPlayer:per }),
       /* Which of a phone's options are finished with — the same shape again, and
          for the same reason. It is also what a reconnecting phone is handed back,
          so a player's record of their own ladder survives a reload. */
-      done:     per    => post(relay, { room:code, type:'done', doneByTeam:per }),
+      done:     per    => send({ room:code, type:'done', doneByTeam:per }),
       /* One pulse on every handset: the board has revealed something, look up.
          Same shape as `shares` and `prompts` — pushed, never re-armed, so nothing
          anybody is holding is touched. It carries that it happened and never what
          was revealed; the thing itself exists only on the wall, which is the whole
          point of sending this at all. */
-      nudge:    kind   => post(relay, { room:code, type:'nudge', kind }),
-      disarm:   ()     => post(relay, { room:code, type:'disarm' }),
-      reset:    ()     => post(relay, { room:code, type:'reset' }),
-      setTeams: (names, solo) => post(relay, { room:code, type:'teams', teams:names,
+      nudge:    kind   => send({ room:code, type:'nudge', kind }),
+      disarm:   ()     => send({ room:code, type:'disarm' }),
+      reset:    ()     => send({ room:code, type:'reset' }),
+      setTeams: (names, solo) => send({ room:code, type:'teams', teams:names,
                                               solo: solo === undefined ? undefined : !!solo }),
       close:    ()     => { try{ src.close(); }catch(e){} }
     };
@@ -250,12 +253,22 @@ window.HubBuzzer = (function(){
     const code  = String(opts.code || '');
     const id    = opts.id || (String(Date.now()) + String(Math.random()).slice(2,6));
     const ev    = emitter();
+    let roundId = null, pending = Promise.resolve();
+    const send = msg => {
+      const token = roundId;
+      msg.roundId = token;
+      return pending = pending.then(() => post(relay, msg)).then(result => {
+        if(token === roundId) ev.emit('delivery', { ...result, value:msg.value });
+        return result;
+      });
+    };
     const src   = stream(relay, { room:code, role:'player', id, name:opts.name||'Player', team:opts.team||0 }, ev);
 
     ['joined','armed','disarmed','locked','reset','teams','judged','card','marked','nope',
      'shares','kicked','team','prompt','nudge','done'].forEach(name=>{
       src.addEventListener(name, e=>{
         let d = {}; try{ d = JSON.parse(e.data); }catch(_){}
+        if((name === 'joined' || name === 'armed') && d.roundId != null) roundId = d.roundId;
         ev.emit(name, d);
       });
     });
@@ -264,9 +277,9 @@ window.HubBuzzer = (function(){
       id, code, on: ev.on,
       // in 'type' rounds the buzz carries what they wrote — the race is to produce
       // the word, so pressing the button without it would be the old reflex game
-      buzz:    v => post(relay, { room:code, type:'buzz', id,
+      buzz:    v => send({ room:code, type:'buzz', id,
                                   value: v == null ? undefined : String(v) }),
-      respond: v => post(relay, { room:code, type:'respond', id, value:v }),
+      respond: v => send({ room:code, type:'respond', id, value:v }),
       close: ()=>{ try{ src.close(); }catch(e){} }
     };
   }

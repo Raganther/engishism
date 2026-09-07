@@ -29,6 +29,8 @@ const os   = require('os');
 
 const PORT = Number(process.env.PORT) || 8080;
 const ROOT = path.resolve(__dirname, '..');
+const MAX_OPTIONS = 20;
+const MAX_REPLY = MAX_OPTIONS * 81 + 1; // every 80-character option plus separators/preview
 const ROOM_GRACE_MS = 5 * 60 * 1000;   // a host refresh shouldn't destroy the room
 
 /** rooms: code -> { host, players:Map<id,{id,name,team,res}>, teams:[], armed, locked, emptiedAt } */
@@ -85,7 +87,7 @@ function getRoom(code, create){
        says who it is: same epoch on `ready` means "I still hold what you told
        me", a new one means "I know nothing — tell me everything again". */
     r = { epoch: Math.random().toString(36).slice(2, 10),
-          host:null, players:new Map(), teams:[], solo:false, armed:false, locked:null,
+          roundId:null, sequence:0, verdicts:new Map(), host:null, players:new Map(), teams:[], solo:false, armed:false, locked:null,
           mode:'buzz', prompt:'', options:[], team:null, responses:new Map(),
           spent:new Set(), cooling:new Map(), cards:new Map(), emptiedAt:0,
           answerSecs:0, rethink:false, secs:0, armedAt:0, multi:1, send:false,
@@ -196,7 +198,7 @@ function capFor(room, team){
   const per = room.multiByTeam;
   if(per && per.length){
     const n = Math.floor(Number(per[Math.max(0, Number(team) || 0)]));
-    if(n >= 1) return Math.min(12, n);
+    if(n >= 1) return Math.min(MAX_OPTIONS, n);
   }
   return room.multi;
 }
@@ -278,12 +280,13 @@ function openStream(req, res, q){
   pushEvent(res, 'joined', {
     id, name, team, teams:room.teams, solo:room.solo,
     armed:room.armed, locked:lockedNow(room),
+    verdict:room.verdicts.get(id) || null,
     mode:room.mode, prompt:promptFor(room, id), note:room.note,
     options:optionsFor(room, team), done:doneFor(room, team), turnTeam:room.team,
     cols:room.cols, rows:room.rows, bar:room.bar, upright:room.upright, tap:room.tap, bare:room.bare, count:room.count,
     spent:[...room.spent],
     rethink: room.rethink, secs: secsLeft(room), multi: capFor(room, team),
-    send: !!room.send, preview: !!room.preview,
+    send: !!room.send, preview: !!room.preview, roundId:room.roundId,
     /* what this phone already chose, so a reload comes back with its own vote
        showing rather than looking like it never answered */
     yours: (room.responses.get(id) || {}).value || null,
@@ -321,7 +324,9 @@ function dropPlayer(room, id){
   const p = room.players.get(id);
   if(!p) return;
   room.players.delete(id);
-  const dropped = room.holds && room.responses.delete(id);
+  const reply = room.responses.get(id);
+  const committed = room.send && reply && !String(reply.value).startsWith('\u0001');
+  const dropped = room.holds && !committed && room.responses.delete(id);
   toHost(room, 'leave', { id, name:p.name, players:roster(room) });
   // the host's picture of the round has to change with it, or nothing tells it
   if(dropped) toHost(room, 'response', Object.assign(
@@ -330,13 +335,21 @@ function dropPlayer(room, id){
 
 /* ---------- upstream ---------- */
 function handleSend(req, res){
-  let body='';
-  req.on('data', c=>{ body += c; if(body.length > 4096) req.destroy(); });
+  let body='', tooLarge=false;
+  req.on('data', c=>{
+    if(tooLarge) return;
+    body += c;
+    if(Buffer.byteLength(body) > 65536){ tooLarge=true; body=''; sendJSON(res,413,{error:'message too large'}); }
+  });
   req.on('end', ()=>{
+    if(tooLarge) return;
     let msg; try{ msg = JSON.parse(body||'{}'); }catch(e){ return sendJSON(res,400,{error:'bad json'}); }
     const room = rooms.get(String(msg.room||''));
     if(!room) return sendJSON(res, 404, { error:'no such room' });
 
+    // A delayed answer belongs to the question the phone was showing, never its successor.
+    if((msg.type === 'respond' || msg.type === 'buzz') && msg.roundId != null && msg.roundId !== room.roundId)
+      return sendJSON(res,200,{ok:true,ignored:'old question'});
     switch(msg.type){
       case 'buzz': {
         const p = room.players.get(msg.id);
@@ -373,11 +386,14 @@ function handleSend(req, res){
         const cool = Math.max(0, Math.min(30000, Number(msg.coolMs) || 0));
         const until = cool ? Date.now() + cool : 0;
         if(until) room.cooling.set(p.id, until); else room.cooling.delete(p.id);
-        pushEvent(p.res, 'judged', { verdict:String(msg.verdict||'wrong'),
-                                     note:String(msg.note||'').slice(0,120), until });
+        const verdict = { verdict:String(msg.verdict||'wrong'),
+          note:String(msg.note||'').slice(0,120), until, finished:!!msg.finished };
+        room.verdicts.set(p.id, verdict);
+        pushEvent(p.res, 'judged', verdict);
         return sendJSON(res, 200, { ok:true, until });
       }
       case 'arm': {
+        if(!msg.reopen){ room.roundId = room.epoch + ':' + (++room.sequence); room.verdicts.clear(); }
         room.armed = true; room.locked = null;
         // seconds to answer once somebody takes the floor; 0 = no clock
         room.answerSecs = Math.max(0, Math.min(120, Number(msg.answerSecs) || 0));
@@ -392,7 +408,7 @@ function handleSend(req, res){
            a team of two phones cannot build a four-word answer one vote each.
            The relay only carries it: what a multi-pick reply means is the host's
            business, exactly as it never learns what an answer means. */
-        room.multi   = Math.max(1, Math.min(12, Number(msg.multi) || 1));
+        room.multi   = Math.max(1, Math.min(MAX_OPTIONS, Number(msg.multi) || 1));
         room.multiByTeam = readShares(msg.multiByTeam);
         /* See the room's own note: a held reply leaves with its phone, a given
            answer does not. */
@@ -513,7 +529,8 @@ function handleSend(req, res){
                                    turnTeam: room.team,
                                    spent: [...room.spent], reopen: !!msg.reopen,
                                    rethink: room.rethink, secs: room.secs,
-                                   send: !!room.send, preview: !!room.preview,
+                                   send: !!room.send, preview: !!room.preview, roundId:room.roundId,
+                                   verdict:null,
                                    multi: capFor(room, p.team),
                                    /* This phone's own card, if the room holds one. On
                                       the arm as well as the join, because a round
@@ -622,7 +639,13 @@ function handleSend(req, res){
            joined mid-round, or one still holding the previous question. */
         if(room.team != null && p.team !== room.team)
           return sendJSON(res, 200, { ok:true, ignored:'not your team' });
-        const value = String(msg.value == null ? '' : msg.value).slice(0, 120);
+        const until = room.cooling.get(p.id) || 0;
+        if(until > Date.now()) return sendJSON(res,200,{ok:true,ignored:'cooling',until});
+        if((room.verdicts.get(p.id) || {}).finished)
+          return sendJSON(res,200,{ok:true,ignored:'finished'});
+        const value = String(msg.value == null ? '' : msg.value);
+        if(value.length > MAX_REPLY) return sendJSON(res,413,{error:'answer too long'});
+        room.verdicts.delete(p.id);
         room.responses.set(p.id, { id:p.id, name:p.name, team:p.team, value });
         if(room.mode !== 'card' && !room.rethink) room.spent.add(p.id);
         const { all, tally } = tallyOf(room);
@@ -795,7 +818,7 @@ function tallyOf(room){
    to 0-59, so 60 is the number these have to agree with. */
 function readShares(v){
   if(!Array.isArray(v) || !v.length) return null;
-  return v.slice(0, 60).map(n => Math.max(1, Math.min(12, Math.floor(Number(n)) || 1)));
+  return v.slice(0, 60).map(n => Math.max(1, Math.min(MAX_OPTIONS, Math.floor(Number(n)) || 1)));
 }
 
 function secsLeft(room){

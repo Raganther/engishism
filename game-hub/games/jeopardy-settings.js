@@ -10,7 +10,7 @@ window.registerJeopardySettings = function(S){
     label:'Rules',
     help:'A whole way of playing, including what the phones do. Picking one writes the switches below — so they always say what will actually happen, and you can still change any of them afterwards.',
     variants:[
-      {value:'hub',      label:'Hub — nothing is ever taken away'},
+      {value:'hub',      label:'Supportive — nothing is ever taken away'},
       {value:'classic',  label:'Classic — as the show plays it'},
       {value:'together', label:'Together — the class against the board'}
     ] });
@@ -56,10 +56,10 @@ window.registerJeopardySettings = function(S){
      decision. Choosing a preset *writes* the switches rather than shadowing them, so the
      rows always say what will happen. */
   const J_PRESETS = {
-    // the plain game: the teacher marks, the phones sit out
+    // Ordinary questions are spoken after a buzz; activity rounds let everyone finish.
     hub:     { jDailyDoubles:0, jDeduct:false,
-               jTogether:false, jHints:false, round_default:'off',
-               stealOnWrong:true, stealFullValue:false, keepControl:true, jAnswerSeconds:0 },
+               jTogether:false, jHints:false, round_default:'buzz', roundOpenToAll:true,
+               stealOnWrong:true, stealFullValue:false, keepControl:false, jAnswerSeconds:0 },
     // the show is a race for the floor, so that is what the handsets are for
     classic: { jDailyDoubles:1, jDeduct:true,
                jTogether:false, jHints:false, round_default:'buzz',
@@ -71,7 +71,10 @@ window.registerJeopardySettings = function(S){
   };
   S.describePresets('jRules', J_PRESETS);
   let jApplyingPreset = false;
-  S.onChange(id => {
+  S.onChange((id, value, game, change) => {
+    // The originating tab already wrote the complete bundle, including any later
+    // manual choices. Reapplying it from a storage event would overwrite those.
+    if(change && change.external) return;
     if(id !== 'jRules' || jApplyingPreset) return;
     const preset = J_PRESETS[S.get('jRules', 'jeopardy')];
     if(!preset) return;

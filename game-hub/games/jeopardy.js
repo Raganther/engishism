@@ -161,7 +161,7 @@
     phoneRound(){
       if(E().roundLive()) return E().roundForPhones();
       if(!jFinalState || !jFinalState.asking) return null;
-      return { mode:'write',
+      return { mode:'answer',
                prompt: S.get('phonePrompt', 'jeopardy') ? (jFinalState.clue.q || '') : '' };
     },
     /* A room is worth having open for a grouping clue even at `phoneMode: off`, and the
@@ -348,8 +348,9 @@
 
     const tile = board.querySelector('.tile');
     if(tile){
-      const th = tile.getBoundingClientRect().height;
-      board.style.setProperty('--jt', Math.max(0.5, Math.min(1.3, th/84)).toFixed(3));
+      const rect = tile.getBoundingClientRect();
+      const th = Math.min(rect.height, rect.width * 0.65);
+      board.style.setProperty('--jt', Math.max(0.2, Math.min(1.3, th/84)).toFixed(3));
     }
     fitCategoryHeadings(board);
   }
@@ -541,7 +542,7 @@
 
   /* ---- the content screen ---- */
   function renderJeopardyContent(list, help){
-    help.textContent = "Pick which categories to include — the board builds itself from your selection (choose at least 3).";
+    help.textContent = "Pick which categories to include — the board builds itself from your selection (choose 3–6 for a clear projected board).";
     let lastSection=null;
     JEOPARDY_CATEGORIES.forEach(cat=>{
       if(!E().catAllowed(cat)) return;

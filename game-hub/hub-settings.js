@@ -51,6 +51,28 @@ window.HubSettings = (function(){
 
   values = load();
 
+  function storedValues(){
+    const defaults = {};
+    defs.forEach(d => { defaults[d.id] = d.default; });
+    return Object.assign(defaults, load());
+  }
+  // The settings bench and the board are separate pages of the same application.
+  // Read the newest store, rather than replaying stale storage-event snapshots.
+  window.addEventListener('storage', event => {
+    if(event.key !== STORE_KEY && event.key !== null) return;
+    const previous = values;
+    values = storedValues();
+    const changed = new Set();
+    new Set([...Object.keys(previous), ...Object.keys(values)]).forEach(key => {
+      if(JSON.stringify(previous[key]) !== JSON.stringify(values[key]))
+        changed.add(key.replace(/!solo$/, ''));
+    });
+    changed.forEach(id => listeners.forEach(fn => {
+      try{ fn(id, get(id), null, { external:true }); }catch(e){ console.error(e); }
+    }));
+    render();
+  });
+
   const key = (id, game) => game ? id + '@' + game : id;
 
   /* ---------- team rooms vs rooms of individuals ----------
@@ -149,6 +171,8 @@ window.HubSettings = (function(){
   function set(id, v, game){
     const d = byId[id];
     if(!d) return;
+    // An unrelated write from an older tab must not undo the bench's changes.
+    if(storageOK) values = storedValues();
     values[liveKey(d, id, null)] = v;
     save();
     listeners.forEach(fn=>{ try{ fn(id, v, null); }catch(e){} });
@@ -160,6 +184,7 @@ window.HubSettings = (function(){
      asks it solely inside a solo room (to leave a deliberate solo choice alone). The
      `game` argument is ignored in both. */
   function clearOverride(id, game){
+    if(storageOK) values = storedValues();
     delete values[liveKey(byId[id], id, null)];
     save();
     listeners.forEach(fn=>{ try{ fn(id, get(id, null), null); }catch(e){} });
@@ -202,6 +227,7 @@ window.HubSettings = (function(){
      they go. */
   function keys(){ return Object.keys(values); }
   function drop(keys){
+    if(storageOK) values = storedValues();
     let touched = false;
     keys.forEach(k => { if(k in values){ delete values[k]; touched = true; } });
     if(touched) save();
@@ -396,7 +422,7 @@ window.HubSettings = (function(){
        a per-row one, so a forked setting's solo value is edited here like any
        other and needs no per-row wording. */
     const shadowed = scoped(d)
-      ? gamesOf(d).filter(g => d.defaults && d.defaults[g] != null)
+      ? Object.keys(d.defaults || {}).filter(g => d.defaults[g] != null)
       : [];
     if(shadowed.length){
       const state=document.createElement('div');

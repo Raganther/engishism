@@ -685,11 +685,20 @@ unverifiable.**
 ## Open
 What is true and unfinished. Not a changelog — an item leaves when it closes.
 
-**Build `20260905a`.** Three coursebooks, four units, ~760 authored items, six games, eight rounds.
+**Build `20260907a`.** See `node tools/question-types.js` for the current round inventory.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only. Multiple Choice and the 8-word Connections have flick faces (tap/vote still their
 default); the `cols:'auto'` bar path flows a sentence per word; the thermometer ladder
 wears its tiles' colours; Unit 4 Jeopardy is columns by language point with rounds mixed.
+
+**Multiplayer contracts.** The relay assigns a `roundId` on each new question; clients
+attach it to replies and serialize commands. Stale replies are ignored. Committed
+answers and completion verdicts survive phone reconnects. A finished competitor scores
+once; rounds with structured answers declare `answerKey` and `answerText`. Settings
+synchronize across same-origin tabs without reapplying a remote preset over later edits.
+`HubPayRules` lives in `hub-round-settings.js`, shared by the engine and the bench.
+Supportive rules allow everyone to finish activity rounds, use buzzing for ordinary
+questions, and pass category control on. Setup: [Jeopardy demo](docs/jeopardy-demo.md).
 
 **Settings are flat now, and the question bench is their one home.** There is one editable
 value per setting (its `…!solo` room-type fork aside) — the teacher per-game override and
@@ -727,8 +736,7 @@ tiles built to that, then the first real resize rescaled them non-uniformly —
 the same ellipse-corner stretch, reintroduced by call order. Throw Lab resized
 first and never showed it; measuring in the shelf makes the order stop mattering. Verified: the shelf change proven behaviour-neutral for Battle
 Scrabble and `toss`; the stack mode's own bench probe (both faces, plus a wrong-order
-case judged correctly); the round suite at 265/266, the one red being the pre-existing
-`climb`-mode 726px card (reproduced identically on unmodified code, so unrelated).
+case judged correctly); the shared card fits above the live phone controls on short projector screens.
 **Two real-phone bugs a bench probe could not have caught, both fixed at the shelf.**
 `tools/buzzer-relay.js`'s `arm` handler carried a hand-typed field list that never
 included a `table` arm's slot shape (`cols`/`rows`/`bar`) — a same-page simulated phone

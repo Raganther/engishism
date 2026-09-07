@@ -320,12 +320,12 @@
       return { verdict:'right', hits };
     },
 
-    accept(answer, s, team){
+    accept(answer, s, team, ctx){
       (answer || []).map(tiOf).forEach(ti => {
         if(ti >= 0 && ti < s.need) markGot(s, Number(team) || 0, ti, 'teacher');
       });
       s.chosen = [];
-      s.done = true;
+      if(!(ctx && ctx.openToAll)) s.done = true;
     },
 
     saidOf(who, r, s){

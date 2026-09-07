@@ -421,14 +421,14 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260905a"></script>
+<script src="game-hub/hub-buzzer.js?v=20260907a"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260905a"></script>
+<script src="game-hub/matter.min.js?v=20260907a"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260905a"></script>
+<script src="game-hub/hub-table.js?v=20260907a"></script>
 <script>
 (function(){
   'use strict';
@@ -618,6 +618,7 @@
      `cooling` is a wrong Send being waited out — it gates every input the round
      offers, because a countdown you can tap through is not a penalty. */
   let needSend = false, sentValue = null, cooling = false, preview = false;
+  let activeRoundId = null;
   /* Which of this phone's options are finished with — its own placed words, sent by
      the host on the arm and on the join. Held here rather than read off the DOM so a
      reconnect repaints them: the marks are the player's record of their own ladder,
@@ -1395,7 +1396,7 @@
          until the next question. The relay sends the room's state with the join,
          and this is the same path an arm takes. */
       if(d.card){ card = { words:d.card.words||[], marked:d.card.marked||[] }; renderCard(); $('card').style.display='grid'; }
-      if(d.armed){ applyArmed(d); return; }
+      if(d.armed){ applyArmed({ ...d, resume:true }); return; }
       // a late joiner lands mid-lock: the relay sends what is *left* on the clock
       if(d.locked){ setBuzzer('off','Too late');
                     if(d.locked.secs) floorClockRun(d.locked.secs, d.locked.name + ' got in first');
@@ -1454,6 +1455,13 @@
     });
 
     function applyArmed(d){
+      // A stream reconnect is not a new question. Keep unsent selections and the
+      // live physics table; a page reload restores the committed answer below.
+      if(d.resume && d.roundId && d.roundId === activeRoundId){
+        if(d.verdict) applyVerdict(d.verdict);
+        return;
+      }
+      activeRoundId = d.roundId || null;
       floorClockStop();          // a fresh floor retires whoever was on the clock
       /* **A round deals its card on the arm**, and updates its marks the same way —
          a round cannot send the relay a second message, so the card rides the arm.
@@ -1577,6 +1585,7 @@
         : mode==='table' ? 'Flick the letters into the boxes'
         : mode==='type' ? 'Type it, then buzz' : 'Type your answer');
       if(navigator.vibrate) navigator.vibrate(40);
+      if(d.verdict) applyVerdict(d.verdict);
     }
     client.on('armed', applyArmed);
     /* The team's share of the answer changed under a live round: somebody joined
@@ -1658,9 +1667,22 @@
     /* The host's verdict on what this phone wrote. 'close' is its own answer, not a
        softer 'wrong': it means the word was produced and mis-spelled, which the
        student should hear said differently. */
-    client.on('judged', d=>{
+    function applyVerdict(d){
       floorClockStop();          // the verdict outranks whatever the clock was saying
       const v = (d && d.verdict) || 'wrong';
+      if(d && d.finished){
+        timeUp = true;
+        answered = true;
+        $('commit').disabled = true;
+        $('commit').textContent = 'Complete';
+        $('reply').disabled = true;
+        $('send').disabled = true;
+        [...$('opts').children].forEach(b => { b.disabled = true; });
+        if(tbl && mode === 'table') tbl.setResult('right');
+        document.body.dataset.verdict = 'right';
+        $('state').textContent = d.note || 'Complete — let the others finish';
+        return;
+      }
       /* **A table hears its verdict as a picture.** The tiles are the answer here, so
          the shelf paints it on them — right glows and bursts, wrong shudders — the
          same looks the board's own table draws, from the same dials. The board
@@ -1723,6 +1745,20 @@
       $('state').textContent = (d && d.note) ||
         (v === 'close' ? 'Close — check your spelling' : 'You got it!');
       if(navigator.vibrate) navigator.vibrate([30,40,30]);
+    }
+    client.on('judged', applyVerdict);
+    client.on('delivery', d=>{
+      if(!d || (!d.error && !d.ignored)) return;
+      if(d.ignored === 'finished') return;
+      if(d.ignored === 'cooling'){ coolDown(d.until); return; }
+      answered = false; sentValue = null;
+      $('reply').disabled = false; $('send').disabled = false;
+      $('commit').disabled = false; $('commit').textContent = 'Send again';
+      if(mode === 'buzz') setBuzzer('armed','Buzz');
+      if(mode === 'type') syncTypeButton();
+      $('state').textContent = d.error
+        ? 'Not sent — check your connection and try again'
+        : 'That question has closed — wait for the next one';
     });
 
     /* Which of this phone's options are finished with, moved without a re-arm. The
@@ -1737,7 +1773,7 @@
         const settled = doneWords.indexOf(x.textContent) !== -1;
         x.classList.toggle('done', settled);
         if(settled){ x.classList.remove('picked','wrong'); x.disabled = true; }
-        else if(!cooling) x.disabled = false;
+        else if(!cooling && !timeUp) x.disabled = false;
       });
     });
 

@@ -611,6 +611,14 @@ body.theme-gameshow .settings-range input[type=range]{ accent-color:var(--gold);
   font-family:'IBM Plex Mono',monospace; font-size:0.74rem;
   letter-spacing:0.06em; text-transform:uppercase; color:var(--muted);
 }
+#phone-bar-space{ display:flow-root; }
+body.clue-open #phone-bar-space{ height:var(--phone-space, 0px); }
+body.clue-open #phone-bar{
+  position:fixed; bottom:var(--phone-bottom, 8px); left:50%; transform:translateX(-50%);
+  z-index:51; pointer-events:auto; margin:0; max-width:calc(100vw - 32px);
+  background:var(--cream);
+}
+body.theme-gameshow.clue-open #phone-bar{ background:#10172c; }
 #phone-bar::-webkit-scrollbar{ display:none; }
 #phone-bar > span{ flex:0 0 auto; }
 /* the four states it can be in, each readable from the back of a room at a glance */
@@ -935,6 +943,13 @@ body.theme-gameshow #settings-reset{ background:transparent; color: var(--paper)
 .game-card[data-game="millionaire"] .game-icon path:nth-child(3){ animation-delay:.32s; }
 .game-card[data-game="millionaire"] .game-icon path:nth-child(4){ animation-delay:.48s; }
 @keyframes iconClimb{ 0%,100%{ transform: scaleY(.7); opacity:.55; } 55%{ transform: scaleY(1); opacity:1; } }
+
+.game-card[data-game="bingo"] .game-icon path:nth-last-child(-n+2){ animation:iconTile 3.6s ease-in-out infinite; }
+.game-card[data-game="bingo"] .game-icon path:last-child{ animation-delay:1.2s; }
+.game-card[data-game="kahoot"] .game-icon path:first-of-type{
+  transform-box:view-box; transform-origin:20px 21px; animation:iconClock 6s linear infinite;
+}
+@keyframes iconClock{ to{ transform:rotate(360deg); } }
 
 /* hovering a card quickens only that card's icon — the others carry on idling */
 .game-card:hover .game-icon *{ animation-duration: 1.5s; }

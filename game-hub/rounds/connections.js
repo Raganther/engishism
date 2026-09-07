@@ -326,6 +326,16 @@
       return out;
     },
 
+    answerKey(answer){
+      const rows = {};
+      Object.entries((answer || {}).rowOf || {}).forEach(([word, row]) => {
+        (rows[row] || (rows[row] = [])).push(word);
+      });
+      // Row and column positions do not matter: the four sets are the answer.
+      return JSON.stringify(Object.values(rows).map(words => words.sort()).sort());
+    },
+    answerText(answer){ return Object.keys((answer || {}).rowOf || {}).join(', '); },
+
     /* ---------- the verdict ----------
        Count the solved groups in this competitor's arrangement. Right (and over)
        only when all four are solved; incomplete until all sixteen are placed;

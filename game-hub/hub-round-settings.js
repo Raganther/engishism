@@ -25,12 +25,76 @@
 (function(){
   'use strict';
 
+  // The scoring rules and their labels have one home. Both the board and the
+  // settings bench load this file; the functions take their clock/rounding facts.
+  window.HubPayRules = {
+    winner: {
+      label:'Winner takes all — only the first to get it scores',
+      pay(rows, baseFor, o){
+        return rows.length ? { [rows[0].who]: payRound(baseFor(rows[0].who), o.step) } : {};
+      }
+    },
+    podium: {
+      /* The rule the whole change was for: until results carried a *position*,
+         nothing anywhere could see that somebody came third. */
+      label:'Podium — first, second and third all score, less each time',
+      pay(rows, baseFor, o){
+        const share = [1, o.second, o.third];
+        const out = {};
+        rows.slice(0, 3).forEach((r, i) => {
+          const v = payRound(baseFor(r.who) * share[i], o.step);
+          if(v > 0) out[r.who] = v;
+        });
+        return out;
+      }
+    },
+    clock: {
+      /* Kahoot's own curve, chosen rather than invented: full marks for an instant
+         answer, `floor` of it for one arriving as the clock dies. It rewards knowing
+         over guessing without making a slow right answer worthless.
+
+         **With no clock running it pays the floor, flat** — which is every board but
+         Quickfire, where a tile is read out at the teacher's pace and there is no
+         fraction to decay against. What is left to say there is "you got there, but
+         not first", and that is exactly the floor. */
+      label:'By the clock — everyone right scores, and faster is worth more',
+      pay(rows, baseFor, o){
+        const out = {};
+        rows.forEach(r => {
+          const frac = o.clockRunning ? r.fraction : 0;
+          out[r.who] = payRound(baseFor(r.who) * (o.floor + (1 - o.floor) * frac), o.step);
+        });
+        return out;
+      }
+    },
+    equal: {
+      /* No speed advantage at all. For a class where the race is the thing putting
+         students off answering — which is the case this whole change exists for, and
+         the fastest way to find out whether it is true of a given group. */
+      label:'Everyone right scores the same',
+      pay(rows, baseFor, o){
+        const out = {};
+        rows.forEach(r => { out[r.who] = payRound(baseFor(r.who), o.step); });
+        return out;
+      }
+    }
+  };
+
+  /* Rounded to the board's own unit, because a scoreboard reading 92 and 87 is
+     arithmetic nobody at the back of a room can follow. Never below one unit: a right
+     answer that pays nothing reads as not having counted. */
+  function payRound(v, step){
+    const s = Number(step) || 1;
+    return Math.max(s, Math.round(v / s) * s);
+  }
+
+
   window.registerRoundSettings = function(S, ctx){
     ctx = ctx || {};
     const roundGames  = ctx.roundGames  || [];
     const isScoreEach = ctx.isScoreEach || (() => false);
     const isOnCard    = ctx.isOnCard    || (() => false);
-    const payVariants = ctx.payVariants || [];
+    const payVariants = ctx.payVariants || Object.entries(window.HubPayRules).map(([value, rule]) => ({value, label:rule.label}));
     const solo        = ctx.solo        || (() => false);
 
     /* **This was the winner banner and is now the standings, so every board gets it** —

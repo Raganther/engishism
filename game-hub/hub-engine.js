@@ -190,66 +190,7 @@
      turns, no tiles.
 
      **The fifth rule goes in this table.** Not into a game. */
-  const PAY_RULES = {
-    winner: {
-      label:'Winner takes all — only the first to get it scores',
-      pay(rows, baseFor, o){
-        return rows.length ? { [rows[0].who]: payRound(baseFor(rows[0].who), o.step) } : {};
-      }
-    },
-    podium: {
-      /* The rule the whole change was for: until results carried a *position*,
-         nothing anywhere could see that somebody came third. */
-      label:'Podium — first, second and third all score, less each time',
-      pay(rows, baseFor, o){
-        const share = [1, o.second, o.third];
-        const out = {};
-        rows.slice(0, 3).forEach((r, i) => {
-          const v = payRound(baseFor(r.who) * share[i], o.step);
-          if(v > 0) out[r.who] = v;
-        });
-        return out;
-      }
-    },
-    clock: {
-      /* Kahoot's own curve, chosen rather than invented: full marks for an instant
-         answer, `floor` of it for one arriving as the clock dies. It rewards knowing
-         over guessing without making a slow right answer worthless.
-
-         **With no clock running it pays the floor, flat** — which is every board but
-         Quickfire, where a tile is read out at the teacher's pace and there is no
-         fraction to decay against. What is left to say there is "you got there, but
-         not first", and that is exactly the floor. */
-      label:'By the clock — everyone right scores, and faster is worth more',
-      pay(rows, baseFor, o){
-        const out = {};
-        rows.forEach(r => {
-          const frac = Kit.round.clock.running() ? r.fraction : 0;
-          out[r.who] = payRound(baseFor(r.who) * (o.floor + (1 - o.floor) * frac), o.step);
-        });
-        return out;
-      }
-    },
-    equal: {
-      /* No speed advantage at all. For a class where the race is the thing putting
-         students off answering — which is the case this whole change exists for, and
-         the fastest way to find out whether it is true of a given group. */
-      label:'Everyone right scores the same',
-      pay(rows, baseFor, o){
-        const out = {};
-        rows.forEach(r => { out[r.who] = payRound(baseFor(r.who), o.step); });
-        return out;
-      }
-    }
-  };
-
-  /* Rounded to the board's own unit, because a scoreboard reading 92 and 87 is
-     arithmetic nobody at the back of a room can follow. Never below one unit: a right
-     answer that pays nothing reads as not having counted. */
-  function payRound(v, step){
-    const s = Number(step) || 1;
-    return Math.max(s, Math.round(v / s) * s);
-  }
+  const PAY_RULES = window.HubPayRules;
 
   /* What each competitor is paid for this question, whichever rule is running. One
      definition, so the standings screen and the payout can never disagree about a
@@ -259,6 +200,7 @@
     const rule = PAY_RULES[S.get('roundPay', h.game)] || PAY_RULES.winner;
     const baseFor = who => (h.worth ? Number(h.worth(who)) || 0 : 0);
     return rule.pay(Kit.round.results.finished(), baseFor, {
+      clockRunning: Kit.round.clock.running(),
       step:   h.step ? (Number(h.step()) || 1) : 1,
       floor:  Number(S.get('roundPayFloor',  h.game)),
       second: Number(S.get('roundPaySecond', h.game)),
@@ -810,7 +752,7 @@
            sentence, under the Millionaire question — so the same event looked
            different on every board and moved the board while it did it. Fixed
            height, so what it says can never reflow the game. -->
-      <div id="phone-bar" style="display:none;"></div>
+      <div id="phone-bar-space"><div id="phone-bar" style="display:none;"></div></div>
     </div>
 
     <!-- title sequence. Empty and inert unless a game show themed game opens it. -->
@@ -936,14 +878,14 @@
      beside the in-skeleton stages, before anything measures. Only when the
      skeleton does not already hold the id, so an in-engine game moving to its
      own file can carry its markup with it without a collision on the way. */
-  /* Anchored on `#phone-bar`, the last fixed sibling before the stages, because every
+  /* Anchored on `#phone-bar-space`, the last fixed sibling before the stages, because every
      board is external now — including Jeopardy, whose `#play-jeopardy` used to be the
      in-skeleton anchor. Stages are appended in registration order, so Jeopardy (order
      50) lands first, right after the phone bar, exactly where it sat before. */
   window.HubGames.ids().forEach(g => {
     const d = window.HubGames.get(g);
     if(!d || !d.stageHTML || document.getElementById(d.stage)) return;
-    const host = document.getElementById('phone-bar');
+    const host = document.getElementById('phone-bar-space');
     if(host && host.parentNode){
       const t = document.createElement('template');
       t.innerHTML = d.stageHTML.trim();
@@ -2915,9 +2857,7 @@
      placed them 1st -- reported from the first ef-2a class, a team badged and paid
      first that the whole room had watched come last. */
   function roundKeyOf(list){
-    const seq = (list || []).slice();
-    if(!(roundDef() || {}).ordered) seq.sort();
-    return seq.join('\u0000');
+    return roundDef().answerKey(list);
   }
 
   function roundStamp(){
@@ -3106,7 +3046,7 @@
        saying `done` — so the phone is told rather than left to guess. A round that
        ends on a right answer would otherwise invite the player to keep going. */
     const note = more ? 'Yes — now the next one' : 'Yes — that finishes it';
-    roundPhonesOf(team).forEach(p=>{ buzzHost.judge(p.id, 'right', { note }); });
+    roundPhonesOf(team).forEach(p=>{ buzzHost.judge(p.id, 'right', { note, finished:!more }); });
   }
 
   /* **Push which options are now settled, without arming.** One definition of what
@@ -3159,9 +3099,10 @@
     }
     Sound.play('wrong');
     renderRound();
-    notePhoneMiss(teamName(team), team, (roundState.picks[team] || []).join(', '), 'wrong');
+    const picked = roundState.picks[team];
+    notePhoneMiss(teamName(team), team, def.answerText(picked), 'wrong');
     document.querySelectorAll('#clue-group .gword').forEach(el=>{
-      if((roundState.picks[team] || []).indexOf(el.dataset.word) === -1) return;
+      if(!Array.isArray(picked) || picked.indexOf(el.dataset.word) === -1) return;
       el.classList.add('shake');
       setTimeout(()=> el.classList.remove('shake'), 380);
     });
@@ -3187,8 +3128,9 @@
        click; a real teacher on a fast board would hit it too. Close already knows
        how to pay whatever `roundWin` holds. */
     if(roundHolds()) roundWin = { team, label };
+    const takenState = roundState;
     setTimeout(()=>{
-      if(!roundState) return;                 // the teacher closed the card in the meantime
+      if(roundState !== takenState) return;   // this beat belongs only to the question won
       if(roundHolds()) roundHold(team, label);
       else roundPaySlot({ team, label });
     }, ROUND_TAKE_MS);
@@ -3596,6 +3538,24 @@
   })();
 
 
+  // Fit the whole card above the live phone controls. The flip owns transform;
+  // scale fits the card without changing its layout or competing with dragging.
+  function fitClueCard(){
+    const modal = document.getElementById('clue-modal');
+    if(!document.body.classList.contains('clue-open')) return;
+    const card = document.getElementById('clue-card');
+    const bar = document.getElementById('phone-bar');
+    const floor = window.innerHeight - Kit.floorTop();
+    const controls = bar && bar.offsetHeight ? bar.offsetHeight + 16 : 0;
+    document.getElementById('phone-bar-space').style.setProperty('--phone-space', (controls ? controls - 8 : 0) + 'px');
+    modal.style.bottom = (floor + controls) + 'px';
+    if(bar) bar.style.setProperty('--phone-bottom', (floor + 8) + 'px');
+    const room = modal.clientHeight - 48;
+    card.style.scale = Math.min(1, room / Math.max(1, card.offsetHeight));
+  }
+  new ResizeObserver(fitClueCard).observe(document.getElementById('clue-card'));
+  new ResizeObserver(fitClueCard).observe(document.getElementById('phone-bar'));
+
   function openClueCard(origin){
     const modal = document.getElementById('clue-modal');
     const card  = document.getElementById('clue-card');
@@ -3619,6 +3579,7 @@
        click opening a second clue over the first. Seeing the board and being able to
        click it are different requests; this keeps the first and refuses the second. */
     document.body.classList.add('clue-open');
+    fitClueCard();
     card.getAnimations().forEach(a=>a.cancel());
     ['clue-front','clue-back'].forEach(id=>{
       const f=document.getElementById(id);
@@ -5032,7 +4993,7 @@
 
   // one listener for every board, now and later — a new game gets re-fitted on
   // resize by declaring onResize, not by being added to a list here
-  window.addEventListener('resize', ()=>{ hook('onResize'); });
+  window.addEventListener('resize', ()=>{ hook('onResize'); fitClueCard(); });
 
 
   /* ================= TIMER (teacher-controlled) ================= */
