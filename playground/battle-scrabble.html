@@ -375,7 +375,14 @@
     /* ---- game state ---- */
     let rack = [];            // the letters in play, slots included
     let hints = [];
-    let score = 0;
+    let score = 0;            // points LOCKED in — banked, safe, reported to the board
+    /* Points a held word has earned so far but not yet locked: they climb into
+       view the instant the word is valid, lock into `score` when it maxes and
+       bursts, and are forfeited the moment the word breaks. Display = locked +
+       provisional; the board only ever hears the locked score. Provisional, not
+       banked, is what keeps the live trickle from being farmed by holding a word
+       to 99% and breaking it over and over. */
+    let provisional = 0;
     let bestWord = null;      // {word, pts} — for the game-over line
     let validRuns = [];       // [{word, idx}] — every valid straight run >= MIN_WORD
     let badRuns = [];         // runs >= MIN_WORD that are not words
@@ -453,7 +460,10 @@
       validRuns.forEach(r => world.setResult('right', r.idx));
       badRuns.forEach(r => world.setResult('wrong', r.idx));
       const key = validRuns.map(r => r.word).sort().join('+');
-      if(key !== validKey){ validKey = key; validSince = key ? performance.now() : 0; }
+      /* The valid set changed — a word broke, or became a different word. Forfeit
+         whatever the old one had provisionally earned (only a maxed word locks)
+         and restart its fill clock. */
+      if(key !== validKey){ validKey = key; validSince = key ? performance.now() : 0; provisional = 0; updateScore(); }
       status.textContent =
         badRuns.length ? '✗ ' + badRuns[0].word + ' is not a word here.' :
         validRuns.length ? '✓ ' + validRuns.map(r => r.word).join(', ') + ' — hold it steady and it banks itself.' :
@@ -475,20 +485,36 @@
     }
     function multNow(){ return 1 + (multMax() - 1) * fillFrac(); }
     function bankTotal(){ return validRuns.reduce((t, r) => t + wordScore(r.word), 0); }
+    /* The number on the strip is locked + provisional, so a valid word makes it
+       climb at once. One writer for it, so locked and provisional can never
+       disagree on screen. */
+    function updateScore(){
+      document.getElementById('score').textContent = Math.round((score + provisional) * 10) / 10;
+    }
+    /* Called every frame a word is held: the provisional total is the word at its
+       current fill — base the instant it forms (multNow is 1 at fill 0), climbing
+       to base × full-hold bonus. Locks and bursts at full. */
+    function accrue(){
+      provisional = Math.floor(bankTotal() * multNow() * 10) / 10;
+      updateScore();
+      if(fillFrac() >= 1) cashWord();
+    }
     function paintMeter(){
       if(!playing || !validRuns.length){
         meterEl.classList.remove('armed', 'full');
         meterFill.style.width = '0%';
-        meterLbl.textContent = playing ? 'Spell a word — it banks itself' : '—';
+        meterLbl.textContent = playing ? 'Spell a word — it earns while you hold it' : '—';
         return;
       }
-      const f = fillFrac(), m = multNow();
+      const f = fillFrac();
       const label = validRuns.length === 1 ? validRuns[0].word : validRuns.length + ' WORDS';
       meterEl.classList.add('armed');
       meterEl.classList.toggle('full', f >= 0.999);
       meterFill.style.width = Math.round(f * 100) + '%';
-      meterLbl.textContent = label + ' · ' + Math.floor(bankTotal() * m * 10) / 10 + ' pts' +
-                             (f >= 0.999 ? ' — banking!' : ' ×' + m.toFixed(1));
+      /* provisional is set by accrue() the same frame, so the meter and the strip
+         show the same climbing number. Full = it locks now. */
+      meterLbl.textContent = label + ' · +' + provisional + ' pts' +
+                             (f >= 0.999 ? ' — locked!' : ' · hold to lock');
     }
 
     /* ---- the deal: wholesale, framed as a beat ----
@@ -503,6 +529,7 @@
       world.slots(GRID);
       world.setResult(null);
       validRuns = []; badRuns = []; validKey = ''; validSince = 0;
+      provisional = 0; updateScore();   // a fresh hand forfeits any unlocked build
       sendLiveWord(true);          // a fresh hand clears the neighbours' view of us
       sendGrid(true);              // and the board's mirror of this grid
       hints = [];                  // a fresh hand re-picks in full
@@ -550,13 +577,17 @@
          words (that is the reward for the cross) but sits on one slot, so the
          spend below is the union of slots, never a double charge. */
       const pts = Math.floor(bankTotal() * m * 10) / 10;
+      /* Lock it: the provisional total the strip has been showing becomes real.
+         provisional was display-only, so adding pts to score and clearing it
+         leaves the number unchanged — it just stops being forfeitable. */
       score = Math.round((score + pts) * 10) / 10;
+      provisional = 0;
       validRuns.forEach(r => {
         const p = Math.floor(wordScore(r.word) * m * 10) / 10;
         if(!bestWord || p > bestWord.pts) bestWord = { word: r.word, pts: p };
       });
       banked += validRuns.length;
-      document.getElementById('score').textContent = score;
+      updateScore();
       const flash = document.getElementById('flash');
       flash.textContent = '+' + pts;
       flash.classList.add('show');
@@ -590,8 +621,8 @@
       el.classList.toggle('urgent', secsLeft <= 10);
     }
     function startGame(roomSecs){
-      score = 0; bestWord = null; banked = 0;
-      document.getElementById('score').textContent = '0';
+      score = 0; provisional = 0; bestWord = null; banked = 0;
+      updateScore();
       document.getElementById('over').classList.remove('show');
       refillBag();
       /* In a room the board's arm carries the duration, sent once — the same
@@ -613,6 +644,7 @@
     function endGame(){
       clearInterval(tick); tick = null;
       playing = false;
+      provisional = 0; updateScore();   // time's up mid-word: the unlocked build does not count
       paintMeter(); edgesPaint(); nbovPaint();
       report(true);
       document.getElementById('final').textContent = score;
@@ -1066,9 +1098,10 @@
     if(!maybeRoomBoot()) startGame();
     (function loop(){
       world.step(); world.draw();
-      /* The word banks itself: once a stable valid word has been held for the
-         full "Hold to cash" time, cash it — no button, no press. */
-      if(playing && validRuns.length && fillFrac() >= 1) cashWord();
+      /* A valid word earns from the moment it forms: accrue() climbs the
+         provisional total every frame, and banks it (burst + fresh hand) the
+         instant it reaches the full "Hold to cash" time. No button, no press. */
+      if(playing && validRuns.length) accrue();
       paintMeter();
       requestAnimationFrame(loop);
     })();
@@ -1159,6 +1192,7 @@
         refreshHints();
         world.setPieces(rack); world.slots(GRID);
         validRuns = []; badRuns = []; validKey = ''; validSince = 0;
+        provisional = 0; updateScore();   // throwing a letter breaks the word — forfeit its build
         send({ t:'th', d: side.toUpperCase(), l: ch,
                vx: side === 'l' ? -18 : 18, vy: -4, ny: 0.4 });
         readBoard(); edgesPaint();
@@ -1167,7 +1201,7 @@
       join, connected: () => !!client,
       /* candidate/candValid kept as views of the run set, so nothing that
          reads the old shape breaks */
-      state: () => ({ rack, score, words: validRuns.map(r => r.word),
+      state: () => ({ rack, score, provisional, words: validRuns.map(r => r.word),
         candidate: validRuns.length ? validRuns[0].word : '', candValid: !!validRuns.length,
         secsLeft, hints, playing, banked, nbL, nbR, full }) };
   })();
