@@ -225,7 +225,7 @@
 
   <div class="controls">
     <div class="ctl"><label>Game time</label><input id="s-secs" type="range" min="30" max="300" step="15" value="120"><span class="val" id="v-secs"></span></div>
-    <div class="ctl"><label>Hold to cash</label><input id="s-mrate" type="range" min="1" max="8" step="0.5" value="3"><span class="val" id="v-mrate"></span></div>
+    <div class="ctl"><label>Hold to cash</label><input id="s-mrate" type="range" min="3" max="20" step="1" value="10"><span class="val" id="v-mrate"></span></div>
     <div class="ctl"><label>Full-hold bonus</label><input id="s-mmax" type="range" min="1" max="3" step="0.25" value="2"><span class="val" id="v-mmax"></span></div>
     <div class="ctl"><label>Min vowels</label><input id="s-vow" type="range" min="0" max="4" step="1" value="2"><span class="val" id="v-vow"></span></div>
     <!-- The physics rows are NOT here: Kit.table.dialsPanel builds them from
@@ -1115,7 +1115,7 @@
       show();
     }
     bindSlider('s-secs','v-secs',   v => v + 's', null);   // read at the next Play again
-    bindSlider('s-mrate','v-mrate', v => v.toFixed(1) + 's', null);
+    bindSlider('s-mrate','v-mrate', v => v + 's', null);
     bindSlider('s-mmax','v-mmax',   v => '×' + v.toFixed(2), null);
     bindSlider('s-vow','v-vow',     v => String(v), null);
     /* The physics rows build themselves from the shelf's dial registry — one
