@@ -8,7 +8,8 @@
   /* Playground page: its own chrome, NOT the hub skin — same as Throw Lab, which
      this copies. Stage 1 of Battle Scrabble proves one player's whole loop on one
      screen: letters rain in, a live checker says what the rack can spell, flicking
-     them into the slots builds a word, Bank cashes it and deals replacements, the
+     them into the slots builds a word, a word held steady on the grid banks
+     itself — a meter fills, then the tiles burst and a fresh hand rains in — the
      clock ends it. No relay, no phones, no other players — the throw-at-a-
      neighbour half is stage 2 and needs a wire this page deliberately avoids. */
   :root{
@@ -90,19 +91,29 @@
   }
   .flash.show{ opacity:1; transform:translate(-50%,-90%); }
 
-  /* The action bar lives in the thumb zone; Bank is the whole game so it gets
-     the width. safe-area padding keeps it above an iPhone home bar. */
+  /* The action bar lives in the thumb zone; the cash meter is the whole game so
+     it gets the width. safe-area padding keeps it above an iPhone home bar. */
   .actions{
     flex:0 0 auto; display:flex; gap:10px; align-items:stretch;
     padding:10px 14px calc(10px + env(safe-area-inset-bottom));
     border-top:1px solid var(--border);
   }
-  #bank{
-    flex:1 1 auto; min-height:56px; font-size:1rem; font-weight:700;
-    border-radius:14px; letter-spacing:0.02em;
+  /* The cash meter replaces the Bank button: not a control, a readout. Its fill
+     tracks how close the held word is to banking itself; the label rides on top.
+     Not a <button> — there is nothing to press. */
+  #cashmeter{
+    flex:1 1 auto; min-height:56px; border-radius:14px; position:relative;
+    overflow:hidden; display:flex; align-items:center; justify-content:center;
+    border:1px solid var(--border); color:var(--muted);
+    font-size:1rem; font-weight:700; letter-spacing:0.02em;
   }
-  #bank:disabled{ color:var(--muted); cursor:default; border-color:var(--border); }
-  #bank.ready{ background:var(--accent); border-color:var(--accent); color:#08131a; }
+  #cashmeter.armed{ color:var(--text); border-color:var(--accent); }
+  #cashfill{
+    position:absolute; left:0; top:0; bottom:0; width:0;
+    background:var(--accent); opacity:0.28;
+  }
+  #cashmeter.full #cashfill{ opacity:0.5; }
+  #cashlabel{ position:relative; z-index:1; padding:0 10px; text-align:center; }
   #redeal{ flex:0 0 auto; min-height:56px; border-radius:14px; }
 
   /* ---- stage 2: the room ---- */
@@ -198,7 +209,7 @@
     .strip{ padding:3px 12px; min-height:32px; }
     .hint-chip{ font-size:0.7rem; padding:2px 8px; }
     .actions{ padding:6px 12px calc(6px + env(safe-area-inset-bottom)); }
-    #bank, #redeal{ min-height:46px; }
+    #cashmeter, #redeal{ min-height:46px; }
   }
   .over .final{ font-size:3rem; font-weight:800; color:var(--gold); font-variant-numeric:tabular-nums; }
   .over .label{ color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; font-size:0.8rem; }
@@ -206,7 +217,7 @@
 </head>
 <body>
   <header>
-    <h1>Battle Scrabble <small>spell from your rack, bank before the clock — solo, or join a room</small></h1>
+    <h1>Battle Scrabble <small>spell from your rack, hold a word to bank it — solo, or join a room</small></h1>
     <span id="roomchip"></span>
     <button id="btn-hints" type="button">Hints on</button>
     <button id="btn-tune" type="button" class="tune">⚙ Tune</button>
@@ -214,8 +225,8 @@
 
   <div class="controls">
     <div class="ctl"><label>Game time</label><input id="s-secs" type="range" min="30" max="300" step="15" value="120"><span class="val" id="v-secs"></span></div>
-    <div class="ctl"><label>Multiplier rate</label><input id="s-mrate" type="range" min="0" max="0.5" step="0.05" value="0.15"><span class="val" id="v-mrate"></span></div>
-    <div class="ctl"><label>Multiplier max</label><input id="s-mmax" type="range" min="1" max="3" step="0.25" value="2"><span class="val" id="v-mmax"></span></div>
+    <div class="ctl"><label>Hold to cash</label><input id="s-mrate" type="range" min="1" max="8" step="0.5" value="3"><span class="val" id="v-mrate"></span></div>
+    <div class="ctl"><label>Full-hold bonus</label><input id="s-mmax" type="range" min="1" max="3" step="0.25" value="2"><span class="val" id="v-mmax"></span></div>
     <div class="ctl"><label>Min vowels</label><input id="s-vow" type="range" min="0" max="4" step="1" value="2"><span class="val" id="v-vow"></span></div>
     <!-- The physics rows are NOT here: Kit.table.dialsPanel builds them from
          the shelf's dial registry, so this page holds no copy of any feel
@@ -250,7 +261,7 @@
   </div>
 
   <div class="actions">
-    <button id="bank" type="button" disabled>Spell a word to bank it</button>
+    <div id="cashmeter"><i id="cashfill"></i><span id="cashlabel">Spell a word — it banks itself</span></div>
     <button id="redeal" type="button">Redeal ⟳</button>
   </div>
 
@@ -374,9 +385,11 @@
     let secsLeft = 0;
     let banked = 0;           // words banked this game — reported to the board
 
-    const canvas  = document.getElementById('stage');
-    const status  = document.getElementById('status');
-    const bankBtn = document.getElementById('bank');
+    const canvas   = document.getElementById('stage');
+    const status   = document.getElementById('status');
+    const meterEl  = document.getElementById('cashmeter');
+    const meterFill= document.getElementById('cashfill');
+    const meterLbl = document.getElementById('cashlabel');
 
     /* No feel overrides: every tuning number comes from the shelf's dial
        registry (Kit.table.dials), where it has its one home. */
@@ -402,8 +415,8 @@
     });
     function val(id){ return document.getElementById(id).value; }
     function minVowels(){ return +val('s-vow'); }
-    function multRate(){ return +val('s-mrate'); }
-    function multMax(){ return +val('s-mmax'); }
+    function holdSecs(){ return +val('s-mrate'); }   // the max accumulation time — how long a held word takes to bank
+    function multMax(){ return +val('s-mmax'); }     // what a full hold pays, relative to the raw word score
 
     /* Words are the straight contiguous runs on the grid — across every row
        and down every column, Scrabble-fashion. A single letter belongs to a
@@ -443,30 +456,39 @@
       if(key !== validKey){ validKey = key; validSince = key ? performance.now() : 0; }
       status.textContent =
         badRuns.length ? '✗ ' + badRuns[0].word + ' is not a word here.' :
-        validRuns.length ? '✓ ' + validRuns.map(r => r.word).join(', ') + ' — bank, or hold for the multiplier.' :
+        validRuns.length ? '✓ ' + validRuns.map(r => r.word).join(', ') + ' — hold it steady and it banks itself.' :
         'Flick letters into the grid — words read across and down.';
       sendLiveWord();
       sendGrid();
-      paintBank();
+      paintMeter();
     }
 
-    function multNow(){
-      if(!validRuns.length || !validSince || !multRate()) return 1;
-      return Math.min(multMax(), 1 + multRate() * (performance.now() - validSince) / 1000);
+    /* fillFrac is 0..1: how far the current valid word has climbed toward
+       banking itself. It resets to 0 whenever the valid set changes (validKey
+       in readBoard resets validSince), so editing a word restarts its clock —
+       the reason to hold a small word rather than greedily extend it. */
+    function fillFrac(){
+      if(!validRuns.length || !validSince) return 0;
+      const t = holdSecs();
+      if(t <= 0) return 1;
+      return Math.min(1, (performance.now() - validSince) / (t * 1000));
     }
+    function multNow(){ return 1 + (multMax() - 1) * fillFrac(); }
     function bankTotal(){ return validRuns.reduce((t, r) => t + wordScore(r.word), 0); }
-    function paintBank(){
-      if(!playing){ bankBtn.disabled = true; bankBtn.classList.remove('ready'); bankBtn.textContent = '—'; return; }
-      if(!validRuns.length){
-        bankBtn.disabled = true; bankBtn.classList.remove('ready');
-        bankBtn.textContent = 'Spell a word to bank it';
+    function paintMeter(){
+      if(!playing || !validRuns.length){
+        meterEl.classList.remove('armed', 'full');
+        meterFill.style.width = '0%';
+        meterLbl.textContent = playing ? 'Spell a word — it banks itself' : '—';
         return;
       }
-      const m = multNow();
+      const f = fillFrac(), m = multNow();
       const label = validRuns.length === 1 ? validRuns[0].word : validRuns.length + ' WORDS';
-      bankBtn.disabled = false; bankBtn.classList.add('ready');
-      bankBtn.textContent = 'BANK ' + label + ' · ' + bankTotal() + ' pts' +
-                            (m > 1.001 ? ' ×' + m.toFixed(1) : '');
+      meterEl.classList.add('armed');
+      meterEl.classList.toggle('full', f >= 0.999);
+      meterFill.style.width = Math.round(f * 100) + '%';
+      meterLbl.textContent = label + ' · ' + Math.floor(bankTotal() * m * 10) / 10 + ' pts' +
+                             (f >= 0.999 ? ' — banking!' : ' ×' + m.toFixed(1));
     }
 
     /* ---- the deal: wholesale, framed as a beat ----
@@ -486,7 +508,7 @@
       hints = [];                  // a fresh hand re-picks in full
       refreshHints();
       status.textContent = 'Flick letters into the grid — words read across and down.';
-      paintBank();
+      paintMeter();
       /* The refill re-opens the edges. edgesPaint closes both sides when the
          rack is down to its last spellable letters; without this call a bank
          from a low rack left the walls built — throws bounced off a
@@ -518,7 +540,10 @@
       renderHints();
     }
 
-    function bank(){
+    /* Cashing is automatic now (the render loop fires it the moment fillFrac
+       reaches 1), so there is no button. Kept callable — a driven test banks a
+       word by hand — but the game never presses it. */
+    function cashWord(){
       if(!validRuns.length || !playing) return;
       const m = multNow();
       /* Every valid word cashes at once. A crossing letter scores in BOTH its
@@ -545,6 +570,13 @@
       used.forEach(i => { const ch = cells[i]; if(ch) spent[ch] = (spent[ch] || 0) + 1; });
       const kept = [];
       rack.forEach(ch => { if(spent[ch]) spent[ch]--; else kept.push(ch); });
+      /* The explode beat: re-stamp 'right' across the cashed cells so the
+         shelf's word burst fires NOW, at the moment they bank, not seconds
+         ago when the word first formed. A fresh union key is never in
+         rightKeys, so it re-triggers; the burst then plays over the redeal's
+         rain, which carries the same "new hand" feel. */
+      const cashedIdx = [...used];
+      world.setResult('right', cashedIdx);
       deal(kept);
       report(false);           // the board's standings follow every bank
     }
@@ -581,7 +613,7 @@
     function endGame(){
       clearInterval(tick); tick = null;
       playing = false;
-      paintBank(); edgesPaint(); nbovPaint();
+      paintMeter(); edgesPaint(); nbovPaint();
       report(true);
       document.getElementById('final').textContent = score;
       document.getElementById('best-line').textContent =
@@ -907,7 +939,7 @@
       flash.textContent = 'INCOMING ' + ch + '!';
       flash.classList.add('show', 'bad');
       setTimeout(() => flash.classList.remove('show', 'bad'), 1100);
-      paintBank(); edgesPaint();
+      paintMeter(); edgesPaint();
     }
 
     function toLobby(){
@@ -918,7 +950,7 @@
       document.getElementById('over').classList.remove('show');
       document.getElementById('clock').textContent = '–:––';
       status.textContent = 'Waiting for the board to start the game…';
-      paintBank(); edgesPaint(); nbovPaint();
+      paintMeter(); edgesPaint(); nbovPaint();
     }
 
     /* The full room state arrives on `joined` (resent on every reconnect) and
@@ -1032,7 +1064,14 @@
     /* No code and no Join press = stage 1, byte for byte: solo starts at once.
        A ?code= (the board's QR) opens the join strip instead — the lobby. */
     if(!maybeRoomBoot()) startGame();
-    (function loop(){ world.step(); world.draw(); if(validRuns.length) paintBank(); requestAnimationFrame(loop); })();
+    (function loop(){
+      world.step(); world.draw();
+      /* The word banks itself: once a stable valid word has been held for the
+         full "Hold to cash" time, cash it — no button, no press. */
+      if(playing && validRuns.length && fillFrac() >= 1) cashWord();
+      paintMeter();
+      requestAnimationFrame(loop);
+    })();
 
     /* ---- pointer -> grab / move / drop, exactly as Throw Lab ---- */
     const pt = e => world.pt(e);   // the shelf maps a touch through the painted/natural ratio
@@ -1060,7 +1099,6 @@
     canvas.addEventListener('pointercancel', endDrag);
 
     /* ---- buttons ---- */
-    bankBtn.addEventListener('click', bank);
     document.getElementById('redeal').addEventListener('click', () => { if(playing) deal([]); });
     document.getElementById('again').addEventListener('click', startGame);
     const hintsBtn = document.getElementById('btn-hints');
@@ -1077,7 +1115,7 @@
       show();
     }
     bindSlider('s-secs','v-secs',   v => v + 's', null);   // read at the next Play again
-    bindSlider('s-mrate','v-mrate', v => '+' + v.toFixed(2) + '/s', null);
+    bindSlider('s-mrate','v-mrate', v => v.toFixed(1) + 's', null);
     bindSlider('s-mmax','v-mmax',   v => '×' + v.toFixed(2), null);
     bindSlider('s-vow','v-vow',     v => String(v), null);
     /* The physics rows build themselves from the shelf's dial registry — one
@@ -1110,7 +1148,7 @@
     /* `read` is here because world.place() (the reconnect-restore path a test
        drives) fires no onArrange — a driven board must ask for the re-read a
        real dock performs itself. */
-    window.__bs = { world, deal, bank, startGame, endGame, read: readBoard,
+    window.__bs = { world, deal, bank: cashWord, cashWord, startGame, endGame, read: readBoard,
       /* the suite's throw — the same path as a zone drop, minus the pointer.
          Returns the letter thrown, so a test can watch for it arriving. */
       throw: dir => {
