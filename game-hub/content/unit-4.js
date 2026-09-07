@@ -147,8 +147,10 @@
        difficulty ($100 Multiple Choice → $200 Connections → $300 Drag the Letters
        → $400 Word Thermometer → $500 Drag the Words), so a column played top to
        bottom is five ways of meeting one point rather than the same round five
-       times. Have/Get has no natural scale, so its $400 is an error-correction
-       (the causative is exactly what an error-fix teaches); the other four columns
+       times. Have/Get has no natural scale, so its $400 and $500 are two Drag the
+       Words sentences contrasting the causative's two senses — paying a professional
+       ('have her hair cut') and something done to you ('had my bike stolen') — each
+       playable drag or flick; the other four columns
        carry the book's own scales from the memory and eyewitness pages (pp47-49).
        Every clue states its own context — a teacher who has not read the unit can
        still play it. */
@@ -162,8 +164,8 @@
                 with:["stolen","burgled","vandalised","damaged"] }},
       {v:300, q:"'They had the whole kitchen ___ last spring — a builder did the work, not them.' (9 letters)",
         anagram:{ word:"renovated" }},
-      {v:400, q:"Correct the causative: 'Before the wedding I am going to *cut my hair* at the salon.'",
-        a:"have my hair cut", type:"errorfix"},
+      {v:400, q:"Put the words in order — she is paying the salon to do it.",
+        scramble:{ sentence:"She is going to have her hair cut before the wedding" }},
       {v:500, q:"Put the words in order — something was done to me.",
         scramble:{ sentence:"I had my bike stolen outside the station" }},
     ]},
@@ -190,9 +192,9 @@
     { id:'4b-eyewitness', section:'4B', name:'Eyewitness Evidence', clues:[
       {v:100, q:"In a police ___, a witness tries to pick out the person who did it.",
         choice:{ options:["line-up","verdict","sentence","appeal"], answer:"line-up" }},
-      {v:200, q:"Four of these are from the eyewitness account. Find the four.",
-        group:{ pick:["fallible","susceptible","perpetrator","line-up"],
-                with:["vague","distant","lasting","vivid"] }},
+      {v:200, q:"Four of these belong in a courtroom; four describe a memory. Find the four from the courtroom.",
+        group:{ pick:["perpetrator","line-up","testimony","defendant"],
+                with:["vivid","vague","distant","lasting"] }},
       {v:300, q:"'The witness was asked to identify the ___ from the photographs.' The one who did the crime. (11 letters)",
         anagram:{ word:"perpetrator" }},
       {v:400, q:"Put these in order — least reliable first.",
