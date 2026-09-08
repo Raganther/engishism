@@ -173,21 +173,41 @@
      `BenchKit.settle` is the same idea one tier down and predates this; the bench
      keeps its own until a page is rewired, because two copies of four lines is a
      smaller problem than a page changing behaviour in a refactor nobody asked for. */
-  function settle(ms, fn){
+  function settle(ms, fn, maxMs){
     let timer = null;
     let seen  = Object.create(null);
+    let first = 0;                 // clock of the first reply in the current pending window
+    const cap = (maxMs == null ? ms : maxMs);
+    const clk = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    function fire(){ timer = null; first = 0; fn(); }
     return {
+      /* Trailing debounce — fire `ms` after the last reply — but never wait longer
+         than `cap` from the FIRST reply of this window. A tap round sends one
+         message per tap with quiet gaps, so the trailing timer fires in each gap
+         and every finisher is judged (and badged, and told "correct" on their
+         phone) as they land. A physics round streams a message on every tile
+         nudge, which used to reset the trailing timer for as long as anyone in the
+         room was still moving tiles — so `fn()` (the only place a finish is
+         stamped) did not run until the whole room went still, and every place
+         badge and every phone "Yes!" arrived batched at the end. Capping the wait
+         makes it fire periodically through the stream, so positions land live and
+         can be commentated. `fn` is idempotent by construction (fresh() and the
+         results `done` guard), so firing more often cannot double-pay or
+         double-announce. */
       bump(){
+        const now = clk();
+        if(!first) first = now;
+        const delay = Math.max(0, Math.min(ms, cap - (now - first)));
         if(timer) clearTimeout(timer);
-        timer = setTimeout(()=>{ timer = null; fn(); }, ms);
+        timer = setTimeout(fire, delay);
       },
       fresh(key, value){
         if(seen[key] === value) return false;
         seen[key] = value;
         return true;
       },
-      reset(){ if(timer) clearTimeout(timer); timer = null; seen = Object.create(null); },
-      stop(){ if(timer) clearTimeout(timer); timer = null; }
+      reset(){ if(timer) clearTimeout(timer); timer = null; first = 0; seen = Object.create(null); },
+      stop(){ if(timer) clearTimeout(timer); timer = null; first = 0; }
     };
   }
 
