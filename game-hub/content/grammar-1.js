@@ -52,9 +52,9 @@ window.UNITS.push({
     { id:'gr-present-continuous', section:'GR', name:'Present Continuous: right now', clues:[
       {v:100, q:"Be quiet! The baby ___ . Which is correct?",
         choice:{ options:["is sleeping","sleeps","sleeping","is sleep"], answer:"is sleeping" }},
-      {v:200, q:"Four of these are correctly spelled -ing forms. Find the four.",
-        group:{ pick:["running","swimming","making","sitting"],
-                with:["runing","swiming","makeing","siting"] }},
+      {v:200, q:"Four of these are correct present continuous forms. Find the four.",
+        group:{ pick:["is running","are playing","am eating","is cooking"],
+                with:["is run","are play","am eat","is cook"] }},
       {v:300, q:"'Look — it's ___ outside! Take an umbrella.' The -ing form of 'rain'. (7 letters)",
         anagram:{ word:"raining" }},
       {v:400, q:"Correct it: 'Look! The dog *run* after the cat right now.'",
