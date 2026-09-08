@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
-<title>Buzzer — Engishism</title>
+<title>DCU International Academy · Relay</title>
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -12,9 +12,29 @@
     background:var(--navy); color:var(--white); min-height:100vh; min-height:100dvh;
     font-family:'Space Grotesk', system-ui, -apple-system, sans-serif;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding:22px; gap:18px; text-align:center; overflow:hidden;
+    padding:52px 22px 46px; gap:18px; text-align:center; overflow:hidden;
   }
   h1{ font-size:1.05rem; letter-spacing:0.16em; text-transform:uppercase; color:var(--blue); font-weight:700; }
+
+  /* ---- DCU International Academy identity ----
+     The framework wearing the school's brand: a wordmark that stays on screen the
+     whole lesson, and the Academy's signature shape band along the foot. Text
+     wordmark for now — drop the official logo SVG into .brandmark to replace it.
+     The band is the website's arc-and-triangle motif rebuilt as one tiling SVG. */
+  .brandmark{ position:fixed; top:11px; left:0; right:0; z-index:6; pointer-events:none;
+    display:flex; gap:9px; align-items:center; justify-content:center; }
+  .bm-dcu{ font-weight:700; font-size:1.18rem; letter-spacing:.01em; color:var(--white); }
+  .bm-ia{ font-size:.58rem; line-height:1.06; text-align:left; text-transform:uppercase;
+    letter-spacing:.09em; color:var(--cream); opacity:.9; }
+  .bm-relay{ font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:.58rem;
+    letter-spacing:.18em; text-transform:uppercase; color:var(--navy);
+    background:var(--yellow); padding:2px 7px; border-radius:999px; }
+  .brandcredit{ position:fixed; bottom:41px; left:0; right:0; z-index:6; pointer-events:none;
+    text-align:center; font-size:.56rem; letter-spacing:.16em; text-transform:uppercase;
+    color:rgba(251,243,213,.42); }
+  .brandbar{ position:fixed; bottom:0; left:0; right:0; height:34px; z-index:5;
+    pointer-events:none; line-height:0; }
+  .brandbar svg{ display:block; width:100%; height:34px; }
   .screen{ display:none; width:100%; max-width:420px; flex-direction:column; gap:16px; align-items:center; }
   .screen.active{ display:flex; }
   label{ font-size:0.74rem; letter-spacing:0.12em; text-transform:uppercase; color:rgba(251,243,213,0.7); align-self:flex-start; }
@@ -93,14 +113,14 @@
   /* the buzzer itself — thumb-sized, unmissable, and it fills what's left */
   #buzzer{
     width:min(74vw, 300px); height:min(74vw, 300px); border-radius:50%; border:none;
-    background:radial-gradient(circle at 34% 30%, #ff8a7d, #e0271a 62%, #a5170e);
+    background:radial-gradient(circle at 34% 30%, #5cc6f2, #00A0DF 60%, #0a6f9c);
     color:var(--white); font-family:inherit; font-weight:700; font-size:1.7rem;
     text-transform:uppercase; letter-spacing:0.06em; cursor:pointer;
-    box-shadow:0 12px 0 #7d1109, 0 18px 34px rgba(0,0,0,0.5);
+    box-shadow:0 12px 0 #0a3a52, 0 18px 34px rgba(0,0,0,0.5);
     transition:transform .06s, box-shadow .06s, filter .15s;
     touch-action:manipulation;
   }
-  #buzzer:active{ transform:translateY(9px); box-shadow:0 3px 0 #7d1109, 0 8px 16px rgba(0,0,0,0.45); }
+  #buzzer:active{ transform:translateY(9px); box-shadow:0 3px 0 #0a3a52, 0 8px 16px rgba(0,0,0,0.45); }
   #buzzer[disabled]{ filter:grayscale(0.75) brightness(0.5); cursor:default; box-shadow:0 12px 0 #3a3a3a, 0 18px 30px rgba(0,0,0,0.4); }
   #buzzer.won{ background:radial-gradient(circle at 34% 30%, #7de08a, #17a52f 62%, #0c6a1e); filter:none; }
   #state{ font-size:1rem; min-height:1.6em; color:var(--cream); }
@@ -347,8 +367,32 @@
 </head>
 <body>
 
+<!-- The school's identity, on screen the whole lesson. Swap the text lockup below
+     for the official logo SVG when it's to hand. -->
+<div class="brandmark" aria-label="DCU International Academy Relay">
+  <span class="bm-dcu">DCU</span>
+  <span class="bm-ia">International<br>Academy</span>
+  <span class="bm-relay">Relay</span>
+</div>
+<p class="brandcredit">Engishism framework</p>
+<!-- The Academy's arc-and-triangle motif, rebuilt as one tiling SVG band. -->
+<div class="brandbar" aria-hidden="true">
+  <svg preserveAspectRatio="none">
+    <defs><pattern id="dcuBand" width="160" height="34" patternUnits="userSpaceOnUse">
+      <rect x="0"   width="40" height="34" fill="#FBF3D5"/>
+      <rect x="40"  width="40" height="34" fill="#12263F"/>
+      <rect x="80"  width="40" height="34" fill="#00A0DF"/>
+      <rect x="120" width="40" height="34" fill="#FFC20E"/>
+      <path d="M4,34 A16,16 0 0 1 36,34 Z"   fill="#12263F"/>
+      <path d="M44,34 A16,16 0 0 1 76,34 Z"  fill="#FFC20E"/>
+      <path d="M84,34 A16,16 0 0 1 116,34 Z" fill="#FBF3D5"/>
+      <path d="M120,34 L140,7 L160,34 Z"     fill="#12263F"/>
+    </pattern></defs>
+    <rect width="100%" height="34" fill="url(#dcuBand)"/>
+  </svg>
+</div>
+
 <div class="screen active" id="screen-join">
-  <h1>Engishism · Buzzer</h1>
   <label for="code">Game code</label>
   <input id="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="00000" autocomplete="off">
   <label for="name">Your name</label>
