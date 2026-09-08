@@ -24,7 +24,16 @@ body.play-fit{ padding-bottom:0; overflow:hidden; }   /* boards that measure the
    instruments of different heights and a shared baseline made the tallest one
    define the strip. The tight padding is kept from when the bar lived here, because
    a shorter header is worth having either way. */
-header{ padding: 12px 24px 10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:nowrap; gap:10px; }
+header{ position:relative; padding: 12px 24px 10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:nowrap; gap:10px; }
+/* DCUIA wordmark, centred over the header. Absolute so the no-wrap flex row is
+   untouched; pointer-events none so it never eats a click; navy by default, light
+   under the game-show skin. Hidden below 1000px — where the header reflows and the
+   middle is too tight — so it only shows on a projector-width board. */
+.hub-brand{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  pointer-events:none; white-space:nowrap; font-family:'Space Grotesk', sans-serif;
+  font-size:0.9rem; letter-spacing:0.02em; color:var(--navy); opacity:0.92; }
+.hub-brand b{ font-weight:700; letter-spacing:0.03em; }
+@media (max-width:1000px){ .hub-brand{ display:none; } }
 /* `nowrap` is the whole guarantee. Wrapping was how the strip grew: title 384px +
    cluster 883px is 45px over the content width, so the cluster dropped to a second
    row and the header went 72px → 130px. Nothing may wrap here — everything shrinks
@@ -812,6 +821,8 @@ body.theme-gameshow header h1{ color: var(--gold); text-shadow: 0 0 26px rgba(25
 body.theme-gameshow .section-label{ color: var(--gold); opacity:0.85; }
 body.theme-gameshow .cat-check .count{ color: rgba(234,240,255,0.55); }
 body.theme-gameshow .eyebrow{ color: var(--glow); }
+body.theme-gameshow .hub-brand{ color: var(--paper); }
+body.theme-gameshow .hub-brand b{ color: var(--gold); }
 body.theme-gameshow .geo-band{
   background-color:#000;
   background-image:

@@ -12,7 +12,7 @@
     background:var(--navy); color:var(--white); min-height:100vh; min-height:100dvh;
     font-family:'Space Grotesk', system-ui, -apple-system, sans-serif;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding:52px 22px 46px; gap:18px; text-align:center; overflow:hidden;
+    padding:22px; gap:18px; text-align:center; overflow:hidden;
   }
   h1{ font-size:1.05rem; letter-spacing:0.16em; text-transform:uppercase; color:var(--blue); font-weight:700; }
 
@@ -21,8 +21,14 @@
      whole lesson, and the Academy's signature shape band along the foot. Text
      wordmark for now — drop the official logo SVG into .brandmark to replace it.
      The band is the website's arc-and-triangle motif rebuilt as one tiling SVG. */
+  /* Branding shows only at the entry points — the join screen and the between-rounds
+     standby. During an active round it is wasted space (and the top wordmark sat over
+     the room number), so it clears out and the game gets the room back. */
   .brandmark{ position:fixed; top:11px; left:0; right:0; z-index:6; pointer-events:none;
-    display:flex; gap:9px; align-items:center; justify-content:center; }
+    display:none; gap:9px; align-items:center; justify-content:center; }
+  body:has(#screen-join.active) .brandmark{ display:flex; }
+  body:has(#screen-join.active){ padding:52px 22px 46px; }
+  body:has(#screen-play.waiting){ padding-bottom:46px; }
   .bm-dcu{ font-weight:700; font-size:1.18rem; letter-spacing:.01em; color:var(--white); }
   .bm-ia{ font-size:.58rem; line-height:1.06; text-align:left; text-transform:uppercase;
     letter-spacing:.09em; color:var(--cream); opacity:.9; }
@@ -30,15 +36,19 @@
     letter-spacing:.18em; text-transform:uppercase; color:var(--navy);
     background:var(--yellow); padding:2px 7px; border-radius:999px; }
   .brandcredit{ position:fixed; bottom:41px; left:0; right:0; z-index:6; pointer-events:none;
-    text-align:center; font-size:.56rem; letter-spacing:.16em; text-transform:uppercase;
+    display:none; text-align:center; font-size:.56rem; letter-spacing:.16em; text-transform:uppercase;
     color:rgba(251,243,213,.42); }
+  body:has(#screen-join.active) .brandcredit,
+  body:has(#screen-play.waiting) .brandcredit{ display:block; }
   /* The shape band, centre-anchored so it cuts identically at both edges — no lone
      half-circle hanging off one side. One symmetric tile of evenly-spaced arcs
      (palindrome colours) repeated from the centre out. */
   .brandbar{ position:fixed; bottom:0; left:0; right:0; height:40px; z-index:5;
-    pointer-events:none;
+    pointer-events:none; display:none;
     background:var(--navy) url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='200'%20height='40'%3E%3Cpath%20d='M4%2040%20A16%2016%200%200%201%2036%2040%20Z'%20fill='%23FFC20E'/%3E%3Cpath%20d='M44%2040%20A16%2016%200%200%201%2076%2040%20Z'%20fill='%2300A0DF'/%3E%3Cpath%20d='M84%2040%20A16%2016%200%200%201%20116%2040%20Z'%20fill='%23FBF3D5'/%3E%3Cpath%20d='M124%2040%20A16%2016%200%200%201%20156%2040%20Z'%20fill='%2300A0DF'/%3E%3Cpath%20d='M164%2040%20A16%2016%200%200%201%20196%2040%20Z'%20fill='%23FFC20E'/%3E%3C/svg%3E") repeat-x center bottom;
     background-size:200px 40px; }
+  body:has(#screen-join.active) .brandbar,
+  body:has(#screen-play.waiting) .brandbar{ display:block; }
 
   /* The idle standby: between rounds there is nothing to press, so the phone shows
      the school's identity instead of a dead button. Only ever visible while
@@ -47,7 +57,6 @@
   #screen-play.waiting #standby{ display:flex; }
   #screen-play.waiting #buzzer{ display:none !important; }
   #screen-play.waiting #state{ margin-top:2px; }
-  body:has(#screen-play.waiting) .brandmark{ display:none; }   /* the big one carries it */
   .sb-mark{ display:flex; align-items:center; gap:14px; }
   .sb-dcu{ font-weight:700; font-size:3.4rem; line-height:.85; letter-spacing:.01em; color:var(--white); }
   .sb-ia{ font-size:1.05rem; line-height:1.08; text-align:left; text-transform:uppercase;
@@ -479,14 +488,14 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-buzzer.js?v=20260908c"></script>
+<script src="game-hub/hub-buzzer.js?v=20260908d"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260908c"></script>
+<script src="game-hub/matter.min.js?v=20260908d"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260908c"></script>
+<script src="game-hub/hub-table.js?v=20260908d"></script>
 <script>
 (function(){
   'use strict';

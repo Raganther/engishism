@@ -667,6 +667,10 @@
         <div class="eyebrow"></div>
         <h1 id="page-title">Game Hub</h1>
       </div>
+      <!-- The school's identity, centred at the top of the board — the framework
+           wearing DCUIA. Absolutely centred so it never disturbs the no-wrap header;
+           hidden on narrow widths so it cannot collide on a phone-sized board. -->
+      <div class="hub-brand" aria-label="DCU International Academy"><b>DCU</b>&nbsp;International Academy</div>
       <div class="header-right">
         <span id="build-tag" title="App version — the settings cog moved to the room bench, so the build shows here">Build ${window.HUB_BUILD || 'dev'}</span>
         <div id="timer-widget">
