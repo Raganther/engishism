@@ -34,6 +34,12 @@ header{ position:relative; padding: 12px 24px 10px; display:flex; align-items:ce
   font-size:0.9rem; letter-spacing:0.02em; color:var(--navy); opacity:0.92; }
 .hub-brand b{ font-weight:700; letter-spacing:0.03em; }
 @media (max-width:1000px){ .hub-brand{ display:none; } }
+/* The class joins by QR only, so the typed join address is hidden everywhere it
+   would otherwise print on the projector — both the header chip and the lobby.
+   Display-only: the elements stay in the DOM (the QR still encodes the real URL),
+   they just never show the address on screen. */
+.buzz-join{ display:none !important; }
+#join-url{ display:none !important; }
 /* `nowrap` is the whole guarantee. Wrapping was how the strip grew: title 384px +
    cluster 883px is 45px over the content width, so the cluster dropped to a second
    row and the header went 72px → 130px. Nothing may wrap here — everything shrinks
