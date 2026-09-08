@@ -1371,14 +1371,25 @@
   }
   function reportCloseEntry(){
     const e = scoreReport[scoreReport.length - 1];
-    if(e && !e.after){ e.after = teams.map(t => t.score); reportSave(); }
+    if(!e || e.after) return;
+    /* Close by competitor id, not by roster position. A question held open while
+       phones drop and rejoin reorders `teams` underneath the snapshot, and a
+       positional close then subtracts one competitor's score from another's —
+       the "index is not an identity" trap, which manufactured a screenful of
+       false discrepancies in a 15-phone class. Entries with a `roster` (written
+       by reportOpenEntry) close to an id→score map; legacy entries with none keep
+       the old positional close so a ledger recorded before this fix still reads. */
+    if(e.roster){ const by = {}; teams.forEach(t => { by[t.id] = t.score; }); e.after = by; }
+    else { e.after = teams.map(t => t.score); }
+    reportSave();
   }
   function reportOpenEntry(label){
     reportCloseEntry();
     scoreReport.push({ label, when: new Date().toISOString().slice(0, 19),
                        build: window.HUB_BUILD || null,
-                       names: teams.map((t, i) => teamName(i)),
-                       before: teams.map(t => t.score),
+                       /* one row per competitor, carrying its stable id — the whole
+                          entry is read back by id, so it survives a roster shuffle */
+                       roster: teams.map((t, i) => ({ id: t.id, name: teamName(i), before: t.score })),
                        after: null, expected: null, results: null });
     reportSave();
   }
@@ -1416,7 +1427,10 @@
       reportOpenEntry('between questions · ' + (activeGame || 'setup'));
       e = scoreReport[scoreReport.length - 1];
     }
-    (e.moves = e.moves || []).push({ t: Number(team), d: delta, why: String(why || '') });
+    /* Stamp the move with the competitor's id resolved NOW, while the index is
+       valid — read back by id so the move stays with the right competitor. */
+    (e.moves = e.moves || []).push({ id: (teams[Number(team)] || {}).id || null,
+                                     t: Number(team), d: delta, why: String(why || '') });
     reportSave();
   }
   /* Called after the slot pays. Expected = the slot at what it actually paid, plus
@@ -1424,11 +1438,15 @@
   function reportPayout(slotTeam, paid){
     const e = scoreReport[scoreReport.length - 1];
     if(!e) return;
-    e.results = Kit.round.results.list();
+    e.results = Kit.round.results.list();   // rows carry .id (stable) and .who (index)
     const pay = roundPayout();
-    e.expected = teams.map((t, i) =>
-      i === slotTeam ? (paid || 0)
-      : ((Kit.round.results.of(i) || {}).done ? (pay[i] || 0) : 0));
+    /* Expected keyed by competitor id, resolved now while the indices are valid,
+       so the render matches it to the right competitor by id later. */
+    e.expected = {};
+    teams.forEach((t, i) => {
+      e.expected[t.id] = (i === slotTeam) ? (paid || 0)
+        : ((Kit.round.results.of(i) || {}).done ? (pay[i] || 0) : 0);
+    });
     reportSave();
   }
   window.HubReport = {
@@ -1464,34 +1482,78 @@
       h.textContent = e.label + '   ' + (e.when || '') +
         (e.build && e.build !== window.HUB_BUILD ? '   · build ' + e.build : '');
       row.appendChild(h);
-      const after = e.after || teams.map(t => t.score);
-      (e.names || []).forEach((nm, i)=>{
-        const gain  = (after[i] || 0) - (e.before[i] || 0);
-        const moves = (e.moves || []).filter(m => m.t === i);
-        const sum   = moves.reduce((a, m) => a + (m.d || 0), 0);
-        const exp   = e.expected ? (e.expected[i] || 0) : null;
-        if(!gain && !exp && !moves.length) return;
-        /* With moves the check is exact: the sum of what the ledger says happened
-           against what actually happened. A movement that bypassed the ledger \u2014
-           the class of thing the unexplained 600 was \u2014 shows as the difference.
-           Entries from before the ledger fall back to the old expected diff. */
-        const off = moves.length ? sum !== gain : (exp != null && exp !== gain);
-        const line = document.createElement('div');
-        line.className = 'rp-team' + (off ? ' off' : '');
-        const r = (e.results || []).filter(x => x.who === i)[0];
-        line.textContent = nm + ': ' + (gain >= 0 ? '+' : '') + gain +
-          (moves.length && off ? '  (the moves say ' + (sum >= 0 ? '+' : '') + sum + ')' : '') +
-          (!moves.length && exp != null ? '  (expected ' + (exp >= 0 ? '+' : '') + exp + ')' : '') +
-          (r ? '  \u00b7 ' + (r.done ? 'finished ' + ordinalReport(r.place) : 'answered') +
-               ' at ' + (r.seconds || 0).toFixed(1) + 's' : '');
-        row.appendChild(line);
-        moves.forEach(m=>{
-          const mv = document.createElement('div');
-          mv.className = 'rp-move';
-          mv.textContent = (m.d >= 0 ? '+' : '') + m.d + '  \u00b7 ' + (m.why || 'unlabelled');
-          row.appendChild(mv);
-        });
+      const addMoveLines = moves => moves.forEach(m=>{
+        const mv = document.createElement('div');
+        mv.className = 'rp-move';
+        mv.textContent = (m.d >= 0 ? '+' : '') + m.d + '  \u00b7 ' + (m.why || 'unlabelled');
+        row.appendChild(mv);
       });
+      if(e.roster){
+        /* Read the whole entry back by competitor id, so a roster that reordered
+           while the question was open cannot subtract one competitor's score from
+           another's. `after` is an id\u2192score map (a not-yet-closed entry falls back
+           to the live scores by id). A competitor who left before the close has no
+           `after`, so the ledger's own moves are the truth for them. */
+        const live = {}; teams.forEach(t => { live[t.id] = t.score; });
+        const aft = (e.after && !Array.isArray(e.after)) ? e.after : live;
+        const rosterById = {}; e.roster.forEach(c => { rosterById[c.id] = c; });
+        const order = []; const seen = {};
+        const see = id => { if(id && !seen[id]){ seen[id] = 1; order.push(id); } };
+        e.roster.forEach(c => see(c.id));
+        (e.moves || []).forEach(m => see(m.id));
+        (e.results || []).forEach(r => see(r.id));
+        const nameOf = id => {
+          if(rosterById[id]) return rosterById[id].name;
+          const t = teams.filter(x => x.id === id)[0];
+          if(t) return t.name;
+          const rr = (e.results || []).filter(x => x.id === id)[0];
+          return (rr && rr.name) || id;
+        };
+        order.forEach(id => {
+          const c       = rosterById[id];
+          const present = Object.prototype.hasOwnProperty.call(aft, id);
+          const moves   = (e.moves || []).filter(m => m.id === id);
+          const sum     = moves.reduce((a, m) => a + (m.d || 0), 0);
+          const before  = c ? (c.before || 0) : 0;
+          const gain    = present ? ((aft[id] || 0) - before) : sum;
+          const exp     = (e.expected && e.expected[id] != null) ? e.expected[id] : null;
+          if(!gain && !exp && !moves.length) return;
+          const off = present ? (moves.length ? sum !== gain : (exp != null && exp !== gain)) : false;
+          const line = document.createElement('div');
+          line.className = 'rp-team' + (off ? ' off' : '');
+          const r = (e.results || []).filter(x => x.id === id)[0];
+          line.textContent = nameOf(id) + ': ' + (gain >= 0 ? '+' : '') + gain +
+            (moves.length && off ? '  (the moves say ' + (sum >= 0 ? '+' : '') + sum + ')' : '') +
+            (!moves.length && exp != null ? '  (expected ' + (exp >= 0 ? '+' : '') + exp + ')' : '') +
+            (!present ? '  \u00b7 left' : '') +
+            (r ? '  \u00b7 ' + (r.done ? 'finished ' + ordinalReport(r.place) : 'answered') +
+                 ' at ' + (r.seconds || 0).toFixed(1) + 's' : '');
+          row.appendChild(line);
+          addMoveLines(moves);
+        });
+      } else {
+        /* Legacy path for entries recorded before the id fix: positional, and so
+           still vulnerable to the reorder \u2014 but it is what those stored rows carry. */
+        const after = e.after || teams.map(t => t.score);
+        (e.names || []).forEach((nm, i)=>{
+          const gain  = (after[i] || 0) - (e.before[i] || 0);
+          const moves = (e.moves || []).filter(m => m.t === i);
+          const sum   = moves.reduce((a, m) => a + (m.d || 0), 0);
+          const exp   = e.expected ? (e.expected[i] || 0) : null;
+          if(!gain && !exp && !moves.length) return;
+          const off = moves.length ? sum !== gain : (exp != null && exp !== gain);
+          const line = document.createElement('div');
+          line.className = 'rp-team' + (off ? ' off' : '');
+          const r = (e.results || []).filter(x => x.who === i)[0];
+          line.textContent = nm + ': ' + (gain >= 0 ? '+' : '') + gain +
+            (moves.length && off ? '  (the moves say ' + (sum >= 0 ? '+' : '') + sum + ')' : '') +
+            (!moves.length && exp != null ? '  (expected ' + (exp >= 0 ? '+' : '') + exp + ')' : '') +
+            (r ? '  \u00b7 ' + (r.done ? 'finished ' + ordinalReport(r.place) : 'answered') +
+                 ' at ' + (r.seconds || 0).toFixed(1) + 's' : '');
+          row.appendChild(line);
+          addMoveLines(moves);
+        });
+      }
       body.appendChild(row);
     });
     modal.classList.add('on');
