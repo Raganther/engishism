@@ -32,9 +32,29 @@
   .brandcredit{ position:fixed; bottom:41px; left:0; right:0; z-index:6; pointer-events:none;
     text-align:center; font-size:.56rem; letter-spacing:.16em; text-transform:uppercase;
     color:rgba(251,243,213,.42); }
-  .brandbar{ position:fixed; bottom:0; left:0; right:0; height:34px; z-index:5;
-    pointer-events:none; line-height:0; }
-  .brandbar svg{ display:block; width:100%; height:34px; }
+  /* The shape band, centre-anchored so it cuts identically at both edges — no lone
+     half-circle hanging off one side. One symmetric tile of evenly-spaced arcs
+     (palindrome colours) repeated from the centre out. */
+  .brandbar{ position:fixed; bottom:0; left:0; right:0; height:40px; z-index:5;
+    pointer-events:none;
+    background:var(--navy) url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='200'%20height='40'%3E%3Cpath%20d='M4%2040%20A16%2016%200%200%201%2036%2040%20Z'%20fill='%23FFC20E'/%3E%3Cpath%20d='M44%2040%20A16%2016%200%200%201%2076%2040%20Z'%20fill='%2300A0DF'/%3E%3Cpath%20d='M84%2040%20A16%2016%200%200%201%20116%2040%20Z'%20fill='%23FBF3D5'/%3E%3Cpath%20d='M124%2040%20A16%2016%200%200%201%20156%2040%20Z'%20fill='%2300A0DF'/%3E%3Cpath%20d='M164%2040%20A16%2016%200%200%201%20196%2040%20Z'%20fill='%23FFC20E'/%3E%3C/svg%3E") repeat-x center bottom;
+    background-size:200px 40px; }
+
+  /* The idle standby: between rounds there is nothing to press, so the phone shows
+     the school's identity instead of a dead button. Only ever visible while
+     #screen-play carries .waiting; the buzzer returns the instant a round arms. */
+  #standby{ display:none; flex-direction:column; align-items:center; gap:16px; margin:auto 0; }
+  #screen-play.waiting #standby{ display:flex; }
+  #screen-play.waiting #buzzer{ display:none !important; }
+  #screen-play.waiting #state{ margin-top:2px; }
+  body:has(#screen-play.waiting) .brandmark{ display:none; }   /* the big one carries it */
+  .sb-mark{ display:flex; align-items:center; gap:14px; }
+  .sb-dcu{ font-weight:700; font-size:3.4rem; line-height:.85; letter-spacing:.01em; color:var(--white); }
+  .sb-ia{ font-size:1.05rem; line-height:1.08; text-align:left; text-transform:uppercase;
+    letter-spacing:.1em; color:var(--cream); }
+  .sb-relay{ font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:.72rem;
+    letter-spacing:.28em; text-transform:uppercase; color:var(--navy);
+    background:var(--yellow); padding:4px 13px; border-radius:999px; }
   .screen{ display:none; width:100%; max-width:420px; flex-direction:column; gap:16px; align-items:center; }
   .screen.active{ display:flex; }
   label{ font-size:0.74rem; letter-spacing:0.12em; text-transform:uppercase; color:rgba(251,243,213,0.7); align-self:flex-start; }
@@ -375,22 +395,8 @@
   <span class="bm-relay">Relay</span>
 </div>
 <p class="brandcredit">Engishism framework</p>
-<!-- The Academy's arc-and-triangle motif, rebuilt as one tiling SVG band. -->
-<div class="brandbar" aria-hidden="true">
-  <svg preserveAspectRatio="none">
-    <defs><pattern id="dcuBand" width="160" height="34" patternUnits="userSpaceOnUse">
-      <rect x="0"   width="40" height="34" fill="#FBF3D5"/>
-      <rect x="40"  width="40" height="34" fill="#12263F"/>
-      <rect x="80"  width="40" height="34" fill="#00A0DF"/>
-      <rect x="120" width="40" height="34" fill="#FFC20E"/>
-      <path d="M4,34 A16,16 0 0 1 36,34 Z"   fill="#12263F"/>
-      <path d="M44,34 A16,16 0 0 1 76,34 Z"  fill="#FFC20E"/>
-      <path d="M84,34 A16,16 0 0 1 116,34 Z" fill="#FBF3D5"/>
-      <path d="M120,34 L140,7 L160,34 Z"     fill="#12263F"/>
-    </pattern></defs>
-    <rect width="100%" height="34" fill="url(#dcuBand)"/>
-  </svg>
-</div>
+<!-- The Academy's arc motif, a centre-anchored tiling band (see .brandbar). -->
+<div class="brandbar" aria-hidden="true"></div>
 
 <div class="screen active" id="screen-join">
   <label for="code">Game code</label>
@@ -429,6 +435,14 @@
   <!-- how long is left on this round, when the host set a clock -->
   <p class="clock" id="round-clock"></p>
   <button id="buzzer" disabled>Wait</button>
+  <!-- Between rounds: the school's identity where the dead button used to be. -->
+  <div id="standby">
+    <div class="sb-mark">
+      <span class="sb-dcu">DCU</span>
+      <span class="sb-ia">International<br>Academy</span>
+    </div>
+    <span class="sb-relay">Relay</span>
+  </div>
   <div class="opts" id="opts"></div>
   <!-- The anagram round: a tray of letters and the boxes they go into. Its own
        element rather than a shape inside #opts, because a tile here is identified
@@ -718,6 +732,7 @@
   function setMode(m, opts, mine, shape){
     mode = m || 'buzz';
     answered = false;
+    $('screen-play').classList.remove('waiting');   // a mode means there's something to do
     if(mine === false) mode = 'watch';
     // 'type' is both at once: the box to write in and the button to claim the floor
     $('buzzer').style.display = (mode==='buzz' || mode==='type') ? '' : 'none';
@@ -1445,7 +1460,8 @@
       if(d.locked){ setBuzzer('off','Too late');
                     if(d.locked.secs) floorClockRun(d.locked.secs, d.locked.name + ' got in first');
                     else $('state').textContent = d.locked.name + ' got in first'; }
-      else        { setBuzzer('off','Wait');    $('state').textContent = 'Waiting for the teacher…'; }
+      else        { setBuzzer('off','Wait');    $('state').textContent = 'Waiting for the teacher…';
+                    $('screen-play').classList.toggle('waiting', !card); }
     });
 
     client.on('card', d=>{
@@ -1687,6 +1703,9 @@
       $('qnote').textContent = '';
       setMode(card ? 'card-idle' : 'buzz');
       if(card) renderCard();
+      /* Nothing to press and no card to read = the standby screen (the school's
+         identity). A card between calls stays on screen instead. */
+      $('screen-play').classList.toggle('waiting', !card);
       say(msg);
     }
     client.on('disarmed', ()=> standDown('Waiting for the teacher…'));
