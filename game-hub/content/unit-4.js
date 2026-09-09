@@ -150,8 +150,13 @@
        times. Have/Get has no natural scale, so its $400 and $500 are two Drag the
        Words sentences contrasting the causative's two senses — paying a professional
        ('have her hair cut') and something done to you ('had my bike stolen') — each
-       playable drag or flick; the other four columns
-       carry the book's own scales from the memory and eyewitness pages (pp47-49).
+       playable drag or flick. Eyewitness Evidence has none either (fallible,
+       susceptible, cautious and neutral do not sit on one axis — two are about the
+       witness and two about how police run a line-up), so its $400 is the text's own
+       sentence as Drag the Words; the other three columns carry the book's own
+       scales from the memory and eyewitness pages (pp47-49). A column never asks the
+       same word twice — a $100 that quotes 'renovated' or answers 'testimony' gives
+       away a $300 anagram of it.
        Every clue states its own context — a teacher who has not read the unit can
        still play it. */
     { id:'4b-have-get', section:'4B', name:'Have / Get Something Done', clues:[
@@ -162,8 +167,8 @@
       {v:200, q:"Four of these are jobs you pay a professional to do — 'have something done'. Find the four.",
         group:{ pick:["renovated","serviced","decorated","installed"],
                 with:["stolen","burgled","vandalised","damaged"] }},
-      {v:300, q:"'They had the whole kitchen ___ last spring — a builder did the work, not them.' (9 letters)",
-        anagram:{ word:"renovated" }},
+      {v:300, q:"'My brother got me ___ unfairly.' He caused it to happen to me. (8 letters)",
+        anagram:{ word:"punished" }},
       {v:400, q:"Put the words in order — she is paying the salon to do it.",
         scramble:{ sentence:"She is going to have her hair cut before the wedding" }},
       {v:500, q:"Put the words in order — something was done to me.",
@@ -173,17 +178,16 @@
       {v:100, q:"Which collocation means 'you can remember anything perfectly'?",
         choice:{ options:["a photographic memory","a lasting memory","a vivid memory","a distant memory"],
                  answer:"a photographic memory" }},
-      {v:200, q:"Four of these describe a memory you can still feel. Find the four.",
+      {v:200, q:"Four of these describe a memory that is still strong. Find the four.",
         group:{ pick:["vivid","painful","lasting","photographic"],
                 with:["vague","distant","faded","forgotten"] }},
       {v:300, q:"'A ___ memory comes back with clear sensations — you can still feel it.' (5 letters)",
         anagram:{ word:"vivid" }},
       {v:400, q:"Put these in order — faintest memory first.",
-        order:{ scale:["forgotten","vague","distant","vivid","photographic"],
+        order:{ scale:["forgotten","vague","vivid","photographic"],
                 low:"nothing is left", high:"perfect recall",
                 gloss:{ forgotten:"gone entirely.",
                         vague:"the book's word for a memory that is unclear.",
-                        distant:"it happened a long time ago.",
                         vivid:"with clear sensations — you can still feel it.",
                         photographic:"you can remember anything perfectly." } }},
       {v:500, q:"Put the words in order — a smell brings it all back.",
@@ -192,19 +196,13 @@
     { id:'4b-eyewitness', section:'4B', name:'Eyewitness Evidence', clues:[
       {v:100, q:"In a police ___, a witness tries to pick out the person who did it.",
         choice:{ options:["line-up","verdict","sentence","appeal"], answer:"line-up" }},
-      {v:200, q:"Four of these belong in a courtroom; four describe a memory. Find the four from the courtroom.",
+      {v:200, q:"Four of these are from the police investigation; four describe a memory. Find the four from the investigation.",
         group:{ pick:["perpetrator","line-up","testimony","defendant"],
                 with:["vivid","vague","distant","lasting"] }},
       {v:300, q:"'The witness was asked to identify the ___ from the photographs.' The one who did the crime. (11 letters)",
         anagram:{ word:"perpetrator" }},
-      {v:400, q:"Put these in order — least reliable first.",
-        order:{ scale:["fallible","susceptible","cautious","neutral","accurate"],
-                low:"gets it wrong", high:"gets it right",
-                gloss:{ fallible:"the text's word — capable of being wrong.",
-                        susceptible:"open to influence from what you believe.",
-                        cautious:"aware it might be wrong, and careful.",
-                        neutral:"not leaning either way — how a line-up should be run.",
-                        accurate:"matches what actually happened." } }},
+      {v:400, q:"Put the words in order — how a line-up goes wrong, from the text.",
+        scramble:{ sentence:"Body language can easily influence the witness's choice" }},
       {v:500, q:"Put the words in order — the text's warning about memory.",
         scramble:{ sentence:"The witness felt sure but memory is often fallible" }},
     ]},
@@ -213,7 +211,7 @@
         choice:{ options:["susceptible","immune","resistant","opposed"], answer:"susceptible" }},
       {v:200, q:"Four of these are why the text says memory goes wrong. Find the four.",
         group:{ pick:["shock","trauma","influence","belief"],
-                with:["camera","precision","record","detail"] }},
+                with:["camera","precision","record","photograph"] }},
       {v:300, q:"'We are good at ___ bits of visual information into a single memory.' Joining them together. (6 letters)",
         anagram:{ word:"fusing" }},
       {v:400, q:"Put these in order — least of your own mind in it first.",
@@ -232,9 +230,9 @@
         choice:{ options:["testimony","gossip","rumour","opinion"], answer:"testimony" }},
       {v:200, q:"Four of these are steps in a criminal case. Find the four.",
         group:{ pick:["crime","witness","line-up","court"],
-                with:["vivid","vague","lasting","distant"] }},
-      {v:300, q:"'There is nothing more convincing than eyewitness ___.' What a witness swears to in court. (9 letters)",
-        anagram:{ word:"testimony" }},
+                with:["renovated","stolen","fixed","punished"] }},
+      {v:300, q:"'It looks like the ___ is going to go free, but at the last minute…' The person on trial. (9 letters)",
+        anagram:{ word:"defendant" }},
       {v:400, q:"Put these in order — how a case unfolds, earliest first.",
         order:{ scale:["crime","witness","description","line-up","court"],
                 low:"it happens", high:"the jury hears it",
@@ -242,7 +240,7 @@
                         witness:"someone who saw it.",
                         description:"what the police ask for first.",
                         'line-up':"the witness is invited to identify the perpetrator.",
-                        court:"by now, time has elapsed." } }},
+                        court:"where the testimony is finally heard." } }},
       {v:500, q:"Put the words in order — the classic courtroom scene.",
         scramble:{ sentence:"The prosecution produced a witness at the very last minute" }},
     ]},
