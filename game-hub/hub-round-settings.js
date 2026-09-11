@@ -201,10 +201,10 @@
        gate before forking). In a team room the live taps *are* the negotiation the
        lanes and the agreement fractions read, so Send there would starve the
        picture the mode exists for. These rows say so. */
-    S.register({ id:'roundSend', group:'Phones', type:'toggle', default:true, quick:true,
+    S.register({ id:'roundSend', group:'Phones', type:'toggle', default:false, quick:true,
       games:'*',
       label:'Individuals press Send',
-      help:'In a room of individuals, taps only select — the answer counts when the player presses Send. Stops guess-and-check. Team rooms are never affected.' });
+      help:'In a room of individuals, taps only select — the answer counts when the player presses Send. Stops guess-and-check, but every answer waits for a second press. Off, a tap or a docked tile is the answer the moment it lands. Team rooms are never affected.' });
     S.register({ id:'roundSendCool', group:'Phones', type:'range', default:3, quick:true,
       min:0, max:15, step:1, unit:'s', games:'*', under:'roundSend',
       label:'Wrong answer wait',

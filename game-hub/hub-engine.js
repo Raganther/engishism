@@ -320,6 +320,25 @@
     solo:        () => Roster.solo()
   });
 
+  /* **Send is off by default now, and the flip is a migration for the same reason as
+     above.** The commit beat (`roundSend`) shipped on: in a room of individuals a tap
+     only selected, and nothing reached the card until the player pressed Send. In
+     front of a class every answer then waited on a second press, which read as the
+     board lagging. Off, a tap or a docked tile is the answer the instant it lands —
+     how every tap round behaved before Send existed. A device that seeded the old
+     default is moved once; the marker keeps a teacher who turns it back on from
+     being overruled on the next load. **Runs after `registerRoundSettings` above** —
+     `roundSend` is registered there, and `S.set` ignores an id it has not met, so
+     placed with the other migrations this wrote nothing and still set its marker. */
+  (function migrateRoundSendOff(){
+    const MARK = 'engishism.roundSendOff';
+    let done = false;
+    try{ done = localStorage.getItem(MARK) === '1'; }catch(e){}
+    if(done) return;
+    console.warn('MIG raw=', JSON.stringify(S.raw('roundSend')), 'store=', localStorage.getItem('engishism.gamehub.settings')); if(S.raw('roundSend') === true) S.set('roundSend', false); console.warn('MIG after=', localStorage.getItem('engishism.gamehub.settings'));
+    try{ localStorage.setItem(MARK, '1'); }catch(e){}
+  })();
+
   /* Rounds were Jeopardy's alone for the first three, so their switches were named
      and grouped as Jeopardy's: `jGroupWho`, and `jRound_<id>` per round. A second
      board hosts rounds now, and a shared setting carrying one game's initial in its
