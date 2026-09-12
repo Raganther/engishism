@@ -140,7 +140,7 @@
       if(s.input === 'flick'){
         /* Revealed / won → the physics is over; a static filled row never argues
            with the answer line. Tear the live table down. */
-        if(s.shown || s.done){
+        if((s.shown || s.done) && K.round.face(s, c) !== 'phones'){   // the phones face keeps its lanes through the reveal
           if(s._canvas){ s._table = null; s._canvas = null; }
           mount.innerHTML = '';
           mount.className = 'round-scramble';
@@ -180,26 +180,23 @@
           const known = (s.hint || []).concat(K.round.crowdKnown(c, cw));
 
           /* The shared answer row — the words the whole room has earned (the crowd
-             reveal) plus any the teacher gave, each in its own slot. The flick face
-             has no tray or teacher-placed tiles (students flick on their phones), so
-             this row shows only what is revealed to everyone; a slot number
-             otherwise. The row the drag face draws, and the piece that was missing
-             here — the meter filled but the word it promised had nowhere to land. */
-          const line = document.createElement('div');
-          line.className = 'scr-line';
-          for(let i = 0; i < s.need; i++){
-            const b = document.createElement('div');
-            b.className = 'scr-slot';
-            if(s.shown){ b.className = 'scr-slot filled right'; b.textContent = s.words[i]; }
-            else if(known.indexOf(i) !== -1){ b.classList.add('hinted'); b.textContent = s.words[i]; }
-            else { b.classList.add('empty'); b.textContent = String(i + 1); }
-            line.appendChild(b);
-          }
-          mount.appendChild(line);
-
+             reveal) plus any the teacher gave, each in its numbered slot, and the
+             whole sentence once revealed — is the lanes' own `answer` row now, each
+             word in the colour of its tile on the phones. */
+          const dealt = s.pool.map(t => t.w);
+          const hue = w => K.round.hueOf(dealt, w);
           K.round.lanes(mount, c, {
             kind: 'scr',
             progressed: Object.keys(s.got || {}),
+            answer: {
+              label: s.shown ? 'Answer' : 'Known',
+              full: s.shown,
+              cells: Array.from({ length: s.need }, (_, i) => {
+                const got = s.shown || known.indexOf(i) !== -1;
+                return { got, text: got ? s.words[i] : String(i + 1), hue: got ? hue(s.words[i]) : null,
+                         cls: (!s.shown && got) ? 'hinted' : '' };
+              })
+            },
             lane(t){
               const gotRow = (s.got || {})[t] || [];
               const need = K.round.mustHold(s.mode, c, t);
@@ -208,7 +205,7 @@
               for(let i = 0; i < s.need; i++){
                 const ok = (gotRow[i] || 0) >= need;
                 if(ok) right++;
-                cells.push({ got: ok, text: ok ? s.words[i] : '' });
+                cells.push({ got: ok, text: ok ? s.words[i] : '', hue: ok ? hue(s.words[i]) : null });
               }
               return { cells, count: right + '/' + s.need,
                        agree: s.mode === 'agree' ? K.round.agreement(s, c, t) : null,

@@ -833,6 +833,38 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
 .rlanes-mc .rl-cell.gap{ width:1.15em; height:1.15em; border-bottom-width:1.5px; opacity:0.35; }
 .rlanes-mc .rl-cell.got{ background:var(--gw-line, var(--blue, #00A0DF)); }
 
+/* A cell wearing its tile's colour — the hue the physics dealt that word on the
+   phones (`Kit.round.hueOf`), so a room finds a word on the board by the colour in
+   its hand. The background is inline (it is data — which tile); the ink is the
+   tiles' own fixed dark, and the edge a neutral shadow rather than a team colour. */
+.rl-cell.tile{
+  opacity:1; border:1.5px solid rgba(0,0,0,0.22); border-radius:6px;
+  padding:0 0.45em; font-weight:700;
+}
+/* The answer lane — the shared row above the team lanes: hinted parts while the
+   question is open, the whole answer once revealed. Gold edge, because it belongs
+   to nobody; the wash keeps it from reading as a sixth team. */
+.rlanes.rl-answer-wrap{ margin-top:6px; }
+.rlane.rl-answer{
+  border-left-color:var(--gold, #C9A227);
+  background:var(--gw-wash, rgba(18,38,63,0.06));
+}
+.rlane.rl-answer .rl-cell.hinted{ outline:2px dashed var(--gold, #C9A227); outline-offset:1px; }
+/* A pick that turned out wrong once the answer is out. */
+.rl-cell.miss{ opacity:0.4; text-decoration:line-through; }
+
+/* Words: the sentence (scramble) and the thermometer's stack face, hot end first.
+   Word boxes, sized like the letters' but wide enough to hold a word; the empty
+   sentence slot keeps its number so the room can hear "we need number three". */
+.rlanes-scr .rl-cell, .rlanes-ord .rl-cell{
+  min-width:2.2em; height:1.5em; border-radius:6px; opacity:1;
+  border:1.5px solid var(--gw-line, var(--blue, #00A0DF));
+  display:inline-flex; align-items:center; justify-content:center;
+  font-weight:700; font-size:0.72em; padding:0 0.4em;
+}
+.rlanes-scr .rl-cell.gap, .rlanes-ord .rl-cell.gap{ width:auto; border-bottom-width:1.5px; opacity:0.35; height:1.5em; }
+.rlanes-scr .rl-cell.got, .rlanes-ord .rl-cell.got{ background:var(--gw-goodwash, rgba(46,158,79,0.14)); }
+
 /* ================= The word drop round ================= */
 /* A playfield, not a list: the tile falls through open space toward the bins.
    The field's height is the game — too short and there is no time to argue,

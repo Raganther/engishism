@@ -156,7 +156,7 @@
       if(s.input === 'flick'){
         /* Revealed / won → the physics is over, and a static filled row never
            argues with the answer line. Tear the live table down. */
-        if(s.shown || s.done){
+        if((s.shown || s.done) && K.round.face(s, c) !== 'phones'){   // the phones face keeps its lanes through the reveal
           if(s._canvas){ s._table = null; s._canvas = null; }
           mount.innerHTML = '';
           mount.className = 'round-anagram';
@@ -195,26 +195,24 @@
           const known = (s.hint || []).concat(K.round.crowdKnown(c, cw));
 
           /* The shared answer row — the letters the whole room has earned (the crowd
-             reveal) plus any the teacher gave, each in its own slot. The flick face
-             has no tray or teacher-placed tiles (students flick on their phones), so
-             this row shows only what is revealed to everyone; empty boxes otherwise.
-             This is the box row the drag face draws, and the piece that was missing
-             here — the meter filled but the letter it promised had nowhere to land. */
-          const boxes = document.createElement('div');
-          boxes.className = 'ana-boxes';
-          for(let i = 0; i < s.need; i++){
-            const b = document.createElement('div');
-            b.className = 'ana-box';
-            if(s.shown){ b.classList.add('filled', 'right'); b.textContent = s.word[i]; }
-            else if(known.indexOf(i) !== -1){ b.classList.add('hinted'); b.textContent = s.word[i]; }
-            else b.innerHTML = '&nbsp;';
-            boxes.appendChild(b);
-          }
-          mount.appendChild(boxes);
-
+             reveal) plus any the teacher gave, each in its own slot, and the whole
+             word once it is revealed — is the lanes' own `answer` row now, each
+             letter in the colour of its tile on the phones (`Kit.round.hueOf` over
+             the list the phones were dealt). */
+          const dealt = s.pool.map(t => t.ch);
+          const hue = ch => K.round.hueOf(dealt, ch);
           K.round.lanes(mount, c, {
             kind: 'ana',
             progressed: Object.keys(s.got || {}),
+            answer: {
+              label: s.shown ? 'Answer' : 'Known',
+              full: s.shown,
+              cells: Array.from({ length: s.need }, (_, i) => {
+                const got = s.shown || known.indexOf(i) !== -1;
+                return { got, text: got ? s.word[i] : '', hue: got ? hue(s.word[i]) : null,
+                         cls: (!s.shown && got) ? 'hinted' : '' };
+              })
+            },
             lane(t){
               const row = (s.got || {})[t] || [];
               const need = K.round.mustHold(s.mode, c, t);
@@ -223,7 +221,7 @@
               for(let i = 0; i < s.need; i++){
                 const ok = (row[i] || 0) >= need;
                 if(ok) right++;
-                cells.push({ got: ok, text: ok ? s.word[i] : '', colour: true });
+                cells.push({ got: ok, text: ok ? s.word[i] : '', colour: true, hue: ok ? hue(s.word[i]) : null });
               }
               return { cells, count: right + ' of ' + s.need,
                        agree: s.mode === 'agree' ? K.round.agreement(s, c, t) : null,

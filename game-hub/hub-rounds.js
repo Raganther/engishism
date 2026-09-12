@@ -707,8 +707,71 @@
     return wrap;
   }
 
+  /* ---------- the colour a word wears ----------
+     **The hue the physics dealt a word, so a box on the board matches the tile in
+     the room's hands.** Kit.table paints piece k in hue k of its palette
+     (hub-table.js, `setPieces`), and a phone deals the options list exactly as the
+     round armed it — so the k-th option wears hue k, and that is the whole formula.
+     It lived in the thermometer's ladder first; here so every lane paints from one
+     home and a round never re-derives it. A repeated letter takes its first tile's
+     hue. Null with no physics shelf loaded or a word not in the list, and the cell
+     then draws as it always did. */
+  function hueOf(list, word){
+    const hues = (K.table && K.table.hues) || null;
+    if(!hues || !hues.length || !Array.isArray(list)) return null;
+    const k = list.indexOf(word);
+    return k >= 0 ? hues[k % hues.length] : null;
+  }
+
+  /* One cell of a lane. `hue` paints it as the tile it stands for — inline,
+     because the colour is data (which tile), not styling — with the tiles' own
+     fixed dark ink, readable on every hue. */
+  function laneCell(cs, teamColour){
+    const cell = document.createElement('span');
+    cell.className = 'rl-cell ' + (cs.got ? 'got' : 'gap') + (cs.cls ? ' ' + cs.cls : '');
+    if(cs.text != null && cs.text !== '') cell.textContent = cs.text;
+    if(cs.colour && teamColour) cell.style.borderColor = teamColour;
+    if(cs.hue){
+      cell.classList.add('tile');
+      cell.style.background = cs.hue;
+      cell.style.color = '#101318';
+    }
+    return cell;
+  }
+
+  /* ---------- the answer lane ----------
+     **The one row every physics round shares above its team lanes.** While the
+     question is open it holds what the whole room has earned — the crowd reveal
+     and the teacher's hints — and on reveal it is the answer itself, each part in
+     the colour of its tile, so a student reads "my colours against the right
+     colours" without a word being spoken. Drawn whatever the room's size: above
+     the lane ceiling the team picture becomes the crowd line, and this row is then
+     the only place the answer lands. Drawn once, by `lanes()`, from the round's
+     `answer` spec — `{ label, cells:[{got, text, hue, cls}] }` — so the anagram,
+     the sentence and the thermometer stop each keeping a row of their own. */
+  function answerLane(mount, o){
+    const a = o.answer;
+    if(!a || !Array.isArray(a.cells)) return null;
+    const wrap = document.createElement('div');
+    wrap.className = 'rlanes rl-answer-wrap' + (o.kind ? ' rlanes-' + o.kind : '');
+    const lane = document.createElement('div');
+    lane.className = 'rlane rl-answer' + (a.full ? ' full' : '');
+    const who = document.createElement('span');
+    who.className = 'rl-who';
+    who.textContent = a.label || 'Answer';
+    lane.appendChild(who);
+    const row = document.createElement('span');
+    row.className = 'rl-row';
+    a.cells.forEach(cs => row.appendChild(laneCell(cs, null)));
+    lane.appendChild(row);
+    wrap.appendChild(lane);
+    mount.appendChild(wrap);
+    return wrap;
+  }
+
   function lanes(mount, ctx, opts){
     const o = opts || {};
+    answerLane(mount, o);                 // the shared row, above the lanes or the crowd line alike
     const teams = laneTeams(ctx, o.progressed);
     if(!teams.length) return null;
     /* **Lanes are drawn while they can be read, and six is where that stops.** The
@@ -783,13 +846,7 @@
 
       const row = document.createElement('span');
       row.className = 'rl-row';
-      (spec.cells || []).forEach(cs=>{
-        const cell = document.createElement('span');
-        cell.className = 'rl-cell ' + (cs.got ? 'got' : 'gap') + (cs.cls ? ' ' + cs.cls : '');
-        if(cs.text != null && cs.text !== '') cell.textContent = cs.text;
-        if(cs.colour) cell.style.borderColor = colour(t);
-        row.appendChild(cell);
-      });
+      (spec.cells || []).forEach(cs => row.appendChild(laneCell(cs, colour(t))));
       lane.appendChild(row);
 
       if(spec.count != null){
@@ -1549,7 +1606,7 @@
       return null;
     },
     ctx: buildCtx, resolve,
-    shares, settle, clock, results, poll, agreement, lanes, placeBadge, crowd, crowdKnown, crowdMeter, mustHold, arrangement, cardTable, cap, actions, strip, press, say, finish, shuffle, teamColour, dragTag, bare,
+    shares, settle, clock, results, poll, agreement, lanes, hueOf, placeBadge, crowd, crowdKnown, crowdMeter, mustHold, arrangement, cardTable, cap, actions, strip, press, say, finish, shuffle, teamColour, dragTag, bare,
     /* **Which face a physics question is played on, decided ONCE per question.**
        'phones' when handsets were in the room as the question opened, else 'board'.
        Read live, the face followed the roster: a phone joining mid-question tore the

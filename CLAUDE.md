@@ -827,14 +827,21 @@ one board can carry a flicked category beside a dragged one. Untouched, a row sh
 the game-wide row would do. The Lab unit's **L9 category** is ordinary anagram content
 that demonstrates flick.
 
-**The board-face canvas wiring is now copied in THREE rounds** (anagram flick, ordering
-stack, scramble flick) — the create-canvas / `toss-canvas` / `K.table({onArrange})` /
-slots-before-pieces / pointer-wiring / self-stopping-loop / `window.__x` boilerplate.
-**The deferred extraction trigger ("a third physics-card round") is MET.** Held only
-because extracting a `Kit.round` card-table helper and rewiring all three (two of them
-shipped) wants the round suite and a focused session, not the overnight run that added
-the third. **Next focused task**; `docs/connections-4x4.md` names it a prerequisite for
-the 4-row Connections grid (the fourth caller).
+**One board-face table, one phones-face picture.** `Kit.round.cardTable` is the
+board face of every physics round (anagram, scramble, ordering, choice, grouping, the
+4×4 connections): canvas, reuse guard, pointer mapping, self-stopping loop, the closing
+say line — a round hands it its shape and how a settled row is judged, nothing else.
+With phones in the room the card is `Kit.round.lanes`: one lane per competitor, a box
+per part, **each box painted the hue the physics dealt that word on the phones**
+(`Kit.round.hueOf` — piece k wears hue k of `Kit.table.hues`, which is how the phone
+deals it), and an **answer lane** above them — the hinted parts while the question is
+open, the whole answer in its tile colours on reveal — so a student reads their colours
+against the right ones. Five is the lane ceiling; past it the answer lane stays and the
+team picture becomes the crowd line. Multiple Choice keeps its lanes uncoloured on
+purpose: a cell there is a person, never an answer. Unit 4's 4B columns carry
+`physics:true` on their Multiple Choice and Connections clues — a mixed column has no
+content-screen toggle, so the flag on the item is how a mixed column reaches the flick
+face.
 
 **Battle Scrabble — a complete standalone playground game, awaiting its classroom
 run.** Board + phone pages on the phone room; each phone is a 7×7 grid where words

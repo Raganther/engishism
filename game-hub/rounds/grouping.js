@@ -213,8 +213,14 @@
             const picks = s.picks[t] || [];
             const cells = [];
             const slots = Math.max(s.need, picks.length);
+            const inSet = w => s.pick.some(p => String(p).toLowerCase() === String(w).toLowerCase());
             for(let i = 0; i < slots; i++){
-              if(picks[i]) cells.push({ got: true, text: picks[i], cls: i >= s.need ? 'over' : '' });
+              /* On the flick face a pick wears the colour of its tile on the phones,
+                 and once the round is over a pick outside the group is struck
+                 through — the answer is out, so saying which was wrong costs nothing. */
+              if(picks[i]) cells.push({ got: true, text: picks[i],
+                                        hue: s.mode === 'flick' ? K.round.hueOf(s.words, picks[i]) : null,
+                                        cls: (i >= s.need ? 'over' : '') + (s.done && !inSet(picks[i]) ? ' miss' : '') });
               else cells.push({ got: false });
             }
             /* **This team has the set.** Every other round shows a correct answer in

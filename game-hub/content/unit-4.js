@@ -158,13 +158,24 @@
        same word twice — a $100 that quotes 'renovated' or answers 'testimony' gives
        away a $300 anagram of it.
        Every clue states its own context — a teacher who has not read the unit can
-       still play it. */
+       still play it.
+       **The Multiple Choice and Connections clues carry `physics:true`** — the same
+       flag the content screen's Tap/Flick toggle writes onto a row's items — so this
+       section opens on the physics face (four tiles into one slot; eight tiles into a
+       row of four) on every device. Authored rather than toggled because the content
+       screen's toggle only appears on a row whose five clues are one round — a mixed
+       column has no single face to flip — so the flag on the item is the one way a
+       mixed column reaches the physics face. Those two rounds default to Tap
+       everywhere else because they are hosted on every board; here the whole section
+       is played as one physics game. */
     { id:'4b-have-get', section:'4B', name:'Have / Get Something Done', clues:[
       {v:100, q:"'My parents were having the kitchen renovated.' Which meaning is it?",
+        physics:true,   // opens on the flick face — four tiles, one slot
         choice:{ options:["they paid somebody else to do a job","their possessions were harmed",
                           "they caused somebody to do something","they caused what happened to them"],
                  answer:"they paid somebody else to do a job" }},
       {v:200, q:"Four of these are jobs you pay a professional to do — 'have something done'. Find the four.",
+        physics:true,   // opens on the flick face — eight tiles, a row of four
         group:{ pick:["renovated","serviced","decorated","installed"],
                 with:["stolen","burgled","vandalised","damaged"] }},
       {v:300, q:"'My brother got me ___ unfairly.' He caused it to happen to me. (8 letters)",
@@ -176,9 +187,11 @@
     ]},
     { id:'4b-memory', section:'4B', name:'Memory Collocations', clues:[
       {v:100, q:"Which collocation means 'you can remember anything perfectly'?",
+        physics:true,   // opens on the flick face — four tiles, one slot
         choice:{ options:["a photographic memory","a lasting memory","a vivid memory","a distant memory"],
                  answer:"a photographic memory" }},
       {v:200, q:"Four of these describe a memory that is still strong. Find the four.",
+        physics:true,   // opens on the flick face — eight tiles, a row of four
         group:{ pick:["vivid","painful","lasting","photographic"],
                 with:["vague","distant","faded","forgotten"] }},
       {v:300, q:"'A ___ memory comes back with clear sensations — you can still feel it.' (5 letters)",
@@ -195,8 +208,10 @@
     ]},
     { id:'4b-eyewitness', section:'4B', name:'Eyewitness Evidence', clues:[
       {v:100, q:"In a police ___, a witness tries to pick out the person who did it.",
+        physics:true,   // opens on the flick face — four tiles, one slot
         choice:{ options:["line-up","verdict","sentence","appeal"], answer:"line-up" }},
       {v:200, q:"Four of these are from the police investigation; four describe a memory. Find the four from the investigation.",
+        physics:true,   // opens on the flick face — eight tiles, a row of four
         group:{ pick:["perpetrator","line-up","testimony","defendant"],
                 with:["vivid","vague","distant","lasting"] }},
       {v:300, q:"'The witness was asked to identify the ___ from the photographs.' The one who did the crime. (11 letters)",
@@ -208,8 +223,10 @@
     ]},
     { id:'4b-how-memory', section:'4B', name:'How Memory Plays Tricks', clues:[
       {v:100, q:"The text says memory is not neutral but ___ to influence from what we believe.",
+        physics:true,   // opens on the flick face — four tiles, one slot
         choice:{ options:["susceptible","immune","resistant","opposed"], answer:"susceptible" }},
       {v:200, q:"Four of these are why the text says memory goes wrong. Find the four.",
+        physics:true,   // opens on the flick face — eight tiles, a row of four
         group:{ pick:["shock","trauma","influence","belief"],
                 with:["camera","precision","record","photograph"] }},
       {v:300, q:"'We are good at ___ bits of visual information into a single memory.' Joining them together. (6 letters)",
@@ -227,8 +244,10 @@
     ]},
     { id:'4b-in-court', section:'4B', name:'A Case in Court', clues:[
       {v:100, q:"Eyewitness ___ is what sways the jury, the text says.",
+        physics:true,   // opens on the flick face — four tiles, one slot
         choice:{ options:["testimony","gossip","rumour","opinion"], answer:"testimony" }},
       {v:200, q:"Four of these are steps in a criminal case. Find the four.",
+        physics:true,   // opens on the flick face — eight tiles, a row of four
         group:{ pick:["crime","witness","line-up","court"],
                 with:["renovated","stolen","fixed","punished"] }},
       {v:300, q:"'It looks like the ___ is going to go free, but at the last minute…' The person on trial. (9 letters)",

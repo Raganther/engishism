@@ -185,12 +185,7 @@
          shelf's exported palette. So a filled rung on the board wears the same
          colour as that word's tile in the room's hands. Only the stack (physics)
          face uses it; climb/race keep the green "got it right" rung. */
-      const hueFor = word => {
-        const hues = (K.table && K.table.hues) || null;
-        if(!hues || !hues.length) return null;
-        const k = s.pool ? s.pool.indexOf(word) : -1;
-        return k >= 0 ? hues[k % hues.length] : null;
-      };
+      const hueFor = word => K.round.hueOf(s.pool, word);   // the shelf's one formula
       const paintTile = (rung, word) => {
         const hue = hueFor(word);
         if(!hue) return;
@@ -306,60 +301,49 @@
          Slot 0 is the TOP of the ladder — the hot end — so slot i holds
          scale[need-1-i]. Decided once, here; read()/judge() use the same map. */
       if(s.mode === 'stack'){
-        /* After the reveal the truth is a plain filled ladder — the physics is
-           over, and a static picture never argues with the answer line. */
-        if(s.revealed || s.done){
-          if(s._canvas){ s._table = null; s._canvas = null; }
-          mount.appendChild(drawLadder((s.revealed ? s.scale : s.placed).slice(), null, true));
-          K.round.say(mount, s);
-          return;
-        }
         /* Phones present → each handset runs its own table (join.html's table
-           mode, a 1-column bar ladder) and the card is the room's picture: a
-           ladder per team, a rung filled once that team has the right word in
-           that slot. Same standard as toss's lanes, drawn as ladders because
-           the ladder IS this round's identity. */
+           mode, a 1-column bar ladder) and the card is the room's picture: the
+           shared lanes, one per team, a box filled once that team has the right
+           word in that slot — **in the colour of that word's tile on the phones**,
+           hot end first so a lane reads top-to-bottom left-to-right. The answer
+           lane above them carries the hinted rungs while the question is open and
+           the whole scale once it is revealed. Same standard as every other physics
+           round now (`Kit.round.lanes`), which also caps the picture at five and
+           draws the crowd line past it — sixteen ladders were never readable. Drawn
+           through the reveal too: a revealed stack keeps each team's picture beside
+           the answer, which is the moment worth looking at. */
         if(K.round.face(s, c) === 'phones'){   // decided once per question — see K.round.face
           if(s._canvas){ s._table = null; s._canvas = null; }
           const teams = ((c.teams) || []).map((_, i) => i);
+          const over = !!(s.revealed || s.done);
+          const wordAt = slot => s.scale[s.need - 1 - slot];   // slot 0 = the hot end (top)
+          const given = s.hint || 0;                            // hints name the scale from the cold end
           mount.appendChild(cap(s.high, 'hot'));
-          const lanes = document.createElement('div');
-          lanes.className = 'ord-lanes';
-          teams.forEach(t => {
-            const row = (s.got || {})[t] || [];
-            const lane = document.createElement('div');
-            lane.className = 'ord-lane';
-            const who = document.createElement('div');
-            who.className = 'ord-who';
-            who.style.color = K.round.teamColour(t);
-            const nm = document.createElement('span');
-            nm.className = 'ord-name';
-            nm.textContent = c.teamName ? c.teamName(t) : ('Team ' + (t + 1));
-            who.appendChild(nm);
-            const badge = K.round.placeBadge(t);
-            if(badge) who.appendChild(badge);
-            lane.appendChild(who);
-            const ladder = document.createElement('div');
-            ladder.className = 'ord-ladder';
-            for(let slot = 0; slot < s.need; slot++){     // slot 0 already IS the top
-              const rung = document.createElement('div');
-              rung.className = 'ord-rung';
-              if((row[slot] || 0) >= 1){
-                rung.classList.add('filled');
-                paintTile(rung, s.scale[s.need - 1 - slot]);   // same tile colour the phone dealt that word
-                const w = document.createElement('span');
-                w.className = 'ord-word'; w.textContent = s.scale[s.need - 1 - slot];
-                rung.appendChild(w);
-              } else {
-                rung.classList.add('empty');
-                rung.innerHTML = '&nbsp;';
+          K.round.lanes(mount, c, {
+            kind: 'ord',
+            progressed: Object.keys(s.got || {}),
+            answer: {
+              label: over ? 'Answer' : 'Known',
+              full: over,
+              cells: Array.from({ length: s.need }, (_, slot) => {
+                const w = wordAt(slot);
+                const got = over || (s.need - 1 - slot) < given;
+                return { got, text: got ? w : '', hue: got ? hueFor(w) : null,
+                         cls: (!over && got) ? 'hinted' : '' };
+              })
+            },
+            lane(t){
+              const row = (s.got || {})[t] || [];
+              const cells = [];
+              let right = 0;
+              for(let slot = 0; slot < s.need; slot++){
+                const ok = (row[slot] || 0) >= 1;
+                if(ok) right++;
+                cells.push({ got: ok, text: ok ? wordAt(slot) : '', hue: ok ? hueFor(wordAt(slot)) : null });
               }
-              ladder.appendChild(rung);
+              return { cells, count: right + '/' + s.need, full: right === s.need };
             }
-            lane.appendChild(ladder);
-            lanes.appendChild(lane);
           });
-          mount.appendChild(lanes);
           mount.appendChild(cap(s.low, 'cold'));
           /* The reveal meter — the same crowd-progress bar the climb/race face
              draws, so a stacking room reads how close it is to the next rung
@@ -374,6 +358,14 @@
             live: !s.shown && !s.done
           };
           K.round.crowdMeter(mount, c, cw);
+          K.round.say(mount, s);
+          return;
+        }
+        /* After the reveal the truth is a plain filled ladder — the physics is
+           over, and a static picture never argues with the answer line. */
+        if(s.revealed || s.done){
+          if(s._canvas){ s._table = null; s._canvas = null; }
+          mount.appendChild(drawLadder((s.revealed ? s.scale : s.placed).slice(), null, true));
           K.round.say(mount, s);
           return;
         }
