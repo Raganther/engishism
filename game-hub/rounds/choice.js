@@ -185,13 +185,47 @@
         });
         return;
       }
-      // Any DOM path (tap, or flick with phones, or a revealed clue) tears down a
-      // stale flick canvas so the option grid is not drawn under a live physics loop.
-      if(s._canvas){ s._table = null; s._canvas = null; }
+      /* ---------- FLICK with phones: the room's own table ----------
+         The card is THE SAME TABLE every hand is looking at — four coloured word
+         tiles heaped under one slot, nobody's pointer on it — driven by the room:
+         the answer flies into the slot once EVERY competitor has it (`roomKnown`;
+         with one part the crowd rule can never give it away early) and on reveal.
+         A hint takes a wrong tile off the table, as it does on the phones, by
+         re-dealing what is left. Millionaire's Ask-the-class count (`countVotes`)
+         keeps the option grid, because the counts are the point of that picture. */
+      const driven = s.input === 'flick' && !c.countVotes && K.round.face(s, c) === 'phones';
+      // Any DOM path (tap, or a revealed clue) tears down a stale flick canvas so the
+      // option grid is not drawn under a live physics loop. The driven face keeps it.
+      if(s._canvas && !driven){ s._table = null; s._canvas = null; }
 
       mount.innerHTML = '';
       mount.className = 'round-choice' + (s.mode === 'agree' ? ' agreeing' : '');
 
+      if(driven){
+        const opts = s.options.filter(w => (s.hidden || []).indexOf(w) === -1 &&
+                                           (s.hint || []).indexOf(w) === -1);
+        const over = !!(s.shown || s.done);
+        const table = K.round.cardTable(mount, s, {
+          driven: true, say: false, height: 240,
+          handle: '__mcRoom',
+          frame(canvas){ mount.innerHTML = ''; mount.appendChild(canvas); },
+          deal(t){
+            t.slots({ cols:1, rows:1, bar:true, labels:opts, count:1, top:8 });
+            t.setPieces(opts);
+            s._dealt = opts.join('|');
+          },
+          table: { upright: true }
+        });
+        if(s._dealt !== opts.join('|')){ table.setPieces(opts); s._dealt = opts.join('|'); }   // a hint took one away
+        const cw = {
+          keys: ['answer'],
+          count: () => Object.keys(s.picks || {}).filter(t => same((s.picks[t] || [])[0], s.answer)).length,
+          started: Object.keys(s.votes || {}).length,
+          given: [],
+          sig: s.answer
+        };
+        if(over || K.round.roomKnown(c, cw).length) table.give(0, s.answer);
+      } else {
       const grid = document.createElement('div');
       grid.className = 'mc-options';
       s.options.forEach((w, i)=>{
@@ -253,6 +287,7 @@
         grid.appendChild(b);
       });
       mount.appendChild(grid);
+      }
 
       /* A lane per team, the shared standard — the same picture Connections, Drag
          the Letters and Drag the Words draw, so a class meets one way of reading

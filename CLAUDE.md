@@ -839,11 +839,18 @@ nothing a team still hunting could not read off the lanes is given away. Under t
 the shared lanes (`Kit.round.lanes`), one per competitor, a box per part **painted the
 hue the physics dealt that word** (`Kit.round.hueOf` — piece k wears hue k of
 `Kit.table.hues`, which is how a phone deals it), then the reveal meter and the say line.
-**Two rounds ride it so far — Drag the Letters and the thermometer's stack** — proving
-the shelf; Drag the Words, Multiple Choice and the 8-word Connections still draw their
-own field above the lanes (scramble keeps the lanes' `answer` row) and are the next three
-callers. Multiple Choice will keep its lanes uncoloured whatever it rides: a cell there is
-a person, never an answer. Unit 4's 4B columns carry `physics:true` on their Multiple
+**Every physics face rides it** — Drag the Letters, Drag the Words, the thermometer's
+stack, Multiple Choice (one slot; with a single part the crowd rule can never give it
+away early, so it flies in only when every competitor has it, or on reveal; a hint
+re-deals the remaining tiles, and Millionaire's Ask-the-class count keeps the option
+grid) and the 8-word Connections (each word keeps the slot of its place in the authored
+group). The slots ARE the answer row, so the lanes carry no separate one. Multiple
+Choice keeps its lanes uncoloured: a cell there is a person, never an answer. **A
+re-deal frees every slot** (`setPieces` in `hub-table.js`) — a slot that kept its
+reference to a removed tile reported itself filled and refused the next give. **A docking
+glide is a sensor** — it passes through the pile and is solid again the moment it is home;
+a static body tweened across loose tiles shoved them off the canvas edge.
+Unit 4's 4B columns carry `physics:true` on their Multiple
 Choice and Connections clues — a mixed column has no content-screen toggle, so the flag on
 the item is how a mixed column reaches the flick face. The clue card fits a 720-line
 board with the driven table and two lanes; five lanes are untested there.

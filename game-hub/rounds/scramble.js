@@ -158,16 +158,15 @@
           return;
         }
         /* Phones present → each handset runs its own Kit.table (join.html's table
-           mode, a row of bar tiles) and the card is the room's picture: a lane per
-           team, a cell lit once that team has the right word in that slot. The same
-           lanes standard the drag path draws, minus the tray — the students are
-           looking at their phones. */
+           mode, a row of bar tiles) and the card is THE SAME TABLE, driven by the
+           room: the wrapped sentence of empty slots and the heap of coloured word
+           tiles every hand is looking at, nobody's pointer on it. A word flies into
+           its slot when the teacher gives it, when the room has earned it
+           (`roomKnown`), and every word on reveal. Under it the shared lanes, each
+           box in its tile's colour. The mount is cleared every render; cardTable
+           re-hangs the live canvas, so the physics never restarts. */
         if(K.round.face(s, c) === 'phones'){   // decided once per question — see K.round.face
-          if(s._canvas){ s._table = null; s._canvas = null; }
-          mount.innerHTML = '';
-          mount.className = 'round-scramble';
-
-          /* The crowd reveal's cw, built first so crowdKnown can read it. */
+          /* The crowd reveal's cw, built first so roomKnown and the meter read it. */
           const cw = {
             keys: Array.from({ length: s.need }, (_, i) => i),
             count: i => Object.keys(s.got || {}).filter(t =>
@@ -177,26 +176,31 @@
             sig: s.words.join('|'),
             live: !s.shown && !s.done
           };
-          const known = (s.hint || []).concat(K.round.crowdKnown(c, cw));
-
-          /* The shared answer row — the words the whole room has earned (the crowd
-             reveal) plus any the teacher gave, each in its numbered slot, and the
-             whole sentence once revealed — is the lanes' own `answer` row now, each
-             word in the colour of its tile on the phones. */
+          const known = (s.hint || []).concat(K.round.roomKnown(c, cw));
           const dealt = s.pool.map(t => t.w);
           const hue = w => K.round.hueOf(dealt, w);
+
+          mount.innerHTML = '';
+          const table = K.round.cardTable(mount, s, {
+            driven: true, say: false,
+            handle: '__scrRoom',
+            height: Math.min(360, 160 + s.need * 24),   // the wrapped slot rows plus a heap of word tiles
+            frame(canvas){
+              mount.innerHTML = '';
+              mount.className = 'round-scramble';
+              mount.appendChild(canvas);
+            },
+            deal(table){
+              table.slots({ cols: 'auto', bar: true, labels: dealt });   // slots first: the pile spreads at bar width
+              table.setPieces(dealt);
+            },
+            table: { upright: true }     // wide word tiles read the right way up — the board face's own choice
+          });
+          (s.shown ? cw.keys : known).forEach(i => table.give(i, s.words[i]));
+
           K.round.lanes(mount, c, {
             kind: 'scr',
             progressed: Object.keys(s.got || {}),
-            answer: {
-              label: s.shown ? 'Answer' : 'Known',
-              full: s.shown,
-              cells: Array.from({ length: s.need }, (_, i) => {
-                const got = s.shown || known.indexOf(i) !== -1;
-                return { got, text: got ? s.words[i] : String(i + 1), hue: got ? hue(s.words[i]) : null,
-                         cls: (!s.shown && got) ? 'hinted' : '' };
-              })
-            },
             lane(t){
               const gotRow = (s.got || {})[t] || [];
               const need = K.round.mustHold(s.mode, c, t);
@@ -212,8 +216,7 @@
                        full: right === s.need };
             }
           });
-          /* The reveal meter — the same crowd-progress bar the drag face draws; now
-             its promised word lands in the shared row above. */
+          /* The reveal meter — how close the room is to the next word flying in. */
           K.round.crowdMeter(mount, c, cw);
           K.round.say(mount, s);
           return;

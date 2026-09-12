@@ -150,15 +150,21 @@
         });
         return;
       }
-      // Any DOM path (tap, or flick with phones, or a decided round) tears down a
-      // stale flick canvas so the word grid is not drawn under a live physics loop.
-      if(s._canvas){ s._table = null; s._canvas = null; }
+      /* ---------- FLICK with phones: the room's own table ----------
+         The card is THE SAME TABLE every hand is looking at — eight coloured word
+         tiles heaped under a row of four slots, nobody's pointer on it — driven by
+         the room: a word flies into the row when the teacher hints it, when the
+         room has earned it (`roomKnown` — the crowd rule past the lane ceiling,
+         every-team-holds-it below), and all four once the round is over. Each word
+         keeps one slot (its place in the authored group) so it never moves twice. */
+      const driven = s.mode === 'flick' && K.round.face(s, c) === 'phones';
+      // Any DOM path (tap, or a decided round on the tap face) tears down a stale
+      // flick canvas so the word grid is not drawn under a live physics loop.
+      if(s._canvas && !driven){ s._table = null; s._canvas = null; }
 
       mount.innerHTML = '';
       mount.className = 'round-grouping';
 
-      const grid = document.createElement('div');
-      grid.className = 'group-words';
       /* The crowd reveal: an in-group word enough of the room is already holding
          gets the hint mark — confirmed rather than answered, exactly what a hint
          does. Big rooms only, never the fourth word; the rules are the shelf's. */
@@ -170,7 +176,24 @@
         given: s.hint || [],
         sig: s.pick.join('|')
       };
-      const known = (s.hint || []).concat(K.round.crowdKnown(c, cw));
+      const known = (s.hint || []).concat(driven ? K.round.roomKnown(c, cw) : K.round.crowdKnown(c, cw));
+
+      if(driven){
+        const table = K.round.cardTable(mount, s, {
+          driven: true, say: false, height: 260,
+          handle: '__grpRoom',
+          frame(canvas){ mount.innerHTML = ''; mount.className = 'round-grouping'; mount.appendChild(canvas); },
+          deal(t){
+            t.slots({ cols:s.need, rows:1, bar:true, labels:s.words, count:s.need, top:8 });
+            t.setPieces(s.words.slice());
+          },
+          table: { upright: true }
+        });
+        const over = !!(s.done || s.shown);
+        (over ? s.pick : known).forEach(w => table.give(s.pick.indexOf(w), w));
+      } else {
+      const grid = document.createElement('div');
+      grid.className = 'group-words';
       s.words.forEach(w=>{
         const b = document.createElement('button');
         b.type = 'button';
@@ -196,6 +219,7 @@
         grid.appendChild(b);
       });
       mount.appendChild(grid);
+      }
 
       /* A lane per team — drawn by `Kit.round.lanes`, the shared standard. What
          a Connections lane holds is the team's *current picks*, not verified

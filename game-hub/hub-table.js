@@ -564,6 +564,14 @@
       ensureSized();   // build the tiles at the real slot size, even if dealt before resize()
       if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body));
       pieces = [];
+      /* A re-deal empties every slot. The pieces are gone from the world, but a
+         slot kept its reference to the docked one — so `cells()` still reported it
+         filled and `give()` saw a tile already there and did nothing, while the
+         fresh deal's copy of that word lay loose on the pile. Any caller that
+         re-deals after a dock (a Multiple Choice hint taking an option away, on
+         the board or the phone) hit it. `given` survives: a pinned word is re-given
+         onto the new deal by the next give or arrangement report. */
+      slots.forEach(sl => { sl.piece = null; });
       const chars = (labels || []).slice();
       if(unmeasured()){ pendingDeal = chars; return; }   // no world to spread a hand across yet — see pendingDeal
       pendingDeal = null;
@@ -958,6 +966,11 @@
       const s = slots[i];
       s.piece = piece; piece.slot = i;
       Body.setStatic(piece.body, true);          // hand the tile to the tween, not gravity
+      /* A gliding tile passes THROUGH the pile rather than bulldozing it: a static
+         body tweened across loose tiles shoves them, and a give flying up to a top
+         slot flung whatever it crossed above the canvas edge. Collisions come back
+         the moment it is home (tickDocks), so the pile can rest on a docked tile. */
+      piece.body.isSensor = true;
       Body.setVelocity(piece.body, { x:0, y:0 });
       Body.setAngularVelocity(piece.body, 0);
       const a = piece.body.angle;
@@ -971,7 +984,8 @@
     function tickDocks(){
       const t = now();
       for(const b of pieces){
-        const dk = b.dock; if(!dk) continue;
+        const dk = b.dock;
+        if(!dk){ if(b.body.isSensor) b.body.isSensor = false; continue; }   // a cancelled glide collides again
         /* a glide whose slot is gone (knocked out, rebuilt, any race) must
            DIE, not dereference slots[null] — that throw killed the page's
            whole rAF loop once, silently */
@@ -982,7 +996,7 @@
         const s = slots[b.slot];
         Body.setPosition(b.body, { x: dk.fromX + (s.x - dk.fromX)*e, y: dk.fromY + (s.y - dk.fromY)*e });
         Body.setAngle(b.body, dk.fromA + (dk.toA - dk.fromA)*e);
-        if(raw >= 1){ b.dock = null; b.landed = t; Body.setAngle(b.body, 0); report(); }   // arrangement changed once it is home; `landed` is the pop's clock
+        if(raw >= 1){ b.dock = null; b.body.isSensor = false; b.landed = t; Body.setAngle(b.body, 0); report(); }   // home: solid again; `landed` is the pop's clock
       }
     }
 

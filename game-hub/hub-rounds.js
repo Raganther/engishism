@@ -762,39 +762,8 @@
     return cell;
   }
 
-  /* ---------- the answer lane ----------
-     **The one row every physics round shares above its team lanes.** While the
-     question is open it holds what the whole room has earned — the crowd reveal
-     and the teacher's hints — and on reveal it is the answer itself, each part in
-     the colour of its tile, so a student reads "my colours against the right
-     colours" without a word being spoken. Drawn whatever the room's size: above
-     the lane ceiling the team picture becomes the crowd line, and this row is then
-     the only place the answer lands. Drawn once, by `lanes()`, from the round's
-     `answer` spec — `{ label, cells:[{got, text, hue, cls}] }` — so the anagram,
-     the sentence and the thermometer stop each keeping a row of their own. */
-  function answerLane(mount, o){
-    const a = o.answer;
-    if(!a || !Array.isArray(a.cells)) return null;
-    const wrap = document.createElement('div');
-    wrap.className = 'rlanes rl-answer-wrap' + (o.kind ? ' rlanes-' + o.kind : '');
-    const lane = document.createElement('div');
-    lane.className = 'rlane rl-answer' + (a.full ? ' full' : '');
-    const who = document.createElement('span');
-    who.className = 'rl-who';
-    who.textContent = a.label || 'Answer';
-    lane.appendChild(who);
-    const row = document.createElement('span');
-    row.className = 'rl-row';
-    a.cells.forEach(cs => row.appendChild(laneCell(cs, null)));
-    lane.appendChild(row);
-    wrap.appendChild(lane);
-    mount.appendChild(wrap);
-    return wrap;
-  }
-
   function lanes(mount, ctx, opts){
     const o = opts || {};
-    answerLane(mount, o);                 // the shared row, above the lanes or the crowd line alike
     const teams = laneTeams(ctx, o.progressed);
     if(!teams.length) return null;
     /* **Lanes are drawn while they can be read, and six is where that stops.** The

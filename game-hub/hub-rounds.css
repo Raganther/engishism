@@ -841,15 +841,6 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
   opacity:1; border:1.5px solid rgba(0,0,0,0.22); border-radius:6px;
   padding:0 0.45em; font-weight:700;
 }
-/* The answer lane — the shared row above the team lanes: hinted parts while the
-   question is open, the whole answer once revealed. Gold edge, because it belongs
-   to nobody; the wash keeps it from reading as a sixth team. */
-.rlanes.rl-answer-wrap{ margin-top:6px; }
-.rlane.rl-answer{
-  border-left-color:var(--gold, #C9A227);
-  background:var(--gw-wash, rgba(18,38,63,0.06));
-}
-.rlane.rl-answer .rl-cell.hinted{ outline:2px dashed var(--gold, #C9A227); outline-offset:1px; }
 /* A pick that turned out wrong once the answer is out. */
 .rl-cell.miss{ opacity:0.4; text-decoration:line-through; }
 
