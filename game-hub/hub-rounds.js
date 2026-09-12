@@ -630,6 +630,29 @@
     return out;
   }
 
+  /* ---------- what the room's own table may show ----------
+     **The shared table on the card is driven by the room, and this is the rule for
+     when a tile flies in on its own.** Past the lane ceiling it is the crowd reveal
+     above, unchanged. In a room small enough for lanes the crowd rule is silent —
+     the lanes carry the copy dynamic — so there a part flies onto the shared table
+     only once EVERY competitor holds it: then it is nobody's secret, and a team
+     still hunting learns nothing it could not read off the lanes already. Hints
+     (`given`) are the caller's own moves and are never repeated here. One union,
+     so a round asks one question of the shelf: which parts may the table show. */
+  function roomKnown(ctx, o){
+    o = o || {};
+    const out = crowdKnown(ctx, o).slice();
+    const teams = laneTeams(ctx);
+    const given = o.given || [];
+    if(teams.length && teams.length <= 5){
+      (o.keys || []).forEach(k => {
+        if(given.indexOf(k) !== -1 || out.indexOf(k) !== -1) return;
+        if((Number(o.count ? o.count(k) : 0) || 0) >= teams.length) out.push(k);
+      });
+    }
+    return out;
+  }
+
   /* ---------- the reveal meter ----------
      **One anonymous bar: how close the room is to its next crowd reveal.** A
      threshold you cannot see approaching is just a surprise; the bar is the
@@ -1117,6 +1140,13 @@
                       the round's own order (they are not the same across callers).
        height         canvas height in px (default 340).
        handle         the `window` key for a driven test's `{ table, state }`.
+       driven         **the phones face**: the same table, but nobody touches it —
+                      no pointer wiring, and the tiles move only by `give()`, which
+                      the round calls for a hint, for what the room has earned
+                      (`roomKnown`) and for everything on reveal. So the card is
+                      the picture in every hand, moved by the room's progress.
+       say            `false` to leave the prose line to the caller (a face that
+                      draws lanes under the canvas puts it after them).
 
      The reuse guard, the canvas element and its styling, the pointer plumbing, the
      loop, the resize and the closing `say()` line are identical in every caller and
@@ -1139,7 +1169,12 @@
     if(s._table && s._canvas && !s._canvas.isConnected && !mount.contains(s._canvas)){
       if(o.frame) o.frame(s._canvas); else mount.appendChild(s._canvas);
       const canvas = s._canvas, table = s._table;
-      (function loop(){ if(!canvas.isConnected) return; table.step(); table.draw(); requestAnimationFrame(loop); })();
+      /* One loop per table. A round that clears its mount every render detaches
+         and re-hangs the canvas inside one tick, so the previous loop never saw
+         it disconnected and would keep stepping beside the new one. The token
+         retires it. */
+      const id = (s._loopId = (s._loopId || 0) + 1);
+      (function loop(){ if(!canvas.isConnected || s._loopId !== id) return; table.step(); table.draw(); requestAnimationFrame(loop); })();
       requestAnimationFrame(() => { if(canvas.isConnected) table.resize(); });
     }
     if(s._table && s._canvas && s._canvas.isConnected){
@@ -1162,6 +1197,7 @@
     const room = (window.innerHeight || 720) - 420;
     canvas.style.height = Math.max(220, Math.min(o.height || 340, room)) + 'px';
     canvas.style.touchAction = 'none';
+    if(o.driven){ canvas.classList.add('driven'); canvas.style.pointerEvents = 'none'; }
     if(o.frame) o.frame(canvas); else mount.appendChild(canvas);
     s._canvas = canvas;
     /* `surface:null` — a board round's play surface is the clue card it draws on, so
@@ -1186,16 +1222,19 @@
     const table = K.table(topts);
     s._table = table;
     if(o.deal) o.deal(table);
-    const pt = e => table.pt(e);
-    canvas.addEventListener('pointerdown', e => {
-      const p = pt(e);
-      if(table.grab(e.pointerId, p.x, p.y)) canvas.setPointerCapture(e.pointerId);
-    });
-    canvas.addEventListener('pointermove', e => { if(table.heldBy(e.pointerId)){ const p = pt(e); table.move(e.pointerId, p.x, p.y); } });
-    const end = e => { if(table.heldBy(e.pointerId)){ table.drop(e.pointerId); try{ canvas.releasePointerCapture(e.pointerId); }catch(_){} } };
-    canvas.addEventListener('pointerup', end);
-    canvas.addEventListener('pointercancel', end);
-    (function loop(){ if(!canvas.isConnected) return; table.step(); table.draw(); requestAnimationFrame(loop); })();
+    if(!o.driven){
+      const pt = e => table.pt(e);
+      canvas.addEventListener('pointerdown', e => {
+        const p = pt(e);
+        if(table.grab(e.pointerId, p.x, p.y)) canvas.setPointerCapture(e.pointerId);
+      });
+      canvas.addEventListener('pointermove', e => { if(table.heldBy(e.pointerId)){ const p = pt(e); table.move(e.pointerId, p.x, p.y); } });
+      const end = e => { if(table.heldBy(e.pointerId)){ table.drop(e.pointerId); try{ canvas.releasePointerCapture(e.pointerId); }catch(_){} } };
+      canvas.addEventListener('pointerup', end);
+      canvas.addEventListener('pointercancel', end);
+    }
+    const id = (s._loopId = (s._loopId || 0) + 1);
+    (function loop(){ if(!canvas.isConnected || s._loopId !== id) return; table.step(); table.draw(); requestAnimationFrame(loop); })();
     requestAnimationFrame(() => { if(canvas.isConnected) table.resize(); });
     table.resize();
     if(o.handle) window[o.handle] = { table, state: s };
@@ -1606,7 +1645,7 @@
       return null;
     },
     ctx: buildCtx, resolve,
-    shares, settle, clock, results, poll, agreement, lanes, hueOf, placeBadge, crowd, crowdKnown, crowdMeter, mustHold, arrangement, cardTable, cap, actions, strip, press, say, finish, shuffle, teamColour, dragTag, bare,
+    shares, settle, clock, results, poll, agreement, lanes, hueOf, placeBadge, crowd, crowdKnown, roomKnown, crowdMeter, mustHold, arrangement, cardTable, cap, actions, strip, press, say, finish, shuffle, teamColour, dragTag, bare,
     /* **Which face a physics question is played on, decided ONCE per question.**
        'phones' when handsets were in the room as the question opened, else 'board'.
        Read live, the face followed the roster: a phone joining mid-question tore the

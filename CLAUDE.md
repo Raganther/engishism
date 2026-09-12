@@ -827,21 +827,26 @@ one board can carry a flicked category beside a dragged one. Untouched, a row sh
 the game-wide row would do. The Lab unit's **L9 category** is ordinary anagram content
 that demonstrates flick.
 
-**One board-face table, one phones-face picture.** `Kit.round.cardTable` is the
-board face of every physics round (anagram, scramble, ordering, choice, grouping, the
-4×4 connections): canvas, reuse guard, pointer mapping, self-stopping loop, the closing
-say line — a round hands it its shape and how a settled row is judged, nothing else.
-With phones in the room the card is `Kit.round.lanes`: one lane per competitor, a box
-per part, **each box painted the hue the physics dealt that word on the phones**
-(`Kit.round.hueOf` — piece k wears hue k of `Kit.table.hues`, which is how the phone
-deals it), and an **answer lane** above them — the hinted parts while the question is
-open, the whole answer in its tile colours on reveal — so a student reads their colours
-against the right ones. Five is the lane ceiling; past it the answer lane stays and the
-team picture becomes the crowd line. Multiple Choice keeps its lanes uncoloured on
-purpose: a cell there is a person, never an answer. Unit 4's 4B columns carry
-`physics:true` on their Multiple Choice and Connections clues — a mixed column has no
-content-screen toggle, so the flag on the item is how a mixed column reaches the flick
-face.
+**One table, two faces — the card is the phone's table, driven by the room.**
+`Kit.round.cardTable` is the physics table on the clue card. With no phones it is the
+play surface (pointer on, the teacher's finger). With phones in the room it is the SAME
+table in `driven` mode — no pointer, the slot shape and the heap of coloured tiles every
+hand is looking at — and tiles move only by `give()`: a hint, a part the room has earned,
+and every part on reveal. **`Kit.round.roomKnown` is the one rule for "earned"**: past
+the lane ceiling it is the crowd reveal (`crowdKnown`, threshold, never the last part);
+in a room small enough for lanes a part flies in only once EVERY competitor holds it, so
+nothing a team still hunting could not read off the lanes is given away. Under the table
+the shared lanes (`Kit.round.lanes`), one per competitor, a box per part **painted the
+hue the physics dealt that word** (`Kit.round.hueOf` — piece k wears hue k of
+`Kit.table.hues`, which is how a phone deals it), then the reveal meter and the say line.
+**Two rounds ride it so far — Drag the Letters and the thermometer's stack** — proving
+the shelf; Drag the Words, Multiple Choice and the 8-word Connections still draw their
+own field above the lanes (scramble keeps the lanes' `answer` row) and are the next three
+callers. Multiple Choice will keep its lanes uncoloured whatever it rides: a cell there is
+a person, never an answer. Unit 4's 4B columns carry `physics:true` on their Multiple
+Choice and Connections clues — a mixed column has no content-screen toggle, so the flag on
+the item is how a mixed column reaches the flick face. The clue card fits a 720-line
+board with the driven table and two lanes; five lanes are untested there.
 
 **Battle Scrabble — a complete standalone playground game, awaiting its classroom
 run.** Board + phone pages on the phone room; each phone is a 7×7 grid where words

@@ -302,36 +302,51 @@
          scale[need-1-i]. Decided once, here; read()/judge() use the same map. */
       if(s.mode === 'stack'){
         /* Phones present → each handset runs its own table (join.html's table
-           mode, a 1-column bar ladder) and the card is the room's picture: the
-           shared lanes, one per team, a box filled once that team has the right
-           word in that slot — **in the colour of that word's tile on the phones**,
-           hot end first so a lane reads top-to-bottom left-to-right. The answer
-           lane above them carries the hinted rungs while the question is open and
-           the whole scale once it is revealed. Same standard as every other physics
-           round now (`Kit.round.lanes`), which also caps the picture at five and
-           draws the crowd line past it — sixteen ladders were never readable. Drawn
-           through the reveal too: a revealed stack keeps each team's picture beside
-           the answer, which is the moment worth looking at. */
+           mode, a 1-column bar ladder) and the card is THE SAME LADDER, driven by
+           the room: the empty rungs between the two caps and the heap of coloured
+           word tiles every hand is looking at, nobody's pointer on it. A word flies
+           onto its rung when the teacher hints it (`giveRungs`, cold end up), when
+           the room has earned it (`roomKnown`), and every rung on reveal. Under it
+           the shared lanes, hot end first, each box in its tile's colour — the same
+           standard as every other physics round, five lanes at most and the crowd
+           line past that. render() clears the mount at the top; cardTable re-hangs
+           the live canvas, so the physics never restarts. */
         if(K.round.face(s, c) === 'phones'){   // decided once per question — see K.round.face
-          if(s._canvas){ s._table = null; s._canvas = null; }
           const teams = ((c.teams) || []).map((_, i) => i);
           const over = !!(s.revealed || s.done);
           const wordAt = slot => s.scale[s.need - 1 - slot];   // slot 0 = the hot end (top)
-          const given = s.hint || 0;                            // hints name the scale from the cold end
-          mount.appendChild(cap(s.high, 'hot'));
+          /* The crowd reveal's cw, built first so roomKnown and the meter read it.
+             A rung is filled at got >= 1, so the meter and the lanes agree. */
+          const cw = {
+            keys: Array.from({ length: s.need }, (_, i) => i),
+            count: i => teams.filter(t => ((s.got[t] || [])[i] || 0) >= 1).length,
+            started: Object.keys(s.got || {}).length,
+            given: Array.from({ length: s.hint || 0 }, (_, k) => s.need - 1 - k),   // hinted rungs, as slots
+            sig: s.scale.join('|'),
+            live: !s.shown && !s.done
+          };
+          const known = K.round.roomKnown(c, cw);
+
+          const table = K.round.cardTable(mount, s, {
+            driven: true, say: false,
+            handle: '__ordRoom',
+            height: Math.min(360, 130 + s.need * 52),   // rungs plus a heap of wide tiles under them
+            frame(canvas){
+              mount.appendChild(cap(s.high, 'hot'));
+              mount.appendChild(canvas);
+              mount.appendChild(cap(s.low, 'cold'));
+            },
+            deal(table){
+              table.slots({ cols: 1, rows: s.need, bar: true, top: 8, labels: s.pool });
+              table.setPieces(s.pool);
+            }
+          });
+          giveRungs(table);
+          (over ? cw.keys : known).forEach(slot => table.give(slot, wordAt(slot)));
+
           K.round.lanes(mount, c, {
             kind: 'ord',
             progressed: Object.keys(s.got || {}),
-            answer: {
-              label: over ? 'Answer' : 'Known',
-              full: over,
-              cells: Array.from({ length: s.need }, (_, slot) => {
-                const w = wordAt(slot);
-                const got = over || (s.need - 1 - slot) < given;
-                return { got, text: got ? w : '', hue: got ? hueFor(w) : null,
-                         cls: (!over && got) ? 'hinted' : '' };
-              })
-            },
             lane(t){
               const row = (s.got || {})[t] || [];
               const cells = [];
@@ -344,19 +359,7 @@
               return { cells, count: right + '/' + s.need, full: right === s.need };
             }
           });
-          mount.appendChild(cap(s.low, 'cold'));
-          /* The reveal meter — the same crowd-progress bar the climb/race face
-             draws, so a stacking room reads how close it is to the next rung
-             exactly as a climbing one does. The count mirrors what the lanes above
-             show (a rung is filled at got >= 1), so the bar and the ladders agree. */
-          const cw = {
-            keys: Array.from({ length: s.need }, (_, i) => i),
-            count: i => teams.filter(t => ((s.got[t] || [])[i] || 0) >= 1).length,
-            started: Object.keys(s.got || {}).length,
-            given: [],
-            sig: s.scale.join('|'),
-            live: !s.shown && !s.done
-          };
+          /* The reveal meter — how close the room is to the next rung flying in. */
           K.round.crowdMeter(mount, c, cw);
           K.round.say(mount, s);
           return;
@@ -634,7 +637,12 @@
 
          A climb is the opposite case: there is one ladder, it *is* the answer, and
          filling it is the reveal. */
-      if(s.mode === 'stack'){ s.revealed = true; s._table = null; s._canvas = null; }
+      if(s.mode === 'stack'){
+        s.revealed = true;
+        /* The board face tears its table down for a static ladder; the phones face
+           keeps it — the reveal IS the remaining tiles flying into place. */
+        if(K.round.face(s, ctx) !== 'phones'){ s._table = null; s._canvas = null; }
+      }
       else if(s.mode !== 'race') s.placed = s.scale.slice();
       /* What the room was part-way to agreeing stops being news once the answer is
          out — and in a race it would leave a guess sitting above a finished lane. */

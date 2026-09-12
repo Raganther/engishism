@@ -173,16 +173,16 @@
           return;
         }
         /* Phones present → each handset runs its own Kit.table (join.html's table
-           mode, a row of letter tiles) and the card is the room's picture: a lane
-           per team, a box lit once that team has the right letter in that slot.
-           The same lanes standard the drag path draws, minus the tray/boxes —
-           the students are looking at their hands. */
+           mode, a row of letter tiles) and the card is THE SAME TABLE, driven by the
+           room: the slot row and the heap of coloured tiles every hand is looking
+           at, nobody's pointer on it. A tile flies into its slot when the teacher
+           gives it, when the room has earned it (`roomKnown` — the crowd rule past
+           the lane ceiling, every-team-has-it below), and all of them on reveal.
+           Under it the shared lanes, one per team, each box in its tile's colour.
+           The mount is cleared every render; cardTable re-hangs the live canvas,
+           so the physics never restarts. */
         if(K.round.face(s, c) === 'phones'){   // decided once per question — see K.round.face
-          if(s._canvas){ s._table = null; s._canvas = null; }
-          mount.innerHTML = '';
-          mount.className = 'round-anagram';
-
-          /* The crowd reveal's cw, built first so crowdKnown can read it. */
+          /* The crowd reveal's cw, built first so roomKnown and the meter read it. */
           const cw = {
             keys: Array.from({ length: s.need }, (_, i) => i),
             count: i => Object.keys(s.got || {}).filter(t =>
@@ -192,27 +192,38 @@
             sig: s.word,
             live: !s.shown && !s.done
           };
-          const known = (s.hint || []).concat(K.round.crowdKnown(c, cw));
-
-          /* The shared answer row — the letters the whole room has earned (the crowd
-             reveal) plus any the teacher gave, each in its own slot, and the whole
-             word once it is revealed — is the lanes' own `answer` row now, each
-             letter in the colour of its tile on the phones (`Kit.round.hueOf` over
-             the list the phones were dealt). */
+          const known = (s.hint || []).concat(K.round.roomKnown(c, cw));
           const dealt = s.pool.map(t => t.ch);
           const hue = ch => K.round.hueOf(dealt, ch);
+
+          /* Cleared every render, like ordering: the canvas detaches and cardTable
+             re-hangs the SAME table (no re-deal), and the lanes below are drawn
+             fresh rather than stacked under the last render's. */
+          mount.innerHTML = '';
+          const table = K.round.cardTable(mount, s, {
+            driven: true, say: false, height: 200,
+            handle: '__anaRoom',
+            frame(canvas){
+              mount.innerHTML = '';
+              mount.className = 'round-anagram';
+              mount.appendChild(canvas);
+            },
+            deal(table){
+              table.setPieces(dealt);
+              table.slots(s.need);                   // a plain row of square letter slots
+            }
+          });
+          /* The moves: the pool's own tile for that letter, whatever case it was
+             dealt in — the same lookup the board face's hint makes. */
+          const give = i => {
+            const t = s.pool.find(q => String(q.ch).toUpperCase() === s.word[i]);
+            table.give(i, t ? t.ch : s.word[i]);
+          };
+          (s.shown ? cw.keys : known).forEach(give);
+
           K.round.lanes(mount, c, {
             kind: 'ana',
             progressed: Object.keys(s.got || {}),
-            answer: {
-              label: s.shown ? 'Answer' : 'Known',
-              full: s.shown,
-              cells: Array.from({ length: s.need }, (_, i) => {
-                const got = s.shown || known.indexOf(i) !== -1;
-                return { got, text: got ? s.word[i] : '', hue: got ? hue(s.word[i]) : null,
-                         cls: (!s.shown && got) ? 'hinted' : '' };
-              })
-            },
             lane(t){
               const row = (s.got || {})[t] || [];
               const need = K.round.mustHold(s.mode, c, t);
@@ -228,8 +239,7 @@
                        full: right === s.need };
             }
           });
-          /* The reveal meter — the same crowd-progress bar the drag face draws; now
-             its promised letter lands in the shared row above. */
+          /* The reveal meter — how close the room is to the next tile flying in. */
           K.round.crowdMeter(mount, c, cw);
           K.round.say(mount, s);
           return;
