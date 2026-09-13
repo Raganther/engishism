@@ -843,6 +843,22 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
 }
 /* A pick that turned out wrong once the answer is out. */
 .rl-cell.miss{ opacity:0.4; text-decoration:line-through; }
+/* A tile is docked here and the room has not earned that part yet: a grey box,
+   the same size a letter will take, saying "placed" and nothing else. */
+.rl-cell.placed{
+  opacity:1; background:var(--gw-wash, rgba(18,38,63,0.22)); border:1.5px solid transparent;
+  border-radius:6px; color:transparent;
+}
+.rlanes-ana .rl-cell.placed, .rlanes-scr .rl-cell.placed, .rlanes-ord .rl-cell.placed, .rlanes-grp .rl-cell.placed, .rlanes-mc .rl-cell.placed{
+  min-width:1.5em; height:1.5em; background:var(--gw-wash, rgba(120,140,170,0.35)); border-color:rgba(255,255,255,0.18);
+}
+/* Past eight lanes: two columns and tighter rows, so sixteen individuals each keep
+   a lane on one card. */
+.rlanes.two-col{ display:grid; grid-template-columns:1fr 1fr; column-gap:14px; row-gap:3px; }
+.rlanes.dense .rlane{ padding:1px 6px; gap:6px; }
+.rlanes.dense .rl-who{ font-size:0.52em; }
+.rlanes.dense .rl-cell{ font-size:0.62em; }
+.rlanes.dense .rl-n{ font-size:0.55em; }
 
 /* Words: the sentence (scramble) and the thermometer's stack face, hot end first.
    Word boxes, sized like the letters' but wide enough to hold a word; the empty

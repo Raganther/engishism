@@ -188,8 +188,8 @@
       /* ---------- FLICK with phones: the room's own table ----------
          The card is THE SAME TABLE every hand is looking at — four coloured word
          tiles heaped under one slot, nobody's pointer on it — driven by the room:
-         the answer flies into the slot once EVERY competitor has it (`roomKnown`;
-         with one part the crowd rule can never give it away early) and on reveal.
+         the answer flies into the slot on reveal (`crowdKnown` never gives away a
+         question's last part, and this one has only one) and on reveal.
          A hint takes a wrong tile off the table, as it does on the phones, by
          re-dealing what is left. Millionaire's Ask-the-class count (`countVotes`)
          keeps the option grid, because the counts are the point of that picture. */
@@ -224,7 +224,7 @@
           given: [],
           sig: s.answer
         };
-        if(over || K.round.roomKnown(c, cw).length) table.give(0, s.answer);
+        if(over || K.round.crowdKnown(c, cw).length) table.give(0, s.answer);
       } else {
       const grid = document.createElement('div');
       grid.className = 'mc-options';
@@ -318,7 +318,18 @@
                make a card say less than it knows. */
             const size  = Number((c.sizes || [])[t]) || said;
             const cells = [];
-            for(let i = 0; i < Math.max(size, said, 1); i++) cells.push({ got: i < said });
+            if(driven){
+              /* The standard, one slot: a grey box once this competitor has committed,
+                 the option text in its tile colour once the answer is out and they
+                 had it. Who answered what stays private until then. */
+              const need = K.round.mustHold(s.mode, c, t);
+              const pick = ((s.picks || {})[t] || [])[0];
+              const ok = !!(s.shown || s.done) && !!pick && same(pick, s.answer);
+              cells.push({ placed: said >= Math.max(1, need), got: ok, text: ok ? pick : '',
+                           hue: ok ? K.round.hueOf(s.options, pick) : null });
+            } else {
+              for(let i = 0; i < Math.max(size, said, 1); i++) cells.push({ got: i < said });
+            }
 
             /* **What the filled lane turned out to mean**, which is three
                different things and used to be one. `full` alone washed the lane

@@ -496,7 +496,10 @@ body.clue-dragging #clue-back{ cursor:grabbing; }
 body.clue-dragging #clue-card{ touch-action:none; user-select:none; }
 /* two faces on one card: the tile's value in front, the clue behind. openClueCard
    grows it out of the clicked tile and turns it over. */
-#clue-card{ position:relative; max-width:720px; width:100%; transform-style: preserve-3d; will-change: transform; }
+/* Nearly the whole screen: the card carries the room's table and a lane per
+   competitor (sixteen at most, two columns past eight), and a 720px card could
+   hold five. Capped short of the edges so the board still shows around it. */
+#clue-card{ position:relative; max-width:min(1200px, calc(100vw - 48px)); width:100%; transform-style: preserve-3d; will-change: transform; }
 /* The two faces sit on separate z planes so they cannot z-fight — coplanar faces
    made $500 read as 005. `backface-visibility` used to be the other half of that
    and has been removed: captured frame by frame it culled the *clue* face through

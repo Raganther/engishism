@@ -832,24 +832,29 @@ that demonstrates flick.
 play surface (pointer on, the teacher's finger). With phones in the room it is the SAME
 table in `driven` mode — no pointer, the slot shape and the heap of coloured tiles every
 hand is looking at — and tiles move only by `give()`: a hint, a part the room has earned,
-and every part on reveal. **`Kit.round.roomKnown` is the one rule for "earned"**: past
-the lane ceiling it is the crowd reveal (`crowdKnown`, threshold, never the last part);
-in a room small enough for lanes a part flies in only once EVERY competitor holds it, so
-nothing a team still hunting could not read off the lanes is given away. Under the table
-the shared lanes (`Kit.round.lanes`), one per competitor, a box per part **painted the
-hue the physics dealt that word** (`Kit.round.hueOf` — piece k wears hue k of
-`Kit.table.hues`, which is how a phone deals it), then the reveal meter and the say line.
+and every part on reveal. **`Kit.round.crowdKnown` is the one rule for "earned", at every
+room size**: a part is earned when the crowd-reveal share of the room holds it right
+(`crowdReveal`, the question bench's setting), never the last part. Three teams or
+sixteen individuals, the same rule — there is no small-room special case any more.
+**Under the table, the lanes are the standard every round shares** (`Kit.round.lanes`):
+one lane per competitor, a box per part, and a box has three states — empty; **placed**
+(a tile is docked there, right or wrong, drawn grey: nobody can tell which); **got** (the
+room has earned that part AND this lane has it right, drawn as the letter in its tile
+colour, `Kit.round.hueOf`). On reveal every right box shows and wrong ones stay grey.
+There is no reveal meter on this face; the filling grid is the progress picture.
+**Sixteen lanes, two columns past eight** (`LANE_MAX`, the room's size cap), the crowd
+line past that; the clue card is nearly the whole screen to hold them (`#clue-card`
+max-width) and fits a 720-line board with sixteen lanes and any of the five tables.
 **Every physics face rides it** — Drag the Letters, Drag the Words, the thermometer's
-stack, Multiple Choice (one slot; with a single part the crowd rule can never give it
-away early, so it flies in only when every competitor has it, or on reveal; a hint
-re-deals the remaining tiles, and Millionaire's Ask-the-class count keeps the option
-grid) and the 8-word Connections (each word keeps the slot of its place in the authored
-group). The slots ARE the answer row, so the lanes carry no separate one. Multiple
-Choice keeps its lanes uncoloured: a cell there is a person, never an answer. **A
-re-deal frees every slot** (`setPieces` in `hub-table.js`) — a slot that kept its
-reference to a removed tile reported itself filled and refused the next give. **A docking
-glide is a sensor** — it passes through the pile and is solid again the moment it is home;
-a static body tweened across loose tiles shoved them off the canvas edge.
+stack, Multiple Choice (one slot, one box per lane: grey once committed, the option on
+reveal; a hint re-deals the remaining tiles; Millionaire's Ask-the-class count keeps the
+option grid) and the 8-word Connections (each word keeps the slot of its place in the
+authored group; a pick is a grey box until its word is earned). The tap/drag faces keep
+their own older pictures. **A re-deal frees every slot** (`setPieces` in `hub-table.js`)
+— a slot that kept its reference to a removed tile reported itself filled and refused
+the next give. **A docking glide is a sensor** — it passes through the pile and is solid
+again the moment it is home; a static body tweened across loose tiles shoved them off
+the canvas edge.
 Unit 4's 4B columns carry `physics:true` on their Multiple
 Choice and Connections clues — a mixed column has no content-screen toggle, so the flag on
 the item is how a mixed column reaches the flick face. The clue card fits a 720-line

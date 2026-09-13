@@ -306,7 +306,7 @@
            the room: the empty rungs between the two caps and the heap of coloured
            word tiles every hand is looking at, nobody's pointer on it. A word flies
            onto its rung when the teacher hints it (`giveRungs`, cold end up), when
-           the room has earned it (`roomKnown`), and every rung on reveal. Under it
+           the room has earned it (`crowdKnown`), and every rung on reveal. Under it
            the shared lanes, hot end first, each box in its tile's colour — the same
            standard as every other physics round, five lanes at most and the crowd
            line past that. render() clears the mount at the top; cardTable re-hangs
@@ -315,7 +315,7 @@
           const teams = ((c.teams) || []).map((_, i) => i);
           const over = !!(s.revealed || s.done);
           const wordAt = slot => s.scale[s.need - 1 - slot];   // slot 0 = the hot end (top)
-          /* The crowd reveal's cw, built first so roomKnown and the meter read it.
+          /* The crowd reveal's cw, built first so crowdKnown reads it.
              A rung is filled at got >= 1, so the meter and the lanes agree. */
           const cw = {
             keys: Array.from({ length: s.need }, (_, i) => i),
@@ -325,7 +325,8 @@
             sig: s.scale.join('|'),
             live: !s.shown && !s.done
           };
-          const known = K.round.roomKnown(c, cw);
+          const known = K.round.crowdKnown(c, cw);
+          const earned = slot => over || known.indexOf(slot) !== -1 || cw.given.indexOf(slot) !== -1;
 
           const table = K.round.cardTable(mount, s, {
             driven: true, say: false,
@@ -349,18 +350,18 @@
             progressed: Object.keys(s.got || {}),
             lane(t){
               const row = (s.got || {})[t] || [];
+              const fill = (s.filled || {})[t] || [];
               const cells = [];
               let right = 0;
               for(let slot = 0; slot < s.need; slot++){
-                const ok = (row[slot] || 0) >= 1;
-                if(ok) right++;
-                cells.push({ got: ok, text: ok ? wordAt(slot) : '', hue: ok ? hueFor(wordAt(slot)) : null });
+                const has = (row[slot] || 0) >= 1;
+                const ok = has && earned(slot);
+                if(has) right++;
+                cells.push({ placed: (fill[slot] || 0) >= 1, got: ok, text: ok ? wordAt(slot) : '', hue: ok ? hueFor(wordAt(slot)) : null });
               }
               return { cells, count: right + '/' + s.need, full: right === s.need };
             }
           });
-          /* The reveal meter — how close the room is to the next rung flying in. */
-          K.round.crowdMeter(mount, c, cw);
           K.round.say(mount, s);
           return;
         }
@@ -822,7 +823,7 @@
             sizes:  (ctx && ctx.sizes) || [],
             mode:   s.mode
           });
-          s.leading = p.leading; s.votes = p.votes; s.by = p.by; s.got = p.got;
+          s.leading = p.leading; s.votes = p.votes; s.by = p.by; s.got = p.got; s.filled = p.filled;
           return p.picks;
         }
         return { 0: (s.cardCells || []).slice() };

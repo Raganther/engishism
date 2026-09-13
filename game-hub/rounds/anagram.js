@@ -176,13 +176,13 @@
            mode, a row of letter tiles) and the card is THE SAME TABLE, driven by the
            room: the slot row and the heap of coloured tiles every hand is looking
            at, nobody's pointer on it. A tile flies into its slot when the teacher
-           gives it, when the room has earned it (`roomKnown` — the crowd rule past
-           the lane ceiling, every-team-has-it below), and all of them on reveal.
+           gives it, when the room has earned it (`crowdKnown` — the one threshold
+           rule, at every room size), and all of them on reveal.
            Under it the shared lanes, one per team, each box in its tile's colour.
            The mount is cleared every render; cardTable re-hangs the live canvas,
            so the physics never restarts. */
         if(K.round.face(s, c) === 'phones'){   // decided once per question — see K.round.face
-          /* The crowd reveal's cw, built first so roomKnown and the meter read it. */
+          /* The crowd reveal's cw, built first so crowdKnown reads it. */
           const cw = {
             keys: Array.from({ length: s.need }, (_, i) => i),
             count: i => Object.keys(s.got || {}).filter(t =>
@@ -192,7 +192,8 @@
             sig: s.word,
             live: !s.shown && !s.done
           };
-          const known = (s.hint || []).concat(K.round.roomKnown(c, cw));
+          const known = (s.hint || []).concat(K.round.crowdKnown(c, cw));
+          const earned = i => s.shown || known.indexOf(i) !== -1;
           const dealt = s.pool.map(t => t.ch);
           const hue = ch => K.round.hueOf(dealt, ch);
 
@@ -226,21 +227,23 @@
             progressed: Object.keys(s.got || {}),
             lane(t){
               const row = (s.got || {})[t] || [];
+              const fill = (s.filled || {})[t] || [];
               const need = K.round.mustHold(s.mode, c, t);
               const cells = [];
               let right = 0;
+              /* The standard: a docked tile is a grey box; the letter shows only
+                 once the room has earned that part AND this lane has it right. */
               for(let i = 0; i < s.need; i++){
-                const ok = (row[i] || 0) >= need;
-                if(ok) right++;
-                cells.push({ got: ok, text: ok ? s.word[i] : '', colour: true, hue: ok ? hue(s.word[i]) : null });
+                const has = (row[i] || 0) >= need;
+                const ok = has && earned(i);
+                if(has) right++;
+                cells.push({ placed: (fill[i] || 0) >= need, got: ok, text: ok ? s.word[i] : '', colour: true, hue: ok ? hue(s.word[i]) : null });
               }
               return { cells, count: right + ' of ' + s.need,
                        agree: s.mode === 'agree' ? K.round.agreement(s, c, t) : null,
                        full: right === s.need };
             }
           });
-          /* The reveal meter — how close the room is to the next tile flying in. */
-          K.round.crowdMeter(mount, c, cw);
           K.round.say(mount, s);
           return;
         }
@@ -464,7 +467,7 @@
         sizes:  (ctx && ctx.sizes) || [],
         mode:   s.mode
       });
-      s.leading = p.leading; s.votes = p.votes; s.by = p.by; s.got = p.got;
+      s.leading = p.leading; s.votes = p.votes; s.by = p.by; s.got = p.got; s.filled = p.filled;
       return p.picks;
     },
 

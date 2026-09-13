@@ -162,11 +162,11 @@
            room: the wrapped sentence of empty slots and the heap of coloured word
            tiles every hand is looking at, nobody's pointer on it. A word flies into
            its slot when the teacher gives it, when the room has earned it
-           (`roomKnown`), and every word on reveal. Under it the shared lanes, each
+           (`crowdKnown`), and every word on reveal. Under it the shared lanes, each
            box in its tile's colour. The mount is cleared every render; cardTable
            re-hangs the live canvas, so the physics never restarts. */
         if(K.round.face(s, c) === 'phones'){   // decided once per question — see K.round.face
-          /* The crowd reveal's cw, built first so roomKnown and the meter read it. */
+          /* The crowd reveal's cw, built first so crowdKnown reads it. */
           const cw = {
             keys: Array.from({ length: s.need }, (_, i) => i),
             count: i => Object.keys(s.got || {}).filter(t =>
@@ -176,7 +176,8 @@
             sig: s.words.join('|'),
             live: !s.shown && !s.done
           };
-          const known = (s.hint || []).concat(K.round.roomKnown(c, cw));
+          const known = (s.hint || []).concat(K.round.crowdKnown(c, cw));
+          const earned = i => s.shown || known.indexOf(i) !== -1;
           const dealt = s.pool.map(t => t.w);
           const hue = w => K.round.hueOf(dealt, w);
 
@@ -203,21 +204,21 @@
             progressed: Object.keys(s.got || {}),
             lane(t){
               const gotRow = (s.got || {})[t] || [];
+              const fill = (s.filled || {})[t] || [];
               const need = K.round.mustHold(s.mode, c, t);
               const cells = [];
               let right = 0;
               for(let i = 0; i < s.need; i++){
-                const ok = (gotRow[i] || 0) >= need;
-                if(ok) right++;
-                cells.push({ got: ok, text: ok ? s.words[i] : '', hue: ok ? hue(s.words[i]) : null });
+                const has = (gotRow[i] || 0) >= need;
+                const ok = has && earned(i);
+                if(has) right++;
+                cells.push({ placed: (fill[i] || 0) >= need, got: ok, text: ok ? s.words[i] : '', hue: ok ? hue(s.words[i]) : null });
               }
               return { cells, count: right + '/' + s.need,
                        agree: s.mode === 'agree' ? K.round.agreement(s, c, t) : null,
                        full: right === s.need };
             }
           });
-          /* The reveal meter — how close the room is to the next word flying in. */
-          K.round.crowdMeter(mount, c, cw);
           K.round.say(mount, s);
           return;
         }
@@ -529,7 +530,7 @@
         sizes:  (ctx && ctx.sizes) || [],
         mode:   s.mode
       });
-      s.leading = p.leading; s.votes = p.votes; s.by = p.by; s.got = p.got;
+      s.leading = p.leading; s.votes = p.votes; s.by = p.by; s.got = p.got; s.filled = p.filled;
       return p.picks;
     },
 

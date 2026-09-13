@@ -154,8 +154,8 @@
          The card is THE SAME TABLE every hand is looking at — eight coloured word
          tiles heaped under a row of four slots, nobody's pointer on it — driven by
          the room: a word flies into the row when the teacher hints it, when the
-         room has earned it (`roomKnown` — the crowd rule past the lane ceiling,
-         every-team-holds-it below), and all four once the round is over. Each word
+         room has earned it (`crowdKnown` — the one threshold rule), and all four
+         once the round is over. Each word
          keeps one slot (its place in the authored group) so it never moves twice. */
       const driven = s.mode === 'flick' && K.round.face(s, c) === 'phones';
       // Any DOM path (tap, or a decided round on the tap face) tears down a stale
@@ -176,7 +176,7 @@
         given: s.hint || [],
         sig: s.pick.join('|')
       };
-      const known = (s.hint || []).concat(driven ? K.round.roomKnown(c, cw) : K.round.crowdKnown(c, cw));
+      const known = (s.hint || []).concat(K.round.crowdKnown(c, cw));
 
       if(driven){
         const table = K.round.cardTable(mount, s, {
@@ -238,14 +238,21 @@
             const cells = [];
             const slots = Math.max(s.need, picks.length);
             const inSet = w => s.pick.some(p => String(p).toLowerCase() === String(w).toLowerCase());
+            const over = !!(s.done || s.shown);
+            const earned = w => over || known.some(k => String(k).toLowerCase() === String(w).toLowerCase());
             for(let i = 0; i < slots; i++){
-              /* On the flick face a pick wears the colour of its tile on the phones,
-                 and once the round is over a pick outside the group is struck
-                 through — the answer is out, so saying which was wrong costs nothing. */
-              if(picks[i]) cells.push({ got: true, text: picks[i],
-                                        hue: s.mode === 'flick' ? K.round.hueOf(s.words, picks[i]) : null,
-                                        cls: (i >= s.need ? 'over' : '') + (s.done && !inSet(picks[i]) ? ' miss' : '') });
-              else cells.push({ got: false });
+              const w = picks[i];
+              if(!w){ cells.push({ got: false }); continue; }
+              if(driven){
+                /* The standard: a pick is a grey box until the room has earned that
+                   word; then it shows, in its tile colour, for the lanes that have it.
+                   Once the round is over a pick outside the group is struck through. */
+                const ok = inSet(w) && earned(w);
+                cells.push({ placed: true, got: ok, text: ok ? w : '', hue: ok ? K.round.hueOf(s.words, w) : null,
+                             cls: (i >= s.need ? 'over' : '') + (over && !inSet(w) ? ' miss' : '') });
+              } else {
+                cells.push({ got: true, text: w, cls: (i >= s.need ? 'over' : '') + (over && !inSet(w) ? ' miss' : '') });
+              }
             }
             /* **This team has the set.** Every other round shows a correct answer in
                its own lane — a green lane on Multiple Choice, letters landing in

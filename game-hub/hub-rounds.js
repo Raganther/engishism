@@ -590,8 +590,12 @@
     const th = (ctx && ctx.crowdReveal) == null ? 0.4 : Number(ctx.crowdReveal);
     const started = Number(o.started) || 0;
     if(!th || !started) return [];
+    /* **One rule at every room size.** This used to speak only past the lane
+       ceiling, on the reasoning that below it the lanes carried the copy dynamic.
+       The lanes say nothing now until a part is earned (a placed tile is a grey
+       box), so the threshold is the one rule a class learns — three teams or
+       sixteen individuals, the same share of the room earns a part. */
     const competitors = laneTeams(ctx).length;
-    if(competitors <= 5) return [];
     const keys = o.keys || [];
     const given = o.given || [];
     /* **The share is of the whole room, not of whoever has started.** Divided by
@@ -626,29 +630,6 @@
     if(out.some(k => knownMemo.keys.indexOf(k) === -1)){
       knownMemo = { sig, keys: out.slice() };
       if(ctx && typeof ctx.nudge === 'function') ctx.nudge('reveal');
-    }
-    return out;
-  }
-
-  /* ---------- what the room's own table may show ----------
-     **The shared table on the card is driven by the room, and this is the rule for
-     when a tile flies in on its own.** Past the lane ceiling it is the crowd reveal
-     above, unchanged. In a room small enough for lanes the crowd rule is silent —
-     the lanes carry the copy dynamic — so there a part flies onto the shared table
-     only once EVERY competitor holds it: then it is nobody's secret, and a team
-     still hunting learns nothing it could not read off the lanes already. Hints
-     (`given`) are the caller's own moves and are never repeated here. One union,
-     so a round asks one question of the shelf: which parts may the table show. */
-  function roomKnown(ctx, o){
-    o = o || {};
-    const out = crowdKnown(ctx, o).slice();
-    const teams = laneTeams(ctx);
-    const given = o.given || [];
-    if(teams.length && teams.length <= 5){
-      (o.keys || []).forEach(k => {
-        if(given.indexOf(k) !== -1 || out.indexOf(k) !== -1) return;
-        if((Number(o.count ? o.count(k) : 0) || 0) >= teams.length) out.push(k);
-      });
     }
     return out;
   }
@@ -751,7 +732,11 @@
      fixed dark ink, readable on every hue. */
   function laneCell(cs, teamColour){
     const cell = document.createElement('span');
-    cell.className = 'rl-cell ' + (cs.got ? 'got' : 'gap') + (cs.cls ? ' ' + cs.cls : '');
+    /* Three states, and the middle one is the standard's whole point: `placed` is
+       a tile docked there — right or wrong, nobody can tell — drawn as a grey box;
+       `got` is a part the room has EARNED and this competitor has right, drawn as
+       the letter in its tile colour; neither is a gap. */
+    cell.className = 'rl-cell ' + (cs.got ? 'got' : cs.placed ? 'placed' : 'gap') + (cs.cls ? ' ' + cs.cls : '');
     if(cs.text != null && cs.text !== '') cell.textContent = cs.text;
     if(cs.colour && teamColour) cell.style.borderColor = teamColour;
     if(cs.hue){
@@ -762,6 +747,7 @@
     return cell;
   }
 
+  const LANE_MAX = 16;   // the room's size cap: a lane each up to here, the crowd line past it
   function lanes(mount, ctx, opts){
     const o = opts || {};
     const teams = laneTeams(ctx, o.progressed);
@@ -789,7 +775,12 @@
        whose count string leads with a fraction lends its first word, and a round
        with neither is just the name — which for Multiple Choice reads as "who has
        answered", the honest crowd fact there. */
-    if(teams.length > 5){
+    /* **Sixteen lanes, then the crowd line.** Five was where a lane each stopped
+       being readable on a card that took a third of the screen; the card is nearly
+       the whole screen now and past eight the lanes run in two columns, so a class
+       of sixteen individuals each has a row. Sixteen is the ceiling — the room's
+       size cap — and past it the crowd line stands in as before. */
+    if(teams.length > LANE_MAX){
       const entries = teams.sort((a, b) => a - b).map(t=>{
         const spec = o.lane ? (o.lane(t) || {}) : {};
         const cells = spec.cells || [];
@@ -805,7 +796,8 @@
     const colour = i => (window.HubBuzzer && window.HubBuzzer.teamColour)
                         ? window.HubBuzzer.teamColour(i) : '';
     const wrap = document.createElement('div');
-    wrap.className = 'rlanes' + (o.kind ? ' rlanes-' + o.kind : '');
+    wrap.className = 'rlanes' + (o.kind ? ' rlanes-' + o.kind : '') + (teams.length > 8 ? ' two-col dense' : '');
+    wrap.dataset.n = String(teams.length);
     teams.sort((a, b) => a - b).forEach(t=>{
       const spec = o.lane ? (o.lane(t) || {}) : {};
       const lane = document.createElement('div');
@@ -865,7 +857,7 @@
   function arrangement(replies, o){
     const clean = o.clean || (x => x);
     const norm = x => String(clean(x)).trim().toLowerCase();
-    const tally = {}, said = {}, by = {}, best = {}, got = {};
+    const tally = {}, said = {}, by = {}, best = {}, got = {}, filled = {};
     (replies || []).forEach(r=>{
       const t = Number(r && r.team) || 0;
       const seq = String((r && r.value) == null ? '' : r.value).split('|').map(x => clean(x));
@@ -876,8 +868,11 @@
       said[t] = (said[t] || 0) + 1;
       by[t] = r.name;
       const row = got[t] || (got[t] = []);
+      const frow = filled[t] || (filled[t] = []);
       seq.forEach((w, i)=>{
-        if(w && norm(w) === norm(o.wordAt(i))) row[i] = (row[i] || 0) + 1;
+        if(!w) return;
+        frow[i] = (frow[i] || 0) + 1;                                   // something is here — right or not
+        if(norm(w) === norm(o.wordAt(i))) row[i] = (row[i] || 0) + 1;   // the right thing is here
       });
       if(!best[t] || placed.length > best[t].filter(Boolean).length) best[t] = seq;
       if(placed.length !== o.need) return;
@@ -896,7 +891,7 @@
       const size = Number((o.sizes || [])[t]) || 0;
       if(o.mode !== 'agree' || !size || agreed >= size) picks[t] = lead.split('|');
     });
-    return { picks, leading, votes, by, got };
+    return { picks, leading, votes, by, got, filled };
   }
 
   /* ---------- how many the teacher may hold at once ----------
@@ -1112,7 +1107,7 @@
        driven         **the phones face**: the same table, but nobody touches it —
                       no pointer wiring, and the tiles move only by `give()`, which
                       the round calls for a hint, for what the room has earned
-                      (`roomKnown`) and for everything on reveal. So the card is
+                      (`crowdKnown`) and for everything on reveal. So the card is
                       the picture in every hand, moved by the room's progress.
        say            `false` to leave the prose line to the caller (a face that
                       draws lanes under the canvas puts it after them).
@@ -1614,7 +1609,7 @@
       return null;
     },
     ctx: buildCtx, resolve,
-    shares, settle, clock, results, poll, agreement, lanes, hueOf, placeBadge, crowd, crowdKnown, roomKnown, crowdMeter, mustHold, arrangement, cardTable, cap, actions, strip, press, say, finish, shuffle, teamColour, dragTag, bare,
+    shares, settle, clock, results, poll, agreement, lanes, hueOf, placeBadge, crowd, crowdKnown, crowdMeter, mustHold, arrangement, cardTable, cap, actions, strip, press, say, finish, shuffle, teamColour, dragTag, bare,
     /* **Which face a physics question is played on, decided ONCE per question.**
        'phones' when handsets were in the room as the question opened, else 'board'.
        Read live, the face followed the roster: a phone joining mid-question tore the
