@@ -1875,35 +1875,67 @@ body.theme-gameshow #clue-actions #hint-btn{ border-color:rgba(255,200,61,0.5); 
   gap:6px 12px; text-align:left;
 }
 .st-row{
-  display:grid; grid-template-columns:2.2rem 1.2rem 1fr auto 3.2rem; gap:10px;
-  align-items:center; background:var(--white); border:2px solid var(--line);
-  border-radius:10px; padding:7px 14px;
+  display:grid; grid-template-columns:2rem 1.1rem 1fr auto 3.2rem; gap:10px;
+  align-items:center;
+  /* **A competitor's row is their tile.** The same finish as a word tile on the
+     table and on every phone — a bright fill, dark lettering, rounded corners, a
+     thin dark edge — in the competitor's own colour (`--tile`, set per row by the
+     engine from the team palette). Dark ink because the fills are bright, the
+     tiles' own rule; the fallback fill is the brand's line blue. */
+  --tile: var(--blue, #00A0DF);
+  background:var(--tile); color:#101318;
+  border:1.5px solid rgba(0,0,0,0.22); border-radius:10px; padding:7px 14px;
   /* The shuffle: rows open translated to their old slots and glide home when the
      transform clears. `.shuffling` is the placement frame — transitions off so the
      old arrangement appears instantly, never animates into being. */
   transition:transform 1400ms cubic-bezier(0.3, 0.7, 0.25, 1);
 }
 #standings-rows.shuffling .st-row{ transition:none; }
-@media (prefers-reduced-motion:reduce){ .st-row{ transition:none; } }
+@media (prefers-reduced-motion:reduce){ .st-row{ transition:none; } .st-gain, .st-row.took{ animation:none; } }
 /* A class-sized board pays for the extra rows in type and padding rather than in
    rows it cannot show. */
 #standings-rows.crowd .st-row{ padding:4px 9px; gap:7px; font-size:0.86rem;
-  grid-template-columns:1.8rem 1rem 1fr auto 2.6rem; }
-.st-row.scored{ border-color:var(--navy); background:var(--cream); }
-/* Who took the question. A second, louder mark than merely having scored, because
-   on a slot board those are different facts. */
-.st-row.took{ border-color:var(--yellow); box-shadow:0 0 0 3px rgba(247,201,72,0.35); }
-.st-place{ font-family:'IBM Plex Mono',monospace; color:var(--muted); font-size:0.9rem; }
-.st-name{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.st-pts{ font-weight:700; font-variant-numeric:tabular-nums; }
-.st-gain{ font-family:'IBM Plex Mono',monospace; font-size:0.82rem; color:#1E8449;
-  text-align:right; }
+  grid-template-columns:1.7rem 1rem 1fr auto 2.6rem; }
+/* A row that scored this question lands the way a docked tile does: a brief
+   swell of light rather than a colour change (its colour is who it is). No
+   transform — that is the shuffle's, and the two must not fight. */
+.st-row.scored{ animation: st-land 700ms ease-out 1; }
+@keyframes st-land{
+  0%  { box-shadow:0 0 0 0 rgba(255,255,255,0.0); filter:brightness(1); }
+  35% { box-shadow:0 0 0 5px rgba(255,255,255,0.55); filter:brightness(1.18); }
+  100%{ box-shadow:0 0 0 0 rgba(255,255,255,0.0); filter:brightness(1); }
+}
+/* Who took the question: the breathing gold halo a right tile wears on the table
+   — a second, louder mark than merely having scored, because on a slot board
+   those are different facts. */
+.st-row.took{ animation: st-glow 1600ms ease-in-out infinite; border-color:var(--gold, #F7C948); }
+@keyframes st-glow{
+  0%,100%{ box-shadow:0 0 0 3px rgba(247,201,72,0.55), 0 0 14px rgba(247,201,72,0.45); }
+  50%    { box-shadow:0 0 0 3px rgba(247,201,72,0.85), 0 0 26px rgba(247,201,72,0.75); }
+}
+/* The place: a small dark badge at the tile's left end. */
+.st-place{
+  font-family:'IBM Plex Mono',monospace; font-size:0.85rem; font-weight:700;
+  background:rgba(16,19,24,0.82); color:#fff; border-radius:6px; text-align:center;
+  padding:1px 0; line-height:1.4;
+}
+.st-name{ font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* The points: in the empty-box outline a lane uses for a slot — the score sits in
+   a slot on the tile, the way an answer sits in one on the table. */
+.st-pts{
+  font-weight:800; font-variant-numeric:tabular-nums;
+  border:1.5px solid rgba(0,0,0,0.35); border-radius:6px; padding:1px 9px;
+  background:rgba(255,255,255,0.38); min-width:2.4em; text-align:center;
+}
+/* The gain pops up beside the slot the way a landed tile swells. */
+.st-gain{ font-family:'IBM Plex Mono',monospace; font-size:0.82rem; font-weight:700;
+  color:#101318; text-align:right; }
+.st-row.scored .st-gain{ animation: st-pop 600ms cubic-bezier(0.2, 1.4, 0.4, 1) 1; }
+@keyframes st-pop{ 0%{ transform:scale(0.5); opacity:0; } 60%{ transform:scale(1.25); opacity:1; } 100%{ transform:scale(1); } }
 /* Movement, as a shape rather than a number: "third to first" is read off the arrow
-   and nobody at the back of a room is doing subtraction. */
-.st-move{ font-size:0.8rem; text-align:center; }
-.st-move.up{ color:#1E8449; }
-.st-move.down{ color:#C0392B; }
-.st-move.level{ color:var(--line); }
+   and nobody at the back of a room is doing subtraction. Dark on the tile's fill. */
+.st-move{ font-size:0.8rem; text-align:center; color:rgba(16,19,24,0.85); }
+.st-move.level{ color:rgba(16,19,24,0.3); }
 .st-more{ align-self:center; font-size:0.8rem; opacity:0.6;
   font-family:'IBM Plex Mono',monospace; }
 
@@ -1914,16 +1946,10 @@ body.theme-gameshow #clue-actions #hint-btn{ border-color:rgba(255,200,61,0.5); 
 body.theme-gameshow #standings-card{
   background:#0B1428; border-color:rgba(255,255,255,0.3); color:#fff;
 }
-body.theme-gameshow .st-row{
-  background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.16); color:#fff;
-}
-body.theme-gameshow .st-row.scored{
-  background:rgba(43,217,196,0.18); border-color:#2BD9C4;
-}
-body.theme-gameshow .st-place{ color:rgba(255,255,255,0.5); }
-body.theme-gameshow .st-gain{ color:#2BD9C4; }
-body.theme-gameshow .st-move.level{ color:rgba(255,255,255,0.25); }
+/* The rows are tiles in both themes — the identity holds whichever skin is on — so
+   the game-show theme restyles only the card around them. */
 body.theme-gameshow #standings-eyebrow{ color:rgba(255,255,255,0.6); }
+body.theme-gameshow .st-more{ color:rgba(255,255,255,0.7); }
 body.theme-gameshow #standings-go{ background:var(--yellow); color:#0B1428; }
 
 @media(max-width:760px){

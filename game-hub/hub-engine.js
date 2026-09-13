@@ -1636,6 +1636,10 @@
       const row = document.createElement('div');
       row.className = 'st-row' + (r.gain > 0 ? ' scored' : '') +
                       (r.i === o.winner ? ' took' : '');
+      /* The row is that competitor's tile: the same colour their lane edge and score
+         chip wear, so a student finds themselves here the way they do on the card. */
+      if(window.HubBuzzer && window.HubBuzzer.teamColour)
+        row.style.setProperty('--tile', window.HubBuzzer.teamColour(r.i));
       const add = (cls, text) => {
         const el = document.createElement('span');
         el.className = cls; el.textContent = text; row.appendChild(el);
