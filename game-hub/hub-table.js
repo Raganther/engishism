@@ -41,7 +41,12 @@
   const { Engine, Composite, Bodies, Body, Query, Constraint, Events } = M;
 
   /* palette for the pieces: distinguishable, high-contrast on dark */
-  const HUES = ['#00A0DF','#F5C542','#E2603B','#6FB04A','#B36FD1','#3BB0A8','#E86FA0'];
+  /* The tile palette's ONE home is hub-brand.js (the brand's colours — the mark is
+     six of them spelling the name), read from there; the literal is the fallback
+     for a page that loads this shelf without the brand file, and must match it. */
+  const HUES = (window.HubBrand && window.HubBrand.hues && window.HubBrand.hues.length)
+    ? window.HubBrand.hues.slice()
+    : ['#00A0DF','#F5C542','#E2603B','#6FB04A','#B36FD1','#3BB0A8','#E86FA0'];
 
   /* ---- the feel dials: ONE home for every touch-tuning number ----
      Each dial declares its default, range, label and print format. makeTable

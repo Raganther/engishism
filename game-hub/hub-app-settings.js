@@ -117,6 +117,16 @@ window.registerAppSettings = function(S){
     variants:[{value:'gameshow', label:'Game show — lights, music, intro'},
               {value:'dcu',      label:'DCU — school colours'}] });
 
+  /* Whose name the room sees. Huddle is the app; the school's identity is a skin
+     it can wear — on the board's header, on every phone's entry screen (the board
+     hands it over in the join URL) and on the standby between rounds. Separate
+     from the look-and-feel: a DCU-branded room can still run the game-show lights. */
+  S.register({ id:'brand', group:'Presentation', type:'variant', default:'huddle',
+    games:'*',
+    label:'Brand', help:'The name and mark the room sees — on the board and on every phone as it joins.',
+    variants:[{value:'huddle', label:'Huddle'},
+              {value:'dcu',    label:'DCU International Academy'}] });
+
   S.register({ id:'intro', group:'Presentation', adv:true, type:'select', default:'once',
     games:'*',
     label:'Title sequence', help:'The lights-and-logo opening. Any key or click skips it.',

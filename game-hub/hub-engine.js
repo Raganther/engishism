@@ -686,10 +686,12 @@
         <div class="eyebrow"></div>
         <h1 id="page-title">Game Hub</h1>
       </div>
-      <!-- The school's identity, centred at the top of the board — the framework
-           wearing DCUIA. Absolutely centred so it never disturbs the no-wrap header;
-           hidden on narrow widths so it cannot collide on a phone-sized board. -->
-      <div class="hub-brand" aria-label="DCU International Academy"><b>DCU</b>&nbsp;International Academy</div>
+      <!-- The brand's mark, centred at the top of the board — drawn by HubBrand from
+           the brand setting (Huddle, or the school's identity as a skin). No backticks
+           in here: the skeleton is a template literal, and one closes it. Absolutely
+           centred so it never disturbs the no-wrap header; hidden on narrow widths so
+           it cannot collide on a phone-sized board. -->
+      <div class="hub-brand"></div>
       <div class="header-right">
         <span id="build-tag" title="App version — the settings cog moved to the room bench, so the build shows here">Build ${window.HUB_BUILD || 'dev'}</span>
         <div id="timer-widget">
@@ -1158,6 +1160,13 @@
     document.body.classList.toggle('theme-gameshow', themeOf() === 'gameshow');
   }
   S.onChange(id=>{ if(id === 'theme') applyTheme(); });   // ⚙ changes show at once
+  /* The mark on the header, from the `brand` setting; redrawn the moment it changes. */
+  function applyBrand(){
+    const el = document.querySelector('.hub-brand');
+    if(el && window.HubBrand) window.HubBrand.mark(el, S.get('brand'));
+  }
+  applyBrand();
+  S.onChange(id=>{ if(id === 'brand') applyBrand(); });
   /* Switching who is competing has to reach the screen it changes: the game cards,
      because half of them are no longer on offer, and the team bar, because its add
      button and its remove tooltips are named after what a competitor is. Neither is
@@ -3981,6 +3990,11 @@
          join.html ignores the extra param. The typed address (`joinAddress`) stays clean
          — a student cannot type a stamp — and the build-watch pill covers that path. */
       if(window.HUB_BUILD && window.HUB_BUILD !== 'dev') u.searchParams.set('v', window.HUB_BUILD);
+      /* The brand travels in the URL: a phone shows its mark before it has joined any
+         room, and the scan is the one thing it has by then. Huddle is the default
+         and needs no parameter. */
+      const brand = S.get('brand');
+      if(brand && brand !== 'huddle') u.searchParams.set('brand', brand);
       return u.toString();
     }catch(e){ return 'join.html'; }
   }
