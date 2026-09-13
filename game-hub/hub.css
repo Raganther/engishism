@@ -1983,3 +1983,71 @@ body.theme-gameshow #play-kahoot.lit #k-clock.low{ background:#C0392B; border-co
   #clue-answer{ padding:10px; margin-bottom:14px; }
   #clue-actions button{ padding:9px 16px; }
 }
+
+
+/* ===================== the Huddle look, both themes =====================
+   The primitives are huddle.css (a tile: bright fill, dark lettering, dark edge,
+   short hard shadow; a slot: an empty dashed box). Applied here to what a teacher
+   touches on the setup screens and the clue card, whichever theme is on — the game
+   show keeps its lights, gold and music; DCU keeps its light ground; both draw the
+   same tiles, so a room learns one vocabulary. Appended last so it wins the tie
+   with the theme rules above. */
+.unit-card .unit-num, body.theme-gameshow .unit-card .unit-num{
+  background:var(--hd-yellow); color:var(--hd-ink); border:2px solid rgba(0,0,0,0.24);
+  border-radius:8px; box-shadow:0 3px 0 rgba(0,0,0,0.28); transform:rotate(-2deg);
+}
+/* Each game's icon sits on its own coloured tile, told apart by hue. */
+.game-card .game-icon, body.theme-gameshow .game-card .game-icon, body.theme-gameshow .game-card:hover .game-icon{
+  color:var(--hd-ink); background:var(--fill, var(--hd-hue-1)); padding:8px; width:48px; height:48px;
+  border:2px solid rgba(0,0,0,0.24); border-radius:11px; box-shadow:0 3px 0 rgba(0,0,0,0.28);
+  box-sizing:border-box;
+}
+.game-card:nth-child(7n+1) .game-icon{ --fill:var(--hd-hue-1); } .game-card:nth-child(7n+2) .game-icon{ --fill:var(--hd-hue-2); }
+.game-card:nth-child(7n+3) .game-icon{ --fill:var(--hd-hue-3); } .game-card:nth-child(7n+4) .game-icon{ --fill:var(--hd-hue-4); }
+.game-card:nth-child(7n+5) .game-icon{ --fill:var(--hd-hue-5); } .game-card:nth-child(7n+6) .game-icon{ --fill:var(--hd-hue-6); }
+.game-card:nth-child(7n+7) .game-icon{ --fill:var(--hd-hue-7); }
+/* A content row's tick is a slot that fills with a tile when chosen. */
+.cat-check input, body.theme-gameshow .cat-check input{
+  appearance:none; -webkit-appearance:none; width:26px; height:26px; margin:0; flex-shrink:0;
+  border:2px dashed rgba(18,38,63,0.38); border-radius:7px; background:transparent; cursor:pointer;
+  position:relative; display:inline-grid; place-items:center;
+}
+body.theme-gameshow .cat-check input{ border-color:rgba(255,255,255,0.3); }
+.cat-check input:checked, body.theme-gameshow .cat-check input:checked{
+  background:var(--hd-yellow); border:2px solid rgba(0,0,0,0.26); box-shadow:0 2px 0 rgba(0,0,0,0.3);
+}
+.cat-check input:checked::after{ content:'\2713'; color:var(--hd-ink); font-weight:900; font-size:15px; line-height:1; }
+/* The round-type filter chips and the face toggle: slots until on, then tiles. */
+.rf-chip.on, body.theme-gameshow .rf-chip.on{
+  background:var(--hd-yellow); color:var(--hd-ink); border:1.5px solid rgba(0,0,0,0.26); box-shadow:0 2px 0 rgba(0,0,0,0.28);
+}
+.cat-check .face button.on, body.theme-gameshow .cat-check .face button.on{ background:var(--hd-blue); color:var(--hd-ink); font-weight:700; }
+/* Start is the yellow tile; not yet allowed, a slot. */
+#start-btn, body.theme-gameshow #start-btn{
+  background:var(--hd-yellow); color:var(--hd-ink); border:2px solid rgba(0,0,0,0.26); border-radius:12px;
+  box-shadow:0 5px 0 rgba(0,0,0,0.32), 0 12px 24px rgba(0,0,0,0.3); transition:transform .08s, box-shadow .08s;
+}
+#start-btn:not(:disabled):hover, body.theme-gameshow #start-btn:not(:disabled):hover{ background:var(--hd-yellow); filter:brightness(1.06); }
+#start-btn:not(:disabled):active{ transform:translateY(4px); box-shadow:0 1px 0 rgba(0,0,0,0.32), 0 4px 10px rgba(0,0,0,0.3); }
+#start-btn:disabled, body.theme-gameshow #start-btn:disabled{
+  opacity:1; background:transparent; color:var(--muted); border:2px dashed rgba(18,38,63,0.35); box-shadow:none;
+}
+body.theme-gameshow #start-btn:disabled{ color:rgba(234,240,255,0.5); border-color:rgba(255,255,255,0.28); }
+/* The clue card's buttons: the verdicts are tiles in the answer colours, the rest
+   are slots. Both themes. */
+#clue-actions button, body.theme-gameshow #clue-actions button{
+  border-radius:10px; border:2px solid rgba(0,0,0,0.26); box-shadow:0 3px 0 rgba(0,0,0,0.3);
+  transition:transform .08s, box-shadow .08s;
+}
+#clue-actions button:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,0.3); }
+#reveal-btn, body.theme-gameshow #reveal-btn{ background:var(--hd-yellow); color:var(--hd-ink); }
+#correct-btn, body.theme-gameshow #correct-btn{ background:var(--hd-green); color:var(--hd-ink); }
+#wrong-btn, body.theme-gameshow #wrong-btn{ background:var(--hd-red); color:var(--hd-ink); }
+#close-btn, #skip-btn, #clue-actions #hint-btn, body.theme-gameshow #close-btn, body.theme-gameshow #skip-btn, body.theme-gameshow #clue-actions #hint-btn{
+  background:transparent; color:var(--navy); border:2px dashed rgba(18,38,63,0.4); box-shadow:none;
+}
+body.theme-gameshow #close-btn, body.theme-gameshow #skip-btn, body.theme-gameshow #clue-actions #hint-btn{
+  color:var(--paper, #EAF0FF); border-color:rgba(255,255,255,0.32);
+}
+#clue-actions #hint-btn:hover, body.theme-gameshow #clue-actions #hint-btn:hover{ background:var(--hd-blue); color:var(--hd-ink); border-style:solid; }
+#clue-actions button:disabled{ opacity:0.4; box-shadow:none; transform:none; }

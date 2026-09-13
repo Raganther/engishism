@@ -1,0 +1,65 @@
+/* ================= huddle.css — the Huddle look, in one place =================
+   The app's identity is the tile: a bright fill, dark lettering, rounded corners,
+   a thin dark edge, a short hard shadow, and it lands with a swell. Its opposite is
+   the slot: an empty dashed box on the dark ground waiting for a tile. Everything a
+   room touches or reads is one or the other — a button is a tile, an input is a
+   slot, a chosen thing is a tile and an unchosen one a slot.
+
+   This file is the tokens and the two primitives, loaded by the phone page, every
+   hub shell and the front door, so the finish has ONE home. The pages apply them to
+   their own elements by id and class in their own stylesheets (the phone's ids are
+   load-bearing for its script and the suites; nothing here renames one). The
+   colours a tile can be are the brand's (`HubBrand.hues`) — painted inline where a
+   tile stands for a word or a competitor, and the seven `--hd-hue-n` below where a
+   list of things simply needs to be told apart. */
+:root{
+  --hd-ground:#0B1428;          /* the room: the game show's dark, the phone's navy */
+  --hd-ground2:#10224A;         /* a panel on the ground */
+  --hd-ink:#101318;             /* the tiles' fixed dark lettering */
+  --hd-paper:#EAF0FF;           /* text on the ground */
+  --hd-muted:rgba(234,240,255,0.62);
+  --hd-line:rgba(255,255,255,0.24);
+  --hd-yellow:#F5C542;          /* the action tile */
+  --hd-blue:#00A0DF;
+  --hd-green:#6FB04A;           /* right, done */
+  --hd-red:#E2603B;             /* wrong */
+  --hd-hue-1:#00A0DF; --hd-hue-2:#F5C542; --hd-hue-3:#E2603B; --hd-hue-4:#6FB04A;
+  --hd-hue-5:#B36FD1; --hd-hue-6:#3BB0A8; --hd-hue-7:#E86FA0;
+  --hd-radius:12px;
+}
+
+/* ---- the tile ---- */
+.hd-tile{
+  background:var(--fill, var(--hd-blue)); color:var(--hd-ink);
+  border:2px solid rgba(0,0,0,0.24); border-radius:var(--hd-radius);
+  font-weight:800; letter-spacing:0.01em;
+  box-shadow:0 4px 0 rgba(0,0,0,0.32), 0 10px 22px rgba(0,0,0,0.35);
+  transition:transform .08s, box-shadow .08s, filter .15s;
+}
+.hd-tile:active, .hd-tile.pressed{ transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,0.32), 0 4px 10px rgba(0,0,0,0.35); }
+/* The lifted tile: the one the finger is holding, or the one that was chosen. */
+.hd-tile.lifted{ transform:translateY(-3px); box-shadow:0 7px 0 rgba(0,0,0,0.32), 0 16px 30px rgba(0,0,0,0.45), 0 0 0 3px rgba(255,255,255,0.55); }
+.hd-tile.yellow{ --fill:var(--hd-yellow); }
+.hd-tile.green{ --fill:var(--hd-green); }
+.hd-tile.red{ --fill:var(--hd-red); }
+/* A tile that lands — the swell a docked tile makes on the table. */
+@keyframes hd-land{ 0%{ transform:scale(0.92); } 55%{ transform:scale(1.05); } 100%{ transform:scale(1); } }
+.hd-land{ animation:hd-land 320ms cubic-bezier(0.2, 1.2, 0.4, 1) 1; }
+
+/* ---- the slot ---- */
+.hd-slot{
+  background:rgba(255,255,255,0.045); color:var(--hd-paper);
+  border:2px dashed var(--hd-line); border-radius:var(--hd-radius);
+}
+.hd-slot.filled, .hd-slot:focus-within{ border-style:solid; }
+.hd-slot:focus-within{ border-color:var(--hd-yellow); }
+
+/* ---- small type ---- */
+.hd-label{
+  font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:0.72rem;
+  letter-spacing:0.14em; text-transform:uppercase; color:var(--hd-muted);
+}
+
+@media (prefers-reduced-motion:reduce){
+  .hd-tile{ transition:none; } .hd-land{ animation:none; }
+}

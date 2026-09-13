@@ -5,16 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260913d">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
   body{
-    background:var(--navy); color:var(--white); min-height:100vh; min-height:100dvh;
+    /* The room: the Huddle ground (huddle.css), with a soft light at the top the
+       way the board's stage has one — tiles read best on it. */
+    background:radial-gradient(120% 70% at 50% -10%, #17305F 0%, var(--hd-ground, #0B1428) 60%);
+    color:var(--hd-paper, #EAF0FF); min-height:100vh; min-height:100dvh;
     font-family:'Space Grotesk', system-ui, -apple-system, sans-serif;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     padding:22px; gap:18px; text-align:center; overflow:hidden;
   }
-  h1{ font-size:1.05rem; letter-spacing:0.16em; text-transform:uppercase; color:var(--blue); font-weight:700; }
+  h1{ font-size:1.05rem; letter-spacing:0.16em; text-transform:uppercase; color:var(--hd-yellow); font-weight:700; }
 
   /* ---- the brand ----
      Huddle's tile mark by default; the school's identity when the board says so
@@ -64,25 +68,37 @@
   #screen-play.waiting #state{ margin-top:2px; }
   .sb-mark{ display:flex; align-items:center; gap:14px; }
   .sb-relay{ font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:.72rem;
-    letter-spacing:.28em; text-transform:uppercase; color:var(--navy);
-    background:var(--yellow); padding:4px 13px; border-radius:999px; }
+    letter-spacing:.28em; text-transform:uppercase; color:var(--hd-ink);
+    background:var(--hd-yellow); padding:4px 13px; border-radius:8px; border:2px solid rgba(0,0,0,.26); }
   .screen{ display:none; width:100%; max-width:420px; flex-direction:column; gap:16px; align-items:center; }
   .screen.active{ display:flex; }
-  label{ font-size:0.74rem; letter-spacing:0.12em; text-transform:uppercase; color:rgba(251,243,213,0.7); align-self:flex-start; }
+  label{ font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:0.72rem; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--hd-muted); align-self:flex-start; }
+  /* An input is a slot: an empty dashed box waiting for what you type, solid and
+     gold once it has your attention. */
   input{
-    width:100%; padding:16px; border-radius:12px; border:2px solid rgba(255,255,255,0.25);
-    background:var(--navy2); color:var(--white); font-family:inherit; font-size:1.25rem; font-weight:700; text-align:center;
+    width:100%; padding:16px; border-radius:12px; border:2px dashed var(--hd-line);
+    background:rgba(255,255,255,0.045); color:var(--hd-paper); font-family:inherit; font-size:1.25rem; font-weight:700; text-align:center;
   }
-  input:focus{ outline:none; border-color:var(--blue); }
-  #code{ font-size:2rem; letter-spacing:0.3em; }
+  input:focus{ outline:none; border-style:solid; border-color:var(--hd-yellow); background:rgba(255,255,255,0.07); }
+  input:not(:placeholder-shown){ border-style:solid; }
+  #code{ font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:2rem; letter-spacing:0.3em; }
   /* A grid, not a row: six teams across a 360px handset gave each button 50px and
      pushed the last ones off the edge, so a class split more than about four ways
      could not pick the team they were actually on. Wraps instead. */
   .teams{ display:grid; grid-template-columns:repeat(auto-fit, minmax(88px, 1fr)); gap:10px; width:100%; }
+  /* A team is a tile in its colour. Unchosen, it is a slot edged in that colour;
+     chosen, the tile itself (the script paints the fill), dark lettering, lifted. */
   .teams button{
-    padding:14px 8px; border-radius:12px; border:2px solid rgba(255,255,255,0.25);
-    background:var(--navy2); color:var(--white); font-family:inherit; font-weight:700; font-size:0.95rem; cursor:pointer;
+    padding:14px 8px; border-radius:12px; border:2px dashed rgba(255,255,255,0.25);
+    background:rgba(255,255,255,0.045); color:var(--hd-paper); font-family:inherit; font-weight:800; font-size:0.95rem; cursor:pointer;
     min-width:0; overflow-wrap:anywhere;   /* a team called something long stays inside its button */
+    transition:transform .08s, box-shadow .08s;
+  }
+  .teams button.on{
+    border-style:solid; border-color:rgba(0,0,0,0.26) !important;   /* the script sets the colour edge; a tile's edge is dark */
+    color:var(--hd-ink); transform:translateY(-2px);
+    box-shadow:0 5px 0 rgba(0,0,0,0.32), 0 12px 22px rgba(0,0,0,0.4);
   }
   /* A team is a colour, not only a name — the same colour the projector puts
      beside that team's words, so a student can match the handset in their hand to
@@ -90,36 +106,43 @@
      hub-buzzer.js, the one file the board and the handset both load, so the two
      ends cannot drift apart. The swatch is painted per button from there; `.on`
      fills with it, which is why this rule no longer names a colour of its own. */
-  .teams button.on{ color:var(--navy); }
   .teams button .swatch{
     display:block; height:6px; border-radius:999px; margin:0 auto 7px; width:34px;
   }
   /* Whose handset this is, in their team's colour, on screen all lesson. */
   .who .tteam{
-    display:inline-block; padding:3px 11px; border-radius:999px; margin-left:7px;
-    background:var(--team, var(--blue)); color:var(--navy); font-weight:700;
+    display:inline-block; padding:3px 10px; border-radius:8px; margin-left:7px;
+    background:var(--team, var(--hd-blue)); color:var(--hd-ink); font-weight:800;
+    border:2px solid rgba(0,0,0,0.26); box-shadow:0 2px 0 rgba(0,0,0,0.3);
   }
   /* Solo: the chip is the whole identity, with no name in front of it to sit beside. */
   .who .tteam.solo{ margin-left:0; }
   .card{ display:none; grid-template-columns:repeat(3, 1fr); gap:8px; width:100%; }
   .card button{
-    padding:14px 5px; border-radius:12px; border:2px solid rgba(255,255,255,0.22);
-    background:var(--navy2); color:var(--white); font-family:inherit; font-weight:700;
+    padding:14px 5px; border-radius:12px; border:2px dashed rgba(255,255,255,0.24);
+    background:rgba(255,255,255,0.045); color:var(--hd-paper); font-family:inherit; font-weight:700;
     font-size:0.78rem; line-height:1.2; min-width:0; cursor:pointer; min-height:64px;
     /* long words are common in a C1 vocabulary bank — break them properly rather
        than letting one letter drop onto its own line */
     overflow-wrap:break-word; hyphens:auto;
   }
-  .card button.marked{ background:var(--yellow); color:var(--navy); border-color:var(--yellow); }
-  .card button.wrong{ background:#C0392B; border-color:#C0392B; }
+  .card button.marked{ background:var(--hd-yellow); color:var(--hd-ink); border:2px solid rgba(0,0,0,0.26);
+    box-shadow:0 3px 0 rgba(0,0,0,0.3); }
+  .card button.wrong{ background:var(--hd-red); color:var(--hd-ink); border:2px solid rgba(0,0,0,0.26); }
   .card button:disabled{ opacity:0.85; }
   .card.live button:not(.marked){ border-color:var(--blue); }
+  /* The action — Join, Send — is the yellow tile. Not yet allowed, it is a slot. */
   .go{
-    width:100%; padding:17px; border:none; border-radius:12px; background:var(--blue); color:var(--white);
-    font-family:inherit; font-weight:700; font-size:1.1rem; text-transform:uppercase; letter-spacing:0.06em; cursor:pointer;
+    width:100%; padding:17px; border:2px solid rgba(0,0,0,0.26); border-radius:12px;
+    background:var(--hd-yellow); color:var(--hd-ink);
+    font-family:inherit; font-weight:800; font-size:1.1rem; text-transform:uppercase; letter-spacing:0.06em; cursor:pointer;
+    box-shadow:0 4px 0 rgba(0,0,0,0.32), 0 10px 22px rgba(0,0,0,0.35);
+    transition:transform .08s, box-shadow .08s;
   }
-  .go:disabled{ opacity:0.4; }
-  .note{ font-size:0.82rem; color:rgba(251,243,213,0.62); line-height:1.5; }
+  .go:active{ transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,0.32), 0 4px 10px rgba(0,0,0,0.35); }
+  .go:disabled{ background:rgba(255,255,255,0.045); color:var(--hd-muted); border:2px dashed var(--hd-line);
+    box-shadow:none; transform:none; cursor:default; }
+  .note{ font-size:0.82rem; color:var(--hd-muted); line-height:1.5; }
   /* **Look up — the board just revealed something.** Fixed, never in the flow: a
      banner taking layout space would push the question down the screen, and with
      it the letter tiles under a thumb that is mid-drag. Amber because that is the
@@ -127,49 +150,53 @@
      and it says nothing about *what* was revealed, which is on the wall. */
   .lookup{
     position:fixed; left:0; right:0; top:0; z-index:40; padding:13px 14px;
-    background:var(--yellow); color:var(--navy);
+    background:var(--hd-yellow); color:var(--hd-ink); border-bottom:2px solid rgba(0,0,0,0.26);
     font-weight:700; font-size:0.86rem; letter-spacing:0.09em; text-transform:uppercase;
     transform:translateY(-100%); transition:transform 240ms ease; pointer-events:none;
   }
   .lookup.up{ transform:translateY(0); }
   @media (prefers-reduced-motion: reduce){ .lookup{ transition:none; } }
-  .who{ font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase; color:rgba(251,243,213,0.72); }
+  .who{ font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--hd-muted); }
   .room{
     font-family:'IBM Plex Mono', ui-monospace, monospace;
     font-size:0.72rem; letter-spacing:0.22em; text-transform:uppercase;
     color:rgba(251,243,213,0.5); margin-bottom:2px;
   }
-  .room b{ color:var(--yellow); font-weight:700; letter-spacing:0.26em; }
+  .room b{ color:var(--hd-yellow); font-weight:700; letter-spacing:0.26em; }
 
-  /* the buzzer itself — thumb-sized, unmissable, and it fills what's left */
+  /* The buzzer is one big tile in the team's colour — thumb-sized, unmissable, and
+     it fills what's left. Before the question opens it is a slot ("Wait"); pressed,
+     it drops like a tile landing; won, it turns green. */
   #buzzer{
-    width:min(74vw, 300px); height:min(74vw, 300px); border-radius:50%; border:none;
-    background:radial-gradient(circle at 34% 30%, #5cc6f2, #00A0DF 60%, #0a6f9c);
-    color:var(--white); font-family:inherit; font-weight:700; font-size:1.7rem;
+    width:min(74vw, 300px); height:min(74vw, 300px); border-radius:28px;
+    border:3px solid rgba(0,0,0,0.26);
+    background:var(--team, var(--hd-blue));
+    color:var(--hd-ink); font-family:inherit; font-weight:900; font-size:2rem;
     text-transform:uppercase; letter-spacing:0.06em; cursor:pointer;
-    box-shadow:0 12px 0 #0a3a52, 0 18px 34px rgba(0,0,0,0.5);
+    box-shadow:0 12px 0 rgba(0,0,0,0.34), 0 22px 40px rgba(0,0,0,0.5);
     transition:transform .06s, box-shadow .06s, filter .15s;
     touch-action:manipulation;
   }
-  #buzzer:active{ transform:translateY(9px); box-shadow:0 3px 0 #0a3a52, 0 8px 16px rgba(0,0,0,0.45); }
-  #buzzer[disabled]{ filter:grayscale(0.75) brightness(0.5); cursor:default; box-shadow:0 12px 0 #3a3a3a, 0 18px 30px rgba(0,0,0,0.4); }
-  #buzzer.won{ background:radial-gradient(circle at 34% 30%, #7de08a, #17a52f 62%, #0c6a1e); filter:none; }
-  #state{ font-size:1rem; min-height:1.6em; color:var(--cream); }
-  #status{ font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:rgba(251,243,213,0.45); }
+  #buzzer:active{ transform:translateY(9px); box-shadow:0 3px 0 rgba(0,0,0,0.34), 0 8px 16px rgba(0,0,0,0.45); }
+  #buzzer[disabled]{ background:rgba(255,255,255,0.04); color:var(--hd-muted); border:3px dashed var(--hd-line);
+    box-shadow:none; cursor:default; filter:none; }
+  #buzzer.won{ background:var(--hd-green); filter:none; }
+  #state{ font-size:1rem; min-height:1.6em; color:var(--hd-paper); }
+  #status{ font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--hd-muted); }
   .rejoin{
     background:none; border:none; padding:8px; cursor:pointer; font-family:inherit;
-    font-size:0.78rem; color:rgba(251,243,213,0.55); text-decoration:underline;
+    font-size:0.78rem; color:var(--hd-muted); text-decoration:underline;
   }
-  .err{ color:#ff8a7d; font-size:0.85rem; min-height:1.2em; }
+  .err{ color:#FF9D90; font-size:0.85rem; min-height:1.2em; }
   /* The round clock. Its own line rather than the state line, which is busy
      saying what just happened to *this* phone. */
   .clock{
     display:none; font-family:'IBM Plex Mono', ui-monospace, monospace;
-    font-size:0.95rem; letter-spacing:0.12em; color:var(--cream);
-    background:rgba(255,255,255,0.08); border-radius:999px; padding:5px 14px;
+    font-size:0.95rem; letter-spacing:0.12em; color:var(--hd-paper);
+    background:rgba(255,255,255,0.045); border:2px dashed var(--hd-line); border-radius:10px; padding:4px 14px;
   }
   .clock.on{ display:block; }
-  .clock.urgent{ background:#C0392B; color:#fff; }
+  .clock.urgent{ background:var(--hd-red); color:var(--hd-ink); border:2px solid rgba(0,0,0,0.26); }
   /* the question the teacher is asking, pushed from the host — the back of the
      room can read its own phone even when it cannot read the board */
   .qtext{ font-size:1.15rem; line-height:1.4; margin:0 0 18px; color:#e8eefc; min-height:1.4em; }
@@ -213,10 +240,21 @@
      sixteen-option vote off at the fold with no way to reach the rest. */
   .opts{ display:none; flex-direction:column; gap:10px; width:100%;
          max-height:64vh; overflow-y:auto; }
+  /* Every option is a tile — the same four coloured word tiles the flick face deals,
+     told apart by hue. The chosen one lifts; once something is chosen the rest sit
+     back. */
   .opts button{
-    font: inherit; font-size:1.1rem; padding:16px; border-radius:12px; cursor:pointer;
-    background:#16204f; color:#eaf0ff; border:2px solid rgba(255,255,255,0.22);
+    font: inherit; font-size:1.1rem; font-weight:800; padding:16px; border-radius:12px; cursor:pointer;
+    background:var(--fill, var(--hd-hue-1)); color:var(--hd-ink); border:2px solid rgba(0,0,0,0.24);
+    box-shadow:0 4px 0 rgba(0,0,0,0.32), 0 10px 22px rgba(0,0,0,0.3);
+    transition:transform .08s, box-shadow .08s, opacity .15s;
   }
+  .opts button:nth-child(7n+1){ --fill:var(--hd-hue-1); } .opts button:nth-child(7n+2){ --fill:var(--hd-hue-2); }
+  .opts button:nth-child(7n+3){ --fill:var(--hd-hue-3); } .opts button:nth-child(7n+4){ --fill:var(--hd-hue-4); }
+  .opts button:nth-child(7n+5){ --fill:var(--hd-hue-5); } .opts button:nth-child(7n+6){ --fill:var(--hd-hue-6); }
+  .opts button:nth-child(7n+7){ --fill:var(--hd-hue-7); }
+  .opts button:active{ transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,0.32), 0 4px 10px rgba(0,0,0,0.3); }
+  .opts:has(.picked) button:not(.picked):not(.done):not(.wrong){ opacity:0.55; }
   .opts button:disabled{ opacity:0.4; }
   /* Single letters are not a list, they are a keypad: eighteen full-width buttons
      would need scrolling to vote, which is the one thing a vote cannot afford. */
@@ -242,7 +280,8 @@
      colour, and a student can check their team's answer against the board without
      being told which dots are theirs. */
   .opts button.picked{
-    background:var(--team, #ffc83d); color:#0a0d26; border-color:var(--team, #ffc83d);
+    opacity:1; transform:translateY(-3px);
+    box-shadow:0 7px 0 rgba(0,0,0,0.32), 0 16px 30px rgba(0,0,0,0.45), 0 0 0 3px var(--team, #fff);
   }
   /* **Settled and wrong, said on the word itself.** A class of sixteen asked for
      this by describing what was wrong with the alternative: a placed word used to
@@ -253,14 +292,12 @@
      moment the player chooses something else, because it describes one answer
      rather than the word. */
   .opts button.done{
-    background:rgba(60,190,120,0.16); color:#8fe6b4; border-color:rgba(60,190,120,0.55);
+    background:var(--hd-green); color:var(--hd-ink);
     opacity:1;                       /* it is finished, not unavailable */
   }
   .opts button.done::after{ content:' ✓'; opacity:0.8; }
   .opts button.done:disabled{ cursor:default; }
-  .opts button.wrong{
-    background:rgba(224,74,58,0.18); color:#ff9d90; border-color:rgba(224,74,58,0.6);
-  }
+  .opts button.wrong{ background:var(--hd-red); color:var(--hd-ink); opacity:1; }
   /* ---------- the anagram round ----------
      A tray of letters and the boxes they go into, dragged with pointer events —
      HTML5 drag-and-drop does not exist on touch, so this is press, move, release,
@@ -340,11 +377,11 @@
     min-width:0; border-radius:12px;
     display:inline-flex; align-items:center; justify-content:center;
     font-weight:700; text-transform:uppercase;
-    border:2px dashed rgba(255,255,255,0.3); color:#eaf0ff; background:transparent;
+    border:2px dashed var(--hd-line); color:var(--hd-paper); background:rgba(255,255,255,0.045);
   }
   .ana-slot.filled{
-    border-style:solid; background:var(--team, #ffc83d); color:#0a0d26;
-    border-color:var(--team, #ffc83d);
+    border:2px solid rgba(0,0,0,0.26); background:var(--team, var(--hd-yellow)); color:var(--hd-ink);
+    box-shadow:0 3px 0 rgba(0,0,0,0.3);
   }
   /* The box the finger is currently over. Without it a drag is a guess about where
      the letter will land. */
@@ -352,9 +389,14 @@
   .ana-tile{
     min-width:0; border-radius:12px; padding:0;
     display:inline-flex; align-items:center; justify-content:center;
-    font-family:inherit; font-weight:700; text-transform:uppercase;
-    background:#16204f; color:#eaf0ff; border:2px solid rgba(255,255,255,0.28);
+    font-family:inherit; font-weight:800; text-transform:uppercase;
+    background:var(--fill, var(--hd-hue-1)); color:var(--hd-ink); border:2px solid rgba(0,0,0,0.24);
+    box-shadow:0 3px 0 rgba(0,0,0,0.3);
   }
+  .ana-tile:nth-child(7n+1){ --fill:var(--hd-hue-1); } .ana-tile:nth-child(7n+2){ --fill:var(--hd-hue-2); }
+  .ana-tile:nth-child(7n+3){ --fill:var(--hd-hue-3); } .ana-tile:nth-child(7n+4){ --fill:var(--hd-hue-4); }
+  .ana-tile:nth-child(7n+5){ --fill:var(--hd-hue-5); } .ana-tile:nth-child(7n+6){ --fill:var(--hd-hue-6); }
+  .ana-tile:nth-child(7n+7){ --fill:var(--hd-hue-7); }
   /* A letter that is in a box stays in the tray, greyed. Removing it would reflow
      the tray under the thumb mid-puzzle, and the tray is also the reference list of
      what the word is made of. */
@@ -392,7 +434,7 @@
   #screen-play.mode-type #status{ order:5; }
   .write input{
     font: inherit; font-size:1.1rem; padding:14px; border-radius:12px; width:100%;
-    background:#0c1130; color:#eaf0ff; border:2px solid rgba(255,255,255,0.22);
+    background:rgba(255,255,255,0.045); color:var(--hd-paper); border:2px dashed var(--hd-line); text-align:left;
   }
 </style>
 </head>
@@ -481,15 +523,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260913c"></script>
-<script src="game-hub/hub-buzzer.js?v=20260913c"></script>
+<script src="game-hub/hub-brand.js?v=20260913d"></script>
+<script src="game-hub/hub-buzzer.js?v=20260913d"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260913c"></script>
+<script src="game-hub/matter.min.js?v=20260913d"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260913c"></script>
+<script src="game-hub/hub-table.js?v=20260913d"></script>
 <script>
 (function(){
   'use strict';
