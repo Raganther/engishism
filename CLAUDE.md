@@ -693,7 +693,7 @@ unverifiable.**
 ## Open
 What is true and unfinished. Not a changelog — an item leaves when it closes.
 
-**Build `20260907a`.** See `node tools/question-types.js` for the current round inventory.
+**Build `20260914d`.** See `node tools/question-types.js` for the current round inventory.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only. Multiple Choice and the 8-word Connections have flick faces (tap/vote still their
 default); the `cols:'auto'` bar path flows a sentence per word; the thermometer ladder
@@ -898,15 +898,33 @@ never models browser chrome changing height — so physics steps by **wall clock
 (`Kit.table.step()`), pages size by `100dvh` + a `visualViewport` refit, and any
 "works in the bench, wrong on my phone" report checks those two first.
 
-**Open-question tuning is guessed, not measured.** The open-question work — a right
-answer no longer locks the room out, position and time recorded, standings after every
-question, the solo commit beat with its escalating cooldown, the crowd reveal and its
-meter. Every number in it is a guess (the 60/30 podium shares, the 0.5 floor, 3s
-escalating to 9s, the 40% reveal), which is why the settings are marked `quick` — they
-are meant to be flipped, not trusted. Three things to watch the first time a class meets
-it, likeliest wrong first: whether standings after *every* question drags
-(`roundWinBanner` turns it off), whether the podium beats `equal`, and whether the extra
-Reveal-then-Close press costs too much (`roundOpenToAll` off restores the race).
+**Everyone who finishes scores, and the question has a clock.** A class settled the
+podium: three places is too few for a room bigger than three, and on the low tiles two
+of the three arrived equal — the shares were never the cause, the **grid** was, so
+`payGrid` drops to a plainer division of the board's unit (a half, a fifth, a tenth,
+never finer) when that unit can no longer tell the places apart, and `paySpread`
+guarantees no two places the shares separate reach the board equal. `everyone` is the
+fifth rule and Jeopardy's opening one: each place worth `roundPayDecay` of the one
+above, **the tail flat** at a tenth of the value rather than decaying to nothing.
+`roundSecs` is the round's own clock — the third of the three, and the one that did not
+exist — painted as the `#clue-clock` pill on card hosts only (`onCard`, because the
+card's skeleton is in the document whether or not it is open). **Time up is a fact the
+room hears, not a verdict**: the handsets stand down, the card says Time, the teacher
+still reveals and closes. `clockRunning` means "was this question timed", not "is it
+ticking" — the payout is recomputed after the question ends and a live `running()` made
+the standings disagree with what was awarded.
+
+**Who took a question is the record's, never the click's.** `Kit.round.results` orders
+finishers by arrival and is what the lane badges draw from; `roundTaker` makes every
+announcement and payout read the same record, so a teacher's Check landing after a
+phone has finished pays the phone and calls that competitor a late finisher. Two places
+deciding one fact is what put the wrong name on the winner pill in front of a class.
+
+**Still guessed, not measured:** the 0.6 decay and the tenth-of-value tail, the 60s
+question, the 0.5 clock floor, 3s escalating to 9s, the 40% reveal. The settings are
+marked `quick` because they are meant to be flipped, not trusted. Two things to watch
+next: whether standings after *every* question drags (`roundWinBanner` turns it off),
+and whether a bounded question changes the pace or just adds pressure.
 
 **Known broken:**
 - **The clue card covers the phone strip** — on Jeopardy and Blockbusters the cooling
