@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260914a">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260914b">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -313,7 +313,34 @@
      `touch-action:none` for the same reason as #arrange — the browser must not
      claim a flick as a scroll. An explicit height, not a flex grow, so the canvas
      never collapses to nothing inside a parent that isn't giving it room. */
-  #table{ display:none; width:100%; flex-direction:column; align-items:stretch; }
+  #table{ display:none; position:relative; width:100%; flex-direction:column; align-items:stretch; }
+  /* ---- the question, over the play surface ----
+     **The tiles are the puzzle, but the question is what the puzzle is FOR.** The
+     minimal physics phone hid the prompt on the reasoning that the tiles say
+     everything; they do not, and the clue card is across the room. So it overlays
+     the top of the table rather than taking a row from it: `pointer-events:none`,
+     so a tile is dragged and flicked straight through it, and a scrim under the
+     text so it stays readable when a bright tile passes behind.
+
+     `#tbl-foot` is the other end of a scale, a centred pill rather than a band —
+     the bottom of the canvas is where the loose tiles pile up, and a full-width
+     scrim there would dim the heap. Both collapse when empty, which is every
+     round but the thermometer for the foot. */
+  #tbl-head, #tbl-foot{ position:absolute; left:0; right:0; z-index:4; pointer-events:none; text-align:center; }
+  #tbl-head{ top:0; padding:9px 14px 16px;
+    background:linear-gradient(180deg, rgba(11,20,40,.95) 0%, rgba(11,20,40,.80) 55%, rgba(11,20,40,0) 100%); }
+  #tbl-foot{ bottom:0; padding:0 14px 9px; }
+  #tbl-head:empty, #tbl-foot:empty{ display:none; }
+  .tbl-q{ font-size:1rem; line-height:1.32; font-weight:600; color:var(--hd-paper, #EAF0FF); }
+  /* A named end of the scale, in the same quiet small caps the board's caps wear. */
+  .tbl-end{
+    display:inline-block; font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:.66rem; letter-spacing:.15em; text-transform:uppercase;
+    color:var(--hd-muted, rgba(234,240,255,.62));
+  }
+  .tbl-q + .tbl-end{ margin-top:6px; }
+  /* The foot's pill carries its own ground, because it sits ON the pile. */
+  #tbl-foot .tbl-end{ background:rgba(11,20,40,.88); border-radius:8px; padding:4px 11px; }
   #table canvas{ width:100%; height:min(60vh, 420px); min-height:300px;
     touch-action:none; border-radius:12px; background:#0e1230; display:block; }
   /* **One row each, divided, never wrapped.** A fixed minimum width wrapped a
@@ -499,7 +526,11 @@
   </div>
   <!-- The physics table: the same puzzle as #arrange, flicked instead of dragged.
        The canvas is built fresh per arm by buildTable(); Kit.table runs on it. -->
-  <div id="table"><canvas id="table-canvas"></canvas></div>
+  <div id="table">
+    <div id="tbl-head"></div>
+    <canvas id="table-canvas"></canvas>
+    <div id="tbl-foot"></div>
+  </div>
   <!-- The commit beat for a room of individuals: taps only select, this sends.
        Shown only when the arm asks for it (`send`), which the host does in solo —
        in a team room the live taps are the negotiation and this never appears. -->
@@ -523,15 +554,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260914a"></script>
-<script src="game-hub/hub-buzzer.js?v=20260914a"></script>
+<script src="game-hub/hub-brand.js?v=20260914b"></script>
+<script src="game-hub/hub-buzzer.js?v=20260914b"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260914a"></script>
+<script src="game-hub/matter.min.js?v=20260914b"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260914a"></script>
+<script src="game-hub/hub-table.js?v=20260914b"></script>
 <script>
 (function(){
   'use strict';
@@ -1096,7 +1127,28 @@
      or is pulled out, which is the live-send trigger — the flick equivalent of anaPut. */
   function buildTable(list, shape){
     const host = $('table');
-    host.innerHTML = '';
+    /* Only the canvas. The head and foot overlays live in here too — clearing the
+       whole host threw them away on every arm, and they are rebuilt below. */
+    host.querySelectorAll('canvas').forEach(c => c.remove());
+    /* The question, and the ends of the scale if this round named any. One source:
+       both come off the arm, the same `prompt` the non-physics modes put in #qtext. */
+    const head = $('tbl-head'), foot = $('tbl-foot');
+    head.innerHTML = ''; foot.innerHTML = '';
+    const line = (cls, txt) => {
+      const el = document.createElement('p');
+      el.className = cls; el.textContent = txt;
+      return el;
+    };
+    const ends = (shape && shape.ends) || null;
+    if(shape && shape.prompt) head.appendChild(line('tbl-q', shape.prompt));
+    if(ends && ends.top)    head.appendChild(line('tbl-end', ends.top));
+    if(ends && ends.bottom) foot.appendChild(line('tbl-end', ends.bottom));
+    /* **The slots start below the overlay, not behind it.** A grid's first row sits
+       12px from the top by default, which is exactly where the question now is — so
+       the ladder's hot rung would have been unreadable. Measured rather than
+       guessed, because the question wraps to as many lines as it needs. A plain row
+       (the anagram's flick) sits mid-canvas and needs none of this. */
+    const headTop = head.firstChild ? Math.ceil(head.getBoundingClientRect().height) + 8 : 0;
     const canvas = document.createElement('canvas');
     canvas.id = 'table-canvas';
     host.appendChild(canvas);
@@ -1113,7 +1165,23 @@
        if any, so a bar shape's wide word tiles spread across the room they
        need rather than the room square letters need — the reverse order
        once landed a hand of words already overlapping. */
-    tbl.slots(shape && shape.cols ? { cols: shape.cols, rows: shape.rows, count: shape.count, bar: shape.bar, labels: shape.labels || list } : list.length);
+    tbl.slots(shape && shape.cols
+      ? { cols: shape.cols, rows: shape.rows, count: shape.count, bar: shape.bar,
+          labels: shape.labels || list, top: headTop || undefined }
+      : list.length);
+    /* **The bottom caption goes under the last rung, not at the foot of the screen.**
+       The board prints the cold end directly below its ladder; pinned to the bottom
+       of the canvas it landed on the pile instead and covered a word tile. Asked of
+       the table rather than guessed, because where the ladder ends depends on how
+       many rungs it has — and it falls back to the bottom edge if the ladder runs
+       so long there is no room under it. */
+    if(foot.firstChild){
+      const cells = tbl.cells();
+      const last = cells.length ? tbl.slotBox(cells.length - 1) : null;
+      const under = last ? Math.round(last.y + last.h / 2 + 8) : 0;
+      if(under && under < host.clientHeight - 34){ foot.style.top = under + 'px'; foot.style.bottom = 'auto'; }
+      else { foot.style.top = 'auto'; foot.style.bottom = ''; }
+    }
     tbl.setPieces(list);
 
     const pt = e => tbl.pt(e);   // the shelf maps a touch through the painted/natural ratio
@@ -1634,7 +1702,11 @@
                     // count: slots to build when it differs from the label count (Multiple
                     // Choice's flick face — four option tiles, one slot). Null = one per label.
                     count: d.count ? Number(d.count) : null,
-                    bar: !!d.bar, upright: !!d.upright, tap: !!d.tap, bare: !!d.bare, labels: d.options || [] }
+                    bar: !!d.bar, upright: !!d.upright, tap: !!d.tap, bare: !!d.bare, labels: d.options || [],
+                    /* What the table draws over itself: the question, and the two
+                       named ends of a scale. The prompt is the same string #qtext
+                       gets — one source, drawn where this mode can see it. */
+                    prompt: (d && d.prompt) || '', ends: (d && d.ends) || null }
                 : null);
       if(!myRound(d)){
         const who = teamNames[Number(d.turnTeam)] || ('Team ' + (Number(d.turnTeam)+1));

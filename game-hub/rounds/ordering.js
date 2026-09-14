@@ -730,7 +730,14 @@
           prompt: s.text || 'Flick the words into order — strongest at the top',
           options: s.pool.slice(),
           cols: 1, rows: s.need, bar: true,
-          bare: true,   // the minimal full-bleed phone — the scale and its ends are on the board
+          /* **The scale's two ends, so the phone can say which way the ladder runs.**
+             The board prints them above and below its ladder; a handset had no idea
+             they existed, so a student flicking words could see the rungs but not
+             what the top of the scale meant. Slot 0 is the hot end, so `top` is
+             `high`. Carried like the slot shape — the relay stores and forwards it,
+             and never reads it. */
+          ends: { top: s.high, bottom: s.low },
+          bare: true,   // the minimal full-bleed phone — the question and the ends ride the arm
           multi: s.need, holds: true, rethink: true,
           team: (c.team === 0 || Number(c.team) > 0) ? Number(c.team) : null
         };

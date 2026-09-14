@@ -284,6 +284,7 @@ function openStream(req, res, q){
     mode:room.mode, prompt:promptFor(room, id), note:room.note,
     options:optionsFor(room, team), done:doneFor(room, team), turnTeam:room.team,
     cols:room.cols, rows:room.rows, bar:room.bar, upright:room.upright, tap:room.tap, bare:room.bare, count:room.count,
+    ends:room.ends,
     spent:[...room.spent],
     rethink: room.rethink, secs: secsLeft(room), multi: capFor(room, team),
     send: !!room.send, preview: !!room.preview, roundId:room.roundId,
@@ -460,6 +461,14 @@ function handleSend(req, res){
            are the puzzle, so the prompt/chrome is dropped). Carried unread beside the
            slot shape, read off the arm by the phone exactly like tap/bar/upright. */
         room.bare = !!msg.bare;
+        /* The two named ends of a vertical ladder — the thermometer's hot and cold
+           captions. Stored and forwarded exactly like the slot shape, and never
+           read: what the ends mean is the round's business. Both payloads carry it
+           (check-syntax compares their key sets), or a phone that reconnected
+           mid-question would come back to a ladder with no scale on it. */
+        room.ends = (msg.ends && typeof msg.ends === 'object')
+          ? { top: String(msg.ends.top || '').slice(0,60), bottom: String(msg.ends.bottom || '').slice(0,60) }
+          : null;
         /* Count: how many SLOTS to build, when it differs from the number of labels
            (Multiple Choice's flick face: four option tiles but ONE slot — a 1×1 grid
            with four labels would otherwise build four slots). Carried unread beside
@@ -522,6 +531,7 @@ function handleSend(req, res){
                                    note: room.note,
                                    mode: room.mode, options: optionsFor(room, p.team),
                                    cols: room.cols, rows: room.rows, bar: room.bar, upright: room.upright, tap: room.tap, bare: room.bare, count: room.count,
+                                   ends: room.ends,
                                    done: doneFor(room, p.team),
                                    /* `turnTeam`, not `team`: the join payload already
                                       carries the player's own team under that name, and
@@ -608,14 +618,14 @@ function handleSend(req, res){
         return sendJSON(res, 200, { ok:true });
       }
       case 'disarm':
-        room.armed = false; room.prompt = ''; room.team = null; room.promptByPlayer = null;
+        room.armed = false; room.prompt = ''; room.team = null; room.promptByPlayer = null; room.ends = null;
         // the rule described that question; it must not survive into the next one
         room.note = '';
         toPlayers(room, 'disarmed', {});
         return sendJSON(res, 200, { ok:true });
       case 'reset':
         room.armed = false; room.locked = null; room.prompt = ''; room.team = null;
-        room.promptByPlayer = null; room.note = '';
+        room.promptByPlayer = null; room.note = ''; room.ends = null;
         room.responses = new Map(); room.spent = new Set(); room.cooling = new Map();
         room.cards = new Map();
         toPlayers(room, 'reset', {});
