@@ -26,6 +26,42 @@ Chat messages evaporate; this does not.
 
 ---
 
+## 2026-09-14 · Consciousness 4B (mixed rounds) · Jeopardy · class run
+**Setup:** build 20260914c. The 4B mixed columns — Multiple Choice, Connections,
+Drag the Letters, Word Thermometer, Drag the Words — on the physics faces, phones
+in the room. Everyone-finishes on, podium pay.
+
+**What was played:** the 4B board end to end.
+
+**Worked:** the run got all the way through; nothing in the report is about a
+round failing to play.
+
+**Didn't:**
+- **The wrong name on the winner pill.** The standings screen after a round
+  sometimes named a different competitor from the one wearing the 1st-place badge
+  on the lanes while the question was being played. *(Two places deciding one
+  fact — see the fix.)*
+- **Second and third won the same money.** On the low-value tiles the podium
+  shares round onto the same grid step, so two places arrive at the board equal.
+- **No timer on a question.** Nothing bounds how long a round runs; the teacher
+  is the only clock, and a question that nobody can do just sits there.
+- **Fourth onward gets nothing.** Podium pays three places, so in a room bigger
+  than three most of the class finishes for zero — which is the thing that stops
+  the slower half trying at all.
+
+**Student verdicts:** not recorded this run.
+
+**Open-question verdicts:** the podium shares (0.6 / 0.3) are settled as *wrong
+in shape*, not just in value — three places is too few for a class of this size,
+and equal payouts for distinct places is the part the room noticed. Untouched:
+whether standings after every question drags, whether the crowd reveal at 40%
+is right.
+
+**Next:** re-run with the pay rule paying every finisher and a round timer set,
+and read whether a bounded question changes the pace.
+
+---
+
 ## 2026-08-12 · EF Unit 2A "Spend or save?" · Jeopardy · teams, real phones
 **Setup:** first run of the ef-2a unit; team mode; Classic ruleset was ON by
 accident (persisted from an earlier test — Daily Double, final clue and deduction

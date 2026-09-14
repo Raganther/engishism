@@ -12,6 +12,7 @@
        roundGames,           // the games that host rounds; [] on the bench → master-only
        isScoreEach(game),    // host.scoreEach — the roundOpenToAll filter
        isOnCard(game),       // host.onCard    — the roundWinClose filter
+       ownClock(game),       // host.clock     — the board runs its own question clock
        payVariants,          // the pay rules as {value,label}[] (from PAY_RULES)
        solo()                // Roster.solo() — read by crowdLive's stateNote
      })
@@ -39,13 +40,28 @@
          nothing anywhere could see that somebody came third. */
       label:'Podium — first, second and third all score, less each time',
       pay(rows, baseFor, o){
-        const share = [1, o.second, o.third];
-        const out = {};
-        rows.slice(0, 3).forEach((r, i) => {
-          const v = payRound(baseFor(r.who) * share[i], o.step);
-          if(v > 0) out[r.who] = v;
-        });
-        return out;
+        return paySpread(rows.slice(0, 3), baseFor, [1, o.second, o.third], o.step);
+      }
+    },
+    everyone: {
+      /* **Everybody who finishes is paid, and each place is worth less than the one
+         above.** Reported from a class: with the podium, a room of sixteen pays three
+         people and fifteen of them worked the question out for nothing — which is what
+         stops the slower half of a class trying at all. The decay is one number (each
+         place is worth this much of the one above) rather than a share per place,
+         because a room can be any size and a hand-typed list of shares is a hand-kept
+         list by another name.
+
+         **The tail is flat on purpose.** Past the point where the decay has fallen
+         below `TAIL_SHARE`, every remaining finisher is paid the same small amount:
+         a curve that keeps halving reaches nothing by tenth place, and "you finished
+         and it counted for nothing" is the state this rule exists to delete. */
+      label:'Everyone who finishes scores, less for each place down',
+      pay(rows, baseFor, o){
+        const d = Math.max(0.05, Math.min(0.95, Number(o.decay) || 0.6));
+        return paySpread(rows, baseFor,
+                         rows.map((_, i) => Math.max(TAIL_SHARE, Math.pow(d, i))),
+                         o.step);
       }
     },
     clock: {
@@ -80,6 +96,12 @@
     }
   };
 
+  /* The least a finisher can be worth, as a share of the question's full value —
+     where the decay bottoms out and the tail goes flat. Not a setting: it is the
+     answer to "did finishing count for anything", and a teacher tuning it to zero
+     is tuning the rule back into the thing it replaced. */
+  const TAIL_SHARE = 0.1;
+
   /* Rounded to the board's own unit, because a scoreboard reading 92 and 87 is
      arithmetic nobody at the back of a room can follow. Never below one unit: a right
      answer that pays nothing reads as not having counted. */
@@ -88,12 +110,57 @@
     return Math.max(s, Math.round(v / s) * s);
   }
 
+  /* **The grid a split is rounded to, which is not always the board's own unit.**
+     Jeopardy pays on a 50 grid, so a $100 tile could only ever say 100 or 50 — and
+     the podium's second (60) and third (30) both rounded to 50. Reported from a
+     class as "second and third win the same money", and the cause is the grid rather
+     than the shares. So the grid is the board's unit while that unit can still tell
+     the places apart, and a plainer division of it — a half, a fifth, a tenth — when
+     it cannot. Never finer than a tenth of the board's unit and never below 1: past
+     that the scoreboard stops being readable from the back of a room, which is the
+     reason the grid exists at all. */
+  function payGrid(base, step, places){
+    const s = Math.max(1, Number(step) || 1);
+    const tries = [s, Math.round(s / 2), Math.round(s / 5), Math.round(s / 10)]
+                    .map(g => Math.max(1, g))
+                    .filter((g, i, a) => a.indexOf(g) === i);
+    return tries.filter(g => base / g >= places)[0] || tries[tries.length - 1];
+  }
+
+  /* One place per row, in order, each a share of that competitor's own base — and
+     **two places the shares separate never arrive at the board equal**. Rounding is
+     what made them equal, so where rounding ties a lower share to the one above, the
+     lower one drops a grid unit instead. Equal *shares* are left alone: down in the
+     flat tail the equality is the rule speaking, not the rounding losing it. A place
+     that would fall to nothing is not paid. */
+  function paySpread(rows, baseFor, shares, step){
+    const out = {};
+    const top = rows.reduce((m, r) => Math.max(m, Number(baseFor(r.who)) || 0), 0);
+    const grid = payGrid(top, step, shares.length);
+    let prev = Infinity, prevShare = Infinity;
+    rows.forEach((r, i) => {
+      const share = shares[i];
+      if(share == null) return;
+      let v = payRound((Number(baseFor(r.who)) || 0) * share, grid);
+      /* A tie beats not paying at all: where dropping a grid unit would take the
+         place to nothing, the two stay equal. That is the flat tail arriving — the
+         shares there are equal anyway and the rounding has simply caught up with
+         them — and it is the one case where an equal payout is the right answer. */
+      if(share < prevShare && v >= prev) v = (prev - grid > 0) ? prev - grid : prev;
+      if(v <= 0) return;
+      out[r.who] = v;
+      prev = v; prevShare = share;
+    });
+    return out;
+  }
+
 
   window.registerRoundSettings = function(S, ctx){
     ctx = ctx || {};
     const roundGames  = ctx.roundGames  || [];
     const isScoreEach = ctx.isScoreEach || (() => false);
     const isOnCard    = ctx.isOnCard    || (() => false);
+    const ownClock    = ctx.ownClock    || (() => false);
     const payVariants = ctx.payVariants || Object.entries(window.HubPayRules).map(([value, rule]) => ({value, label:rule.label}));
     const solo        = ctx.solo        || (() => false);
 
@@ -113,6 +180,26 @@
       label:'Standings shuffle into place',
       help:'The screen opens showing the order before this question, holds a moment, then the rows slide to the new order. Off shows the new order at once.' });
 
+    /* **The round's own clock — the third of the three, and the one that did not
+       exist.** The header countdown is the teacher's instrument and Jeopardy's answer
+       clock starts on the buzz; a *question* had nothing bounding it, so a round
+       nobody could do simply sat there until the teacher gave up on it. Reported from
+       a class.
+
+       **Time up is a fact the room hears, not a verdict.** The handsets stand down and
+       the card says so; the teacher still reveals and closes, because that is the rule
+       the whole board runs on. 0 is untimed, which is what every board did until now.
+
+       Offered only to the boards that put their round on the shared clue card and do
+       not already run their own question clock: Quickfire declares one (there is one
+       `Kit.round.clock` because there is one question in the room), and Millionaire
+       mounts on its own stage, where there is no topline to draw the countdown in. */
+    S.register({ id:'roundSecs', group:'Questions', type:'range', default:60, quick:true,
+      min:0, max:180, step:15, unit:'s',
+      games: roundGames.filter(g => isOnCard(g) && !ownClock(g)),
+      label:'Each question runs for',
+      help:'A countdown on the clue card from the moment a question opens. When it dies the phones stand down and the card says Time — you still reveal and close it. 0 is untimed.' });
+
     /* **How a question's points are split, and the whole answer to "custom behaviour
        per game".** A board names its starting rule through `defaults`, which ranks
        below a teacher's override and above the master — so Jeopardy opens on the podium
@@ -120,9 +207,9 @@
        says in as many words that it is the game's own default rather than a control
        that silently does nothing. The variants are built from `PAY_RULES`, so a fifth
        rule is a table entry and this row grows on its own. */
-    S.register({ id:'roundPay', group:'Questions', type:'variant', default:'winner',
+    S.register({ id:'roundPay', group:'Questions', type:'variant', default:'everyone',
       games: roundGames,
-      defaults:{ jeopardy:'podium', kahoot:'clock' },
+      defaults:{ jeopardy:'everyone', kahoot:'clock' },
       label:'How the points are split',
       variants: payVariants,
       help:'Who scores when more than one team gets it right. The tile, hexagon or rung still goes to whoever was first — this is the points only.' });
@@ -135,6 +222,10 @@
       min:0.1, max:0.9, step:0.1, unit:'×', games:roundGames,
       label:'Third place is worth',
       help:"Third place scores this share of the question's value." });
+    S.register({ id:'roundPayDecay', group:'Questions', under:'roundPay', when:'everyone', type:'range', default:0.6,
+      min:0.3, max:0.9, step:0.05, unit:'\u00d7', games:roundGames,
+      label:'Each place is worth this much of the one above',
+      help:"Second scores this share of first, third this share of second, and so on down. It stops falling at a tenth of the question's value, so finishing always counts for something." });
     S.register({ id:'roundPayFloor', group:'Questions', under:'roundPay', when:'clock', type:'range', default:0.5,
       min:0.1, max:0.9, step:0.1, unit:'×', games:roundGames,
       label:'A last-second right answer is worth',

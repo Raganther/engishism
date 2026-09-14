@@ -200,11 +200,19 @@
     const rule = PAY_RULES[S.get('roundPay', h.game)] || PAY_RULES.winner;
     const baseFor = who => (h.worth ? Number(h.worth(who)) || 0 : 0);
     return rule.pay(Kit.round.results.finished(), baseFor, {
-      clockRunning: Kit.round.clock.running(),
+      /* **"Was this question run against a clock", not "is it ticking right now".**
+         Each row's `fraction` was already read at the moment that competitor
+         answered; this only says whether that number means anything. Asked of the
+         question rather than of the clock because the payout is also recomputed
+         *after* the question ends — for the standings and for the score report's
+         expected total — and a live `running()` made those two disagree with what
+         was actually awarded. */
+      clockRunning: (h.clock ? true : !!h.onCard) && roundClockSecs(h) > 0,
       step:   h.step ? (Number(h.step()) || 1) : 1,
       floor:  Number(S.get('roundPayFloor',  h.game)),
       second: Number(S.get('roundPaySecond', h.game)),
-      third:  Number(S.get('roundPayThird',  h.game))
+      third:  Number(S.get('roundPayThird',  h.game)),
+      decay:  Number(S.get('roundPayDecay',  h.game))
     });
   }
 
@@ -214,7 +222,68 @@
      can move between questions. */
   function roundClockSecs(host){
     const h = host || roundHost;
-    return h && h.clock ? (Number(h.clock()) || 0) : 0;
+    if(h && h.clock) return Number(h.clock()) || 0;
+    return h ? (Number(S.get('roundSecs', h.game)) || 0) : 0;
+  }
+
+  /* ---- the round's own clock, on the boards that do not run one ----
+     Quickfire declares `clock` and paints its own; every other board had nothing
+     bounding a question at all until a class asked for one. Started when the
+     question opens and painted as the same `#clue-clock` pill Jeopardy's answer
+     clock uses, in the card's topline.
+
+     **Card hosts only**, which is why `onCard` is asked rather than assumed: a board
+     that mounts its round on its own stage (Millionaire) has no topline to draw in,
+     and the clue card's skeleton is in the document whether or not the card is open —
+     so drawing there anyway would put a live countdown on a hidden element and cut a
+     question off with nothing on screen having said so. A clock the room cannot see
+     is worse than no clock. */
+  function roundClockStart(){
+    if(!roundHost || roundHost.clock || !roundHost.onCard) return;
+    const secs = roundClockSecs();
+    if(!secs) return;
+    const line = document.getElementById('clue-topline');
+    if(!line) return;
+    let el = document.getElementById('clue-clock');
+    if(!el){
+      el = document.createElement('span');
+      el.id = 'clue-clock';
+      line.appendChild(el);
+    }
+    Kit.round.clock.start({
+      secs,
+      onTick(left){
+        if(!el) return;
+        const n = Math.ceil(left);
+        el.textContent = String(n);
+        el.classList.toggle('urgent', n <= 5);
+      },
+      onEnd: roundTimeUp
+    });
+  }
+  function roundClockStop(){
+    if(!roundHost || roundHost.clock || !roundHost.onCard) return;   // not ours to stop
+    Kit.round.clock.stop();
+    const el = document.getElementById('clue-clock');
+    if(el) el.remove();
+    const card = document.getElementById('clue-card');
+    if(card) card.classList.remove('overtime');
+  }
+  /* **Time up stands the room down and says so, and stops there.** It does not
+     reveal, does not judge and does not close: the teacher decides and the teacher
+     clicks, which is the same rule a won round already follows. Guarded on the
+     question still being live, so the beat still in flight when a team takes it
+     cannot fire over the win. */
+  function roundTimeUp(){
+    if(!roundLive()) return;
+    const el = document.getElementById('clue-clock');
+    if(el){ el.textContent = '0'; el.classList.add('urgent'); }
+    const card = document.getElementById('clue-card');
+    if(card) card.classList.add('overtime');
+    Sound.play('klaxon');
+    roundStandDown();
+    roundState.say = 'Time.'; roundState.sayTeam = null;
+    renderRound();
   }
 
   /* ---- feature switches ----
@@ -316,6 +385,7 @@
     roundGames:  ROUND_GAMES,
     isScoreEach: g => !!(ROUND_HOSTS[g] && ROUND_HOSTS[g].scoreEach),
     isOnCard:    g => !!(ROUND_HOSTS[g] && ROUND_HOSTS[g].onCard),
+    ownClock:    g => !!(ROUND_HOSTS[g] && ROUND_HOSTS[g].clock),
     payVariants: Object.keys(PAY_RULES).map(k => ({ value:k, label:PAY_RULES[k].label })),
     solo:        () => Roster.solo()
   });
@@ -335,7 +405,30 @@
     let done = false;
     try{ done = localStorage.getItem(MARK) === '1'; }catch(e){}
     if(done) return;
-    console.warn('MIG raw=', JSON.stringify(S.raw('roundSend')), 'store=', localStorage.getItem('engishism.gamehub.settings')); if(S.raw('roundSend') === true) S.set('roundSend', false); console.warn('MIG after=', localStorage.getItem('engishism.gamehub.settings'));
+    if(S.raw('roundSend') === true) S.set('roundSend', false);
+    try{ localStorage.setItem(MARK, '1'); }catch(e){}
+  })();
+
+  /* **Winner-takes-all is no longer the master's opening position.** Reported from a
+     class: with the podium, three people are paid and the rest of a room of sixteen
+     works the question out for nothing — and on the low-value tiles the podium's own
+     second and third rounded to the same number, so even the three could not tell
+     their places apart. The `everyone` rule pays every finisher, less down the order,
+     flat in the tail.
+
+     Jeopardy needs nothing here: its opening rule is a baked `defaults` entry, read
+     live rather than stored, so changing it in code reaches every device. The master
+     was seeded into localStorage the first time each device ran the app, which is the
+     stuck default this exists for. **A master still holding the value the old code
+     shipped is moved; anything else is a choice and stays**, and the marker keeps a
+     teacher who picks winner-takes-all back from being overruled on the next load.
+     Runs after `registerRoundSettings`, like the one above, for the same reason. */
+  (function migrateRoundPayEveryone(){
+    const MARK = 'engishism.roundPayEveryone';
+    let done = false;
+    try{ done = localStorage.getItem(MARK) === '1'; }catch(e){}
+    if(done) return;
+    if(S.raw('roundPay') === 'winner') S.set('roundPay', 'everyone');
     try{ localStorage.setItem(MARK, '1'); }catch(e){}
   })();
 
@@ -2615,6 +2708,10 @@
     sendCooling = {};     // and nobody carries a visible wait into it
     renderRound();
     askPhones(currentPhonePrompt(), roundHost.game);
+    /* **Not on a rebuild.** A roster shift re-puts the same question on the new
+       teams; restarting its clock would hand the room the whole duration again
+       every time a handset flapped. */
+    if(!(opts && opts.rebuild)) roundClockStart();
     return roundState;
   }
 
@@ -2805,7 +2902,27 @@
          the room has had its go. */
       Kit.round.results.note(team, { done: r.done !== false || !!roundState.done,
                                      id: (teams[team] || {}).id });
-      if(r.done !== false || roundState.done){ roundTake(team); return; }
+      if(r.done !== false || roundState.done){
+        /* **The slot may already belong to somebody who got there first.** With
+           everyone-finishes on, a phone team can complete the question while the
+           teacher is still entering the turn's answer on the card — and this used
+           to call `roundTake` regardless, which announced the turn's team as the
+           winner over a lane still wearing the 1st-place badge. Reported from a
+           class as "the wrong name on the pill". The record is the one thing that
+           ordered them by arrival, so it decides; a teacher's answer that arrives
+           after somebody else's finish is a late finisher, paid by the running
+           rule, and the question stays open exactly as a phone's would. */
+        if(roundState.hostTook != null && roundState.hostTook !== team){
+          const late = roundPayLate(team);
+          notePhoneScore(teamName(team), team, null, late || 0);
+          roundState.say = teamName(team) + ' — yes.'; roundState.sayTeam = team;
+          Sound.play('correct');
+          renderRound();
+          roundSendDone();
+          return;
+        }
+        roundTake(team); return;
+      }
       roundState.say = 'Yes — keep going.'; roundState.sayTeam = team;
       Sound.play('correct');
       renderRound();
@@ -3206,8 +3323,22 @@
     });
   }
 
-  function roundTake(team){
+  /* **Who took the question is the record's to say, not the click's.** It was
+     decided in two places — the argument whoever ended the question passed in, and
+     `Kit.round.results`, which is what the lanes draw the 1st-place badge from —
+     and the two disagreed the moment anything but the first finisher ended it. One
+     fact, one home: the earliest finisher on the record wins, and the argument is
+     only the fallback for a board that stamps no record at all (the question
+     bench). */
+  function roundTaker(team){
+    const first = Kit.round.results.finished()[0];
+    return first ? first.who : team;
+  }
+
+  function roundTake(who){
+    const team = roundTaker(who);
     roundSettler.stop();
+    roundClockStop();
     roundState.done = true;
     roundState.say  = teamName(team) + ' has it.'; roundState.sayTeam = team;
     renderRound();
@@ -3313,6 +3444,7 @@
      Daily Double, and it reads as broken rather than deliberate. */
   function roundEnd(){
     roundWin = null;         // whatever closed the card, nothing is waiting on it now
+    roundClockStop();
     if(!roundState) return;
     roundStandDown();
     roundState = null; roundSettler = null; roundId = null;
