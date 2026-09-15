@@ -46,6 +46,16 @@ window.registerFlipSettings = function(S){
     label:'Include the Swap card',
     help:'One card on the board lets whoever wins it trade scores with anyone above them. It is the biggest reversal in the game. Off deals a Steal in its place.' });
 
+  /* **A marked card says something is on it, never what.** With every card identical
+     the picker has no decision to make and the room cannot see that the back rows are
+     loaded — which is the shape of the whole game, kept secret from the people playing
+     it. Which way it plays better is a classroom question, which is why it is a
+     switch rather than a decision. */
+  S.register({ id:'flipMarked', group:'Flip', type:'toggle', default:true, quick:true,
+    games:['flip'],
+    label:'Mark the cards that carry a twist',
+    help:'A star on the face-down card. It says something will happen, never what — so picking one is a gamble, and the room can see the last rows filling up with them. Off is a completely blind board.' });
+
   S.register({ id:'flipLastPicks', group:'Flip', type:'toggle', default:true, games:['flip'],
     label:'Last place picks the next card',
     help:'Being behind hands you the board. Off rotates the turn the ordinary way, which lets a strong player keep choosing.' });

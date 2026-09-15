@@ -64,6 +64,7 @@
   const twistPct = () => Number(S.get('flipTwists', 'flip'));
   const wantSwap = () => !!S.get('flipSwap', 'flip');
   const lastPicks = () => !!S.get('flipLastPicks', 'flip');
+  const marked   = () => !!S.get('flipMarked', 'flip');
 
   /* ---- the five faces of a card ----
      `target` is the only thing the board has to branch on: a twist that needs somebody
@@ -276,6 +277,8 @@
     cards = pool.slice(0, n).map((item, i) => ({ n:i + 1, item, twist:'plain', used:false, row: Math.floor(i / cols) }));
     dealTwists(cards, cols);
     cur = null; pending = null; awaitingStandings = false; over = false; giftVoting = false;
+    const cardEl = document.getElementById('clue-card');
+    if(cardEl) cardEl.className = cardEl.className.replace(/\bflip-tw\S*/g, '').trim();
     hidePicker();
     passToLast();
     renderGrid(cols);
@@ -332,6 +335,15 @@
          than as a spreadsheet, and says nothing about what is behind it. */
       b.style.setProperty('--fhue', (K.table && K.table.hues ? K.table.hues : ['#00A0DF'])[(c.n - 1) % 7]);
       b.textContent = String(c.n);
+      /* **A marked card says something is on it, never what.** Reported from a run:
+         with every card identical, "last place picks" is a coin flip rather than a
+         decision, and the room cannot see that the back rows are loaded — which is
+         the whole shape of the game, kept secret from the people playing it. The
+         marker gives the picker a real choice and makes the rising volatility
+         visible, while the twist itself stays hidden: a marked card might be the
+         Steal that saves you or the Double that helps the leader, and that gamble is
+         the point. Off (`flipMarked`) restores the blind board. */
+      if(c.twist !== 'plain' && marked()) b.classList.add('marked');
       b.addEventListener('click', ()=> openCard(c, b));
       c.el = b;
       grid.appendChild(b);
@@ -351,6 +363,14 @@
     cur = card;
     E().setClueValue(cardWorth());
     const tw = TW[card.twist];
+    /* **The twist is an event, not a caption.** It was the card's topline — gold on
+       navy, in the corner of a screen-wide card, beside the question — and a class
+       could not read it. The card wears the twist's own colour now and the topline
+       becomes a band across it, the same way a Daily Double restyles the card
+       rather than adding furniture to it. */
+    const cardEl = document.getElementById('clue-card');
+    cardEl.className = cardEl.className.replace(/\bflip-tw\S*/g, '').trim();
+    if(card.twist !== 'plain') cardEl.classList.add('flip-tw', 'flip-tw-' + card.twist);
     /* **The twist is revealed as the card opens, not after it is won.** Knowing the
        stakes before the question is what makes the room lean in — the leader knows
        they have to win this one, and everybody else knows it is their chance. Told

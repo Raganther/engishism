@@ -26,6 +26,42 @@ Chat messages evaporate; this does not.
 
 ---
 
+## 2026-09-15 · Advertising (B2) · Flip · first run of the new board
+**Setup:** build 20260915b, defaults — 5×5, twists 40%, steal a third of the gap,
+Swap on, last place picks.
+
+**What was played:** the advertising pack on the new Flip board.
+
+**Worked:** the board played; the Gift vote reached the phones.
+
+**Didn't:**
+- **You cannot see which cards carry a twist.** The twist only appeared once a card
+  was opened, so "last place picks" was a coin flip rather than a decision, and the
+  room could not see that the back rows are loaded — which is the shape of the whole
+  game, kept secret from the people playing it. **Fixed**: a star on the face-down
+  card says something is there and never what (`flipMarked`, on by default).
+- **The twist was unreadable when it did appear** — gold-on-navy at 25px in the
+  corner of a screen-wide card, beside the question, reading as a caption rather
+  than an event. **Fixed**: the card wears the twist's colour and the topline is a
+  band across it at ~42px, with the rule in plain English under it.
+- **"No option to swap anything; I got a vote instead."** The vote is the Gift card
+  working as designed. The Swap is one card in twenty-five and always in the last
+  row, so it is reachable but easily never reached — and a Swap won by whoever is
+  already top has nobody to trade with and correctly does nothing. Not reproduced as
+  a fault: three dealt boards each carried exactly one Swap in row 5, and the chooser
+  opens when a competitor below somebody wins it. The marker should make it findable.
+
+**Student verdicts:** not recorded.
+
+**Open-question verdicts:** none settled — the steal share (a third) and the twist
+density (40%) still have not been read in front of a class, because the twists were
+effectively invisible this run.
+
+**Next:** re-run with the markers on and watch whether last place actually aims for
+them, and whether the leader starts hoovering up marked cards to deny them.
+
+---
+
 ## 2026-09-14 · Consciousness 4B (mixed rounds) · Jeopardy · class run
 **Setup:** build 20260914c. The 4B mixed columns — Multiple Choice, Connections,
 Drag the Letters, Word Thermometer, Drag the Words — on the physics faces, phones

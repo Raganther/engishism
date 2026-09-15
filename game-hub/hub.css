@@ -2089,6 +2089,16 @@ body.theme-gameshow #close-btn, body.theme-gameshow #skip-btn, body.theme-gamesh
   box-shadow:0 4px 0 rgba(0,0,0,0.32), 0 10px 22px rgba(0,0,0,0.22);
   transition:transform .08s, box-shadow .08s, filter .2s;
 }
+.flip-card{ position:relative; }
+/* The marker: something is on this card, and nothing about what. Dark on the tile's
+   bright fill, top-right, big enough to read from the back of a room without
+   competing with the number. */
+.flip-card.marked::after{
+  content:'\2605'; position:absolute; top:3px; right:8px;
+  font-size:clamp(0.9rem, 2vw, 1.5rem); line-height:1;
+  color:rgba(0,0,0,0.5);
+}
+.flip-card.used::after{ content:none; }
 .flip-card:hover:not(.used){ filter:brightness(1.08); }
 .flip-card:active:not(.used){ transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,0.32), 0 4px 10px rgba(0,0,0,0.22); }
 /* Played: flat, dim, and it keeps saying what it turned out to be. A card that was a
@@ -2127,6 +2137,32 @@ body.theme-gameshow #close-btn, body.theme-gameshow #skip-btn, body.theme-gamesh
   #play-flip{ padding:8px 12px 6px; }
   #flip-grid{ gap:8px; }
 }
+
+/* ---- a twist card announces itself ----
+   The twist was the topline — gold on navy, in the corner of a screen-wide card,
+   beside the question — and a class could not read it. The card wears the twist's own
+   colour instead and the topline becomes a band across the top of it: the same move a
+   Daily Double makes, restyling the card rather than adding furniture to it. Both
+   themes, because a twist is the loudest thing on the board and must not be quieter
+   under DCU. */
+#clue-card.flip-tw #clue-topline,
+body.theme-gameshow #clue-card.flip-tw #clue-topline{
+  display:block; margin:0 0 10px; padding:10px 20px; border-radius:12px;
+  background:var(--tw, var(--hd-yellow)); color:var(--hd-ink);
+  font-size:clamp(1.5rem, 3.4vw, 2.6rem); letter-spacing:0.1em; text-transform:uppercase;
+  border:2px solid rgba(0,0,0,0.24); box-shadow:0 4px 0 rgba(0,0,0,0.3);
+}
+/* The note under it is what the twist MEANS, so it stops being a caption too. */
+#clue-card.flip-tw #clue-section,
+body.theme-gameshow #clue-card.flip-tw #clue-section{
+  font-size:clamp(0.85rem, 1.5vw, 1.05rem); letter-spacing:0.02em; text-transform:none;
+  color:var(--muted);
+}
+body.theme-gameshow #clue-card.flip-tw #clue-section{ color:rgba(255,255,255,0.72); }
+#clue-card.flip-tw-steal{  --tw:var(--hd-red); }
+#clue-card.flip-tw-swap{   --tw:var(--hd-hue-5); }
+#clue-card.flip-tw-double{ --tw:var(--hd-yellow); }
+#clue-card.flip-tw-gift{   --tw:var(--hd-green); }
 
 /* The game-show skin: the board keeps the same tiles, the frame around it goes dark. */
 body.theme-gameshow #play-flip.lit #flip-turn{ color:var(--gold); }
