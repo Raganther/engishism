@@ -96,7 +96,7 @@ Four facts about a classroom that outrank anything above when they conflict.
 | `game-hub.html` | **the app.** Loads every content file + the engine. Per-unit deep links: `game-hub-unit4.html`, `game-hub-unit5.html`; the test board is `game-hub-lab.html` |
 | `game-hub/hub-engine.js` | **layer 1 alone now** — no game logic left in-closure. Injects the UI skeleton, renders every screen, the team bar, the timer, the shared clue card and its buttons (which route to the active game through hooks) |
 | `game-hub/hub-games.js` | **the game registry.** Its own file, loading before the game files and the engine, which is what retires the register-before-init trap |
-| `game-hub/games/*.js` | **every game lives here now** — one file each: `jeopardy.js`, `blockbusters.js`, `race.js`, `millionaire.js`, `quickfire.js`, `bingo.js`. `quickfire.js` is the model to copy |
+| `game-hub/games/*.js` | **every game lives here now** — one file each; `quickfire.js` is the model to copy and `flip.js` the newest. Ask `window.HubGames.ids()` rather than trusting a list here |
 | `game-hub/hub-kit.js` | **`Kit`** — the shelf every *game* calls, plus the `Kit.prompt` question forms |
 | `game-hub/hub-rounds.js` | **`Kit.round`** — the shelf every *round* calls, and the round registry |
 | `game-hub/rounds/*.js` | one file per round. `default.js` is the ordinary question |
@@ -693,7 +693,7 @@ unverifiable.**
 ## Open
 What is true and unfinished. Not a changelog — an item leaves when it closes.
 
-**Build `20260914d`.** See `node tools/question-types.js` for the current round inventory.
+**Build `20260915a`.** See `node tools/question-types.js` for the current round inventory.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only. Multiple Choice and the 8-word Connections have flick faces (tap/vote still their
 default); the `cols:'auto'` bar path flows a sentence per word; the thermometer ladder
@@ -925,6 +925,39 @@ question, the 0.5 clock floor, 3s escalating to 9s, the 40% reveal. The settings
 marked `quick` because they are meant to be flipped, not trusted. Two things to watch
 next: whether standings after *every* question drags (`roundWinBanner` turns it off),
 and whether a bounded question changes the pace or just adds pressure.
+
+**Flip — the comeback board, and the first skin built for a reported failure rather
+than for a format.** A class ran away from itself: one student went out in front and the
+rest stopped trying. That is not a scoring bug — a board's drama *decays* when points are
+permanent, the cards left get fewer and winning hands you the next pick, so the rule this
+skin is written to is **at every moment every player must be able to point at how they
+could still win.** Three mechanics carry it: the twist is on the back of a card and the
+twists are **dealt toward the end of the board** (volatility grows instead of shrinking);
+a **steal closes a share of the GAP rather than a fixed number**, so the correction
+scales itself and nothing needs tuning per class; and **last place picks next** — position,
+not performance, so it cannot be farmed by tanking. **Upward only**: you take from
+somebody ahead of you, never behind, which deletes the pile-on-the-weakest failure by
+construction and makes the leader the one competitor who cannot steal at all. A steal can
+never overtake — being caught is a thing a class accepts, being leapfrogged by a card is
+not. **A target is never chosen by a class vote**: "vote who loses points" is a
+popularity contest with a scoreboard attached. The one vote is **Gift**, which decides who
+*receives*. Swap is removable (`flipSwap`) because trading scores outright is the biggest
+reversal on the board and the likeliest to produce a genuinely upset student. **It authors
+no content** — a card board has no categories, so it flattens whatever `jeopardyCategories`
+a unit already carries into one pool, which gave every unit in the project the game for
+free and every round type in it plays unchanged. Untested by a class: whether the steal's
+default share (a third of the gap) is enough to keep hope alive without making the lead
+worthless.
+
+**Moving a score, and the beat after a question.** `E().adjust(team, delta, why)` is the
+one home for a signed score move with its receipt — `award` is the *earning* path
+(halves a steal, applies the run multiplier, rounds to the board's unit, never pays less
+than one unit), which is right for answering a question and wrong for everything else.
+Three places moved a score raw before it; Jeopardy's deduction and the teacher's ±
+buttons are rewired onto it. `onStandingsDone` is the hook for a board whose beat belongs
+*after* the question: the engine shows the standings from inside its own pay path, so a
+reversal applied during `win()` would happen behind that screen and the room would never
+see it.
 
 **Known broken:**
 - **The clue card covers the phone strip** — on Jeopardy and Blockbusters the cooling

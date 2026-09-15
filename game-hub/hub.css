@@ -1363,7 +1363,7 @@ body.theme-gameshow #clue-actions button:hover{ filter: brightness(1.14); }
   body.theme-gameshow #play-jeopardy.lit.flash-wrong,
   .prompt-gap.filled, .prompt-chip.odd, .prompt-error.fixed, .prompt-word.landed,
   #board.dealing > *, #hexwrap.dealing .hex,
-  #race-words.dealing .race-word,
+  #race-words.dealing .race-word, #flip-grid.dealing .flip-card,
   .game-card .game-icon *,
   body.theme-gameshow #play-race.lit .race-word.wrong{ animation:none; }
   body.theme-gameshow #play-race.lit .race-word{ transition:none; }
@@ -2051,3 +2051,92 @@ body.theme-gameshow #close-btn, body.theme-gameshow #skip-btn, body.theme-gamesh
 }
 #clue-actions #hint-btn:hover, body.theme-gameshow #clue-actions #hint-btn:hover{ background:var(--hd-blue); color:var(--hd-ink); border-style:solid; }
 #clue-actions button:disabled{ opacity:0.4; box-shadow:none; transform:none; }
+
+/* ---------- Flip ----------
+   A square grid of face-down cards over a strip saying whose pick it is. The
+   question is on the shared clue card, so nothing here styles a question — what is
+   styled is the board and the one row of chips that appears for the beat after a
+   steal, a swap or a gift.
+
+   **Every card is a Huddle tile** (`huddle.css`'s primitive, applied to this board's
+   own elements as every other surface applies it): a bright fill, dark lettering, a
+   short hard shadow, and it drops when pressed. A played card goes flat and dim and
+   keeps its place — an empty cell would let the grid reflow under the room's eyes,
+   and what is left on the board is the thing a class is counting. */
+#play-flip{ display:none; padding:10px 24px 8px; }
+/* The engine sets `display:block` inline on the active stage, which beats anything
+   here — so the column that fills the height is this wrapper, not the stage. */
+#flip-wrap{ display:flex; flex-direction:column; gap:10px; min-height:0; }
+#flip-bar{ display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:40px; }
+#flip-turn{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1.15rem; color:var(--navy); }
+#flip-left{ font-family:'IBM Plex Mono',monospace; font-size:0.82rem; letter-spacing:0.05em;
+            text-transform:uppercase; color:var(--muted); }
+
+/* `--fcols` is written by the board rather than an inline `repeat(n,1fr)`, so a media
+   query can still override the layout — the rule the other boards already follow. */
+#flip-grid{
+  display:grid; grid-template-columns:repeat(var(--fcols,5), 1fr);
+  grid-auto-rows:minmax(min-content, 1fr);
+  gap:12px; flex:1; min-height:0; min-width:0;
+}
+.flip-card{
+  background:var(--fhue,#00A0DF); color:var(--hd-ink,#101318);
+  border:2px solid rgba(0,0,0,0.24); border-radius:14px;
+  font-family:'Space Grotesk',sans-serif; font-weight:800;
+  font-size:clamp(1.1rem, 3.2vw, 2.4rem); letter-spacing:0.02em;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; min-height:0; min-width:0; padding:4px;
+  box-shadow:0 4px 0 rgba(0,0,0,0.32), 0 10px 22px rgba(0,0,0,0.22);
+  transition:transform .08s, box-shadow .08s, filter .2s;
+}
+.flip-card:hover:not(.used){ filter:brightness(1.08); }
+.flip-card:active:not(.used){ transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,0.32), 0 4px 10px rgba(0,0,0,0.22); }
+/* Played: flat, dim, and it keeps saying what it turned out to be. A card that was a
+   Steal is worth remembering — half the tension of the back rows is the room counting
+   how many reversals are left. */
+.flip-card.used{
+  background:transparent; color:var(--muted); cursor:default;
+  border:2px dashed rgba(18,38,63,0.28); box-shadow:none; transform:none;
+  font-size:clamp(0.6rem, 1.3vw, 0.9rem); letter-spacing:0.12em;
+  font-family:'IBM Plex Mono',monospace; font-weight:600;
+}
+@keyframes flipIn{ from{ opacity:0; transform:translateY(-14px) rotateX(35deg); } to{ opacity:1; transform:none; } }
+#flip-grid.dealing .flip-card{ animation:flipIn .4s cubic-bezier(.2,.9,.3,1.05) both;
+                               animation-delay:calc(var(--i, 0) * 44ms); }
+
+/* The target chooser, and the line that says what just happened. Hidden until a twist
+   needs somebody named — it is one beat in a game, not furniture. */
+#flip-pick{ display:none; }
+#flip-pick.on{
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  padding:12px 14px; border-radius:14px; background:rgba(18,38,63,0.06);
+  border:2px dashed rgba(18,38,63,0.24);
+}
+#flip-pick-say{ font-family:'Space Grotesk',sans-serif; font-weight:700;
+                font-size:clamp(1rem, 2vw, 1.4rem); color:var(--navy); text-align:center; }
+#flip-pick-row{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
+#flip-pick-tally{ font-family:'IBM Plex Mono',monospace; font-size:0.8rem; color:var(--muted); min-height:1em; }
+#flip-skip{
+  background:transparent; color:var(--navy); border:2px dashed rgba(18,38,63,0.4);
+  border-radius:10px; padding:5px 14px; cursor:pointer; font-size:0.85rem;
+}
+/* The flash after a reversal is the same box saying one sentence — no chips, no skip. */
+#flip-pick.said #flip-pick-row, #flip-pick.said #flip-skip, #flip-pick.said #flip-pick-tally{ display:none; }
+
+@media(max-width:760px){
+  #play-flip{ padding:8px 12px 6px; }
+  #flip-grid{ gap:8px; }
+}
+
+/* The game-show skin: the board keeps the same tiles, the frame around it goes dark. */
+body.theme-gameshow #play-flip.lit #flip-turn{ color:var(--gold); }
+body.theme-gameshow #play-flip.lit #flip-left{ color:rgba(255,255,255,0.6); }
+body.theme-gameshow #play-flip.lit .flip-card.used{
+  border-color:rgba(255,255,255,0.22); color:rgba(255,255,255,0.45);
+}
+body.theme-gameshow #play-flip.lit #flip-pick.on{
+  background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.26);
+}
+body.theme-gameshow #play-flip.lit #flip-pick-say{ color:var(--paper,#EAF0FF); }
+body.theme-gameshow #play-flip.lit #flip-pick-tally{ color:rgba(255,240,200,0.7); }
+body.theme-gameshow #play-flip.lit #flip-skip{ color:var(--paper,#EAF0FF); border-color:rgba(255,255,255,0.32); }

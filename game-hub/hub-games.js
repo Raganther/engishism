@@ -150,6 +150,14 @@ window.HubGames = (function(){
          a line, re-plant a hidden tile, re-read a clock. Fires only while this
          game is active, exactly as the hand-written branches guarded. */
       onSetting:    NO_OP,
+      /* The standings screen was dismissed, so the board is visible again and the
+         teacher is looking at it. A board with a beat that belongs *after* the
+         question — Flip's steal and swap, which happen on the board with the whole
+         scoreboard in shot — runs it here. The engine shows the standings itself
+         from inside the pay path, so there is nowhere a host could hand in a
+         callback of its own; this is that seam. A no-op for every board whose
+         question simply ends. */
+      onStandingsDone: NO_OP,
       /* Which team the scorebar highlights as "on turn" (Blockbusters rotates
          within sides; Race head-to-head has no turn at all → return -1), and
          any extra markup a team's chip carries (Blockbusters' side-colour dot). */

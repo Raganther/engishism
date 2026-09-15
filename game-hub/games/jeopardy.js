@@ -223,9 +223,7 @@
       /* The show takes the value off you, and a Daily Double takes the bet — but not on
          a grouping clue, where `missed` is only "whoever happened to be on turn". */
       if(S.get('jDeduct', 'jeopardy') && teams[missed] && E().modalMode() === 'jeopardy' && !E().roundClue()){
-        E().ledgerNote(missed, -E().clueValue(), 'wrong answer · deduction rule');
-        teams[missed].score -= E().clueValue();
-        E().renderScorebar();
+        E().adjust(missed, -E().clueValue(), 'wrong answer · deduction rule');
       }
       // a Daily Double is answered by one team alone, so there is no steal to open
       if(jDoubleTeam == null && jOfferSteal(missed)) return;

@@ -57,8 +57,18 @@ async function openHub(browser, viewport){
   page.__console = [];   // console errors, mostly network; expected in some tests
   page.on('pageerror', e => page.__errors.push(String(e)));
   page.on('console', m => {
-    // the Google Fonts request always fails in a sandbox; it is not our problem
-    if (m.type() === 'error' && !/ERR_CONNECTION_RESET|fonts\.(googleapis|gstatic)/.test(m.text()))
+    /* The Google Fonts request always fails in a sandbox; it is not our problem.
+       **Two spellings of the same failure, and the second carries no URL.** A sandbox
+       that intercepts TLS reports it as a bare "Failed to load resource:
+       net::ERR_CERT_AUTHORITY_INVALID" with nothing in the message naming the host —
+       so the `fonts.` half of this filter cannot see it, and seventeen checks across
+       six suites went red for the font stylesheet on a build that was fine. Safe to
+       excuse by name rather than by host: this app is offline-first and the font
+       stylesheet is the ONLY external request any page here makes, so a certificate
+       error can be nothing else. If that ever stops being true, this line is the one
+       that has to change with it. */
+    if (m.type() === 'error' &&
+        !/ERR_CONNECTION_RESET|ERR_CERT_|fonts\.(googleapis|gstatic)/.test(m.text()))
       page.__console.push(m.text());
   });
   await page.goto(BASE + (openHub.shell || '/game-hub.html'));

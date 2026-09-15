@@ -1827,6 +1827,9 @@
 
   function hideStandings(){
     document.getElementById('standings-modal').classList.remove('on');
+    /* The board is back in front of the room. A game with a beat that belongs after
+       the question rather than on the card runs it now — see `onStandingsDone`. */
+    hook('onStandingsDone');
   }
 
   /* Two competitors is a scoreboard nobody needs a screen for, and on a board with
@@ -1930,10 +1933,10 @@
       });
       el.querySelector('.tname').addEventListener('change', e=>{
         t.name = e.target.value; t.auto = false; pushTeamNames(); });
-      // noted before the score moves (the ledger's ordering rule) — a teacher's
-      // correction used to be indistinguishable in the report from a scoring bug
-      el.querySelector('.minus').addEventListener('click', ()=>{ ledgerNote(i, -step, 'teacher correction'); t.score-=step; renderScorebar(); });
-      el.querySelector('.plus').addEventListener('click', ()=>{ ledgerNote(i, step, 'teacher correction'); t.score+=step; renderScorebar(); });
+      // through `adjust`, which owns the receipt-before-the-movement ordering — a
+      // teacher's correction used to be indistinguishable in the report from a bug
+      el.querySelector('.minus').addEventListener('click', ()=> adjust(i, -step, 'teacher correction'));
+      el.querySelector('.plus').addEventListener('click',  ()=> adjust(i,  step, 'teacher correction'));
       const delBtn = el.querySelector('.tdel');
       if(delBtn) delBtn.addEventListener('click', ()=> removeTeam(i));
       bar.appendChild(el);
@@ -2063,6 +2066,27 @@
     t.score += value;
     renderScorebar();
     return value;
+  }
+
+  /* **Moving a score without earning it.** `award` is the *earning* path — it halves
+     a steal, applies the run multiplier, rounds to the board's unit and can never pay
+     less than one unit, all of which is right for answering a question and wrong for
+     everything else. Three places already moved a score raw, each writing its own
+     ledger line beside its own `t.score +=` and its own repaint: the teacher's ±
+     buttons and Jeopardy's deduction rule. This is the one home for the signed move,
+     so a fourth caller cannot forget the receipt or the repaint.
+
+     The receipt first, always — `ledgerNote`'s own ordering rule: an entry that has
+     to open itself snapshots the scores as it opens, and a note taken after the
+     movement would swallow the thing it is describing. */
+  function adjust(teamIdx, delta, why){
+    const t = teams[teamIdx];
+    const d = Math.round(Number(delta) || 0);
+    if(!t || !d) return 0;
+    ledgerNote(teamIdx, d, why || 'adjustment');
+    t.score += d;
+    renderScorebar();
+    return d;
   }
 
   // two in a row is worth a little, three or more is worth doubling — and it has to
@@ -5306,7 +5330,7 @@
   function roundDoneNow(){ return !!(roundState && roundState.done); }
   window.HubEnv = {
     // scoring and the receipt
-    award, ledgerNote, markRun,
+    award, adjust, ledgerNote, markRun,
     payRuleLabel: g => (PAY_RULES[S.get('roundPay', g)] || PAY_RULES.winner).label,
     // the round adapter — a host names itself at roundOf, so no closure state moves
     roundCommit, roundEnd, roundOf, roundOpen, roundClockSecs,
