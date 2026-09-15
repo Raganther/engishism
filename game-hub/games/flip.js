@@ -229,7 +229,11 @@
     const out = [];
     (u.jeopardyCategories || []).forEach(cat => {
       (cat.clues || []).forEach(clue => {
-        out.push(Object.assign({}, clue, { topic: cat.id, section: cat.section }));
+        /* `catName` is carried for the card's second line. `section` is a filing code
+           ("AD") and was reaching the projector as one; the column's human name is
+           what a room can actually use — the same context a Jeopardy category header
+           gives, on a board that has no headers. */
+        out.push(Object.assign({}, clue, { topic: cat.id, section: cat.section, catName: cat.name }));
       });
     });
     return out;
@@ -357,9 +361,9 @@
       item:{ text: card.item.q || card.item.text || '', answer: card.item.a, type: card.item.type },
       source: card.item,
       topline,
-      /* The twist's own line under the topline. The section slot is otherwise the
-         unit's label, which this board does not need — a card carries no category. */
-      section: tw.note || card.item.section || '',
+      /* The twist's own line under the topline, and the column's name when there is no
+         twist to announce. Never the raw section code. */
+      section: tw.note || card.item.catName || '',
       buttons:{ reveal:true, close:true }
     });
   }
