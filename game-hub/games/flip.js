@@ -55,6 +55,7 @@
   let holding = null;          // the twist whose target is being chosen right now
   let awaitingStandings = false;
   let giftVoting = false;
+  let giftVote = null;         // the Kit.vote counting the gift's replies, while one is open
   let over = false;
   let picker = null;           // the shared team chooser, on this board's own mount
 
@@ -489,23 +490,45 @@
        it ends — voted, chosen over, or skipped — they have to be given back, or the
        next question opens onto phones still showing a vote. */
     if(giftVoting){ giftVoting = false; E().standDownPhones(); }
+    giftVote = null;
     const box = document.getElementById('flip-pick');
     if(box) box.classList.remove('on', 'said');
     if(picker) picker.hide();
   }
 
+  /* The phones are offered the target names as options, so a reply's `value` is a
+     name. `Kit.vote` does the counting — a recount from the full list every time, so
+     a student who changes their mind is counted once — and this only paints. */
   function startGiftVote(targets){
     const names = targets.map(i => E().teamName(i));
+    giftVote = K.vote.open({ options: names });
     giftVoting = !!E().askClass('Who should get the gift?', 'vote', names);
+    if(!giftVoting) giftVote = null;
   }
+  /* The count lands on the chip the teacher is about to click, in the chooser's own
+     order (one chip per option, as offered). The line beneath names the leader, or
+     says it is tied — the thing a teacher wants to know before clicking. */
   function paintGiftVote(all){
-    const counts = {};
-    (all || []).forEach(r => { const v = String((r && r.text) || r || '').trim();
-                               if(v) counts[v] = (counts[v] || 0) + 1; });
-    const line = Object.keys(counts).sort((a, b) => counts[b] - counts[a])
-                       .map(k => k + ' · ' + counts[k]).join('   ');
+    if(!giftVote) return;
+    const counts = giftVote.apply(all);
+    const chips = document.querySelectorAll('#flip-pick-row .claim-team');
+    giftVote.options.forEach((name, n) => {
+      const chip = chips[n];
+      if(!chip) return;
+      let badge = chip.querySelector('.claim-votes');
+      if(!badge){ badge = document.createElement('span'); badge.className = 'claim-votes'; chip.appendChild(badge); }
+      badge.textContent = String(counts[name] || 0);
+      chip.classList.toggle('leading', false);
+    });
+    const lead = giftVote.leader();
+    if(lead && !lead.tied){
+      const i = giftVote.options.indexOf(lead.option);
+      if(chips[i]) chips[i].classList.add('leading');
+    }
     const el = document.getElementById('flip-pick-tally');
-    if(el) el.textContent = line;
+    if(el) el.textContent = !lead ? ''
+                          : lead.tied ? 'Tied at ' + lead.n
+                          : lead.option + ' leads · ' + lead.n + ' of ' + giftVote.total();
   }
 
   /* **The arithmetic the whole board is for.** A steal moves half the closing amount

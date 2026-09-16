@@ -2126,6 +2126,15 @@ body.theme-gameshow #close-btn, body.theme-gameshow #skip-btn, body.theme-gamesh
                 font-size:clamp(1rem, 2vw, 1.4rem); color:var(--navy); text-align:center; }
 #flip-pick-row{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
 #flip-pick-tally{ font-family:'IBM Plex Mono',monospace; font-size:0.8rem; color:var(--muted); min-height:1em; }
+/* The gift vote's count sits on the chip it is for — the number keys are on the left,
+   the votes on the right, and the chip in front swells so the teacher's eye lands on it. */
+#flip-pick-row .claim-votes{
+  font-family:'IBM Plex Mono',monospace; font-size:0.85rem; font-weight:700;
+  background:rgba(255,255,255,0.32); color:inherit; border-radius:999px;
+  min-width:1.7em; text-align:center; padding:2px 7px; margin-left:4px;
+}
+#flip-pick-row .claim-team.team-0 .claim-votes{ background:rgba(18,38,63,0.18); }
+#flip-pick-row .claim-team.leading{ transform:scale(1.08); box-shadow:0 0 0 3px var(--gold, #F2C14E); }
 #flip-skip{
   background:transparent; color:var(--navy); border:2px dashed rgba(18,38,63,0.4);
   border-radius:10px; padding:5px 14px; cursor:pointer; font-size:0.85rem;
