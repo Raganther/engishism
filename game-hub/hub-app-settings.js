@@ -20,8 +20,11 @@ window.registerAppSettings = function(S){
     options:[{value:'quiet',label:'Quiet'},{value:'med',label:'Medium'},{value:'loud',label:'Loud'}] });
   /* The music bed is the one sound that runs *continuously* under a live question,
      so it is the one a teacher may want gone while keeping the cues. Volume alone
-     could not do that — turning it down takes the right-answer tone with it. */
-  S.register({ id:'musicBed', group:'Sound', type:'select', default:'normal', games:'*',
+     could not do that — turning it down takes the right-answer tone with it. **Off by
+     default**: the drone under a question was the thing a teacher asked to lose, the
+     cues are what they kept. A device seeded with the old default is migrated once
+     in hub-engine.js (`migrateMusicBedOff`). */
+  S.register({ id:'musicBed', group:'Sound', type:'select', default:'off', games:'*',
     adv:true, label:'Background music', help:'Music that plays under a question nobody has answered yet. Off leaves every other sound alone.',
     options:[{value:'normal',label:'On'},{value:'quiet',label:'On, quieter'},{value:'off',label:'Off'}] });
 

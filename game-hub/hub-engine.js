@@ -354,6 +354,20 @@
     try{ localStorage.setItem(MARK, '1'); }catch(e){}
   })();
 
+  /* **The music bed's default moved to Off.** `register()` seeded 'normal' into every
+     device that ran an earlier build, and a stored value ignores a changed default
+     forever — so a device still holding the OLD default is moved to the new one, once.
+     A teacher who chose 'quiet', or who turned it off themselves, has a value that is
+     not the old default and is left alone. Same shape as the physics migration above. */
+  (function migrateMusicBedOff(){
+    const MARK = 'engishism.musicBedOff';
+    let done = false;
+    try{ done = localStorage.getItem(MARK) === '1'; }catch(e){}
+    if(done) return;
+    if(S.raw('musicBed') === 'normal') S.set('musicBed', 'off');
+    try{ localStorage.setItem(MARK, '1'); }catch(e){}
+  })();
+
   /* **Settings flattened to one value each: drop the per-game overrides.** The panel and
      every read used to fork by game (`id@game`, and `id@game!solo` for a solo room). The
      app is tuned from one place now (the question bench) and a shared setting has a single
