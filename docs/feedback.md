@@ -26,6 +26,37 @@ Chat messages evaporate; this does not.
 
 ---
 
+## 2026-09-17 · Flip · class run · phones in the room
+**Setup:** build 20260917c — twist markers on, last place picks, steal a third of the
+gap, Swap on. The winner's phone chooses a Steal/Swap, the room votes a Gift.
+
+**What was played:** Flip, a full board, with students on handsets. Unit not recorded.
+
+**Worked:** the board played through; the twists reached the phones.
+
+**Didn't:**
+- **"Last place picks the next card" gives no advantage and only spotlights the
+  student in last place.** The mechanic was built to hand the loaded back rows to
+  whoever is behind; in the room it read as naming the loser every turn. Decision
+  owed: default it off (rotate the turn) or replace it with something that is an
+  actual advantage.
+- **A steal takes too little.** A third of the gap, halved each way, "feels like you
+  should take more". The slider (`flipSteal`) is `quick` for exactly this; the class
+  says raise it.
+- **In one voting dynamic the vote pills appeared under the Flip cards** — layout
+  bug, not yet reproduced. The chooser box (`#flip-pick`) sits below the 5 × 5
+  grid; on a full board it may be falling under the floor or behind the cards.
+
+**Student verdicts:** not recorded.
+
+**Open-question verdicts:** the steal share (a third) is settled as too small.
+Last-place-picks is settled as a spotlight, not an advantage.
+
+**Next:** reproduce the pills-under-the-cards layout on the room bench with a 5 × 5
+board and a Gift; raise the steal default; decide last-place-picks.
+
+---
+
 ## 2026-09-15 · Advertising (B2) · Flip · first run of the new board
 **Setup:** build 20260915b, defaults — 5×5, twists 40%, steal a third of the gap,
 Swap on, last place picks.
