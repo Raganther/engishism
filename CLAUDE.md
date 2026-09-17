@@ -941,7 +941,11 @@ construction and makes the leader the one competitor who cannot steal at all. A 
 never overtake — being caught is a thing a class accepts, being leapfrogged by a card is
 not. **A target is never chosen by a class vote**: "vote who loses points" is a
 popularity contest with a scoreboard attached. The one vote is **Gift**, which decides who
-*receives*. Swap is removable (`flipSwap`) because trading scores outright is the biggest
+*receives*. **The phones carry the choice, the teacher confirms it**: a Steal or Swap
+goes to the winner's own handset (`askClass` narrowed to their team, the room told "Ana is
+choosing"), a Gift to every handset, and either lands on the board as a lit chip the
+teacher clicks or Enters — the one beat a teacher may want to veto. No relay, and the
+chooser is the teacher's alone. Swap is removable (`flipSwap`) because trading scores outright is the biggest
 reversal on the board and the likeliest to produce a genuinely upset student. **It authors
 no content** — a card board has no categories, so it flattens whatever `jeopardyCategories`
 a unit already carries into one pool, which gave every unit in the project the game for

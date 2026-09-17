@@ -29,7 +29,11 @@
    won the card and constrained to competitors above them, so the choice reads as
    tactics rather than as a judgement about a person. The one place the room does vote
    is **Gift**, where the vote decides who *receives* — the generous direction, on
-   purpose.
+   purpose. **The phones carry both**: a Steal or Swap goes to the winner's own
+   handset (the rest of the room sees "Ana is choosing"), a Gift to every handset, and
+   either lands on the board as a lit chip the teacher confirms — one click, or Enter.
+   The teacher's click stays because a steal is the one beat a teacher may want to
+   veto; without a relay the chooser is the teacher's alone, as it always was.
 
    **It authors no content.** A card board has no categories to fill, so this flattens
    whatever `jeopardyCategories` the unit already carries into one pool and deals from
@@ -54,8 +58,10 @@
   let pending = null;          // {team, twist} — a twist waiting for the beat after the question
   let holding = null;          // the twist whose target is being chosen right now
   let awaitingStandings = false;
-  let giftVoting = false;
-  let giftVote = null;         // the Kit.vote counting the gift's replies, while one is open
+  /* The room's say in a twist, while the chooser is open: {kind, vote, team}. `kind`
+     is 'pick' (a Steal or a Swap — the winner's own phone chooses, the room watches) or
+     'gift' (every phone votes who receives). `vote` is the Kit.vote doing the counting. */
+  let twistVote = null;
   let over = false;
   let picker = null;           // the shared team chooser, on this board's own mount
 
@@ -113,6 +119,16 @@
     picker = K.claimTeam({
       mount: document.getElementById('flip-pick-row'),
       onPick: i => applyTwist(i)
+    });
+    /* Enter takes the chip the room lit — the teacher's one-key confirm. The number
+       keys still pick any chip, so a veto is the same gesture as before. */
+    document.addEventListener('keydown', e => {
+      if(e.key !== 'Enter' || !holding || !twistVote) return;
+      if(e.target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName)) return;
+      const i = litPick();
+      if(i < 0) return;
+      const targets = targetsFor(holding.team, TW[holding.twist].target);
+      if(targets[i] != null){ e.preventDefault(); applyTwist(targets[i]); }
     });
     document.getElementById('flip-skip').addEventListener('click', ()=>{
       /* Declining is allowed and has to be: a steal with one obvious target is not a
@@ -183,13 +199,15 @@
     /* True while a question is open OR while the room is voting on a gift — the chip
        has to keep the room open across both, and the vote happens after the round has
        already stood the handsets down. */
-    wantsVote:   () => E().roundLive() || giftVoting,
-    roomNote:    () => giftVoting ? 'vote who gets it' : null,
+    wantsVote:   () => E().roundLive() || !!twistVote,
+    roomNote:    () => !twistVote ? null
+                     : twistVote.kind === 'gift' ? 'vote who gets it'
+                     : E().teamName(twistVote.team) + ' is choosing',
     onVoteReply(all){
       /* Two things can be asking the room, never at once: the question's own round
-         while the card is open, and the gift vote after it has closed. */
+         while the card is open, and the twist's chooser after it has closed. */
       if(E().roundLive()){ E().roundOnReplies(all); return; }
-      if(giftVoting) paintGiftVote(all);
+      if(twistVote) paintTwistVote(all);
     },
     phoneRound(){ return E().roundForPhones(); },
     onTypedWin: () => null,
@@ -277,7 +295,7 @@
     const cols = Math.round(Math.sqrt(n));
     cards = pool.slice(0, n).map((item, i) => ({ n:i + 1, item, twist:'plain', used:false, row: Math.floor(i / cols) }));
     dealTwists(cards, cols);
-    cur = null; pending = null; awaitingStandings = false; over = false; giftVoting = false;
+    cur = null; pending = null; awaitingStandings = false; over = false; twistVote = null;
     const cardEl = document.getElementById('clue-card');
     if(cardEl) cardEl.className = cardEl.className.replace(/\bflip-tw\S*/g, '').trim();
     hidePicker();
@@ -479,9 +497,9 @@
     box.classList.add('on');
     picker.show(E().teams(), targets);
     document.getElementById('flip-pick-tally').textContent = '';
-    /* The one vote on this board, and it is the generous one. Advisory, like every
-       vote here: the counts land on the board and the teacher clicks. */
-    if(p.twist === 'gift') startGiftVote(targets);
+    /* The phones get a say — advisory, like every vote here: the pick lands on the
+       board as a lit chip and the teacher clicks it. */
+    askPhones(p, targets);
     fitFlip();
   }
   function hidePicker(){
@@ -489,46 +507,70 @@
     /* The gift vote borrows every handset in the room for a few seconds. Whichever way
        it ends — voted, chosen over, or skipped — they have to be given back, or the
        next question opens onto phones still showing a vote. */
-    if(giftVoting){ giftVoting = false; E().standDownPhones(); }
-    giftVote = null;
+    if(twistVote){ twistVote = null; E().standDownPhones(); }
     const box = document.getElementById('flip-pick');
     if(box) box.classList.remove('on', 'said');
     if(picker) picker.hide();
   }
 
-  /* The phones are offered the target names as options, so a reply's `value` is a
+  /* **Who decides a twist is who the card says.** A Steal or a Swap is the winner's
+     choice, so the chooser goes to the winner's phone alone — `askClass` narrowed to
+     their team, which the relay enforces and every other handset shows as "Ana is
+     choosing". A Gift is the room's choice, so every phone votes. In a room of
+     individuals a team is one phone, so "the winner's team" is the winner. No relay:
+     `askClass` returns false and the chooser stays the teacher's, exactly as before.
+
+     The phones are offered the target names as options, so a reply's `value` is a
      name. `Kit.vote` does the counting — a recount from the full list every time, so
      a student who changes their mind is counted once — and this only paints. */
-  function startGiftVote(targets){
+  function askPhones(p, targets){
     const names = targets.map(i => E().teamName(i));
-    giftVote = K.vote.open({ options: names });
-    giftVoting = !!E().askClass('Who should get the gift?', 'vote', names);
-    if(!giftVoting) giftVote = null;
+    const gift  = p.twist === 'gift';
+    const team  = gift ? null : p.team;
+    const ask   = gift            ? 'Who should get the gift?'
+                : p.twist === 'swap' ? 'Swap — with whom?'
+                :                      'Steal — from whom?';
+    const vote = K.vote.open({ options: names, team });
+    twistVote = E().askClass(ask, 'vote', names, team)
+              ? { kind: gift ? 'gift' : 'pick', vote, team: p.team } : null;
   }
   /* The count lands on the chip the teacher is about to click, in the chooser's own
-     order (one chip per option, as offered). The line beneath names the leader, or
-     says it is tied — the thing a teacher wants to know before clicking. */
-  function paintGiftVote(all){
-    if(!giftVote) return;
-    const counts = giftVote.apply(all);
-    const chips = document.querySelectorAll('#flip-pick-row .claim-team');
-    giftVote.options.forEach((name, n) => {
+     order (one chip per option, as offered), and the chip in front is ringed. The
+     line beneath says what the room decided — "Ana picked Gia", or the leader and
+     the count, or that it is tied — the thing a teacher wants to know before clicking. */
+  function paintTwistVote(all){
+    if(!twistVote) return;
+    const vote   = twistVote.vote;
+    const counts = vote.apply(all);
+    const chips  = document.querySelectorAll('#flip-pick-row .claim-team');
+    vote.options.forEach((name, n) => {
       const chip = chips[n];
       if(!chip) return;
       let badge = chip.querySelector('.claim-votes');
       if(!badge){ badge = document.createElement('span'); badge.className = 'claim-votes'; chip.appendChild(badge); }
       badge.textContent = String(counts[name] || 0);
-      chip.classList.toggle('leading', false);
+      chip.classList.remove('leading');
     });
-    const lead = giftVote.leader();
+    const lead = vote.leader();
     if(lead && !lead.tied){
-      const i = giftVote.options.indexOf(lead.option);
+      const i = vote.options.indexOf(lead.option);
       if(chips[i]) chips[i].classList.add('leading');
     }
     const el = document.getElementById('flip-pick-tally');
-    if(el) el.textContent = !lead ? ''
-                          : lead.tied ? 'Tied at ' + lead.n
-                          : lead.option + ' leads · ' + lead.n + ' of ' + giftVote.total();
+    if(!el) return;
+    if(!lead){ el.textContent = ''; return; }
+    if(lead.tied){ el.textContent = 'Tied at ' + lead.n; return; }
+    /* One voice is a pick, not a poll: a Steal in a room of individuals is the
+       winner's one reply, and the board says whose it was. */
+    el.textContent = (twistVote.kind === 'pick' && vote.total() === 1)
+      ? E().teamName(twistVote.team) + ' picked ' + lead.option + ' — click to confirm'
+      : lead.option + ' leads · ' + lead.n + ' of ' + vote.total();
+  }
+  /* The chip the room put in front, if there is one — Enter confirms it. */
+  function litPick(){
+    const chips = [...document.querySelectorAll('#flip-pick-row .claim-team')];
+    const i = chips.findIndex(c => c.classList.contains('leading'));
+    return i;
   }
 
   /* **The arithmetic the whole board is for.** A steal moves half the closing amount
