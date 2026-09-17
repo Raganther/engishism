@@ -24,10 +24,11 @@ window.registerFlipSettings = function(S){
   /* **The mechanic the whole board exists for.** A steal closes this share of the gap
      between the winner and somebody ahead of them, so the size of the correction is
      set by the size of the problem and nothing has to be tuned per class. At ½ the
-     steal lands the two level, which reads as dramatic and final; at ⅓ it leaves the
-     leader ahead and the chase alive, which is why it is the default. */
-  S.register({ id:'flipSteal', group:'Flip', type:'range', default:0.34, quick:true,
-    min:0.1, max:0.5, step:0.02, unit:'×', games:['flip'],
+     steal lands the two level — a class said ⅓ "feels like you should take more", so
+     ½ is the default and the slider runs past it. A device seeded with ⅓ is migrated
+     once in hub-engine.js (`migrateFlipClassRun`). */
+  S.register({ id:'flipSteal', group:'Flip', type:'range', default:0.5, quick:true,
+    min:0.1, max:0.8, step:0.02, unit:'×', games:['flip'],
     label:'A steal closes this much of the gap',
     help:'You take half of it from them and keep half — so the gap closes by this share and you can never overtake on a steal alone. Only ever upward: the leader cannot steal.' });
 
@@ -56,7 +57,10 @@ window.registerFlipSettings = function(S){
     label:'Mark the cards that carry a twist',
     help:'A star on the face-down card. It says something will happen, never what — so picking one is a gamble, and the room can see the last rows filling up with them. Off is a completely blind board.' });
 
-  S.register({ id:'flipLastPicks', group:'Flip', type:'toggle', default:true, games:['flip'],
+  /* Off by default: a class read "last place picks" as naming the loser every turn,
+     not as help. The switch stays for a room that likes it. A device seeded with the
+     old default is migrated once in hub-engine.js (`migrateFlipClassRun`). */
+  S.register({ id:'flipLastPicks', group:'Flip', type:'toggle', default:false, games:['flip'],
     label:'Last place picks the next card',
     help:'Being behind hands you the board. Off rotates the turn the ordinary way, which lets a strong player keep choosing.' });
 };

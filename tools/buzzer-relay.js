@@ -655,11 +655,18 @@ function handleSend(req, res){
           return sendJSON(res,200,{ok:true,ignored:'finished'});
         const value = String(msg.value == null ? '' : msg.value);
         if(value.length > MAX_REPLY) return sendJSON(res,413,{error:'answer too long'});
+        /* The phone's own stopwatch — question on its screen to the commit. It
+           cannot be longer than the time since this room was armed (plus slack for
+           the wire), and a phone can only lie *downwards*; an impossible number is
+           dropped rather than corrected, and a reply without one is still a reply. */
+        const msRaw = Number(msg.ms);
+        const msMax = room.armedAt ? (Date.now() - room.armedAt) + 1000 : 0;
+        const ms = Number.isFinite(msRaw) && msRaw >= 0 && msRaw <= msMax ? Math.round(msRaw) : null;
         room.verdicts.delete(p.id);
-        room.responses.set(p.id, { id:p.id, name:p.name, team:p.team, value });
+        room.responses.set(p.id, { id:p.id, name:p.name, team:p.team, value, ms });
         if(room.mode !== 'card' && !room.rethink) room.spent.add(p.id);
         const { all, tally } = tallyOf(room);
-        toHost(room, 'response', { latest:{ id:p.id, name:p.name, team:p.team, value },
+        toHost(room, 'response', { latest:{ id:p.id, name:p.name, team:p.team, value, ms },
                                    total: all.length, of: room.players.size,
                                    tally, all });
         return sendJSON(res, 200, { ok:true });

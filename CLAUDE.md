@@ -705,6 +705,12 @@ answers and completion verdicts survive phone reconnects. A finished competitor 
 once; rounds with structured answers declare `answerKey` and `answerText`. Settings
 synchronize across same-origin tabs without reapplying a remote preset over later edits.
 `HubPayRules` lives in `hub-round-settings.js`, shared by the engine and the bench.
+**Who was quickest is the phone's own stopwatch**: `join.html` times each question from
+its paint to the commit and every reply carries `ms`; the relay bounds it (never longer
+than the room has been armed, so a phone can only lie downwards) and forwards it; the
+board's `roundStamp` ranks by it, a reply without one (a stale phone page) sorting after
+every stopwatch and before the teacher's click. `results.note` takes `ms` so the seconds
+beside a place are the student's own. No clock has to agree with anybody's.
 Supportive rules allow everyone to finish activity rounds, use buzzing for ordinary
 questions, and pass category control on. Setup: [Jeopardy demo](docs/jeopardy-demo.md).
 
@@ -935,7 +941,8 @@ could still win.** Three mechanics carry it: the twist is on the back of a card 
 twists are **dealt toward the end of the board** (volatility grows instead of shrinking);
 a **steal closes a share of the GAP rather than a fixed number**, so the correction
 scales itself and nothing needs tuning per class; and **last place picks next** — position,
-not performance, so it cannot be farmed by tanking. **Upward only**: you take from
+not performance, so it cannot be farmed by tanking — **off by default** since a class read
+it as naming the loser every turn, kept as a switch. **Upward only**: you take from
 somebody ahead of you, never behind, which deletes the pile-on-the-weakest failure by
 construction and makes the leader the one competitor who cannot steal at all. A steal can
 never overtake — being caught is a thing a class accepts, being leapfrogged by a card is
@@ -949,9 +956,10 @@ chooser is the teacher's alone. Swap is removable (`flipSwap`) because trading s
 reversal on the board and the likeliest to produce a genuinely upset student. **It authors
 no content** — a card board has no categories, so it flattens whatever `jeopardyCategories`
 a unit already carries into one pool, which gave every unit in the project the game for
-free and every round type in it plays unchanged. Untested by a class: whether the steal's
-default share (a third of the gap) is enough to keep hope alive without making the lead
-worthless.
+free and every round type in it plays unchanged. A class settled the steal's share: a
+third "felt like you should take more", so the default is a half of the gap and the slider
+runs past it. The chooser floats over the bottom row of the grid rather than sitting in
+the column, because a full board cannot shrink under its rows.
 
 **Moving a score, and the beat after a question.** `E().adjust(team, delta, why)` is the
 one home for a signed score move with its receipt — `award` is the *earning* path

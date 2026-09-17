@@ -2063,7 +2063,7 @@ body.theme-gameshow #close-btn, body.theme-gameshow #skip-btn, body.theme-gamesh
    short hard shadow, and it drops when pressed. A played card goes flat and dim and
    keeps its place — an empty cell would let the grid reflow under the room's eyes,
    and what is left on the board is the thing a class is counting. */
-#play-flip{ display:none; padding:10px 24px 8px; }
+#play-flip{ display:none; padding:10px 24px 8px; position:relative; }
 /* The engine sets `display:block` inline on the active stage, which beats anything
    here — so the column that fills the height is this wrapper, not the stage. */
 #flip-wrap{ display:flex; flex-direction:column; gap:10px; min-height:0; }
@@ -2117,10 +2117,18 @@ body.theme-gameshow #close-btn, body.theme-gameshow #skip-btn, body.theme-gamesh
 /* The target chooser, and the line that says what just happened. Hidden until a twist
    needs somebody named — it is one beat in a game, not furniture. */
 #flip-pick{ display:none; }
+/* **Floats over the bottom of the grid, never in the column.** In the column it
+   competed with the cards for the wrapper's fixed height; a full 5 × 5 cannot shrink
+   under its rows' content, so the overflowing cards — positioned, and so painted
+   above in-flow siblings — drew straight over the chips. Reported from a class as
+   "the vote pills appear under the cards". The chooser is one beat, and the rows it
+   covers are read again the moment it closes. Solid ground, so nothing shows through. */
 #flip-pick.on{
   display:flex; flex-direction:column; align-items:center; gap:8px;
-  padding:12px 14px; border-radius:14px; background:rgba(18,38,63,0.06);
+  position:absolute; left:24px; right:24px; bottom:8px; z-index:5;
+  padding:12px 14px; border-radius:14px; background:var(--white,#FFFFFF);
   border:2px dashed rgba(18,38,63,0.24);
+  box-shadow:0 12px 30px rgba(0,0,0,0.28);
 }
 #flip-pick-say{ font-family:'Space Grotesk',sans-serif; font-weight:700;
                 font-size:clamp(1rem, 2vw, 1.4rem); color:var(--navy); text-align:center; }
@@ -2145,6 +2153,7 @@ body.theme-gameshow #close-btn, body.theme-gameshow #skip-btn, body.theme-gamesh
 @media(max-width:760px){
   #play-flip{ padding:8px 12px 6px; }
   #flip-grid{ gap:8px; }
+  #flip-pick.on{ left:12px; right:12px; bottom:6px; }
 }
 
 /* ---- a twist card announces itself ----
@@ -2180,7 +2189,7 @@ body.theme-gameshow #play-flip.lit .flip-card.used{
   border-color:rgba(255,255,255,0.22); color:rgba(255,255,255,0.45);
 }
 body.theme-gameshow #play-flip.lit #flip-pick.on{
-  background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.26);
+  background:var(--stage2,#0D1233); border-color:rgba(255,255,255,0.26);
 }
 body.theme-gameshow #play-flip.lit #flip-pick-say{ color:var(--paper,#EAF0FF); }
 body.theme-gameshow #play-flip.lit #flip-pick-tally{ color:rgba(255,240,200,0.7); }

@@ -39,21 +39,26 @@ gap, Swap on. The winner's phone chooses a Steal/Swap, the room votes a Gift.
   student in last place.** The mechanic was built to hand the loaded back rows to
   whoever is behind; in the room it read as naming the loser every turn. Decision
   owed: default it off (rotate the turn) or replace it with something that is an
-  actual advantage.
+  actual advantage. **Fixed**: off by default, the switch stays.
 - **A steal takes too little.** A third of the gap, halved each way, "feels like you
   should take more". The slider (`flipSteal`) is `quick` for exactly this; the class
-  says raise it.
+  says raise it. **Fixed**: default a half, slider runs to 0.8.
 - **In one voting dynamic the vote pills appeared under the Flip cards** — layout
-  bug, not yet reproduced. The chooser box (`#flip-pick`) sits below the 5 × 5
-  grid; on a full board it may be falling under the floor or behind the cards.
+  bug. **Fixed**: the chooser was in the column under the grid and a full 5 × 5
+  cannot shrink under its rows, so the overflowing cards painted over the chips; it
+  now floats over the bottom row on solid ground, measured inside the floor at 720.
 
 **Student verdicts:** not recorded.
 
 **Open-question verdicts:** the steal share (a third) is settled as too small.
 Last-place-picks is settled as a spotlight, not an advantage.
 
-**Next:** reproduce the pills-under-the-cards layout on the room bench with a 5 × 5
-board and a Gift; raise the steal default; decide last-place-picks.
+**Also decided this run:** who was quickest is now the phone's own stopwatch
+(question on screen → commit), not arrival order at the relay — the buzzer is not
+used any more, so there is no lock to keep instant.
+
+**Next:** play a board with the half-gap steal and the turn rotating; watch whether
+the stopwatch order ever disagrees with what the room saw.
 
 ---
 

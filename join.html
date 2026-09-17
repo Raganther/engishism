@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260917c">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260917d">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -554,15 +554,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260917c"></script>
-<script src="game-hub/hub-buzzer.js?v=20260917c"></script>
+<script src="game-hub/hub-brand.js?v=20260917d"></script>
+<script src="game-hub/hub-buzzer.js?v=20260917d"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260917c"></script>
+<script src="game-hub/matter.min.js?v=20260917d"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260917c"></script>
+<script src="game-hub/hub-table.js?v=20260917d"></script>
 <script>
 (function(){
   'use strict';
@@ -775,6 +775,12 @@
   let maxPicks = 1, myPicks = [];
   // the state line, unless a verdict is still being read
   function say(text){ if(Date.now() > verdictUntil) $('state').textContent = text; }
+  /* Every reply goes through here so it carries this phone's own stopwatch: the
+     milliseconds from the question appearing on this screen to the commit. The
+     board ranks by it, the relay bounds it, and it needs no clock to agree with
+     anybody's — see `applyArmed`, where it starts. */
+  let shownAt = null;
+  function reply(v){ client.respond(v, shownAt == null ? null : performance.now() - shownAt); }
   /* Some rounds belong to one team: Blockbusters asks the team on turn which
      hexagon to attack, and the rest of the room is watching, not choosing. A phone
      that is not entitled shows the question and no controls, rather than a live
@@ -812,7 +818,7 @@
     btn.disabled = true;
     $('state').textContent = 'Sent…';
     // judged on the host, which is the only place that knows the answer
-    client.respond(card.words[i]);
+    reply(card.words[i]);
   }
 
   function setMode(m, opts, mine, shape){
@@ -914,7 +920,7 @@
                top of an answer in flight would throw that answer away, which is the
                "it did not register" bug in a new coat. */
             if(preview && !sentValue && myPicks.length && window.HubBuzzer)
-              client.respond(window.HubBuzzer.PREVIEW + myPicks.join('|'));
+              reply(window.HubBuzzer.PREVIEW + myPicks.join('|'));
             /* The message and the button have to agree — that they did not is half
                of what made the dead end so hard to read from the front of a room. */
             $('state').textContent = maxPicks > 1 ? shareLine()
@@ -927,7 +933,7 @@
           if(maxPicks === 1 && !canRethink) [...box.children].forEach(x=>{ x.disabled = true; });
           /* One reply carrying the whole selection: the relay stores one value per
              player, and what that value *means* is the host's business. */
-          client.respond(myPicks.join('|'));
+          reply(myPicks.join('|'));
         });
         box.appendChild(b);
       });
@@ -1078,7 +1084,7 @@
       return;
     }
     answered = true;
-    client.respond(arrangeWire());
+    reply(arrangeWire());
   }
 
   /* Send — the commit beat's one button, for vote and arrange alike. What is in
@@ -1093,7 +1099,7 @@
     blip();
     sentValue = cur;
     answered = true;
-    client.respond(cur);
+    reply(cur);
     $('commit').disabled = true;
     $('commit').textContent = 'Sent';
     $('state').textContent = 'Answer sent — change it to send again';
@@ -1250,7 +1256,7 @@
     if(!client || !tbl) return;
     if(needSend){ $('commit').disabled = cooling || !tableWire(); return; }
     answered = true;
-    client.respond(tableWire());
+    reply(tableWire());
   }
 
   /* Reconnect restore, the flick counterpart of restoreArrange. buildTable has just
@@ -1503,7 +1509,7 @@
     answered = true; blip();
     $('reply').disabled = true; $('send').disabled = true;
     $('state').textContent = 'Answer sent';
-    client.respond(v);
+    reply(v);
   }
 
   /* Scanned in? The code is in the URL, so fill it and get out of the way — the
@@ -1645,6 +1651,10 @@
         return;
       }
       activeRoundId = d.roundId || null;
+      /* The stopwatch starts when the question is on THIS screen — after the paint,
+         not on the message — and every reply carries how long it has run. */
+      shownAt = performance.now();
+      requestAnimationFrame(() => { shownAt = performance.now(); });
       floorClockStop();          // a fresh floor retires whoever was on the clock
       /* **A round deals its card on the arm**, and updates its marks the same way —
          a round cannot send the relay a second message, so the card rides the arm.

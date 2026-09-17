@@ -368,6 +368,21 @@
     try{ localStorage.setItem(MARK, '1'); }catch(e){}
   })();
 
+  /* **Flip's first class run moved two defaults**: the steal share from a third to a
+     half, and last-place-picks from on to off. A device that still holds the OLD
+     default of either is moved to the new one, once; a value the teacher chose is
+     not the old default and is left alone. */
+  (function migrateFlipClassRun(){
+    const MARK = 'engishism.flipClassRun';
+    let done = false;
+    try{ done = localStorage.getItem(MARK) === '1'; }catch(e){}
+    if(done) return;
+    if(Number(S.raw('flipSteal')) === 0.34) S.set('flipSteal', 0.5);
+    const lp = S.raw('flipLastPicks');
+    if(lp === true || lp === 'true') S.set('flipLastPicks', false);
+    try{ localStorage.setItem(MARK, '1'); }catch(e){}
+  })();
+
   /* **Settings flattened to one value each: drop the per-game overrides.** The panel and
      every read used to fork by game (`id@game`, and `id@game!solo` for a solo room). The
      app is tuned from one place now (the question bench) and a shared setting has a single
@@ -3113,15 +3128,42 @@
     return roundDef().answerKey(list);
   }
 
+  /* **The phone's stopwatch decides the order, when it sent one.** Each handset
+     times itself from the moment the question is on its screen to the moment the
+     student commits, and sends that (`ms`, carried by the relay after a sanity
+     bound). It is the student's own time with the wire's travel both ways left
+     out, which is the fairest start there is: nobody's clock has to agree with
+     anybody's. A team's stamp is the slowest of its members' — the answer exists
+     when the last hand is in. A reply with no stopwatch (an old page still cached
+     on a phone) keeps the arrival counter and sorts after every stopwatch — late,
+     not lost — and before the teacher's own click, which `results` sorts last of
+     all. */
+  const STAMP_LATE = 1e8;                // past any stopwatch, before results' LATE
   function roundStamp(){
     if(!roundState) return;
     const at = roundState.hostAt || (roundState.hostAt = {});
     Object.keys(roundState.picks || {}).forEach(t=>{
       const key = roundKeyOf(roundState.picks[t]);
-      if(!at[t] || at[t].key !== key) at[t] = { key, n: ++roundSeq };
+      if(!at[t] || at[t].key !== key){
+        let ms = null;
+        (roundReplies || []).forEach(r => {
+          if(!r || Number(r.team) !== Number(t)) return;
+          const v = Number(r.ms);
+          if(Number.isFinite(v) && v >= 0 && (ms == null || v > ms)) ms = v;
+        });
+        at[t] = { key, n: ++roundSeq, ms };
+      }
     });
   }
-  const roundAt = t => ((roundState && roundState.hostAt && roundState.hostAt[t]) || { n: Infinity }).n;
+  const roundAt = t => {
+    const s = roundState && roundState.hostAt && roundState.hostAt[t];
+    if(!s) return Infinity;
+    return s.ms != null ? s.ms : STAMP_LATE + s.n;
+  };
+  const roundMs = t => {
+    const s = roundState && roundState.hostAt && roundState.hostAt[t];
+    return s && s.ms != null ? s.ms : null;
+  };
 
   function roundOnReplies(all){
     if(!roundLive()) return;
@@ -3142,6 +3184,7 @@
     Kit.round.resolve(roundDef(), roundState, roundCtx(), {
       settler: roundSettler,
       at: roundAt,
+      ms: roundMs,
       scoreEach: !!roundHost.scoreEach,
       draw: renderRound,
       miss: (team, r) => roundMiss(team, r),

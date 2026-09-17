@@ -351,9 +351,12 @@
         /* `id` is the competitor's identity, when the caller has one — the index is
            this question's word for them, the id is theirs across the lesson. It is
            what `remap` follows when the roster shifts under a live question. */
+        /* `ms` is the competitor's own stopwatch, when their phone sent one: the
+           seconds shown beside a place are then theirs, not the host's clock at the
+           moment it judged them. */
         resRows[key] = { who: Number(who), id: o.id || null,
                          at: o.at == null ? LATE + (++resSeq) : o.at,
-                         seconds: resAt ? (Date.now() - resAt) / 1000 : 0,
+                         seconds: o.ms != null ? o.ms / 1000 : (resAt ? (Date.now() - resAt) / 1000 : 0),
                          fraction: clock.fraction(), done: !!o.done };
       } else if(o.done){
         resRows[key].done = true;      // the last rung of a climb, on an entry that stands
@@ -1300,7 +1303,8 @@
         /* `done` separates a rung from a finish: a step re-arms for the next one;
            a finish stamps the placement the lanes draw the badge from. */
         const finished = v.r.done !== false || !!state.done;
-        results.note(v.team, { at: at(v.team), done: finished, id: (ctx.ids || [])[v.team] });
+        results.note(v.team, { at: at(v.team), ms: fx.ms ? fx.ms(v.team) : null,
+                               done: finished, id: (ctx.ids || [])[v.team] });
         if(fx.right) fx.right(v.team, v.r, finished, v.set);
         if(!finished) again = true;
       });
@@ -1319,7 +1323,8 @@
          to think about progress says the ordinary thing by saying nothing. */
       def.accept(won.set, state, won.team, ctx);
       const over = won.r.done !== false || !!state.done;
-      results.note(won.team, { at: at(won.team), done: over, id: (ctx.ids || [])[won.team] });
+      results.note(won.team, { at: at(won.team), ms: fx.ms ? fx.ms(won.team) : null,
+                               done: over, id: (ctx.ids || [])[won.team] });
       if(fx.right) fx.right(won.team, won.r, over, won.set);
       if(over){ if(fx.take) fx.take(won.team); return; }
       settler.reset();               // the question moved on

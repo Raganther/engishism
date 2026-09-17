@@ -279,7 +279,10 @@ window.HubBuzzer = (function(){
       // the word, so pressing the button without it would be the old reflex game
       buzz:    v => send({ room:code, type:'buzz', id,
                                   value: v == null ? undefined : String(v) }),
-      respond: v => send({ room:code, type:'respond', id, value:v }),
+      // `ms`: this phone's own stopwatch, question-on-screen to commit; the relay
+      // bounds it and the board ranks by it. Optional — a caller without one sends none.
+      respond: (v, ms) => send({ room:code, type:'respond', id, value:v,
+                                 ms: (ms == null ? undefined : Math.round(ms)) }),
       close: ()=>{ try{ src.close(); }catch(e){} }
     };
   }
