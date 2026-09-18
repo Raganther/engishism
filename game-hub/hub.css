@@ -2097,7 +2097,15 @@ body.theme-gameshow #close-btn, body.theme-gameshow #skip-btn, body.theme-gamesh
   box-shadow:0 4px 0 rgba(0,0,0,0.32), 0 10px 22px rgba(0,0,0,0.22);
   transition:transform .08s, box-shadow .08s, filter .2s;
 }
-.flip-card{ position:relative; }
+.flip-card{ position:relative; flex-direction:column; gap:2px; line-height:1.05; }
+/* The topic under the number: small, dark on the tile's bright fill, one line, cut
+   with an ellipsis rather than wrapped so a long column name cannot grow the row. */
+.flip-card-topic{
+  font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:clamp(0.55rem, 1vw, 0.8rem);
+  letter-spacing:0.04em; text-transform:uppercase; color:rgba(0,0,0,0.6);
+  max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 6px;
+}
+.flip-card.used .flip-card-topic{ display:none; }
 /* The marker: something is on this card, and nothing about what. Dark on the tile's
    bright fill, top-right, big enough to read from the back of a room without
    competing with the number. */

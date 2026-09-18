@@ -397,7 +397,17 @@
          where the Swap is. The hue is by position so the grid reads as a board rather
          than as a spreadsheet, and says nothing about what is behind it. */
       b.style.setProperty('--fhue', (K.table && K.table.hues ? K.table.hues : ['#00A0DF'])[(c.n - 1) % 7]);
-      b.textContent = String(c.n);
+      /* The number, and under it the column the question came from — its human name,
+         never the section code — so a pick is a choice of topic rather than a blind
+         number. The twist stays hidden; the topic is not a secret. */
+      const num = document.createElement('span');
+      num.className = 'flip-card-n'; num.textContent = String(c.n);
+      b.appendChild(num);
+      if(c.item.catName){
+        const topic = document.createElement('span');
+        topic.className = 'flip-card-topic'; topic.textContent = c.item.catName;
+        b.appendChild(topic);
+      }
       /* **A marked card says something is on it, never what.** Reported from a run:
          with every card identical, "last place picks" is a coin flip rather than a
          decision, and the room cannot see that the back rows are loaded — which is
