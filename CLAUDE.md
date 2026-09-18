@@ -371,7 +371,11 @@ declarative settings file and renders `S.renderOnce(mount, null, {})`, the one f
 every group, so there is one place to change anything and it cannot disagree with itself. A
 change there writes the one value and takes effect on every board (same `localStorage`). The
 full panel (`HubSettings.open`) still exists, built on demand for the tests; nothing on the
-board or the room bench opens it.
+board or the room bench opens it. **Every group carries a Saved sets row** — the shelf's own
+`presetSave/presetLoad/presetDrop(group, name)`, a teacher's named bundle of one group's
+values under `engishism.gamehub.presets`, beside the values — so a lesson's tuning can be
+kept and swapped without the app naming it (a ruleset is the app's bundle; this is the
+teacher's).
 
 **Organisation is derived, not listed.** A game's view leads with Ruleset, then the game's
 own groups, then the shared ones in a fixed order (Competition, Questions, Phones, Clue
@@ -959,7 +963,21 @@ a unit already carries into one pool, which gave every unit in the project the g
 free and every round type in it plays unchanged. A class settled the steal's share: a
 third "felt like you should take more", so the default is a half of the gap and the slider
 runs past it. The chooser floats over the bottom row of the grid rather than sitting in
-the column, because a full board cannot shrink under its rows.
+the column, because a full board cannot shrink under its rows. **Help comes from being
+behind, not from winning a card** — a class showed every comeback card only helps whoever
+just won it, which is rarely the bottom of the room — so two devices scale with the gap
+and name nobody: **catch-up worth** (`flipCatchUp`: the leader earns face value, last
+place earns it times the multiple, the rest on the slope; `HOST.worth(who)`, so the shared
+pay rule and the winner's award both read it) and a **head start** (`flipHeadStart`: a
+host declaring `headStart(team)` puts a `hold` per team on the arm; the relay hands each
+phone its own wait, the phone shows the question that much later, and `roundStamp` adds
+the wait back to that team's stopwatch — so the ranking still means quickest from when the
+first phone saw it; nothing without phones). The **Bounty** card (`flipBounty`) aims at the
+leader by rule: everyone who finishes ahead of the leader's place in the record takes the
+steal's half-share of the gap off them, the leader fixed as the card opened. A **Swap
+reaches the person directly above by default** (`flipSwapScope`), a leapfrog rather than
+the cliff a class found disheartening. All five are settings in the bench's Flip group;
+none has met a class yet.
 
 **Moving a score, and the beat after a question.** `E().adjust(team, delta, why)` is the
 one home for a signed score move with its receipt — `award` is the *earning* path
