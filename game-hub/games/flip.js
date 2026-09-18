@@ -63,7 +63,10 @@
      'gift' (every phone votes who receives). `vote` is the Kit.vote doing the counting. */
   let twistVote = null;
   let over = false;
-  let picker = null;           // the shared team chooser, on this board's own mount
+  /* The chooser is the leaderboard: one row per competitor, ranked, and the card
+     decides which rows are live. `pickRows` is what is drawn right now, in rank order,
+     each knowing its competitor and whether the card allows it. */
+  let pickRows = [];
 
   const size   = () => Number(S.get('flipSize',   'flip')) || 25;
   const base   = () => Number(S.get('flipPoints', 'flip')) || 100;
@@ -154,19 +157,21 @@
     wired = true;
     /* The stage exists only after the engine injects it, so the chooser is built on
        the first `load` rather than at parse. */
-    picker = K.claimTeam({
-      mount: document.getElementById('flip-pick-row'),
-      onPick: i => applyTwist(i)
-    });
-    /* Enter takes the chip the room lit — the teacher's one-key confirm. The number
-       keys still pick any chip, so a veto is the same gesture as before. */
+    /* Enter takes the row the room lit — the teacher's one-key confirm. A number key
+       picks the nth LIVE row, so a veto is the same gesture as before. */
     document.addEventListener('keydown', e => {
-      if(e.key !== 'Enter' || !holding || !twistVote) return;
+      if(!holding) return;
       if(e.target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName)) return;
-      const i = litPick();
-      if(i < 0) return;
-      const targets = targetsFor(holding.team, TW[holding.twist].target);
-      if(targets[i] != null){ e.preventDefault(); applyTwist(targets[i]); }
+      if(e.key === 'Enter'){
+        const who = litPick();
+        if(who != null){ e.preventDefault(); applyTwist(who); }
+        return;
+      }
+      const n = parseInt(e.key, 10);
+      if(n >= 1){
+        const live = pickRows.filter(r => r.live);
+        if(live[n - 1]){ e.preventDefault(); applyTwist(live[n - 1].who); }
+      }
     });
     document.getElementById('flip-skip').addEventListener('click', ()=>{
       /* Declining is allowed and has to be: a steal with one obvious target is not a
@@ -557,7 +562,7 @@
        back. */
     box.classList.remove('said');
     box.classList.add('on');
-    picker.show(E().teams(), targets);
+    renderPickRows(p, targets);
     document.getElementById('flip-pick-tally').textContent = '';
     /* The phones get a say — advisory, like every vote here: the pick lands on the
        board as a lit chip and the teacher clicks it. */
@@ -572,8 +577,61 @@
     if(twistVote){ twistVote = null; E().standDownPhones(); }
     const box = document.getElementById('flip-pick');
     if(box) box.classList.remove('on', 'said');
-    if(picker) picker.hide();
+    const row = document.getElementById('flip-pick-row');
+    if(row) row.innerHTML = '';
+    pickRows = [];
   }
+
+  /* ---------- the leaderboard as the chooser ----------
+     The room could not keep track of who was winning while the chooser showed bare
+     names, so the chooser IS the standings: every competitor, ranked, place and score
+     on their own tile, exactly as the between-question screen draws them. The card
+     decides which rows are live; the rest stay, greyed, with the reason — so the class
+     sees the whole board and why each name is or is not in play. */
+  const ordinal = n => n + ((n % 100 >= 11 && n % 100 <= 13) ? 'th' : n % 10 === 1 ? 'st' : n % 10 === 2 ? 'nd' : n % 10 === 3 ? 'rd' : 'th');
+  function ranking(){
+    const ts = E().teams();
+    const rows = ts.map((t, i) => ({ who:i, name:t.name, pts:t.score }))
+                   .sort((a, b) => b.pts - a.pts || a.who - b.who);
+    /* Standard competition ranking: level scores share a place. */
+    rows.forEach((r, n) => { r.place = (n > 0 && rows[n - 1].pts === r.pts) ? rows[n - 1].place : n + 1; });
+    return rows;
+  }
+  /* The line a phone shows for a competitor, and the value its reply carries: the
+     leaderboard line, so a student is choosing from the standings in their hand. */
+  const lineOf = r => ordinal(r.place) + ' · ' + r.name + ' · ' + r.pts;
+  function reasonOff(p, r){
+    if(r.who === p.team) return 'that is you';
+    const dir = TW[p.twist].target;
+    if(dir === 'above') return p.twist === 'swap' && swapScope() === 'next' ? 'not the next one up' : 'below ' + E().teamName(p.team);
+    return 'ahead of ' + E().teamName(p.team);
+  }
+  function renderPickRows(p, targets){
+    const mount = document.getElementById('flip-pick-row');
+    mount.innerHTML = '';
+    const live = new Set(targets);
+    pickRows = ranking().map(r => Object.assign(r, { live: live.has(r.who), line: lineOf(r) }));
+    let key = 0;
+    pickRows.forEach(r => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'flip-pick-line st-row' + (r.live ? ' live' : ' inert');
+      row.setAttribute('data-team', r.who);
+      if(window.HubBuzzer && window.HubBuzzer.teamColour)
+        row.style.setProperty('--tile', window.HubBuzzer.teamColour(r.who));
+      const cell = (cls, text) => { const el = document.createElement('span'); el.className = cls; el.textContent = text; row.appendChild(el); return el; };
+      cell('st-place', ordinal(r.place));
+      cell('flip-pick-key', r.live ? String(++key) : '');
+      cell('st-name', r.name);
+      cell('st-pts', String(r.pts));
+      cell('flip-pick-tail', r.live ? '' : reasonOff(p, r));
+      row.disabled = !r.live;
+      if(r.live) row.addEventListener('click', () => applyTwist(r.who));
+      mount.appendChild(row);
+    });
+    mount.classList.toggle('crowd', pickRows.length > 8);
+  }
+  const rowOf = who => document.querySelector('#flip-pick-row .flip-pick-line[data-team="' + who + '"]');
 
   /* **Who decides a twist is who the card says.** A Steal or a Swap is the winner's
      choice, so the chooser goes to the winner's phone alone — `askClass` narrowed to
@@ -586,14 +644,19 @@
      name. `Kit.vote` does the counting — a recount from the full list every time, so
      a student who changes their mind is counted once — and this only paints. */
   function askPhones(p, targets){
-    const names = targets.map(i => E().teamName(i));
+    /* The ballot is the leaderboard line of each live row, and **no phone is offered
+       its own line**: a gift vote used to go to every phone with the same list and
+       students voted for themselves. The relay hands each competitor its own list. */
+    const rows  = pickRows.filter(r => r.live);
+    const lines = rows.map(r => r.line);
     const gift  = p.twist === 'gift';
     const team  = gift ? null : p.team;
     const ask   = gift            ? 'Who should get the gift?'
                 : p.twist === 'swap' ? 'Swap — with whom?'
                 :                      'Steal — from whom?';
-    const vote = K.vote.open({ options: names, team });
-    twistVote = E().askClass(ask, 'vote', names, team)
+    const byTeam = E().teams().map((t, i) => rows.filter(r => r.who !== i).map(r => r.line));
+    const vote = K.vote.open({ options: lines, team });
+    twistVote = E().askClass(ask, 'vote', lines, team, { optionsByTeam: byTeam })
               ? { kind: gift ? 'gift' : 'pick', vote, team: p.team } : null;
   }
   /* The count lands on the chip the teacher is about to click, in the chooser's own
@@ -604,35 +667,33 @@
     if(!twistVote) return;
     const vote   = twistVote.vote;
     const counts = vote.apply(all);
-    const chips  = document.querySelectorAll('#flip-pick-row .claim-team');
-    vote.options.forEach((name, n) => {
-      const chip = chips[n];
-      if(!chip) return;
-      let badge = chip.querySelector('.claim-votes');
-      if(!badge){ badge = document.createElement('span'); badge.className = 'claim-votes'; chip.appendChild(badge); }
-      badge.textContent = String(counts[name] || 0);
-      chip.classList.remove('leading');
+    pickRows.forEach(r => {
+      const row = rowOf(r.who);
+      if(!row) return;
+      row.classList.remove('leading');
+      if(!r.live) return;
+      const tail = row.querySelector('.flip-pick-tail');
+      const n = counts[r.line] || 0;
+      tail.textContent = n ? (twistVote.kind === 'gift' ? n + (n === 1 ? ' vote' : ' votes') : '✓') : '';
     });
     const lead = vote.leader();
-    if(lead && !lead.tied){
-      const i = vote.options.indexOf(lead.option);
-      if(chips[i]) chips[i].classList.add('leading');
-    }
+    const leadRow = lead && !lead.tied ? pickRows.filter(r => r.line === lead.option)[0] : null;
+    if(leadRow){ const row = rowOf(leadRow.who); if(row) row.classList.add('leading'); }
     const el = document.getElementById('flip-pick-tally');
     if(!el) return;
     if(!lead){ el.textContent = ''; return; }
     if(lead.tied){ el.textContent = 'Tied at ' + lead.n; return; }
+    const name = leadRow ? leadRow.name : lead.option;
     /* One voice is a pick, not a poll: a Steal in a room of individuals is the
        winner's one reply, and the board says whose it was. */
     el.textContent = (twistVote.kind === 'pick' && vote.total() === 1)
-      ? E().teamName(twistVote.team) + ' picked ' + lead.option + ' — click to confirm'
-      : lead.option + ' leads · ' + lead.n + ' of ' + vote.total();
+      ? E().teamName(twistVote.team) + ' picked ' + name + ' — click to confirm'
+      : name + ' leads · ' + lead.n + ' of ' + vote.total();
   }
-  /* The chip the room put in front, if there is one — Enter confirms it. */
+  /* The competitor whose row the room lit, if any — Enter confirms it. */
   function litPick(){
-    const chips = [...document.querySelectorAll('#flip-pick-row .claim-team')];
-    const i = chips.findIndex(c => c.classList.contains('leading'));
-    return i;
+    const row = document.querySelector('#flip-pick-row .flip-pick-line.leading');
+    return row ? Number(row.getAttribute('data-team')) : null;
   }
 
   /* **The Bounty settles itself.** Everyone who finished the card ahead of the leader

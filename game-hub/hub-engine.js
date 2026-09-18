@@ -4954,13 +4954,16 @@
      question with no controls rather than a button that would be discarded. */
   let classReplies = null;         // {mode, tally, all, of} while a round is open
 
-  function askClass(prompt, mode, options, team){
+  /* `extra` rides the arm unread — `optionsByTeam` (a list per competitor index, so a
+     phone can be offered a ballot without its own name on it) is the first; the relay
+     already hands each phone its own list. */
+  function askClass(prompt, mode, options, team, extra){
     if(!buzzHost) return false;
     classReplies = { mode, tally:{}, all:[], total:0, of:buzzPlayers };
     buzzWinner = null;
-    buzzHost.arm(prompt || '', { mode, options: options || [],
+    buzzHost.arm(prompt || '', Object.assign({ mode, options: options || [],
                                  team: (team == null ? null : Number(team)),
-                                 keepSpent: !S.get('phoneOneEach', activeGame) });
+                                 keepSpent: !S.get('phoneOneEach', activeGame) }, extra || {}));
     renderBuzzChip('asking');
     return true;
   }

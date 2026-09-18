@@ -48,6 +48,13 @@ gap, Swap on. The winner's phone chooses a Steal/Swap, the room votes a Gift.
   cannot shrink under its rows, so the overflowing cards painted over the chips; it
   now floats over the bottom row on solid ground, measured inside the floor at 720.
 
+- **Nobody could keep track of who was winning** — the standings only appear
+  between questions, and the chooser showed bare names. **Fixed**: the chooser IS the
+  leaderboard, ranked with place and score, live rows in colour, the rest greyed with
+  the reason; the phones' ballot is the same ranked lines.
+- **Students voted for themselves** in the Gift vote — every phone got the same list.
+  **Fixed**: each phone's ballot leaves its own line out.
+
 **Student verdicts:** not recorded.
 
 **Open-question verdicts:** the steal share (a third) is settled as too small.

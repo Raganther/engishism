@@ -956,7 +956,13 @@ popularity contest with a scoreboard attached. The one vote is **Gift**, which d
 goes to the winner's own handset (`askClass` narrowed to their team, the room told "Ana is
 choosing"), a Gift to every handset, and either lands on the board as a lit chip the
 teacher clicks or Enters — the one beat a teacher may want to veto. No relay, and the
-chooser is the teacher's alone. Swap is removable (`flipSwap`) because trading scores outright is the biggest
+chooser is the teacher's alone. **The chooser is the leaderboard**: every competitor,
+ranked, place and score on their own standings tile (`.st-row`), the card deciding which
+rows are live — the rest stay, greyed, with the reason — because a class could not keep
+track of who was winning from a row of bare names. The phones' ballot is the same ranked
+lines, and **no phone is offered its own line** (`askClass`'s `optionsByTeam`, which the
+relay already hands out per competitor): students voted for themselves the day the list
+was the same on every phone. Swap is removable (`flipSwap`) because trading scores outright is the biggest
 reversal on the board and the likeliest to produce a genuinely upset student. **It authors
 no content** — a card board has no categories, so it flattens whatever `jeopardyCategories`
 a unit already carries into one pool, which gave every unit in the project the game for
