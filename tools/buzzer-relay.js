@@ -787,8 +787,15 @@ function serveStatic(req, res, pathname){
   if(!file.startsWith(ROOT)) return send(res, 403, 'forbidden');
   fs.stat(file, (err, st)=>{
     if(err || !st.isFile()) return send(res, 404, 'not found');
-    const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
-    res.writeHead(200, { 'Content-Type':type, 'Cache-Control':'no-cache' });
+    const ext  = path.extname(file).toLowerCase();
+    const type = MIME[ext] || 'application/octet-stream';
+    /* The shell is never kept: a page is served `no-store`, so a browser fetches
+       game-hub.html fresh every load and asks for the CURRENT `?v=` assets. Everything
+       else stays `no-cache` (revalidate, then reuse) — the stamp on every asset link
+       already makes a changed asset a new URL, so this costs one small request per
+       load and never strands a browser on an old build with no error anywhere. */
+    res.writeHead(200, { 'Content-Type':type,
+                         'Cache-Control': ext === '.html' ? 'no-store' : 'no-cache' });
     fs.createReadStream(file).pipe(res);
   });
 }
