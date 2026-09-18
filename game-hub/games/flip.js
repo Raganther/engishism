@@ -72,6 +72,36 @@
   const wantSwap = () => !!S.get('flipSwap', 'flip');
   const lastPicks = () => !!S.get('flipLastPicks', 'flip');
   const marked   = () => !!S.get('flipMarked', 'flip');
+  const catchUp  = () => Math.max(1, Number(S.get('flipCatchUp', 'flip')) || 1);
+  const headStartMs = () => Math.max(0, Number(S.get('flipHeadStart', 'flip')) || 0) * 1000;
+  const wantBounty  = () => !!S.get('flipBounty', 'flip');
+  const swapScope   = () => S.get('flipSwapScope', 'flip') || 'next';
+
+  /* **Where a competitor stands, as a 0..1 share of the spread** — 0 at the top, 1 at
+     the bottom, everyone between on the slope of their gap. The one number both
+     catch-up devices read, so they cannot disagree about who is behind. A room with
+     no spread (all level, or one competitor) is 0 for everybody. */
+  /* Is anybody actually ahead of anybody — the room has a spread. With everyone level
+     there is no leader to wait, and no head start to give. */
+  function spread(){
+    const ts = E().teams();
+    return ts.length > 1 && Math.max.apply(null, ts.map(x => x.score)) > Math.min.apply(null, ts.map(x => x.score));
+  }
+  function behind(t){
+    const ts = E().teams();
+    if(!ts[t] || ts.length < 2) return 0;
+    const scores = ts.map(x => x.score);
+    const lead = Math.max.apply(null, scores), low = Math.min.apply(null, scores);
+    if(lead === low) return 0;
+    return (lead - ts[t].score) / (lead - low);
+  }
+  /* What THIS competitor earns for the card: the base, scaled up by how far behind
+     they are. The leader always earns the face value; last place earns it times the
+     catch-up multiple. Rounded to the board's unit. */
+  function cardWorthFor(t){
+    const f = 1 + (catchUp() - 1) * behind(t);
+    return Math.max(10, Math.round(cardWorth() * f / 10) * 10);
+  }
 
   /* ---- the five faces of a card ----
      `target` is the only thing the board has to branch on: a twist that needs somebody
@@ -86,7 +116,11 @@
     gift:   { label:'GIFT',   topline:'GIFT',   target:'below',
               note:'Win it and the class votes who else gets the same points.' },
     swap:   { label:'SWAP',   topline:'SWAP',   target:'above',
-              note:'Win it and trade scores with anyone ahead of you.' }
+              note:'Win it and trade scores with anyone ahead of you.' },
+    /* Aimed by rule at the leader, never by a chooser: no target to pick, an effect
+       after the question for everyone who beat the leader's time. */
+    bounty: { label:'BOUNTY', topline:'BOUNTY', target:null,
+              note:'Finish ahead of the leader and take a bite out of their lead.' }
   };
 
   const HOST = {
@@ -97,8 +131,12 @@
     /* Every card pays the same base; what a Double changes is the base, so the pay
        rule underneath (everyone-scores by default) doubles for everybody who finished
        rather than only for the winner. The twist is the card's, not one player's. */
-    worth: () => cardWorth(),
+    worth: who => cardWorthFor(who),
     step:  () => 10,
+    /* How long this competitor's phone waits before it shows the question — the
+       leader waits the full head start, last place none, the rest on the slope.
+       The engine carries it on the arm and charges the wait to their stopwatch. */
+    headStart: who => spread() ? Math.round(headStartMs() * (1 - behind(who))) : 0,
     win:   team => flipWin(team),
     /* The four on a Connections card are a team's answer, so a hosted round waits for
        the whole team rather than paying the fastest thumb. Degrades correctly in a
@@ -325,6 +363,7 @@
     const kinds = [];
     if(wantSwap()) kinds.push('swap');
     kinds.push('gift');
+    if(wantBounty()) kinds.push('bounty');
     while(kinds.length < want) kinds.push(kinds.length % 2 ? 'double' : 'steal');
     kinds.length = want;
 
@@ -380,6 +419,12 @@
     if(over || card.used || picking()) return;
     if(E().clueIsOpen()) return;
     cur = card;
+    /* Who is in front as this card opens — the Bounty's target, fixed now so that the
+       question's own payout cannot move it. Null when nobody is clearly in front. */
+    const ts = E().teams();
+    const top = ts.length ? Math.max.apply(null, ts.map(x => x.score)) : 0;
+    const leaders = ts.map((x, i) => i).filter(i => ts[i].score === top);
+    card.leader = (leaders.length === 1 && ts.length > 1) ? leaders[0] : null;
     E().setClueValue(cardWorth());
     const tw = TW[card.twist];
     /* **The twist is an event, not a caption.** It was the card's topline — gold on
@@ -411,10 +456,10 @@
      split; what this adds is the twist, which is held over to the beat after the
      standings so the room actually sees it happen. */
   function flipWin(team){
-    const paid = E().award(team, cardWorth(), { why:'flip · card ' + (cur ? cur.n : '?') });
+    const paid = E().award(team, cardWorthFor(team), { why:'flip · card ' + (cur ? cur.n : '?') });
     E().markRun(team, true);
     useCard();
-    pending = (cur && TW[cur.twist].target) ? { team, twist: cur.twist } : null;
+    pending = pendingFor(team);
     awaitingStandings = E().standingsWanted('flip');
     E().closeModal(E().flipHoldMs(), ()=>{
       /* With the standings off there is no later beat to wait for, so the twist runs
@@ -428,9 +473,9 @@
   function handScore(team, missed){
     if(!E().clueIsOpen()) return;
     if(team != null && E().teams()[team]){
-      E().award(team, cardWorth(), { why:'flip · card ' + (cur ? cur.n : '?') });
+      E().award(team, cardWorthFor(team), { why:'flip · card ' + (cur ? cur.n : '?') });
       E().markRun(team, true);
-      pending = (cur && TW[cur.twist].target) ? { team, twist: cur.twist } : null;
+      pending = pendingFor(team);
     } else {
       if(missed) E().markRun(E().activeTeam(), false);
       pending = null;
@@ -438,6 +483,15 @@
     useCard();
     awaitingStandings = false;
     E().closeModal(E().flipHoldMs(), runPending);
+  }
+
+  /* The beat this card owes after the question, if any: a twist with a target wants
+     a chooser; a Bounty wants its settlement. Read off the card while it is still
+     `cur`, because the beat runs after the standings, when it no longer is. */
+  function pendingFor(team){
+    if(!cur) return null;
+    if(cur.twist === 'bounty') return { team, twist:'bounty', leader: cur.leader };
+    return TW[cur.twist].target ? { team, twist: cur.twist } : null;
   }
 
   function useCard(){
@@ -452,7 +506,8 @@
     const p = pending;
     pending = null;
     if(!p || over){ advance(); return; }
-    const targets = targetsFor(p.team, TW[p.twist].target);
+    if(p.twist === 'bounty'){ applyBounty(p); advance(); return; }
+    const targets = targetsFor(p.team, TW[p.twist].target, p.twist);
     if(!targets.length){
       /* Nothing to do and it must SAY so: a Steal won by the player already in front
          is the leader discovering that the one card they wanted is the one card they
@@ -470,12 +525,19 @@
      constraint is what makes the mechanic a catch-up device rather than a way for the
      strong to farm the weak, and it is why the leader can never steal. A gift points
      the other way, at the people below. */
-  function targetsFor(team, dir){
+  function targetsFor(team, dir, twist){
     const ts = E().teams();
     const mine = ts[team] ? ts[team].score : 0;
-    return ts.map((t, i) => i)
+    const all = ts.map((t, i) => i)
              .filter(i => i !== team && ts[i] &&
                           (dir === 'above' ? ts[i].score > mine : ts[i].score < mine));
+    /* A swap that only reaches the person directly above is a leapfrog, one place at
+       a time — the cliff a class found disheartening was the swap with the leader. */
+    if(twist === 'swap' && swapScope() === 'next' && all.length > 1){
+      const nearest = all.reduce((a, b) => (ts[b].score < ts[a].score ? b : a), all[0]);
+      return [nearest];
+    }
+    return all;
   }
 
   function picking(){ return !!holding; }
@@ -571,6 +633,36 @@
     const chips = [...document.querySelectorAll('#flip-pick-row .claim-team')];
     const i = chips.findIndex(c => c.classList.contains('leading'));
     return i;
+  }
+
+  /* **The Bounty settles itself.** Everyone who finished the card ahead of the leader
+     — by the record, which is the phones' stopwatch order — takes a share of the gap
+     off the leader: the same half-the-closing-share arithmetic as a Steal, so the
+     leader is caught, never leapfrogged. The leader was fixed as the card opened. A
+     Bounty the leader wins is the leader defending their lead, which is the mechanic
+     working, and the board says so. */
+  function applyBounty(p){
+    const ts = E().teams();
+    const leader = p.leader;
+    if(leader == null || !ts[leader]){ flash('Bounty — nobody was clearly in front. Nothing to take.'); return; }
+    const rows = (K.round && K.round.results) ? K.round.results.finished() : [];
+    const leaderRow = rows.filter(r => r.who === leader)[0];
+    const ahead = rows.filter(r => r.who !== leader && ts[r.who] &&
+                                   (!leaderRow || r.place < leaderRow.place));
+    if(!ahead.length){ flash(E().teamName(leader) + ' held the lead — nobody beat their time.'); return; }
+    const step = 10;
+    const taken = [];
+    ahead.forEach(r => {
+      const gap = ts[leader].score - ts[r.who].score;
+      if(gap <= 0) return;
+      const move = Math.max(step, Math.round((gap * share() / 2) / step) * step);
+      E().adjust(leader, -move, 'flip · bounty claimed by ' + E().teamName(r.who));
+      E().adjust(r.who,   move, 'flip · bounty on ' + E().teamName(leader));
+      taken.push(E().teamName(r.who) + ' +' + move);
+    });
+    if(!taken.length){ flash('Bounty — nobody below ' + E().teamName(leader) + ' beat their time.'); return; }
+    E().Sound.play('sting');
+    flash('Bounty on ' + E().teamName(leader) + ': ' + taken.join(', ') + '.');
   }
 
   /* **The arithmetic the whole board is for.** A steal moves half the closing amount

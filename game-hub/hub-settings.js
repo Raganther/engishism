@@ -31,6 +31,10 @@ window.HubSettings = (function(){
   'use strict';
 
   const STORE_KEY = 'engishism.gamehub.settings';
+  /* Saved sets: `{ group: { name: { id: value } } }`, a teacher's own named bundles of
+     one group's values, beside the values themselves. A ruleset is the app's bundle;
+     this is the teacher's, and it lives on the shelf so every group has it. */
+  const PRESET_KEY = 'engishism.gamehub.presets';
   const defs = [];          // registration order = panel order
   const byId = Object.create(null);
   const listeners = [];
@@ -221,6 +225,79 @@ window.HubSettings = (function(){
      it can translate; `drop()` clears the dead keys so the translation runs once.
      Neither goes through the registry, because the old id is no longer in it. */
   function raw(k){ return values[k]; }
+
+  /* ---- saved sets, per group ---- */
+  function presetStore(){
+    try{ const raw = window.localStorage.getItem(PRESET_KEY); return raw ? (JSON.parse(raw) || {}) : {}; }
+    catch(e){ return presetMem; }
+  }
+  let presetMem = {};
+  function presetWrite(all){
+    presetMem = all;
+    try{ window.localStorage.setItem(PRESET_KEY, JSON.stringify(all)); }catch(e){}
+  }
+  const groupDefs = group => defs.filter(d => (d.group || 'General') === group && !d.presets);
+  function presetNames(group){ return Object.keys((presetStore()[group]) || {}).sort(); }
+  function presetSave(group, name){
+    const n = String(name || '').trim().slice(0, 40);
+    if(!n) return false;
+    const all = presetStore();
+    const bundle = {};
+    groupDefs(group).forEach(d => { bundle[d.id] = get(d.id, null); });
+    (all[group] = all[group] || {})[n] = bundle;
+    presetWrite(all);
+    return true;
+  }
+  function presetLoad(group, name){
+    const bundle = ((presetStore()[group]) || {})[name];
+    if(!bundle) return false;
+    groupDefs(group).forEach(d => { if(d.id in bundle) set(d.id, bundle[d.id]); });
+    render();
+    return true;
+  }
+  function presetDrop(group, name){
+    const all = presetStore();
+    if(all[group]){ delete all[group][name]; if(!Object.keys(all[group]).length) delete all[group]; }
+    presetWrite(all);
+  }
+  /* The row itself: a select of the group's saved names, Load, Save as…, Delete.
+     Repainted in place after a save or a delete, so the list is always current. */
+  function buildPresetsRow(group){
+    const row = document.createElement('div');
+    row.className = 'settings-presets';
+    row.setAttribute('data-presets', group);
+    function paint(){
+      row.innerHTML = '';
+      const lab = document.createElement('span');
+      lab.className = 'settings-presets-label'; lab.textContent = 'Saved sets';
+      row.appendChild(lab);
+      const sel = document.createElement('select');
+      const names = presetNames(group);
+      const none = document.createElement('option');
+      none.value = ''; none.textContent = names.length ? '— choose —' : '— none saved —';
+      sel.appendChild(none);
+      names.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
+      sel.disabled = !names.length;
+      row.appendChild(sel);
+      const load = document.createElement('button'); load.type = 'button'; load.textContent = 'Load';
+      load.disabled = !names.length;
+      load.addEventListener('click', () => { if(sel.value) presetLoad(group, sel.value); });
+      const save = document.createElement('button'); save.type = 'button'; save.textContent = 'Save as…';
+      save.addEventListener('click', () => {
+        const n = window.prompt('Save the ' + group + ' settings as:', sel.value || '');
+        if(n != null && presetSave(group, n)) paint();
+      });
+      const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Delete';
+      del.disabled = !names.length;
+      del.addEventListener('click', () => {
+        if(!sel.value) return;
+        if(window.confirm('Delete the saved set "' + sel.value + '"?')){ presetDrop(group, sel.value); paint(); }
+      });
+      row.appendChild(load); row.appendChild(save); row.appendChild(del);
+    }
+    paint();
+    return row;
+  }
   /* Every stored key, for a migration that has to find keys by *shape* rather than
      by name — a retired scope leaves one per game per round, and listing those by
      hand would be the list this project keeps paying for. Read-only: `drop` is how
@@ -520,6 +597,7 @@ window.HubSettings = (function(){
         h.classList.toggle('closed'); wrap.classList.toggle('closed');
       });
       mount.appendChild(h);
+      wrap.appendChild(buildPresetsRow(g));
       emitGroup(wrap, shown.filter(d=>(d.group||'General')===g), g, game);
       mount.appendChild(wrap);
     });
@@ -591,5 +669,6 @@ window.HubSettings = (function(){
   return {
     renderOnce, quickIds, register, get, set, clearOverride, hasOverride, onChange, variantsFor,
            raw, keys, drop, open, close, resetAll, setContext, setRound, roundNow, describePresets,
+           presetNames, presetSave, presetLoad, presetDrop,
            get storageAvailable(){ return storageOK; } };
 })();

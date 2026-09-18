@@ -46,6 +46,13 @@ window.registerFlipSettings = function(S){
     games:['flip'],
     label:'Include the Swap card',
     help:'One card on the board lets whoever wins it trade scores with anyone above them. It is the biggest reversal in the game. Off deals a Steal in its place.' });
+  /* A swap with the person directly above is small and frequent; a swap with the
+     leader is the cliff a class found disheartening. */
+  S.register({ id:'flipSwapScope', group:'Flip', type:'select', default:'next', under:'flipSwap',
+    games:['flip'],
+    label:'A swap reaches',
+    help:'Next above only keeps it a leapfrog — one place, never a cliff. Anyone above is the full reversal.',
+    options:[{value:'next',label:'The person directly above'},{value:'any',label:'Anyone above'}] });
 
   /* **A marked card says something is on it, never what.** With every card identical
      the picker has no decision to make and the room cannot see that the back rows are
@@ -56,6 +63,25 @@ window.registerFlipSettings = function(S){
     games:['flip'],
     label:'Mark the cards that carry a twist',
     help:'A star on the face-down card. It says something will happen, never what — so picking one is a gamble, and the room can see the last rows filling up with them. Off is a completely blind board.' });
+
+  /* **Help comes from being behind, not from winning a card.** A class showed that
+     every comeback card only helps whoever just won it — which is rarely the student
+     at the bottom. These two are automatic, scale with the gap, and name nobody. */
+  S.register({ id:'flipCatchUp', group:'Flip', type:'range', default:1.5, quick:true,
+    min:1, max:2, step:0.1, unit:'×', games:['flip'],
+    label:'Behind earns more',
+    help:'What last place earns for a right answer, as a multiple of what the leader earns for the same card. Everyone in between is on a slope by the gap. 1 turns it off.' });
+  S.register({ id:'flipHeadStart', group:'Flip', type:'range', default:2, quick:true,
+    min:0, max:5, step:0.5, unit:'s', games:['flip'],
+    label:'Head start for whoever is behind',
+    help:'With phones in the room, the leader\'s handset shows the question this many seconds after last place\'s; everyone between is on a slope by the gap. Their stopwatch is charged the wait, so the head start is real. Nothing happens without phones.' });
+
+  /* A twist that aims at the leader by rule, not by a chooser: whoever beats their
+     time takes a bite of the lead. Everyone below has a target; the leader feels it. */
+  S.register({ id:'flipBounty', group:'Flip', type:'toggle', default:true, quick:true,
+    games:['flip'],
+    label:'Include the Bounty card',
+    help:'One card on the board puts a price on the leader: everyone who finishes it ahead of the leader takes a share of the gap off them. Aimed by the rules, never by a vote or a pick.' });
 
   /* Off by default: a class read "last place picks" as naming the loser every turn,
      not as help. The switch stays for a room that likes it. A device seeded with the

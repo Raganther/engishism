@@ -389,6 +389,14 @@ body.theme-gameshow #play-blockbusters.lit .hex.pick{
 .claim-team.team-1{ background: var(--blue); color: var(--white); }
 .claim-team:hover{ filter: brightness(1.08); }
 
+/* A group's saved sets — one row above its settings: pick a saved name, load it,
+   save the current values under a name, or drop one. */
+.settings-presets{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:6px 0 10px; }
+.settings-presets .settings-presets-label{ font-family:'IBM Plex Mono',monospace; font-size:0.7rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-right:4px; }
+.settings-presets select{ font:inherit; font-size:0.85rem; padding:4px 8px; border-radius:8px; border:1px solid rgba(18,38,63,0.24); background:var(--white,#fff); color:inherit; }
+.settings-presets button{ font:inherit; font-size:0.8rem; padding:4px 10px; border-radius:8px; cursor:pointer; border:1px solid rgba(18,38,63,0.3); background:transparent; color:inherit; }
+.settings-presets button:hover{ background:rgba(18,38,63,0.06); }
+
 /* the scattered word field — words are placed across the whole area (see
    scatterRaceWords) so students have to cross the room, not scan one block */
 /* --rs is the shrink-to-fit multiplier set by scatterRaceWords; the word size has to
@@ -2181,6 +2189,7 @@ body.theme-gameshow #clue-card.flip-tw #clue-section{ color:rgba(255,255,255,0.7
 #clue-card.flip-tw-swap{   --tw:var(--hd-hue-5); }
 #clue-card.flip-tw-double{ --tw:var(--hd-yellow); }
 #clue-card.flip-tw-gift{   --tw:var(--hd-green); }
+#clue-card.flip-tw-bounty{ --tw:var(--hd-blue, #00A0DF); }
 
 /* The game-show skin: the board keeps the same tiles, the frame around it goes dark. */
 body.theme-gameshow #play-flip.lit #flip-turn{ color:var(--gold); }

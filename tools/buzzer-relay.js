@@ -285,6 +285,7 @@ function openStream(req, res, q){
     options:optionsFor(room, team), done:doneFor(room, team), turnTeam:room.team,
     cols:room.cols, rows:room.rows, bar:room.bar, upright:room.upright, tap:room.tap, bare:room.bare, count:room.count,
     ends:room.ends,
+    hold: holdFor(room, team),
     spent:[...room.spent],
     rethink: room.rethink, secs: secsLeft(room), multi: capFor(room, team),
     send: !!room.send, preview: !!room.preview, roundId:room.roundId,
@@ -421,6 +422,16 @@ function handleSend(req, res){
         room.send    = !!msg.send;
         room.secs    = Math.max(0, Math.min(900, Number(msg.secs) || 0));
         room.armedAt = Date.now();
+        /* `hold`: a wait in milliseconds per team index before that team's phones
+           show the question — a head start for whoever is behind. Carried unread,
+           bounded, and handed to each phone as ITS OWN number; what the wait means
+           is the host's. Absent means nobody waits. */
+        room.hold = (msg.hold && typeof msg.hold === 'object')
+          ? Object.keys(msg.hold).slice(0,60).reduce((out, k) => {
+              const v = Math.max(0, Math.min(10000, Math.round(Number(msg.hold[k]) || 0)));
+              if(v > 0) out[String(Math.max(0, Math.min(59, Math.floor(Number(k) || 0))))] = v;
+              return out; }, {})
+          : null;
         /* 'card' is a round where each phone answers off its own bingo card. It
            collects like 'answer' rather than racing like 'buzz' — everybody taps,
            and the host judges each tap against that player's card. */
@@ -532,6 +543,7 @@ function handleSend(req, res){
                                    mode: room.mode, options: optionsFor(room, p.team),
                                    cols: room.cols, rows: room.rows, bar: room.bar, upright: room.upright, tap: room.tap, bare: room.bare, count: room.count,
                                    ends: room.ends,
+                                   hold: holdFor(room, p.team),
                                    done: doneFor(room, p.team),
                                    /* `turnTeam`, not `team`: the join payload already
                                       carries the player's own team under that name, and
@@ -618,7 +630,7 @@ function handleSend(req, res){
         return sendJSON(res, 200, { ok:true });
       }
       case 'disarm':
-        room.armed = false; room.prompt = ''; room.team = null; room.promptByPlayer = null; room.ends = null;
+        room.armed = false; room.prompt = ''; room.team = null; room.hold = null; room.promptByPlayer = null; room.ends = null;
         // the rule described that question; it must not survive into the next one
         room.note = '';
         toPlayers(room, 'disarmed', {});
@@ -812,6 +824,12 @@ function dealCards(room, cards, push){
     if(push){ const p = room.players.get(pid); if(p) pushEvent(p.res, 'card', { words, marked }); }
   });
   return n;
+}
+
+/* One team's wait before its phones show the question, from the arm's `hold` map.
+   Zero for a team the host did not name, and zero when nobody is held. */
+function holdFor(room, team){
+  return (room.hold && room.hold[String(team)]) || 0;
 }
 
 function tallyOf(room){

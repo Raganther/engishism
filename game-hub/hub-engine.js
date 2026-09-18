@@ -3151,6 +3151,10 @@
           const v = Number(r.ms);
           if(Number.isFinite(v) && v >= 0 && (ms == null || v > ms)) ms = v;
         });
+        /* A held phone's stopwatch started late by exactly its hold — add it back, so
+           a head start is a real head start and not a free reset of the clock. */
+        const held = roundState.hostHold && Number(roundState.hostHold[t]);
+        if(ms != null && held > 0) ms += held;
         at[t] = { key, n: ++roundSeq, ms };
       }
     });
@@ -5074,6 +5078,19 @@
          already the answer and the bar has always followed it. So this rides on the
          back of `send` rather than being a second thing to keep in step. */
       if(round.send && S.get('crowdLive', game)) round.preview = true;
+      /* **A head start is a hold per competitor on the arm.** A host that declares
+         `headStart(team)` (Flip: the leader waits, last place does not) hands each
+         team's wait in milliseconds; the relay passes each phone its own, the phone
+         shows the question that much later, and `roundStamp` charges the wait to that
+         team's stopwatch — so the ranking still means "who was quickest from when the
+         first phone saw it". Kept on the round's state so the stamp can find it. */
+      const hostNow = ROUND_HOSTS[game];
+      if(hostNow && hostNow.headStart){
+        const hold = {};
+        teams.forEach((t, i) => { const ms = Math.round(Number(hostNow.headStart(i)) || 0); if(ms > 0) hold[i] = ms; });
+        if(Object.keys(hold).length) round.hold = hold;
+        if(roundState) roundState.hostHold = Object.keys(hold).length ? hold : null;
+      }
       /* The whole payload, not a key list — same reasoning as `phoneRoundNow`'s
          spread, and it is the same bug paid for at the same moment. The relay
          ignores what it does not know. */
