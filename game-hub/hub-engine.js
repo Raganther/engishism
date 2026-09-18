@@ -383,6 +383,17 @@
     try{ localStorage.setItem(MARK, '1'); }catch(e){}
   })();
 
+  /* **Flip's twist density moved from 40% to 60%** — the same one-time move for a
+     device still holding the old default; a chosen value is left alone. */
+  (function migrateFlipTwists(){
+    const MARK = 'engishism.flipTwists60';
+    let done = false;
+    try{ done = localStorage.getItem(MARK) === '1'; }catch(e){}
+    if(done) return;
+    if(Number(S.raw('flipTwists')) === 40) S.set('flipTwists', 60);
+    try{ localStorage.setItem(MARK, '1'); }catch(e){}
+  })();
+
   /* **Settings flattened to one value each: drop the per-game overrides.** The panel and
      every read used to fork by game (`id@game`, and `id@game!solo` for a solo room). The
      app is tuned from one place now (the question bench) and a shared setting has a single

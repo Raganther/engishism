@@ -33,9 +33,11 @@ window.registerFlipSettings = function(S){
     help:'You take half of it from them and keep half — so the gap closes by this share and you can never overtake on a steal alone. Only ever upward: the leader cannot steal.' });
 
   /* Density, not a list of which cards carry what. The game weights the twists toward
-     the back rows itself; this only says how many there are to weight. */
-  S.register({ id:'flipTwists', group:'Flip', type:'range', default:40, quick:true,
-    min:0, max:70, step:10, unit:'%', games:['flip'],
+     the back rows itself; this only says how many there are to weight. 60% by default —
+     at 40% a leader could coast through the end of the board; a device seeded with 40
+     is migrated once in hub-engine.js (`migrateFlipTwists`). */
+  S.register({ id:'flipTwists', group:'Flip', type:'range', default:60, quick:true,
+    min:0, max:90, step:10, unit:'%', games:['flip'],
     label:'How many cards carry a twist',
     help:'The rest are plain points. Twists are dealt toward the end of the board, so the game gets more volatile as it goes rather than less. 0 turns the whole mechanic off and leaves a plain quiz board.' });
 
