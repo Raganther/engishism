@@ -103,6 +103,14 @@
   .row.live{ cursor:pointer; }
   .row.lead{ box-shadow:0 0 0 3px var(--gold), 0 0 16px rgba(247,201,72,0.5); }
   .row.took{ box-shadow:0 0 0 3px var(--gold); }
+  /* the Box: three closed tiles; opened, the chosen one in front and the two passed over dimmed */
+  #rows.boxes{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; }
+  #rows.boxes .tile.box{ flex-direction:column; gap:4px; min-height:96px; padding:10px 6px 8px; transition:transform .25s, filter .25s; }
+  #rows.boxes .tile.box .lid{ font-size:2rem; line-height:1; }
+  #rows.boxes .tile.box .bn{ font-family:"IBM Plex Mono",monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; text-align:center; }
+  #rows.boxes .tile.box.other{ filter:grayscale(0.6) opacity(0.55); transform:scale(0.94); cursor:default; }
+  #rows.boxes .tile.box.chosen{ transform:scale(1.06); box-shadow:0 0 0 3px var(--gold), 0 0 18px rgba(247,201,72,0.55); cursor:default; }
+  #rows.boxes .tile.box.forfeit .lid{ color:#8E2C14; }
   .eyebrow{ font-family:"IBM Plex Mono",monospace; font-size:0.7rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--gold); }
 
   /* ---- buttons ---- */
@@ -164,14 +172,14 @@
 </main>
 
 <script>window.UNITS = window.UNITS || [];</script>
-<script src="../game-hub/hub-brand.js?v=20260919c"></script>
-<script src="../game-hub/hub-qr.js?v=20260919c"></script>
-<script src="../game-hub/hub-buzzer.js?v=20260919c"></script>
-<script src="phone-profiles.js?v=20260919c"></script>
-<script src="bench-kit.js?v=20260919c"></script>
-<script src="../game-hub/content/general-knowledge.js?v=20260919c"></script>
-<script src="../game-hub/content/general-knowledge-2.js?v=20260919c"></script>
-<script src="../game-hub/content/inventions.js?v=20260919c"></script>
+<script src="../game-hub/hub-brand.js?v=20260919d"></script>
+<script src="../game-hub/hub-qr.js?v=20260919d"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260919d"></script>
+<script src="phone-profiles.js?v=20260919d"></script>
+<script src="bench-kit.js?v=20260919d"></script>
+<script src="../game-hub/content/general-knowledge.js?v=20260919d"></script>
+<script src="../game-hub/content/general-knowledge-2.js?v=20260919d"></script>
+<script src="../game-hub/content/inventions.js?v=20260919d"></script>
 <script>
 (function(){
   'use strict';
@@ -186,7 +194,18 @@
   /* ---------- the rules, in one place (a teacher edits these) ---------- */
   const RULES = {
     size: 25, worth: 100, twists: 0.6, steal: 0.5, catchUp: 1.5, decay: 0.6,
-    secs: 30, reveal: 4, standings: 6, gift: 12, swapNext: true
+    secs: 30, reveal: 4, standings: 6, gift: 12, swapNext: true,
+    boxes: true, boxLoad: 0.7, boxOpen: 3
+  };
+  /* What a Box can hold — Flip's own list. `prize` is which side of the bag. */
+  const BOX = {
+    double: { prize:true,  name:'Double',      blurb:'the card pays again' },
+    steal:  { prize:true,  name:'Steal',       blurb:'take a bite out of somebody ahead' },
+    shield: { prize:true,  name:'Shield',      blurb:'blocks the next steal, swap or bounty aimed at you' },
+    extra:  { prize:true,  name:'Pick again',  blurb:'you choose the next card too' },
+    tithe:  { prize:false, name:'Share',       blurb:'half this card goes to last place' },
+    skip:   { prize:false, name:'Lose a turn', blurb:'your next pick is skipped' },
+    zero:   { prize:false, name:'Empty',       blurb:'this card pays nothing after all' }
   };
 
   /* ================= host or player ================= */
@@ -237,7 +256,8 @@
       slots.push(bag.splice(Math.min(hit, bag.length - 1), 1)[0].i);
     }
     const kinds = ['swap', 'gift', 'bounty'];
-    while(kinds.length < want) kinds.push(kinds.length % 2 ? 'double' : 'steal');
+    const cycle = RULES.boxes ? ['steal', 'double', 'box'] : ['steal', 'double'];
+    while(kinds.length < want) kinds.push(cycle[kinds.length % cycle.length]);
     kinds.length = want;
     if(kinds[0] === 'swap' && slots.length){
       const deepest = slots.reduce((a, b) => (cards[b].row >= cards[a].row ? b : a), slots[0]);
@@ -246,7 +266,8 @@
     slots.forEach((idx, k) => { cards[idx].twist = kinds[k] || 'steal'; });
     players.forEach(p => { p.score = 0; });
     G = { phase:'pick', unit:u.id, cards, cols, turn:0, cur:null, q:null, answers:{}, results:[], leader:null,
-          table:null, choose:null, gift:null, over:false,
+          table:null, choose:null, gift:null, box:null, over:false,
+          shields:{}, skips:{}, nextPicker:null,
           /* The game's own record: one entry per standings shown — after every question
              and after every twist — with the board's state beside it. What the batch
              runner reads, and what the host can save at the end. */
@@ -259,9 +280,20 @@
   function nextTurn(first){
     const ps = present();
     if(!ps.length) return;
+    /* A Pick-again box outranks the turn order once; a Lose-a-turn box is spent the
+       moment the turn would have been theirs. */
+    if(!first && G.nextPicker != null){
+      const i = players.findIndex(p => p.id === G.nextPicker); G.nextPicker = null;
+      if(i !== -1 && players[i].present){ G.turn = i; return; }
+    }
     if(!first) G.turn = (G.turn + 1) % Math.max(1, players.length);
     let guard = 0;
-    while(!(players[G.turn] && players[G.turn].present) && guard++ < players.length) G.turn = (G.turn + 1) % players.length;
+    while(guard++ < players.length * 2){
+      const p = players[G.turn];
+      if(p && p.present && !G.skips[p.id]) break;
+      if(p && G.skips[p.id]) delete G.skips[p.id];
+      G.turn = (G.turn + 1) % players.length;
+    }
   }
   const turnId = () => (players[G.turn] || players[0] || {}).id;
 
@@ -323,6 +355,7 @@
       byId(r.id).score += pay; r.pay = pay; r.place = i + 1;
     });
     G.results = rows;
+    G.paidNow = rows[0] ? rows[0].pay : 0;
     G.phase = 'reveal'; push();
     timer = setTimeout(() => showTable('Card ' + G.cur.n + (G.cur.twist === 'double' ? ' · DOUBLE' : ''),
                                        rows.length ? rows[0] && (byId(rows[0].id).name + ' was quickest') : 'Nobody got it', before, afterQuestion),
@@ -365,7 +398,51 @@
       timer = setTimeout(settleGift, RULES.gift * 1000); return;
     }
     if(tw === 'bounty'){ applyBounty(); return; }
+    if(tw === 'box'){
+      if(!winner){ advance(); return; }
+      G.box = { who: winner, contents: [drawBox(winner), drawBox(winner), drawBox(winner)], opened: null }; G.phase = 'box'; push();
+      timer = setTimeout(() => openBox(winner, Math.floor(Math.random() * 3)), RULES.secs * 1000);   // a winner who never taps gets one anyway
+      return;
+    }
     advance();
+  }
+  /* ---- the Box: three closed boxes, one pick, loaded by place ----
+     A prize's chance runs from ½ − load/2 for the leader to ½ + load/2 for last place. */
+  function drawBox(id){
+    const p = Math.max(0.05, Math.min(0.95, 0.5 + (behind(id) - 0.5) * RULES.boxLoad));
+    const side = Object.keys(BOX).filter(k => BOX[k].prize === (Math.random() < p));
+    return side[Math.floor(Math.random() * side.length)];
+  }
+  function openBox(id, n){
+    if(G.phase !== 'box' || !G.box || G.box.who !== id || G.box.opened != null) return;
+    clearTimeout(timer);
+    n = Math.max(0, Math.min(2, Number(n) || 0));
+    G.box.opened = n; push();            // every phone sees the three boxes open
+    timer = setTimeout(() => applyBox(id, G.box.contents[n]), RULES.boxOpen * 1000);
+  }
+  function shielded(id){ if(!G.shields[id]) return false; delete G.shields[id]; return true; }
+  function applyBox(id, k){
+    const me = byId(id); G.box = null;
+    if(!me){ advance(); return; }
+    const before = {}; players.forEach(p => { before[p.id] = p.score; });
+    const worth = RULES.worth;
+    if(k === 'steal'){
+      const targets = targetsFor(id, 'steal');
+      if(!targets.length){ note('BOX · STEAL', 'Nobody is ahead of ' + me.name + '. Nothing to take.'); return; }
+      G.choose = { kind:'steal', who: id, targets }; G.phase = 'choose'; push(); return;
+    }
+    if(k === 'double'){ const f = 1 + (RULES.catchUp - 1) * behind(id); const more = Math.max(10, Math.round(worth * f / 10) * 10); me.score += more; showTable('BOX · DOUBLE', me.name + "'s card pays again: +" + more + '.', before, null); }
+    else if(k === 'shield'){ G.shields[id] = true; showTable('BOX · SHIELD', me.name + ' is shielded from the next steal, swap or bounty.', before, null); }
+    else if(k === 'extra'){ G.nextPicker = id; showTable('BOX · PICK AGAIN', me.name + ' picks the next card too.', before, null); }
+    else if(k === 'tithe'){
+      const below = present().filter(p => p.id !== id && p.score < me.score);
+      if(!below.length){ showTable('BOX · SHARE', me.name + ' is already last — nothing to share.', before, null); }
+      else { const last = below.reduce((a, b) => (b.score < a.score ? b : a), below[0]);
+             const move = Math.max(10, Math.round(((G.paidNow || worth) / 2) / 10) * 10);
+             me.score -= move; last.score += move; showTable('BOX · SHARE', me.name + ' shares ' + move + ' with ' + last.name + '.', before, null); }
+    }
+    else if(k === 'skip'){ G.skips[id] = true; showTable('BOX · LOSE A TURN', me.name + ' loses their next pick.', before, null); }
+    else { const back = G.paidNow || worth; me.score -= back; showTable('BOX · EMPTY', 'Empty. ' + me.name + "'s " + back + ' is gone.', before, null); }
   }
   function note(eyebrow, say){ const before = {}; players.forEach(p => { before[p.id] = p.score; }); showTable(eyebrow, say, before, null); }
   function targetsFor(who, kind){
@@ -381,6 +458,7 @@
     const a = byId(id), b = byId(target);
     const before = {}; players.forEach(p => { before[p.id] = p.score; });
     let say;
+    if(shielded(target)){ const eb = G.choose.kind.toUpperCase(); G.choose = null; showTable('SHIELD', b.name + "'s shield blocks the " + eb.toLowerCase() + '. Nothing moves.', before, null); return; }
     if(G.choose.kind === 'swap'){ const s = a.score; a.score = b.score; b.score = s; say = a.name + ' and ' + b.name + ' have swapped scores.'; }
     else { const gap = b.score - a.score; const move = Math.max(10, Math.round((gap * RULES.steal / 2) / 10) * 10); a.score += move; b.score -= move; say = a.name + ' takes ' + move + ' off ' + b.name + '.'; }
     const eyebrow = G.choose.kind.toUpperCase(); G.choose = null;
@@ -408,6 +486,7 @@
     const lead = G.results.find(r => r.id === leader);
     const ahead = G.results.filter(r => r.id !== leader && (!lead || r.place < lead.place));
     if(!ahead.length){ note('BOUNTY', byId(leader).name + ' held the lead — nobody beat their time.'); return; }
+    if(shielded(leader)){ note('SHIELD', byId(leader).name + "'s shield blocks the bounty. Nothing moves."); return; }
     const before = {}; players.forEach(p => { before[p.id] = p.score; });
     const taken = [];
     ahead.forEach(r => {
@@ -445,6 +524,11 @@
     }
     if(G.phase === 'table' || G.phase === 'end') v.table = G.table;
     if(G.phase === 'choose') v.choose = { kind: G.choose.kind, who: G.choose.who, targets: G.choose.targets, rows: ranking() };
+    /* The contents travel only once a box is open — a phone with the inspector open
+       must not know what is inside before the pick. */
+    if(G.phase === 'box') v.box = { who: G.box.who, opened: G.box.opened,
+                                    contents: G.box.opened == null ? null : G.box.contents.map(k => ({ k, name: BOX[k].name, blurb: BOX[k].blurb, prize: BOX[k].prize })) };
+    v.shields = Object.keys(G.shields);
     if(G.phase === 'gift'){
       const counts = {}; Object.keys(G.gift.votes).forEach(k => { counts[G.gift.votes[k]] = (counts[G.gift.votes[k]] || 0) + 1; });
       v.gift = { who: G.gift.who, targets: G.gift.targets, counts, voted: Object.keys(G.gift.votes), rows: ranking() };
@@ -498,6 +582,7 @@
           else if(m.t === 'ans') onAnswer(v.id, m);
           else if(m.t === 'choose') applyChoice(v.id, m.who);
           else if(m.t === 'vote') onVote(v.id, m.who);
+          else if(m.t === 'box'){ if(G && G.phase === 'box') openBox(v.id, m.n); }
           else if(m.t === 'next'){ if(G && G.phase === 'table') proceed(); }
           else if(m.t === 'start'){ if(v.id === myId) deal(m.unit); }
         },
@@ -549,6 +634,29 @@
     if(v.phase === 'table' || v.phase === 'end') return renderTable(v);
     if(v.phase === 'choose') return renderChoose(v);
     if(v.phase === 'gift') return renderGift(v);
+    if(v.phase === 'box') return renderBox(v);
+  }
+  function renderBox(v){
+    $('table').classList.remove('hide');
+    const who = (v.players.find(p => p.id === v.box.who) || {}).name;
+    const mine = v.box.who === myId;
+    const open = v.box.opened != null;
+    $('t-eyebrow').textContent = 'BOX';
+    $('t-say').textContent = open ? ('Box ' + (v.box.opened + 1) + ': ' + v.box.contents[v.box.opened].name.toUpperCase() + ' — ' + v.box.contents[v.box.opened].blurb + '.')
+                           : mine ? 'Open a box — which one?' : who + ' is opening a box…';
+    const box = $('rows'); box.innerHTML = ''; box.className = 'boxes';
+    [0, 1, 2].forEach(i => {
+      const el = document.createElement('div');
+      const c = open ? v.box.contents[i] : null;
+      el.className = 'tile box' + (open ? (i === v.box.opened ? ' chosen' : ' other') + (c.prize ? ' prize' : ' forfeit') : '') + (!open && !mine ? ' off' : '');
+      el.style.setProperty('--fhue', hue(i * 2 + 1));
+      el.innerHTML = '<span class="lid"></span><span class="bn"></span>';
+      el.querySelector('.lid').textContent = open ? (c.prize ? '★' : '✕') : '?';
+      el.querySelector('.bn').textContent = open ? c.name : 'Box ' + (i + 1);
+      if(!open && mine) el.addEventListener('click', () => send({ t:'box', n:i }));
+      box.appendChild(el);
+    });
+    $('t-next').classList.add('hide'); $('t-hint').textContent = '';
   }
   function renderLobby(v){
     const box = $('lobby'); box.classList.remove('hide');
@@ -654,14 +762,15 @@
     renderQuestion(view);
   }
   function rowsInto(box, rows, opts){
-    box.innerHTML = '';
+    box.innerHTML = ''; box.className = '';
+    const shields = (view && view.shields) || [];
     rows.forEach(r => {
       const el = document.createElement('div');
       const idx = (view.players || []).findIndex(p => p.id === r.id);
       el.className = 'row' + (r.id === myId ? ' me' : '') + (opts.live && opts.live.indexOf(r.id) !== -1 ? ' live' : (opts.live ? ' off' : '')) + (opts.lead === r.id ? ' lead' : '');
       el.style.setProperty('--fhue', hue(idx));
       const c = (cls, t) => { const s = document.createElement('span'); s.className = cls; s.textContent = t; el.appendChild(s); };
-      c('pl', String(r.place)); c('nm', r.name); c('pt', String(r.pts));
+      c('pl', String(r.place)); c('nm', r.name + (shields.indexOf(r.id) !== -1 ? ' \u{1F6E1}' : '')); c('pt', String(r.pts));
       c('gn', opts.tail ? (opts.tail(r) || '') : (r.gain > 0 ? '+' + r.gain : r.gain < 0 ? '−' + (-r.gain) : ''));
       if(opts.live && opts.live.indexOf(r.id) !== -1 && opts.onPick) el.addEventListener('click', () => opts.onPick(r.id));
       box.appendChild(el);
@@ -720,6 +829,7 @@
           return { roundId: 'q' + (v.cur ? v.cur.n : ''), mode: q.kind === 'anagram' ? 'arrange' : 'vote', answered: done, team: idx, multi: q.kind === 'group' ? q.need : 1, options: q.kind === 'anagram' ? [] : q.options }; }
         if(v.phase === 'choose') return { roundId: 'choose:' + (v.cur ? v.cur.n : ''), mode: v.choose.who === myId ? 'vote' : 'watch', answered:false, team: idx, multi:1, options: v.choose.targets.slice() };
         if(v.phase === 'gift') return { roundId: 'gift:' + (v.cur ? v.cur.n : ''), mode:'vote', answered: v.gift.voted.indexOf(myId) !== -1, team: idx, multi:1, options: v.gift.targets.filter(id => id !== myId) };
+        if(v.phase === 'box') return { roundId: 'box:' + (v.cur ? v.cur.n : ''), mode: (v.box.who === myId && v.box.opened == null) ? 'vote' : 'watch', answered: v.box.opened != null, team: idx, multi:1, options: ['0', '1', '2'] };
         if(v.phase === 'table') return { roundId: 'table:' + Date.now(), mode:'watch', answered:true, team: idx, multi:1, options: [] };
         return null;
       },
@@ -729,6 +839,7 @@
         if(v.phase === 'question'){ if(answered) return false; commit(String(val)); return true; }
         if(v.phase === 'choose' && v.choose.who === myId){ send({ t:'choose', who: String(val) }); return true; }
         if(v.phase === 'gift'){ send({ t:'vote', who: String(val) }); return true; }
+        if(v.phase === 'box' && v.box.who === myId){ send({ t:'box', n: Number(val) }); return true; }
         return false;
       }
     };

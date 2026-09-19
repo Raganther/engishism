@@ -67,6 +67,14 @@
      decides which rows are live. `pickRows` is what is drawn right now, in rank order,
      each knowing its competitor and whether the card allows it. */
   let pickRows = [];
+  /* The Box card's held effects, all keyed by competitor index, all cleared on a new
+     deal: a shield waiting for the next steal, swap or bounty aimed at its holder; a
+     turn to lose; and the one competitor who picks the next card whatever the turn
+     order says. Small, and read at exactly one seam each. */
+  let shields = new Set(), skips = new Set(), nextPicker = null;
+  /* The three boxes being shown right now, their contents already drawn, and the
+     amount this card paid the winner — what an Empty box takes back. */
+  let boxes = null, paidNow = 0, revealing = false;
 
   const size   = () => Number(S.get('flipSize',   'flip')) || 25;
   const base   = () => Number(S.get('flipPoints', 'flip')) || 100;
@@ -79,6 +87,8 @@
   const headStartMs = () => Math.max(0, Number(S.get('flipHeadStart', 'flip')) || 0) * 1000;
   const wantBounty  = () => !!S.get('flipBounty', 'flip');
   const swapScope   = () => S.get('flipSwapScope', 'flip') || 'next';
+  const wantBoxes   = () => !!S.get('flipBoxes', 'flip');
+  const boxLoad     = () => Math.max(0, Math.min(1, Number(S.get('flipBoxLoad', 'flip'))));
 
   /* **Where a competitor stands, as a 0..1 share of the spread** — 0 at the top, 1 at
      the bottom, everyone between on the slope of their gap. The one number both
@@ -123,7 +133,24 @@
     /* Aimed by rule at the leader, never by a chooser: no target to pick, an effect
        after the question for everyone who beat the leader's time. */
     bounty: { label:'BOUNTY', topline:'BOUNTY', target:null,
-              note:'Finish ahead of the leader and take a bite out of their lead.' }
+              note:'Finish ahead of the leader and take a bite out of their lead.' },
+    /* **Loaded boxes.** Win it and open one of three closed boxes: a prize or a
+       forfeit. The bag the contents are drawn from is loaded by the winner's PLACE —
+       last place's boxes are mostly prizes, the leader's mostly forfeits — so help
+       still comes from being behind, nobody is named, and the pick is a real gamble. */
+    box:    { label:'BOX', topline:'BOX', target:'box',
+              note:'Win it and open one of three boxes — a prize or a forfeit. The further behind you are, the better your odds.' }
+  };
+  /* What a box can hold. Each is one line of arithmetic or one held flag; `prize`
+     says which side of the bag it sits on. */
+  const BOX = {
+    double: { prize:true,  name:'Double',      blurb:'the card pays again' },
+    steal:  { prize:true,  name:'Steal',       blurb:'take a bite out of somebody ahead' },
+    shield: { prize:true,  name:'Shield',      blurb:'blocks the next steal, swap or bounty aimed at you' },
+    extra:  { prize:true,  name:'Pick again',  blurb:'you choose the next card too' },
+    tithe:  { prize:false, name:'Share',       blurb:'half this card goes to last place' },
+    skip:   { prize:false, name:'Lose a turn', blurb:'your next pick is skipped' },
+    zero:   { prize:false, name:'Empty',       blurb:'this card pays nothing after all' }
   };
 
   const HOST = {
@@ -162,15 +189,16 @@
     document.addEventListener('keydown', e => {
       if(!holding) return;
       if(e.target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName)) return;
+      const take = holding.twist === 'box' ? openBox : applyTwist;
       if(e.key === 'Enter'){
         const who = litPick();
-        if(who != null){ e.preventDefault(); applyTwist(who); }
+        if(who != null){ e.preventDefault(); take(who); }
         return;
       }
       const n = parseInt(e.key, 10);
       if(n >= 1){
         const live = pickRows.filter(r => r.live);
-        if(live[n - 1]){ e.preventDefault(); applyTwist(live[n - 1].who); }
+        if(live[n - 1]){ e.preventDefault(); take(live[n - 1].who); }
       }
     });
     document.getElementById('flip-skip').addEventListener('click', ()=>{
@@ -339,6 +367,7 @@
     cards = pool.slice(0, n).map((item, i) => ({ n:i + 1, item, twist:'plain', used:false, row: Math.floor(i / cols) }));
     dealTwists(cards, cols);
     cur = null; pending = null; awaitingStandings = false; over = false; twistVote = null;
+    shields = new Set(); skips = new Set(); nextPicker = null; boxes = null; paidNow = 0; revealing = false;
     const cardEl = document.getElementById('clue-card');
     if(cardEl) cardEl.className = cardEl.className.replace(/\bflip-tw\S*/g, '').trim();
     hidePicker();
@@ -369,7 +398,10 @@
     if(wantSwap()) kinds.push('swap');
     kinds.push('gift');
     if(wantBounty()) kinds.push('bounty');
-    while(kinds.length < want) kinds.push(kinds.length % 2 ? 'double' : 'steal');
+    /* Steal leads the cycle because it is the mechanic the game exists for; the Box,
+       when it is in, takes every third place after it. */
+    const cycle = wantBoxes() ? ['steal', 'double', 'box'] : ['steal', 'double'];
+    while(kinds.length < want) kinds.push(cycle[kinds.length % cycle.length]);
     kinds.length = want;
 
     /* Swap into the deepest slot there is, so the biggest reversal cannot come out
@@ -431,7 +463,7 @@
 
   /* ---------- playing a card ---------- */
   function openCard(card, el){
-    if(over || card.used || picking()) return;
+    if(over || card.used || picking() || revealing) return;
     if(E().clueIsOpen()) return;
     cur = card;
     /* Who is in front as this card opens — the Bounty's target, fixed now so that the
@@ -472,6 +504,7 @@
      standings so the room actually sees it happen. */
   function flipWin(team){
     const paid = E().award(team, cardWorthFor(team), { why:'flip · card ' + (cur ? cur.n : '?') });
+    paidNow = Number(paid) || cardWorthFor(team);
     E().markRun(team, true);
     useCard();
     pending = pendingFor(team);
@@ -488,7 +521,8 @@
   function handScore(team, missed){
     if(!E().clueIsOpen()) return;
     if(team != null && E().teams()[team]){
-      E().award(team, cardWorthFor(team), { why:'flip · card ' + (cur ? cur.n : '?') });
+      const paid = E().award(team, cardWorthFor(team), { why:'flip · card ' + (cur ? cur.n : '?') });
+      paidNow = Number(paid) || cardWorthFor(team);
       E().markRun(team, true);
       pending = pendingFor(team);
     } else {
@@ -522,6 +556,7 @@
     pending = null;
     if(!p || over){ advance(); return; }
     if(p.twist === 'bounty'){ applyBounty(p); advance(); return; }
+    if(p.twist === 'box'){ holding = p; showBoxes(p); return; }
     const targets = targetsFor(p.team, TW[p.twist].target, p.twist);
     if(!targets.length){
       /* Nothing to do and it must SAY so: a Steal won by the player already in front
@@ -589,7 +624,130 @@
     if(box) box.classList.remove('on', 'said');
     const row = document.getElementById('flip-pick-row');
     if(row) row.innerHTML = '';
+    if(row) row.classList.remove('boxes', 'opened');
     pickRows = [];
+    boxes = null;
+  }
+
+  /* ---------- the Box: three closed boxes, one pick, loaded by place ----------
+     The contents are drawn as the boxes appear, so the pick is a real one — the
+     other two open afterwards to show what was passed over, which is the drama.
+     **The bag is loaded by the winner's place**: a prize's chance runs from
+     ½ − load/2 for the leader to ½ + load/2 for last place, everyone between on the
+     slope. `load` 0 is a fair box for everybody; 1 is a near certainty either way. */
+  function drawBox(team){
+    const p = Math.max(0.05, Math.min(0.95, 0.5 + (behind(team) - 0.5) * boxLoad()));
+    const side = Object.keys(BOX).filter(k => BOX[k].prize === (Math.random() < p));
+    return side[Math.floor(Math.random() * side.length)];
+  }
+  function showBoxes(p){
+    boxes = [drawBox(p.team), drawBox(p.team), drawBox(p.team)];
+    const say = document.getElementById('flip-pick-say');
+    const box = document.getElementById('flip-pick');
+    say.textContent = E().teamName(p.team) + ' opens a box — which one?';
+    box.classList.remove('said');
+    box.classList.add('on');
+    const mount = document.getElementById('flip-pick-row');
+    mount.innerHTML = '';
+    mount.classList.remove('crowd', 'opened');
+    mount.classList.add('boxes');
+    /* The boxes ride the same rows the chooser uses — `pickRows`, `data-team` as the
+       box index, a `line` the phones reply with — so the vote painter, the lit pick
+       and the number keys work on them unchanged. */
+    pickRows = boxes.map((k, i) => ({ who:i, live:true, line:'Box ' + (i + 1), name:'Box ' + (i + 1) }));
+    pickRows.forEach(r => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'flip-pick-line flip-box live';
+      b.setAttribute('data-team', r.who);
+      b.style.setProperty('--fhue', (K.table && K.table.hues ? K.table.hues : ['#00A0DF'])[(r.who * 2 + 1) % 7]);
+      const cell = (cls, text) => { const el = document.createElement('span'); el.className = cls; el.textContent = text; b.appendChild(el); return el; };
+      cell('flip-pick-key', String(r.who + 1));
+      cell('flip-box-lid', '?');
+      cell('flip-box-name', '');
+      cell('flip-pick-tail', '');
+      b.addEventListener('click', () => openBox(r.who));
+      mount.appendChild(b);
+    });
+    document.getElementById('flip-pick-tally').textContent = '';
+    /* The winner's own phone picks the box; the room watches. Same advisory shape as
+       a Steal: the pick lights the box and the teacher confirms. */
+    const lines = pickRows.map(r => r.line);
+    const vote = K.vote.open({ options: lines, team: p.team });
+    twistVote = E().askClass('Open a box — which one?', 'vote', lines, p.team, {}) ? { kind:'pick', vote, team: p.team } : null;
+    fitFlip();
+  }
+  function openBox(i){
+    const p = holding;
+    if(!p || !boxes || !boxes[i]) return;
+    const drawn = boxes.slice();
+    const team = p.team;
+    holding = null;
+    if(twistVote){ twistVote = null; E().standDownPhones(); }
+    revealing = true;
+    /* Every box opens, the chosen one in front: what you got, and what you passed. */
+    const mount = document.getElementById('flip-pick-row');
+    mount.classList.add('opened');
+    pickRows.forEach(r => {
+      const b = rowOf(r.who); if(!b) return;
+      const k = drawn[r.who];
+      b.classList.remove('leading');
+      b.classList.add(r.who === i ? 'chosen' : 'other', BOX[k].prize ? 'prize' : 'forfeit');
+      b.querySelector('.flip-box-lid').textContent = BOX[k].prize ? '★' : '✕';
+      b.querySelector('.flip-box-name').textContent = BOX[k].name;
+      b.disabled = true;
+    });
+    const k = drawn[i];
+    document.getElementById('flip-pick-say').textContent =
+      'Box ' + (i + 1) + ': ' + BOX[k].name.toUpperCase() + ' — ' + BOX[k].blurb + '.';
+    document.getElementById('flip-pick-tally').textContent = '';
+    E().Sound.play(BOX[k].prize ? 'sting' : 'wrong');
+    setTimeout(() => { revealing = false; hidePicker(); applyBox(team, k); }, 2400);
+  }
+  /* The effect of a box, each a line. A Steal prize runs the ordinary steal chooser
+     after it, so a box can open into a second beat. */
+  function applyBox(team, k){
+    const ts = E().teams();
+    if(!ts[team] || over){ advance(); return; }
+    const name = E().teamName(team);
+    const step = 10;
+    if(k === 'steal'){ pending = { team, twist:'steal' }; runPending(); return; }
+    E().standingsMark();
+    if(k === 'double'){
+      const more = cardWorthFor(team);
+      E().adjust(team, more, 'flip · box · double');
+      told('BOX · DOUBLE', name + '\'s card pays again: +' + more + '.', team);
+    } else if(k === 'shield'){
+      shields.add(team);
+      told('BOX · SHIELD', name + ' is shielded from the next steal, swap or bounty.', team);
+    } else if(k === 'extra'){
+      nextPicker = team;
+      told('BOX · PICK AGAIN', name + ' picks the next card too.', team);
+    } else if(k === 'tithe'){
+      const below = ts.map((t, i) => i).filter(i => i !== team && ts[i].score < ts[team].score);
+      if(!below.length){ told('BOX · SHARE', name + ' is already last — nothing to share.', team); }
+      else {
+        const last = below.reduce((a, b) => (ts[b].score < ts[a].score ? b : a), below[0]);
+        const move = Math.max(step, Math.round((paidNow / 2) / step) * step);
+        E().adjust(team, -move, 'flip · box · shared with ' + E().teamName(last));
+        E().adjust(last,  move, 'flip · box · share from ' + name);
+        told('BOX · SHARE', name + ' shares ' + move + ' with ' + E().teamName(last) + '.', last);
+      }
+    } else if(k === 'skip'){
+      skips.add(team);
+      told('BOX · LOSE A TURN', name + ' loses their next pick.', team);
+    } else if(k === 'zero'){
+      E().adjust(team, -paidNow, 'flip · box · empty');
+      told('BOX · EMPTY', 'Empty. ' + name + '\'s ' + paidNow + ' is gone.', team);
+    }
+    advance();
+  }
+  /* A shield answers a move aimed at its holder: the move fizzles, the shield is
+     spent, and the board says so. One rule for a steal, a swap and a bounty. */
+  function shielded(target){
+    if(!shields.has(target)) return false;
+    shields.delete(target);
+    return true;
   }
 
   /* ---------- the leaderboard as the chooser ----------
@@ -632,7 +790,7 @@
       const cell = (cls, text) => { const el = document.createElement('span'); el.className = cls; el.textContent = text; row.appendChild(el); return el; };
       cell('st-place', ordinal(r.place));
       cell('flip-pick-key', r.live ? String(++key) : '');
-      cell('st-name', r.name);
+      cell('st-name', r.name + (shields.has(r.who) ? ' \u{1F6E1}' : ''));
       cell('st-pts', String(r.pts));
       cell('flip-pick-tail', r.live ? '' : reasonOff(p, r));
       row.disabled = !r.live;
@@ -721,6 +879,7 @@
     const ahead = rows.filter(r => r.who !== leader && ts[r.who] &&
                                    (!leaderRow || r.place < leaderRow.place));
     if(!ahead.length){ flash(E().teamName(leader) + ' held the lead — nobody beat their time.'); return; }
+    if(shielded(leader)){ told('SHIELD', E().teamName(leader) + '\'s shield blocks the bounty. Nothing moves.', leader); return; }
     const step = 10;
     const taken = [];
     E().standingsMark();
@@ -752,6 +911,12 @@
        that follow show this move alone and shuffle from the places last shown. */
     E().standingsMark();
     let said = '', who = p.team;
+    if(p.twist !== 'gift' && shielded(target)){
+      E().Sound.play('wrong');
+      told('SHIELD', E().teamName(target) + '\'s shield blocks the ' + p.twist + '. Nothing moves.', target);
+      advance();
+      return;
+    }
     if(p.twist === 'swap'){
       const a = ts[p.team].score, b = ts[target].score;
       E().adjust(p.team, b - a, 'flip · swap with ' + E().teamName(target));
@@ -801,9 +966,21 @@
   function passToLast(){
     const ts = E().teams();
     if(!ts.length) return;
-    if(!lastPicks()){ E().nextTurn(); return; }
-    let low = 0;
-    ts.forEach((t, i) => { if(t.score < ts[low].score) low = i; });
+    /* A Pick-again box outranks the turn order once; a Lose-a-turn box is spent the
+       moment the turn would have been theirs. */
+    if(nextPicker != null && ts[nextPicker]){
+      const who = nextPicker; nextPicker = null;
+      E().setActiveTeam(who); E().renderScorebar(); return;
+    }
+    nextPicker = null;
+    if(!lastPicks()){
+      E().nextTurn();
+      for(let guard = 0; guard < ts.length && skips.has(E().activeTeam()); guard++){ skips.delete(E().activeTeam()); E().nextTurn(); }
+      return;
+    }
+    const order = ts.map((t, i) => i).sort((a, b) => ts[a].score - ts[b].score || a - b);
+    let low = order[0];
+    for(const i of order){ if(!skips.has(i)){ low = i; break; } skips.delete(i); }
     E().setActiveTeam(low);
     E().renderScorebar();
   }

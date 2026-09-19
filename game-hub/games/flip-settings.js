@@ -100,6 +100,19 @@ window.registerFlipSettings = function(S){
     label:'Include the Bounty card',
     help:'One card on the board puts a price on the leader: everyone who finishes it ahead of the leader takes a share of the gap off them. Aimed by the rules, never by a vote or a pick.' });
 
+  /* **Loaded boxes.** A twist card whose winner opens one of three closed boxes — a
+     prize or a forfeit — from a bag loaded by their PLACE: mostly prizes at the bottom
+     of the table, mostly forfeits at the top. The one twist that is a choice and a
+     gamble at once, and it still helps by position rather than by winning. */
+  S.register({ id:'flipBoxes', group:'Flip', type:'toggle', default:true, quick:true,
+    games:['flip'],
+    label:'Include the Box cards',
+    help:'Every third twist after the named ones is a Box: win it and open one of three boxes on your phone. Double, Steal, Shield or Pick again — or Share, Lose a turn or Empty. The other two open afterwards to show what you passed.' });
+  S.register({ id:'flipBoxLoad', group:'Flip', type:'range', default:0.7, quick:true, under:'flipBoxes',
+    min:0, max:1, step:0.1, unit:'', games:['flip'],
+    label:'How loaded the boxes are',
+    help:'0 is a fair box for everyone. At 1 last place almost always opens a prize and the leader almost always a forfeit. Everyone between is on the slope.' });
+
   /* Off by default: a class read "last place picks" as naming the loser every turn,
      not as help. The switch stays for a room that likes it. A device seeded with the
      old default is migrated once in hub-engine.js (`migrateFlipClassRun`). */

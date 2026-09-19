@@ -43,7 +43,7 @@ const OUT = arg('out', '');
 const PORT = Number(arg('port', 8141)) || 8141;
 const HEADED = process.argv.includes('--headed');
 /* Fast clocks: the question still has to outlast the slowest robot (speed 1 → up to ~3s). */
-const FAST = { secs: 5, reveal: 0.3, standings: 0.3, gift: 1.5 };
+const FAST = { secs: 5, reveal: 0.3, standings: 0.3, gift: 1.5, boxOpen: 0.3 };
 
 const ROOT = path.join(__dirname, '..');
 const sleep = ms => new Promise(r => setTimeout(r, ms));

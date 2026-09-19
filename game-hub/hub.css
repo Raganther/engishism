@@ -2209,6 +2209,28 @@ body.theme-gameshow #clue-card.flip-tw #clue-section{ color:rgba(255,255,255,0.7
 #clue-card.flip-tw-double{ --tw:var(--hd-yellow); }
 #clue-card.flip-tw-gift{   --tw:var(--hd-green); }
 #clue-card.flip-tw-bounty{ --tw:var(--hd-blue, #00A0DF); }
+#clue-card.flip-tw-box{    --tw:var(--hd-hue-7, #E86FA0); }
+/* The Box: three closed tiles in a row, each a numbered lid with a question mark;
+   opened, the lid becomes a star or a cross and the name of what was inside, the
+   chosen one in front and the two passed over dimmed. Same `.flip-pick-line` rows the
+   chooser uses, so the lit pick and the number keys are the chooser's own. */
+#flip-pick-row.boxes{ grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; width:min(100%, 560px); }
+#flip-pick-row .flip-box{
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+  position:relative; min-height:92px; padding:10px 12px 8px;
+  background:var(--fhue,#00A0DF); color:#101318; border:2px solid rgba(0,0,0,0.3); border-radius:12px;
+  box-shadow:0 4px 0 rgba(0,0,0,0.32), 0 8px 18px rgba(0,0,0,0.22);
+}
+#flip-pick-row .flip-box .flip-pick-key{ position:absolute; top:6px; left:6px; width:1.3rem; }
+#flip-pick-row .flip-box .flip-box-lid{ font-family:'Space Grotesk',sans-serif; font-weight:800; font-size:2.2rem; line-height:1; }
+#flip-pick-row .flip-box .flip-box-name{ font-family:'IBM Plex Mono',monospace; font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; min-height:1em; text-align:center; }
+#flip-pick-row .flip-box .flip-pick-tail{ display:none; }
+#flip-pick-row.opened ~ #flip-skip{ display:none; }
+#flip-pick-row.opened .flip-box{ cursor:default; transition:transform .25s, filter .25s; }
+#flip-pick-row.opened .flip-box.other{ filter:grayscale(0.6) opacity(0.55); transform:scale(0.94); }
+#flip-pick-row.opened .flip-box.chosen{ transform:scale(1.08); box-shadow:0 0 0 3px var(--gold, #F2C14E), 0 0 22px rgba(247,201,72,0.55); }
+#flip-pick-row.opened .flip-box.prize .flip-box-lid{ color:#101318; }
+#flip-pick-row.opened .flip-box.forfeit .flip-box-lid{ color:#8E2C14; }
 
 /* The game-show skin: the board keeps the same tiles, the frame around it goes dark. */
 body.theme-gameshow #play-flip.lit #flip-turn{ color:var(--gold); }
