@@ -7,6 +7,21 @@
    two settings that matter most are the steal's share and how thickly the twists are
    spread. Both are meant to be flipped between lessons, not trusted. */
 window.registerFlipSettings = function(S){
+  /* **A ruleset for the room you actually have.** The standard rules balance a mixed
+     class; a class with one student far out in front needs the comeback devices turned
+     well up, and the balance bench (`tools/party-sim.js`) is where the numbers came
+     from: under the standard rules a 90% player beat two 40% players ten games out of
+     ten; with catch-up 4, steal 0.8 and twists 80% they won six, the lead changed hands
+     nine times a game and every game finished close. Picking one WRITES the three rows
+     below, so they always say what will happen and any of them can be changed after. */
+  S.register({ id:'flipRules', group:'Flip', type:'variant', default:'mixed', games:['flip'],
+    label:'Rules',
+    help:'A whole balance at once. Picking one writes the three comeback settings below — so they always say what will actually happen, and you can still change any of them afterwards.',
+    variants:[
+      {value:'mixed',   label:'Mixed class — the standard rules'},
+      {value:'runaway', label:'Runaway class — one student far out in front'}
+    ] });
+
   S.register({ id:'flipSize', group:'Flip', type:'variant', default:'25', games:['flip'],
     label:'Board size',
     help:'How many cards. A smaller board plays faster and leaves fewer twists in it.',
@@ -70,7 +85,7 @@ window.registerFlipSettings = function(S){
      every comeback card only helps whoever just won it — which is rarely the student
      at the bottom. These two are automatic, scale with the gap, and name nobody. */
   S.register({ id:'flipCatchUp', group:'Flip', type:'range', default:1.5, quick:true,
-    min:1, max:2, step:0.1, unit:'×', games:['flip'],
+    min:1, max:5, step:0.1, unit:'×', games:['flip'],
     label:'Behind earns more',
     help:'What last place earns for a right answer, as a multiple of what the leader earns for the same card. Everyone in between is on a slope by the gap. 1 turns it off.' });
   S.register({ id:'flipHeadStart', group:'Flip', type:'range', default:2, quick:true,
@@ -91,6 +106,29 @@ window.registerFlipSettings = function(S){
   S.register({ id:'flipLastPicks', group:'Flip', type:'toggle', default:false, games:['flip'],
     label:'Last place picks the next card',
     help:'Being behind hands you the board. Off rotates the turn the ordinary way, which lets a strong player keep choosing.' });
+
+  /* ---- the rulesets: each one writes the three comeback dials ----
+     Measured on the balance bench, not guessed (see the Rules row above). The steal's
+     share and the twist density are the two the class already tuned; the catch-up
+     multiple is the lever that decided the runaway case — 3 and 4 both worked, 4 was
+     the closer game. */
+  const FLIP_PRESETS = {
+    mixed:   { flipCatchUp:1.5, flipSteal:0.5, flipTwists:60 },
+    runaway: { flipCatchUp:4,   flipSteal:0.8, flipTwists:80 }
+  };
+  S.describePresets('flipRules', FLIP_PRESETS);
+  let flipApplyingPreset = false;
+  S.onChange((id, value, game, change) => {
+    // The originating tab already wrote the whole bundle; reapplying it from a
+    // storage event would overwrite any later manual choice.
+    if(change && change.external) return;
+    if(id !== 'flipRules' || flipApplyingPreset) return;
+    const preset = FLIP_PRESETS[S.get('flipRules', 'flip')];
+    if(!preset) return;
+    flipApplyingPreset = true;
+    Object.keys(preset).forEach(k => S.set(k, preset[k], 'flip'));
+    flipApplyingPreset = false;
+  });
 };
 
 if(window.HubSettings) window.registerFlipSettings(window.HubSettings);

@@ -329,10 +329,8 @@ window.HubSettings = (function(){
      only — a mode *writes* the switches, it never holds them, so the control
      beside the note is always the truth. */
   function describePresets(id, presets){ if(byId[id]) byId[id].presets = presets; }
-  function presetPickerFor(game){
-    // game null → the flat panel: return the app's ruleset picker whatever it scopes to
-    if(game == null) return defs.find(d => d.presets) || null;
-    return defs.find(d => d.presets && scoped(d) && gamesOf(d).indexOf(game) !== -1) || null;
+  function presetPickerTouching(id){
+    return defs.find(d => { const b = d.presets && d.presets[String(get(d.id, null))]; return b && (id in b); }) || null;
   }
   function optionLabel(d, v){
     const opts = d.type==='variant' ? (d.variants||[]) : (d.options||[]);
@@ -479,10 +477,11 @@ window.HubSettings = (function(){
       text.appendChild(hp);
     }
     /* What the chosen ruleset does to this row — why the value is what it is, and
-       what picking the mode again would write back. One flat panel, so the picker
-       is found game-agnostically (there is a single ruleset picker in the app). */
+       what picking the mode again would write back. One flat panel and more than one
+       ruleset picker (Jeopardy's, Flip's), so the picker is the one whose CHOSEN
+       bundle touches this row — a row no bundle names gets no note. */
     if(!d.presets){
-      const picker = presetPickerFor(null);
+      const picker = presetPickerTouching(d.id);
       const bundle = picker && picker.presets[String(get(picker.id, null))];
       if(bundle && (d.id in bundle)){
         const pn=document.createElement('div');
