@@ -193,6 +193,9 @@
   const SIM = (window.HubBuzzer && HubBuzzer.sim) ? HubBuzzer.sim() : null;
   const codeParam = (params.get('code') || (SIM && SIM.code) || '').trim();
   const isHost = !codeParam;
+  /* `?spectate=1`: the host runs the room without playing in it — the batch runner's
+     shape, where every competitor is a racked phone and the host is only the referee. */
+  const SPECTATE = isHost && params.get('spectate') === '1';
   const SEAT_KEY = 'engishism.party.seat';
   const seatGet = () => { try{ return JSON.parse(localStorage.getItem(SEAT_KEY) || 'null') || {}; }catch(e){ return {}; } };
   const seatKeep = o => { if(SIM) return; try{ localStorage.setItem(SEAT_KEY, JSON.stringify(o)); }catch(e){} };
@@ -243,7 +246,11 @@
     slots.forEach((idx, k) => { cards[idx].twist = kinds[k] || 'steal'; });
     players.forEach(p => { p.score = 0; });
     G = { phase:'pick', unit:u.id, cards, cols, turn:0, cur:null, q:null, answers:{}, results:[], leader:null,
-          table:null, choose:null, gift:null, over:false };
+          table:null, choose:null, gift:null, over:false,
+          /* The game's own record: one entry per standings shown — after every question
+             and after every twist — with the board's state beside it. What the batch
+             runner reads, and what the host can save at the end. */
+          log: [], startedAt: Date.now(), rules: Object.assign({}, RULES) };
     if(!present().length){ G.phase = 'lobby'; }
     nextTurn(true);
     push();
@@ -325,6 +332,11 @@
   function showTable(eyebrow, say, before, then){
     const rows = ranking().map(r => Object.assign(r, { gain: r.pts - (before[r.id] == null ? r.pts : before[r.id]) }));
     G.table = { eyebrow, say, rows, canNext: true };
+    G.log.push({ at: Date.now() - G.startedAt, card: G.cur ? G.cur.n : null, twist: G.cur ? G.cur.twist : null,
+                 kind: G.cur ? G.cur.kind : null, picker: turnId(), eyebrow, say,
+                 right: G.phase === 'reveal' ? G.results.map(r => ({ id:r.id, place:r.place, pay:r.pay, ms:r.ms })) : null,
+                 left: G.cards.filter(c => !c.used).length,
+                 standings: rows.map(r => ({ id:r.id, name:r.name, pts:r.pts, place:r.place, gain:r.gain })) });
     G.phase = 'table'; push();
     clearTimeout(timer);
     G.after = then;
@@ -441,8 +453,11 @@
   }
   function push(){
     if(!host) return;
-    const s = JSON.stringify({ t:'view', v: viewFor() });
+    const v = viewFor();
+    const s = JSON.stringify({ t:'view', v });
     players.forEach(p => { if(p.present) host.nope(p.id, s); });
+    /* A referee host has no player client to be told through, so it draws directly. */
+    if(SPECTATE){ view = v; render(); }
   }
 
   function hostSetup(){
@@ -458,8 +473,10 @@
           /* The chip BenchKit appended now carries the code; the placeholder text goes. */
           const slot = $('room-slot'); Array.from(slot.childNodes).forEach(n => { if(n.nodeType === 3) n.remove(); });
           host.arm('', { mode:'answer', rethink:true, secs:0 });
-          /* The host plays too: its own phone joins its own room as an ordinary player. */
-          joinAs(h.code, myName || 'Host');
+          /* The host plays too: its own phone joins its own room as an ordinary player —
+             unless it is only refereeing. */
+          if(!SPECTATE) joinAs(h.code, myName || 'Host');
+          else { $('me-name').textContent = 'Referee'; }
         },
         players(list){
           (list || []).forEach(p => {
@@ -491,7 +508,13 @@
     window.HubEnv = {
       roundSolution(){ return (G && G.phase === 'question') ? solutionOf(G.q) : null; },
       teams(){ return players.filter(p => p.present).map(p => ({ name:p.name, score:p.score })); },
-      state(){ return G; }
+      state(){ return G; },
+      log(){ return G ? { unit: G.unit, rules: G.rules, players: players.map(p => ({ id:p.id, name:p.name })), entries: G.log,
+                          final: ranking(), over: G.over } : null; },
+      /* The batch runner's dial: change the rules before dealing. Also the teacher's, from
+         the console — the block at the top of the page is the one home for the defaults. */
+      rules(o){ Object.assign(RULES, o || {}); return Object.assign({}, RULES); },
+      deal(unit){ deal(unit); }
     };
     if(!room) return;
     ticker = setInterval(() => { if(G && G.phase === 'question') push(); }, 1000);
@@ -652,7 +675,17 @@
     $('t-next').classList.toggle('hide', !v.table.canNext);
     $('t-next').textContent = 'Next'; $('t-next').onclick = () => send({ t:'next' });
     $('t-hint').textContent = v.phase === 'end' ? (isHost ? '' : 'Thanks for playing') : 'Moving on in a moment…';
-    if(v.phase === 'end' && isHost){ $('t-next').classList.remove('hide'); $('t-next').textContent = 'Play again'; $('t-next').onclick = () => deal(G && G.unit); }
+    if(v.phase === 'end' && isHost){
+      $('t-next').classList.remove('hide'); $('t-next').textContent = 'Play again'; $('t-next').onclick = () => deal(G && G.unit);
+      /* The record of the game, as a file — every standings shown, with the board beside it. */
+      let save = $('t-save');
+      if(!save){ save = document.createElement('button'); save.id = 't-save'; save.className = 'big ghost'; save.textContent = 'Save the game log'; $('t-next').after(save); }
+      save.classList.remove('hide');
+      save.onclick = () => {
+        const blob = new Blob([JSON.stringify(window.HubEnv.log(), null, 1)], { type:'application/json' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'flip-party-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.json'; a.click();
+      };
+    } else { const save = $('t-save'); if(save) save.classList.add('hide'); }
   }
   function renderChoose(v){
     $('table').classList.remove('hide');
@@ -705,6 +738,7 @@
   if(isHost){
     myName = (seatGet().name) || 'Host';
     hostSetup();
+    if(SPECTATE) setTimeout(push, 1500);
     render();
   } else if(SIM){
     joinAs(codeParam, SIM.name || 'Phone');
