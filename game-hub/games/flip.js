@@ -723,6 +723,7 @@
     if(!ahead.length){ flash(E().teamName(leader) + ' held the lead — nobody beat their time.'); return; }
     const step = 10;
     const taken = [];
+    E().standingsMark();
     ahead.forEach(r => {
       const gap = ts[leader].score - ts[r.who].score;
       if(gap <= 0) return;
@@ -733,7 +734,7 @@
     });
     if(!taken.length){ flash('Bounty — nobody below ' + E().teamName(leader) + ' beat their time.'); return; }
     E().Sound.play('sting');
-    flash('Bounty on ' + E().teamName(leader) + ': ' + taken.join(', ') + '.');
+    told('BOUNTY', 'Bounty on ' + E().teamName(leader) + ': ' + taken.join(', ') + '.', ahead[0].who);
   }
 
   /* **The arithmetic the whole board is for.** A steal moves half the closing amount
@@ -747,23 +748,41 @@
     const ts = E().teams();
     if(!ts[target] || !ts[p.team]){ advance(); return; }
     const step = 10;
+    /* The move is its own beat on the leaderboard: baseline first, so the standings
+       that follow show this move alone and shuffle from the places last shown. */
+    E().standingsMark();
+    let said = '', who = p.team;
     if(p.twist === 'swap'){
       const a = ts[p.team].score, b = ts[target].score;
       E().adjust(p.team, b - a, 'flip · swap with ' + E().teamName(target));
       E().adjust(target, a - b, 'flip · swap with ' + E().teamName(p.team));
-      flash(E().teamName(p.team) + ' and ' + E().teamName(target) + ' have swapped scores.');
+      said = E().teamName(p.team) + ' and ' + E().teamName(target) + ' have swapped scores.';
     } else if(p.twist === 'steal'){
       const gap  = ts[target].score - ts[p.team].score;
       const move = Math.max(step, Math.round((gap * share() / 2) / step) * step);
       E().adjust(target, -move, 'flip · stolen by ' + E().teamName(p.team));
       E().adjust(p.team,  move, 'flip · steal from ' + E().teamName(target));
-      flash(E().teamName(p.team) + ' takes ' + move + ' off ' + E().teamName(target) + '.');
+      said = E().teamName(p.team) + ' takes ' + move + ' off ' + E().teamName(target) + '.';
     } else {
       E().adjust(target, cardWorth(), 'flip · gift from ' + E().teamName(p.team));
-      flash(E().teamName(target) + ' gets ' + cardWorth() + ' as well.');
+      said = E().teamName(target) + ' gets ' + cardWorth() + ' as well.';
+      who = target;
     }
     E().Sound.play('sting');
+    told(TW[p.twist].label, said, who);
     advance();
+  }
+
+  /* **A reversal is watched on the leaderboard, not read off a line.** A class could
+     not follow the twists because the standings only ever showed the question: the
+     points moved under a one-line message and nobody saw Gia drop. With the standings
+     screen on, the twist gets its own — the eyebrow is the card, the title the move,
+     the rows shuffling from where the question left them to where the twist put them.
+     With the standings off, the line is all there is, as before. */
+  function told(label, text, who){
+    if(E().standingsWanted('flip')){
+      E().showStandings({ eyebrow: label, title: text, winner: who });
+    } else flash(text);
   }
 
   /* ---------- whose pick, and the ending ---------- */

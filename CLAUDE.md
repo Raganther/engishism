@@ -983,7 +983,11 @@ leader by rule: everyone who finishes ahead of the leader's place in the record 
 steal's half-share of the gap off them, the leader fixed as the card opened. A **Swap
 reaches the person directly above by default** (`flipSwapScope`), a leapfrog rather than
 the cliff a class found disheartening. All five are settings in the bench's Flip group;
-none has met a class yet.
+none has met a class yet. **A reversal is watched on the leaderboard**: after the chooser
+is confirmed, or the Bounty settles, the standings screen shows again for the move alone
+(`E().standingsMark()` re-baselines the gains; the shuffle runs from the places last
+shown), the card as its eyebrow and the move as its title, so the class sees the row drop
+and the row climb rather than reading a line. Standings off, the line stays.
 
 **Moving a score, and the beat after a question.** `E().adjust(team, delta, why)` is the
 one home for a signed score move with its receipt — `award` is the *earning* path

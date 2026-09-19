@@ -1725,6 +1725,13 @@
   }
   function ordinalReport(n){ return n + ({1:'st',2:'nd',3:'rd'}[n] || 'th'); }
 
+  /* **Re-baseline the standings without opening a question.** A board with a beat
+     AFTER the question — Flip's twist — moves points once the question's standings
+     have been shown and wants to show them again for that move alone: the gain on
+     each row is then the twist's, not the question's paid twice over, while the
+     shuffle still runs from the places last shown. */
+  function standingsMark(){ standingsBefore = teams.map(t => t.score); }
+
   function standingsOpen(){
     standingsBefore = teams.map(t => t.score);
     reportOpenEntry(activeGame + ' \u00b7 ' + ((roundDef() || {}).label || 'question') +
@@ -1794,7 +1801,9 @@
       mv.classList.add(r.moved > 0 ? 'up' : r.moved < 0 ? 'down' : 'level');
       add('st-name', r.name);
       add('st-pts',  String(r.pts));
-      add('st-gain', r.gain > 0 ? '+' + r.gain : '');
+      /* A loss shows too — a steal, a swap or a deduction is a row going DOWN, and the
+         class watching a reversal wants to see the number leave as well as arrive. */
+      add('st-gain', r.gain > 0 ? '+' + r.gain : r.gain < 0 ? '\u2212' + (-r.gain) : '');
       host.appendChild(row);
     });
     /* When even four columns cannot hold the room, say so rather than hiding the
@@ -5453,7 +5462,7 @@
     setClueItem: it => { currentClueItem = it; },
     // surfaces and the room
     drawPrompt, askPhones, armBuzzers, resetBuzzers,
-    showResult, hideResult, showStandings, standingsWanted,
+    showResult, hideResult, showStandings, standingsWanted, standingsMark,
     notePhoneScore, notePhoneMiss,
     /* The shared deal-in stagger (Jeopardy, Blockbusters and Race all fly their board
        in the same way) and the phone-mode query Race reads to decide whether a wrong
