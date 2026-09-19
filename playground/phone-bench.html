@@ -78,6 +78,10 @@
     border:1px solid var(--border); border-radius:12px; background:#0B1830;
   }
   #stage-frame{ border:none; display:block; transform-origin:top left; }
+  #autopilot{ display:inline-flex; align-items:center; gap:10px; margin-left:6px; font-size:0.85rem; }
+  #autopilot label{ display:inline-flex; align-items:center; gap:5px; }
+  #autopilot input[type=range]{ width:80px; }
+  #autopilot span span{ font-variant-numeric:tabular-nums; min-width:2.6em; }
   #stage-empty{
     display:flex; align-items:center; justify-content:center; height:340px;
     color:#8fa6c8; font-size:0.95rem; text-align:center; padding:20px;
@@ -175,6 +179,11 @@
            title="Picked up from the board; type one to use a room elsewhere">
     <select id="team-pick" aria-label="Which team"></select>
     <button id="add">+ Phone</button>
+    <span id="autopilot" title="The racked phones answer by themselves — right or wrong by skill, after a wait by speed — so one person can play a whole game from the teacher's seat">
+      <label><input type="checkbox" id="auto"> Autopilot</label>
+      <label>skill <input type="range" id="auto-skill" min="0" max="100" step="5" value="70"><span id="auto-skill-v">70%</span></label>
+      <label>speed <input type="range" id="auto-speed" min="1" max="20" step="1" value="5"><span id="auto-speed-v">5s</span></label>
+    </span>
     <!-- One click to a standard classroom division — teams × phones each. The
          same strip the question bench carries, from bench-kit. -->
     <span id="bar-layouts"></span>
@@ -193,8 +202,8 @@
     </div>
   </div>
 
-<script src="phone-profiles.js?v=20260918e"></script>
-<script src="bench-kit.js?v=20260918e"></script>
+<script src="phone-profiles.js?v=20260919a"></script>
+<script src="bench-kit.js?v=20260919a"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -427,7 +436,7 @@ function joinSrc(name, team){
   // `?v=` first and literal, so the cache-stamp sed one-liner keeps it current: the
   // rack always loads the CURRENT phone shell, not a cached one from before a
   // mode it is armed with existed.
-  return page + '?v=20260918e&' + qs.toString();
+  return page + '?v=20260919a&' + qs.toString();
 }
 
 /* Phones rack up under their team, so a team dynamic reads as a team.
@@ -490,6 +499,87 @@ function removePhone(p){
 }
 
 const phonesOn = t => phones.filter(p => p.team === t).length;
+
+/* ---------- Autopilot: the rack plays the question out ----------
+   One person cannot tap eight phones. With the switch on, every racked phone answers
+   the open question by itself: right or wrong by its *skill* (the slider, ± a
+   spread per phone so the room disagrees), after a wait by its *speed* (the slider,
+   × a spread per phone so they arrive in an order). The bench can do this because
+   the board and every phone are the real pages sitting in the same document: it
+   asks the board for the question's right reply (`HubEnv.roundSolution`, the one
+   place that knows it — it never travels over the relay) and tells each phone to
+   commit through `HubPhoneSim.answer`, the phone page's own sending path, so the
+   stopwatch, the relay and the board all see an ordinary reply.
+
+   A question the board cannot answer for (a round that declares no solution) is
+   left to a human. A vote with options and no solution — a twist chooser, a Gift
+   vote, Millionaire's ask-the-class — gets a random option, which is what a class
+   does. One answer per phone per question; the teacher still confirms as usual. */
+const autoBy = new WeakMap();         // phone el -> {skill, pace, roundId, dueAt, done}
+const shuffled = a => { const b = a.slice(); for(let i = b.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+function autoSettings(){
+  return { skill: Number($('auto-skill').value) || 0, speed: Number($('auto-speed').value) || 1 };
+}
+function autoFor(p){
+  let a = autoBy.get(p.el);
+  if(!a){ a = { skill: (Math.random() - 0.5) * 40, pace: 0.5 + Math.random(), roundId: null, dueAt: 0, done: null };
+          autoBy.set(p.el, a); }
+  return a;
+}
+/* A plausibly wrong reply for this phone: another option, a different multi-pick
+   set, or the right parts in the wrong order. Null when nothing wrong can be made. */
+function wrongReply(st, sol){
+  const opts = st.options || [];
+  if(st.multi > 1 && opts.length > st.multi){
+    for(let k = 0; k < 8; k++){ const v = shuffled(opts).slice(0, st.multi).join('|'); if(v !== sol) return v; }
+    return null;
+  }
+  if(opts.length > 1){
+    const other = opts.filter(o => o !== sol);
+    return other.length ? other[Math.floor(Math.random() * other.length)] : null;
+  }
+  if(sol && sol.indexOf('|') !== -1){
+    const parts = sol.split('|');
+    for(let k = 0; k < 8; k++){ const v = shuffled(parts).join('|'); if(v !== sol) return v; }
+    return null;
+  }
+  if(sol) return 'not sure';
+  return null;
+}
+function autoTick(){
+  if(!$('auto').checked) return;
+  const bf = $('stage-frame');
+  let env = null; try{ env = bf && bf.contentWindow && bf.contentWindow.HubEnv; }catch(e){}
+  const base = autoSettings();
+  const now = Date.now();
+  phones.forEach(p => {
+    let sim = null;
+    try{ const w = p.el.querySelector('iframe').contentWindow; sim = w && w.HubPhoneSim; }catch(e){}
+    if(!sim) return;
+    const st = sim.state();
+    if(!st || !st.roundId || st.answered || st.mode === 'watch' || st.mode === 'off' || st.mode === 'card-idle') return;
+    const a = autoFor(p);
+    if(a.roundId !== st.roundId){
+      a.roundId = st.roundId; a.done = null;
+      a.dueAt = now + base.speed * 1000 * a.pace * (0.6 + Math.random() * 0.8);
+      return;
+    }
+    if(a.done === st.roundId || now < a.dueAt) return;
+    let sol = null; try{ sol = env ? env.roundSolution(st.team) : null; }catch(e){}
+    if(sol == null && !(st.options && st.options.length)) return;   // a question a human plays
+    const right = Math.random() * 100 < Math.max(0, Math.min(100, base.skill + a.skill));
+    let v = null;
+    if(sol != null && right) v = sol;
+    else if(sol == null) v = st.options[Math.floor(Math.random() * st.options.length)];
+    else v = wrongReply(st, sol) || sol;
+    if(v == null) return;
+    a.done = st.roundId;
+    sim.answer(v);
+  });
+}
+setInterval(autoTick, 400);
+$('auto-skill').addEventListener('input', () => { $('auto-skill-v').textContent = $('auto-skill').value + '%'; });
+$('auto-speed').addEventListener('input', () => { $('auto-speed-v').textContent = $('auto-speed').value + 's'; });
 
 /* One click to a standard classroom division — n teams of m phones. Reconciled
    rather than rebuilt: a phone already in the right place keeps its stream. The

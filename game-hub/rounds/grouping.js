@@ -421,6 +421,8 @@
     },
 
     // is this team's set complete, and if so is it the group
+    /* The right reply as a phone sends it: the group, `|`-joined (order is not judged). */
+    solution(s){ return (s.pick || []).join('|'); },
     judge(answer, s){
       const set  = answer || [];
       const want = s.pick.map(w => w.toLowerCase());

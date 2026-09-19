@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260918e">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260919a">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -554,15 +554,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260918e"></script>
-<script src="game-hub/hub-buzzer.js?v=20260918e"></script>
+<script src="game-hub/hub-brand.js?v=20260919a"></script>
+<script src="game-hub/hub-buzzer.js?v=20260919a"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260918e"></script>
+<script src="game-hub/matter.min.js?v=20260919a"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260918e"></script>
+<script src="game-hub/hub-table.js?v=20260919a"></script>
 <script>
 (function(){
   'use strict';
@@ -781,6 +781,29 @@
      anybody's — see `applyArmed`, where it starts. */
   let shownAt = null;
   function reply(v){ client.respond(v, shownAt == null ? null : performance.now() - shownAt); }
+  /* **A simulated handset can be driven.** Only under the room bench's `?auto=1`
+     contract (`HubBuzzer.sim()`), and only on this page: `state()` says what this
+     phone is being asked right now, `answer(v)` commits a reply on the SAME path a
+     thumb would — the stopwatch, the relay and the board see an ordinary reply. A
+     real phone never carries this. */
+  if(SIM){
+    window.HubPhoneSim = {
+      state(){
+        return { roundId: activeRoundId, mode, answered, team,
+                 multi: maxPicks,
+                 options: [...$('opts').querySelectorAll('button')].map(b => b.textContent) };
+      },
+      answer(v){
+        if(!client || answered) return false;
+        const val = String(v == null ? '' : v);
+        if(mode === 'buzz' || mode === 'type') client.buzz(mode === 'type' ? val : undefined);
+        else if(mode === 'vote' || mode === 'answer' || mode === 'arrange' || mode === 'table') reply(val);
+        else return false;
+        answered = true;
+        return true;
+      }
+    };
+  }
   /* Some rounds belong to one team: Blockbusters asks the team on turn which
      hexagon to attack, and the rest of the room is watching, not choosing. A phone
      that is not entitled shows the question and no controls, rather than a live

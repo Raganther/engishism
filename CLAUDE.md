@@ -116,7 +116,7 @@ Four facts about a classroom that outrank anything above when they conflict.
 | `join.html` | the students' page |
 | `tools/buzzer-relay.js` | zero-dependency Node relay **and** static server. `docs/buzzers.md` |
 | `playground/question-bench.html` | the workshop for rounds *and* forms |
-| `playground/phone-bench.html` | the whole room on one screen — board plus a rack of real handsets |
+| `playground/phone-bench.html` | the whole room on one screen — board plus a rack of real handsets. **Autopilot**: the racked phones answer the open question by themselves (right or wrong by a skill slider, after a wait by a speed slider, each phone with its own spread), so one person plays a whole game from the teacher's seat. The bench reads the right reply from the board (`HubEnv.roundSolution`, fed by each round's `solution(state, team)`) and commits through the phone page's `HubPhoneSim.answer` — the phone's own sending path, exposed only under the `?auto=1` sim contract; the answer never travels over the relay |
 | `playground/connections.html`, `thermometer.html`, `story-reveal.html` | standalone prototypes — see "The playground" |
 | `playground/battle-scrabble.html` + `battle-scrabble-board.html` | **the playground's first full multiplayer game**: each phone runs the game page itself (not `join.html`), the board hosts the seating ring and routes throws. Own vendored dictionary, `playground/word-list.js`. The `new-playground-game` skill is its distilled procedure |
 | `playground/bench-kit.js` | **`BenchKit`** — the shelf a playground page calls |

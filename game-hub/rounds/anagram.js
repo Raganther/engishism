@@ -511,6 +511,9 @@
       return 'card';
     },
 
+    /* The right reply as a phone sends it: the letters in order, `|`-joined (bare
+       letters judge identically to a handset's slot-keyed tokens). */
+    solution(s){ return String(s.word || '').split('').join('|'); },
     judge(answer, s){
       /* `bare` is what makes the teacher's tokens and the room's letters one shape.
          The teacher clicks `E#3`; a handset sends `E`; both judge identically. */

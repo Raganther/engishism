@@ -487,6 +487,9 @@
       return 'card';
     },
 
+    /* The right reply, as a phone would send it — the option string. Read by the
+       room bench's autopilot, never by a phone: the answer stays off the wire. */
+    solution(s){ return s.answer; },
     judge(answer, s){
       const pick = (answer || [])[0];
       if(!pick) return { verdict:'incomplete', hits:0 };

@@ -2634,6 +2634,24 @@
   let roundId = null;                 // which round this clue is running
   function roundDef(){ return roundId ? Kit.round.get(roundId) : null; }
 
+  /* **The current question's right reply, as a phone would send it.** For the room
+     bench's autopilot — simulated handsets playing a question out so a teacher can
+     run a whole game alone — and for nothing else: a phone is never told this, and
+     the relay never carries it. A shaped round declares `solution(state, team, ctx)`;
+     an ordinary question's answer is its item's. Null when the round has not said
+     (the sixteen-word Connections, the information gap, bingo), and the autopilot
+     leaves that question to a human. */
+  function roundSolution(team){
+    const def = roundDef();
+    if(def && def.solution){
+      try{ const v = def.solution(roundState, team == null ? null : Number(team), roundCtx()); return v == null ? null : String(v); }
+      catch(e){ return null; }
+    }
+    if(def) return null;
+    const a = currentClueItem && currentClueItem.a;
+    return a == null ? null : String(a);
+  }
+
   // what the round is lent: the team list, their sizes, and what a click means here
   /* The field list and the guard shapes live in `Kit.round.ctx` now — one builder,
      shared with the question bench, so the bench playing a round IS this container
@@ -5422,7 +5440,7 @@
     payRuleLabel: g => (PAY_RULES[S.get('roundPay', g)] || PAY_RULES.winner).label,
     // the round adapter — a host names itself at roundOf, so no closure state moves
     roundCommit, roundEnd, roundOf, roundOpen, roundClockSecs,
-    roundForPhones, roundLive, roundOnReplies,
+    roundForPhones, roundLive, roundOnReplies, roundSolution,
     revealOpenRound, roundDone: roundDoneNow,
     renderRound, currentPhonePrompt,
     /* The live round's own object, for a host that reaches into it — Millionaire's

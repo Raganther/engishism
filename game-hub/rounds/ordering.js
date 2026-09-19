@@ -851,6 +851,15 @@
       return p.answers;
     },
 
+    /* The right reply as a phone sends it. A stack is the whole ladder, slot 0 the hot
+       end, so the scale reversed and `|`-joined; a climb or race is the NEXT rung for
+       this team — one word — because that is what a phone commits at a time. */
+    solution(s, team){
+      if(s.mode === 'stack') return (s.scale || []).slice().reverse().join('|');
+      const placed = (s.mode === 'race' && team != null) ? (s.lanes[team] || []) : (s.placed || []);
+      const want = s.scale[placed.length];
+      return want == null ? null : String(want);
+    },
     judge(answer, s, team){
       if(s.mode === 'stack'){
         const seq = (answer || []).map(x => String(x).toLowerCase());

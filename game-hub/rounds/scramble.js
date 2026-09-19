@@ -569,6 +569,8 @@
       return 'card';
     },
 
+    /* The right reply as a phone sends it: the words in order, `|`-joined. */
+    solution(s){ return (s.words || []).join('|'); },
     judge(answer, s){
       const seq = (answer || []).map(bare);
       if(seq.length !== s.need) return { verdict:'incomplete', hits:0 };
