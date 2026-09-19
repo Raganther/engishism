@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Flip Party</title>
+<!--
+  ================= Flip Party — the comeback board with no teacher and no computer =================
+  A playground game: every phone runs THIS page. One phone starts a room and is the host —
+  it deals the board, judges, pays, moves the points and pushes the picture of the board to
+  everyone; every other phone (the host's own included) renders what it is sent and sends
+  back taps. Nobody has a special job once the game starts: whoever's pick it is taps a
+  card, the round judges itself, a Steal or Swap applies the moment its winner taps a name,
+  a Gift is a vote that closes itself, the standings show for a few seconds and clear.
+
+  The board is Flip's — the same twists, the same upward-only steal, the same catch-up
+  worth — playing the three fastest rounds only (Multiple Choice, Connections, Drag the
+  Letters), which is what the General Knowledge banks are made of. Content comes from the
+  hub's own unit files; nothing is authored here.
+
+  Standalone, no hub engine, no hub skin. A plain URL is the host; `?code=` (or the QR)
+  is a player. The Room bench racks it — the host page names its phone page so the bench
+  opens THIS page for every handset — and Autopilot drives it through the same two
+  handles the hub offers (HubEnv.roundSolution on the host, HubPhoneSim on a phone).
+-->
+<style>
+  :root{
+    --bg:#0b1020; --bg2:#141b33; --ink:#eef2ff; --muted:#8fa6c8; --line:rgba(255,255,255,0.14);
+    --gold:#F7C948; --good:#3DBE78; --bad:#FF4F6D; --blue:#00A0DF;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; }
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100dvh; display:flex; flex-direction:column;
+  }
+  header{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:10px 14px; border-bottom:1px solid var(--line); background:var(--bg2);
+  }
+  header .brand{ font-family:"IBM Plex Mono",monospace; font-size:0.72rem; letter-spacing:0.16em; text-transform:uppercase; color:var(--gold); }
+  header .me{ font-weight:700; font-size:0.95rem; display:flex; align-items:center; gap:8px; }
+  header .me b{ background:var(--gold); color:#101318; border-radius:8px; padding:2px 8px; font-variant-numeric:tabular-nums; }
+  #room-slot{ font-family:"IBM Plex Mono",monospace; font-size:0.72rem; color:var(--muted); }
+  main{ flex:1; overflow:auto; padding:12px 14px 20px; }
+  .say{ font-weight:800; font-size:1.15rem; margin:4px 0 10px; line-height:1.25; }
+  .sub{ color:var(--muted); font-size:0.9rem; margin:-4px 0 12px; }
+  .hide{ display:none !important; }
+
+  /* ---- tiles: a bright fill, dark lettering, a hard shadow ---- */
+  .tile{
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    background:var(--fhue,#00A0DF); color:#101318; border:2px solid rgba(0,0,0,0.25);
+    border-radius:12px; font-weight:800; box-shadow:0 3px 0 rgba(0,0,0,0.35);
+    cursor:pointer; user-select:none; transition:transform .08s, filter .2s;
+  }
+  .tile:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,0.35); }
+  .tile.off{ cursor:default; filter:grayscale(0.7) opacity(0.45); }
+  .tile.used{ background:transparent; color:var(--muted); border:2px dashed var(--line); box-shadow:none;
+              font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:0.62rem; letter-spacing:0.1em; }
+
+  /* ---- the grid ---- */
+  #grid{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
+  #grid .tile{ position:relative; flex-direction:column; gap:1px; aspect-ratio:1; padding:2px; line-height:1; }
+  #grid .n{ font-size:1.35rem; }
+  #grid .t{ font-family:"IBM Plex Mono",monospace; font-size:0.42rem; letter-spacing:0.03em; text-transform:uppercase;
+            color:rgba(0,0,0,0.6); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 2px; }
+  #grid .tile.star::after{ content:'\2605'; position:absolute; top:1px; right:4px; font-size:0.7rem; color:rgba(0,0,0,0.5); }
+
+  /* ---- the question ---- */
+  .topic{ font-family:"IBM Plex Mono",monospace; font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--gold); }
+  .tw{ display:inline-block; margin-left:8px; padding:1px 8px; border-radius:6px; background:var(--gold); color:#101318; font-weight:800; font-size:0.7rem; letter-spacing:0.1em; }
+  .prompt{ font-size:1.15rem; font-weight:700; line-height:1.3; margin:6px 0 12px; }
+  .clock{ float:right; font-family:"IBM Plex Mono",monospace; font-weight:700; color:var(--gold); font-variant-numeric:tabular-nums; }
+  #opts{ display:grid; grid-template-columns:1fr; gap:8px; }
+  #opts .tile{ padding:14px 10px; font-size:1.05rem; }
+  #opts.words{ grid-template-columns:1fr 1fr; }
+  #opts .tile.picked{ outline:4px solid var(--gold); }
+  #letters{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:8px; }
+  #letters .tile, #slots .tile{ width:44px; height:52px; font-size:1.4rem; text-transform:uppercase; }
+  #slots{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; min-height:56px; margin:4px 0 8px; }
+  #slots .slot{ width:44px; height:52px; border:2px dashed var(--line); border-radius:12px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.4rem; text-transform:uppercase; }
+  #slots .slot.full{ border-style:solid; background:var(--fhue,#00A0DF); color:#101318; }
+  .sent{ text-align:center; color:var(--muted); margin-top:14px; font-size:0.9rem; }
+  .verdict{ margin-top:12px; padding:12px; border-radius:12px; font-weight:800; text-align:center; }
+  .verdict.ok{ background:var(--good); color:#101318; }
+  .verdict.no{ background:var(--bad); color:#fff; }
+
+  /* ---- standings / chooser rows ---- */
+  #rows{ display:flex; flex-direction:column; gap:6px; }
+  .row{
+    display:grid; grid-template-columns:2.2rem 1fr auto 3.4rem; gap:8px; align-items:center;
+    background:var(--fhue,#00A0DF); color:#101318; border:1.5px solid rgba(0,0,0,0.22);
+    border-radius:10px; padding:8px 12px; font-weight:700;
+  }
+  .row .pl{ font-family:"IBM Plex Mono",monospace; font-size:0.8rem; font-weight:700; background:rgba(16,19,24,0.82); color:#fff; border-radius:6px; text-align:center; padding:1px 0; }
+  .row .nm{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .row .pt{ font-weight:800; border:1.5px solid rgba(0,0,0,0.35); border-radius:6px; padding:1px 9px; background:rgba(255,255,255,0.38); font-variant-numeric:tabular-nums; }
+  .row .gn{ font-family:"IBM Plex Mono",monospace; font-size:0.8rem; text-align:right; }
+  .row.me{ outline:3px solid #fff; }
+  .row.off{ filter:grayscale(1) opacity(0.4); }
+  .row.live{ cursor:pointer; }
+  .row.lead{ box-shadow:0 0 0 3px var(--gold), 0 0 16px rgba(247,201,72,0.5); }
+  .row.took{ box-shadow:0 0 0 3px var(--gold); }
+  .eyebrow{ font-family:"IBM Plex Mono",monospace; font-size:0.7rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--gold); }
+
+  /* ---- buttons ---- */
+  button.big{
+    width:100%; margin-top:14px; padding:14px; font:inherit; font-weight:800; font-size:1.05rem;
+    border:none; border-radius:12px; background:var(--gold); color:#101318; cursor:pointer;
+    box-shadow:0 3px 0 rgba(0,0,0,0.35);
+  }
+  button.big:disabled{ opacity:0.45; cursor:default; }
+  button.ghost{ background:transparent; color:var(--ink); border:2px dashed var(--line); box-shadow:none; }
+  select, input[type=text]{
+    width:100%; margin-top:8px; padding:12px; font:inherit; font-size:1rem; border-radius:10px;
+    border:2px dashed var(--line); background:var(--bg2); color:var(--ink);
+  }
+  .list{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .list span{ background:var(--bg2); border:1px solid var(--line); border-radius:999px; padding:4px 10px; font-size:0.85rem; }
+  .list span.gone{ opacity:0.4; }
+  .code{ text-align:center; font-family:"IBM Plex Mono",monospace; font-weight:700; color:var(--gold); font-size:2.6rem; letter-spacing:0.22em; margin:10px 0 0; }
+  .qr{ text-align:center; margin:8px 0; }
+  .qr svg{ width:min(60vw,240px); height:min(60vw,240px); background:#fff; padding:10px; border-radius:12px; }
+  .hint{ color:var(--muted); font-size:0.82rem; text-align:center; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <div class="brand">Flip Party</div>
+    <div id="room-slot"></div>
+  </div>
+  <div class="me"><span id="me-name"></span><b id="me-score">0</b></div>
+</header>
+<main>
+  <div id="joinbar" class="hide">
+    <div class="say">Join the game</div>
+    <input type="text" id="join-name" placeholder="Your name" maxlength="16" autocomplete="off">
+    <button class="big" id="join-go">Join</button>
+  </div>
+  <div id="lobby" class="hide"></div>
+  <div id="board" class="hide">
+    <div class="say" id="turn-say"></div>
+    <div id="grid"></div>
+  </div>
+  <div id="question" class="hide">
+    <div><span class="topic" id="q-topic"></span><span class="tw hide" id="q-tw"></span><span class="clock" id="q-clock"></span></div>
+    <div class="prompt" id="q-prompt"></div>
+    <div id="opts"></div>
+    <div id="slots" class="hide"></div>
+    <div id="letters" class="hide"></div>
+    <div class="sent hide" id="q-sent"></div>
+    <div class="verdict hide" id="q-verdict"></div>
+  </div>
+  <div id="table" class="hide">
+    <div class="eyebrow" id="t-eyebrow"></div>
+    <div class="say" id="t-say"></div>
+    <div id="rows"></div>
+    <button class="big ghost hide" id="t-next">Next</button>
+    <div class="hint" id="t-hint"></div>
+  </div>
+</main>
+
+<script>window.UNITS = window.UNITS || [];</script>
+<script src="../game-hub/hub-brand.js?v=20260919b"></script>
+<script src="../game-hub/hub-qr.js?v=20260919b"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260919b"></script>
+<script src="phone-profiles.js?v=20260919b"></script>
+<script src="bench-kit.js?v=20260919b"></script>
+<script src="../game-hub/content/general-knowledge.js?v=20260919b"></script>
+<script src="../game-hub/content/general-knowledge-2.js?v=20260919b"></script>
+<script src="../game-hub/content/inventions.js?v=20260919b"></script>
+<script>
+(function(){
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const RELAY = params.get('relay') || '';
+  const HUES = (window.HubBrand && HubBrand.hues) || ['#00A0DF','#FFC20E','#F26B3A','#6CBE45','#B26BD9','#3AB0A2','#F06292'];
+  const hue = i => HUES[((i % HUES.length) + HUES.length) % HUES.length];
+  /* The room bench renders a board at a phone's size — this board IS a phone. */
+  window.HubBoardSize = (window.PHONE_PROFILES && PHONE_PROFILES.standard) || { w:390, h:664 };
+
+  /* ---------- the rules, in one place (a teacher edits these) ---------- */
+  const RULES = {
+    size: 25, worth: 100, twists: 0.6, steal: 0.5, catchUp: 1.5, decay: 0.6,
+    secs: 30, reveal: 4, standings: 6, gift: 12, swapNext: true
+  };
+
+  /* ================= host or player ================= */
+  const SIM = (window.HubBuzzer && HubBuzzer.sim) ? HubBuzzer.sim() : null;
+  const codeParam = (params.get('code') || (SIM && SIM.code) || '').trim();
+  const isHost = !codeParam;
+  const SEAT_KEY = 'engishism.party.seat';
+  const seatGet = () => { try{ return JSON.parse(localStorage.getItem(SEAT_KEY) || 'null') || {}; }catch(e){ return {}; } };
+  const seatKeep = o => { if(SIM) return; try{ localStorage.setItem(SEAT_KEY, JSON.stringify(o)); }catch(e){} };
+
+  let client = null, myId = null, myName = '', view = null, seq = {};
+  function send(o){ if(!client) return; o.q = (seq[o.t] = (seq[o.t] || 0) + 1); client.respond(JSON.stringify(o)); }
+
+  /* ================= the host: the game itself ================= */
+  let host = null, G = null, timer = null, ticker = null;
+  const players = [];                        // append-only: {id, name, score, present, lastQ:{}}
+  const byId = id => players.find(p => p.id === id);
+  const present = () => players.filter(p => p.present);
+
+  function unitList(){ return (window.UNITS || []).filter(u => (u.jeopardyCategories || []).length); }
+  function poolOf(u){
+    const out = [];
+    (u.jeopardyCategories || []).forEach(cat => (cat.clues || []).forEach(c => {
+      const kind = c.choice ? 'choice' : c.group ? 'group' : c.anagram ? 'anagram' : null;
+      if(kind) out.push({ kind, topic: cat.name || cat.id, item: c });
+    }));
+    return out;
+  }
+  const shuffle = a => { const b = a.slice(); for(let i = b.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+
+  function deal(unitId){
+    const u = unitList().find(x => x.id === unitId) || unitList()[0];
+    const pool = shuffle(poolOf(u));
+    const n = pool.length >= 25 ? 25 : pool.length >= 16 ? 16 : 9;
+    const cols = Math.round(Math.sqrt(n));
+    const cards = pool.slice(0, n).map((c, i) => ({ n:i + 1, kind:c.kind, topic:c.topic, item:c.item, twist:'plain', used:false, row:Math.floor(i / cols) }));
+    // twists, weighted to the back rows — Flip's deal
+    const want = Math.round(n * RULES.twists);
+    const bag = cards.map((c, i) => ({ i, w: Math.pow(c.row + 1, 2) }));
+    const slots = [];
+    while(slots.length < want && bag.length){
+      const total = bag.reduce((a, b) => a + b.w, 0);
+      let r = Math.random() * total, hit = 0;
+      for(; hit < bag.length; hit++){ r -= bag[hit].w; if(r <= 0) break; }
+      slots.push(bag.splice(Math.min(hit, bag.length - 1), 1)[0].i);
+    }
+    const kinds = ['swap', 'gift', 'bounty'];
+    while(kinds.length < want) kinds.push(kinds.length % 2 ? 'double' : 'steal');
+    kinds.length = want;
+    if(kinds[0] === 'swap' && slots.length){
+      const deepest = slots.reduce((a, b) => (cards[b].row >= cards[a].row ? b : a), slots[0]);
+      slots.splice(slots.indexOf(deepest), 1); slots.unshift(deepest);
+    }
+    slots.forEach((idx, k) => { cards[idx].twist = kinds[k] || 'steal'; });
+    players.forEach(p => { p.score = 0; });
+    G = { phase:'pick', unit:u.id, cards, cols, turn:0, cur:null, q:null, answers:{}, results:[], leader:null,
+          table:null, choose:null, gift:null, over:false };
+    if(!present().length){ G.phase = 'lobby'; }
+    nextTurn(true);
+    push();
+  }
+
+  function nextTurn(first){
+    const ps = present();
+    if(!ps.length) return;
+    if(!first) G.turn = (G.turn + 1) % Math.max(1, players.length);
+    let guard = 0;
+    while(!(players[G.turn] && players[G.turn].present) && guard++ < players.length) G.turn = (G.turn + 1) % players.length;
+  }
+  const turnId = () => (players[G.turn] || players[0] || {}).id;
+
+  function ranking(){
+    const rows = players.filter(p => p.present || p.score).map(p => ({ id:p.id, name:p.name, pts:p.score }))
+                        .sort((a, b) => b.pts - a.pts || players.indexOf(byId(a.id)) - players.indexOf(byId(b.id)));
+    rows.forEach((r, n) => { r.place = (n > 0 && rows[n - 1].pts === r.pts) ? rows[n - 1].place : n + 1; });
+    return rows;
+  }
+  function behind(id){
+    const ps = present(); if(ps.length < 2) return 0;
+    const s = ps.map(p => p.score), lead = Math.max.apply(null, s), low = Math.min.apply(null, s);
+    if(lead === low) return 0;
+    return (lead - (byId(id) || {}).score) / (lead - low);
+  }
+
+  /* ---- a card opens: the question goes to every phone ---- */
+  function openCard(n){
+    const c = G.cards.find(x => x.n === n);
+    if(!c || c.used || G.phase !== 'pick') return;
+    G.cur = c; c.used = true;
+    const it = c.item;
+    const top = Math.max.apply(null, present().map(p => p.score).concat([0]));
+    const leaders = present().filter(p => p.score === top);
+    G.leader = (leaders.length === 1 && present().length > 1) ? leaders[0].id : null;
+    if(c.kind === 'choice') G.q = { kind:'choice', prompt: it.q, options: shuffle(it.choice.options), answer: it.choice.answer };
+    else if(c.kind === 'group') G.q = { kind:'group', prompt: it.q, options: shuffle(it.group.pick.concat(it.group.with)), need: it.group.pick.length, answer: it.group.pick.slice() };
+    else { const w = String(it.anagram.word); G.q = { kind:'anagram', prompt: it.q, letters: shuffle(w.toUpperCase().split('')), answer: w.toUpperCase() }; }
+    G.answers = {}; G.results = [];
+    G.phase = 'question'; G.ends = Date.now() + RULES.secs * 1000;
+    push();
+    clearTimeout(timer); timer = setTimeout(judge, RULES.secs * 1000 + 400);
+  }
+  const solutionOf = q => !q ? null : q.kind === 'anagram' ? q.answer.split('').join('|') : q.kind === 'group' ? q.answer.join('|') : q.answer;
+  function isRight(q, v){
+    if(q.kind === 'choice') return String(v) === String(q.answer);
+    if(q.kind === 'anagram') return String(v).split('|').join('').toUpperCase() === q.answer;
+    const set = String(v).split('|').map(x => x.trim().toLowerCase()).filter(Boolean);
+    const want = q.answer.map(x => x.toLowerCase());
+    return set.length === want.length && want.every(w => set.indexOf(w) !== -1);
+  }
+  function onAnswer(id, m){
+    if(G.phase !== 'question' || !byId(id) || G.answers[id]) return;
+    G.answers[id] = { v: m.v, ms: Number(m.ms) || 0, at: Date.now(), right: isRight(G.q, m.v) };
+    push();
+    if(present().every(p => G.answers[p.id])) judge();
+  }
+  function judge(){
+    if(G.phase !== 'question') return;
+    clearTimeout(timer);
+    const rows = Object.keys(G.answers).map(id => Object.assign({ id }, G.answers[id]))
+                       .filter(r => r.right).sort((a, b) => a.ms - b.ms || a.at - b.at);
+    const before = {}; players.forEach(p => { before[p.id] = p.score; });
+    const mult = G.cur.twist === 'double' ? 2 : 1;
+    rows.forEach((r, i) => {
+      const f = 1 + (RULES.catchUp - 1) * behind(r.id);
+      const share = Math.max(0.1, Math.pow(RULES.decay, i));
+      const pay = Math.max(10, Math.round(RULES.worth * mult * share * f / 10) * 10);
+      byId(r.id).score += pay; r.pay = pay; r.place = i + 1;
+    });
+    G.results = rows;
+    G.phase = 'reveal'; push();
+    timer = setTimeout(() => showTable('Card ' + G.cur.n + (G.cur.twist === 'double' ? ' · DOUBLE' : ''),
+                                       rows.length ? rows[0] && (byId(rows[0].id).name + ' was quickest') : 'Nobody got it', before, afterQuestion),
+                       RULES.reveal * 1000);
+  }
+  /* ---- the standings: shown for a beat, then whatever comes next ---- */
+  function showTable(eyebrow, say, before, then){
+    const rows = ranking().map(r => Object.assign(r, { gain: r.pts - (before[r.id] == null ? r.pts : before[r.id]) }));
+    G.table = { eyebrow, say, rows, canNext: true };
+    G.phase = 'table'; push();
+    clearTimeout(timer);
+    G.after = then;
+    timer = setTimeout(() => proceed(), RULES.standings * 1000);
+  }
+  function proceed(){
+    if(G.phase !== 'table') return;
+    clearTimeout(timer);
+    const then = G.after; G.after = null; G.table = null;
+    if(then) then(); else advance();
+  }
+  function afterQuestion(){
+    const tw = G.cur.twist;
+    const winner = G.results[0] && G.results[0].id;
+    if(tw === 'steal' || tw === 'swap'){
+      if(!winner){ advance(); return; }
+      const targets = targetsFor(winner, tw);
+      if(!targets.length){ note(tw.toUpperCase(), 'Nobody is ahead of ' + byId(winner).name + '. Nothing to take.'); return; }
+      G.choose = { kind: tw, who: winner, targets }; G.phase = 'choose'; push(); return;
+    }
+    if(tw === 'gift'){
+      if(!winner){ advance(); return; }
+      const targets = present().filter(p => p.score < byId(winner).score).map(p => p.id);
+      if(!targets.length){ note('GIFT', 'Nobody is behind ' + byId(winner).name + '.'); return; }
+      G.gift = { who: winner, targets, votes: {} }; G.phase = 'gift'; push();
+      timer = setTimeout(settleGift, RULES.gift * 1000); return;
+    }
+    if(tw === 'bounty'){ applyBounty(); return; }
+    advance();
+  }
+  function note(eyebrow, say){ const before = {}; players.forEach(p => { before[p.id] = p.score; }); showTable(eyebrow, say, before, null); }
+  function targetsFor(who, kind){
+    const mine = byId(who).score;
+    const above = present().filter(p => p.id !== who && p.score > mine);
+    if(kind === 'swap' && RULES.swapNext && above.length > 1){
+      return [above.reduce((a, b) => (b.score < a.score ? b : a), above[0]).id];
+    }
+    return above.map(p => p.id);
+  }
+  function applyChoice(id, target){
+    if(G.phase !== 'choose' || !G.choose || G.choose.who !== id || G.choose.targets.indexOf(target) === -1) return;
+    const a = byId(id), b = byId(target);
+    const before = {}; players.forEach(p => { before[p.id] = p.score; });
+    let say;
+    if(G.choose.kind === 'swap'){ const s = a.score; a.score = b.score; b.score = s; say = a.name + ' and ' + b.name + ' have swapped scores.'; }
+    else { const gap = b.score - a.score; const move = Math.max(10, Math.round((gap * RULES.steal / 2) / 10) * 10); a.score += move; b.score -= move; say = a.name + ' takes ' + move + ' off ' + b.name + '.'; }
+    const eyebrow = G.choose.kind.toUpperCase(); G.choose = null;
+    showTable(eyebrow, say, before, null);
+  }
+  function onVote(id, target){
+    if(G.phase !== 'gift' || !G.gift || G.gift.targets.indexOf(target) === -1 || target === id) return;
+    G.gift.votes[id] = target; push();
+    if(present().every(p => G.gift.votes[p.id] || p.id === G.gift.who && false) && Object.keys(G.gift.votes).length >= present().length) settleGift();
+  }
+  function settleGift(){
+    if(G.phase !== 'gift' || !G.gift) return;
+    clearTimeout(timer);
+    const counts = {}; Object.keys(G.gift.votes).forEach(v => { counts[G.gift.votes[v]] = (counts[G.gift.votes[v]] || 0) + 1; });
+    let best = null, n = -1;
+    shuffle(G.gift.targets).forEach(t => { if((counts[t] || 0) > n){ best = t; n = counts[t] || 0; } });
+    const before = {}; players.forEach(p => { before[p.id] = p.score; });
+    const worth = Math.max(10, Math.round(RULES.worth / 10) * 10);
+    byId(best).score += worth; G.gift = null;
+    showTable('GIFT', byId(best).name + ' gets ' + worth + ' as well.', before, null);
+  }
+  function applyBounty(){
+    const leader = G.leader;
+    if(!leader || !byId(leader)){ note('BOUNTY', 'Nobody was clearly in front. Nothing to take.'); return; }
+    const lead = G.results.find(r => r.id === leader);
+    const ahead = G.results.filter(r => r.id !== leader && (!lead || r.place < lead.place));
+    if(!ahead.length){ note('BOUNTY', byId(leader).name + ' held the lead — nobody beat their time.'); return; }
+    const before = {}; players.forEach(p => { before[p.id] = p.score; });
+    const taken = [];
+    ahead.forEach(r => {
+      const gap = byId(leader).score - byId(r.id).score; if(gap <= 0) return;
+      const move = Math.max(10, Math.round((gap * RULES.steal / 2) / 10) * 10);
+      byId(leader).score -= move; byId(r.id).score += move; taken.push(byId(r.id).name + ' +' + move);
+    });
+    if(!taken.length){ note('BOUNTY', 'Nobody below ' + byId(leader).name + ' beat their time.'); return; }
+    showTable('BOUNTY', 'Bounty on ' + byId(leader).name + ': ' + taken.join(', ') + '.', before, null);
+  }
+  function advance(){
+    if(G.cards.every(c => c.used)){
+      G.over = true; G.phase = 'end';
+      const rows = ranking(); G.table = { eyebrow:'FINAL', say: (rows[0] ? rows[0].name + ' wins!' : 'Game over'), rows: rows.map(r => Object.assign(r, { gain:0 })), canNext:false };
+      push(); return;
+    }
+    G.cur = null; G.q = null; G.phase = 'pick'; nextTurn(false); push();
+  }
+
+  /* ---- the picture every phone draws ---- */
+  function viewFor(){
+    if(!G) return { phase:'lobby', players: players.map(p => ({ id:p.id, name:p.name, present:p.present })), units: unitList().map(u => ({ id:u.id, label:u.label })) };
+    const v = { phase: G.phase, over: G.over, turn: turnId(),
+      players: players.map(p => ({ id:p.id, name:p.name, score:p.score, present:p.present })),
+      cards: G.cards.map(c => ({ n:c.n, topic:c.topic, used:c.used, star: c.twist !== 'plain', label: c.used ? (c.twist === 'plain' ? '' : c.twist.toUpperCase()) : '' })),
+      left: G.cards.filter(c => !c.used).length };
+    if(G.cur) v.cur = { n: G.cur.n, topic: G.cur.topic, twist: G.cur.twist };
+    if(G.phase === 'question' && G.q){
+      v.q = { kind: G.q.kind, prompt: G.q.prompt, options: G.q.options, need: G.q.need, letters: G.q.letters,
+              left: Math.max(0, Math.round((G.ends - Date.now()) / 1000)), answered: Object.keys(G.answers) };
+    }
+    if(G.phase === 'reveal'){
+      v.reveal = { answer: G.q.kind === 'group' ? G.q.answer.join(', ') : G.q.answer, right: G.results.map(r => ({ id:r.id, pay:r.pay, place:r.place })),
+                   wrong: Object.keys(G.answers).filter(id => !G.answers[id].right) };
+    }
+    if(G.phase === 'table' || G.phase === 'end') v.table = G.table;
+    if(G.phase === 'choose') v.choose = { kind: G.choose.kind, who: G.choose.who, targets: G.choose.targets, rows: ranking() };
+    if(G.phase === 'gift'){
+      const counts = {}; Object.keys(G.gift.votes).forEach(k => { counts[G.gift.votes[k]] = (counts[G.gift.votes[k]] || 0) + 1; });
+      v.gift = { who: G.gift.who, targets: G.gift.targets, counts, voted: Object.keys(G.gift.votes), rows: ranking() };
+    }
+    return v;
+  }
+  function push(){
+    if(!host) return;
+    const s = JSON.stringify({ t:'view', v: viewFor() });
+    players.forEach(p => { if(p.present) host.nope(p.id, s); });
+  }
+
+  function hostSetup(){
+    $('room-slot').appendChild(document.createTextNode('starting a room… '));
+    const room = BenchKit.room({
+      mount: $('room-slot'),
+      board: 'flip-party.html',
+      joinPath: '/playground/flip-party.html',
+      relay: RELAY || (/(^|\.)github\.io$/i.test(location.hostname) ? 'https://engishism-buzzer.onrender.com' : undefined),
+      on: {
+        ready(h){
+          host = h;
+          /* The chip BenchKit appended now carries the code; the placeholder text goes. */
+          const slot = $('room-slot'); Array.from(slot.childNodes).forEach(n => { if(n.nodeType === 3) n.remove(); });
+          host.arm('', { mode:'answer', rethink:true, secs:0 });
+          /* The host plays too: its own phone joins its own room as an ordinary player. */
+          joinAs(h.code, myName || 'Host');
+        },
+        players(list){
+          (list || []).forEach(p => {
+            let me = byId(p.id);
+            if(!me){ me = { id:p.id, name:p.name, score:0, present:true, lastQ:{} }; players.push(me); }
+            me.name = p.name;
+          });
+          const here = new Set((list || []).map(p => p.id));
+          players.forEach(p => { p.present = here.has(p.id); });
+          push();
+        },
+        response(d){
+          const v = d && d.latest; if(!v) return;
+          let m = null; try{ m = JSON.parse(v.value || ''); }catch(e){ return; }
+          if(!m || !m.t) return;
+          const p = byId(v.id); if(!p) return;
+          if(m.q != null){ if(m.q <= (p.lastQ[m.t] || 0)) return; p.lastQ[m.t] = m.q; }
+          if(m.t === 'pick'){ if(G && G.phase === 'pick' && v.id === turnId()) openCard(Number(m.n)); }
+          else if(m.t === 'ans') onAnswer(v.id, m);
+          else if(m.t === 'choose') applyChoice(v.id, m.who);
+          else if(m.t === 'vote') onVote(v.id, m.who);
+          else if(m.t === 'next'){ if(G && G.phase === 'table') proceed(); }
+          else if(m.t === 'start'){ if(v.id === myId) deal(m.unit); }
+        },
+        status(st){ if(st === 'off') $('room-slot').textContent = 'no relay — this page needs the hosted copy'; }
+      }
+    });
+    /* Autopilot's window onto the host: the open question's right reply. */
+    window.HubEnv = {
+      roundSolution(){ return (G && G.phase === 'question') ? solutionOf(G.q) : null; },
+      teams(){ return players.filter(p => p.present).map(p => ({ name:p.name, score:p.score })); },
+      state(){ return G; }
+    };
+    if(!room) return;
+    ticker = setInterval(() => { if(G && G.phase === 'question') push(); }, 1000);
+  }
+
+  /* ================= the player: draw what you are sent, send taps ================= */
+  function joinAs(code, name){
+    const old = SIM ? {} : seatGet();
+    myId = (SIM && SIM.id) || ((old.code === code && old.id) ? old.id : ('fp' + Date.now().toString(36) + Math.floor(Math.random() * 1e4)));
+    myName = name;
+    seatKeep({ id: myId, name, code });
+    client = HubBuzzer.player({ relay: RELAY, code, name, id: myId });
+    $('me-name').textContent = name;
+    $('joinbar').classList.add('hide');
+    if(!isHost) $('room-slot').textContent = 'room ' + code;
+    client.on('nope', d => {
+      let m = null; try{ m = JSON.parse((d && d.word) || ''); }catch(e){ return; }
+      if(m && m.t === 'view'){ view = m.v; render(); }
+    });
+    client.on('kicked', () => { $('room-slot').textContent = 'removed from the room'; client = null; });
+  }
+
+  let shownAt = 0, lastQKey = '', myPicks = [], myLetters = [], answered = false, autoLetters = null;
+  function render(){
+    const v = view; if(!v) return;
+    const me = (v.players || []).find(p => p.id === myId) || {};
+    $('me-score').textContent = String(me.score || 0);
+    ['lobby','board','question','table'].forEach(id => $(id).classList.add('hide'));
+    if(v.phase === 'lobby') return renderLobby(v);
+    if(v.phase === 'pick') return renderBoard(v);
+    if(v.phase === 'question' || v.phase === 'reveal') return renderQuestion(v);
+    if(v.phase === 'table' || v.phase === 'end') return renderTable(v);
+    if(v.phase === 'choose') return renderChoose(v);
+    if(v.phase === 'gift') return renderGift(v);
+  }
+  function renderLobby(v){
+    const box = $('lobby'); box.classList.remove('hide');
+    const names = (v.players || []).map(p => '<span class="' + (p.present ? '' : 'gone') + '"></span>');
+    box.innerHTML = '';
+    const say = document.createElement('div'); say.className = 'say';
+    say.textContent = isHost ? 'Your room' : 'Waiting for the host to start…';
+    box.appendChild(say);
+    if(isHost && host){
+      const code = document.createElement('div'); code.className = 'code'; code.textContent = host.code; box.appendChild(code);
+      const qr = document.createElement('div'); qr.className = 'qr';
+      try{ const q = window.qrcode(0, 'M'); q.addData(location.origin + '/playground/flip-party.html?code=' + host.code); q.make(); qr.innerHTML = q.createSvgTag({ cellSize:6, margin:0, scalable:true }); }catch(e){}
+      box.appendChild(qr);
+      const hint = document.createElement('div'); hint.className = 'hint'; hint.textContent = 'Scan, or open flip-party.html and type the code.'; box.appendChild(hint);
+    }
+    const list = document.createElement('div'); list.className = 'list';
+    (v.players || []).forEach(p => { const s = document.createElement('span'); s.textContent = p.name; if(!p.present) s.className = 'gone'; list.appendChild(s); });
+    box.appendChild(list);
+    if(isHost){
+      const sel = document.createElement('select'); sel.id = 'unit';
+      (v.units || []).forEach(u => { const o = document.createElement('option'); o.value = u.id; o.textContent = u.label; sel.appendChild(o); });
+      box.appendChild(sel);
+      const go = document.createElement('button'); go.className = 'big'; go.id = 'start'; go.textContent = 'Deal the board';
+      go.disabled = !(v.players || []).some(p => p.present);
+      go.addEventListener('click', () => deal(sel.value));
+      box.appendChild(go);
+    }
+  }
+  function renderBoard(v){
+    $('board').classList.remove('hide');
+    const mine = v.turn === myId;
+    const who = (v.players.find(p => p.id === v.turn) || {}).name || '…';
+    $('turn-say').textContent = mine ? 'Your pick — tap a card' : who + ' is picking · ' + v.left + ' left';
+    const g = $('grid'); g.innerHTML = '';
+    v.cards.forEach(c => {
+      const t = document.createElement('div');
+      t.className = 'tile' + (c.used ? ' used' : (mine ? '' : ' off')) + (c.star && !c.used ? ' star' : '');
+      t.style.setProperty('--fhue', hue(c.n - 1));
+      if(c.used) t.textContent = c.label || '·';
+      else { t.innerHTML = '<span class="n"></span><span class="t"></span>'; t.querySelector('.n').textContent = c.n; t.querySelector('.t').textContent = c.topic; }
+      if(mine && !c.used) t.addEventListener('click', () => send({ t:'pick', n:c.n }));
+      g.appendChild(t);
+    });
+  }
+  function renderQuestion(v){
+    $('question').classList.remove('hide');
+    const q = v.q, key = v.cur ? 'q' + v.cur.n : '';
+    $('q-topic').textContent = (v.cur && v.cur.topic) || '';
+    $('q-tw').classList.toggle('hide', !(v.cur && v.cur.twist !== 'plain'));
+    $('q-tw').textContent = v.cur && v.cur.twist !== 'plain' ? v.cur.twist.toUpperCase() : '';
+    if(key !== lastQKey){ lastQKey = key; shownAt = performance.now(); myPicks = []; myLetters = []; answered = false;
+                          $('q-verdict').classList.add('hide'); $('q-sent').classList.add('hide'); }
+    if(v.phase === 'reveal'){
+      $('q-clock').textContent = '';
+      const mine = v.reveal.right.find(r => r.id === myId);
+      const vd = $('q-verdict'); vd.classList.remove('hide');
+      vd.className = 'verdict ' + (mine ? 'ok' : 'no');
+      vd.textContent = mine ? ('Right — ' + (mine.place === 1 ? 'quickest!' : 'place ' + mine.place) + ' · +' + mine.pay) : ('The answer: ' + v.reveal.answer);
+      $('opts').innerHTML = ''; $('letters').classList.add('hide'); $('slots').classList.add('hide');
+      $('q-prompt').textContent = q ? q.prompt : ($('q-prompt').textContent);
+      return;
+    }
+    $('q-clock').textContent = q.left + 's';
+    $('q-prompt').textContent = q.prompt;
+    if(answered || (q.answered || []).indexOf(myId) !== -1){ $('q-sent').classList.remove('hide'); $('q-sent').textContent = 'Answer sent — waiting for the others'; $('opts').innerHTML = ''; $('letters').classList.add('hide'); $('slots').classList.add('hide'); return; }
+    if(q.kind === 'choice' || q.kind === 'group'){
+      $('letters').classList.add('hide'); $('slots').classList.add('hide');
+      const box = $('opts'); box.className = q.kind === 'group' ? 'words' : ''; box.innerHTML = '';
+      q.options.forEach((o, i) => {
+        const t = document.createElement('div'); t.className = 'tile' + (myPicks.indexOf(o) !== -1 ? ' picked' : ''); t.textContent = o;
+        t.style.setProperty('--fhue', hue(i));
+        t.addEventListener('click', () => {
+          if(q.kind === 'choice') return commit(o);
+          const k = myPicks.indexOf(o); if(k !== -1) myPicks.splice(k, 1); else if(myPicks.length < q.need) myPicks.push(o);
+          if(myPicks.length === q.need) commit(myPicks.join('|')); else renderQuestion(view);
+        });
+        box.appendChild(t);
+      });
+      if(q.kind === 'group') { const h = document.createElement('div'); h.className = 'hint'; h.textContent = 'Tap the ' + q.need + ' that belong together'; box.appendChild(h); }
+    } else {
+      $('opts').innerHTML = '';
+      const slots = $('slots'), lets = $('letters'); slots.classList.remove('hide'); lets.classList.remove('hide');
+      slots.innerHTML = ''; lets.innerHTML = '';
+      q.letters.forEach((ch, i) => {
+        const s = document.createElement('div'); s.className = 'slot' + (myLetters[i] != null ? ' full' : ''); s.textContent = myLetters[i] != null ? q.letters[myLetters[i]] : '';
+        s.style.setProperty('--fhue', hue(i));
+        s.addEventListener('click', () => { if(myLetters.length){ myLetters.pop(); renderQuestion(view); } });
+        slots.appendChild(s);
+      });
+      q.letters.forEach((ch, i) => {
+        const t = document.createElement('div'); t.className = 'tile' + (myLetters.indexOf(i) !== -1 ? ' off' : ''); t.textContent = ch;
+        t.style.setProperty('--fhue', hue(i));
+        t.addEventListener('click', () => { if(myLetters.indexOf(i) !== -1) return; myLetters.push(i);
+          if(myLetters.length === q.letters.length) commit(myLetters.map(k => q.letters[k]).join('|')); else renderQuestion(view); });
+        lets.appendChild(t);
+      });
+    }
+  }
+  function commit(v){
+    if(answered) return;
+    answered = true;
+    send({ t:'ans', v, ms: Math.round(performance.now() - shownAt) });
+    renderQuestion(view);
+  }
+  function rowsInto(box, rows, opts){
+    box.innerHTML = '';
+    rows.forEach(r => {
+      const el = document.createElement('div');
+      const idx = (view.players || []).findIndex(p => p.id === r.id);
+      el.className = 'row' + (r.id === myId ? ' me' : '') + (opts.live && opts.live.indexOf(r.id) !== -1 ? ' live' : (opts.live ? ' off' : '')) + (opts.lead === r.id ? ' lead' : '');
+      el.style.setProperty('--fhue', hue(idx));
+      const c = (cls, t) => { const s = document.createElement('span'); s.className = cls; s.textContent = t; el.appendChild(s); };
+      c('pl', String(r.place)); c('nm', r.name); c('pt', String(r.pts));
+      c('gn', opts.tail ? (opts.tail(r) || '') : (r.gain > 0 ? '+' + r.gain : r.gain < 0 ? '−' + (-r.gain) : ''));
+      if(opts.live && opts.live.indexOf(r.id) !== -1 && opts.onPick) el.addEventListener('click', () => opts.onPick(r.id));
+      box.appendChild(el);
+    });
+  }
+  function renderTable(v){
+    $('table').classList.remove('hide');
+    $('t-eyebrow').textContent = v.table.eyebrow || '';
+    $('t-say').textContent = v.table.say || '';
+    rowsInto($('rows'), v.table.rows, { lead: null });
+    $('t-next').classList.toggle('hide', !v.table.canNext);
+    $('t-next').textContent = 'Next'; $('t-next').onclick = () => send({ t:'next' });
+    $('t-hint').textContent = v.phase === 'end' ? (isHost ? '' : 'Thanks for playing') : 'Moving on in a moment…';
+    if(v.phase === 'end' && isHost){ $('t-next').classList.remove('hide'); $('t-next').textContent = 'Play again'; $('t-next').onclick = () => deal(G && G.unit); }
+  }
+  function renderChoose(v){
+    $('table').classList.remove('hide');
+    const who = (v.players.find(p => p.id === v.choose.who) || {}).name;
+    const mine = v.choose.who === myId;
+    $('t-eyebrow').textContent = v.choose.kind.toUpperCase();
+    $('t-say').textContent = mine ? (v.choose.kind === 'swap' ? 'Swap scores — with whom?' : 'Steal — from whom?') : who + ' is choosing…';
+    rowsInto($('rows'), v.choose.rows, { live: v.choose.targets, onPick: mine ? (id => send({ t:'choose', who:id })) : null,
+                                         tail: r => v.choose.targets.indexOf(r.id) === -1 ? (r.id === v.choose.who ? 'that is you' : 'below ' + who) : '' });
+    $('t-next').classList.add('hide'); $('t-hint').textContent = '';
+  }
+  function renderGift(v){
+    $('table').classList.remove('hide');
+    const who = (v.players.find(p => p.id === v.gift.who) || {}).name;
+    const voted = v.gift.voted.indexOf(myId) !== -1;
+    const live = v.gift.targets.filter(id => id !== myId);
+    $('t-eyebrow').textContent = 'GIFT';
+    $('t-say').textContent = voted ? 'Vote sent — waiting for the others' : 'Who should get the gift?';
+    rowsInto($('rows'), v.gift.rows, { live: voted ? [] : live, onPick: voted ? null : (id => send({ t:'vote', who:id })),
+                                       tail: r => v.gift.targets.indexOf(r.id) !== -1 ? ((v.gift.counts[r.id] || 0) ? v.gift.counts[r.id] + (v.gift.counts[r.id] === 1 ? ' vote' : ' votes') : '') : (r.id === v.gift.who ? 'the winner' : 'ahead of ' + who) });
+    $('t-next').classList.add('hide'); $('t-hint').textContent = '';
+  }
+
+  /* ---- a simulated handset can be driven (the Room bench's Autopilot) ---- */
+  if(SIM){
+    window.HubPhoneSim = {
+      state(){
+        const v = view; if(!v) return null;
+        const idx = (v.players || []).findIndex(p => p.id === myId);
+        if(v.phase === 'pick') return { roundId: 'pick:' + v.left, mode: v.turn === myId ? 'vote' : 'watch', answered:false, team: idx, multi:1, options: v.cards.filter(c => !c.used).map(c => String(c.n)) };
+        if(v.phase === 'question'){ const q = v.q; const done = answered || (q.answered || []).indexOf(myId) !== -1;
+          return { roundId: 'q' + (v.cur ? v.cur.n : ''), mode: q.kind === 'anagram' ? 'arrange' : 'vote', answered: done, team: idx, multi: q.kind === 'group' ? q.need : 1, options: q.kind === 'anagram' ? [] : q.options }; }
+        if(v.phase === 'choose') return { roundId: 'choose:' + (v.cur ? v.cur.n : ''), mode: v.choose.who === myId ? 'vote' : 'watch', answered:false, team: idx, multi:1, options: v.choose.targets.slice() };
+        if(v.phase === 'gift') return { roundId: 'gift:' + (v.cur ? v.cur.n : ''), mode:'vote', answered: v.gift.voted.indexOf(myId) !== -1, team: idx, multi:1, options: v.gift.targets.filter(id => id !== myId) };
+        if(v.phase === 'table') return { roundId: 'table:' + Date.now(), mode:'watch', answered:true, team: idx, multi:1, options: [] };
+        return null;
+      },
+      answer(val){
+        const v = view; if(!v) return false;
+        if(v.phase === 'pick' && v.turn === myId){ send({ t:'pick', n: Number(val) }); return true; }
+        if(v.phase === 'question'){ if(answered) return false; commit(String(val)); return true; }
+        if(v.phase === 'choose' && v.choose.who === myId){ send({ t:'choose', who: String(val) }); return true; }
+        if(v.phase === 'gift'){ send({ t:'vote', who: String(val) }); return true; }
+        return false;
+      }
+    };
+  }
+
+  /* ================= boot ================= */
+  if(isHost){
+    myName = (seatGet().name) || 'Host';
+    hostSetup();
+    render();
+  } else if(SIM){
+    joinAs(codeParam, SIM.name || 'Phone');
+  } else {
+    const old = seatGet();
+    if(old.code === codeParam && old.name){ joinAs(codeParam, old.name); }
+    else {
+      $('joinbar').classList.remove('hide');
+      $('join-go').addEventListener('click', () => { const n = $('join-name').value.trim().slice(0, 16); if(n) joinAs(codeParam, n); });
+    }
+  }
+})();
+</script>
+</body>
+</html>
