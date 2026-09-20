@@ -143,6 +143,7 @@
         <option value="row">Row (one line)</option>
         <option value="grid">Grid (cols × rows)</option>
         <option value="sentence">Sentence (flowed words)</option>
+        <option value="plinko">Plinko (chip, pegs, bins)</option>
       </select>
     </div>
     <div class="word" id="grid-dims" style="display:none;">
@@ -192,11 +193,11 @@
        physics rounds (anagram flick, ordering stack) call. Throw Lab is its first caller — the workshop where the
        feel gets tuned. matter.min.js and hub-table.js live in game-hub/ beside the
        other shelves; hub-kit.js is the object Kit.table hangs off. -->
-  <script src="../game-hub/hub-qr.js?v=20260920n"></script>
-  <script src="../game-hub/matter.min.js?v=20260920n"></script>
-  <script src="../game-hub/hub-kit.js?v=20260920n"></script>
-  <script src="../game-hub/hub-brand.js?v=20260920n"></script>
-  <script src="../game-hub/hub-table.js?v=20260920n"></script>
+  <script src="../game-hub/hub-qr.js?v=20260920o"></script>
+  <script src="../game-hub/matter.min.js?v=20260920o"></script>
+  <script src="../game-hub/hub-kit.js?v=20260920o"></script>
+  <script src="../game-hub/hub-brand.js?v=20260920o"></script>
+  <script src="../game-hub/hub-table.js?v=20260920o"></script>
   <script>
   (function(){
     'use strict';
@@ -219,10 +220,16 @@
     let mode = 'letters';
     let gridMode = false;                  // Layout picker: a cols×rows grid vs a row
     let sentenceMode = false;              // Layout picker: cols:'auto' word tiles that flow like text (scramble's Drag the Words)
+    let plinkoMode = false;                // Layout picker: the Plinko field — a chip on a ledge, pegs, worth-labelled bins (the Plinko drop round)
     let target = '';                       // letters mode: the word to spell
     let targetOrder = [];                  // words mode: the scale, top-to-bottom
 
     function setStatus(res){
+      if(plinkoMode){                      // a drop has no answer: the bin is the result, and the looks are what is being tuned
+        status.textContent = res && res.bin != null ? 'Landed in ' + res.label + ' — New word drops another chip.' : 'Pull the chip off the ledge and let go. The Plinko dials in Tune are what you are watching.';
+        status.style.color = '';
+        return;
+      }
       if(gridMode){                        // a grid is a layout to feel, not a puzzle
         status.textContent = 'Flick the tiles into the grid — a layout to design and feel, no answer to check.';
         status.style.color = '';
@@ -245,8 +252,10 @@
     let parked = false;
     const world = K.table({
       canvas,
+      /* a chip coming to rest in a bin — the Plinko layout's only "answer" */
+      onRest(r){ if(plinkoMode){ const i = world.binOf(r.x); setStatus({ bin: i, label: PLINKO_BINS[i] }); } },
       onArrange(read, done){               // the table reports the arrangement; the caller judges
-        if(parked) return;
+        if(parked || plinkoMode) return;
         let res = null;
         if(done && !gridMode){             // a grid has no answer — it is a layout to feel
           const ok = (mode === 'words' || sentenceMode)   // a sentence is judged by word order, like a scale
@@ -294,9 +303,18 @@
         .split(/[,\s]+/).map(s => s.trim()).filter(Boolean).slice(0, 14);
       return raw.length >= 2 ? raw : 'I had my bike stolen outside the station'.split(' ');
     }
+    const PLINKO_BINS = ['0', '1', '3', '5', '3', '1', '0'];   // the round's default bins, the same worths
     function newWord(){
       world.reset();
-      if(sentenceMode){
+      if(plinkoMode){
+        /* exactly what the Plinko round deals: the field, the bins, one chip on the
+           ledge — so the dials are tuned against what a class meets */
+        world.slots(0); world.setPieces([]);
+        world.pegs({ rows: 6, shelf: true }); world.bins(PLINKO_BINS);
+        const at = world.ledge();
+        world.addPiece('●', { x: at.x, y: at.y, vx: 0, vy: 0, round: true });
+        target = ''; targetOrder = [];
+      } else if(sentenceMode){
         targetOrder = sentenceWords();
         target = '';
         /* cols:'auto' + bar + labels → the shelf sizes each slot and tile to its
@@ -470,6 +488,7 @@
     function applyLayout(){
       gridMode = layoutIn.value === 'grid';
       sentenceMode = layoutIn.value === 'sentence';
+      plinkoMode = layoutIn.value === 'plinko';
       gridDims.style.display = gridMode ? '' : 'none';
       // switching to Sentence: seed a demo sentence if the field holds a single
       // word or a comma-scale, so the layout deals something sentence-shaped

@@ -166,6 +166,19 @@
        `ringLife` how long it takes to get there. A knock rings bigger, in the
        accent colour. */
     { k:'ring',        label:'Impact ring', min:0,   max:1,    step:0.05,  def:0.6,  fmt:v => v.toFixed(2),        group:'Hits' },
+    /* ---- Plinko: the chip, the pegs it strikes, the bin it lands in ----
+       Draw-only, every one, and each stamped from the engine's own events: a
+       chip–peg contact (collisionStart, the same stamp the tile hits use, so the
+       sparks and ring above fire here too), and the chip coming to rest in a bin
+       (tickRests). 0 = off. Tuned on Throw Lab's Plinko layout. */
+    { k:'chipGlow',    label:'Chip glow',   min:0,   max:1,    step:0.05,  def:0.8,  fmt:v => v.toFixed(2),        group:'Plinko' },  // a breathing halo behind the chip, flaring on a hit
+    { k:'trail',       label:'Chip trail',  min:0,   max:1,    step:0.05,  def:0.7,  fmt:v => v.toFixed(2),        group:'Plinko' },  // a comet tail of fading dots behind a moving chip
+    { k:'pegFlash',    label:'Peg flash',   min:0,   max:1,    step:0.05,  def:0.85, fmt:v => v.toFixed(2),        group:'Plinko' },  // a struck peg lights white and blooms out
+    { k:'pegField',    label:'Peg field',   min:0,   max:1,    step:0.05,  def:0.5,  fmt:v => v.toFixed(2),        group:'Plinko' },  // pegs near the chip glow in its colour, by distance
+    { k:'bolt',        label:'Lightning',   min:0,   max:1,    step:0.05,  def:0.75, fmt:v => v.toFixed(2),        group:'Plinko' },  // jagged arcs from a struck peg to its neighbours
+    { k:'binGlow',     label:'Bin colours', min:0,   max:1,    step:0.05,  def:0.55, fmt:v => v.toFixed(2),        group:'Plinko' },  // each bin its own hue; the one under the chip lit
+    { k:'binBurst',    label:'Landing burst',min:0,  max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2), group:'Plinko' },  // the fountain, ring, label pop and flash when the chip lands
+
     { k:'ringSize',    label:'Ring size',   min:0.5, max:3,    step:0.1,   def:1.6,  fmt:v => '×' + v.toFixed(1), group:'Hits' },
     { k:'ringLife',    label:'Ring life',   min:100, max:800,  step:20,    def:260,  fmt:v => v + 'ms',            group:'Hits' },
   ];
@@ -173,6 +186,15 @@
   /* A colour with its alpha replaced — hex (#rgb, #rrggbb) or rgb()/rgba(); anything
      else is handed back as is. The halo sprite's gradient needs the theme colour
      fading to transparent, and a theme hands it over as either shape. */
+  /* `col` pulled `k` (0..1) of the way toward `to` — both hex; anything else
+     comes back as `to` at k>0.5 and `col` otherwise, never a broken string. */
+  function mixToward(col, to, k){
+    const hex = c => { const m = String(c || '').trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i); if(!m) return null; let h = m[1]; if(h.length === 3) h = h.split('').map(x => x + x).join(''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); };
+    const a = hex(col), b = hex(to);
+    if(!a || !b) return k > 0.5 ? to : col;
+    const u = Math.max(0, Math.min(1, k));
+    return '#' + a.map((v, i) => Math.round(v + (b[i] - v) * u).toString(16).padStart(2, '0')).join('');
+  }
   function withAlpha(col, a){
     const c = String(col || '').trim();
     let m = c.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
@@ -274,6 +296,10 @@
     let pieces = [];       // { body, ch, hue, slot, dock, pinned }
     /* the Plinko fixtures — declared as fractions, rebuilt at the table's size */
     let pegSpec = null, pegBodies = [], binLabels = null, binBodies = [];
+    const pegSet = new Set();      // the peg bodies, so a contact can tell a peg from a wall
+    let pegHits = [];              // {body, t, s, hue, cx, cy}: struck pegs, for the flash and the bolts
+    let landed = null;             // {t, x, y, bin, hue, worth}: the chip's rest in a bin, for the burst
+    let landBurst = null;          // the landing fountain's particles
     let slots = [];        // { x, y, w, h, piece }
     /* A deal asked for before the canvas has a size — the hub's clue card renders
        its round while the modal is still display:none, so every board-face round
@@ -534,6 +560,7 @@
     const chipD = () => feel.size * CHIP;
     function buildPegs(){
       if(pegBodies.length){ Composite.remove(engine.world, pegBodies); pegBodies = []; }
+      pegSet.clear(); pegHits = [];
       if(!pegSpec || !cssW || !cssH) return;
       const d = chipD();
       const pitch = Math.max(2 * d, 24);
@@ -547,8 +574,14 @@
       const ledgeY = y0 + cssH * SHELF_Y + d * 0.5 + 3;
       const top = ledgeY + d * 2.2, bottom = cssH * (1 - BIN_H) - d;
       const band = Math.max(0, bottom - top);
+      /* rows: the caller's count is a minimum. A tall phone spread six rows over
+         the whole band and the field read as sparse, so rows are added until the
+         spacing is about a pitch (never closer than 0.87 of one, the chip's room),
+         and a short card gets as many as fit. */
       const want = Math.max(2, Math.min(12, Number(pegSpec.rows) || 6));
-      const rows = Math.max(1, Math.min(want, Math.floor(band / (0.87 * pitch)) + 1));
+      const fit = Math.floor(band / (0.87 * pitch)) + 1;
+      const fill = Math.floor(band / (1.15 * pitch)) + 1;
+      const rows = Math.max(1, Math.min(fit, Math.max(want, fill)));
       const gapY = rows > 1 ? band / (rows - 1) : 0;
       const r = Math.max(3, Math.round(d * 0.22));
       const o = { isStatic: true, restitution: 0.5, friction: 0.05 };
@@ -563,6 +596,7 @@
       if(pegSpec.shelf){
         pegBodies.push(Bodies.rectangle(cssW / 2, ledgeY, d * 1.6, 6, { isStatic: true, friction: 0.9, restitution: 0 }));
       }
+      for(const b of pegBodies) if(b.circleRadius) pegSet.add(b);
       Composite.add(engine.world, pegBodies);
     }
     function buildBins(){
@@ -806,6 +840,30 @@
       for(const pair of ev.pairs){
         const a = pieceOf(pair.bodyA), b = pieceOf(pair.bodyB);
         if(a && b) stampHit(a, b, pair);   // the looks: sparks and squash hang off this
+        /* A chip striking a peg is a hit too — the same stamp, so the Hits dials
+           (sparks, ring, squash) fire in Plinko as they do for tile on tile — and
+           the peg itself is stamped for the flash and the bolts. */
+        const peg = pegSet.has(pair.bodyA) ? pair.bodyA : pegSet.has(pair.bodyB) ? pair.bodyB : null;
+        const chip = peg ? (a || b) : null;
+        if(peg && chip && chip.round){
+          const v = chip.body.velocity, sp = Math.hypot(v.x, v.y);
+          if(sp >= HIT_MIN){
+            const t = now(), sv = strengthOf(sp);
+            const col = pair.collision || {};
+            const sup = col.supports && col.supports[0];
+            const cx = sup ? sup.x : (chip.body.position.x + peg.position.x) / 2;
+            const cy = sup ? sup.y : (chip.body.position.y + peg.position.y) / 2;
+            const nx = col.normal ? col.normal.x : 0, ny = col.normal ? col.normal.y : -1;
+            const away = pegSet.has(pair.bodyA) ? 1 : -1;
+            hits.push({ x: cx, y: cy, t, v: sp, s: sv, nx, ny, knock: false, mx: v.x, my: v.y, ax: nx * away, ay: ny * away });
+            if(hits.length > 8) hits.shift();
+            hitCount++; lastHit = { v: sp, s: sv };
+            chip.hitAt = t; chip.hitV = sp; chip.hitS = sv; chip.hitNx = nx; chip.hitNy = ny;
+            pegHits.push({ body: peg, t, s: sv, hue: chip.hue, cx, cy });
+            if(pegHits.length > 24) pegHits.shift();
+          }
+          continue;
+        }
         const shot = (a && a.shot) ? a : (b && b.shot) ? b : null;
         if(!shot) continue;
         if(now() - shot.shot > SHOT_MS){ shot.shot = 0; continue; }
@@ -1324,7 +1382,19 @@
        per fling; a fresh grab re-arms it. Slotted, docked and static pieces never
        fire — they are the arrange rounds' business, reported through onArrange. */
     function tickRests(){
-      if(!opts.onRest) return;
+      /* A chip in the bin band is damped hard: between two walls a lively chip
+         rolls wall to wall for seconds, and the landing (the round's answer, the
+         burst) waits on it coming to rest. A bin with a felt floor. */
+      if(binLabels){
+        const floor = cssH * (1 - BIN_H);
+        for(const p of pieces){
+          if(!p.round || p.body.isStatic || p.body.position.y < floor) continue;
+          const v = p.body.velocity;
+          Body.setVelocity(p.body, { x: v.x * 0.86, y: v.y * 0.92 });
+          Body.setAngularVelocity(p.body, p.body.angularVelocity * 0.8);
+        }
+      }
+      if(!opts.onRest && !binLabels) return;
       const held = heldBodies();
       for(const p of pieces){
         if(p.slot != null || p.dock || p.body.isStatic) continue;
@@ -1333,9 +1403,25 @@
         if(sp > 1.5){ p.flung = true; p.rested = false; p.stillN = 0; continue; }
         if(!p.flung || p.rested) continue;
         p.stillN = sp < 0.08 ? (p.stillN || 0) + 1 : 0;
+        /* A chip balanced on a peg is not at rest in any bin: a real chip cannot
+           sit on a pin, so it gets a nudge sideways and falls on. Only a rest in
+           the bin band counts as a landing — for the round's answer and the burst. */
+        if(binLabels && p.round && p.body.position.y < cssH * (1 - BIN_H)){
+          if(p.stillN >= 10){ Body.setVelocity(p.body, { x: (Math.random() < 0.5 ? -1 : 1) * (0.8 + Math.random()), y: -0.4 }); p.stillN = 0; }
+          continue;
+        }
         if(p.stillN >= 25){
           p.rested = true;
-          opts.onRest({ ch: p.ch, x: p.body.position.x, y: p.body.position.y,
+          /* the landing: the bin it is in, its worth read off the label (a number;
+             a word counts as worth something), the chip's own colour */
+          if(binLabels && p.round){
+            const bin = binOf(p.body.position.x);
+            const n = Number(binLabels[bin]);
+            landed = { t: now(), x: p.body.position.x, y: p.body.position.y, bin, hue: p.hue,
+                       worth: Number.isFinite(n) ? n : 1, top: Number.isFinite(n) && n >= Math.max(...binLabels.map(Number).filter(Number.isFinite)) };
+            landBurst = null;
+          }
+          if(opts.onRest) opts.onRest({ ch: p.ch, x: p.body.position.x, y: p.body.position.y,
                         ny: cssH ? p.body.position.y / cssH : 0, nx: cssW ? p.body.position.x / cssW : 0 });
         }
       }
@@ -1436,20 +1522,91 @@
          with their labels on the floor — all behind the chip. */
       if(pegBodies.length || binBodies.length || binLabels){
         ctx.save();
-        ctx.fillStyle = palette.line;
-        for(const b of pegBodies){
-          if(b.circleRadius){ ctx.beginPath(); ctx.arc(b.position.x, b.position.y, b.circleRadius, 0, Math.PI * 2); ctx.fill(); }
-          else { const w = b.bounds.max.x - b.bounds.min.x, h = b.bounds.max.y - b.bounds.min.y; ctx.fillRect(b.bounds.min.x, b.bounds.min.y, w, h); }
-        }
+        const chip = pieces.find(p => p.round && !p.body.isStatic) || null;
+        const chipX = chip ? chip.body.position.x : null, chipY = chip ? chip.body.position.y : null;
+        const chipHue = chip ? chip.hue : palette.accent;
+        /* The bins: each its own hue from the palette, a faint floor of colour, the
+           one under the falling chip lit brighter — the aim, read at a glance. */
         if(binLabels){
           const n = binLabels.length, w = cssW / n, h = cssH * BIN_H;
+          const under = (feel.binGlow > 0 && chip && !chip.rested) ? binOf(chipX) : -1;
+          if(feel.binGlow > 0){
+            for(let i = 0; i < n; i++){
+              const hue = HUES[i % HUES.length];
+              const lit = i === under;
+              ctx.globalAlpha = feel.binGlow * (lit ? 0.42 : 0.14);
+              ctx.fillStyle = hue;
+              ctx.fillRect(i * w + 1, cssH - h, w - 2, h);
+              if(lit){   // a soft top edge glow on the lit bin
+                const g = ctx.createLinearGradient(0, cssH - h - h * 0.5, 0, cssH - h);
+                g.addColorStop(0, withAlpha(hue, 0)); g.addColorStop(1, withAlpha(hue, 0.5));
+                ctx.fillStyle = g; ctx.fillRect(i * w + 1, cssH - h - h * 0.5, w - 2, h * 0.5);
+              }
+            }
+            ctx.globalAlpha = 1;
+          }
+          /* the landing wash: the bin fills with the chip's colour and fades */
+          if(landed && feel.binBurst > 0 && t - landed.t < 900){
+            const f = (t - landed.t) / 900;
+            ctx.globalAlpha = (1 - f) * 0.55;
+            ctx.fillStyle = landed.hue;
+            ctx.fillRect(landed.bin * w + 1, cssH - h, w - 2, h);
+            ctx.globalAlpha = 1;
+          }
           ctx.strokeStyle = palette.line; ctx.lineWidth = 2;
           ctx.beginPath(); ctx.moveTo(0, cssH - h); ctx.lineTo(cssW, cssH - h); ctx.stroke();
           for(let i = 1; i < n; i++){ ctx.beginPath(); ctx.moveTo(i * w, cssH - h); ctx.lineTo(i * w, cssH); ctx.stroke(); }
-          ctx.fillStyle = palette.ink === '#101318' ? palette.line : palette.ink;
-          ctx.font = '700 ' + Math.max(11, Math.round(Math.min(w * 0.5, h * 0.5))) + 'px "Space Grotesk", sans-serif';
+          const fs = Math.max(11, Math.round(Math.min(w * 0.5, h * 0.5)));
           ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          binLabels.forEach((lb, i) => ctx.fillText(lb, (i + 0.5) * w, cssH - h * 0.5));
+          binLabels.forEach((lb, i) => {
+            const lit = i === under || (landed && landed.bin === i && t - landed.t < 900);
+            ctx.fillStyle = lit ? '#ffffff' : (palette.ink === '#101318' ? palette.line : palette.ink);
+            /* the landed-in label pops: big, then settling, in white */
+            let sc = 1;
+            if(landed && landed.bin === i && feel.binBurst > 0){
+              const u = (t - landed.t) / 500;
+              if(u < 1) sc = 1 + 0.9 * Math.sin(Math.PI * Math.min(1, u)) * (1 - u * 0.5);
+            }
+            ctx.save(); ctx.translate((i + 0.5) * w, cssH - h * 0.5); ctx.scale(sc, sc);
+            ctx.font = '700 ' + fs + 'px "Space Grotesk", sans-serif';
+            ctx.fillText(lb, 0, 0);
+            ctx.restore();
+          });
+        }
+        /* The pegs: plain dots, each glowing in the chip's colour by how near the
+           chip is (the field), a struck one flaring white and blooming out (the
+           flash). Halos are cached sprites — never a blur per peg per frame. */
+        const d = chipD();
+        const fieldR = d * 2.6;
+        for(const b of pegBodies){
+          if(!b.circleRadius){ const w = b.bounds.max.x - b.bounds.min.x, h = b.bounds.max.y - b.bounds.min.y; ctx.fillStyle = palette.line; ctx.fillRect(b.bounds.min.x, b.bounds.min.y, w, h); continue; }
+          const r = b.circleRadius;
+          let near = 0;
+          if(feel.pegField > 0 && chip && !chip.rested){
+            const dist = Math.hypot(b.position.x - chipX, b.position.y - chipY);
+            near = Math.max(0, 1 - dist / fieldR);
+          }
+          if(near > 0){
+            const sp = haloFor(chipHue, r * 5, r * 5);
+            ctx.globalAlpha = feel.pegField * near * near;
+            ctx.drawImage(sp, b.position.x - sp.width / 2, b.position.y - sp.height / 2);
+            ctx.globalAlpha = 1;
+          }
+          ctx.fillStyle = near > 0 ? mixToward(palette.line, chipHue, near) : palette.line;
+          ctx.beginPath(); ctx.arc(b.position.x, b.position.y, r, 0, Math.PI * 2); ctx.fill();
+        }
+        if(feel.pegFlash > 0 && pegHits.length){
+          for(const ph of pegHits){
+            const age = t - ph.t, life = 380 + 220 * ph.s;
+            if(age > life) continue;
+            const f = age / life, b = ph.body, r = b.circleRadius;
+            const bloom = haloFor('#ffffff', r * (6 + 6 * ph.s) * (0.4 + 0.6 * f), r * (6 + 6 * ph.s) * (0.4 + 0.6 * f));
+            ctx.globalAlpha = feel.pegFlash * (1 - f) * (0.5 + 0.5 * ph.s);
+            ctx.drawImage(bloom, b.position.x - bloom.width / 2, b.position.y - bloom.height / 2);
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = mixToward('#ffffff', ph.hue, f);   // white core cooling to the chip's colour
+            ctx.beginPath(); ctx.arc(b.position.x, b.position.y, r * (1.6 - 0.6 * f), 0, Math.PI * 2); ctx.fill();
+          }
         }
         ctx.restore();
       }
@@ -1496,6 +1653,43 @@
           ctx.drawImage(sp, s.x - sp.width/2, s.y - sp.height/2);
         });
         ctx.restore();
+      }
+      /* The chip: a comet tail of its last positions, fading and shrinking, and a
+         breathing halo in its own colour that flares white for a beat after a
+         peg hit. Both behind the chip so the chip stays crisp. */
+      for(const p of pieces){
+        if(!p.round) continue;
+        const px = p.body.position.x, py = p.body.position.y, cr = p.body.circleRadius || tile / 2;
+        const moving = Math.hypot(p.body.velocity.x, p.body.velocity.y) > 0.6;
+        if(feel.trail > 0){
+          if(!p.trail) p.trail = [];
+          if(moving){ p.trail.push({ x: px, y: py, t }); if(p.trail.length > 16) p.trail.shift(); }
+          else if(p.trail.length && t - p.trail[p.trail.length - 1].t > 260) p.trail.length = 0;
+          ctx.save();
+          ctx.fillStyle = p.hue;
+          for(let i = 0; i < p.trail.length; i++){
+            const q = p.trail[i], age = t - q.t;
+            if(age > 320) continue;
+            const f = 1 - age / 320;
+            ctx.globalAlpha = feel.trail * f * 0.55;
+            ctx.beginPath(); ctx.arc(q.x, q.y, cr * (0.25 + 0.6 * f), 0, Math.PI * 2); ctx.fill();
+          }
+          ctx.restore();
+        }
+        if(feel.chipGlow > 0){
+          const breath = 0.7 + 0.3 * Math.sin(t / 140);
+          const flare = p.hitAt ? Math.max(0, 1 - (t - p.hitAt) / 220) : 0;
+          const sp = haloFor(p.hue, cr * 3.2, cr * 3.2);
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, feel.chipGlow * breath * (0.7 + 0.3 * (moving ? 1 : 0)));
+          ctx.drawImage(sp, px - sp.width / 2, py - sp.height / 2);
+          if(flare > 0){
+            const wf = haloFor('#ffffff', cr * 4.5, cr * 4.5);
+            ctx.globalAlpha = feel.chipGlow * flare * 0.9;
+            ctx.drawImage(wf, px - wf.width / 2, py - wf.height / 2);
+          }
+          ctx.restore();
+        }
       }
       /* the tray lips, drawn faintly — a tile bouncing off an invisible wall
          at the bottom corner would read as a glitch; a visible rim reads as
@@ -1657,6 +1851,86 @@
         ctx.restore();
         if(!live) rings = null;
       }
+      /* Lightning: from each freshly struck peg, jagged arcs to its two nearest
+         pegs and back toward the chip, re-jagged every frame so they crackle, a
+         wide faint stroke under a thin white one (a glow with no blur). Gone in
+         a sixth of a second. */
+      if(feel.bolt > 0 && pegHits.length){
+        ctx.save();
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        for(const ph of pegHits){
+          const age = t - ph.t, life = 150 + 100 * ph.s;
+          if(age > life) continue;
+          const f = age / life, b = ph.body;
+          const from = b.position;
+          const targets = [];
+          let best = [];
+          for(const o of pegBodies){
+            if(o === b || !o.circleRadius) continue;
+            const dd = Math.hypot(o.position.x - from.x, o.position.y - from.y);
+            best.push([dd, o]);
+          }
+          best.sort((u, v) => u[0] - v[0]);
+          for(let i = 0; i < Math.min(2 + Math.round(ph.s * 2), best.length); i++) targets.push(best[i][1].position);
+          targets.push({ x: ph.cx + (Math.random() - 0.5) * 30, y: ph.cy - 20 - Math.random() * 30 });
+          const flick = 0.55 + 0.45 * Math.random();
+          for(const to of targets){
+            const segs = 5 + Math.round(ph.s * 3);
+            const pts = [from];
+            for(let i = 1; i < segs; i++){
+              const u = i / segs;
+              const mx = from.x + (to.x - from.x) * u, my = from.y + (to.y - from.y) * u;
+              const nx = -(to.y - from.y), ny = (to.x - from.x), nl = Math.hypot(nx, ny) || 1;
+              const j = (Math.random() - 0.5) * 14 * (1 - Math.abs(u - 0.5) * 1.2);
+              pts.push({ x: mx + nx / nl * j, y: my + ny / nl * j });
+            }
+            pts.push(to);
+            const a = Math.min(1, feel.bolt * (1 - f) * flick * (0.7 + 0.6 * ph.s));
+            ctx.globalAlpha = a * 0.5; ctx.strokeStyle = ph.hue; ctx.lineWidth = 9;
+            ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for(let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke();
+            ctx.globalAlpha = a; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.2;
+            ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for(let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke();
+          }
+        }
+        ctx.restore();
+        /* drain the stamps once every effect on them has aged out */
+        if(!pegHits.some(ph => t - ph.t < 700)) pegHits = [];
+      }
+      /* The landing: a fountain of dots in the chip's colour and the accent from
+         the bin, a ring, and — for the top bin — a white flash across the table.
+         A bin worth nothing gets a grey puff instead: it still lands, quietly. */
+      if(landed && feel.binBurst > 0){
+        const age = t - landed.t;
+        if(age < 1100){
+          if(!landBurst){
+            landBurst = [];
+            const n = Math.round(feel.binBurst * (landed.worth > 0 ? (18 + (landed.top ? 22 : 0)) : 8));
+            for(let k = 0; k < n; k++){
+              const ang = -Math.PI / 2 + (Math.random() - 0.5) * (landed.worth > 0 ? 1.4 : 2.2);
+              const sp = (landed.worth > 0 ? 3 + Math.random() * 4 : 1 + Math.random() * 1.5);
+              landBurst.push({ x: landed.x + (Math.random() - 0.5) * 12, y: landed.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+                               r: 1.5 + Math.random() * 2.5,
+                               col: landed.worth > 0 ? (k % 3 === 0 ? palette.accent : (k % 3 === 1 ? '#ffffff' : landed.hue)) : palette.line });
+            }
+            if(!rings) rings = [];
+            rings.push({ x: landed.x, y: landed.y, born: landed.t, life: 520, a0: landed.worth > 0 ? 0.9 : 0.3,
+                         r0: tile * 0.2, r1: tile * (landed.top ? 3.2 : 1.8), col: landed.worth > 0 ? landed.hue : palette.line });
+          }
+          const k = dt / 16.7, fade = 1 - age / 1100;
+          ctx.save();
+          for(const q of landBurst){
+            q.x += q.vx * k; q.y += q.vy * k; q.vy += 0.14 * k;
+            ctx.globalAlpha = Math.max(0, fade);
+            ctx.fillStyle = q.col;
+            ctx.beginPath(); ctx.arc(q.x, q.y, q.r * (0.4 + 0.6 * fade), 0, Math.PI * 2); ctx.fill();
+          }
+          if(landed.top && age < 260){   // the jackpot flash: the whole table, white, gone in a quarter second
+            ctx.globalAlpha = Math.min(1, feel.binBurst) * 0.35 * (1 - age / 260);
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, cssW, cssH);
+          }
+          ctx.restore();
+        } else { landBurst = null; }
+      }
       /* The word burst: a handful of dots from the finished word's slots, gold
          and green, under a little paint-space gravity, gone inside a second.
          Spawned on the first frame after the word completed, dropped when they
@@ -1708,7 +1982,7 @@
     }
 
     return {
-      reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; pegs(null); bins(null); pendingDeal = null; given.clear(); clearResult(); wordAt = 0; particles = null; hits.length = 0; sparks = null; rings = null; },
+      reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; pegs(null); bins(null); pendingDeal = null; given.clear(); clearResult(); wordAt = 0; particles = null; hits.length = 0; sparks = null; rings = null; pegHits = []; landed = null; landBurst = null; },
       setPieces, addPiece, slots: makeSlots, place, give, openSides, pegs, bins, binOf, ledge,
       read, cells, filled, setResult,
       /* the loose pieces (not slotted), letter + colour + height + velocity +
@@ -1738,6 +2012,7 @@
                    sparks: sparks ? sparks.length : 0, rings: rings ? rings.length : 0, hits: hitCount,
                    lastHit, ringMax: rings ? Math.max(0, ...rings.map(q => q.r1)) : 0,
                    squashed: pieces.filter(p => p.hitAt && now() - p.hitAt < 140).length,
+                   pegHits: pegHits.length, binLanded: landed ? Object.assign({}, landed) : null, landBurst: landBurst ? landBurst.length : 0,
                    held: grips.size }),
       /* a loose tile's mass — the suite pins that it is the same on every
          screen size, because the drag spring is tuned against it */
