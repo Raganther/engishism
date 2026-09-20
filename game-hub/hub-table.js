@@ -31,6 +31,11 @@
    onExit({ch,hue,side,vx,vy,ny}) fires when a free piece leaves through an
    open side — the throw dynamic's exit door; see openSides.
    onArrange(read, filled) fires whenever a piece docks or is pulled out.
+   line (0..1) paints a target line across the table at that share of its
+   height — the flick-to-the-line round's target; onRest({ch, x, y, ny}) fires
+   once when a piece that was FLUNG (released moving, not placed) comes to rest,
+   with ny its centre as a share of the table's height — the skill rounds'
+   measurement, taken by the shelf so every caller reads the same one.
    setResult('right'|'wrong'|null) tints filled slots — judging stays the
    caller's; the table only paints the tint it is handed.
    ========================================================================== */
@@ -1235,7 +1240,29 @@
       if(upright()) settleUpright();
       tickDocks();
       tickExits();
+      tickRests();
       if(t - lastSweep > 250){ lastSweep = t; sweepResters(); }
+    }
+    /* **A flung piece coming to rest is an event.** A piece counts as flung once it
+       moves fast while nobody holds it (a release at speed, never a placed tile),
+       and rested once it has been near-still for ~25 updates after that. Fired once
+       per fling; a fresh grab re-arms it. Slotted, docked and static pieces never
+       fire — they are the arrange rounds' business, reported through onArrange. */
+    function tickRests(){
+      if(!opts.onRest) return;
+      const held = heldBodies();
+      for(const p of pieces){
+        if(p.slot != null || p.dock || p.body.isStatic) continue;
+        if(held.has(p.body)){ p.flung = false; p.rested = false; p.stillN = 0; continue; }
+        const sp = Math.hypot(p.body.velocity.x, p.body.velocity.y);
+        if(sp > 1.5){ p.flung = true; p.rested = false; p.stillN = 0; continue; }
+        if(!p.flung || p.rested) continue;
+        p.stillN = sp < 0.08 ? (p.stillN || 0) + 1 : 0;
+        if(p.stillN >= 25){
+          p.rested = true;
+          opts.onRest({ ch: p.ch, x: p.body.position.x, y: p.body.position.y, ny: cssH ? p.body.position.y / cssH : 0 });
+        }
+      }
     }
     /* Settle a wide tile flat once it stops flying, without ever forcing a lean
        flat. Runs only for an upright() world, on loose tiles that have slowed to
@@ -1329,6 +1356,19 @@
       if(feel.surface){ ctx.fillStyle = feel.surface; ctx.fillRect(0, 0, cssW, cssH); }
       const resOf = i => resultMap.get(i) || result;
       const judgedAt = i => resultMap.has(i) ? (resultAt.get(i) || 0) : resultAt0;
+      /* The target line, behind everything: a band across the table at the declared
+         share of its height, the far side washed so "past it" reads at a glance. */
+      if(opts.line > 0 && opts.line < 1){
+        const ly = Math.round(cssH * opts.line);
+        ctx.save();
+        ctx.fillStyle = palette.bad; ctx.globalAlpha = 0.10;
+        ctx.fillRect(0, 0, cssW, ly);
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = palette.gold || palette.lineHot; ctx.lineWidth = 3;
+        ctx.setLineDash([10, 8]);
+        ctx.beginPath(); ctx.moveTo(0, ly); ctx.lineTo(cssW, ly); ctx.stroke();
+        ctx.restore();
+      }
       slots.forEach((s, i) => {       // answer slots, behind the pieces; filled slots glow by result
         const res = resOf(i);
         const r = Math.round(Math.min(s.w, s.h)*0.16);

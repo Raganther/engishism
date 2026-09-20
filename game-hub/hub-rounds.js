@@ -364,6 +364,12 @@
            seconds shown beside a place are then theirs, not the host's clock at the
            moment it judged them. */
         resRows[key] = { who: Number(who), id: o.id || null,
+                         /* `score` ranks a skill round: higher is better, and rows that
+                            carry one sort by it before any clock. `label` is how the
+                            round says the result ("12 short") — drawn where a question
+                            round's time would be. */
+                         score: Number.isFinite(Number(o.score)) ? Number(o.score) : null,
+                         label: o.label || null,
                          at: o.at == null ? LATE + (++resSeq) : o.at,
                          seconds: o.ms != null ? o.ms / 1000 : (resAt ? (Date.now() - resAt) / 1000 : 0),
                          /* the head start this competitor waited, in seconds — part of
@@ -373,6 +379,8 @@
                          fraction: clock.fraction(), done: !!o.done };
       } else if(o.done){
         resRows[key].done = true;      // the last rung of a climb, on an entry that stands
+        if(Number.isFinite(Number(o.score))) resRows[key].score = Number(o.score);
+        if(o.label) resRows[key].label = o.label;
       }
       return resRows[key];
     },
@@ -400,9 +408,18 @@
     place(who){ const r = results.of(who); return r ? r.place : Infinity; },
     /* Sorted by arrival, with `place` stamped on the way out — one definition of what
        first means, rather than four callers each sorting and two of them disagreeing. */
+    /* Ordered by result where the round measured one (a skill round: closest,
+       highest, furthest), and by arrival otherwise — the two never mix in one
+       question, but a row with a score outranks one without so a stray stamp
+       cannot come first. */
     list(){
       return Object.keys(resRows).map(k => resRows[k])
-        .sort((a, b) => a.at - b.at)
+        .sort((a, b) => {
+          const sa = a.score != null, sb = b.score != null;
+          if(sa && sb && a.score !== b.score) return b.score - a.score;
+          if(sa !== sb) return sa ? -1 : 1;
+          return a.at - b.at;
+        })
         .map((r, i) => Object.assign({ place: i + 1 }, r));
     },
     /* Only the ones that finished. What a scoring rule pays — the rest are the
@@ -470,7 +487,7 @@
   const fmtMs = sec => (Math.round(sec * 1000) / 1000).toFixed(3) + 's';
   /* A held phone's time reads as the phone shows it, plus the head start the ranking
      added back: "1.239s +2.0" — the same two numbers on the handset and the card. */
-  const fmtTime = r => r.hold > 0 ? fmtMs(r.seconds - r.hold) + ' +' + r.hold.toFixed(1) : fmtMs(r.seconds);
+  const fmtTime = r => r.label ? r.label : (r.hold > 0 ? fmtMs(r.seconds - r.hold) + ' +' + r.hold.toFixed(1) : fmtMs(r.seconds));
   function placeBadge(team){
     const r = results.finished().filter(f => f.who === Number(team))[0];
     if(!r) return null;
@@ -479,7 +496,7 @@
     b.dataset.place = r.place;
     b.dataset.final = results.closed() ? '1' : '0';
     b.textContent = ordinal(r.place);
-    if(r.seconds > 0){
+    if(r.seconds > 0 || r.label){
       const t = document.createElement('span');
       t.className = 'rl-ms';
       t.textContent = fmtTime(r);
@@ -532,7 +549,7 @@
         const b = document.createElement('small');
         b.className = 'rl-place'; b.dataset.place = f.place; b.dataset.final = results.closed() ? '1' : '0';
         b.textContent = ordinal(f.place);
-        if(f.seconds > 0){ const t = document.createElement('span'); t.className = 'rl-ms'; t.textContent = fmtTime(f); b.appendChild(t); }
+        if(f.seconds > 0 || f.label){ const t = document.createElement('span'); t.className = 'rl-ms'; t.textContent = fmtTime(f); b.appendChild(t); }
         line.appendChild(b);
         /* The finisher's name in their own colour, so a crowded room reads the same
            way the lanes do — find your colour, find yourself. */
@@ -1392,6 +1409,7 @@
            a finish stamps the placement the lanes draw the badge from. */
         const finished = v.r.done !== false || !!state.done;
         results.note(v.team, { at: at(v.team), ms: fx.ms ? fx.ms(v.team) : null, hold: fx.hold ? fx.hold(v.team) : 0,
+                               score: v.r.score, label: v.r.label,
                                done: finished, id: (ctx.ids || [])[v.team] });
         if(fx.right) fx.right(v.team, v.r, finished, v.set);
         if(!finished) again = true;

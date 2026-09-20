@@ -141,7 +141,10 @@ function getRoom(code, create){
              Null/false means the plain row every table round before it got.
              Carried unread, exactly like `mode`: the relay never draws a slot,
              only the handset does. */
-          cols:null, rows:null, bar:false, upright:false };
+          cols:null, rows:null, bar:false, upright:false,
+          /* `line`: a skill round's target, a share of the table's height. Carried
+             unread, like every shape field. */
+          line:null };
     rooms.set(code, r);
   }
   return r;
@@ -284,7 +287,7 @@ function openStream(req, res, q){
     mode:room.mode, prompt:promptFor(room, id), note:room.note,
     options:optionsFor(room, team), done:doneFor(room, team), turnTeam:room.team,
     cols:room.cols, rows:room.rows, bar:room.bar, upright:room.upright, tap:room.tap, bare:room.bare, count:room.count,
-    ends:room.ends,
+    ends:room.ends, line:room.line,
     hold: holdFor(room, team),
     spent:[...room.spent],
     rethink: room.rethink, secs: secsLeft(room), multi: capFor(room, team),
@@ -428,6 +431,7 @@ function handleSend(req, res){
            everything else on the arm: what committing means is the host's. */
         room.send    = !!msg.send;
         room.secs    = Math.max(0, Math.min(900, Number(msg.secs) || 0));
+        room.line    = (Number(msg.line) > 0 && Number(msg.line) < 1) ? Number(msg.line) : null;
         room.armedAt = Date.now();
         /* `hold`: a wait in milliseconds per team index before that team's phones
            show the question — a head start for whoever is behind. Carried unread,
@@ -549,7 +553,7 @@ function handleSend(req, res){
                                    note: room.note,
                                    mode: room.mode, options: optionsFor(room, p.team),
                                    cols: room.cols, rows: room.rows, bar: room.bar, upright: room.upright, tap: room.tap, bare: room.bare, count: room.count,
-                                   ends: room.ends,
+                                   ends: room.ends, line: room.line,
                                    hold: holdFor(room, p.team),
                                    done: doneFor(room, p.team),
                                    /* `turnTeam`, not `team`: the join payload already

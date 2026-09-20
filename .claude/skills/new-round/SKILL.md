@@ -83,7 +83,11 @@ ladders there are rather than who has to agree, and a host wanting one of those 
 it explicitly in `modeDefaults`.
 
 **A round must never contain scoring, turns, timers, the board, or a tile.** Those
-belong to the host. Jeopardy pays a tile and passes a turn when the round says a
+belong to the host. **A skill round (no question — a flick, a drop, a stack) hands
+back a result instead**: `judge` returns `{verdict:'right', done:true, score, label}`,
+higher score better, and `Kit.round.results` ranks by it before any clock and draws the
+label where a time would be. The measurement comes from the shelf (`Kit.table`'s
+`onRest`, its `line`), never from the round's own physics; `rounds/line.js` is the model. Jeopardy pays a tile and passes a turn when the round says a
 team has it; the bench pays nothing at all. A round holding one of them can only
 ever live in one game, which defeats the entire point.
 
@@ -156,7 +160,8 @@ Two companions:
   For single-pick replies use `Kit.round.poll` as ever.
 
 **Declare an `editor` and the workshop builds itself.** `{labelA, labelB,
-build(text, a, b, prev), read(item)}` on your round, beside `sample` — the bench
+build(text, a, b, prev), read(item)}` on your round, beside `sample` — `read` hands
+back `{q, a, b}` (the bench's own field names, and `text` is silently an empty box) — the bench
 asks the registry, and the starting values are `read(sample)`, so the sample
 lives once. `labelB:null` gives two fields instead of three. If your item holds
 something the three fields cannot express (ordering's per-word glosses), carry it
