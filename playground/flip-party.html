@@ -61,8 +61,13 @@
               font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:0.62rem; letter-spacing:0.1em; }
 
   /* ---- the grid ---- */
-  #grid{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
-  #grid .tile{ position:relative; flex-direction:column; gap:1px; aspect-ratio:1; padding:2px; line-height:1; }
+  /* `minmax(0,1fr)`, not `1fr`: a 1fr track will not shrink below its content's
+     min-content width, and a nowrap topic ("SCIENCE & THE BODY") made every column as
+     wide as its longest topic — five of them ran past a phone's right edge and the
+     fifth column was never on screen. Zero minimum lets the tile clip the topic
+     instead. The count is the board's (`--cols`), so a 9- or 16-card board is square too. */
+  #grid{ display:grid; grid-template-columns:repeat(var(--cols,5), minmax(0,1fr)); gap:6px; }
+  #grid .tile{ position:relative; flex-direction:column; gap:1px; aspect-ratio:1; padding:2px; line-height:1; min-width:0; }
   #grid .n{ font-size:1.35rem; }
   #grid .t{ font-family:"IBM Plex Mono",monospace; font-size:0.42rem; letter-spacing:0.03em; text-transform:uppercase;
             color:rgba(0,0,0,0.6); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 2px; }
@@ -482,6 +487,7 @@
     if(!G) return { phase:'lobby', players: players.map(p => ({ id:p.id, name:p.name, present:p.present })), units: unitList().map(u => ({ id:u.id, label:u.label })) };
     const v = { phase: G.phase, over: G.over, turn: turnId(),
       players: players.map(p => ({ id:p.id, name:p.name, score:p.score, present:p.present })),
+      cols: G.cols,
       cards: G.cards.map(c => ({ n:c.n, topic:c.topic, used:c.used, star: c.twist !== 'plain', label: c.used ? (c.twist === 'plain' ? '' : c.twist.toUpperCase()) : '' })),
       left: G.cards.filter(c => !c.used).length };
     if(G.cur) v.cur = { n: G.cur.n, topic: G.cur.topic, twist: G.cur.twist };
@@ -669,6 +675,7 @@
     const who = (v.players.find(p => p.id === v.turn) || {}).name || '…';
     $('turn-say').textContent = mine ? 'Your pick — tap a card' : who + ' is picking · ' + v.left + ' left';
     const g = $('grid'); g.innerHTML = '';
+    g.style.setProperty('--cols', v.cols || Math.round(Math.sqrt(v.cards.length)) || 5);
     v.cards.forEach(c => {
       const t = document.createElement('div');
       t.className = 'tile' + (c.used ? ' used' : (mine ? '' : ' off')) + (c.star && !c.used ? ' star' : '');
