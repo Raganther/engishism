@@ -398,6 +398,16 @@
     if(Number(S.raw('flipTwists')) === 40) S.set('flipTwists', 60);
     try{ localStorage.setItem(MARK, '1'); }catch(e){}
   })();
+  /* The head start shipped on at 2s and is off now: a device still on that seeded
+     value moves to 0 once; a value the teacher set to anything else is theirs. */
+  (function migrateFlipHeadStart(){
+    const MARK = 'engishism.flipHeadStart0';
+    let done = false;
+    try{ done = localStorage.getItem(MARK) === '1'; }catch(e){}
+    if(done) return;
+    if(Number(S.raw('flipHeadStart')) === 2) S.set('flipHeadStart', 0);
+    try{ localStorage.setItem(MARK, '1'); }catch(e){}
+  })();
 
   /* **Settings flattened to one value each: drop the per-game overrides.** The panel and
      every read used to fork by game (`id@game`, and `id@game!solo` for a solo room). The

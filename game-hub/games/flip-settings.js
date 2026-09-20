@@ -91,10 +91,14 @@ window.registerFlipSettings = function(S){
     min:1, max:5, step:0.1, unit:'×', games:['flip'],
     label:'Behind earns more',
     help:'What last place earns for a right answer, as a multiple of what the leader earns for the same card. Everyone in between is on a slope by the gap. 1 turns it off.' });
-  S.register({ id:'flipHeadStart', group:'Flip', type:'range', default:2, quick:true,
+  /* Off by default: with the clocks visible on every phone and every pill, the wait
+     read as the board and the phones disagreeing, and the slider is the fairer place
+     for that decision than a default. A device seeded with 2 is migrated once in
+     hub-engine.js (`migrateFlipHeadStart`). */
+  S.register({ id:'flipHeadStart', group:'Flip', type:'range', default:0, quick:true,
     min:0, max:5, step:0.5, unit:'s', games:['flip'],
     label:'Head start for whoever is behind',
-    help:'With phones in the room, the leader\'s handset shows the question this many seconds after last place\'s; everyone between is on a slope by the gap. Their stopwatch is charged the wait, so the head start is real. Nothing happens without phones.' });
+    help:'With phones in the room, the leader\'s handset shows the question this many seconds after last place\'s; everyone between is on a slope by the gap. Their stopwatch is charged the wait, so the head start is real — and the wait shows beside their time on the phone and the card. 0 is off. Nothing happens without phones.' });
 
   /* A twist that aims at the leader by rule, not by a chooser: whoever beats their
      time takes a bite of the lead. Everyone below has a target; the leader feels it. */
