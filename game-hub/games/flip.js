@@ -48,6 +48,10 @@
   'use strict';
   const K = window.HubKit;
   const S = window.HubSettings;
+  /* The comeback arithmetic — steal, swap, gift, bounty, the box and the deal — is the
+     shelf's (`hub-twist.js`), shared with Flip Party. This file keeps the board, the
+     chooser, the phones and the beats; the shelf hands back moves and a sentence. */
+  const T = window.HubTwist;
   /* Resolved at call time: the engine loads after this file, so `HubEnv` does not
      exist at parse. */
   const E = () => window.HubEnv;
@@ -96,62 +100,19 @@
      no spread (all level, or one competitor) is 0 for everybody. */
   /* Is anybody actually ahead of anybody — the room has a spread. With everyone level
      there is no leader to wait, and no head start to give. */
-  function spread(){
-    const ts = E().teams();
-    return ts.length > 1 && Math.max.apply(null, ts.map(x => x.score)) > Math.min.apply(null, ts.map(x => x.score));
-  }
-  function behind(t){
-    const ts = E().teams();
-    if(!ts[t] || ts.length < 2) return 0;
-    const scores = ts.map(x => x.score);
-    const lead = Math.max.apply(null, scores), low = Math.min.apply(null, scores);
-    if(lead === low) return 0;
-    return (lead - ts[t].score) / (lead - low);
-  }
+  const scores = () => E().teams().map(x => x.score);
+  const names  = () => E().teams().map((x, i) => E().teamName(i));
+  const spread = () => T.spread(scores());
+  const behind = t => T.behind(scores(), t);
   /* What THIS competitor earns for the card: the base, scaled up by how far behind
-     they are. The leader always earns the face value; last place earns it times the
-     catch-up multiple. Rounded to the board's unit. */
-  function cardWorthFor(t){
-    const f = 1 + (catchUp() - 1) * behind(t);
-    return Math.max(10, Math.round(cardWorth() * f / 10) * 10);
-  }
+     they are — the shelf's catch-up worth, rounded to the board's unit. */
+  const cardWorthFor = t => T.worth(cardWorth(), scores(), t, { catchUp: catchUp(), step: 10 });
 
-  /* ---- the five faces of a card ----
+  /* ---- the faces of a card, and what a box can hold: the shelf's tables ----
      `target` is the only thing the board has to branch on: a twist that needs somebody
      chosen stops the game for one beat and asks. Everything else is arithmetic. */
-  const TW = {
-    plain:  { label:'', topline:'',        target:null,
-              note:'' },
-    double: { label:'DOUBLE', topline:'DOUBLE', target:null,
-              note:'This card is worth double.' },
-    steal:  { label:'STEAL',  topline:'STEAL',  target:'above',
-              note:'Win it and take a bite out of somebody ahead of you.' },
-    gift:   { label:'GIFT',   topline:'GIFT',   target:'below',
-              note:'Win it and the class votes who else gets the same points.' },
-    swap:   { label:'SWAP',   topline:'SWAP',   target:'above',
-              note:'Win it and trade scores with anyone ahead of you.' },
-    /* Aimed by rule at the leader, never by a chooser: no target to pick, an effect
-       after the question for everyone who beat the leader's time. */
-    bounty: { label:'BOUNTY', topline:'BOUNTY', target:null,
-              note:'Finish ahead of the leader and take a bite out of their lead.' },
-    /* **Loaded boxes.** Win it and open one of three closed boxes: a prize or a
-       forfeit. The bag the contents are drawn from is loaded by the winner's PLACE —
-       last place's boxes are mostly prizes, the leader's mostly forfeits — so help
-       still comes from being behind, nobody is named, and the pick is a real gamble. */
-    box:    { label:'BOX', topline:'BOX', target:'box',
-              note:'Win it and open one of three boxes — a prize or a forfeit. The further behind you are, the better your odds.' }
-  };
-  /* What a box can hold. Each is one line of arithmetic or one held flag; `prize`
-     says which side of the bag it sits on. */
-  const BOX = {
-    double: { prize:true,  name:'Double',      blurb:'the card pays again' },
-    steal:  { prize:true,  name:'Steal',       blurb:'take a bite out of somebody ahead' },
-    shield: { prize:true,  name:'Shield',      blurb:'blocks the next steal, swap or bounty aimed at you' },
-    extra:  { prize:true,  name:'Pick again',  blurb:'you choose the next card too' },
-    tithe:  { prize:false, name:'Share',       blurb:'half this card goes to last place' },
-    skip:   { prize:false, name:'Lose a turn', blurb:'your next pick is skipped' },
-    zero:   { prize:false, name:'Empty',       blurb:'this card pays nothing after all' }
-  };
+  const TW  = T.kinds;
+  const BOX = T.BOX;
 
   const HOST = {
     game:'flip', stage:'play-flip',
@@ -365,7 +326,7 @@
     const n    = Math.min(fitBoard(pool.length), size());
     const cols = Math.round(Math.sqrt(n));
     cards = pool.slice(0, n).map((item, i) => ({ n:i + 1, item, twist:'plain', used:false, row: Math.floor(i / cols) }));
-    dealTwists(cards, cols);
+    dealTwists(cards);
     cur = null; pending = null; awaitingStandings = false; over = false; twistVote = null;
     shields = new Set(); skips = new Set(); nextPicker = null; boxes = null; paidNow = 0; revealing = false;
     const cardEl = document.getElementById('clue-card');
@@ -378,41 +339,11 @@
     flipTension();
   }
 
-  function dealTwists(list, cols){
-    const want = Math.round(list.length * (twistPct() / 100));
-    if(!want) return;
-    const rows = Math.ceil(list.length / cols);
-    /* Weighted sampling without replacement: a card in the last row is `rows`× as
-       likely as one in the first, squared so the tail really is the tail. */
-    const bag = list.map((c, i) => ({ i, w: Math.pow(c.row + 1, 2) }));
-    const slots = [];
-    while(slots.length < want && bag.length){
-      const total = bag.reduce((a, b) => a + b.w, 0);
-      let r = Math.random() * total, hit = 0;
-      for(; hit < bag.length; hit++){ r -= bag[hit].w; if(r <= 0) break; }
-      slots.push(bag.splice(Math.min(hit, bag.length - 1), 1)[0].i);
-    }
-    /* The order the kinds are handed out in matters on a small board: Steal is the
-       mechanic the game exists for, so it is dealt first and most. */
-    const kinds = [];
-    if(wantSwap()) kinds.push('swap');
-    kinds.push('gift');
-    if(wantBounty()) kinds.push('bounty');
-    /* Steal leads the cycle because it is the mechanic the game exists for; the Box,
-       when it is in, takes every third place after it. */
-    const cycle = wantBoxes() ? ['steal', 'double', 'box'] : ['steal', 'double'];
-    while(kinds.length < want) kinds.push(cycle[kinds.length % cycle.length]);
-    kinds.length = want;
-
-    /* Swap into the deepest slot there is, so the biggest reversal cannot come out
-       early. Everything else takes the slots as they were sampled. */
-    if(kinds[0] === 'swap' && slots.length){
-      const deepest = slots.reduce((a, b) => (list[b].row >= list[a].row ? b : a), slots[0]);
-      const at = slots.indexOf(deepest);
-      slots.splice(at, 1); slots.unshift(deepest);
-      if(rows > 1 && list[deepest].row === 0) kinds[0] = 'steal';   // nowhere deep to put it
-    }
-    slots.forEach((idx, k) => { list[idx].twist = kinds[k] || 'steal'; });
+  /* The shelf deals: weighted to the back rows, the Swap forced deepest, Steal leading
+     the cycle. This only says which switches are on and writes the kinds onto the cards. */
+  function dealTwists(list){
+    const kinds = T.deal(list.map(c => c.row), { pct: twistPct(), swap: wantSwap(), bounty: wantBounty(), boxes: wantBoxes() });
+    list.forEach((c, i) => { c.twist = kinds[i] || 'plain'; });
   }
 
   function renderGrid(cols){
@@ -562,32 +493,17 @@
       /* Nothing to do and it must SAY so: a Steal won by the player already in front
          is the leader discovering that the one card they wanted is the one card they
          cannot use, which is the mechanic working rather than a bug. */
-      flash(TW[p.twist].label + ' — ' + (TW[p.twist].target === 'above'
-              ? 'nobody is ahead of ' + E().teamName(p.team) + '. Nothing to take.'
-              : 'nobody is behind ' + E().teamName(p.team) + '.'));
+      flash(T.nothing(p.twist, p.team, names()));
       advance();
       return;
     }
     holding = p;
     showPicker(p, targets);
   }
-  /* Who a twist may be aimed at. **Upward only for a steal and a swap** — that single
-     constraint is what makes the mechanic a catch-up device rather than a way for the
-     strong to farm the weak, and it is why the leader can never steal. A gift points
-     the other way, at the people below. */
+  /* Who a twist may be aimed at — the shelf's rule: upward only for a steal and a
+     swap, downward for a gift, the next one up alone for a leapfrog swap. */
   function targetsFor(team, dir, twist){
-    const ts = E().teams();
-    const mine = ts[team] ? ts[team].score : 0;
-    const all = ts.map((t, i) => i)
-             .filter(i => i !== team && ts[i] &&
-                          (dir === 'above' ? ts[i].score > mine : ts[i].score < mine));
-    /* A swap that only reaches the person directly above is a leapfrog, one place at
-       a time — the cliff a class found disheartening was the swap with the leader. */
-    if(twist === 'swap' && swapScope() === 'next' && all.length > 1){
-      const nearest = all.reduce((a, b) => (ts[b].score < ts[a].score ? b : a), all[0]);
-      return [nearest];
-    }
-    return all;
+    return T.targets(scores(), team, twist, { swapNext: swapScope() === 'next' });
   }
 
   function picking(){ return !!holding; }
@@ -635,13 +551,8 @@
      **The bag is loaded by the winner's place**: a prize's chance runs from
      ½ − load/2 for the leader to ½ + load/2 for last place, everyone between on the
      slope. `load` 0 is a fair box for everybody; 1 is a near certainty either way. */
-  function drawBox(team){
-    const p = Math.max(0.05, Math.min(0.95, 0.5 + (behind(team) - 0.5) * boxLoad()));
-    const side = Object.keys(BOX).filter(k => BOX[k].prize === (Math.random() < p));
-    return side[Math.floor(Math.random() * side.length)];
-  }
   function showBoxes(p){
-    boxes = [drawBox(p.team), drawBox(p.team), drawBox(p.team)];
+    boxes = T.boxes(scores(), p.team, { load: boxLoad() });
     const say = document.getElementById('flip-pick-say');
     const box = document.getElementById('flip-pick');
     say.textContent = E().teamName(p.team) + ' opens a box — which one?';
@@ -704,43 +615,23 @@
     E().Sound.play(BOX[k].prize ? 'sting' : 'wrong');
     setTimeout(() => { revealing = false; hidePicker(); applyBox(team, k); }, 2400);
   }
-  /* The effect of a box, each a line. A Steal prize runs the ordinary steal chooser
-     after it, so a box can open into a second beat. */
+  /* The effect of a box is the shelf's; this applies the moves, keeps what the shelf
+     says to hold, and opens the steal chooser when a box chains into one. */
   function applyBox(team, k){
-    const ts = E().teams();
-    if(!ts[team] || over){ advance(); return; }
-    const name = E().teamName(team);
-    const step = 10;
-    if(k === 'steal'){ pending = { team, twist:'steal' }; runPending(); return; }
+    if(!E().teams()[team] || over){ advance(); return; }
+    const res = T.box(k, scores(), team, { paid: paidNow, worth: cardWorthFor(team), step: 10, names: names() });
+    if(res.chain === 'steal'){ pending = { team, twist:'steal' }; runPending(); return; }
+    if(res.hold === 'shield') shields.add(team);
+    if(res.hold === 'skip')   skips.add(team);
+    if(res.hold === 'extra')  nextPicker = team;
     E().standingsMark();
-    if(k === 'double'){
-      const more = cardWorthFor(team);
-      E().adjust(team, more, 'flip · box · double');
-      told('BOX · DOUBLE', name + '\'s card pays again: +' + more + '.', team);
-    } else if(k === 'shield'){
-      shields.add(team);
-      told('BOX · SHIELD', name + ' is shielded from the next steal, swap or bounty.', team);
-    } else if(k === 'extra'){
-      nextPicker = team;
-      told('BOX · PICK AGAIN', name + ' picks the next card too.', team);
-    } else if(k === 'tithe'){
-      const below = ts.map((t, i) => i).filter(i => i !== team && ts[i].score < ts[team].score);
-      if(!below.length){ told('BOX · SHARE', name + ' is already last — nothing to share.', team); }
-      else {
-        const last = below.reduce((a, b) => (ts[b].score < ts[a].score ? b : a), below[0]);
-        const move = Math.max(step, Math.round((paidNow / 2) / step) * step);
-        E().adjust(team, -move, 'flip · box · shared with ' + E().teamName(last));
-        E().adjust(last,  move, 'flip · box · share from ' + name);
-        told('BOX · SHARE', name + ' shares ' + move + ' with ' + E().teamName(last) + '.', last);
-      }
-    } else if(k === 'skip'){
-      skips.add(team);
-      told('BOX · LOSE A TURN', name + ' loses their next pick.', team);
-    } else if(k === 'zero'){
-      E().adjust(team, -paidNow, 'flip · box · empty');
-      told('BOX · EMPTY', 'Empty. ' + name + '\'s ' + paidNow + ' is gone.', team);
-    }
+    apply(res.moves);
+    told(res.eyebrow, res.said, res.who);
     advance();
+  }
+  /* Every move the shelf hands back lands through the one home for a signed score move. */
+  function apply(moves){
+    (moves || []).forEach(m => E().adjust(m.who, m.delta, 'flip · ' + m.why));
   }
   /* A shield answers a move aimed at its holder: the move fizzles, the shield is
      spent, and the board says so. One rule for a steal, a swap and a bounty. */
@@ -864,77 +755,39 @@
     return row ? Number(row.getAttribute('data-team')) : null;
   }
 
-  /* **The Bounty settles itself.** Everyone who finished the card ahead of the leader
-     — by the record, which is the phones' stopwatch order — takes a share of the gap
-     off the leader: the same half-the-closing-share arithmetic as a Steal, so the
-     leader is caught, never leapfrogged. The leader was fixed as the card opened. A
-     Bounty the leader wins is the leader defending their lead, which is the mechanic
-     working, and the board says so. */
+  /* The Bounty settles itself — the shelf's arithmetic over the record (the phones'
+     stopwatch order). A Bounty the leader wins is the leader defending their lead, and
+     the sentence says so. */
   function applyBounty(p){
-    const ts = E().teams();
-    const leader = p.leader;
-    if(leader == null || !ts[leader]){ flash('Bounty — nobody was clearly in front. Nothing to take.'); return; }
     const rows = (K.round && K.round.results) ? K.round.results.finished() : [];
-    const leaderRow = rows.filter(r => r.who === leader)[0];
-    const ahead = rows.filter(r => r.who !== leader && ts[r.who] &&
-                                   (!leaderRow || r.place < leaderRow.place));
-    if(!ahead.length){ flash(E().teamName(leader) + ' held the lead — nobody beat their time.'); return; }
-    if(shielded(leader)){ told('SHIELD', E().teamName(leader) + '\'s shield blocks the bounty. Nothing moves.', leader); return; }
-    const step = 10;
-    const taken = [];
+    const res = T.bounty(scores(), p.leader, rows.map(r => ({ who: r.who, place: r.place })),
+                         { share: share(), step: 10, names: names(), shielded });
+    if(!res.moves.length && !res.blocked){ flash(res.said); return; }
     E().standingsMark();
-    ahead.forEach(r => {
-      const gap = ts[leader].score - ts[r.who].score;
-      if(gap <= 0) return;
-      const move = Math.max(step, Math.round((gap * share() / 2) / step) * step);
-      E().adjust(leader, -move, 'flip · bounty claimed by ' + E().teamName(r.who));
-      E().adjust(r.who,   move, 'flip · bounty on ' + E().teamName(leader));
-      taken.push(E().teamName(r.who) + ' +' + move);
-    });
-    if(!taken.length){ flash('Bounty — nobody below ' + E().teamName(leader) + ' beat their time.'); return; }
-    E().Sound.play('sting');
-    told('BOUNTY', 'Bounty on ' + E().teamName(leader) + ': ' + taken.join(', ') + '.', ahead[0].who);
+    apply(res.moves);
+    E().Sound.play(res.blocked ? 'wrong' : 'sting');
+    told(res.eyebrow, res.said, res.who);
   }
 
-  /* **The arithmetic the whole board is for.** A steal moves half the closing amount
-     each way, so the gap shuts by `share` and the thief can never overtake on a steal
-     alone — being caught is a thing a class accepts, being leapfrogged by a card is
-     not. Rounded to the board's own unit so the scoreboard stays readable. */
+  /* The teacher confirmed a target: the shelf does the arithmetic (a steal moves half
+     the closing amount each way, so the thief never overtakes on a steal alone; a swap
+     trades; a gift pays the room's choice), this applies it and shows the beat. */
   function applyTwist(target){
     const p = holding;
     if(!p) return;
     hidePicker();
     const ts = E().teams();
     if(!ts[target] || !ts[p.team]){ advance(); return; }
-    const step = 10;
+    const o = { share: share(), worth: cardWorth(), step: 10, names: names(), shielded };
+    const res = p.twist === 'swap' ? T.swap(scores(), p.team, target, o)
+              : p.twist === 'gift' ? T.gift(scores(), p.team, target, o)
+              :                      T.steal(scores(), p.team, target, o);
     /* The move is its own beat on the leaderboard: baseline first, so the standings
        that follow show this move alone and shuffle from the places last shown. */
     E().standingsMark();
-    let said = '', who = p.team;
-    if(p.twist !== 'gift' && shielded(target)){
-      E().Sound.play('wrong');
-      told('SHIELD', E().teamName(target) + '\'s shield blocks the ' + p.twist + '. Nothing moves.', target);
-      advance();
-      return;
-    }
-    if(p.twist === 'swap'){
-      const a = ts[p.team].score, b = ts[target].score;
-      E().adjust(p.team, b - a, 'flip · swap with ' + E().teamName(target));
-      E().adjust(target, a - b, 'flip · swap with ' + E().teamName(p.team));
-      said = E().teamName(p.team) + ' and ' + E().teamName(target) + ' have swapped scores.';
-    } else if(p.twist === 'steal'){
-      const gap  = ts[target].score - ts[p.team].score;
-      const move = Math.max(step, Math.round((gap * share() / 2) / step) * step);
-      E().adjust(target, -move, 'flip · stolen by ' + E().teamName(p.team));
-      E().adjust(p.team,  move, 'flip · steal from ' + E().teamName(target));
-      said = E().teamName(p.team) + ' takes ' + move + ' off ' + E().teamName(target) + '.';
-    } else {
-      E().adjust(target, cardWorth(), 'flip · gift from ' + E().teamName(p.team));
-      said = E().teamName(target) + ' gets ' + cardWorth() + ' as well.';
-      who = target;
-    }
-    E().Sound.play('sting');
-    told(TW[p.twist].label, said, who);
+    apply(res.moves);
+    E().Sound.play(res.blocked ? 'wrong' : 'sting');
+    told(res.eyebrow, res.said, res.who);
     advance();
   }
 

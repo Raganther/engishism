@@ -58,6 +58,7 @@ function load(rel){
 }
 
 load('game-hub/hub-kit.js');
+load('game-hub/hub-twist.js');   // attaches itself as Kit.twist
 load('game-hub/hub-rounds.js');
 try {
   fs.readdirSync(path.join(ROOT, 'game-hub/rounds'))
@@ -101,7 +102,8 @@ function gameShelf(){
   if (!Kit) return [];
   return Object.keys(Kit).filter(k => k !== 'round')
     .map(k => typeof Kit[k] === 'function' ? signature('game-hub/hub-kit.js', k)
-                                           : k + ' · ' + Object.keys(Kit[k] || {}).join(', '));
+            : k === 'twist' ? k + ' (game-hub/hub-twist.js) · ' + Object.keys(Kit[k] || {}).join(', ')
+                            : k + ' · ' + Object.keys(Kit[k] || {}).join(', '));
 }
 
 /* The bench shelf is a browser file, so it is read rather than run: its exports

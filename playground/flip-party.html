@@ -172,14 +172,15 @@
 </main>
 
 <script>window.UNITS = window.UNITS || [];</script>
-<script src="../game-hub/hub-brand.js?v=20260919d"></script>
-<script src="../game-hub/hub-qr.js?v=20260919d"></script>
-<script src="../game-hub/hub-buzzer.js?v=20260919d"></script>
-<script src="phone-profiles.js?v=20260919d"></script>
-<script src="bench-kit.js?v=20260919d"></script>
-<script src="../game-hub/content/general-knowledge.js?v=20260919d"></script>
-<script src="../game-hub/content/general-knowledge-2.js?v=20260919d"></script>
-<script src="../game-hub/content/inventions.js?v=20260919d"></script>
+<script src="../game-hub/hub-brand.js?v=20260920a"></script>
+<script src="../game-hub/hub-twist.js?v=20260920a"></script>
+<script src="../game-hub/hub-qr.js?v=20260920a"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260920a"></script>
+<script src="phone-profiles.js?v=20260920a"></script>
+<script src="bench-kit.js?v=20260920a"></script>
+<script src="../game-hub/content/general-knowledge.js?v=20260920a"></script>
+<script src="../game-hub/content/general-knowledge-2.js?v=20260920a"></script>
+<script src="../game-hub/content/inventions.js?v=20260920a"></script>
 <script>
 (function(){
   'use strict';
@@ -197,16 +198,12 @@
     secs: 30, reveal: 4, standings: 6, gift: 12, swapNext: true,
     boxes: true, boxLoad: 0.7, boxOpen: 3
   };
-  /* What a Box can hold — Flip's own list. `prize` is which side of the bag. */
-  const BOX = {
-    double: { prize:true,  name:'Double',      blurb:'the card pays again' },
-    steal:  { prize:true,  name:'Steal',       blurb:'take a bite out of somebody ahead' },
-    shield: { prize:true,  name:'Shield',      blurb:'blocks the next steal, swap or bounty aimed at you' },
-    extra:  { prize:true,  name:'Pick again',  blurb:'you choose the next card too' },
-    tithe:  { prize:false, name:'Share',       blurb:'half this card goes to last place' },
-    skip:   { prize:false, name:'Lose a turn', blurb:'your next pick is skipped' },
-    zero:   { prize:false, name:'Empty',       blurb:'this card pays nothing after all' }
-  };
+  /* The twists are the shelf's (`game-hub/hub-twist.js`, shared with the hub's Flip):
+     the deal, who may be aimed at, the steal/swap/gift/bounty arithmetic, the box and
+     its bag. This page keys players by id, so `room()` maps to the shelf's index world
+     at the seam and `land()` maps the moves back. */
+  const T = window.HubTwist;
+  const BOX = T.BOX;
 
   /* ================= host or player ================= */
   const SIM = (window.HubBuzzer && HubBuzzer.sim) ? HubBuzzer.sim() : null;
@@ -245,25 +242,9 @@
     const n = pool.length >= 25 ? 25 : pool.length >= 16 ? 16 : 9;
     const cols = Math.round(Math.sqrt(n));
     const cards = pool.slice(0, n).map((c, i) => ({ n:i + 1, kind:c.kind, topic:c.topic, item:c.item, twist:'plain', used:false, row:Math.floor(i / cols) }));
-    // twists, weighted to the back rows — Flip's deal
-    const want = Math.round(n * RULES.twists);
-    const bag = cards.map((c, i) => ({ i, w: Math.pow(c.row + 1, 2) }));
-    const slots = [];
-    while(slots.length < want && bag.length){
-      const total = bag.reduce((a, b) => a + b.w, 0);
-      let r = Math.random() * total, hit = 0;
-      for(; hit < bag.length; hit++){ r -= bag[hit].w; if(r <= 0) break; }
-      slots.push(bag.splice(Math.min(hit, bag.length - 1), 1)[0].i);
-    }
-    const kinds = ['swap', 'gift', 'bounty'];
-    const cycle = RULES.boxes ? ['steal', 'double', 'box'] : ['steal', 'double'];
-    while(kinds.length < want) kinds.push(cycle[kinds.length % cycle.length]);
-    kinds.length = want;
-    if(kinds[0] === 'swap' && slots.length){
-      const deepest = slots.reduce((a, b) => (cards[b].row >= cards[a].row ? b : a), slots[0]);
-      slots.splice(slots.indexOf(deepest), 1); slots.unshift(deepest);
-    }
-    slots.forEach((idx, k) => { cards[idx].twist = kinds[k] || 'steal'; });
+    // twists, weighted to the back rows — the shelf's deal, Flip's own
+    const kinds = T.deal(cards.map(c => c.row), { pct: RULES.twists * 100, boxes: RULES.boxes });
+    cards.forEach((c, i) => { c.twist = kinds[i] || 'plain'; });
     players.forEach(p => { p.score = 0; });
     G = { phase:'pick', unit:u.id, cards, cols, turn:0, cur:null, q:null, answers:{}, results:[], leader:null,
           table:null, choose:null, gift:null, box:null, over:false,
@@ -303,12 +284,16 @@
     rows.forEach((r, n) => { r.place = (n > 0 && rows[n - 1].pts === r.pts) ? rows[n - 1].place : n + 1; });
     return rows;
   }
-  function behind(id){
-    const ps = present(); if(ps.length < 2) return 0;
-    const s = ps.map(p => p.score), lead = Math.max.apply(null, s), low = Math.min.apply(null, s);
-    if(lead === low) return 0;
-    return (lead - (byId(id) || {}).score) / (lead - low);
+  /* The seam between this page's ids and the shelf's indices: the room as arrays. */
+  function room(){
+    const ps = present();
+    return { ps, scores: ps.map(p => p.score), names: ps.map(p => p.name), idx: id => ps.findIndex(p => p.id === id) };
   }
+  function behind(id){ const r = room(); return T.behind(r.scores, r.idx(id)); }
+  /* Every move the shelf hands back lands on the players it names. */
+  function land(r, moves){ (moves || []).forEach(m => { if(r.ps[m.who]) r.ps[m.who].score += m.delta; }); }
+  /* A shield answers a move aimed at its holder: consumed by the shelf's ask. */
+  const shieldedIdx = r => i => { const p = r.ps[i]; if(!p || !G.shields[p.id]) return false; delete G.shields[p.id]; return true; };
 
   /* ---- a card opens: the question goes to every phone ---- */
   function openCard(n){
@@ -348,10 +333,10 @@
                        .filter(r => r.right).sort((a, b) => a.ms - b.ms || a.at - b.at);
     const before = {}; players.forEach(p => { before[p.id] = p.score; });
     const mult = G.cur.twist === 'double' ? 2 : 1;
+    const rm = room();
     rows.forEach((r, i) => {
-      const f = 1 + (RULES.catchUp - 1) * behind(r.id);
       const share = Math.max(0.1, Math.pow(RULES.decay, i));
-      const pay = Math.max(10, Math.round(RULES.worth * mult * share * f / 10) * 10);
+      const pay = T.worth(RULES.worth * mult * share, rm.scores, rm.idx(r.id), { catchUp: RULES.catchUp, step: 10 });
       byId(r.id).score += pay; r.pay = pay; r.place = i + 1;
     });
     G.results = rows;
@@ -387,20 +372,21 @@
     if(tw === 'steal' || tw === 'swap'){
       if(!winner){ advance(); return; }
       const targets = targetsFor(winner, tw);
-      if(!targets.length){ note(tw.toUpperCase(), 'Nobody is ahead of ' + byId(winner).name + '. Nothing to take.'); return; }
+      if(!targets.length){ const r = room(); note(tw.toUpperCase(), T.nothing(tw, r.idx(winner), r.names)); return; }
       G.choose = { kind: tw, who: winner, targets }; G.phase = 'choose'; push(); return;
     }
     if(tw === 'gift'){
       if(!winner){ advance(); return; }
-      const targets = present().filter(p => p.score < byId(winner).score).map(p => p.id);
-      if(!targets.length){ note('GIFT', 'Nobody is behind ' + byId(winner).name + '.'); return; }
+      const targets = targetsFor(winner, 'gift');
+      if(!targets.length){ const r = room(); note('GIFT', T.nothing('gift', r.idx(winner), r.names)); return; }
       G.gift = { who: winner, targets, votes: {} }; G.phase = 'gift'; push();
       timer = setTimeout(settleGift, RULES.gift * 1000); return;
     }
     if(tw === 'bounty'){ applyBounty(); return; }
     if(tw === 'box'){
       if(!winner){ advance(); return; }
-      G.box = { who: winner, contents: [drawBox(winner), drawBox(winner), drawBox(winner)], opened: null }; G.phase = 'box'; push();
+      { const r = room(); G.box = { who: winner, contents: T.boxes(r.scores, r.idx(winner), { load: RULES.boxLoad }), opened: null }; }
+      G.phase = 'box'; push();
       timer = setTimeout(() => openBox(winner, Math.floor(Math.random() * 3)), RULES.secs * 1000);   // a winner who never taps gets one anyway
       return;
     }
@@ -408,11 +394,6 @@
   }
   /* ---- the Box: three closed boxes, one pick, loaded by place ----
      A prize's chance runs from ½ − load/2 for the leader to ½ + load/2 for last place. */
-  function drawBox(id){
-    const p = Math.max(0.05, Math.min(0.95, 0.5 + (behind(id) - 0.5) * RULES.boxLoad));
-    const side = Object.keys(BOX).filter(k => BOX[k].prize === (Math.random() < p));
-    return side[Math.floor(Math.random() * side.length)];
-  }
   function openBox(id, n){
     if(G.phase !== 'box' || !G.box || G.box.who !== id || G.box.opened != null) return;
     clearTimeout(timer);
@@ -420,49 +401,38 @@
     G.box.opened = n; push();            // every phone sees the three boxes open
     timer = setTimeout(() => applyBox(id, G.box.contents[n]), RULES.boxOpen * 1000);
   }
-  function shielded(id){ if(!G.shields[id]) return false; delete G.shields[id]; return true; }
   function applyBox(id, k){
     const me = byId(id); G.box = null;
     if(!me){ advance(); return; }
     const before = {}; players.forEach(p => { before[p.id] = p.score; });
-    const worth = RULES.worth;
-    if(k === 'steal'){
+    const r = room();
+    const worth = T.worth(RULES.worth, r.scores, r.idx(id), { catchUp: RULES.catchUp, step: 10 });
+    const res = T.box(k, r.scores, r.idx(id), { paid: G.paidNow || RULES.worth, worth, step: 10, names: r.names });
+    if(res.chain === 'steal'){
       const targets = targetsFor(id, 'steal');
-      if(!targets.length){ note('BOX · STEAL', 'Nobody is ahead of ' + me.name + '. Nothing to take.'); return; }
+      if(!targets.length){ note('BOX · STEAL', T.nothing('steal', r.idx(id), r.names)); return; }
       G.choose = { kind:'steal', who: id, targets }; G.phase = 'choose'; push(); return;
     }
-    if(k === 'double'){ const f = 1 + (RULES.catchUp - 1) * behind(id); const more = Math.max(10, Math.round(worth * f / 10) * 10); me.score += more; showTable('BOX · DOUBLE', me.name + "'s card pays again: +" + more + '.', before, null); }
-    else if(k === 'shield'){ G.shields[id] = true; showTable('BOX · SHIELD', me.name + ' is shielded from the next steal, swap or bounty.', before, null); }
-    else if(k === 'extra'){ G.nextPicker = id; showTable('BOX · PICK AGAIN', me.name + ' picks the next card too.', before, null); }
-    else if(k === 'tithe'){
-      const below = present().filter(p => p.id !== id && p.score < me.score);
-      if(!below.length){ showTable('BOX · SHARE', me.name + ' is already last — nothing to share.', before, null); }
-      else { const last = below.reduce((a, b) => (b.score < a.score ? b : a), below[0]);
-             const move = Math.max(10, Math.round(((G.paidNow || worth) / 2) / 10) * 10);
-             me.score -= move; last.score += move; showTable('BOX · SHARE', me.name + ' shares ' + move + ' with ' + last.name + '.', before, null); }
-    }
-    else if(k === 'skip'){ G.skips[id] = true; showTable('BOX · LOSE A TURN', me.name + ' loses their next pick.', before, null); }
-    else { const back = G.paidNow || worth; me.score -= back; showTable('BOX · EMPTY', 'Empty. ' + me.name + "'s " + back + ' is gone.', before, null); }
+    if(res.hold === 'shield') G.shields[id] = true;
+    if(res.hold === 'skip')   G.skips[id] = true;
+    if(res.hold === 'extra')  G.nextPicker = id;
+    land(r, res.moves);
+    showTable(res.eyebrow, res.said, before, null);
   }
   function note(eyebrow, say){ const before = {}; players.forEach(p => { before[p.id] = p.score; }); showTable(eyebrow, say, before, null); }
   function targetsFor(who, kind){
-    const mine = byId(who).score;
-    const above = present().filter(p => p.id !== who && p.score > mine);
-    if(kind === 'swap' && RULES.swapNext && above.length > 1){
-      return [above.reduce((a, b) => (b.score < a.score ? b : a), above[0]).id];
-    }
-    return above.map(p => p.id);
+    const r = room();
+    return T.targets(r.scores, r.idx(who), kind, { swapNext: RULES.swapNext }).map(i => r.ps[i].id);
   }
   function applyChoice(id, target){
     if(G.phase !== 'choose' || !G.choose || G.choose.who !== id || G.choose.targets.indexOf(target) === -1) return;
-    const a = byId(id), b = byId(target);
     const before = {}; players.forEach(p => { before[p.id] = p.score; });
-    let say;
-    if(shielded(target)){ const eb = G.choose.kind.toUpperCase(); G.choose = null; showTable('SHIELD', b.name + "'s shield blocks the " + eb.toLowerCase() + '. Nothing moves.', before, null); return; }
-    if(G.choose.kind === 'swap'){ const s = a.score; a.score = b.score; b.score = s; say = a.name + ' and ' + b.name + ' have swapped scores.'; }
-    else { const gap = b.score - a.score; const move = Math.max(10, Math.round((gap * RULES.steal / 2) / 10) * 10); a.score += move; b.score -= move; say = a.name + ' takes ' + move + ' off ' + b.name + '.'; }
-    const eyebrow = G.choose.kind.toUpperCase(); G.choose = null;
-    showTable(eyebrow, say, before, null);
+    const r = room();
+    const o = { share: RULES.steal, step: 10, names: r.names, shielded: shieldedIdx(r) };
+    const res = G.choose.kind === 'swap' ? T.swap(r.scores, r.idx(id), r.idx(target), o) : T.steal(r.scores, r.idx(id), r.idx(target), o);
+    G.choose = null;
+    land(r, res.moves);
+    showTable(res.eyebrow, res.said, before, null);
   }
   function onVote(id, target){
     if(G.phase !== 'gift' || !G.gift || G.gift.targets.indexOf(target) === -1 || target === id) return;
@@ -476,26 +446,20 @@
     let best = null, n = -1;
     shuffle(G.gift.targets).forEach(t => { if((counts[t] || 0) > n){ best = t; n = counts[t] || 0; } });
     const before = {}; players.forEach(p => { before[p.id] = p.score; });
-    const worth = Math.max(10, Math.round(RULES.worth / 10) * 10);
-    byId(best).score += worth; G.gift = null;
-    showTable('GIFT', byId(best).name + ' gets ' + worth + ' as well.', before, null);
+    const r = room();
+    const res = T.gift(r.scores, r.idx(G.gift.who), r.idx(best), { worth: RULES.worth, step: 10, names: r.names });
+    G.gift = null;
+    land(r, res.moves);
+    showTable(res.eyebrow, res.said, before, null);
   }
   function applyBounty(){
-    const leader = G.leader;
-    if(!leader || !byId(leader)){ note('BOUNTY', 'Nobody was clearly in front. Nothing to take.'); return; }
-    const lead = G.results.find(r => r.id === leader);
-    const ahead = G.results.filter(r => r.id !== leader && (!lead || r.place < lead.place));
-    if(!ahead.length){ note('BOUNTY', byId(leader).name + ' held the lead — nobody beat their time.'); return; }
-    if(shielded(leader)){ note('SHIELD', byId(leader).name + "'s shield blocks the bounty. Nothing moves."); return; }
+    const r = room();
     const before = {}; players.forEach(p => { before[p.id] = p.score; });
-    const taken = [];
-    ahead.forEach(r => {
-      const gap = byId(leader).score - byId(r.id).score; if(gap <= 0) return;
-      const move = Math.max(10, Math.round((gap * RULES.steal / 2) / 10) * 10);
-      byId(leader).score -= move; byId(r.id).score += move; taken.push(byId(r.id).name + ' +' + move);
-    });
-    if(!taken.length){ note('BOUNTY', 'Nobody below ' + byId(leader).name + ' beat their time.'); return; }
-    showTable('BOUNTY', 'Bounty on ' + byId(leader).name + ': ' + taken.join(', ') + '.', before, null);
+    const res = T.bounty(r.scores, G.leader ? r.idx(G.leader) : null,
+                         G.results.map(x => ({ who: r.idx(x.id), place: x.place })),
+                         { share: RULES.steal, step: 10, names: r.names, shielded: shieldedIdx(r) });
+    land(r, res.moves);
+    showTable(res.eyebrow, res.said, before, null);
   }
   function advance(){
     if(G.cards.every(c => c.used)){

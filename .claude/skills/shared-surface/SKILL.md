@@ -4,6 +4,7 @@ description: Change something every game inherits — the phone strip, the team 
 covers:
   - "game-hub/hub-engine.js"
   - "game-hub/hub.css"
+  - "game-hub/hub-twist.js"
 ---
 
 # Changing something every game inherits
