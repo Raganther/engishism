@@ -864,6 +864,13 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
 }
 .rlanes-mc .rl-cell.gap{ width:1.15em; height:1.15em; border-bottom-width:1.5px; opacity:0.35; }
 .rlanes-mc .rl-cell.got{ background:var(--gw-line, var(--blue, #00A0DF)); }
+/* The flick face's answer cell is the option's TEXT in its tile colour, not a
+   dot: it takes the width the word needs and reads at the lane's badge size.
+   Left to the mini-box rule above, "46" was squeezed into a 1.15em circle. */
+.rlanes-mc .rl-cell.tile{
+  width:auto; height:auto; min-width:1.6em; padding:0 0.6em; line-height:1.55;
+  font-size:clamp(0.7rem, 1.35vw, 1.15rem); border-radius:7px;
+}
 
 /* A cell wearing its tile's colour — the hue the physics dealt that word on the
    phones (`Kit.round.hueOf`), so a room finds a word on the board by the colour in
