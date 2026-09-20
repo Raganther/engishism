@@ -38,19 +38,19 @@
     bounty: { label:'BOUNTY', topline:'BOUNTY', target:null,
               note:'Finish ahead of the leader and take a bite out of their lead.' },
     box:    { label:'BOX',    topline:'BOX',    target:'box',
-              note:'Win it and open one of three boxes — a prize or a forfeit. The further behind you are, the better your odds.' }
+              note:'Win it and drop a chip: the bins hold a prize or a forfeit. The further behind you are, the more prizes on your board.' }
   };
 
   /* ---- what a box can hold ----
      `prize` is which side of the bag it sits on. */
   const BOX = {
-    double: { prize:true,  name:'Double',      blurb:'the card pays again' },
-    steal:  { prize:true,  name:'Steal',       blurb:'take a bite out of somebody ahead' },
-    shield: { prize:true,  name:'Shield',      blurb:'blocks the next steal, swap or bounty aimed at you' },
-    extra:  { prize:true,  name:'Pick again',  blurb:'you choose the next card too' },
-    tithe:  { prize:false, name:'Share',       blurb:'half this card goes to last place' },
-    skip:   { prize:false, name:'Lose a turn', blurb:'your next pick is skipped' },
-    zero:   { prize:false, name:'Empty',       blurb:'this card pays nothing after all' }
+    double: { prize:true,  name:'Double',      short:'Double', blurb:'the card pays again' },
+    steal:  { prize:true,  name:'Steal',       short:'Steal',  blurb:'take a bite out of somebody ahead' },
+    shield: { prize:true,  name:'Shield',      short:'Shield', blurb:'blocks the next steal, swap or bounty aimed at you' },
+    extra:  { prize:true,  name:'Pick again',  short:'Again',  blurb:'you choose the next card too' },
+    tithe:  { prize:false, name:'Share',       short:'Share',  blurb:'half this card goes to last place' },
+    skip:   { prize:false, name:'Lose a turn', short:'Skip',   blurb:'your next pick is skipped' },
+    zero:   { prize:false, name:'Empty',       short:'Empty',  blurb:'this card pays nothing after all' }
   };
 
   const num  = (v, d) => (v == null || !Number.isFinite(Number(v))) ? d : Number(v);
@@ -223,7 +223,11 @@
     const side = Object.keys(BOX).filter(k => BOX[k].prize === (Math.random() < p));
     return side[Math.floor(Math.random() * side.length)];
   }
-  function boxes(scores, who, o){ return [drawBox(scores, who, o), drawBox(scores, who, o), drawBox(scores, who, o)]; }
+  function boxes(scores, who, o){
+    const n = Math.max(1, Math.round(Number((o || {}).count) || 3));
+    const out = []; for(let i = 0; i < n; i++) out.push(drawBox(scores, who, o));
+    return out;
+  }
   /* What an opened box does. `paid` is what the card actually paid the winner (an
      Empty takes exactly that back; a Share halves it), `worth` what a Double pays
      again (catch-up applied by the caller, since only it knows the base). Besides the

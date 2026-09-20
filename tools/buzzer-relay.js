@@ -436,7 +436,8 @@ function handleSend(req, res){
            (peg rows, bin labels) and a stack (how many tiles) */
         room.plinko  = (msg.plinko && typeof msg.plinko === 'object')
           ? { rows: Math.max(2, Math.min(12, Number(msg.plinko.rows) || 6)),
-              bins: Array.isArray(msg.plinko.bins) ? msg.plinko.bins.slice(0, 12).map(b => String(b).slice(0, 12)) : [] }
+              bins: Array.isArray(msg.plinko.bins) ? msg.plinko.bins.slice(0, 12).map(b => String(b).slice(0, 12)) : [],
+              mirror: !!msg.plinko.mirror }   // the phone streams its chip's path so the board can draw the drop
           : null;
         room.stack   = (msg.stack && typeof msg.stack === 'object')
           ? { n: Math.max(2, Math.min(12, Number(msg.stack.n) || 6)) } : null;

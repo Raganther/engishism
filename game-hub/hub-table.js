@@ -31,7 +31,7 @@
    onExit({ch,hue,side,vx,vy,ny}) fires when a free piece leaves through an
    open side — the throw dynamic's exit door; see openSides.
    onArrange(read, filled) fires whenever a piece docks or is pulled out.
-   pegs({rows, shelf, top}) plants a Plinko field: static pegs in offset rows
+   pegs({rows, shelf, top, lattice}) plants a Plinko field: static pegs in offset rows
    between the top band and the bins, and (shelf) a ledge at the top centre for
    the chip to start on; bins(labels) walls the bottom band into that many bins
    and paints the labels; binOf(x) says which bin an x falls in; addPiece(label,
@@ -296,6 +296,8 @@
     let pieces = [];       // { body, ch, hue, slot, dock, pinned }
     /* the Plinko fixtures — declared as fractions, rebuilt at the table's size */
     let pegSpec = null, pegBodies = [], binLabels = null, binBodies = [];
+    let pegLayout = null;          // the field as built, in shares: {cols, rows, top, bot, ledge} — what field() hands out
+    let ghost = null;              // a chip driven from elsewhere: {piece, nx, ny} — the board mirroring a phone's drop
     const pegSet = new Set();      // the peg bodies, so a contact can tell a peg from a wall
     let pegHits = [];              // {body, t, s, hue, cx, cy}: struck pegs, for the flash and the bolts
     let landed = null;             // {t, x, y, bin, hue, worth}: the chip's rest in a bin, for the burst
@@ -564,6 +566,33 @@
       if(!pegSpec || !cssW || !cssH) return;
       const d = chipD();
       const pitch = Math.max(2 * d, 24);
+      /* `lattice`: an exact layout as shares of the table — {cols, rows, top, bot,
+         ledge} — so this table draws ANOTHER table's field (the board mirroring a
+         phone's drop: a chip path sent as shares lands on the same pegs). Absent,
+         the field is laid out for this table's own chip. */
+      const L = pegSpec.lattice && Number(pegSpec.lattice.cols) > 0 ? pegSpec.lattice : null;
+      if(L){
+        const cols = Math.max(1, Math.round(L.cols)), rows = Math.max(1, Math.round(L.rows) || 1);
+        const gapX = cssW / cols;
+        const top = cssH * Number(L.top), bot = cssH * Number(L.bot);
+        const gapY = rows > 1 ? (bot - top) / (rows - 1) : 0;
+        const ledgeY = cssH * Number(L.ledge);
+        const r = Math.max(3, Math.round(d * 0.22));
+        const o = { isStatic: true, restitution: 0.5, friction: 0.05 };
+        for(let row = 0; row < rows; row++){
+          const off = (row % 2) ? gapX / 2 : 0;
+          for(let c = 0; c <= cols; c++){
+            const x = c * gapX + off;
+            if(x < r || x > cssW - r) continue;
+            pegBodies.push(Bodies.circle(x, top + row * gapY, r, o));
+          }
+        }
+        if(pegSpec.shelf) pegBodies.push(Bodies.rectangle(cssW / 2, ledgeY, d * 1.6, 6, { isStatic: true, friction: 0.9, restitution: 0 }));
+        pegLayout = { cols, rows, top: top / cssH, bot: bot / cssH, ledge: ledgeY / cssH };
+        for(const b of pegBodies) if(b.circleRadius) pegSet.add(b);
+        Composite.add(engine.world, pegBodies);
+        return;
+      }
       const cols = Math.max(3, Math.round(cssW / pitch));
       const gapX = cssW / cols;
       /* `top`: pixels the caller's overlay takes at the top (the phone's prompt),
@@ -583,6 +612,7 @@
       const fill = Math.floor(band / (1.15 * pitch)) + 1;
       const rows = Math.max(1, Math.min(fit, Math.max(want, fill)));
       const gapY = rows > 1 ? band / (rows - 1) : 0;
+      pegLayout = { cols, rows, top: top / cssH, bot: (top + (rows - 1) * gapY) / cssH, ledge: ledgeY / cssH };
       const r = Math.max(3, Math.round(d * 0.22));
       const o = { isStatic: true, restitution: 0.5, friction: 0.05 };
       for(let row = 0; row < rows; row++){
@@ -609,7 +639,41 @@
     }
     function pegs(spec){ pegSpec = spec ? Object.assign({}, spec) : null; buildPegs(); }
     /* where a chip rests on the ledge — the caller places it here, one home for the number */
-    function ledge(){ return { x: cssW / 2, y: (pegSpec ? Math.max(0, Number(pegSpec.top) || 0) : 0) + cssH * SHELF_Y }; }
+    function ledge(){
+      if(pegLayout && pegSpec && pegSpec.lattice) return { x: cssW / 2, y: cssH * pegLayout.ledge - chipD() * 0.5 - 3 };
+      return { x: cssW / 2, y: (pegSpec ? Math.max(0, Number(pegSpec.top) || 0) : 0) + cssH * SHELF_Y };
+    }
+    /* The field as shares of the table, plus its aspect — enough for another
+       table to build the same lattice (`pegs({lattice})`) and mirror a chip sent
+       as shares. Null until a field is built and the canvas measured. */
+    function field(){ return (pegLayout && cssW > 1 && cssH > 1) ? Object.assign({ aspect: cssW / cssH }, pegLayout) : null; }
+    /* ---- the ghost: a chip driven by positions from elsewhere ----
+       `drive(nx, ny)` moves (and on the first call makes) a chip that follows the
+       shares it is given — the phone's chip, drawn on the board. A sensor body, so
+       it strikes the pegs (every hit effect fires) but nothing shoves it off the
+       path it was sent. `land(bin)` is the landing the other table reported. */
+    function drive(nx, ny, o){
+      if(!cssW || !cssH) return;
+      const x = clamp(Number(nx), 0, 1) * cssW, y = clamp(Number(ny), 0, 1) * cssH;
+      if(!ghost || !pieces.includes(ghost.piece)){
+        addPiece('●', Object.assign({ x, y, vx: 0, vy: 0, round: true }, o || {}));
+        const piece = pieces[pieces.length - 1];
+        piece.ghost = true; piece.body.isSensor = true; piece.flung = true;
+        ghost = { piece, nx: x, ny: y };
+      }
+      ghost.nx = x; ghost.ny = y;
+    }
+    function land(bin){
+      if(!binLabels) return;
+      const i = clamp(Math.round(Number(bin)), 0, binLabels.length - 1);
+      const w = cssW / binLabels.length, h = cssH * BIN_H;
+      const p = ghost ? ghost.piece : pieces.find(q => q.round);
+      const n = Number(binLabels[i]);
+      landed = { t: now(), x: p ? p.body.position.x : (i + 0.5) * w, y: p ? p.body.position.y : cssH - h / 2, bin: i, hue: p ? p.hue : palette.accent,
+                 worth: Number.isFinite(n) ? n : 1, top: Number.isFinite(n) && n >= Math.max(...binLabels.map(Number).filter(Number.isFinite)) };
+      landBurst = null;
+      if(p) p.rested = true;
+    }
     function bins(labels){ binLabels = Array.isArray(labels) && labels.length ? labels.map(String) : null; buildBins(); }
     function binOf(x){ if(!binLabels) return -1; return Math.max(0, Math.min(binLabels.length - 1, Math.floor(x / (cssW / binLabels.length)))); }
     function buildWalls(){
@@ -1360,6 +1424,12 @@
       stepLast = t;
       if(stepAcc > STEP_MS * 4) stepAcc = STEP_MS * 4;
       while(stepAcc >= STEP_MS){
+        /* the ghost: a velocity that closes most of the gap to where it was told
+           to be, so the engine carries it there and the pegs it crosses register */
+        if(ghost && pieces.includes(ghost.piece)){
+          const b = ghost.piece.body;
+          Body.setVelocity(b, { x: (ghost.nx - b.position.x) * 0.6, y: (ghost.ny - b.position.y) * 0.6 });
+        } else if(ghost) ghost = null;
         Engine.update(engine, STEP_MS);
         stepAcc -= STEP_MS;
         /* A held tile may swing under gravity but never windmill: the spring's
@@ -1388,7 +1458,7 @@
       if(binLabels){
         const floor = cssH * (1 - BIN_H);
         for(const p of pieces){
-          if(!p.round || p.body.isStatic || p.body.position.y < floor) continue;
+          if(!p.round || p.ghost || p.body.isStatic || p.body.position.y < floor) continue;
           const v = p.body.velocity;
           Body.setVelocity(p.body, { x: v.x * 0.86, y: v.y * 0.92 });
           Body.setAngularVelocity(p.body, p.body.angularVelocity * 0.8);
@@ -1397,7 +1467,7 @@
       if(!opts.onRest && !binLabels) return;
       const held = heldBodies();
       for(const p of pieces){
-        if(p.slot != null || p.dock || p.body.isStatic) continue;
+        if(p.slot != null || p.dock || p.body.isStatic || p.ghost) continue;
         if(held.has(p.body)){ p.flung = false; p.rested = false; p.stillN = 0; continue; }
         const sp = Math.hypot(p.body.velocity.x, p.body.velocity.y);
         if(sp > 1.5){ p.flung = true; p.rested = false; p.stillN = 0; continue; }
@@ -1568,7 +1638,18 @@
               if(u < 1) sc = 1 + 0.9 * Math.sin(Math.PI * Math.min(1, u)) * (1 - u * 0.5);
             }
             ctx.save(); ctx.translate((i + 0.5) * w, cssH - h * 0.5); ctx.scale(sc, sc);
-            ctx.font = '700 ' + fs + 'px "Space Grotesk", sans-serif';
+            /* A word in a narrow bin (the Box's prizes on a phone-shaped mirror)
+               stands up: turned to run along the bin's height when it is wider than
+               the bin, and shrunk to fit either way, floored so it stays a word. */
+            let f = fs;
+            ctx.font = '700 ' + f + 'px "Space Grotesk", sans-serif';
+            const tw = ctx.measureText(lb).width;
+            if(tw > w * 0.9 && h > w){
+              ctx.rotate(-Math.PI / 2);
+              if(tw > h * 0.9){ f = Math.max(9, Math.floor(f * h * 0.9 / tw)); ctx.font = '700 ' + f + 'px "Space Grotesk", sans-serif'; }
+            } else if(tw > w * 0.9){
+              f = Math.max(9, Math.floor(f * w * 0.9 / tw)); ctx.font = '700 ' + f + 'px "Space Grotesk", sans-serif';
+            }
             ctx.fillText(lb, 0, 0);
             ctx.restore();
           });
@@ -1982,8 +2063,8 @@
     }
 
     return {
-      reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; pegs(null); bins(null); pendingDeal = null; given.clear(); clearResult(); wordAt = 0; particles = null; hits.length = 0; sparks = null; rings = null; pegHits = []; landed = null; landBurst = null; },
-      setPieces, addPiece, slots: makeSlots, place, give, openSides, pegs, bins, binOf, ledge,
+      reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; pegs(null); bins(null); pendingDeal = null; given.clear(); clearResult(); wordAt = 0; particles = null; hits.length = 0; sparks = null; rings = null; pegHits = []; landed = null; landBurst = null; ghost = null; pegLayout = null; },
+      setPieces, addPiece, slots: makeSlots, place, give, openSides, pegs, bins, binOf, ledge, field, drive, land,
       read, cells, filled, setResult,
       /* the loose pieces (not slotted), letter + colour + height + velocity +
          angle — a driven test's only window onto what is lying on the table,

@@ -114,11 +114,11 @@ window.registerFlipSettings = function(S){
   S.register({ id:'flipBoxes', group:'Flip', type:'toggle', default:true, quick:true,
     games:['flip'],
     label:'Include the Box cards',
-    help:'Every third twist after the named ones is a Box: win it and open one of three boxes on your phone. Double, Steal, Shield or Pick again — or Share, Lose a turn or Empty. The other two open afterwards to show what you passed.' });
+    help:'Every third twist after the named ones is a Box: win it and drop a Plinko chip on your phone, the board showing the drop. Seven bins hold Double, Steal, Shield or Pick again — or Share, Lose a turn or Empty — dealt by your place.' });
   S.register({ id:'flipBoxLoad', group:'Flip', type:'range', default:0.7, quick:true, under:'flipBoxes',
     min:0, max:1, step:0.1, unit:'', games:['flip'],
     label:'How loaded the boxes are',
-    help:'0 is a fair box for everyone. At 1 last place almost always opens a prize and the leader almost always a forfeit. Everyone between is on the slope.' });
+    help:'0 deals a fair board for everyone. At 1 last place sees a board of prizes and the leader a board of forfeits. Everyone between is on the slope.' });
 
   /* Off by default: a class read "last place picks" as naming the loser every turn,
      not as help. The switch stays for a room that likes it. A device seeded with the

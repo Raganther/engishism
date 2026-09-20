@@ -1030,7 +1030,19 @@ ordinary steal chooser opens after it), Shield (held; the next steal, swap or bo
 at its holder fizzles and spends it, marked 🛡 on the chooser), Pick again (the winner
 picks next whatever the turn order). Forfeits: Share (half this card to last place), Lose a
 turn, Empty (the card's pay is taken back). The box rides the same `pickRows` the chooser
-uses, so the lit pick, Enter and the number keys are the chooser's own. **The arithmetic of
+uses, so the lit pick, Enter and the number keys are the chooser's own. **On the hub the Box
+is a Plinko drop now** (a test): seven bins each hold a content drawn from the same loaded
+bag (`HubTwist.boxes` with `count`), labelled on the board before the chip falls; the
+winner drops on their own phone (`askClass` narrowed to them, `mode:'table'` with
+`plinko.mirror`, `rethink` so the phone may send more than once) and **the board mirrors
+the fall**: the phone sends its field once as shares (`f:cols,rows,top,bot,ledge,aspect`),
+its chip's position whenever it has moved (`c:x,y`, about a dozen a second, never more
+than one on the wire), and the landing (`bin:N`), the one message that counts; the board
+builds the same lattice (`pegs({lattice})`), sizes its canvas to the phone's aspect,
+runs a ghost chip along the path (`table.drive` — a sensor body, so the pegs it crosses
+flash and spark) and stamps the landing (`table.land`). `onPhoneReply` consumes the
+stream so the shared tally never sees it. No phones: the teacher pulls the chip on the
+board. Flip Party still opens three boxes. **The arithmetic of
 every twist is `HubTwist`'s** (see the map), shared with Flip Party; `flip.js` keeps the
 board, the chooser, the phones and the beats. **Flip's Rules row**
 (`flipRules`: Mixed class · Runaway class) is the app's bundle for the three comeback dials

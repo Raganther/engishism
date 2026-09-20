@@ -79,6 +79,10 @@
   /* The three boxes being shown right now, their contents already drawn, and the
      amount this card paid the winner — what an Empty box takes back. */
   let boxes = null, paidNow = 0, revealing = false;
+  /* The Box's Plinko drop on the board: the round-shaped state `Kit.round.cardTable`
+     keeps its table on (`_table`, `_canvas`, `_loopId`), plus who is dropping and the
+     kind each bin holds. Null between drops. */
+  let drop = null;
 
   const size   = () => Number(S.get('flipSize',   'flip')) || 25;
   const base   = () => Number(S.get('flipPoints', 'flip')) || 100;
@@ -150,7 +154,8 @@
     document.addEventListener('keydown', e => {
       if(!holding) return;
       if(e.target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName)) return;
-      const take = holding.twist === 'box' ? openBox : applyTwist;
+      if(holding.twist === 'box') return;   // a drop is not a pick: the chip decides
+      const take = applyTwist;
       if(e.key === 'Enter'){
         const who = litPick();
         if(who != null){ e.preventDefault(); take(who); }
@@ -234,6 +239,7 @@
     wantsVote:   () => E().roundLive() || !!twistVote,
     roomNote:    () => !twistVote ? null
                      : twistVote.kind === 'gift' ? 'vote who gets it'
+                     : twistVote.kind === 'drop' ? E().teamName(twistVote.team) + ' is dropping'
                      : E().teamName(twistVote.team) + ' is choosing',
     onVoteReply(all){
       /* Two things can be asking the room, never at once: the question's own round
@@ -241,6 +247,10 @@
       if(E().roundLive()){ E().roundOnReplies(all); return; }
       if(twistVote) paintTwistVote(all);
     },
+    /* The Box's drop, streamed from the winner's phone: its field once (`f:`), its
+       chip's position as it moves (`c:`), and the landing (`bin:`), which is the
+       one that counts. Consumed here so the shared tally never sees them. */
+    onPhoneReply(r){ return dropReply(r); },
     phoneRound(){ return E().roundForPhones(); },
     onTypedWin: () => null,
 
@@ -540,9 +550,10 @@
     if(box) box.classList.remove('on', 'said');
     const row = document.getElementById('flip-pick-row');
     if(row) row.innerHTML = '';
-    if(row) row.classList.remove('boxes', 'opened');
+    if(row) row.classList.remove('boxes', 'opened', 'drop');
     pickRows = [];
     boxes = null;
+    if(drop){ drop._loopId = (drop._loopId || 0) + 1; if(drop._canvas) drop._canvas.remove(); drop = null; }
   }
 
   /* ---------- the Box: three closed boxes, one pick, loaded by place ----------
@@ -551,66 +562,83 @@
      **The bag is loaded by the winner's place**: a prize's chance runs from
      ½ − load/2 for the leader to ½ + load/2 for last place, everyone between on the
      slope. `load` 0 is a fair box for everybody; 1 is a near certainty either way. */
+  const DROP_BINS = 7;
   function showBoxes(p){
-    boxes = T.boxes(scores(), p.team, { load: boxLoad() });
+    /* **The Box is a Plinko drop now.** Seven bins, each holding a box content drawn
+       from the same loaded bag (by the winner's place), the labels on the board for
+       the room to read before the chip falls. The winner drops on their own phone
+       and the board mirrors the fall; with no phones the teacher pulls the chip
+       here. The bin it rests in is applied exactly as an opened box was. */
+    const kinds = T.boxes(scores(), p.team, { load: boxLoad(), count: DROP_BINS });
+    boxes = kinds;
+    const labels = kinds.map(k => BOX[k].short || BOX[k].name);
     const say = document.getElementById('flip-pick-say');
     const box = document.getElementById('flip-pick');
-    say.textContent = E().teamName(p.team) + ' opens a box — which one?';
+    say.textContent = E().teamName(p.team) + ' drops a chip — the bins are loaded for ' + ordinal(ranking().filter(r => r.who === p.team)[0].place) + ' place';
     box.classList.remove('said');
     box.classList.add('on');
     const mount = document.getElementById('flip-pick-row');
     mount.innerHTML = '';
-    mount.classList.remove('crowd', 'opened');
-    mount.classList.add('boxes');
-    /* The boxes ride the same rows the chooser uses — `pickRows`, `data-team` as the
-       box index, a `line` the phones reply with — so the vote painter, the lit pick
-       and the number keys work on them unchanged. */
-    pickRows = boxes.map((k, i) => ({ who:i, live:true, line:'Box ' + (i + 1), name:'Box ' + (i + 1) }));
-    pickRows.forEach(r => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'flip-pick-line flip-box live';
-      b.setAttribute('data-team', r.who);
-      b.style.setProperty('--fhue', (K.table && K.table.hues ? K.table.hues : ['#00A0DF'])[(r.who * 2 + 1) % 7]);
-      const cell = (cls, text) => { const el = document.createElement('span'); el.className = cls; el.textContent = text; b.appendChild(el); return el; };
-      cell('flip-pick-key', String(r.who + 1));
-      cell('flip-box-lid', '?');
-      cell('flip-box-name', '');
-      cell('flip-pick-tail', '');
-      b.addEventListener('click', () => openBox(r.who));
-      mount.appendChild(b);
-    });
+    mount.classList.remove('crowd', 'opened', 'boxes');
+    mount.classList.add('drop');
+    pickRows = [];
     document.getElementById('flip-pick-tally').textContent = '';
-    /* The winner's own phone picks the box; the room watches. Same advisory shape as
-       a Steal: the pick lights the box and the teacher confirms. */
-    const lines = pickRows.map(r => r.line);
-    const vote = K.vote.open({ options: lines, team: p.team });
-    twistVote = E().askClass('Open a box — which one?', 'vote', lines, p.team, {}) ? { kind:'pick', vote, team: p.team } : null;
+    /* The winner's own phone gets the table; the board draws what it sends. */
+    const asked = E().askClass('Pull the chip off the ledge and let go', 'table', ['●'], p.team,
+                               { plinko: { rows: 6, bins: labels, mirror: true }, bare: true, rethink: true, multi: 1, holds: true });
+    twistVote = asked ? { kind: 'drop', vote: K.vote.open({ options: labels, team: p.team }), team: p.team } : null;
+    drop = { team: p.team, kinds, labels, mirrored: asked, done: false, need: 1, chosen: [], picks: {}, cardCells: [] };
+    const height = Math.max(240, Math.min(420, (window.innerHeight || 720) - 350));   // under the room chip on a 720 board
+    const table = K.round.cardTable(mount, drop, {
+      height, say: false, driven: asked, handle: '__flipDrop',   // a driven test's window onto the drop
+      table: { surface: '#0e1230', onRest: r => { if(!drop || drop.done || asked) return; dropLanded(table.binOf(r.x)); } },
+      deal: t => { t.slots(0); t.setPieces([]); t.pegs({ rows: 6, shelf: true }); t.bins(labels);
+                   if(!asked){ const at = t.ledge(); t.addPiece('●', { x: at.x, y: at.y, vx: 0, vy: 0, round: true }); } }
+    });
+    /* As tall as the chooser can be — cardTable caps a canvas for the clue card's
+       chrome, which the chooser does not carry — and phone-shaped when it mirrors
+       a phone; the teacher's own is squarer. */
+    if(drop._canvas) drop._canvas.style.height = height + 'px';
+    dropSize(asked ? 0.58 : 0.8);
+    document.getElementById('flip-pick-tally').textContent = asked ? 'Waiting for ' + E().teamName(p.team) + "'s drop…" : 'Pull the chip off the ledge for them.';
     fitFlip();
   }
-  function openBox(i){
-    const p = holding;
-    if(!p || !boxes || !boxes[i]) return;
-    const drawn = boxes.slice();
-    const team = p.team;
+  function dropSize(aspect){
+    if(!drop || !drop._canvas) return;
+    const h = parseFloat(drop._canvas.style.height) || 340;
+    drop._canvas.style.width = Math.round(h * Math.max(0.35, Math.min(1.6, aspect))) + 'px';
+    if(drop._table) drop._table.resize();
+  }
+  function dropReply(r){
+    if(!drop || drop.done || !r || Number(r.team) !== drop.team) return false;
+    const v = String(r.value || '');
+    if(v.startsWith('f:')){
+      const n = v.slice(2).split(',').map(Number);
+      if(n.length >= 6 && n.every(Number.isFinite) && drop._table){
+        dropSize(n[5]);
+        drop._table.pegs({ shelf: true, lattice: { cols: n[0], rows: n[1], top: n[2], bot: n[3], ledge: n[4] } });
+      }
+      return true;
+    }
+    if(v.startsWith('c:')){
+      const n = v.slice(2).split(',').map(Number);
+      if(n.length === 2 && n.every(Number.isFinite) && drop._table) drop._table.drive(n[0], n[1]);
+      return true;
+    }
+    const m = v.match(/^bin:(\d+)$/);
+    if(m){ if(drop._table) drop._table.land(Number(m[1])); dropLanded(Number(m[1])); return true; }
+    return false;
+  }
+  /* The chip is down: name the bin, let the burst play, then apply the box. */
+  function dropLanded(i){
+    if(!drop || drop.done) return;
+    drop.done = true;
+    const k = drop.kinds[Math.max(0, Math.min(drop.kinds.length - 1, i))];
+    const team = drop.team;
     holding = null;
     if(twistVote){ twistVote = null; E().standDownPhones(); }
     revealing = true;
-    /* Every box opens, the chosen one in front: what you got, and what you passed. */
-    const mount = document.getElementById('flip-pick-row');
-    mount.classList.add('opened');
-    pickRows.forEach(r => {
-      const b = rowOf(r.who); if(!b) return;
-      const k = drawn[r.who];
-      b.classList.remove('leading');
-      b.classList.add(r.who === i ? 'chosen' : 'other', BOX[k].prize ? 'prize' : 'forfeit');
-      b.querySelector('.flip-box-lid').textContent = BOX[k].prize ? '★' : '✕';
-      b.querySelector('.flip-box-name').textContent = BOX[k].name;
-      b.disabled = true;
-    });
-    const k = drawn[i];
-    document.getElementById('flip-pick-say').textContent =
-      'Box ' + (i + 1) + ': ' + BOX[k].name.toUpperCase() + ' — ' + BOX[k].blurb + '.';
+    document.getElementById('flip-pick-say').textContent = BOX[k].name.toUpperCase() + ' — ' + BOX[k].blurb + '.';
     document.getElementById('flip-pick-tally').textContent = '';
     E().Sound.play(BOX[k].prize ? 'sting' : 'wrong');
     setTimeout(() => { revealing = false; hidePicker(); applyBox(team, k); }, 2400);
@@ -723,7 +751,7 @@
      line beneath says what the room decided — "Ana picked Gia", or the leader and
      the count, or that it is tied — the thing a teacher wants to know before clicking. */
   function paintTwistVote(all){
-    if(!twistVote) return;
+    if(!twistVote || twistVote.kind === 'drop') return;
     const vote   = twistVote.vote;
     const counts = vote.apply(all);
     pickRows.forEach(r => {

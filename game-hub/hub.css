@@ -2152,6 +2152,10 @@ body.theme-gameshow #close-btn, body.theme-gameshow #skip-btn, body.theme-gamesh
    own look), live ones clickable in their colour, the rest greyed with the reason. */
 #flip-pick-row{ display:grid; grid-template-columns:1fr; gap:6px; width:min(100%, 640px); }
 #flip-pick-row.crowd{ grid-template-columns:1fr 1fr; gap:5px 10px; }
+/* The Box's Plinko drop: one canvas in the chooser, phone-shaped when it mirrors a
+   phone, the field painted by Kit.table on the chooser's own ground. */
+#flip-pick-row.drop{ display:flex; justify-content:center; width:auto; }
+#flip-pick-row.drop canvas{ border-radius:12px; background:#0e1230; touch-action:none; }
 #flip-pick-row .flip-pick-line{
   grid-template-columns:2.4rem 1.3rem 1fr auto minmax(4rem, auto); gap:10px;
   font:inherit; text-align:left; cursor:pointer; width:100%;
