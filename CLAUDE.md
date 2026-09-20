@@ -723,9 +723,11 @@ than the room has been armed, so a phone can only lie downwards) and forwards it
 board's `roundStamp` ranks by it, a reply without one (a stale phone page) sorting after
 every stopwatch and before the teacher's click. `results.note` takes `ms` so the seconds
 beside a place are the student's own. No clock has to agree with anybody's. **The
-stopwatch is visible at both ends**: the phone shows its own clock ticking from the paint
-and frozen at the send (`#stopwatch`), and the card's place pill carries that time to the
-millisecond (`.rl-ms`). A phone that waited a head start shows and is shown the same two
+stopwatch is visible at both ends**: the phone's two clocks are one bar along its bottom
+edge (`#tbar` — the fill drains with the time left, the label counts it down in
+milliseconds, and at the send both freeze at the time taken), and the card's place pill
+carries that time to the millisecond (`.rl-ms`). A question runs for 10s by default
+(`roundSecs`). A phone that waited a head start shows and is shown the same two
 numbers, its own clock and the wait — "1.239s +2.0" — because the ranking adds the wait
 back (`hold` on the record) and a sum the phone never saw read as a mismatch. **A place is provisional until the question closes** — a reply that
 arrives second can outrank one already shown, because it is ranked by its own clock — so

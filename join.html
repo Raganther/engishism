@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260920g">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260920h">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -182,10 +182,24 @@
     box-shadow:none; cursor:default; filter:none; }
   #buzzer.won{ background:var(--hd-green); filter:none; }
   #state{ font-size:1rem; min-height:1.6em; color:var(--hd-paper); }
-  #stopwatch{ font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums; font-size:1.05rem;
-              margin:0 0 4px; color:var(--hd-paper); opacity:0.8; }
-  #stopwatch.sent{ opacity:1; font-weight:700; }
-  #stopwatch.hide{ display:none; }
+  #tbar{
+    position:fixed; left:0; right:0; bottom:0; height:38px; z-index:40;
+    background:rgba(255,255,255,0.06); border-top:2px solid var(--hd-line);
+    font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums;
+  }
+  #tbar.hide{ display:none; }
+  #tbar .tbar-fill{ position:absolute; left:0; top:0; bottom:0; width:100%; background:var(--hd-green); transition:none; }
+  #tbar.warn .tbar-fill{ background:var(--hd-yellow); }
+  #tbar.urgent .tbar-fill{ background:var(--hd-red); }
+  #tbar.sent .tbar-fill{ background:var(--hd-hue-1); }
+  #tbar .tbar-label{
+    position:absolute; left:0; right:0; top:0; bottom:0; display:flex; align-items:center; justify-content:center;
+    font-size:1.05rem; font-weight:700; color:var(--hd-ink); letter-spacing:0.04em;
+  }
+  #tbar.sent .tbar-label::before{ content:'sent · '; font-weight:400; }
+  #tbar.over .tbar-label{ color:var(--hd-paper); }
+  #tbar.over .tbar-label::before{ content:''; }
+  body.has-tbar #screen-play{ padding-bottom:44px; }
   #status{ font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--hd-muted); }
   .rejoin{
     background:none; border:none; padding:8px; cursor:pointer; font-family:inherit;
@@ -550,10 +564,13 @@
     <button class="go" id="send">Send</button>
   </div>
   <p id="state">Waiting for the teacher…</p>
-  <!-- The phone's own stopwatch: from the question painting on THIS screen to the
-       send, to the millisecond. It is the number the board ranks by, so the student
-       sees the clock they are actually racing. Frozen at the sent time. -->
-  <p id="stopwatch" class="hide"></p>
+  <!-- Two clocks, one bar. The phone's own stopwatch (from the question painting on
+       THIS screen to the send, to the millisecond — the number the board ranks by)
+       and the question's countdown are one strip along the bottom: the fill drains
+       as the time goes, the label counts what is left in milliseconds, and at the
+       send both freeze at the time taken. Fixed to the screen's bottom edge so the
+       full-bleed table faces keep it too. -->
+  <div id="tbar" class="hide"><div class="tbar-fill"></div><span class="tbar-label"></span></div>
   <p id="status"></p>
   <!-- The way out of a remembered seat. Rejoining silently is right for a reload
        mid-round, and wrong the day the phone changes hands or the student picked
@@ -562,15 +579,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260920g"></script>
-<script src="game-hub/hub-buzzer.js?v=20260920g"></script>
+<script src="game-hub/hub-brand.js?v=20260920h"></script>
+<script src="game-hub/hub-buzzer.js?v=20260920h"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260920g"></script>
+<script src="game-hub/matter.min.js?v=20260920h"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260920g"></script>
+<script src="game-hub/hub-table.js?v=20260920h"></script>
 <script>
 (function(){
   'use strict';
@@ -796,24 +813,46 @@
   /* The visible stopwatch. Ticks from the paint, freezes at the send; the same
      number that rides the reply. Stops itself when a new question starts it again
      or the phone is stood down. */
-  let swFrozen = false, swRunId = 0, heldMs = 0;
+  /* The bar's one loop. `barTotal` is the question's duration in ms (0 = untimed),
+     `barSent` the stopwatch frozen at the send. Each frame: the fill is the share of
+     time left, the label is what is left in milliseconds — or, once sent, the time
+     taken, which is the number the board shows; untimed, the label simply counts up. */
+  let swFrozen = false, swRunId = 0, heldMs = 0, barTotal = 0, barSent = null;
   const fmtSw = ms => (Math.max(0, ms) / 1000).toFixed(3) + 's' + (heldMs > 0 ? ' +' + (heldMs / 1000).toFixed(1) : '');
+  function barPaint(){
+    const bar = $('tbar'), fill = bar.querySelector('.tbar-fill'), label = bar.querySelector('.tbar-label');
+    /* once sent, the bar is a photograph of the send: the fill and the colour stay
+       at the moment the answer went, whatever the clock does afterwards */
+    const run = barSent != null ? barSent : (shownAt == null ? 0 : performance.now() - shownAt);
+    const left = barTotal ? Math.max(0, barTotal - run) : null;
+    fill.style.width = barTotal ? (100 * left / barTotal) + '%' : '100%';
+    bar.classList.toggle('warn', barTotal > 0 && left <= 5000 && left > 2000);
+    bar.classList.toggle('urgent', barTotal > 0 && left <= 2000);
+    if(barSent != null){ bar.classList.add('sent'); label.textContent = fmtSw(barSent); }
+    else if(barTotal && left <= 0){ bar.classList.add('over'); label.textContent = 'time'; }
+    else label.textContent = barTotal ? fmtSw(left).replace(/ \+.*$/, '') : fmtSw(run);
+    return left;
+  }
   function stopwatchStart(){
-    swFrozen = false;
-    const el = $('stopwatch'); el.classList.remove('hide', 'sent'); el.textContent = fmtSw(0);
+    swFrozen = false; barSent = null;
+    const bar = $('tbar'); bar.className = ''; document.body.classList.add('has-tbar');
     const id = ++swRunId;
     (function tick(){
-      if(id !== swRunId || swFrozen || shownAt == null) return;
-      el.textContent = fmtSw(performance.now() - shownAt);
+      if(id !== swRunId || shownAt == null) return;
+      const left = barPaint();
+      /* once sent the fill freezes too; untimed and unsent, or timed and running, keep ticking */
+      if(barSent != null) return;
+      if(barTotal && left <= 0) return;
       requestAnimationFrame(tick);
     })();
   }
   function stopwatchFreeze(ms){
     if(ms == null) return;
-    swFrozen = true;
-    const el = $('stopwatch'); el.classList.remove('hide'); el.classList.add('sent'); el.textContent = fmtSw(ms);
+    swFrozen = true; barSent = ms;
+    const bar = $('tbar'); bar.classList.remove('hide', 'over'); document.body.classList.add('has-tbar');
+    barPaint();
   }
-  function stopwatchHide(){ swFrozen = true; $('stopwatch').classList.add('hide'); }
+  function stopwatchHide(){ swFrozen = true; barSent = null; barTotal = 0; $('tbar').className = 'hide'; document.body.classList.remove('has-tbar'); }
   /* **A simulated handset can be driven.** Only under the room bench's `?auto=1`
      contract (`HubBuzzer.sim()`), and only on this page: `state()` says what this
      phone is being asked right now, `answer(v)` commits a reply on the SAME path a
@@ -1499,27 +1538,19 @@
   function roundClockRun(secs){
     roundClockStop();
     const total = Math.max(0, Number(secs) || 0) * 1000;
-    const el = $('round-clock');
+    barTotal = total;
     if(!total) return;
     timeUp = false;
     const base = shownAt == null ? performance.now() : shownAt;
-    const paint = ()=>{
-      const leftMs = Math.max(0, total - (performance.now() - base));
-      const s = leftMs / 1000;
-      el.className = 'clock on' + (s <= 10 ? ' urgent' : '');
-      el.textContent = (s < 10 ? s.toFixed(1) : String(Math.ceil(s))) + 's';
-      return leftMs;
-    };
-    paint();
     roundTimer = setInterval(()=>{
-      if(paint() > 0) return;
+      if(total - (performance.now() - base) > 0) return;
       clearInterval(roundTimer); roundTimer = null;
       timeUp = true;
-      el.className = 'clock on urgent'; el.textContent = 'time';
       // nothing more can be changed, but what was chosen stays on screen
       $('opts').querySelectorAll('button').forEach(b=>{ b.disabled = true; });
       $('commit').disabled = true;
       say('Time — pencils down');
+      barPaint();
     }, 100);
   }
 
