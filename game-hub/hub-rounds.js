@@ -1284,7 +1284,7 @@
     /* The caller's onArrange, then a DOM event the host may listen for: the strip's
        Check count is drawn from state at render time, and a tile docking is not a
        render, so the host re-reads the button on this. Bubbles from the mount; the
-       bench, which has no such button, simply never listens. */
+       hub and the question bench both listen, each re-reading its own Check. */
     const topts = Object.assign({ canvas, surface: null, sweepGrid: false }, o.table);
     const inner = topts.onArrange;
     topts.onArrange = function(){

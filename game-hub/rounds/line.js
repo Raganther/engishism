@@ -81,6 +81,7 @@
           table: { line: s.at, onRest: r => {
             if(s.done) return;
             s.picks[team] = ['ny:' + r.ny.toFixed(4)];
+            s.chosen = s.picks[team].slice();   // the board's Check judges what is held, and a rest is it
             mount.dispatchEvent(new CustomEvent('round:arranged', { bubbles: true }));
           } },
           /* a shuffleboard: no gravity, some drag, one tile at rest at the bottom */

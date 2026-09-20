@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260920k">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260920l">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -596,15 +596,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260920k"></script>
-<script src="game-hub/hub-buzzer.js?v=20260920k"></script>
+<script src="game-hub/hub-brand.js?v=20260920l"></script>
+<script src="game-hub/hub-buzzer.js?v=20260920l"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260920k"></script>
+<script src="game-hub/matter.min.js?v=20260920l"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260920k"></script>
+<script src="game-hub/hub-table.js?v=20260920l"></script>
 <script>
 (function(){
   'use strict';
@@ -1291,15 +1291,22 @@
        flung tile's rest; that rest IS the reply — its height as a share of the
        table — and one flick is the answer, so the table locks after it. */
     const lineAt = shape && shape.line;
+    const plinko = shape && shape.plinko;
+    tblShape = shape || null;
+    /* A rest is the skill rounds' answer: the line round sends the tile's height,
+       the Plinko round the bin its chip fell into. One go each; the table locks. */
+    const onRest = lineAt ? (r => { if(answered || timeUp || !client) return; answered = true; reply('ny:' + r.ny.toFixed(4)); $('state').textContent = 'Sent — ' + (r.ny < lineAt ? 'past the line' : Math.round((r.ny - lineAt) * 100) + ' short'); })
+                 : plinko ? (r => { if(answered || timeUp || !client) return; const i = tbl.binOf(r.x); answered = true; reply('bin:' + i); $('state').textContent = 'Sent — landed in ' + ((plinko.bins || [])[i] || ('bin ' + (i + 1))); })
+                 : undefined;
     tbl = window.HubKit.table({ canvas, upright: !!(shape && shape.upright), sweepGrid: false,
                                 line: lineAt || undefined,
-                                onRest: lineAt ? (r => { if(answered || timeUp || !client) return; answered = true; reply('ny:' + r.ny.toFixed(4)); $('state').textContent = 'Sent — ' + (r.ny < lineAt ? 'past the line' : Math.round((r.ny - lineAt) * 100) + ' short'); }) : undefined,
+                                onRest,
                                 onArrange(){ if(tbl) tbl.setResult(null); sendTable(); } });   // every feel number from the shelf's dial registry
     /* Slots before pieces: the pile's spread reads the declared slot width,
        if any, so a bar shape's wide word tiles spread across the room they
        need rather than the room square letters need — the reverse order
        once landed a hand of words already overlapping. */
-    tbl.slots(lineAt ? 0 : shape && shape.cols
+    tbl.slots((lineAt || plinko || (shape && shape.stack)) ? 0 : shape && shape.cols
       ? { cols: shape.cols, rows: shape.rows, count: shape.count, bar: shape.bar,
           labels: shape.labels || list, top: headTop || undefined }
       : list.length);
@@ -1324,6 +1331,19 @@
       tbl.setFeel({ gravity: 0, frictionAir: 0.045 });
       tbl.addPiece(list[0] || 'GO', { x: canvas.clientWidth / 2, y: canvas.clientHeight * 0.86, vx: 0, vy: 0 });
       $('state').textContent = 'Flick the tile up to the line — one go';
+    } else if(plinko){
+      /* Plinko: pegs, bins, and one round chip resting on a ledge at the top. Pull
+         it off the ledge and let go — gravity and the pegs do the rest. */
+      tbl.setPieces([]);
+      tbl.pegs({ rows: plinko.rows || 6, shelf: true });
+      tbl.bins(plinko.bins || []);
+      tbl.addPiece('●', { x: canvas.clientWidth / 2, y: canvas.clientHeight * 0.07, vx: 0, vy: 0, round: true });
+      $('state').textContent = 'Pull the chip off the ledge and drop it';
+    } else if(shape && shape.stack){
+      /* Stack: the tiles rain in loose; pile them as high as you can. The height
+         at the buzzer is the answer (`tableWire` measures it), sent at time up. */
+      tbl.setPieces(list);
+      $('state').textContent = 'Stack the tiles as high as you can before time runs out';
     } else tbl.setPieces(list);
 
     const pt = e => tbl.pt(e);   // the shelf maps a touch through the painted/natural ratio
@@ -1365,7 +1385,7 @@
     } else {
       canvas.addEventListener('pointerdown', e => {
         if(timeUp || cooling || !client) return;             // a wrong Send is being waited out
-        if(lineAt && answered) return;                       // one flick is the answer
+        if((lineAt || plinko) && answered) return;           // one flick, one drop: the answer
         const p = pt(e);
         if(tbl.grab(e.pointerId, p.x, p.y)){ try{ canvas.setPointerCapture(e.pointerId); }catch(_){ } }
       });
@@ -1387,7 +1407,21 @@
   /* The answer, same shape as arrangeWire: box order, |-joined, empty slots kept as
      empty segments so a gap survives to the restore. Kit.table.cells() is the
      positional readout (read() would collapse the gaps). */
-  function tableWire(){ return tbl ? tbl.cells().join('|') : ''; }
+  let tblShape = null;
+  function tableWire(){
+    if(!tbl) return '';
+    /* The stack's wire is a height, not a row of cells: the top of the highest
+       tile at rest, as a share of the table. A tile still moving does not count —
+       a tile thrown up at the buzzer is not a stack. */
+    if(tblShape && tblShape.stack){
+      const h = tblCanvas ? tblCanvas.clientHeight : 0; if(!h) return 'h:0';
+      const half = tbl.tileSize() / 2;
+      let top = h;
+      tbl.loose().forEach(p => { if(Math.abs(p.vx) + Math.abs(p.vy) < 1 && p.y - half < top) top = p.y - half; });
+      return 'h:' + Math.max(0, Math.min(1, (h - top) / h)).toFixed(3);
+    }
+    return tbl.cells().join('|');
+  }
 
   function sendTable(){
     if(!client || !tbl) return;
@@ -1579,6 +1613,8 @@
       if(total - (performance.now() - base) > 0) return;
       clearInterval(roundTimer); roundTimer = null;
       timeUp = true;
+      /* the stack round's answer is the pile at the buzzer: measured and sent now */
+      if(tblShape && tblShape.stack && tbl && client && !answered){ answered = true; reply(tableWire()); }
       // nothing more can be changed, but what was chosen stays on screen
       $('opts').querySelectorAll('button').forEach(b=>{ b.disabled = true; });
       $('commit').disabled = true;
@@ -1863,7 +1899,7 @@
          or `tap`. A plain-row table (anagram's flick, no cols) still needs to carry
          `bare`, so the condition is not `cols` alone; `cols` null means the row. */
       setMode(d && d.mode, d && d.options, myRound(d),
-              d && (d.cols || d.bare || d.tap || d.line)     // a line is a shape too: the skill round's target
+              d && (d.cols || d.bare || d.tap || d.line || d.plinko || d.stack)     // the skill rounds' shapes ride too
                 ? { cols: d.cols === 'auto' ? 'auto' : d.cols ? Number(d.cols) : null,   // 'auto': wrap to this handset's width
                     rows: d.cols && d.cols !== 'auto' ? (Number(d.rows) || Math.ceil((d.options || []).length / Number(d.cols))) : null,
                     // count: slots to build when it differs from the label count (Multiple
@@ -1871,6 +1907,8 @@
                     count: d.count ? Number(d.count) : null,
                     bar: !!d.bar, upright: !!d.upright, tap: !!d.tap, bare: !!d.bare, labels: d.options || [],
                     line: (Number(d.line) > 0 && Number(d.line) < 1) ? Number(d.line) : null,
+                    plinko: (d.plinko && typeof d.plinko === 'object') ? d.plinko : null,
+                    stack: (d.stack && typeof d.stack === 'object') ? d.stack : null,
                     /* What the table draws over itself: the question, and the two
                        named ends of a scale. The prompt is the same string #qtext
                        gets — one source, drawn where this mode can see it. */
@@ -1937,7 +1975,10 @@
            students to type — two instructions, one of them wrong. `#state` stays
            free for what the host says back. */
         : mode==='arrange' ? ''
-        : mode==='table' ? 'Flick the letters into the boxes'
+        /* A skill round's table already said what to do when it was built (the
+           chip, the line, the pile); this generic line ran after it and replaced
+           the chip's instruction with the letters'. */
+        : mode==='table' ? ((tblShape && (tblShape.line || tblShape.plinko || tblShape.stack)) ? $('state').textContent : 'Flick the letters into the boxes')
         : mode==='type' ? 'Type it, then buzz' : 'Type your answer');
       if(navigator.vibrate) navigator.vibrate(40);
       if(d.verdict) applyVerdict(d.verdict);

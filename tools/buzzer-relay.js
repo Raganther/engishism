@@ -144,7 +144,7 @@ function getRoom(code, create){
           cols:null, rows:null, bar:false, upright:false,
           /* `line`: a skill round's target, a share of the table's height. Carried
              unread, like every shape field. */
-          line:null };
+          line:null, plinko:null, stack:null };
     rooms.set(code, r);
   }
   return r;
@@ -287,7 +287,7 @@ function openStream(req, res, q){
     mode:room.mode, prompt:promptFor(room, id), note:room.note,
     options:optionsFor(room, team), done:doneFor(room, team), turnTeam:room.team,
     cols:room.cols, rows:room.rows, bar:room.bar, upright:room.upright, tap:room.tap, bare:room.bare, count:room.count,
-    ends:room.ends, line:room.line,
+    ends:room.ends, line:room.line, plinko:room.plinko, stack:room.stack,
     hold: holdFor(room, team),
     spent:[...room.spent],
     rethink: room.rethink, secs: secsLeft(room), multi: capFor(room, team),
@@ -432,6 +432,14 @@ function handleSend(req, res){
         room.send    = !!msg.send;
         room.secs    = Math.max(0, Math.min(900, Number(msg.secs) || 0));
         room.line    = (Number(msg.line) > 0 && Number(msg.line) < 1) ? Number(msg.line) : null;
+        /* the other two skill shapes, bounded and carried unread: a Plinko field
+           (peg rows, bin labels) and a stack (how many tiles) */
+        room.plinko  = (msg.plinko && typeof msg.plinko === 'object')
+          ? { rows: Math.max(2, Math.min(12, Number(msg.plinko.rows) || 6)),
+              bins: Array.isArray(msg.plinko.bins) ? msg.plinko.bins.slice(0, 12).map(b => String(b).slice(0, 12)) : [] }
+          : null;
+        room.stack   = (msg.stack && typeof msg.stack === 'object')
+          ? { n: Math.max(2, Math.min(12, Number(msg.stack.n) || 6)) } : null;
         room.armedAt = Date.now();
         /* `hold`: a wait in milliseconds per team index before that team's phones
            show the question — a head start for whoever is behind. Carried unread,
@@ -553,7 +561,7 @@ function handleSend(req, res){
                                    note: room.note,
                                    mode: room.mode, options: optionsFor(room, p.team),
                                    cols: room.cols, rows: room.rows, bar: room.bar, upright: room.upright, tap: room.tap, bare: room.bare, count: room.count,
-                                   ends: room.ends, line: room.line,
+                                   ends: room.ends, line: room.line, plinko: room.plinko, stack: room.stack,
                                    hold: holdFor(room, p.team),
                                    done: doneFor(room, p.team),
                                    /* `turnTeam`, not `team`: the join payload already

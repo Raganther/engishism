@@ -31,8 +31,15 @@
    onExit({ch,hue,side,vx,vy,ny}) fires when a free piece leaves through an
    open side — the throw dynamic's exit door; see openSides.
    onArrange(read, filled) fires whenever a piece docks or is pulled out.
+   pegs({rows, shelf}) plants a Plinko field: static pegs in offset rows
+   between the top band and the bins, and (shelf) a ledge at the top centre for
+   the chip to start on; bins(labels) walls the bottom band into that many bins
+   and paints the labels; binOf(x) says which bin an x falls in; addPiece(label,
+   {round:true}) makes a round chip. Under gravity a chip dragged off the shelf
+   falls through the pegs into a bin, and onRest reports it (nx is its centre as a
+   share of the width).
    line (0..1) paints a target line across the table at that share of its
-   height — the flick-to-the-line round's target; onRest({ch, x, y, ny}) fires
+   height — the flick-to-the-line round's target; onRest({ch, x, y, ny, nx}) fires
    once when a piece that was FLUNG (released moving, not placed) comes to rest,
    with ny its centre as a share of the table's height — the skill rounds'
    measurement, taken by the shelf so every caller reads the same one.
@@ -265,6 +272,8 @@
     let tileH;                   // effective tile HEIGHT — equals tile except in a bar grid
     let walls = [];
     let pieces = [];       // { body, ch, hue, slot, dock, pinned }
+    /* the Plinko fixtures — declared as fractions, rebuilt at the table's size */
+    let pegSpec = null, pegBodies = [], binLabels = null, binBodies = [];
     let slots = [];        // { x, y, w, h, piece }
     /* A deal asked for before the canvas has a size — the hub's clue card renders
        its round while the modal is still display:none, so every board-face round
@@ -398,6 +407,7 @@
       canvas.height = Math.round(cssH * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       buildWalls();
+      buildPegs(); buildBins();
       layoutSlots();
       fitTiles();
       /* A resize can SHRINK the world — the Tune drawer opening takes the
@@ -508,6 +518,58 @@
       open.l = l; open.r = r;
       buildWalls();
     }
+    /* ---- the Plinko field ----
+       Pegs in offset rows across the middle of the table, a ledge at the top for the
+       chip to rest on until it is pulled off, and the bottom band walled into bins.
+       All static, all placed as shares of the table so a phone and a card agree. */
+    const BIN_H = 0.16, PEG_TOP = 0.2, SHELF_Y = 0.07;
+    /* A chip is this share of a tile — one number, read by addPiece(round) AND by
+       the peg field, because the field is spaced for its chip: a peg pitch of two
+       chip widths across, and rows no closer than 0.87 of that, so the chip can
+       always pass between any two neighbouring pegs. The first field spaced its
+       rows to fit the requested count into the band and wedged a 44px chip between
+       rows 33px apart; a request for more rows than the band can hold now gets as
+       many as fit, top-anchored, never a field the chip cannot fall through. */
+    const CHIP = 0.54;
+    const chipD = () => feel.size * CHIP;
+    function buildPegs(){
+      if(pegBodies.length){ Composite.remove(engine.world, pegBodies); pegBodies = []; }
+      if(!pegSpec || !cssW || !cssH) return;
+      const d = chipD();
+      const pitch = Math.max(2 * d, 24);
+      const cols = Math.max(3, Math.round(cssW / pitch));
+      const gapX = cssW / cols;
+      const top = cssH * PEG_TOP, bottom = cssH * (1 - BIN_H) - d;
+      const band = Math.max(0, bottom - top);
+      const want = Math.max(2, Math.min(12, Number(pegSpec.rows) || 6));
+      const rows = Math.max(1, Math.min(want, Math.floor(band / (0.87 * pitch)) + 1));
+      const gapY = rows > 1 ? band / (rows - 1) : 0;
+      const r = Math.max(3, Math.round(d * 0.22));
+      const o = { isStatic: true, restitution: 0.5, friction: 0.05 };
+      for(let row = 0; row < rows; row++){
+        const off = (row % 2) ? gapX / 2 : 0;
+        for(let c = 0; c <= cols; c++){
+          const x = c * gapX + off;
+          if(x < r || x > cssW - r) continue;
+          pegBodies.push(Bodies.circle(x, top + row * gapY, r, o));
+        }
+      }
+      if(pegSpec.shelf){
+        pegBodies.push(Bodies.rectangle(cssW / 2, cssH * SHELF_Y + d * 0.5 + 3, d * 1.6, 6, { isStatic: true, friction: 0.9, restitution: 0 }));
+      }
+      Composite.add(engine.world, pegBodies);
+    }
+    function buildBins(){
+      if(binBodies.length){ Composite.remove(engine.world, binBodies); binBodies = []; }
+      if(!binLabels || !binLabels.length || !cssW || !cssH) return;
+      const n = binLabels.length, w = cssW / n, h = cssH * BIN_H;
+      const o = { isStatic: true, restitution: 0.1, friction: 0.5 };
+      for(let i = 1; i < n; i++) binBodies.push(Bodies.rectangle(i * w, cssH - h / 2, 4, h, o));
+      Composite.add(engine.world, binBodies);
+    }
+    function pegs(spec){ pegSpec = spec ? Object.assign({}, spec) : null; buildPegs(); }
+    function bins(labels){ binLabels = Array.isArray(labels) && labels.length ? labels.map(String) : null; buildBins(); }
+    function binOf(x){ if(!binLabels) return -1; return Math.max(0, Math.min(binLabels.length - 1, Math.floor(x / (cssW / binLabels.length)))); }
     function buildWalls(){
       if(walls.length) Composite.remove(engine.world, walls);
       const t = 200; // thick, so a fast piece cannot tunnel through in one step
@@ -671,13 +733,18 @@
     function addPiece(label, o){
       o = o || {};
       const s = feel.size;
-      const body = Bodies.rectangle(o.x != null ? o.x : cssW/2, o.y != null ? o.y : s, s, s, {
+      /* `round`: a chip, not a tile — a circle body that rolls off pegs the way a
+         Plinko chip does; a square catches on them and stalls. */
+      const body = o.round
+        ? Bodies.circle(o.x != null ? o.x : cssW/2, o.y != null ? o.y : s, chipD() / 2, {
+            restitution: 0.45, frictionAir: feel.frictionAir, friction: 0.05, density: 0.0016 })
+        : Bodies.rectangle(o.x != null ? o.x : cssW/2, o.y != null ? o.y : s, s, s, {
         chamfer:{ radius: Math.round(s*0.16) },
         restitution: upright() ? Math.min(feel.restitution, 0.08) : feel.restitution,
         frictionAir: feel.frictionAir,
         friction: 0.3, density: 0.0016
       });
-      if(tile !== s || (tileH || s) !== s) Body.scale(body, tile / s, (tileH || s) / s);
+      if(!o.round && (tile !== s || (tileH || s) !== s)) Body.scale(body, tile / s, (tileH || s) / s);
       normalizeMass(body);   // addPiece never passes fitTiles, so weigh it here
       Body.setVelocity(body, { x: o.vx || 0, y: o.vy || 0 });
       Body.setAngularVelocity(body, clamp(o.spin || 0, -1, 1));
@@ -688,7 +755,7 @@
          in onKnock — the shelf never reads it (axiom 4). Battle Scrabble puts
          the thrower's name here so the victim's flash can say who hit them. */
       pieces.push({ body, ch: String(label), hue: o.hue || HUES[pieces.length % HUES.length],
-                    slot: null, dock: null, shot: o.shot ? now() : 0, tag: o.tag,
+                    slot: null, dock: null, shot: o.shot ? now() : 0, tag: o.tag, round: !!o.round,
                     hold: o.shot ? now() + 900 : 0 });
       Composite.add(engine.world, body);
     }
@@ -1260,7 +1327,8 @@
         p.stillN = sp < 0.08 ? (p.stillN || 0) + 1 : 0;
         if(p.stillN >= 25){
           p.rested = true;
-          opts.onRest({ ch: p.ch, x: p.body.position.x, y: p.body.position.y, ny: cssH ? p.body.position.y / cssH : 0 });
+          opts.onRest({ ch: p.ch, x: p.body.position.x, y: p.body.position.y,
+                        ny: cssH ? p.body.position.y / cssH : 0, nx: cssW ? p.body.position.x / cssW : 0 });
         }
       }
     }
@@ -1356,6 +1424,27 @@
       if(feel.surface){ ctx.fillStyle = feel.surface; ctx.fillRect(0, 0, cssW, cssH); }
       const resOf = i => resultMap.get(i) || result;
       const judgedAt = i => resultMap.has(i) ? (resultAt.get(i) || 0) : resultAt0;
+      /* The Plinko field: pegs as dots, the shelf as a bar, the bins as dividers
+         with their labels on the floor — all behind the chip. */
+      if(pegBodies.length || binBodies.length || binLabels){
+        ctx.save();
+        ctx.fillStyle = palette.line;
+        for(const b of pegBodies){
+          if(b.circleRadius){ ctx.beginPath(); ctx.arc(b.position.x, b.position.y, b.circleRadius, 0, Math.PI * 2); ctx.fill(); }
+          else { const w = b.bounds.max.x - b.bounds.min.x, h = b.bounds.max.y - b.bounds.min.y; ctx.fillRect(b.bounds.min.x, b.bounds.min.y, w, h); }
+        }
+        if(binLabels){
+          const n = binLabels.length, w = cssW / n, h = cssH * BIN_H;
+          ctx.strokeStyle = palette.line; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(0, cssH - h); ctx.lineTo(cssW, cssH - h); ctx.stroke();
+          for(let i = 1; i < n; i++){ ctx.beginPath(); ctx.moveTo(i * w, cssH - h); ctx.lineTo(i * w, cssH); ctx.stroke(); }
+          ctx.fillStyle = palette.ink === '#101318' ? palette.line : palette.ink;
+          ctx.font = '700 ' + Math.max(11, Math.round(Math.min(w * 0.5, h * 0.5))) + 'px "Space Grotesk", sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          binLabels.forEach((lb, i) => ctx.fillText(lb, (i + 0.5) * w, cssH - h * 0.5));
+        }
+        ctx.restore();
+      }
       /* The target line, behind everything: a band across the table at the declared
          share of its height, the far side washed so "past it" reads at a glance. */
       if(opts.line > 0 && opts.line < 1){
@@ -1467,8 +1556,8 @@
         ctx.rotate(ang);
         if(sc !== 1) ctx.scale(sc, sc);
         ctx.fillStyle = b.hue;
-        roundRect(ctx, -w/2, -h/2, w, h, r);
-        ctx.fill();
+        if(b.round){ ctx.beginPath(); ctx.arc(0, 0, b.body.circleRadius || w/2, 0, Math.PI * 2); ctx.fill(); }
+        else { roundRect(ctx, -w/2, -h/2, w, h, r); ctx.fill(); }
         if(b.pinned){   // the given mark: a thin inner ring, the tile's own colour showing through
           ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;
           roundRect(ctx, -w/2 + 3, -h/2 + 3, w - 6, h - 6, Math.max(1, r - 2));
@@ -1611,8 +1700,8 @@
     }
 
     return {
-      reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; pendingDeal = null; given.clear(); clearResult(); wordAt = 0; particles = null; hits.length = 0; sparks = null; rings = null; },
-      setPieces, addPiece, slots: makeSlots, place, give, openSides,
+      reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; pegs(null); bins(null); pendingDeal = null; given.clear(); clearResult(); wordAt = 0; particles = null; hits.length = 0; sparks = null; rings = null; },
+      setPieces, addPiece, slots: makeSlots, place, give, openSides, pegs, bins, binOf,
       read, cells, filled, setResult,
       /* the loose pieces (not slotted), letter + colour + height + velocity +
          angle — a driven test's only window onto what is lying on the table,
