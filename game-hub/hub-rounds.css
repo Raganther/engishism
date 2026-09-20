@@ -690,11 +690,19 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
    cell looks like for that round's kind of answer. */
 .rlanes{ display:flex; flex-direction:column; gap:5px; width:100%; margin-top:10px; }
 .rlane{
-  display:grid; grid-template-columns: minmax(0,auto) 1fr minmax(0,auto);
+  /* Four columns and the first two are FIXED: name, place, cells, count. A lane's
+     name and place used to size themselves to their content, so a pill arriving
+     on one lane pushed that lane's cells right and left the others where they
+     were — the card warped as replies landed and nothing lined up. Reserved
+     widths hold still, and every lane's cells start on one line. */
+  display:grid; grid-template-columns: var(--rl-name, 7rem) var(--rl-badge, 9.5rem) 1fr minmax(0,auto);
   align-items:center; gap:10px;
   border-left:4px solid var(--lane, currentColor);
   border-radius:6px; padding:3px 8px;
+  will-change:transform;
 }
+.rl-badge{ min-width:0; white-space:nowrap; overflow:hidden; }
+.rl-badge .rl-place, .rl-badge .rl-sent{ margin-left:0; }
 .rlane.full{ background:var(--gw-goodwash, rgba(46,158,79,0.14)); }
 /* What a finished lane turned out to mean, for a round whose answer is judged
    rather than merely assembled. Green is not the default any more: a team that
@@ -715,6 +723,7 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
 .rl-who{
   font-size:0.6em; letter-spacing:0.06em; text-transform:uppercase;
   white-space:nowrap; opacity:0.8; color:var(--gw-fg, #12263F);
+  min-width:0; overflow:hidden; text-overflow:ellipsis;
 }
 .rl-who small{ margin-left:6px; opacity:0.75; font-family:'IBM Plex Mono',monospace; }
 .rl-who.all{ background:var(--gw-goodwash, rgba(46,158,79,0.18)); border-radius:6px; padding:1px 6px; }
@@ -872,7 +881,7 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
 /* Past eight lanes: two columns and tighter rows, so sixteen individuals each keep
    a lane on one card. */
 .rlanes.two-col{ display:grid; grid-template-columns:1fr 1fr; column-gap:14px; row-gap:3px; }
-.rlanes.dense .rlane{ padding:1px 6px; gap:6px; }
+.rlanes.dense .rlane{ padding:1px 6px; gap:6px; --rl-name:5rem; --rl-badge:7.5rem; }
 .rlanes.dense .rl-who{ font-size:0.52em; }
 .rlanes.dense .rl-cell{ font-size:0.62em; }
 .rlanes.dense .rl-n{ font-size:0.55em; }

@@ -832,7 +832,22 @@
     const wrap = document.createElement('div');
     wrap.className = 'rlanes' + (o.kind ? ' rlanes-' + o.kind : '') + (teams.length > 8 ? ' two-col dense' : '');
     wrap.dataset.n = String(teams.length);
-    teams.sort((a, b) => a - b).forEach(t=>{
+    /* **The lanes are the standings of this question.** Finishers rise to the top
+       in place order the moment they finish — 1st, 2nd, 3rd — and everyone still
+       working sits below in roster order, so the card reads like the leaderboard
+       rather than a fixed list the eye has to search. Re-ordered on every
+       re-render, and animated between renders (below), so a lane is seen to climb. */
+    const placeOf = {};
+    results.finished().forEach(f => { placeOf[f.who] = f.place; });
+    teams.sort((a, b) => {
+      const pa = placeOf[a], pb = placeOf[b];
+      if(pa != null && pb != null) return pa - pb || a - b;
+      if(pa != null) return -1;
+      if(pb != null) return 1;
+      return a - b;
+    });
+    const lanes = [];
+    teams.forEach(t=>{
       const spec = o.lane ? (o.lane(t) || {}) : {};
       const lane = document.createElement('div');
       /* `full` is "this team has assembled the whole thing" and washes the lane
@@ -843,7 +858,9 @@
          nothing else, which is what it always did. */
       lane.className = 'rlane' + (spec.full ? ' full' : '') +
                        (spec.tone ? ' tone-' + spec.tone : '');
+      lane.dataset.team = String(t);
       lane.style.setProperty('--lane', colour(t));
+      lanes.push(lane);
 
       const who = document.createElement('span');
       who.className = 'rl-who' + (spec.agree && spec.agree.all ? ' all' : '');
@@ -858,8 +875,16 @@
         a.textContent = spec.agree.agreed + '/' + spec.agree.size;
         who.appendChild(a);
       }
+      lane.appendChild(who);
+      /* **The place is its own column**, present on every lane from the first
+         frame, empty until it has something to say. A pill appended inside the name
+         used to widen that cell the moment somebody finished, and every cell to its
+         right jumped — the card visibly warping as replies landed. A reserved column
+         holds still. */
+      const slot = document.createElement('span');
+      slot.className = 'rl-badge';
       const badge = placeBadge(t);
-      if(badge) who.appendChild(badge);
+      if(badge) slot.appendChild(badge);
       /* No place pill, but the phone has sent: say so, with its own time, in grey.
          A wrong send and a phone still working drew the same grey boxes; only the
          host knows a reply arrived (`ctx.sentMs`), and it never says which parts
@@ -870,10 +895,10 @@
           const sent = document.createElement('small');
           sent.className = 'rl-sent';
           sent.textContent = 'sent ' + fmtMs(ms / 1000);
-          who.appendChild(sent);
+          slot.appendChild(sent);
         }
       }
-      lane.appendChild(who);
+      lane.appendChild(slot);
 
       const row = document.createElement('span');
       row.className = 'rl-row';
@@ -889,8 +914,27 @@
       wrap.appendChild(lane);
     });
     mount.appendChild(wrap);
+    /* **A lane is seen to climb.** Every render rebuilds the lanes, so the move is
+       animated from where each lane sat at the previous render of the SAME question
+       (remembered here, keyed by the record's open stamp) to where it sits now — the
+       standings' own shuffle, one question at a time. A new question starts still. */
+    const tops = {};
+    lanes.forEach(l => { tops[l.dataset.team] = l.getBoundingClientRect().top; });
+    if(laneMemo.at === resAt){
+      lanes.forEach(l => {
+        const was = laneMemo.tops[l.dataset.team];
+        if(was == null) return;
+        const d = was - tops[l.dataset.team];
+        if(Math.abs(d) < 1) return;
+        l.style.transition = 'none';
+        l.style.transform = 'translateY(' + d + 'px)';
+        requestAnimationFrame(() => { l.style.transition = 'transform .38s cubic-bezier(.2,.8,.3,1)'; l.style.transform = ''; });
+      });
+    }
+    laneMemo = { at: resAt, tops };
     return wrap;
   }
+  let laneMemo = { at: 0, tops: {} };
 
   /* ---------- reading a round whose reply is a sequence ----------
      The drag rounds' shared reader. The wire carries every box in box order,
