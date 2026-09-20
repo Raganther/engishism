@@ -40,9 +40,16 @@
    a shell command is not a structured edit, and a sufficiently odd one will slip
    past. That is worth saying rather than pretending to completeness.
 
-   It never blocks. Every other hook here hands back context and trusts the reader;
-   a hook that refused an edit would be the first thing in this project to stop
-   work rather than inform it. */
+   **One case blocks, by the user's decision, and it is the only hook here that
+   does.** A covered file whose skill has NOT been opened in this session is refused,
+   with the skill named. For a whole session the note above was printed and the work
+   carried on from memory — the cost was a second copy of the twist arithmetic that
+   had to be extracted afterwards — so the user asked for the reminder to become a
+   gate. It is narrow on purpose: it fires only for a file a skill claims, only until
+   that skill has been read once (`skill-read.js` keeps the record, on Skill, Read and
+   a shell read), and never for an uncovered file, where there is nothing to read and
+   a block would only stop work. Once the skill is open the gate is gone for the
+   session and this hook is back to informing. */
 'use strict';
 const fs   = require('fs');
 const path = require('path');
@@ -50,6 +57,7 @@ const os   = require('os');
 
 const ROOT   = path.resolve(__dirname, '..');
 const SKILLS = path.join(ROOT, '.claude', 'skills');
+const { markerFile } = require('./skill-read.js');
 
 /* Files that are notes, scratch or fixtures rather than the app. Changing these
    needs no procedure and warning about them would be the noise that kills the
@@ -156,6 +164,27 @@ process.stdin.on('end', () => {
 
   let note;
   if (hits.length){
+    /* **The gate.** None of the covering skills has been opened this session → the
+       edit is refused and the reason names the skill. Reading any one of them opens
+       the file; from then on this is the once-per-session note below. */
+    let read = [];
+    try { read = fs.readFileSync(markerFile(hook.session_id), 'utf8').split('\n'); } catch (e) {}
+    const opened = hits.filter(s => read.indexOf(s.name) !== -1);
+    if (!opened.length){
+      const reason = [
+        'Not yet: ' + rel + ' is covered by a written procedure that has not been opened this session.',
+        '',
+        ...hits.map(s => '  · **' + s.name + '** — ' + s.blurb),
+        '',
+        (hits.length > 1 ? 'Load whichever fits' : 'Load it') + ' with the Skill tool — Skill(' + hits[0].name + ') — and the edit goes through.',
+        'The checklist exists because this mistake has been made from memory before; the gate is the',
+        'user\'s decision that it gets read first. Uncovered files are never gated.'
+      ].join('\n');
+      process.stdout.write(JSON.stringify({
+        hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason }
+      }));
+      return;
+    }
     const key = hits.map(s => s.name).join('+');
     if (already().indexOf(key) !== -1) return process.exit(0);
     remember(key);

@@ -564,14 +564,19 @@ Five rules it is built on:
   phone connected to a room nobody is hosting.
 
 ## The harness — what watches the project
-**Six hooks in `.claude/settings.json`, and none of them blocks** — a reminder that fires
+**Seven hooks in `.claude/settings.json`, and exactly one blocks** — a reminder that fires
 every time is one you stop reading. Each speaks only in the case it was written for: `shelf.js` before an edit to shared code;
 `memory-check.js` before a commit, only when this file is not in it; `suite-check.js`
 before a smoke run, only when the run is long; `where-are-we.js` at session start;
 `which-skill.js` before an edit — through the edit tools **or through Bash**, since most
 surgery here is `sed -i` and heredocs — naming the skill that covers the file or saying
-**no skill covers it**, which is the case to tell the user about before starting; and
+**no skill covers it**, which is the case to tell the user about before starting;
+`skill-read.js` after a Skill, Read or shell read, noting which skill was opened; and
 `skill-check.js` after, asking once per skill per session whether the checklist held.
+**The gate:** `which-skill.js` refuses an edit to a covered file until one of its covering
+skills has been opened in the session — the record `skill-read.js` keeps — and says which
+to load. Never an uncovered file, never again once the skill is open. The skills were
+right and were not being read; the gate is how they get read.
 
 **Twelve skills in `.claude/skills/`, and a skill declares the files it covers.** `covers:`
 in its own frontmatter is the territory it claims, so a skill written next month is

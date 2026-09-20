@@ -124,8 +124,13 @@ sitting were cleared this way — identical failures, identical detail strings.
 
 ## 7. Writing a hook
 
-**Every hook here informs; none of them blocks.** A hook that refused an edit would be
-the first thing in this project to stop work rather than inform it.
+**Every hook here informs, and exactly one blocks.** `which-skill` refuses an edit to a
+file a skill claims until that skill has been opened in the session — the user's
+decision, after a session in which the reminder was printed and ignored and a second
+copy of shared arithmetic had to be extracted afterwards. It is narrow on purpose:
+never an uncovered file, never twice for one skill, and `skill-read` (a `PostToolUse`
+hook on Skill, Read and a shell read) is what tells it a skill was opened. Any other
+hook that refused an edit would need the same case made for it.
 
 **Silence is the design, and it is the whole design.** Each hook can speak *only* in the
 case it was written for, because a reminder that fires every time is one you stop

@@ -59,6 +59,19 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Skill|Read|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/tools/skill-read.js\" 2>/dev/null || true",
+            "timeout": 10,
+            "statusMessage": "Noting which procedure was opened…"
+          }
+        ]
+      }
     ]
   }
 }

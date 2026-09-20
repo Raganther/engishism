@@ -46,6 +46,12 @@ none of the session).
   this for every page. Solo play is the degradation path, not a demo mode.
 - **A plain URL is the solo game.** Room chrome (join strip, opponent UI) appears only
   when a room is real.
+- **A page that re-implements something a hub game already has IS the second caller.**
+  Flip Party carried its own copy of Flip's twist arithmetic for a day; the rule in
+  `tune-round` (extract on the second caller, rewire the first in the same change)
+  applies the moment the copy is written, not after it drifts. The playground may load
+  from `game-hub/` — that is the arrow's direction — so the shelf goes there and the
+  page maps its own ids to the shelf's indices at one seam.
 
 ## 3. The room — two declared facts and the bench follows
 

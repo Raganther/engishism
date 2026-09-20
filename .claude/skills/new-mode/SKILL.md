@@ -120,6 +120,12 @@ S.onChange(id => {
 });
 ```
 
+**There can be more than one ruleset picker** — Jeopardy's and Flip's both exist — and
+the panel hoists every one into its Ruleset section. The advisory note on a row is
+found by the bundle that *touches that row*, never by "the" picker, so a second
+game's ruleset needs nothing beyond its own rows and `describePresets`. A shared key
+in a bundle (Jeopardy's writes `round_default`) writes the one app-wide value.
+
 **A preset writes the switches rather than shadowing them.** This matters more than
 it looks: the rows underneath always say what is actually going to happen, and a
 teacher can change one afterwards without the preset quietly lying about it. A mode
