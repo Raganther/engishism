@@ -881,9 +881,14 @@
   if(SIM){
     window.HubPhoneSim = {
       state(){
-        return { roundId: activeRoundId, mode, answered, team,
-                 multi: maxPicks,
-                 options: [...$('opts').querySelectorAll('button')].map(b => b.textContent) };
+        /* On a table the options are the dealt tiles, not the tap buttons (there are
+           none): reported from the shape, so Autopilot's wrong answer is a wrong TILE
+           it can place — the only wrong answer a student can make here. Read off the
+           buttons, the list was empty and the bench sent "not sure", a reply no
+           handset can produce. */
+        const options = (mode === 'table' && tblShape) ? (tblShape.labels || []).slice()
+                      : [...$('opts').querySelectorAll('button')].map(b => b.textContent);
+        return { roundId: activeRoundId, mode, answered, team, multi: maxPicks, options };
       },
       answer(v){
         if(!client || answered) return false;
