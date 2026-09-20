@@ -366,6 +366,10 @@
         resRows[key] = { who: Number(who), id: o.id || null,
                          at: o.at == null ? LATE + (++resSeq) : o.at,
                          seconds: o.ms != null ? o.ms / 1000 : (resAt ? (Date.now() - resAt) / 1000 : 0),
+                         /* the head start this competitor waited, in seconds — part of
+                            `seconds` for the ranking, shown apart so the phone's own
+                            number is recognisable on the card */
+                         hold: o.hold > 0 ? o.hold / 1000 : 0,
                          fraction: clock.fraction(), done: !!o.done };
       } else if(o.done){
         resRows[key].done = true;      // the last rung of a climb, on an entry that stands
@@ -464,6 +468,9 @@
      whether the question has closed (the record's `closed()`); until then the pill
      is drawn as provisional. */
   const fmtMs = sec => (Math.round(sec * 1000) / 1000).toFixed(3) + 's';
+  /* A held phone's time reads as the phone shows it, plus the head start the ranking
+     added back: "1.239s +2.0" — the same two numbers on the handset and the card. */
+  const fmtTime = r => r.hold > 0 ? fmtMs(r.seconds - r.hold) + ' +' + r.hold.toFixed(1) : fmtMs(r.seconds);
   function placeBadge(team){
     const r = results.finished().filter(f => f.who === Number(team))[0];
     if(!r) return null;
@@ -475,7 +482,8 @@
     if(r.seconds > 0){
       const t = document.createElement('span');
       t.className = 'rl-ms';
-      t.textContent = fmtMs(r.seconds);
+      t.textContent = fmtTime(r);
+      if(r.hold > 0) b.title = 'Their own clock, plus the ' + r.hold.toFixed(1) + 's head start they waited';
       b.appendChild(t);
     }
     return b;
@@ -524,7 +532,7 @@
         const b = document.createElement('small');
         b.className = 'rl-place'; b.dataset.place = f.place; b.dataset.final = results.closed() ? '1' : '0';
         b.textContent = ordinal(f.place);
-        if(f.seconds > 0){ const t = document.createElement('span'); t.className = 'rl-ms'; t.textContent = fmtMs(f.seconds); b.appendChild(t); }
+        if(f.seconds > 0){ const t = document.createElement('span'); t.className = 'rl-ms'; t.textContent = fmtTime(f); b.appendChild(t); }
         line.appendChild(b);
         /* The finisher's name in their own colour, so a crowded room reads the same
            way the lanes do — find your colour, find yourself. */
@@ -1339,7 +1347,7 @@
         /* `done` separates a rung from a finish: a step re-arms for the next one;
            a finish stamps the placement the lanes draw the badge from. */
         const finished = v.r.done !== false || !!state.done;
-        results.note(v.team, { at: at(v.team), ms: fx.ms ? fx.ms(v.team) : null,
+        results.note(v.team, { at: at(v.team), ms: fx.ms ? fx.ms(v.team) : null, hold: fx.hold ? fx.hold(v.team) : 0,
                                done: finished, id: (ctx.ids || [])[v.team] });
         if(fx.right) fx.right(v.team, v.r, finished, v.set);
         if(!finished) again = true;
@@ -1359,7 +1367,7 @@
          to think about progress says the ordinary thing by saying nothing. */
       def.accept(won.set, state, won.team, ctx);
       const over = won.r.done !== false || !!state.done;
-      results.note(won.team, { at: at(won.team), ms: fx.ms ? fx.ms(won.team) : null,
+      results.note(won.team, { at: at(won.team), ms: fx.ms ? fx.ms(won.team) : null, hold: fx.hold ? fx.hold(won.team) : 0,
                                done: over, id: (ctx.ids || [])[won.team] });
       if(fx.right) fx.right(won.team, won.r, over, won.set);
       if(over){ if(fx.take) fx.take(won.team); return; }

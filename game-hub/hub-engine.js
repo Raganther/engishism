@@ -3204,7 +3204,9 @@
            a head start is a real head start and not a free reset of the clock. */
         const held = roundState.hostHold && Number(roundState.hostHold[t]);
         if(ms != null && held > 0) ms += held;
-        at[t] = { key, n: ++roundSeq, ms };
+        /* The hold is kept beside the stamp so the card can show the phone's own
+           number AND the head start it carried, rather than a sum the phone never saw. */
+        at[t] = { key, n: ++roundSeq, ms, hold: (ms != null && held > 0) ? held : 0 };
       }
     });
   }
@@ -3216,6 +3218,10 @@
   const roundMs = t => {
     const s = roundState && roundState.hostAt && roundState.hostAt[t];
     return s && s.ms != null ? s.ms : null;
+  };
+  const roundHeadStart = t => {
+    const s = roundState && roundState.hostAt && roundState.hostAt[t];
+    return s && s.hold > 0 ? s.hold : 0;
   };
   /* The latest stopwatch this competitor's phone sent on the open question, right
      or wrong — what `ctx.sentMs` lends the card. Null before any reply carried one. */
@@ -3249,6 +3255,7 @@
       settler: roundSettler,
       at: roundAt,
       ms: roundMs,
+      hold: roundHeadStart,
       scoreEach: !!roundHost.scoreEach,
       draw: renderRound,
       miss: (team, r) => roundMiss(team, r),

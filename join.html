@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260920d">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260920e">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -562,15 +562,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260920d"></script>
-<script src="game-hub/hub-buzzer.js?v=20260920d"></script>
+<script src="game-hub/hub-brand.js?v=20260920e"></script>
+<script src="game-hub/hub-buzzer.js?v=20260920e"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260920d"></script>
+<script src="game-hub/matter.min.js?v=20260920e"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260920d"></script>
+<script src="game-hub/hub-table.js?v=20260920e"></script>
 <script>
 (function(){
   'use strict';
@@ -796,8 +796,8 @@
   /* The visible stopwatch. Ticks from the paint, freezes at the send; the same
      number that rides the reply. Stops itself when a new question starts it again
      or the phone is stood down. */
-  let swFrozen = false, swRunId = 0;
-  const fmtSw = ms => (Math.max(0, ms) / 1000).toFixed(3) + 's';
+  let swFrozen = false, swRunId = 0, heldMs = 0;
+  const fmtSw = ms => (Math.max(0, ms) / 1000).toFixed(3) + 's' + (heldMs > 0 ? ' +' + (heldMs / 1000).toFixed(1) : '');
   function stopwatchStart(){
     swFrozen = false;
     const el = $('stopwatch'); el.classList.remove('hide', 'sent'); el.textContent = fmtSw(0);
@@ -1739,6 +1739,9 @@
         return;
       }
       activeRoundId = d.roundId || null;
+      /* The head start this phone has just waited out, if any — shown beside its
+         stopwatch, because the board adds it back and the two numbers must match. */
+      heldMs = d.held ? wait : 0;
       /* The stopwatch starts when the question is on THIS screen — after the paint,
          not on the message — and every reply carries how long it has run. */
       shownAt = performance.now();
