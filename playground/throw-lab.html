@@ -497,6 +497,10 @@
       newWord();
     }
     layoutIn.addEventListener('change', applyLayout);
+    /* ?layout=plinko (or grid / sentence / row) opens the bench on that layout —
+       a link that lands a phone straight on the thing being tuned. */
+    { const want = new URLSearchParams(location.search).get('layout');
+      if(want && [...layoutIn.options].some(o => o.value === want)){ layoutIn.value = want; applyLayout(); } }
     document.getElementById('cols-in').addEventListener('change', () => { if(gridMode) newWord(); });
     document.getElementById('rows-in').addEventListener('change', () => { if(gridMode) newWord(); });
 
