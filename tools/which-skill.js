@@ -123,9 +123,23 @@ function writesIn(cmd){
      `git commit -F -` heredoc tripped this and named a skill for work already
      finished. `memory-check.js` is the hook that belongs on a commit. */
   if (/\bgit\s+commit\b/.test(cmd)) return [];
-  const writes = /(sed\s+-i|>>?\s|\btee\b|\bmv\b|\bcp\b|writeFileSync|open\([^)]*['"]w['"]|>\s*\$)/;
-  if (!writes.test(cmd)) return [];
-  const hits = cmd.match(/[\w./-]*(?:game-hub|playground|tools|engine)\/[\w./-]+\.(?:js|css|html)|\b[\w-]+\.html\b/g) || [];
+  const surgery = /(sed\s+-i|\btee\b|\bmv\b|\bcp\b|writeFileSync|open\([^)]*['"]w['"])/;
+  const redirect = />>?\s*([^\s;&|)]+)/g;
+  if (!surgery.test(cmd) && !redirect.test(cmd)) return [];
+  /* **A mention is not an invocation.** When the only write in the command is a
+     redirect, the files written are the redirect's targets and nothing else — a
+     probe script written to the scratch dir names project pages in its body, and
+     the gate refused it as an edit to a page it never touched. Surgery inside a
+     heredoc (`sed -i`, `open(p,'w')`) still scans the whole command, because the
+     path it writes is in the body by construction. */
+  let hits;
+  if (!surgery.test(cmd)){
+    hits = []; let m; redirect.lastIndex = 0;
+    while ((m = redirect.exec(cmd))) hits.push(m[1].replace(/^["']|["']$/g, ''));
+    hits = hits.filter(h => /\.(?:js|css|html)$/.test(h));
+  } else {
+    hits = cmd.match(/[\w./-]*(?:game-hub|playground|tools|engine)\/[\w./-]+\.(?:js|css|html)|\b[\w-]+\.html\b/g) || [];
+  }
   return [...new Set(hits)].map(h =>
     path.isAbsolute(h) ? h : path.join(ROOT, h.replace(/^\.\//, '')));
 }

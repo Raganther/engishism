@@ -14,13 +14,16 @@ window.registerFlipSettings = function(S){
      ten; with catch-up 4, steal 0.8 and twists 80% they won six, the lead changed hands
      nine times a game and every game finished close. Picking one WRITES the three rows
      below, so they always say what will happen and any of them can be changed after. */
+  /* The bundles' numbers and labels live on the twist shelf (`HubTwist.rulesets`), the
+     one home the party lobby's switch reads too; this row only maps them onto the
+     settings ids. The shelf loads before every settings file in the shells and the
+     question bench. */
+  const RS = (window.HubTwist || {}).rulesets;
+  if(!RS) throw new Error('flip-settings: hub-twist.js must load before this file');
   S.register({ id:'flipRules', group:'Flip', type:'variant', default:'mixed', games:['flip'],
     label:'Rules',
     help:'A whole balance at once. Picking one writes the three comeback settings below — so they always say what will actually happen, and you can still change any of them afterwards.',
-    variants:[
-      {value:'mixed',   label:'Mixed class — the standard rules'},
-      {value:'runaway', label:'Runaway class — one student far out in front'}
-    ] });
+    variants: Object.keys(RS).map(k => ({ value:k, label:RS[k].label })) });
 
   S.register({ id:'flipSize', group:'Flip', type:'variant', default:'25', games:['flip'],
     label:'Board size',
@@ -125,10 +128,8 @@ window.registerFlipSettings = function(S){
      share and the twist density are the two the class already tuned; the catch-up
      multiple is the lever that decided the runaway case — 3 and 4 both worked, 4 was
      the closer game. */
-  const FLIP_PRESETS = {
-    mixed:   { flipCatchUp:1.5, flipSteal:0.5, flipTwists:60 },
-    runaway: { flipCatchUp:4,   flipSteal:0.8, flipTwists:80 }
-  };
+  const FLIP_PRESETS = {};
+  Object.keys(RS).forEach(k => { FLIP_PRESETS[k] = { flipCatchUp: RS[k].catchUp, flipSteal: RS[k].steal, flipTwists: RS[k].twists }; });
   S.describePresets('flipRules', FLIP_PRESETS);
   let flipApplyingPreset = false;
   S.onChange((id, value, game, change) => {

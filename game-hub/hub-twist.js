@@ -253,7 +253,19 @@
     return { moves: [{ who, delta: -paid, why: 'box · empty' }], eyebrow: 'BOX · EMPTY', said: 'Empty. ' + me + "'s " + paid + ' is gone.', who };
   }
 
-  const HubTwist = { kinds: KINDS, BOX, spread, behind, worth, deal, targets, nothing,
+  /* ---- the rulesets: the three comeback dials, as a named bundle ----
+     Measured on the balance bench (tools/party-sim.js), not guessed: under the mixed
+     values a 90% player beat two 40%s ten games out of ten; under the runaway values
+     they won six or seven, the lead changed hands nine times a game and every game
+     finished close. The catch-up multiple is the lever that decided it. `twists` is a
+     percentage, as the hub's settings row stores it. The hub's Rules row and the
+     party lobby's switch both read this table, so the numbers have one home. */
+  const RULESETS = {
+    mixed:   { label:'Mixed class — the standard rules',                  catchUp:1.5, steal:0.5, twists:60 },
+    runaway: { label:'Runaway class — one student far out in front',      catchUp:4,   steal:0.8, twists:80 }
+  };
+
+  const HubTwist = { kinds: KINDS, BOX, rulesets: RULESETS, spread, behind, worth, deal, targets, nothing,
                      steal, swap, gift, bounty, boxes, drawBox, box, shuffle };
   window.HubTwist = HubTwist;
   if(window.HubKit) window.HubKit.twist = HubTwist;

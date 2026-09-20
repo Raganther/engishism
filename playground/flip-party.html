@@ -172,15 +172,15 @@
 </main>
 
 <script>window.UNITS = window.UNITS || [];</script>
-<script src="../game-hub/hub-brand.js?v=20260920a"></script>
-<script src="../game-hub/hub-twist.js?v=20260920a"></script>
-<script src="../game-hub/hub-qr.js?v=20260920a"></script>
-<script src="../game-hub/hub-buzzer.js?v=20260920a"></script>
-<script src="phone-profiles.js?v=20260920a"></script>
-<script src="bench-kit.js?v=20260920a"></script>
-<script src="../game-hub/content/general-knowledge.js?v=20260920a"></script>
-<script src="../game-hub/content/general-knowledge-2.js?v=20260920a"></script>
-<script src="../game-hub/content/inventions.js?v=20260920a"></script>
+<script src="../game-hub/hub-brand.js?v=20260920b"></script>
+<script src="../game-hub/hub-twist.js?v=20260920b"></script>
+<script src="../game-hub/hub-qr.js?v=20260920b"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260920b"></script>
+<script src="phone-profiles.js?v=20260920b"></script>
+<script src="bench-kit.js?v=20260920b"></script>
+<script src="../game-hub/content/general-knowledge.js?v=20260920b"></script>
+<script src="../game-hub/content/general-knowledge-2.js?v=20260920b"></script>
+<script src="../game-hub/content/inventions.js?v=20260920b"></script>
 <script>
 (function(){
   'use strict';
@@ -204,6 +204,13 @@
      at the seam and `land()` maps the moves back. */
   const T = window.HubTwist;
   const BOX = T.BOX;
+  /* The lobby's Rules switch: which of the shelf's bundles the host chose. Applied as
+     the board is dealt, and kept across "Play again". */
+  let chosenRules = 'mixed';
+  function applyRuleset(name){
+    const r = T.rulesets[name]; if(!r) return;
+    RULES.catchUp = r.catchUp; RULES.steal = r.steal; RULES.twists = r.twists / 100;
+  }
 
   /* ================= host or player ================= */
   const SIM = (window.HubBuzzer && HubBuzzer.sim) ? HubBuzzer.sim() : null;
@@ -643,9 +650,16 @@
       const sel = document.createElement('select'); sel.id = 'unit';
       (v.units || []).forEach(u => { const o = document.createElement('option'); o.value = u.id; o.textContent = u.label; sel.appendChild(o); });
       box.appendChild(sel);
+      /* The Rules switch — the shelf's rulesets, the same two the hub's Flip offers.
+         Picking one writes the three comeback dials into RULES as the board is dealt;
+         the rest of the block at the top of the page stays as written. */
+      const rs = document.createElement('select'); rs.id = 'ruleset';
+      Object.keys(T.rulesets).forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = T.rulesets[k].label; if(k === chosenRules) o.selected = true; rs.appendChild(o); });
+      rs.addEventListener('change', () => { chosenRules = rs.value; });
+      box.appendChild(rs);
       const go = document.createElement('button'); go.className = 'big'; go.id = 'start'; go.textContent = 'Deal the board';
       go.disabled = !(v.players || []).some(p => p.present);
-      go.addEventListener('click', () => deal(sel.value));
+      go.addEventListener('click', () => { applyRuleset(chosenRules); deal(sel.value); });
       box.appendChild(go);
     }
   }
