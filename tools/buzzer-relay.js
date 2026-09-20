@@ -388,8 +388,15 @@ function handleSend(req, res){
         const cool = Math.max(0, Math.min(30000, Number(msg.coolMs) || 0));
         const until = cool ? Date.now() + cool : 0;
         if(until) room.cooling.set(p.id, until); else room.cooling.delete(p.id);
+        /* `place`/`ms`/`hold`/`final` are the finisher's standing — where the board's
+           record ranks them by their own stopwatch — told to the phone and kept here
+           so a reconnect hears it again. */
         const verdict = { verdict:String(msg.verdict||'wrong'),
-          note:String(msg.note||'').slice(0,120), until, finished:!!msg.finished };
+          note:String(msg.note||'').slice(0,120), until, finished:!!msg.finished,
+          place: msg.place > 0 ? Math.min(999, Number(msg.place)) : null,
+          ms: Number.isFinite(Number(msg.ms)) ? Math.max(0, Number(msg.ms)) : null,
+          hold: Number.isFinite(Number(msg.hold)) ? Math.max(0, Number(msg.hold)) : 0,
+          final: !!msg.final };
         room.verdicts.set(p.id, verdict);
         pushEvent(p.res, 'judged', verdict);
         return sendJSON(res, 200, { ok:true, until });

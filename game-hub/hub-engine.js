@@ -2830,6 +2830,7 @@
        baseline is per-index and the indices just shifted. */
     standingsOpen();
     roundReplies = [];    // nobody has answered *this* question yet
+    roundToldPlace = {};  // and nobody has been told a place
     sendMisses = {};      // a new question starts every phone's escalation from cold
     sendCooling = {};     // and nobody carries a visible wait into it
     renderRound();
@@ -2944,6 +2945,7 @@
      still reading the instruction while they work. `drawPrompt` owns that element
      and clears it, so this always runs after it. */
   function renderRound(){
+    roundTellPlaces(Kit.round.results.closed());
     if(!roundState){
       const stale = document.getElementById('clue-group');
       if(stale) stale.remove();
@@ -3438,6 +3440,26 @@
        ends on a right answer would otherwise invite the player to keep going. */
     const note = more ? 'Yes — now the next one' : 'Yes — that finishes it';
     roundPhonesOf(team).forEach(p=>{ buzzHost.judge(p.id, 'right', { note, finished:!more }); });
+    roundToldPlace = {};                         // the place rides the next tell, below
+  }
+  /* **A finished phone hears its place.** The record ranks finishers by their own
+     stopwatch, so a place can move while the question is open; each competitor's
+     phones are told their place through the same per-phone verdict wire the finish
+     rides — once when it is taken, again only when it moves, and once more marked
+     `final` when the record closes. Called from every render, guarded here, so no
+     phone is told the same thing twice. */
+  let roundToldPlace = {};
+  function roundTellPlaces(final){
+    if(!buzzHost || !roundState) return;
+    Kit.round.results.finished().forEach(r => {
+      const key = r.place + (final ? '!' : '');
+      if(roundToldPlace[r.who] === key) return;
+      roundToldPlace[r.who] = key;
+      roundPhonesOf(r.who).forEach(p => {
+        buzzHost.judge(p.id, 'right', { finished:true, place:r.place, ms:Math.round(r.seconds * 1000), hold:Math.round((r.hold || 0) * 1000), final:!!final,
+                                        note: 'Complete — ' + (final ? 'final' : 'let the others finish') });
+      });
+    });
   }
 
   /* **Push which options are now settled, without arming.** One definition of what

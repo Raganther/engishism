@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260920i">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260920j">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -157,6 +157,17 @@
   .lookup.up{ transform:translateY(0); }
   @media (prefers-reduced-motion: reduce){ .lookup{ transition:none; } }
   .who{ font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--hd-muted); }
+  /* The place, told by the board: dashed while the question is open (the order can
+     still move — everyone is ranked by their own clock), solid once it is final,
+     first place in green. The same pill the card wears on its lanes. */
+  #place-pill{
+    display:inline-block; margin:0 0 4px; padding:2px 10px; border-radius:7px; font-size:1rem;
+    font-family:'IBM Plex Mono',monospace; font-weight:700; letter-spacing:0.06em;
+    border:1.5px dashed var(--hd-line); color:var(--hd-paper); opacity:0.85;
+  }
+  #place-pill.hide{ display:none; }
+  #place-pill.final{ border-style:solid; opacity:1; background:rgba(255,255,255,0.1); }
+  #place-pill.final.first{ background:var(--hd-green); color:var(--hd-ink); border-color:rgba(0,0,0,0.3); }
   .room{
     font-family:'IBM Plex Mono', ui-monospace, monospace;
     font-size:0.72rem; letter-spacing:0.22em; text-transform:uppercase;
@@ -519,6 +530,9 @@
   <div id="phone-id">
     <p class="room" id="room"></p>
     <p class="who" id="who"></p>
+    <!-- beside the name, never inside it: the name paragraph is rewritten as text on
+         every join, which erased a child pill and, with it, the arm that reached for it -->
+    <p id="place-pill" class="hide"></p>
   </div>
   <!-- How this question is being played, in the round's own words — "A team answers
        only when all of them agree". A teacher sets that per game and cannot then
@@ -582,15 +596,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260920i"></script>
-<script src="game-hub/hub-buzzer.js?v=20260920i"></script>
+<script src="game-hub/hub-brand.js?v=20260920j"></script>
+<script src="game-hub/hub-buzzer.js?v=20260920j"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260920i"></script>
+<script src="game-hub/matter.min.js?v=20260920j"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260920i"></script>
+<script src="game-hub/hub-table.js?v=20260920j"></script>
 <script>
 (function(){
   'use strict';
@@ -1776,6 +1790,7 @@
       /* The head start this phone has just waited out, if any — shown beside its
          stopwatch, because the board adds it back and the two numbers must match. */
       heldMs = d.held ? wait : 0;
+      $('place-pill').className = 'hide';
       /* The stopwatch starts when the question is on THIS screen — after the paint,
          not on the message — and every reply carries how long it has run. */
       shownAt = performance.now();
@@ -1996,6 +2011,11 @@
       floorClockStop();          // the verdict outranks whatever the clock was saying
       const v = (d && d.verdict) || 'wrong';
       if(d && d.finished){
+        if(d.place > 0){
+          const pill = $('place-pill');
+          pill.textContent = d.place + ({1:'st', 2:'nd', 3:'rd'}[d.place] || 'th');
+          pill.className = (d.final ? 'final' : '') + (d.place === 1 ? ' first' : '');
+        }
         timeUp = true;
         answered = true;
         $('commit').disabled = true;
