@@ -194,11 +194,13 @@
        not already run their own question clock: Quickfire declares one (there is one
        `Kit.round.clock` because there is one question in the room), and Millionaire
        mounts on its own stage, where there is no topline to draw the countdown in. */
-    S.register({ id:'roundSecs', group:'Questions', type:'range', default:60, quick:true,
-      min:0, max:180, step:15, unit:'s',
+    /* 10s by default — a minute read as no clock at all once the phones showed it;
+       a device seeded on the old slider is migrated once in hub-engine.js (`migrateRoundSecs`). */
+    S.register({ id:'roundSecs', group:'Questions', type:'range', default:10, quick:true,
+      min:0, max:120, step:5, unit:'s',
       games: roundGames.filter(g => isOnCard(g) && !ownClock(g)),
       label:'Each question runs for',
-      help:'A countdown on the clue card from the moment a question opens. When it dies the phones stand down and the card says Time — you still reveal and close it. 0 is untimed.' });
+      help:'The question\'s clock: a countdown on the clue card, and on every phone from the moment the question appears on THAT screen — the bar along its bottom. A phone locks itself at its own zero and keeps its answer on screen; the card says Time and you still reveal and close it. 0 is untimed.' });
 
     /* **How a question's points are split, and the whole answer to "custom behaviour
        per game".** A board names its starting rule through `defaults`, which ranks

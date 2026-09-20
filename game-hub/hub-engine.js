@@ -444,6 +444,20 @@
     payVariants: Object.keys(PAY_RULES).map(k => ({ value:k, label:PAY_RULES[k].label })),
     solo:        () => Roster.solo()
   });
+  /* The question clock shipped at 60s and is 10s now — migrated HERE, after the round
+     settings register, because a migration that runs before its setting exists reads
+     nothing and writes nothing. Any value on the OLD slider's
+     grid (steps of 15: 15/30/45/60…) moves to 10 — those are the only values that
+     slider could set; a value off that grid was set on the new one and stays. */
+  (function migrateRoundSecs(){
+    const MARK = 'engishism.roundSecs10';
+    let done = false;
+    try{ done = localStorage.getItem(MARK) === '1'; }catch(e){}
+    if(done) return;
+    const v = Number(S.raw('roundSecs'));
+    if(v > 10 && v % 15 === 0) S.set('roundSecs', 10);
+    try{ localStorage.setItem(MARK, '1'); }catch(e){}
+  })();
 
   /* **Send is off by default now, and the flip is a migration for the same reason as
      above.** The commit beat (`roundSend`) shipped on: in a room of individuals a tap

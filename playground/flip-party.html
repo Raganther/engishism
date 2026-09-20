@@ -78,7 +78,7 @@
   .tw{ display:inline-block; margin-left:8px; padding:1px 8px; border-radius:6px; background:var(--gold); color:#101318; font-weight:800; font-size:0.7rem; letter-spacing:0.1em; }
   .prompt{ font-size:1.15rem; font-weight:700; line-height:1.3; margin:6px 0 12px; }
   .clock{ float:right; font-family:"IBM Plex Mono",monospace; font-weight:700; color:var(--gold); font-variant-numeric:tabular-nums; }
-  #tbar{ position:fixed; left:0; right:0; bottom:0; height:38px; z-index:40; background:rgba(255,255,255,0.06); border-top:2px solid var(--line);
+  #tbar{ position:fixed; left:14px; right:14px; bottom:14px; height:30px; z-index:40; background:rgba(255,255,255,0.08); border:2px solid var(--line); border-radius:10px; overflow:hidden;
          font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; }
   #tbar.hide{ display:none; }
   #tbar .fill{ position:absolute; left:0; top:0; bottom:0; width:100%; background:var(--good); }
@@ -88,7 +88,7 @@
   #tbar .lbl{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:1.05rem; font-weight:700; color:#101318; }
   #tbar.sent .lbl::before{ content:'sent · '; font-weight:400; }
   #tbar.over .lbl{ color:var(--ink); }
-  #question{ padding-bottom:44px; }
+  #question{ padding-bottom:52px; }
   #opts{ display:grid; grid-template-columns:1fr; gap:8px; }
   #opts .tile{ padding:14px 10px; font-size:1.05rem; }
   #opts.words{ grid-template-columns:1fr 1fr; }
@@ -191,15 +191,15 @@
 </main>
 
 <script>window.UNITS = window.UNITS || [];</script>
-<script src="../game-hub/hub-brand.js?v=20260920h"></script>
-<script src="../game-hub/hub-twist.js?v=20260920h"></script>
-<script src="../game-hub/hub-qr.js?v=20260920h"></script>
-<script src="../game-hub/hub-buzzer.js?v=20260920h"></script>
-<script src="phone-profiles.js?v=20260920h"></script>
-<script src="bench-kit.js?v=20260920h"></script>
-<script src="../game-hub/content/general-knowledge.js?v=20260920h"></script>
-<script src="../game-hub/content/general-knowledge-2.js?v=20260920h"></script>
-<script src="../game-hub/content/inventions.js?v=20260920h"></script>
+<script src="../game-hub/hub-brand.js?v=20260920i"></script>
+<script src="../game-hub/hub-twist.js?v=20260920i"></script>
+<script src="../game-hub/hub-qr.js?v=20260920i"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260920i"></script>
+<script src="phone-profiles.js?v=20260920i"></script>
+<script src="bench-kit.js?v=20260920i"></script>
+<script src="../game-hub/content/general-knowledge.js?v=20260920i"></script>
+<script src="../game-hub/content/general-knowledge-2.js?v=20260920i"></script>
+<script src="../game-hub/content/inventions.js?v=20260920i"></script>
 <script>
 (function(){
   'use strict';
