@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260920b">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260920c">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -182,6 +182,10 @@
     box-shadow:none; cursor:default; filter:none; }
   #buzzer.won{ background:var(--hd-green); filter:none; }
   #state{ font-size:1rem; min-height:1.6em; color:var(--hd-paper); }
+  #stopwatch{ font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums; font-size:1.05rem;
+              margin:0 0 4px; color:var(--hd-paper); opacity:0.8; }
+  #stopwatch.sent{ opacity:1; font-weight:700; }
+  #stopwatch.hide{ display:none; }
   #status{ font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--hd-muted); }
   .rejoin{
     background:none; border:none; padding:8px; cursor:pointer; font-family:inherit;
@@ -546,6 +550,10 @@
     <button class="go" id="send">Send</button>
   </div>
   <p id="state">Waiting for the teacher…</p>
+  <!-- The phone's own stopwatch: from the question painting on THIS screen to the
+       send, to the millisecond. It is the number the board ranks by, so the student
+       sees the clock they are actually racing. Frozen at the sent time. -->
+  <p id="stopwatch" class="hide"></p>
   <p id="status"></p>
   <!-- The way out of a remembered seat. Rejoining silently is right for a reload
        mid-round, and wrong the day the phone changes hands or the student picked
@@ -554,15 +562,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260920b"></script>
-<script src="game-hub/hub-buzzer.js?v=20260920b"></script>
+<script src="game-hub/hub-brand.js?v=20260920c"></script>
+<script src="game-hub/hub-buzzer.js?v=20260920c"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260920b"></script>
+<script src="game-hub/matter.min.js?v=20260920c"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260920b"></script>
+<script src="game-hub/hub-table.js?v=20260920c"></script>
 <script>
 (function(){
   'use strict';
@@ -780,7 +788,32 @@
      board ranks by it, the relay bounds it, and it needs no clock to agree with
      anybody's — see `applyArmed`, where it starts. */
   let shownAt = null;
-  function reply(v){ client.respond(v, shownAt == null ? null : performance.now() - shownAt); }
+  function reply(v){
+    const ms = shownAt == null ? null : performance.now() - shownAt;
+    stopwatchFreeze(ms);
+    client.respond(v, ms);
+  }
+  /* The visible stopwatch. Ticks from the paint, freezes at the send; the same
+     number that rides the reply. Stops itself when a new question starts it again
+     or the phone is stood down. */
+  let swFrozen = false, swRunId = 0;
+  const fmtSw = ms => (Math.max(0, ms) / 1000).toFixed(3) + 's';
+  function stopwatchStart(){
+    swFrozen = false;
+    const el = $('stopwatch'); el.classList.remove('hide', 'sent'); el.textContent = fmtSw(0);
+    const id = ++swRunId;
+    (function tick(){
+      if(id !== swRunId || swFrozen || shownAt == null) return;
+      el.textContent = fmtSw(performance.now() - shownAt);
+      requestAnimationFrame(tick);
+    })();
+  }
+  function stopwatchFreeze(ms){
+    if(ms == null) return;
+    swFrozen = true;
+    const el = $('stopwatch'); el.classList.remove('hide'); el.classList.add('sent'); el.textContent = fmtSw(ms);
+  }
+  function stopwatchHide(){ swFrozen = true; $('stopwatch').classList.add('hide'); }
   /* **A simulated handset can be driven.** Only under the room bench's `?auto=1`
      contract (`HubBuzzer.sim()`), and only on this page: `state()` says what this
      phone is being asked right now, `answer(v)` commits a reply on the SAME path a
@@ -1702,7 +1735,7 @@
       /* The stopwatch starts when the question is on THIS screen — after the paint,
          not on the message — and every reply carries how long it has run. */
       shownAt = performance.now();
-      requestAnimationFrame(() => { shownAt = performance.now(); });
+      requestAnimationFrame(() => { shownAt = performance.now(); if(d && d.mode && d.mode !== 'off') stopwatchStart(); else stopwatchHide(); });
       floorClockStop();          // a fresh floor retires whoever was on the clock
       /* **A round deals its card on the arm**, and updates its marks the same way —
          a round cannot send the relay a second message, so the card rides the arm.

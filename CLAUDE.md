@@ -722,7 +722,14 @@ its paint to the commit and every reply carries `ms`; the relay bounds it (never
 than the room has been armed, so a phone can only lie downwards) and forwards it; the
 board's `roundStamp` ranks by it, a reply without one (a stale phone page) sorting after
 every stopwatch and before the teacher's click. `results.note` takes `ms` so the seconds
-beside a place are the student's own. No clock has to agree with anybody's.
+beside a place are the student's own. No clock has to agree with anybody's. **The
+stopwatch is visible at both ends**: the phone shows its own clock ticking from the paint
+and frozen at the send (`#stopwatch`), and the card's place pill carries that time to the
+millisecond (`.rl-ms`). **A place is provisional until the question closes** — a reply that
+arrives second can outrank one already shown, because it is ranked by its own clock — so
+the pill is drawn dashed until `Kit.round.results.close()` (the host calls it at reveal and
+when the question is taken) and solid after. Pay follows the record at close, whatever was
+shown mid-question.
 Supportive rules allow everyone to finish activity rounds, use buzzing for ordinary
 questions, and pass category control on. Setup: [Jeopardy demo](docs/jeopardy-demo.md).
 

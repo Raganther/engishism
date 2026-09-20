@@ -159,7 +159,7 @@
     <div id="grid"></div>
   </div>
   <div id="question" class="hide">
-    <div><span class="topic" id="q-topic"></span><span class="tw hide" id="q-tw"></span><span class="clock" id="q-clock"></span></div>
+    <div><span class="topic" id="q-topic"></span><span class="tw hide" id="q-tw"></span><span class="clock" id="q-clock"></span><span class="clock" id="q-sw"></span></div>
     <div class="prompt" id="q-prompt"></div>
     <div id="opts"></div>
     <div id="slots" class="hide"></div>
@@ -177,15 +177,15 @@
 </main>
 
 <script>window.UNITS = window.UNITS || [];</script>
-<script src="../game-hub/hub-brand.js?v=20260920b"></script>
-<script src="../game-hub/hub-twist.js?v=20260920b"></script>
-<script src="../game-hub/hub-qr.js?v=20260920b"></script>
-<script src="../game-hub/hub-buzzer.js?v=20260920b"></script>
-<script src="phone-profiles.js?v=20260920b"></script>
-<script src="bench-kit.js?v=20260920b"></script>
-<script src="../game-hub/content/general-knowledge.js?v=20260920b"></script>
-<script src="../game-hub/content/general-knowledge-2.js?v=20260920b"></script>
-<script src="../game-hub/content/inventions.js?v=20260920b"></script>
+<script src="../game-hub/hub-brand.js?v=20260920c"></script>
+<script src="../game-hub/hub-twist.js?v=20260920c"></script>
+<script src="../game-hub/hub-qr.js?v=20260920c"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260920c"></script>
+<script src="phone-profiles.js?v=20260920c"></script>
+<script src="bench-kit.js?v=20260920c"></script>
+<script src="../game-hub/content/general-knowledge.js?v=20260920c"></script>
+<script src="../game-hub/content/general-knowledge-2.js?v=20260920c"></script>
+<script src="../game-hub/content/inventions.js?v=20260920c"></script>
 <script>
 (function(){
   'use strict';
@@ -496,7 +496,7 @@
               left: Math.max(0, Math.round((G.ends - Date.now()) / 1000)), answered: Object.keys(G.answers) };
     }
     if(G.phase === 'reveal'){
-      v.reveal = { answer: G.q.kind === 'group' ? G.q.answer.join(', ') : G.q.answer, right: G.results.map(r => ({ id:r.id, pay:r.pay, place:r.place })),
+      v.reveal = { answer: G.q.kind === 'group' ? G.q.answer.join(', ') : G.q.answer, right: G.results.map(r => ({ id:r.id, pay:r.pay, place:r.place, ms:r.ms })),
                    wrong: Object.keys(G.answers).filter(id => !G.answers[id].right) };
     }
     if(G.phase === 'table' || G.phase === 'end') v.table = G.table;
@@ -692,20 +692,27 @@
     $('q-topic').textContent = (v.cur && v.cur.topic) || '';
     $('q-tw').classList.toggle('hide', !(v.cur && v.cur.twist !== 'plain'));
     $('q-tw').textContent = v.cur && v.cur.twist !== 'plain' ? v.cur.twist.toUpperCase() : '';
-    if(key !== lastQKey){ lastQKey = key; shownAt = performance.now(); myPicks = []; myLetters = []; answered = false;
+    if(key !== lastQKey){ lastQKey = key; shownAt = performance.now(); myPicks = []; myLetters = []; answered = false; sentMs = null;
                           $('q-verdict').classList.add('hide'); $('q-sent').classList.add('hide'); }
     if(v.phase === 'reveal'){
       $('q-clock').textContent = '';
       const mine = v.reveal.right.find(r => r.id === myId);
       const vd = $('q-verdict'); vd.classList.remove('hide');
       vd.className = 'verdict ' + (mine ? 'ok' : 'no');
-      vd.textContent = mine ? ('Right — ' + (mine.place === 1 ? 'quickest!' : 'place ' + mine.place) + ' · +' + mine.pay) : ('The answer: ' + v.reveal.answer);
+      vd.textContent = mine ? ('Right — ' + (mine.place === 1 ? 'quickest!' : 'place ' + mine.place) + ' · ' + (mine.ms / 1000).toFixed(3) + 's · +' + mine.pay) : ('The answer: ' + v.reveal.answer);
+      $('q-sw').textContent = '';
       $('opts').innerHTML = ''; $('letters').classList.add('hide'); $('slots').classList.add('hide');
       $('q-prompt').textContent = q ? q.prompt : ($('q-prompt').textContent);
       return;
     }
     $('q-clock').textContent = q.left + 's';
     $('q-prompt').textContent = q.prompt;
+    /* This phone's own stopwatch, the number its reply will carry: ticking from the
+       paint, frozen at the send. */
+    (function sw(){ const el = $('q-sw'); if(!el) return; const stamp = key;
+      (function tick(){ if(lastQKey !== stamp || view.phase !== 'question' || shownAt == null) return;
+        if(answered){ el.textContent = ((sentMs || 0) / 1000).toFixed(3) + 's'; return; }
+        el.textContent = ((performance.now() - shownAt) / 1000).toFixed(3) + 's'; requestAnimationFrame(tick); })(); })();
     if(answered || (q.answered || []).indexOf(myId) !== -1){ $('q-sent').classList.remove('hide'); $('q-sent').textContent = 'Answer sent — waiting for the others'; $('opts').innerHTML = ''; $('letters').classList.add('hide'); $('slots').classList.add('hide'); return; }
     if(q.kind === 'choice' || q.kind === 'group'){
       $('letters').classList.add('hide'); $('slots').classList.add('hide');
@@ -740,10 +747,12 @@
       });
     }
   }
+  let sentMs = null;
   function commit(v){
     if(answered) return;
     answered = true;
-    send({ t:'ans', v, ms: Math.round(performance.now() - shownAt) });
+    sentMs = Math.round(performance.now() - shownAt);
+    send({ t:'ans', v, ms: sentMs });
     renderQuestion(view);
   }
   function rowsInto(box, rows, opts){

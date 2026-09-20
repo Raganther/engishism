@@ -318,13 +318,22 @@
      you is exactly the sort of unfairness nobody would ever be able to explain. */
   const LATE = 1e9;                    // "after everything the room sent" — see `note`
   let resAt = 0, resSeq = 0, resRows = Object.create(null);
+  let resClosed = false;
   const results = {
     open(){
       resAt = Date.now();
       resSeq = 0;
       resRows = Object.create(null);
+      resClosed = false;
       return results;
     },
+    /* **The question is over — the places are final.** Until this is called a place
+       is provisional: the board ranks by each phone's OWN stopwatch, so a reply that
+       arrives second can outrank one already shown as first (its phone painted the
+       question later and its clock reads less). The badges say which state they are
+       in; the host calls this at reveal, when nothing more can arrive. */
+    close(){ resClosed = true; return results; },
+    closed(){ return resClosed; },
     /* `at` is when this competitor's *answer* arrived, which the host knows and this
        does not: several teams can settle inside one tick, so the moment a reply
        landed and the moment it was judged are different numbers. Pass it and order is
@@ -449,13 +458,26 @@
   function ordinal(n){
     return n + ({1:'st', 2:'nd', 3:'rd'}[n] || 'th');
   }
+  /* The badge carries the competitor's own time beside the place — the phone's
+     stopwatch, to the millisecond — so a reorder while the question is open reads
+     as a sort by time rather than the board changing its mind. `data-final` says
+     whether the question has closed (the record's `closed()`); until then the pill
+     is drawn as provisional. */
+  const fmtMs = sec => (Math.round(sec * 1000) / 1000).toFixed(3) + 's';
   function placeBadge(team){
     const r = results.finished().filter(f => f.who === Number(team))[0];
     if(!r) return null;
     const b = document.createElement('small');
     b.className = 'rl-place';
     b.dataset.place = r.place;
+    b.dataset.final = results.closed() ? '1' : '0';
     b.textContent = ordinal(r.place);
+    if(r.seconds > 0){
+      const t = document.createElement('span');
+      t.className = 'rl-ms';
+      t.textContent = fmtMs(r.seconds);
+      b.appendChild(t);
+    }
     return b;
   }
 
@@ -500,8 +522,9 @@
       fin.slice(0, SHOW).forEach((f, i)=>{
         if(i){ const s = document.createElement('span'); s.className = 'rcrowd-sep'; s.textContent = '·'; line.appendChild(s); }
         const b = document.createElement('small');
-        b.className = 'rl-place'; b.dataset.place = f.place;
+        b.className = 'rl-place'; b.dataset.place = f.place; b.dataset.final = results.closed() ? '1' : '0';
         b.textContent = ordinal(f.place);
+        if(f.seconds > 0){ const t = document.createElement('span'); t.className = 'rl-ms'; t.textContent = fmtMs(f.seconds); b.appendChild(t); }
         line.appendChild(b);
         /* The finisher's name in their own colour, so a crowded room reads the same
            way the lanes do — find your colour, find yourself. */

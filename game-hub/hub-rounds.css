@@ -735,6 +735,16 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
   background:var(--gw-goodwash, rgba(46,158,79,0.18));
   color:var(--gw-goodink, #1E7A44); opacity:1; font-weight:700;
 }
+/* The competitor's own time, beside the place: the phone's stopwatch from the
+   question painting on that screen to the send, to the millisecond. */
+.rl-place .rl-ms{ margin-left:5px; font-weight:400; opacity:0.85; letter-spacing:0; text-transform:none; }
+/* Provisional until the question closes: the order can still move while a phone is
+   out, because each phone is ranked by its own clock. Dashed and quiet says so;
+   the solid pill, and first place's green, arrive at reveal. */
+.rl-place[data-final="0"]{
+  background:transparent; border:1.5px dashed var(--gw-line, rgba(18,38,63,0.35));
+  color:var(--gw-fg, #12263F); opacity:0.75; font-weight:600;
+}
 /* The crowd picture — what the card draws when the room is too big for a lane
    each (the same >5 ceiling the lanes measure). One picture of the room: who has
    finished, in order, then who is close as counts. Counts only, never content —

@@ -3463,6 +3463,7 @@
     roundSettler.stop();
     roundClockStop();
     roundState.done = true;
+    Kit.round.results.close();      // everyone who will finish has: the places are final
     roundState.say  = teamName(team) + ' has it.'; roundState.sayTeam = team;
     renderRound();
     Sound.play(document.getElementById(roundHost.stage).classList.contains('lit')
@@ -5440,6 +5441,9 @@
      caller in `games/*.js`, which is what keeps this a contract rather than a
      mirror of the whole closure. Quickfire is the first caller. */
   function revealOpenRound(){
+    /* Nothing more can arrive after the reveal, so the places are final — the
+       record says so and the round's own re-render draws its badges solid. */
+    Kit.round.results.close();
     if(roundState && !roundState.shown) roundDef().reveal(roundHost.mount(), roundState, roundCtx());
   }
   function roundDoneNow(){ return !!(roundState && roundState.done); }
