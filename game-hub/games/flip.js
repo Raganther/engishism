@@ -742,8 +742,12 @@
                 : p.twist === 'swap' ? 'Swap — with whom?'
                 :                      'Steal — from whom?';
     const byTeam = E().teams().map((t, i) => rows.filter(r => r.who !== i).map(r => r.line));
+    /* Each line in its competitor's colour — the same colour the board draws the
+       row in, so the ballot in the hand matches the chooser on the wall. */
+    const hues = {};
+    if(window.HubBuzzer && window.HubBuzzer.teamColour) rows.forEach(r => { hues[r.line] = window.HubBuzzer.teamColour(r.who); });
     const vote = K.vote.open({ options: lines, team });
-    twistVote = E().askClass(ask, 'vote', lines, team, { optionsByTeam: byTeam })
+    twistVote = E().askClass(ask, 'vote', lines, team, { optionsByTeam: byTeam, optionHues: hues })
               ? { kind: gift ? 'gift' : 'pick', vote, team: p.team } : null;
   }
   /* The count lands on the chip the teacher is about to click, in the chooser's own

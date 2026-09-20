@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260920q">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260920r">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -599,15 +599,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260920q"></script>
-<script src="game-hub/hub-buzzer.js?v=20260920q"></script>
+<script src="game-hub/hub-brand.js?v=20260920r"></script>
+<script src="game-hub/hub-buzzer.js?v=20260920r"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260920q"></script>
+<script src="game-hub/matter.min.js?v=20260920r"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260920q"></script>
+<script src="game-hub/hub-table.js?v=20260920r"></script>
 <script>
 (function(){
   'use strict';
@@ -950,6 +950,9 @@
     reply(card.words[i]);
   }
 
+  /* The board's colour per option line, when the arm carried one (`optionHues`,
+     keyed by the option's text). Read by the vote builder; cleared with each arm. */
+  let optionHues = null;
   function setMode(m, opts, mine, shape){
     mode = m || 'buzz';
     answered = false;
@@ -998,9 +1001,14 @@
       /* The inline display set above wins over any class, so the layout has to be
          chosen here rather than in CSS alone. */
       box.style.display = compact ? 'grid' : 'flex';
+      const hues = optionHues;
       list.forEach(o=>{
         const b=document.createElement('button');
         b.type='button'; b.textContent=o;
+        /* The board's colour for this line, when it sent one: a chooser built from
+           the leaderboard paints each name here in the colour the board draws its
+           row — so a phone and the projector agree on who is which colour. */
+        if(hues && hues[o]) b.style.setProperty('--fill', hues[o]);
         /* Finished with: green, and not tappable. It stays on the list because a
            list that shrinks moves every other box on the screen. */
         if(doneWords.indexOf(o) !== -1){ b.classList.add('done'); b.disabled = true; }
@@ -1933,6 +1941,7 @@
          behaviour that is not about the grid — `bare` (the minimal full-bleed phone)
          or `tap`. A plain-row table (anagram's flick, no cols) still needs to carry
          `bare`, so the condition is not `cols` alone; `cols` null means the row. */
+      optionHues = (d && d.optionHues && typeof d.optionHues === 'object') ? d.optionHues : null;
       setMode(d && d.mode, d && d.options, myRound(d),
               d && (d.cols || d.bare || d.tap || d.line || d.plinko || d.stack)     // the skill rounds' shapes ride too
                 ? { cols: d.cols === 'auto' ? 'auto' : d.cols ? Number(d.cols) : null,   // 'auto': wrap to this handset's width

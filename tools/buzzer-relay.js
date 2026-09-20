@@ -104,6 +104,12 @@ function getRoom(code, create){
              in which each team climbs its own ladder gives each side a different
              set of words still to place. */
           optionsByTeam:null,
+          /* A colour per option, keyed by the option's text — so a chooser built
+             from the leaderboard paints each name on the phone in that competitor's
+             own colour, the colour the board draws the same row in. Keyed by text
+             rather than position because the per-team lists differ per phone. Null
+             means the phone colours by position, as every vote did before. */
+          optionHues:null,
           /* Which of those options are already *settled* for this phone, per team
              index. Null means none are, which is every round that existed before
              this. It is the answer to a fault a real class found: an ordering race
@@ -285,7 +291,7 @@ function openStream(req, res, q){
     armed:room.armed, locked:lockedNow(room),
     verdict:room.verdicts.get(id) || null,
     mode:room.mode, prompt:promptFor(room, id), note:room.note,
-    options:optionsFor(room, team), done:doneFor(room, team), turnTeam:room.team,
+    options:optionsFor(room, team), optionHues:room.optionHues, done:doneFor(room, team), turnTeam:room.team,
     cols:room.cols, rows:room.rows, bar:room.bar, upright:room.upright, tap:room.tap, bare:room.bare, count:room.count,
     ends:room.ends, line:room.line, plinko:room.plinko, stack:room.stack,
     hold: holdFor(room, team),
@@ -516,6 +522,13 @@ function handleSend(req, res){
           ? msg.doneByTeam.slice(0,60).map(list => Array.isArray(list)
               ? list.slice(0,20).map(o => String(o).slice(0,40)) : [])
           : null;
+        room.optionHues = (msg.optionHues && typeof msg.optionHues === 'object' && !Array.isArray(msg.optionHues))
+          ? Object.keys(msg.optionHues).slice(0,60).reduce((out, k) => {
+              const v = String(msg.optionHues[k] == null ? '' : msg.optionHues[k]).slice(0,32);
+              if(/^#[0-9a-fA-F]{3,8}$/.test(v)) out[String(k).slice(0,80)] = v;
+              return out;
+            }, {})
+          : null;
         room.optionsByTeam = Array.isArray(msg.optionsByTeam)
           ? msg.optionsByTeam.slice(0,60).map(list => Array.isArray(list)
               ? list.slice(0,20).map(o=>String(o).slice(0,80)) : null)
@@ -560,7 +573,7 @@ function handleSend(req, res){
            in here is the same for the whole room. */
         toEachPlayer(room, 'armed', p => ({ prompt: promptFor(room, p.id),
                                    note: room.note,
-                                   mode: room.mode, options: optionsFor(room, p.team),
+                                   mode: room.mode, options: optionsFor(room, p.team), optionHues: room.optionHues,
                                    cols: room.cols, rows: room.rows, bar: room.bar, upright: room.upright, tap: room.tap, bare: room.bare, count: room.count,
                                    ends: room.ends, line: room.line, plinko: room.plinko, stack: room.stack,
                                    hold: holdFor(room, p.team),
