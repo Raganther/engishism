@@ -189,13 +189,17 @@ and when is the container's; what a position is worth is the skin's.** **A skill
 hands back a RESULT, not a right answer**: its `judge` returns `{verdict:'right', done:true,
 score, label}` — higher score is better, the label is how the round says it ("7 short") —
 and the record ranks by `score` before any clock, drawing the label where a question round's
-time would be. Three exist — `rounds/line.js` (Flick to the line), `plinko.js` (Plinko
-drop: a chip off a ledge through pegs into worth-labelled bins) and `stack.js` (Stack in ten
-seconds: the pile's height at the phone's own buzzer, or at the board's Check) — built and
-played on the question bench; no skin hosts one yet. On the board face a rest is the
-teacher's held answer (`s.chosen`), which is what enables Check. **Their phone is the bare
-table** (`bare:true` on the arm — the whole screen is the canvas, the prompt overlays it
-once, `#state` kept for the one line the phone says back).
+time would be. **A skill round is declared through `Kit.round.skill(id, spec)`** in
+`hub-rounds.js` — the factory owns the two faces, the rest as the teacher's held answer
+(`s.chosen`, which is what enables Check), the read/judge/accept shape around the round's
+`key` and `result`, the lanes (`.rlanes-skill`) and the bare-phone arm; a round declares
+only its wire word, its state, its result, its table and its sentences. Three exist —
+`rounds/line.js` (Flick to the line), `plinko.js` (Plinko drop: a chip off a ledge through
+pegs into worth-labelled bins) and `stack.js` (Stack in ten seconds: the pile's height at
+the phone's own buzzer, or measured at the board's Check) — built and played on the
+question bench; no skin hosts one yet. **Their phone is the bare table** (`bare:true` on
+the arm — the whole screen is the canvas, the prompt overlays it once, `#state` kept for
+the one line the phone says back).
 `Kit.round.results` records order and timing for everybody, and the skin **names** one of
 the shared `PAY_RULES` and declares `worth` and `step`. A skin does not do its own
 arithmetic — five boards each writing their own sums is a hand-kept list in another form.

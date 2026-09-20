@@ -1522,6 +1522,133 @@
     }, d.host || {});
   }
 
+  /* ---- a skill round, from its declaration ----
+     **A skill round has no question: a flick, a drop, a stack, and a RESULT.** Three
+     were written by copying the first — the same two faces in `render`, the same
+     rest-to-held-answer step, the same read/judge/accept shape wrapped around a
+     parse and a result — and the diff between two of them was twelve lines of
+     substance in a hundred and twenty. This is the hundred and eight, once.
+
+     `skill(id, spec)` registers the round. The spec is only what is the round's own:
+       label, field, sample, editor, check   as for any round
+       key        the wire's word — a reply is `<key>:<number>`, parsed and formatted here
+       digits     decimals the number is sent with (default 3)
+       state(item) → the round's own fields, or null when the item is not one of
+                  its own; the shared fields (need, chosen, picks, results, …) are added
+       result(value, s) → {score, label, text, good}   higher score ranks first; `label`
+                  is the pill's short word, `text` the lane's sentence; `good:false`
+                  draws the cell struck through (past the line, an empty bin). Null =
+                  the value is out of range, judged incomplete.
+       table      the board face: {height, opts(s) → extra Kit.table options (a line),
+                  deal(table, s), rest(r, s) → value | undefined}. A rest that returns
+                  a value becomes the held answer — `chosen` beside `picks`, and the
+                  card's Check re-read through `round:arranged`.
+       measure(s) → value   for a round whose answer is the whole table (the stack):
+                  the board holds a placeholder and judging it measures the pile at
+                  the click, exactly as a phone measures at its own buzzer.
+       arm(s)     the fields past the shared ones (`line`, `plinko`, `stack`, `secs`,
+                  `options`, `rethink`) — carried by the relay, read by join.html
+       cue        the board face's instruction after the prompt ("flick the tile.")
+       tell(name, r) → the say line after a result (default "Name: text")
+       said(who, r) → saidOf's sentence
+     Nothing here scores, keeps a clock or names a skin — the record ranks by the
+     result and a host says what a place is worth. Autopilot gets no solution:
+     a flick is a finger. */
+  const MEASURE = 'measure';
+  function skill(id, spec){
+    const K = window.HubKit;
+    const re = new RegExp(spec.key + ':(-?[0-9.]+)');
+    const digits = spec.digits == null ? 3 : spec.digits;
+    const parse = v => { const m = String(v == null ? '' : v).match(re); return m ? Number(m[1]) : NaN; };
+    const wire = v => spec.key + ':' + Number(v).toFixed(digits);
+    /* the value an answer holds — the placeholder means "measure the table now" */
+    const valueOf = (answer, s) => { const v = (answer || [])[0]; return (v === MEASURE && spec.measure) ? spec.measure(s) : parse(v); };
+    const resultOf = (answer, s) => { const v = valueOf(answer, s); if(!Number.isFinite(v)) return null; const r = spec.result(v, s); return r ? Object.assign({ value: v }, r, { good: r.good !== false }) : null; };
+    const teamOf = c => (c.team == null ? (c.forTeam || 0) : c.team);
+    const sayLine = (mount, text) => { const p = document.createElement('p'); p.className = 'skill-say group-say'; p.textContent = text; mount.appendChild(p); };
+
+    K.round.register(id, Object.assign({
+      settleMs: 300,
+      claims: item => !!(item && item[spec.field]),
+      check(item){ return []; },
+      setup(item, ctx){
+        if(!item || !item[spec.field]) return null;
+        const own = spec.state(item, ctx);
+        if(!own) return null;
+        return Object.assign({ text: item.q || item.text || spec.label,
+                               need: 1, chosen: [], picks: {}, results: {}, done: false, cardCells: [], verdict: null, mode: 'flick' }, own);
+      },
+      render(mount, s, ctx){
+        const c = ctx || {};
+        const face = K.round.face(s, c);
+        /* redrawn whole; a live table survives it (cardTable re-hangs its canvas) */
+        mount.innerHTML = '';
+        if(face === 'board' && !s.done){
+          const team = teamOf(c);
+          const t = spec.table || {};
+          const topts = Object.assign({}, t.opts ? t.opts(s) : null, {
+            onRest: r => {
+              if(s.done || !t.rest) return;
+              const v = t.rest(r, s);
+              if(!Number.isFinite(v)) return;
+              s.picks[team] = [wire(v)];
+              s.chosen = s.picks[team].slice();   // the board's Check judges what is held, and a rest is it
+              mount.dispatchEvent(new CustomEvent('round:arranged', { bubbles: true }));
+            }
+          });
+          K.round.cardTable(mount, s, { height: t.height || 340, say: false, table: topts,
+                                        deal: table => { if(t.deal) t.deal(table, s); } });
+          if(spec.measure) s.chosen = [MEASURE];   // the whole table is the held answer
+          sayLine(mount, s.say || (s.text + (spec.cue ? ' — ' + spec.cue : '')));
+          return;
+        }
+        if(s._canvas){ s._canvas.remove(); s._canvas = null; s._table = null; }
+        K.round.lanes(mount, c, {
+          kind: 'skill',
+          lane: t => {
+            const r = s.results[t];
+            return { cells: r ? [{ text: r.text, got: r.good, cls: r.good ? '' : 'over' }] : [{ text: '', cls: 'gap' }],
+                     full: !!r && r.good, tone: r ? (r.good ? 'good' : 'bad') : null };
+          }
+        });
+        sayLine(mount, s.say || s.text);
+      },
+      arm(s, ctx){
+        const c = ctx || {};
+        return Object.assign({
+          mode: 'table', prompt: c.prompt === false ? spec.label : s.text, options: ['GO'],
+          bare: true,   // the whole phone screen is the table; the prompt overlays it once
+          multi: 1, holds: true, rethink: false,
+          team: (c.team === 0 || Number(c.team) > 0) ? Number(c.team) : null
+        }, spec.arm ? spec.arm(s, c) : null);
+      },
+      read(replies, s, ctx){
+        if(!(replies && replies.length)) return s.picks || {};
+        const picks = {};
+        replies.forEach(r => { const v = parse(r && r.value); if(Number.isFinite(v)) picks[Number(r.team) || 0] = [wire(v)]; });
+        return picks;
+      },
+      answerKey: answer => String((answer || [])[0] || ''),
+      answerText(answer, s){ const r = resultOf(answer, s); return r ? r.text : ''; },
+      judge(answer, s, team, ctx){
+        const r = resultOf(answer, s);
+        if(!r) return { verdict: 'incomplete', hits: 0 };
+        /* every measured go "finishes": the ranking is the score, not the verdict */
+        return { verdict: 'right', hits: 1, done: true, score: r.score, label: r.label };
+      },
+      accept(answer, s, team, ctx){
+        const r = resultOf(answer, s);
+        if(!r) return;
+        s.results[team] = r;
+        const name = (ctx && ctx.teamName) ? ctx.teamName(team) : ('Team ' + (team + 1));
+        s.say = spec.tell ? spec.tell(name, r) : (name + ': ' + r.text);
+      },
+      saidOf(who, r, s){ return spec.said ? spec.said(who, r) : (who + ' ' + (r.label || 'went')); },
+      solution(){ return null; }
+    }, pick(spec, ['label', 'field', 'sample', 'editor', 'check', 'settleMs'])));
+  }
+  function pick(o, keys){ const out = {}; keys.forEach(k => { if(o[k] != null) out[k] = o[k]; }); return out; }
+
   window.HubKit.round = {
     register(id, def){
       ROUNDS[String(id)] = Object.assign({
@@ -1719,7 +1846,7 @@
       }
       return null;
     },
-    ctx: buildCtx, resolve,
+    ctx: buildCtx, resolve, skill,
     shares, settle, clock, results, poll, agreement, lanes, hueOf, placeBadge, crowd, crowdKnown, crowdMeter, mustHold, arrangement, cardTable, cap, actions, strip, press, say, finish, shuffle, teamColour, dragTag, bare,
     /* **Which face a physics question is played on, decided ONCE per question.**
        'phones' when handsets were in the room as the question opened, else 'board'.

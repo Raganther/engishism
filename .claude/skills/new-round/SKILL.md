@@ -87,13 +87,15 @@ belong to the host. **A skill round (no question — a flick, a drop, a stack) h
 back a result instead**: `judge` returns `{verdict:'right', done:true, score, label}`,
 higher score better, and `Kit.round.results` ranks by it before any clock and draws the
 label where a time would be. The measurement comes from the shelf (`Kit.table`'s
-`onRest`, its `line`, its `pegs`/`bins`/`binOf`), never from the round's own physics;
-`rounds/line.js` is the model, `plinko.js` and `stack.js` the other two. **On the board
-face a rest IS the teacher's held answer**: the host's Check judges `s.chosen` (the bench)
-or `chosen`/`cardCells` (the hub), so `onRest` writes the wire into `s.chosen` beside
-`s.picks[team]` and dispatches `round:arranged`, or the button never enables. A round
-whose answer is the whole table (the stack) holds a placeholder in `chosen` and measures
-it in `judge`/`accept`. Jeopardy pays a tile and passes a turn when the round says a
+`onRest`, its `line`, its `pegs`/`bins`/`binOf`), never from the round's own physics.
+**Declare it through `Kit.round.skill(id, spec)`, never by copying a round**: the factory
+owns the two faces, the rest as the held answer (the host's Check judges `s.chosen`, so a
+rest is written there beside `picks` and `round:arranged` re-reads the button), the
+read/judge/accept shape around your `key` and `result`, the lanes and the bare-phone arm.
+You declare `key`, `state`, `result`, `table` (`deal`/`rest`/`opts`), `arm` extras, `cue`,
+`tell`/`said` — and `measure` when the whole table is the answer (the stack). Its header
+in `hub-rounds.js` is the field list; `rounds/line.js`, `plinko.js` and `stack.js` are the
+three callers, each under seventy lines. Jeopardy pays a tile and passes a turn when the round says a
 team has it; the bench pays nothing at all. A round holding one of them can only
 ever live in one game, which defeats the entire point.
 

@@ -854,8 +854,10 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
    letter box, so the two do not read as the same thing at a glance. */
 /* The skill rounds: one cell, the result in words. A miss (past the line, a
    zero bin) reads struck through. */
-.rlanes-line .rl-cell, .rlanes-plinko .rl-cell, .rlanes-stack .rl-cell{ width:auto; padding:1px 10px; }
-.rlanes-line .rl-cell.over, .rlanes-plinko .rl-cell.over{ background:var(--gw-badwash, rgba(192,57,43,0.20)); text-decoration:line-through; }
+/* every skill round's lane (`Kit.round.skill` draws them): one sentence per cell,
+   a bad result (past the line, an empty bin) struck through */
+.rlanes-skill .rl-cell{ width:auto; padding:1px 10px; }
+.rlanes-skill .rl-cell.over{ background:var(--gw-badwash, rgba(192,57,43,0.20)); text-decoration:line-through; }
 .rlanes-mc .rl-cell{
   width:1.15em; height:1.15em; border-radius:5px; opacity:1;
   border:1.5px solid var(--gw-line, var(--blue, #00A0DF));
