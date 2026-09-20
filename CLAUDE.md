@@ -933,9 +933,13 @@ fifth rule and Jeopardy's opening one: each place worth `roundPayDecay` of the o
 above, **the tail flat** at a tenth of the value rather than decaying to nothing.
 `roundSecs` is the round's own clock — the third of the three, and the one that did not
 exist — painted as the `#clue-clock` pill on card hosts only (`onCard`, because the
-card's skeleton is in the document whether or not it is open). **Time up is a fact the
-room hears, not a verdict**: the handsets stand down, the card says Time, the teacher
-still reveals and closes. `clockRunning` means "was this question timed", not "is it
+card's skeleton is in the document whether or not it is open). **Time up is the
+teacher's cue, not a verdict and not a stand-down**: the card says Time and the board
+keeps accepting replies until Reveal; each handset runs the same duration from the moment
+the question painted on ITS screen (`secs` rides the arm; `roundClockRun` counts by wall
+clock from `shownAt`), locks its own input at its own zero, and keeps the student's answer
+on screen until the teacher reveals or closes. A phone that painted late gets the full
+time. The teacher still reveals and closes. `clockRunning` means "was this question timed", not "is it
 ticking" — the payout is recomputed after the question ends and a live `running()` made
 the standings disagree with what was awarded.
 

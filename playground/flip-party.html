@@ -177,15 +177,15 @@
 </main>
 
 <script>window.UNITS = window.UNITS || [];</script>
-<script src="../game-hub/hub-brand.js?v=20260920c"></script>
-<script src="../game-hub/hub-twist.js?v=20260920c"></script>
-<script src="../game-hub/hub-qr.js?v=20260920c"></script>
-<script src="../game-hub/hub-buzzer.js?v=20260920c"></script>
-<script src="phone-profiles.js?v=20260920c"></script>
-<script src="bench-kit.js?v=20260920c"></script>
-<script src="../game-hub/content/general-knowledge.js?v=20260920c"></script>
-<script src="../game-hub/content/general-knowledge-2.js?v=20260920c"></script>
-<script src="../game-hub/content/inventions.js?v=20260920c"></script>
+<script src="../game-hub/hub-brand.js?v=20260920d"></script>
+<script src="../game-hub/hub-twist.js?v=20260920d"></script>
+<script src="../game-hub/hub-qr.js?v=20260920d"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260920d"></script>
+<script src="phone-profiles.js?v=20260920d"></script>
+<script src="bench-kit.js?v=20260920d"></script>
+<script src="../game-hub/content/general-knowledge.js?v=20260920d"></script>
+<script src="../game-hub/content/general-knowledge-2.js?v=20260920d"></script>
+<script src="../game-hub/content/inventions.js?v=20260920d"></script>
 <script>
 (function(){
   'use strict';
@@ -322,7 +322,9 @@
     G.answers = {}; G.results = [];
     G.phase = 'question'; G.ends = Date.now() + RULES.secs * 1000;
     push();
-    clearTimeout(timer); timer = setTimeout(judge, RULES.secs * 1000 + 400);
+    /* Every phone counts the duration from its OWN paint, so the host allows a
+       beat past its own clock for a phone that painted late before it judges. */
+    clearTimeout(timer); timer = setTimeout(judge, RULES.secs * 1000 + 1500);
   }
   const solutionOf = q => !q ? null : q.kind === 'anagram' ? q.answer.split('').join('|') : q.kind === 'group' ? q.answer.join('|') : q.answer;
   function isRight(q, v){
@@ -493,7 +495,7 @@
     if(G.cur) v.cur = { n: G.cur.n, topic: G.cur.topic, twist: G.cur.twist };
     if(G.phase === 'question' && G.q){
       v.q = { kind: G.q.kind, prompt: G.q.prompt, options: G.q.options, need: G.q.need, letters: G.q.letters,
-              left: Math.max(0, Math.round((G.ends - Date.now()) / 1000)), answered: Object.keys(G.answers) };
+              left: Math.max(0, Math.round((G.ends - Date.now()) / 1000)), secs: RULES.secs, answered: Object.keys(G.answers) };
     }
     if(G.phase === 'reveal'){
       v.reveal = { answer: G.q.kind === 'group' ? G.q.answer.join(', ') : G.q.answer, right: G.results.map(r => ({ id:r.id, pay:r.pay, place:r.place, ms:r.ms })),
@@ -705,14 +707,17 @@
       $('q-prompt').textContent = q ? q.prompt : ($('q-prompt').textContent);
       return;
     }
-    $('q-clock').textContent = q.left + 's';
+    if(!q.secs) $('q-clock').textContent = q.left + 's';   // with a duration the phone's own tick below owns this
     $('q-prompt').textContent = q.prompt;
     /* This phone's own stopwatch, the number its reply will carry: ticking from the
        paint, frozen at the send. */
-    (function sw(){ const el = $('q-sw'); if(!el) return; const stamp = key;
+    (function sw(){ const el = $('q-sw'), ck = $('q-clock'); if(!el) return; const stamp = key, total = (q.secs || 0) * 1000;
       (function tick(){ if(lastQKey !== stamp || view.phase !== 'question' || shownAt == null) return;
-        if(answered){ el.textContent = ((sentMs || 0) / 1000).toFixed(3) + 's'; return; }
-        el.textContent = ((performance.now() - shownAt) / 1000).toFixed(3) + 's'; requestAnimationFrame(tick); })(); })();
+        const run = performance.now() - shownAt;
+        /* the countdown is this phone's own too: the duration from ITS paint */
+        if(total){ const left = Math.max(0, total - run) / 1000; ck.textContent = left <= 0 ? 'time' : (left < 10 ? left.toFixed(1) : String(Math.ceil(left))) + 's'; }
+        if(answered){ el.textContent = ((sentMs || 0) / 1000).toFixed(3) + 's'; if(!total || total - run > 0) requestAnimationFrame(tick); return; }
+        el.textContent = (run / 1000).toFixed(3) + 's'; requestAnimationFrame(tick); })(); })();
     if(answered || (q.answered || []).indexOf(myId) !== -1){ $('q-sent').classList.remove('hide'); $('q-sent').textContent = 'Answer sent — waiting for the others'; $('opts').innerHTML = ''; $('letters').classList.add('hide'); $('slots').classList.add('hide'); return; }
     if(q.kind === 'choice' || q.kind === 'group'){
       $('letters').classList.add('hide'); $('slots').classList.add('hide');
@@ -750,6 +755,7 @@
   let sentMs = null;
   function commit(v){
     if(answered) return;
+    if(view && view.q && view.q.secs && shownAt != null && performance.now() - shownAt > view.q.secs * 1000) return;   // this phone's own clock has ended
     answered = true;
     sentMs = Math.round(performance.now() - shownAt);
     send({ t:'ans', v, ms: sentMs });

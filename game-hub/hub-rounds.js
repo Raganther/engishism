@@ -852,6 +852,19 @@
       }
       const badge = placeBadge(t);
       if(badge) who.appendChild(badge);
+      /* No place pill, but the phone has sent: say so, with its own time, in grey.
+         A wrong send and a phone still working drew the same grey boxes; only the
+         host knows a reply arrived (`ctx.sentMs`), and it never says which parts
+         were wrong — that stays between the student and the reveal. */
+      else if(ctx && typeof ctx.sentMs === 'function'){
+        const ms = ctx.sentMs(t);
+        if(ms != null){
+          const sent = document.createElement('small');
+          sent.className = 'rl-sent';
+          sent.textContent = 'sent ' + fmtMs(ms / 1000);
+          who.appendChild(sent);
+        }
+      }
       lane.appendChild(who);
 
       const row = document.createElement('span');

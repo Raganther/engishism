@@ -741,6 +741,13 @@ body.theme-gameshow .prompt-made{ color: var(--glow, var(--blue, #00A0DF)); }
 /* Provisional until the question closes: the order can still move while a phone is
    out, because each phone is ranked by its own clock. Dashed and quiet says so;
    the solid pill, and first place's green, arrive at reveal. */
+/* A phone that has sent and holds no place: finished, not right. Grey, with its
+   own time, so the room can tell it from a phone still working. */
+.rl-sent{
+  font-family:'IBM Plex Mono',monospace; margin-left:6px; padding:1px 6px;
+  border-radius:6px; white-space:nowrap; font-size:0.85em;
+  color:var(--gw-muted, rgba(18,38,63,0.6)); border:1.5px dashed var(--gw-line, rgba(18,38,63,0.25));
+}
 .rl-place[data-final="0"]{
   background:transparent; border:1.5px dashed var(--gw-line, rgba(18,38,63,0.35));
   color:var(--gw-fg, #12263F); opacity:0.75; font-weight:600;

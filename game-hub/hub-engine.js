@@ -269,10 +269,16 @@
     const card = document.getElementById('clue-card');
     if(card) card.classList.remove('overtime');
   }
-  /* **Time up stands the room down and says so, and stops there.** It does not
-     reveal, does not judge and does not close: the teacher decides and the teacher
-     clicks, which is the same rule a won round already follows. Guarded on the
-     question still being live, so the beat still in flight when a team takes it
+  /* **Time up is the teacher's cue, and it stops nothing on the phones.** It does
+     not reveal, does not judge, does not close — and, since the clock became each
+     phone's own, it does not stand the room down either. The question's duration
+     rides the arm, every handset counts it from the moment the question painted on
+     ITS screen and locks its own input when its own clock ends, so a phone that
+     painted late (a slow load, a head start) still gets the full time. Standing the
+     room down here threw a student straight back to the waiting screen at the
+     board's zero, with their answer gone from in front of them; now the answer stays
+     until the teacher reveals or closes, and a late reply still counts. Guarded on
+     the question still being live, so the beat still in flight when a team takes it
      cannot fire over the win. */
   function roundTimeUp(){
     if(!roundLive()) return;
@@ -281,7 +287,6 @@
     const card = document.getElementById('clue-card');
     if(card) card.classList.add('overtime');
     Sound.play('klaxon');
-    roundStandDown();
     roundState.say = 'Time.'; roundState.sayTeam = null;
     renderRound();
   }
@@ -2695,6 +2700,12 @@
          Laid over the defaults, so a field absent here means the builder's
          no-phones, whole-room answer. */
       host: {
+        /* **When this competitor last sent, by their own stopwatch** — the latest
+           reply's `ms`, or null before any. The lanes draw a wrong-but-finished
+           phone as "sent 3.323s" from it, so the room can tell a done phone from one
+           still working without seeing which parts were wrong. The container's
+           record of who answered and when, lent rather than reached for. */
+        sentMs: roundSentMs,
         /* **Whether the question stays open after somebody gets it right**, which a
            round has to know because "I am finished" and "the round is over" are the
            same field on the same object — `state.done`. Written by a round that meant
@@ -3206,6 +3217,17 @@
     const s = roundState && roundState.hostAt && roundState.hostAt[t];
     return s && s.ms != null ? s.ms : null;
   };
+  /* The latest stopwatch this competitor's phone sent on the open question, right
+     or wrong — what `ctx.sentMs` lends the card. Null before any reply carried one. */
+  function roundSentMs(t){
+    let ms = null;
+    (roundReplies || []).forEach(r => {
+      if(!r || Number(r.team) !== Number(t) || r.ms == null) return;
+      const v = Number(r.ms);
+      if(Number.isFinite(v)) ms = v;
+    });
+    return ms;
+  }
 
   function roundOnReplies(all){
     if(!roundLive()) return;
@@ -5132,6 +5154,15 @@
         teams.forEach((t, i) => { const ms = Math.round(Number(hostNow.headStart(i)) || 0); if(ms > 0) hold[i] = ms; });
         if(Object.keys(hold).length) round.hold = hold;
         if(roundState) roundState.hostHold = Object.keys(hold).length ? hold : null;
+      }
+      /* **The question's clock rides the arm, once, as a duration.** Each handset
+         counts it down from its own paint, so no phone agrees the time with anybody
+         — the board's clock is the teacher's cue and the phones' clocks are the
+         students'. Only where the board itself runs the round clock (a card host
+         without a clock of its own), and never over a duration the round set. */
+      if(round.secs == null && roundHost && roundHost.onCard && !roundHost.clock){
+        const secs = roundClockSecs();
+        if(secs) round.secs = secs;
       }
       /* The whole payload, not a key list — same reasoning as `phoneRoundNow`'s
          spread, and it is the same bug paid for at the same moment. The relay

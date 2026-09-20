@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260920c">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260920d">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -562,15 +562,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260920c"></script>
-<script src="game-hub/hub-buzzer.js?v=20260920c"></script>
+<script src="game-hub/hub-brand.js?v=20260920d"></script>
+<script src="game-hub/hub-buzzer.js?v=20260920d"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260920c"></script>
+<script src="game-hub/matter.min.js?v=20260920d"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260920c"></script>
+<script src="game-hub/hub-table.js?v=20260920d"></script>
 <script>
 (function(){
   'use strict';
@@ -1490,30 +1490,37 @@
     const el = $('round-clock');
     el.className = 'clock'; el.textContent = '';
   }
+  /* **This phone's own countdown.** The question's duration arrives once on the arm;
+     the clock runs from the moment the question painted on THIS screen (`shownAt`,
+     the same instant the stopwatch starts) by wall clock, not by counting ticks, so a
+     phone that painted late still gets the full time and a slow tick cannot lose a
+     second. At zero this phone locks its own input — the board's clock stops nothing
+     here — and what was chosen stays on screen until the teacher closes the card. */
   function roundClockRun(secs){
     roundClockStop();
-    let left = Math.max(0, Math.round(secs));
+    const total = Math.max(0, Number(secs) || 0) * 1000;
     const el = $('round-clock');
-    if(!left) return;
+    if(!total) return;
     timeUp = false;
+    const base = shownAt == null ? performance.now() : shownAt;
     const paint = ()=>{
-      el.className = 'clock on' + (left <= 10 ? ' urgent' : '');
-      el.textContent = left + 's';
+      const leftMs = Math.max(0, total - (performance.now() - base));
+      const s = leftMs / 1000;
+      el.className = 'clock on' + (s <= 10 ? ' urgent' : '');
+      el.textContent = (s < 10 ? s.toFixed(1) : String(Math.ceil(s))) + 's';
+      return leftMs;
     };
     paint();
     roundTimer = setInterval(()=>{
-      left--;
-      if(left <= 0){
-        clearInterval(roundTimer); roundTimer = null;
-        timeUp = true;
-        el.className = 'clock on urgent'; el.textContent = 'time';
-        // nothing more can be changed, but what was chosen stays on screen
-        $('opts').querySelectorAll('button').forEach(b=>{ b.disabled = true; });
-        say('Time — pencils down');
-        return;
-      }
-      paint();
-    }, 1000);
+      if(paint() > 0) return;
+      clearInterval(roundTimer); roundTimer = null;
+      timeUp = true;
+      el.className = 'clock on urgent'; el.textContent = 'time';
+      // nothing more can be changed, but what was chosen stays on screen
+      $('opts').querySelectorAll('button').forEach(b=>{ b.disabled = true; });
+      $('commit').disabled = true;
+      say('Time — pencils down');
+    }, 100);
   }
 
   /* A wrong answer costs time, never points: this player alone waits out the
