@@ -797,6 +797,15 @@
         if(!client || answered) return false;
         const val = String(v == null ? '' : v);
         if(mode === 'buzz' || mode === 'type') client.buzz(mode === 'type' ? val : undefined);
+        /* A table answer is PLACED, not only sent: each part into its slot through the
+           same `place()` a tap uses, so the racked phone shows the letters in their
+           boxes and the wire carries what the table holds — exactly a student's send.
+           A part the table cannot find (a label not dealt) falls back to the bare reply. */
+        else if(mode === 'table' && tbl){
+          const parts = val.split('|');
+          parts.forEach((ch, i) => { if(ch && i < tbl.cells().length) tbl.place(i, ch); });
+          if(tableWire() === val) sendTable(); else reply(val);
+        }
         else if(mode === 'vote' || mode === 'answer' || mode === 'arrange' || mode === 'table') reply(val);
         else return false;
         answered = true;

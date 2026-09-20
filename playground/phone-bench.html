@@ -522,7 +522,10 @@ const autoBy = new WeakMap();         // phone el -> {skill, pace, roundId, dueA
    strong, one middling, two weak — so a run means the same thing twice. `?auto=1`
    ticks Autopilot on load and `?speed=` sets the slider; the batch runner uses all
    three, and a person can too. */
-const SKILLS = (params.get('skills') || '').split(',').map(s => Number(s)).filter(n => Number.isFinite(n));
+/* `''.split(',')` is `['']` and `Number('')` is 0 — so an absent parameter read as one
+   phone of skill ZERO, and every bench opened by hand had Autopilot answering wrong
+   on purpose. Empty pieces are dropped before they become numbers. */
+const SKILLS = (params.get('skills') || '').split(',').map(s => s.trim()).filter(Boolean).map(Number).filter(n => Number.isFinite(n));
 const shuffled = a => { const b = a.slice(); for(let i = b.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
 function autoSettings(){
   return { skill: Number($('auto-skill').value) || 0, speed: Number($('auto-speed').value) || 1 };
