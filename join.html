@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260920l">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260920m">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -257,6 +257,9 @@
      content — use the viewport unit; dvh tracks the phone's shrinking chrome). */
   body.table-min #screen-play{ max-width:none; height:100vh; height:100dvh; gap:0; justify-content:flex-start; }
   body.table-min .qtext, body.table-min .qnote, body.table-min #state{ display:none; }
+  /* A skill round's one line of feedback ("Sent — landed in 3", "Time") stays: it
+     is the only thing the phone says back, and the head overlay is the question. */
+  body.table-min.skill #state{ display:block; padding:6px 12px 0; }
   body.table-min #phone-id{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
     width:100%; padding:9px 15px;
@@ -596,15 +599,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260920l"></script>
-<script src="game-hub/hub-buzzer.js?v=20260920l"></script>
+<script src="game-hub/hub-brand.js?v=20260920m"></script>
+<script src="game-hub/hub-buzzer.js?v=20260920m"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260920l"></script>
+<script src="game-hub/matter.min.js?v=20260920m"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260920l"></script>
+<script src="game-hub/hub-table.js?v=20260920m"></script>
 <script>
 (function(){
   'use strict';
@@ -972,6 +975,7 @@
        lives in the prompt (anagram/scramble), so those keep their normal layout.
        Connections is the first to wear it; a round standardises by sending `bare`. */
     document.body.classList.toggle('table-min', mode==='table' && !!(shape && shape.bare));
+    document.body.classList.toggle('skill', mode==='table' && !!(shape && (shape.line || shape.plinko || shape.stack)));
     /* Cleared on every round, not only when a vote sets it: it hides the buzzer,
        so a leftover from the previous question would leave a buzz round with no
        button at all. */
@@ -1335,9 +1339,10 @@
       /* Plinko: pegs, bins, and one round chip resting on a ledge at the top. Pull
          it off the ledge and let go — gravity and the pegs do the rest. */
       tbl.setPieces([]);
-      tbl.pegs({ rows: plinko.rows || 6, shelf: true });
+      tbl.pegs({ rows: plinko.rows || 6, shelf: true, top: headTop });   // the field hangs below the prompt overlay
       tbl.bins(plinko.bins || []);
-      tbl.addPiece('●', { x: canvas.clientWidth / 2, y: canvas.clientHeight * 0.07, vx: 0, vy: 0, round: true });
+      const at = tbl.ledge();
+      tbl.addPiece('●', { x: at.x, y: at.y, vx: 0, vy: 0, round: true });
       $('state').textContent = 'Pull the chip off the ledge and drop it';
     } else if(shape && shape.stack){
       /* Stack: the tiles rain in loose; pile them as high as you can. The height

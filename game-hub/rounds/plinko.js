@@ -63,7 +63,7 @@
             mount.dispatchEvent(new CustomEvent('round:arranged', { bubbles: true }));
           } },
           deal: table => { table.slots(0); table.setPieces([]); table.pegs({ rows: s.rows, shelf: true }); table.bins(s.bins);
-                           table.addPiece('●', { x: s._canvas.clientWidth / 2, y: s._canvas.clientHeight * 0.07, vx: 0, vy: 0, round: true }); }
+                           const at = table.ledge(); table.addPiece('●', { x: at.x, y: at.y, vx: 0, vy: 0, round: true }); }
         });
         const say = document.createElement('p');
         say.className = 'line-say group-say';
@@ -90,6 +90,7 @@
       const c = ctx || {};
       return { mode: 'table', prompt: c.prompt === false ? 'Drop the chip' : s.text, options: ['●'],
                plinko: { rows: s.rows, bins: s.bins },
+               bare: true,   // the whole phone screen is the table; the prompt overlays it once
                multi: 1, holds: true, rethink: false,
                team: (c.team === 0 || Number(c.team) > 0) ? Number(c.team) : null };
     },

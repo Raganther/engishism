@@ -117,7 +117,8 @@
         mode: 'table', prompt: c.prompt === false ? 'Flick the tile to the line' : s.text,
         options: ['GO'],
         line: s.at,                        // the shelf paints it; the relay carries it
-        multi: 1, holds: true, rethink: false,
+        bare: true,   // the whole phone screen is the table; the prompt overlays it once
+               multi: 1, holds: true, rethink: false,
         team: (c.team === 0 || Number(c.team) > 0) ? Number(c.team) : null
       };
     },

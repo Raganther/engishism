@@ -86,6 +86,7 @@
       const c = ctx || {};
       return { mode: 'table', prompt: c.prompt === false ? 'Stack the tiles' : s.text, options: s.labels,
                stack: { n: s.n }, secs: s.secs,
+               bare: true,   // the whole phone screen is the table; the prompt overlays it once
                multi: 1, holds: true, rethink: true,
                team: (c.team === 0 || Number(c.team) > 0) ? Number(c.team) : null };
     },

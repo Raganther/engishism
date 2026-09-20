@@ -31,7 +31,7 @@
    onExit({ch,hue,side,vx,vy,ny}) fires when a free piece leaves through an
    open side — the throw dynamic's exit door; see openSides.
    onArrange(read, filled) fires whenever a piece docks or is pulled out.
-   pegs({rows, shelf}) plants a Plinko field: static pegs in offset rows
+   pegs({rows, shelf, top}) plants a Plinko field: static pegs in offset rows
    between the top band and the bins, and (shelf) a ledge at the top centre for
    the chip to start on; bins(labels) walls the bottom band into that many bins
    and paints the labels; binOf(x) says which bin an x falls in; addPiece(label,
@@ -522,7 +522,7 @@
        Pegs in offset rows across the middle of the table, a ledge at the top for the
        chip to rest on until it is pulled off, and the bottom band walled into bins.
        All static, all placed as shares of the table so a phone and a card agree. */
-    const BIN_H = 0.16, PEG_TOP = 0.2, SHELF_Y = 0.07;
+    const BIN_H = 0.16, SHELF_Y = 0.07;
     /* A chip is this share of a tile — one number, read by addPiece(round) AND by
        the peg field, because the field is spaced for its chip: a peg pitch of two
        chip widths across, and rows no closer than 0.87 of that, so the chip can
@@ -539,7 +539,13 @@
       const pitch = Math.max(2 * d, 24);
       const cols = Math.max(3, Math.round(cssW / pitch));
       const gapX = cssW / cols;
-      const top = cssH * PEG_TOP, bottom = cssH * (1 - BIN_H) - d;
+      /* `top`: pixels the caller's overlay takes at the top (the phone's prompt),
+         so the ledge and the field hang below it. The first peg row sits a pull
+         below the ledge — room to draw the chip off it — not at a share of the
+         height, which on a tall phone left a void between ledge and pegs. */
+      const y0 = Math.max(0, Number(pegSpec.top) || 0);
+      const ledgeY = y0 + cssH * SHELF_Y + d * 0.5 + 3;
+      const top = ledgeY + d * 2.2, bottom = cssH * (1 - BIN_H) - d;
       const band = Math.max(0, bottom - top);
       const want = Math.max(2, Math.min(12, Number(pegSpec.rows) || 6));
       const rows = Math.max(1, Math.min(want, Math.floor(band / (0.87 * pitch)) + 1));
@@ -555,7 +561,7 @@
         }
       }
       if(pegSpec.shelf){
-        pegBodies.push(Bodies.rectangle(cssW / 2, cssH * SHELF_Y + d * 0.5 + 3, d * 1.6, 6, { isStatic: true, friction: 0.9, restitution: 0 }));
+        pegBodies.push(Bodies.rectangle(cssW / 2, ledgeY, d * 1.6, 6, { isStatic: true, friction: 0.9, restitution: 0 }));
       }
       Composite.add(engine.world, pegBodies);
     }
@@ -568,6 +574,8 @@
       Composite.add(engine.world, binBodies);
     }
     function pegs(spec){ pegSpec = spec ? Object.assign({}, spec) : null; buildPegs(); }
+    /* where a chip rests on the ledge — the caller places it here, one home for the number */
+    function ledge(){ return { x: cssW / 2, y: (pegSpec ? Math.max(0, Number(pegSpec.top) || 0) : 0) + cssH * SHELF_Y }; }
     function bins(labels){ binLabels = Array.isArray(labels) && labels.length ? labels.map(String) : null; buildBins(); }
     function binOf(x){ if(!binLabels) return -1; return Math.max(0, Math.min(binLabels.length - 1, Math.floor(x / (cssW / binLabels.length)))); }
     function buildWalls(){
@@ -1701,7 +1709,7 @@
 
     return {
       reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; pegs(null); bins(null); pendingDeal = null; given.clear(); clearResult(); wordAt = 0; particles = null; hits.length = 0; sparks = null; rings = null; },
-      setPieces, addPiece, slots: makeSlots, place, give, openSides, pegs, bins, binOf,
+      setPieces, addPiece, slots: makeSlots, place, give, openSides, pegs, bins, binOf, ledge,
       read, cells, filled, setResult,
       /* the loose pieces (not slotted), letter + colour + height + velocity +
          angle — a driven test's only window onto what is lying on the table,
