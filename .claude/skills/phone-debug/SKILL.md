@@ -172,6 +172,19 @@ own schedule — the room opens asynchronously, phones join, buzzers go live.
 **Anything that can occupy vertical space above a board owes it a re-fit**, or the
 board keeps the height it had and the bottom of it is pushed off screen.
 
+### 8. The board never said anything
+
+A phone that looks finished — its tile sitting in the box, its clock frozen, no
+"Not that one" — may simply never have been told. The verdict is a message the
+board *sends*, and a send can be guarded by a setting that has nothing to do with
+the verdict: the wrong-answer verdict once lived inside the Send penalty, so with
+Send off no wrong flick was ever answered, on the bench or in a class. Before
+reading what the phone does with a verdict, prove one left the board (`buzzHost.judge`
+on the hub, `c.verdict` on the bench) for the case you are looking at — a wrong
+answer with Send off, a partial answer, a timed-out one. The phone's own clock is
+the same shape: it freezes at a send and only resumes on a message, so a frozen
+clock is as often a missing message as a broken clock.
+
 ## An empty answer is a claim, not a shrug
 
 Every shape above is about finding the wrong code. This one is about **misreading the

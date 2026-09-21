@@ -5,6 +5,7 @@ covers:
   - "game-hub/rounds/*.js"
   - "game-hub/hub-rounds.js"
   - "game-hub/hub-rounds.css"
+  - "playground/question-bench.html"
 ---
 
 # Adding a question round

@@ -4,6 +4,7 @@ description: Add a question form to the Engishism Game Hub — a new way a quest
 covers:
   - "game-hub/hub-kit.js"
   - "playground/lab-forms.js"
+  - "playground/question-bench.html"
 ---
 
 # Adding a question form

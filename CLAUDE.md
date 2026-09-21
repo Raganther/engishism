@@ -719,7 +719,8 @@ unverifiable.**
 ## Open
 What is true and unfinished. Not a changelog — an item leaves when it closes.
 
-**Build `20260915a`.** See `node tools/question-types.js` for the current round inventory.
+**The build is the `?v=` stamp every shell carries and ⚙ reports; this file does not repeat it.**
+See `node tools/question-types.js` for the current round inventory.
 Every game now lives in its own file under `game-hub/games/`; `hub-engine.js` is layer 1
 only. Multiple Choice and the 8-word Connections have flick faces (tap/vote still their
 default); the `cols:'auto'` bar path flows a sentence per word; the thermometer ladder
@@ -972,7 +973,7 @@ announcement and payout read the same record, so a teacher's Check landing after
 phone has finished pays the phone and calls that competitor a late finisher. Two places
 deciding one fact is what put the wrong name on the winner pill in front of a class.
 
-**Still guessed, not measured:** the 0.6 decay and the tenth-of-value tail, the 60s
+**Still guessed, not measured:** the 0.6 decay and the tenth-of-value tail, the 10s
 question, the 0.5 clock floor, 3s escalating to 9s, the 40% reveal. The settings are
 marked `quick` because they are meant to be flipped, not trusted. Two things to watch
 next: whether standings after *every* question drags (`roundWinBanner` turns it off),
@@ -1026,9 +1027,10 @@ steal's half-share of the gap off them, the leader fixed as the card opened. A *
 reaches the person directly above by default** (`flipSwapScope`), a leapfrog rather than
 the cliff a class found disheartening. All five are settings in the bench's Flip group;
 none has met a class yet. **The Box card** (`flipBoxes`) is the one twist that is a choice
-and a gamble at once: its winner opens one of three closed boxes — on their own phone, lit
-on the board for the teacher's confirm, the other two opening afterwards to show what was
-passed — and the contents come from a bag **loaded by the winner's place** (`flipBoxLoad`:
+and a gamble at once: its winner is dealt a prize or a forfeit — on the hub by the Plinko
+drop below; on Flip Party by opening one of three closed boxes on their own phone, the other
+two opening afterwards to show what was passed — and the contents come from a bag **loaded
+by the winner's place** (`flipBoxLoad`:
 a prize's chance runs from ½ − load/2 for the leader to ½ + load/2 for last place), so it
 still helps by position and names nobody. Prizes: Double (the card pays again), Steal (the
 ordinary steal chooser opens after it), Shield (held; the next steal, swap or bounty aimed
