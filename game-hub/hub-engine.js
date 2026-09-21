@@ -680,48 +680,16 @@
     // how loud the bed sits under the master volume; `off` is a real 0, so the
     // nodes are never built rather than being built and left silent
     const BED_MIX = { normal:0.30, quiet:0.12, off:0 };
-    const VOICES = {
-      correct:[{f:660,d:0.09},{f:990,d:0.13}],
-      wrong:  [{f:180,d:0.16,type:'sawtooth'},{f:120,d:0.18,type:'sawtooth'}],
-      claim:  [{f:523,d:0.07},{f:784,d:0.07},{f:1047,d:0.14}],
-      end:    [{f:440,d:0.14},{f:330,d:0.2}],
-      clear:  [{f:523,d:0.1},{f:659,d:0.1},{f:784,d:0.1},{f:1047,d:0.28}],
-      flip:   [{f:240,to:820,d:0.3,type:'sine'}],
-      reveal: [{f:880,d:0.07},{f:1319,d:0.19}],
-      // game-show cues. Original riffs, not the shows' own music — everything here
-      // is oscillators, so there is nothing to license and nothing to download.
-      lock:   [{f:150,to:60,d:0.22,type:'sine'},{f:70,to:190,d:0.5,type:'sawtooth'}],
-      klaxon: [{f:196,d:0.3,type:'square'},{f:185,d:0.42,type:'square'}],
-      sting:  [{f:392,d:0.1,type:'square'},{f:523,d:0.1,type:'square'},{f:784,d:0.34,type:'square'}]
-    };
-    let ctx=null;
-    function audio(){
-      if(ctx) return ctx;
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if(!AC) return null;
-      try{ ctx = new AC(); }catch(e){ ctx=null; }
-      return ctx;
-    }
-    function play(name){
-      if(!S.get('sound', activeGame)) return;
-      const seq = VOICES[name]; if(!seq) return;
-      const ac = audio(); if(!ac) return;
-      if(ac.state==='suspended' && ac.resume) ac.resume();
-      const peak = LEVEL[S.get('soundVolume', activeGame)] || LEVEL.med;
-      let at = ac.currentTime;
-      seq.forEach(n=>{
-        const osc=ac.createOscillator(), gain=ac.createGain();
-        osc.type = n.type || 'triangle';
-        osc.frequency.setValueAtTime(n.f, at);
-        if(n.to) osc.frequency.exponentialRampToValueAtTime(n.to, at+n.d);
-        gain.gain.setValueAtTime(0.0001, at);
-        gain.gain.exponentialRampToValueAtTime(peak, at+0.012);
-        gain.gain.exponentialRampToValueAtTime(0.0001, at+n.d);
-        osc.connect(gain); gain.connect(ac.destination);
-        osc.start(at); osc.stop(at+n.d+0.02);
-        at += n.d*0.85;
-      });
-    }
+    /* The voices and the instruments live on the shelf (hub-sound.js), shared with
+       the phone page so a cue sounds the same in a student's hand. What stays here
+       is the board's reading of its own settings: on/off and the volume. Without
+       the shelf (a page that forgot the script) the board is silent, not broken. */
+    const synth = window.HubSound
+      ? window.HubSound.make({ level, on: () => !!S.get('sound', activeGame) })
+      : null;
+    if(!synth) console.warn('hub-sound.js not loaded — the board is silent');
+    function audio(){ return synth ? synth.ac() : null; }
+    function play(name){ if(synth) synth.play(name); }
 
     function level(){ return LEVEL[S.get('soundVolume', activeGame)] || LEVEL.med; }
     function bedMix(){

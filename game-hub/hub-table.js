@@ -45,6 +45,12 @@
    measurement, taken by the shelf so every caller reads the same one.
    setResult('right'|'wrong'|null) tints filled slots — judging stays the
    caller's; the table only paints the tint it is handed.
+   onFx({kind, s}) is the same stamps HEARD: fired once per contact the shelf
+   draws — 'hit' (tile on tile), 'peg' (chip on peg), 'knock' (a slotted tile
+   knocked out), 'throw' (a release at speed), 'dock' (a tile arriving home) and
+   'bin' (the chip landing; s is 1 for a bin worth something, `top` the jackpot) —
+   with s the 0..1 strength that sizes the sparks, so a caller wiring sound plays
+   what the eye sees. Absent means silent; the shelf itself plays nothing.
    ========================================================================== */
 (function(){
   'use strict';
@@ -132,6 +138,11 @@
     { k:'pop',         label:'Landing pop', min:0,   max:0.5,  step:0.02,  def:0.18, fmt:v => '×' + v.toFixed(2), group:'Looks' },   // scale overshoot after a dock
     { k:'glow',        label:'Correct glow',min:0,   max:1,    step:0.05,  def:0.7,  fmt:v => v.toFixed(2),        group:'Looks' },   // halo strength behind a right tile
     { k:'shake',       label:'Wrong shake', min:0,   max:14,   step:1,     def:6,    fmt:v => v + 'px',            group:'Looks' },   // paint offset on a wrong tile
+    /* The verdict wash: a judged tile is painted over in the verdict's colour —
+       red for wrong, green for right — under its letter, so a student sees WHICH
+       it was without reading an outline. A shudder and a thin red stroke were
+       not clear enough in a hand. Fades to a lighter wash and stays while judged. */
+    { k:'wash',        label:'Verdict wash',min:0,   max:1,    step:0.05,  def:1,    fmt:v => v.toFixed(2),        group:'Looks' },   // alpha of the right/wrong wash over a judged tile
     { k:'party',       label:'Word burst',  min:0,   max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2), group:'Looks' },   // particle count when a word completes
     /* The held tile drawn lifted: a little larger, a soft shadow under it, so a
        drag reads as picking the tile up off the table. */
@@ -877,6 +888,8 @@
     // 0..1: how hard, from the relative speed against the hitRef dial
     const strengthOf = v => Math.max(0, Math.min(1, (v - HIT_MIN) / (Math.max(HIT_MIN + 1, feel.hitRef || 30) - HIT_MIN)));
     let lastHit = null;                    // {v, s} of the last stamp, for a probe and the bench's status line
+    // the stamps, heard: a caller wiring sound gets one call per effect the shelf draws
+    function fx(kind, s, extra){ if(opts.onFx){ try{ opts.onFx(Object.assign({ kind, s }, extra || {})); }catch(e){ console.warn('onFx threw', e); } } }
     function stampHit(a, b, pair){
       const va = a.body.velocity, vb = b.body.velocity;
       const rel = Math.hypot(va.x - vb.x, va.y - vb.y);
@@ -899,6 +912,7 @@
       if(hits.length > 8) hits.shift();
       hitCount++; lastHit = { v: rel, s: sv };
       for(const p of [a, b]){ p.hitAt = t; p.hitV = rel; p.hitS = sv; p.hitNx = nx; p.hitNy = ny; }
+      fx('hit', sv);
     }
     Events.on(engine, 'collisionStart', ev => {
       for(const pair of ev.pairs){
@@ -925,6 +939,7 @@
             chip.hitAt = t; chip.hitV = sp; chip.hitS = sv; chip.hitNx = nx; chip.hitNy = ny;
             pegHits.push({ body: peg, t, s: sv, hue: chip.hue, cx, cy });
             if(pegHits.length > 24) pegHits.shift();
+            fx('peg', sv);
           }
           continue;
         }
@@ -945,6 +960,7 @@
                     v: kv, s: ks, nx: v.x, ny: v.y, knock: true,
                     mx: v.x, my: v.y, ax: 0, ay: -1 });   // the knock burst: carries the shot's motion, lifts
         hitCount++; lastHit = { v: kv, s: ks };
+        fx('knock', ks);
         clearResult();
         report();
         /* after report(): the page's onArrange has re-read the board, so a
@@ -1203,7 +1219,7 @@
         const s = slots[b.slot];
         Body.setPosition(b.body, { x: dk.fromX + (s.x - dk.fromX)*e, y: dk.fromY + (s.y - dk.fromY)*e });
         Body.setAngle(b.body, dk.fromA + (dk.toA - dk.fromA)*e);
-        if(raw >= 1){ b.dock = null; b.body.isSensor = false; b.landed = t; Body.setAngle(b.body, 0); report(); }   // home: solid again; `landed` is the pop's clock
+        if(raw >= 1){ b.dock = null; b.body.isSensor = false; b.landed = t; Body.setAngle(b.body, 0); fx('dock', 1); report(); }   // home: solid again; `landed` is the pop's clock
       }
     }
 
@@ -1387,6 +1403,7 @@
       const p = feel.power, cap = 55;
       Body.setVelocity(b, { x: clamp(v.x * p, -cap, cap), y: clamp(v.y * p, -cap, cap) });
       Body.setAngularVelocity(b, clamp(b.angularVelocity * p, -1, 1));
+      if(speed >= feel.dock) fx('throw', strengthOf(speed * p));   // a release at speed is a throw, heard as one
     }
     function clearGrips(){
       for(const g of grips.values()) Composite.remove(engine.world, g.constraint);
@@ -1490,6 +1507,7 @@
             landed = { t: now(), x: p.body.position.x, y: p.body.position.y, bin, hue: p.hue,
                        worth: Number.isFinite(n) ? n : 1, top: Number.isFinite(n) && n >= Math.max(...binLabels.map(Number).filter(Number.isFinite)) };
             landBurst = null;
+            fx('bin', landed.worth > 0 ? 1 : 0, { top: !!landed.top, bin });
           }
           if(opts.onRest) opts.onRest({ ch: p.ch, x: p.body.position.x, y: p.body.position.y,
                         ny: cssH ? p.body.position.y / cssH : 0, nx: cssW ? p.body.position.x / cssW : 0 });
@@ -1712,7 +1730,7 @@
            ants read as placeholder chrome; a quiet tile silhouette reads as
            "a tile goes here". Filled slots keep the heavier stroke so the
            right/wrong glow stays visible from arm's length. */
-        ctx.lineWidth = (s.piece ? 2.5 : 1.25) * feel.gridLine;
+        ctx.lineWidth = (s.piece ? (res === 'right' || res === 'wrong' ? 4 : 2.5) : 1.25) * feel.gridLine;   // a judged slot's edge is thicker still
         ctx.strokeStyle = s.piece
           ? (res === 'right' ? palette.good : res === 'wrong' ? palette.bad : palette.lineHot)
           : palette.line;
@@ -1841,6 +1859,21 @@
         ctx.fillStyle = b.hue;
         if(b.round){ ctx.beginPath(); ctx.arc(0, 0, b.body.circleRadius || w/2, 0, Math.PI * 2); ctx.fill(); }
         else { roundRect(ctx, -w/2, -h/2, w, h, r); ctx.fill(); }
+        /* The verdict wash: the tile painted over in red or green under its letter.
+           Strongest as the verdict lands, settling to half over 600ms and staying
+           while the slot is judged; a wrong tile is unmistakably red, a right one
+           unmistakably green, from a hand's length or the back of the room. */
+        if(inSlot && feel.wash > 0){
+          const res = resOf(b.slot);
+          if(res === 'right' || res === 'wrong'){
+            const age = t - judgedAt(b.slot);
+            const k = age < 600 ? 1 - 0.1 * (age / 600) : 0.9;
+            ctx.globalAlpha = feel.wash * k * (res === 'wrong' ? 1 : 0.85);
+            ctx.fillStyle = res === 'wrong' ? palette.bad : palette.good;
+            roundRect(ctx, -w/2, -h/2, w, h, r); ctx.fill();
+            ctx.globalAlpha = 1;
+          }
+        }
         if(b.pinned){   // the given mark: a thin inner ring, the tile's own colour showing through
           ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;
           roundRect(ctx, -w/2 + 3, -h/2 + 3, w - 6, h - 6, Math.max(1, r - 2));

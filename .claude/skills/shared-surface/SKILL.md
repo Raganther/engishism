@@ -5,6 +5,7 @@ covers:
   - "game-hub/hub-engine.js"
   - "game-hub/hub.css"
   - "game-hub/hub-twist.js"
+  - "game-hub/hub-sound.js"
 ---
 
 # Changing something every game inherits
