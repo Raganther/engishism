@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260921f">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260921g">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -599,15 +599,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260921f"></script>
-<script src="game-hub/hub-buzzer.js?v=20260921f"></script>
+<script src="game-hub/hub-brand.js?v=20260921g"></script>
+<script src="game-hub/hub-buzzer.js?v=20260921g"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260921f"></script>
+<script src="game-hub/matter.min.js?v=20260921g"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260921f"></script>
+<script src="game-hub/hub-table.js?v=20260921g"></script>
 <script>
 (function(){
   'use strict';
@@ -900,6 +900,7 @@
      thumb would — the stopwatch, the relay and the board see an ordinary reply. A
      real phone never carries this. */
   let simAttempts = 0, simVerdicts = 0;   // how many answers this phone has sent, and how many came back wrong
+  let simPending = null;                   // {parts, roundId} while a sim drag is under way — resumed if the table is rebuilt under it
   if(SIM){
     /* The driven drag — a thumb, not a robot. One part after another on the shelf's
        own grab/move/drop, and everything a hand does wrong on purpose: the path bows
@@ -913,6 +914,8 @@
     function simDrag(parts, val){
       const ID = 77;
       const table = tbl;
+      simPending = { parts: parts.slice(), roundId: activeRoundId };
+      let passes = 0;   // extra sweeps for gaps a first pass left
       const rnd = (a, b) => a + Math.random() * (b - a);
       const same = (a, b) => String(a) === String(b);
       /* where a tile with this label lies now: loose, or docked in a box it does
@@ -953,9 +956,20 @@
       };
       let i = 0, tries = 0;
       const next = () => {
-        if(tbl !== table || timeUp) return;               // finished (a right verdict locks the phone) or out of time
+        if(tbl !== table || timeUp){ if(timeUp) simPending = null; return; }   // finished or out of time; a rebuilt table resumes from buildTable
         while(i < parts.length && (!parts[i] || i >= table.cells().length)) i++;
-        if(i >= parts.length) return;   // the docks sent what the table holds; a bare reply of `val` would be a send the table does not show
+        if(i >= parts.length){
+          /* A pass can leave a hole — a part the drag gave up on, a tile that
+             fell into the wrong box and was never fetched. Come back for it: up to
+             two more sweeps over the boxes that are not yet right, then stop. The
+             docks sent what the table holds; a bare reply of `val` would be a send
+             the table does not show. */
+          const cells = table.cells();
+          const gap = parts.findIndex((ch, k) => ch && k < cells.length && !same(cells[k], ch));
+          if(gap !== -1 && passes < 2){ passes++; i = gap; tries = 0; setTimeout(next, rnd(300, 900)); return; }
+          simPending = null;
+          return;
+        }
         const slot = i, ch = parts[i];
         const box = table.slotBox(slot);
         const cells = table.cells();
@@ -967,7 +981,7 @@
         }
         const from = findTile(ch, slot);
         if(!box || !from || !table.grab(ID, from.x, from.y)){
-          if(++tries > 3){ table.place(slot, ch); i++; tries = 0; }     // the drag cannot reach it: the fallback
+          if(++tries > 3){ table.place(slot, ch); i++; tries = 0; }     // the drag cannot reach it: the fallback, and the gap sweep returns for it
           setTimeout(next, rnd(120, 300)); return;
         }
         /* a hesitation: this is the wrong tile after all — carry it part way, put it back */
@@ -1570,6 +1584,14 @@
     /* a driven test's handle — place() fires no onArrange, so a probe places
        and then calls send itself; same kind of window as battle-scrabble's __bs */
     window.__tbl = { table: tbl, send: sendTable, shape };
+    /* A racked phone mid-drag whose table was just rebuilt for the SAME question (the
+       relay re-arms on a reconnect, and restoreTable put its docked letters back)
+       carries on where it was — the drag's own checks skip the boxes already right.
+       Without this the phone sat on one letter for the rest of the question. */
+    if(SIM && simPending && simPending.roundId === activeRoundId && !timeUp){
+      const again = simPending.parts;
+      setTimeout(() => { if(tbl && simPending && simPending.roundId === activeRoundId) simDrag(again, again.join('|')); }, 400);
+    }
   }
 
   /* The answer, same shape as arrangeWire: box order, |-joined, empty slots kept as
@@ -2068,6 +2090,7 @@
          `bare`, so the condition is not `cols` alone; `cols` null means the row. */
       optionHues = (d && d.optionHues && typeof d.optionHues === 'object') ? d.optionHues : null;
       simAttempts = 0; simVerdicts = 0; lastSentMs = null;
+      if(simPending && simPending.roundId !== (d && d.roundId)) simPending = null;
       setMode(d && d.mode, d && d.options, myRound(d),
               d && (d.cols || d.bare || d.tap || d.line || d.plinko || d.stack)     // the skill rounds' shapes ride too
                 ? { cols: d.cols === 'auto' ? 'auto' : d.cols ? Number(d.cols) : null,   // 'auto': wrap to this handset's width
