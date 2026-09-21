@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260921c">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260921d">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -599,15 +599,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260921c"></script>
-<script src="game-hub/hub-buzzer.js?v=20260921c"></script>
+<script src="game-hub/hub-brand.js?v=20260921d"></script>
+<script src="game-hub/hub-buzzer.js?v=20260921d"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260921c"></script>
+<script src="game-hub/matter.min.js?v=20260921d"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260921c"></script>
+<script src="game-hub/hub-table.js?v=20260921d"></script>
 <script>
 (function(){
   'use strict';
@@ -825,9 +825,14 @@
      board ranks by it, the relay bounds it, and it needs no clock to agree with
      anybody's — see `applyArmed`, where it starts. */
   let shownAt = null;
-  function reply(v){
-    const ms = shownAt == null ? null : performance.now() - shownAt;
-    stopwatchFreeze(ms);
+  /* `partial`: a reply that is not yet an answer — a docked letter with boxes still
+     empty. It travels (the board's count moves) but carries no stopwatch and freezes
+     nothing: the clock froze at the FIRST letter of an eleven-letter word once and
+     stayed frozen while the student placed the other ten, and the board's lane called
+     that first letter "sent". Only a complete answer stops the clock. */
+  function reply(v, partial){
+    const ms = (shownAt == null || partial) ? null : performance.now() - shownAt;
+    if(!partial) stopwatchFreeze(ms);
     client.respond(v, ms);
   }
   /* The visible stopwatch. Ticks from the paint, freezes at the send; the same
@@ -1337,7 +1342,7 @@
       return;
     }
     answered = true;
-    reply(arrangeWire());
+    reply(arrangeWire(), anaSlots.some(i => i == null));   // boxes still empty: not an answer yet
   }
 
   /* Send — the commit beat's one button, for vote and arrange alike. What is in
@@ -1585,7 +1590,7 @@
     if(!client || !tbl) return;
     if(needSend){ $('commit').disabled = cooling || !tableWire(); return; }
     answered = true;
-    reply(tableWire());
+    reply(tableWire(), tbl.cells().some(c => !c));   // boxes still empty: not an answer yet
   }
 
   /* Reconnect restore, the flick counterpart of restoreArrange. buildTable has just

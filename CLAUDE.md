@@ -739,7 +739,7 @@ every stopwatch and before the teacher's click. `results.note` takes `ms` so the
 beside a place are the student's own. No clock has to agree with anybody's. **The
 stopwatch is visible at both ends**: the phone's two clocks are one bar along its bottom
 edge (`#tbar` — the fill drains with the time left, the label counts it down in
-milliseconds, and at the send both freeze at the time taken), and the card's place pill
+milliseconds, and at a COMPLETE send both freeze at the time taken — a docked letter with boxes still empty travels for the count but carries no stopwatch and freezes nothing), and the card's place pill
 carries that time to the millisecond (`.rl-ms`). A question runs for 10s by default
 (`roundSecs`). A phone that waited a head start shows and is shown the same two
 numbers, its own clock and the wait — "1.239s +2.0" — because the ranking adds the wait
