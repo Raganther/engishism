@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260921e">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260921f">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -599,15 +599,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260921e"></script>
-<script src="game-hub/hub-buzzer.js?v=20260921e"></script>
+<script src="game-hub/hub-brand.js?v=20260921f"></script>
+<script src="game-hub/hub-buzzer.js?v=20260921f"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260921e"></script>
+<script src="game-hub/matter.min.js?v=20260921f"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260921e"></script>
+<script src="game-hub/hub-table.js?v=20260921f"></script>
 <script>
 (function(){
   'use strict';
@@ -826,13 +826,18 @@
      anybody's — see `applyArmed`, where it starts. */
   let shownAt = null;
   /* `partial`: a reply that is not yet an answer — a docked letter with boxes still
-     empty. It travels (the board's count moves) but carries no stopwatch and freezes
-     nothing: the clock froze at the FIRST letter of an eleven-letter word once and
-     stayed frozen while the student placed the other ten, and the board's lane called
-     that first letter "sent". Only a complete answer stops the clock. */
+     empty. It travels (the board's count moves) but carries no stopwatch. A complete
+     reply carries this phone's stopwatch and REMEMBERS it (`lastSentMs`) — but the
+     clock does not stop here. **The clock stops when the board says this phone is
+     finished, or at its own zero, never at a send**: a full set the board judges
+     wrong leaves the question open, and a send the board never answers (a repeat of
+     a set it already judged) would otherwise leave the bar frozen on a phone still
+     playing. The finished verdict freezes the bar at the send that finished it, so the
+     number in the hand is the one on the card. */
+  let lastSentMs = null;
   function reply(v, partial){
     const ms = (shownAt == null || partial) ? null : performance.now() - shownAt;
-    if(!partial) stopwatchFreeze(ms);
+    if(!partial) lastSentMs = ms;
     client.respond(v, ms);
   }
   /* The visible stopwatch. Ticks from the paint, freezes at the send; the same
@@ -950,7 +955,7 @@
       const next = () => {
         if(tbl !== table || timeUp) return;               // finished (a right verdict locks the phone) or out of time
         while(i < parts.length && (!parts[i] || i >= table.cells().length)) i++;
-        if(i >= parts.length){ if(tableWire() !== val && !needSend) reply(val); return; }
+        if(i >= parts.length) return;   // the docks sent what the table holds; a bare reply of `val` would be a send the table does not show
         const slot = i, ch = parts[i];
         const box = table.slotBox(slot);
         const cells = table.cells();
@@ -2062,7 +2067,7 @@
          or `tap`. A plain-row table (anagram's flick, no cols) still needs to carry
          `bare`, so the condition is not `cols` alone; `cols` null means the row. */
       optionHues = (d && d.optionHues && typeof d.optionHues === 'object') ? d.optionHues : null;
-      simAttempts = 0; simVerdicts = 0;
+      simAttempts = 0; simVerdicts = 0; lastSentMs = null;
       setMode(d && d.mode, d && d.options, myRound(d),
               d && (d.cols || d.bare || d.tap || d.line || d.plinko || d.stack)     // the skill rounds' shapes ride too
                 ? { cols: d.cols === 'auto' ? 'auto' : d.cols ? Number(d.cols) : null,   // 'auto': wrap to this handset's width
@@ -2235,6 +2240,7 @@
       floorClockStop();          // the verdict outranks whatever the clock was saying
       const v = (d && d.verdict) || 'wrong';
       if(d && d.finished){
+        stopwatchFreeze(d.ms != null ? Number(d.ms) : lastSentMs);   // the send that finished it
         if(d.place > 0){
           const pill = $('place-pill');
           pill.textContent = d.place + ({1:'st', 2:'nd', 3:'rd'}[d.place] || 'th');

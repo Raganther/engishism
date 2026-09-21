@@ -1508,7 +1508,7 @@
       nudge: kind => { if(buzz && buzz.nudge && live()) buzz.nudge(kind); },
       /* A verdict for one phone, lent rather than reached for — the round says
          how a typed word was received and the host owns the wire. */
-      verdict: (id, verdict, note, coolMs) => { if(buzz) buzz.judge(id, verdict, { note, coolMs }); },
+      verdict: (id, verdict, note, coolMs, extra) => { if(buzz) buzz.judge(id, verdict, Object.assign({ note, coolMs }, extra || {})); },
       teamName: i => teams[i] || ('Team ' + (i + 1)),
       keep: d.keep || null,
       solo: false, prompt: true,
