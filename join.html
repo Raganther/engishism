@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260921a">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260921b">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -599,15 +599,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260921a"></script>
-<script src="game-hub/hub-buzzer.js?v=20260921a"></script>
+<script src="game-hub/hub-brand.js?v=20260921b"></script>
+<script src="game-hub/hub-buzzer.js?v=20260921b"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260921a"></script>
+<script src="game-hub/matter.min.js?v=20260921b"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260921a"></script>
+<script src="game-hub/hub-table.js?v=20260921b"></script>
 <script>
 (function(){
   'use strict';
@@ -879,34 +879,97 @@
      thumb would — the stopwatch, the relay and the board see an ordinary reply. A
      real phone never carries this. */
   if(SIM){
-    /* The driven drag: one part after another, each ~450ms, on the shelf's own
-       grab/move/drop. Runs off a timer so the bench's tick sees `answered` at once
-       and does not answer twice; the sends happen as the docks land. */
+    /* The driven drag — a thumb, not a robot. One part after another on the shelf's
+       own grab/move/drop, and everything a hand does wrong on purpose: the path bows
+       sideways and wobbles, the pace varies from drag to drag and within one, the
+       finger overshoots the box and comes back, now and then it picks up the wrong
+       tile and puts it down again, and now and then it misses the box altogether —
+       the tile drops beside it (or into the neighbour's box) and has to be fetched.
+       A tile already sitting in the target box is pulled out first. Runs off timers
+       so the bench's tick sees `answered` at once and does not answer twice; the
+       sends happen as the docks land, exactly as a student's do. */
     function simDrag(parts, val){
       const ID = 77;
       const table = tbl;
-      let i = 0;
-      const next = () => {
-        if(tbl !== table) return;                       // re-armed mid-drag: the deal is gone
-        while(i < parts.length && (!parts[i] || i >= table.cells().length)) i++;
-        if(i >= parts.length){ if(tableWire() !== val && !needSend) reply(val); return; }
-        const slot = i, ch = parts[i]; i++;
-        const box = table.slotBox(slot);
-        const tile = table.loose().find(q => String(q.ch) === String(ch));
-        if(!box || !tile || !table.grab(ID, tile.x, tile.y)){ table.place(slot, ch); setTimeout(next, 120); return; }
-        const x0 = tile.x, y0 = tile.y, steps = 16, dt = 28;
+      const rnd = (a, b) => a + Math.random() * (b - a);
+      const same = (a, b) => String(a) === String(b);
+      /* where a tile with this label lies now: loose, or docked in a box it does
+         not belong in (a box from `slot` on that is not `slot` itself) */
+      const findTile = (ch, slot) => {
+        const l = table.loose().find(q => same(q.ch, ch));
+        if(l) return { x: l.x, y: l.y };
+        const cells = table.cells();
+        for(let j = 0; j < cells.length; j++){
+          if(j === slot || !same(cells[j], ch)) continue;
+          if(j < slot && same(parts[j], ch)) continue;          // a duplicate letter already home
+          const b = table.slotBox(j); if(b) return { x: b.x, y: b.y };
+        }
+        return null;
+      };
+      /* carry the held tile from `from` to `to` over `ms`, then drop and call `then` */
+      const carry = (from, to, ms, then) => {
+        const dx = to.x - from.x, dy = to.y - from.y, d = Math.hypot(dx, dy) || 1;
+        const bow = rnd(-0.35, 0.35) * d;                 // the path bulges sideways this far
+        const px = -dy / d * bow, py = dx / d * bow;
+        const over = rnd(0, 0.14) * d;                    // overshoots the box by this, then back
+        const p = rnd(1.5, 2.8);                          // some drags leave fast, some slow
+        const steps = Math.max(8, Math.round(ms / 26));
         let k = 0;
         const step = () => {
-          if(tbl !== table){ return; }
+          if(tbl !== table) return;                       // re-armed mid-drag: the deal is gone
           k++;
-          const u = 1 - Math.pow(1 - k / steps, 3);            // ease out: fast off the pile, slow into the box
-          table.move(ID, x0 + (box.x - x0) * u, y0 + (box.y - y0) * u);
-          if(k < steps) setTimeout(step, dt);
-          else { table.drop(ID); setTimeout(next, 260); }      // a slow release docks; then the next part
+          const t = Math.min(1, k / steps);
+          const u = t < 0.5 ? Math.pow(2 * t, p) / 2 : 1 - Math.pow(2 * (1 - t), p) / 2;
+          const bulge = Math.sin(Math.PI * u);
+          const o = Math.sin(Math.PI * Math.max(0, (u - 0.72) / 0.28)) * over;
+          table.move(ID, from.x + dx * u + px * bulge + dx / d * o + rnd(-2, 2),
+                         from.y + dy * u + py * bulge + dy / d * o + rnd(-2, 2));
+          if(k < steps) setTimeout(step, 26 + rnd(-8, 14));
+          else { table.drop(ID); then(); }
         };
-        setTimeout(step, dt);
+        setTimeout(step, 26);
       };
-      setTimeout(next, 60);
+      let i = 0, tries = 0;
+      const next = () => {
+        if(tbl !== table) return;
+        while(i < parts.length && (!parts[i] || i >= table.cells().length)) i++;
+        if(i >= parts.length){ if(tableWire() !== val && !needSend) reply(val); return; }
+        const slot = i, ch = parts[i];
+        const box = table.slotBox(slot);
+        const cells = table.cells();
+        if(same(cells[slot], ch)){ i++; tries = 0; setTimeout(next, rnd(80, 300)); return; }   // already home (a miss that fell in)
+        /* the wrong tile is sitting in this box: pull it out and drop it on the pile */
+        if(cells[slot] && box && table.grab(ID, box.x, box.y)){
+          carry({ x: box.x, y: box.y }, { x: rnd(0.15, 0.85) * canvas.clientWidth, y: canvas.clientHeight * rnd(0.72, 0.86) }, rnd(300, 500), () => setTimeout(next, rnd(150, 400)));
+          return;
+        }
+        const from = findTile(ch, slot);
+        if(!box || !from || !table.grab(ID, from.x, from.y)){
+          if(++tries > 3){ table.place(slot, ch); i++; tries = 0; }     // the drag cannot reach it: the fallback
+          setTimeout(next, rnd(120, 300)); return;
+        }
+        /* a hesitation: this is the wrong tile after all — carry it part way, put it back */
+        if(tries === 0 && Math.random() < 0.12){
+          table.drop(ID);
+          const other = table.loose().find(q => !same(q.ch, ch));
+          if(other && table.grab(ID, other.x, other.y)){
+            const mid = { x: other.x + (box.x - other.x) * rnd(0.3, 0.6), y: other.y + (box.y - other.y) * rnd(0.3, 0.6) };
+            carry({ x: other.x, y: other.y }, mid, rnd(250, 450), () => setTimeout(next, rnd(200, 500)));
+            return;
+          }
+          if(!table.grab(ID, from.x, from.y)){ setTimeout(next, 150); return; }
+        }
+        /* a miss: let go a tile and a half to one side — beside the box, or in the
+           neighbour's; fetched on the next try */
+        const miss = tries === 0 && Math.random() < 0.18;
+        const to = miss ? { x: box.x + (Math.random() < 0.5 ? -1 : 1) * box.w * rnd(1.1, 1.5), y: box.y + rnd(-0.3, 0.3) * box.h } : { x: box.x, y: box.y };
+        tries++;
+        carry(from, to, rnd(350, 900), () => {
+          if(!miss){ i++; tries = 0; }
+          setTimeout(next, miss ? rnd(250, 600) : rnd(120, 600));
+        });
+      };
+      setTimeout(next, rnd(40, 400));
     }
     window.HubPhoneSim = {
       state(){
