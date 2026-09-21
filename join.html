@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260920s">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260921a">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -599,15 +599,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260920s"></script>
-<script src="game-hub/hub-buzzer.js?v=20260920s"></script>
+<script src="game-hub/hub-brand.js?v=20260921a"></script>
+<script src="game-hub/hub-buzzer.js?v=20260921a"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260920s"></script>
+<script src="game-hub/matter.min.js?v=20260921a"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260920s"></script>
+<script src="game-hub/hub-table.js?v=20260921a"></script>
 <script>
 (function(){
   'use strict';
@@ -879,6 +879,35 @@
      thumb would — the stopwatch, the relay and the board see an ordinary reply. A
      real phone never carries this. */
   if(SIM){
+    /* The driven drag: one part after another, each ~450ms, on the shelf's own
+       grab/move/drop. Runs off a timer so the bench's tick sees `answered` at once
+       and does not answer twice; the sends happen as the docks land. */
+    function simDrag(parts, val){
+      const ID = 77;
+      const table = tbl;
+      let i = 0;
+      const next = () => {
+        if(tbl !== table) return;                       // re-armed mid-drag: the deal is gone
+        while(i < parts.length && (!parts[i] || i >= table.cells().length)) i++;
+        if(i >= parts.length){ if(tableWire() !== val && !needSend) reply(val); return; }
+        const slot = i, ch = parts[i]; i++;
+        const box = table.slotBox(slot);
+        const tile = table.loose().find(q => String(q.ch) === String(ch));
+        if(!box || !tile || !table.grab(ID, tile.x, tile.y)){ table.place(slot, ch); setTimeout(next, 120); return; }
+        const x0 = tile.x, y0 = tile.y, steps = 16, dt = 28;
+        let k = 0;
+        const step = () => {
+          if(tbl !== table){ return; }
+          k++;
+          const u = 1 - Math.pow(1 - k / steps, 3);            // ease out: fast off the pile, slow into the box
+          table.move(ID, x0 + (box.x - x0) * u, y0 + (box.y - y0) * u);
+          if(k < steps) setTimeout(step, dt);
+          else { table.drop(ID); setTimeout(next, 260); }      // a slow release docks; then the next part
+        };
+        setTimeout(step, dt);
+      };
+      setTimeout(next, 60);
+    }
     window.HubPhoneSim = {
       state(){
         /* On a table the options are the dealt tiles, not the tap buttons (there are
@@ -894,14 +923,17 @@
         if(!client || answered) return false;
         const val = String(v == null ? '' : v);
         if(mode === 'buzz' || mode === 'type') client.buzz(mode === 'type' ? val : undefined);
-        /* A table answer is PLACED, not only sent: each part into its slot through the
-           same `place()` a tap uses, so the racked phone shows the letters in their
-           boxes and the wire carries what the table holds — exactly a student's send.
-           A part the table cannot find (a label not dealt) falls back to the bare reply. */
+        /* A table answer is DRAGGED, not placed: each part is picked up where it
+           lies and carried to its slot at a hand's pace through the same grab/move/
+           drop a finger drives, easing to a stop so the shelf reads a slow release
+           and docks it — so the racked phone shows the tile travelling, the dock's
+           pop, and the verdict's glow or shudder exactly as a student's would, and
+           the wire carries what the table holds. `place()` (a teleport) is only the
+           fallback for a tile the drag cannot find; a label not dealt at all falls
+           back to the bare reply. */
         else if(mode === 'table' && tbl){
           const parts = val.split('|');
-          parts.forEach((ch, i) => { if(ch && i < tbl.cells().length) tbl.place(i, ch); });
-          if(tableWire() === val) sendTable(); else reply(val);
+          simDrag(parts, val);
         }
         else if(mode === 'vote' || mode === 'answer' || mode === 'arrange' || mode === 'table') reply(val);
         else return false;
