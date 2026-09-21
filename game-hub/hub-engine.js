@@ -458,6 +458,18 @@
     if(v > 10 && v % 15 === 0) S.set('roundSecs', 10);
     try{ localStorage.setItem(MARK, '1'); }catch(e){}
   })();
+  /* Twenty seconds now: ten was too tight for an eleven-letter word — a whole room
+     ran out before anyone finished. A device still holding the old default of 10
+     is moved once; any other value is a teacher's and stays. Runs after the
+     10-second migration so a device from the 15-step days lands on 20 too. */
+  (function migrateRoundSecs20(){
+    const MARK = 'engishism.roundSecs20';
+    let done = false;
+    try{ done = localStorage.getItem(MARK) === '1'; }catch(e){}
+    if(done) return;
+    if(Number(S.raw('roundSecs')) === 10) S.set('roundSecs', 20);
+    try{ localStorage.setItem(MARK, '1'); }catch(e){}
+  })();
 
   /* **Send is off by default now, and the flip is a migration for the same reason as
      above.** The commit beat (`roundSend`) shipped on: in a room of individuals a tap

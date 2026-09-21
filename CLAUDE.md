@@ -741,7 +741,7 @@ beside a place are the student's own. No clock has to agree with anybody's. **Th
 stopwatch is visible at both ends**: the phone's two clocks are one bar along its bottom
 edge (`#tbar` — the fill drains with the time left, the label counts it down in
 milliseconds, and at a COMPLETE send both freeze at the time taken — a docked letter with boxes still empty travels for the count but carries no stopwatch and freezes nothing), and the card's place pill
-carries that time to the millisecond (`.rl-ms`). A question runs for 10s by default
+carries that time to the millisecond (`.rl-ms`). A question runs for 20s by default
 (`roundSecs`). A phone that waited a head start shows and is shown the same two
 numbers, its own clock and the wait — "1.239s +2.0" — because the ranking adds the wait
 back (`hold` on the record) and a sum the phone never saw read as a mismatch. **A place is provisional until the question closes** — a reply that
@@ -973,7 +973,7 @@ announcement and payout read the same record, so a teacher's Check landing after
 phone has finished pays the phone and calls that competitor a late finisher. Two places
 deciding one fact is what put the wrong name on the winner pill in front of a class.
 
-**Still guessed, not measured:** the 0.6 decay and the tenth-of-value tail, the 10s
+**Still guessed, not measured:** the 0.6 decay and the tenth-of-value tail, the 20s
 question, the 0.5 clock floor, 3s escalating to 9s, the 40% reveal. The settings are
 marked `quick` because they are meant to be flipped, not trusted. Two things to watch
 next: whether standings after *every* question drags (`roundWinBanner` turns it off),

@@ -194,9 +194,10 @@
        not already run their own question clock: Quickfire declares one (there is one
        `Kit.round.clock` because there is one question in the room), and Millionaire
        mounts on its own stage, where there is no topline to draw the countdown in. */
-    /* 10s by default — a minute read as no clock at all once the phones showed it;
-       a device seeded on the old slider is migrated once in hub-engine.js (`migrateRoundSecs`). */
-    S.register({ id:'roundSecs', group:'Questions', type:'range', default:10, quick:true,
+    /* 20s by default — a minute read as no clock at all once the phones showed it, and
+       ten was too tight for a long word; a device seeded on an older default is migrated
+       once in hub-engine.js (`migrateRoundSecs`, `migrateRoundSecs20`). */
+    S.register({ id:'roundSecs', group:'Questions', type:'range', default:20, quick:true,
       min:0, max:120, step:5, unit:'s',
       games: roundGames.filter(g => isOnCard(g) && !ownClock(g)),
       label:'Each question runs for',
