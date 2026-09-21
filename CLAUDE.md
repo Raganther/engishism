@@ -957,7 +957,12 @@ keeps accepting replies until Reveal; each handset runs the same duration from t
 the question painted on ITS screen (`secs` rides the arm; `roundClockRun` counts by wall
 clock from `shownAt`), locks its own input at its own zero, and keeps the student's answer
 on screen until the teacher reveals or closes. A phone that painted late gets the full
-time. The teacher still reveals and closes. `clockRunning` means "was this question timed", not "is it
+time. The teacher still reveals and closes. **A wrong answer always reaches the phone**
+(`roundSendPenalty` sends the verdict whatever the Send switch says; only the WAIT is the
+penalty's) — it is what makes the tile shudder, the phone say so and **its clock run on**
+(`stopwatchResume`): a wrong answer costs the time it takes to pull the tile out and try
+again, never a stopped clock. Autopilot retries the same way, after a human pause, up to
+three goes. `clockRunning` means "was this question timed", not "is it
 ticking" — the payout is recomputed after the question ends and a live `running()` made
 the standings disagree with what was awarded.
 

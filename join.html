@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260921b">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260921c">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -599,15 +599,15 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260921b"></script>
-<script src="game-hub/hub-buzzer.js?v=20260921b"></script>
+<script src="game-hub/hub-brand.js?v=20260921c"></script>
+<script src="game-hub/hub-buzzer.js?v=20260921c"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260921b"></script>
+<script src="game-hub/matter.min.js?v=20260921c"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260921b"></script>
+<script src="game-hub/hub-table.js?v=20260921c"></script>
 <script>
 (function(){
   'use strict';
@@ -873,11 +873,23 @@
     barPaint();
   }
   function stopwatchHide(){ swFrozen = true; barSent = null; barTotal = 0; $('tbar').className = 'hide'; document.body.classList.remove('has-tbar'); }
+  /* **A wrong answer does not stop the clock.** The stopwatch froze at the send so
+     the number in the hand is the one on the card — right for a right answer, and
+     a lie after a wrong one: the question is still open, the student can send
+     again, and their time is still running. Unfreeze: the bar drains again from
+     the wall clock (it never really stopped), and the next send freezes it anew.
+     A cooldown is not a stop either — it is time spent, which is the point. */
+  function stopwatchResume(){
+    if(barSent == null || shownAt == null) return;
+    $('tbar').classList.remove('sent');
+    stopwatchStart();   // the paint loop ended itself at the send; start it again from the wall clock
+  }
   /* **A simulated handset can be driven.** Only under the room bench's `?auto=1`
      contract (`HubBuzzer.sim()`), and only on this page: `state()` says what this
      phone is being asked right now, `answer(v)` commits a reply on the SAME path a
      thumb would — the stopwatch, the relay and the board see an ordinary reply. A
      real phone never carries this. */
+  let simAttempts = 0, simVerdicts = 0;   // how many answers this phone has sent, and how many came back wrong
   if(SIM){
     /* The driven drag — a thumb, not a robot. One part after another on the shelf's
        own grab/move/drop, and everything a hand does wrong on purpose: the path bows
@@ -916,7 +928,7 @@
         const steps = Math.max(8, Math.round(ms / 26));
         let k = 0;
         const step = () => {
-          if(tbl !== table) return;                       // re-armed mid-drag: the deal is gone
+          if(tbl !== table || timeUp){ if(tbl === table && table.heldBy(ID)) table.drop(ID); return; }   // re-armed, finished or timed out mid-drag: let go
           k++;
           const t = Math.min(1, k / steps);
           const u = t < 0.5 ? Math.pow(2 * t, p) / 2 : 1 - Math.pow(2 * (1 - t), p) / 2;
@@ -931,7 +943,7 @@
       };
       let i = 0, tries = 0;
       const next = () => {
-        if(tbl !== table) return;
+        if(tbl !== table || timeUp) return;               // finished (a right verdict locks the phone) or out of time
         while(i < parts.length && (!parts[i] || i >= table.cells().length)) i++;
         if(i >= parts.length){ if(tableWire() !== val && !needSend) reply(val); return; }
         const slot = i, ch = parts[i];
@@ -940,7 +952,7 @@
         if(same(cells[slot], ch)){ i++; tries = 0; setTimeout(next, rnd(80, 300)); return; }   // already home (a miss that fell in)
         /* the wrong tile is sitting in this box: pull it out and drop it on the pile */
         if(cells[slot] && box && table.grab(ID, box.x, box.y)){
-          carry({ x: box.x, y: box.y }, { x: rnd(0.15, 0.85) * canvas.clientWidth, y: canvas.clientHeight * rnd(0.72, 0.86) }, rnd(300, 500), () => setTimeout(next, rnd(150, 400)));
+          carry({ x: box.x, y: box.y }, { x: rnd(0.15, 0.85) * tblCanvas.clientWidth, y: tblCanvas.clientHeight * rnd(0.72, 0.86) }, rnd(300, 500), () => setTimeout(next, rnd(150, 400)));
           return;
         }
         const from = findTile(ch, slot);
@@ -980,10 +992,18 @@
            handset can produce. */
         const options = (mode === 'table' && tblShape) ? (tblShape.labels || []).slice()
                       : [...$('opts').querySelectorAll('button')].map(b => b.textContent);
-        return { roundId: activeRoundId, mode, answered, team, multi: maxPicks, options };
+        /* `attempts`/`wrong`: what this phone has sent and how many came back wrong,
+           so the bench can let a wrong phone try again while the question is open —
+           `open` is false once the phone is finished, timed out or told to wait. */
+        return { roundId: activeRoundId, mode, answered, team, multi: maxPicks, options,
+                 attempts: simAttempts, wrong: simVerdicts, rethink: canRethink,
+                 open: !!client && !timeUp && !cooling && document.body.dataset.verdict !== 'right' };
       },
       answer(v){
-        if(!client || answered) return false;
+        if(!client || timeUp || cooling) return false;
+        if(answered && !canRethink) return false;
+        simAttempts++;
+        if(document.body.dataset.verdict !== 'right') delete document.body.dataset.verdict;
         const val = String(v == null ? '' : v);
         if(mode === 'buzz' || mode === 'type') client.buzz(mode === 'type' ? val : undefined);
         /* A table answer is DRAGGED, not placed: each part is picked up where it
@@ -2037,6 +2057,7 @@
          or `tap`. A plain-row table (anagram's flick, no cols) still needs to carry
          `bare`, so the condition is not `cols` alone; `cols` null means the row. */
       optionHues = (d && d.optionHues && typeof d.optionHues === 'object') ? d.optionHues : null;
+      simAttempts = 0; simVerdicts = 0;
       setMode(d && d.mode, d && d.options, myRound(d),
               d && (d.cols || d.bare || d.tap || d.line || d.plinko || d.stack)     // the skill rounds' shapes ride too
                 ? { cols: d.cols === 'auto' ? 'auto' : d.cols ? Number(d.cols) : null,   // 'auto': wrap to this handset's width
@@ -2235,6 +2256,7 @@
         tbl.setResult(v === 'right' ? 'right' : 'wrong');
         verdictUntil = Date.now() + 1500;
         document.body.dataset.verdict = v;
+        if(v !== 'right'){ stopwatchResume(); simVerdicts++; }
         $('state').textContent = (d && d.note) || (v === 'right' ? 'Yes!' : 'Not that one');
         if(navigator.vibrate) navigator.vibrate(v === 'right' ? [30,40,30] : [15,60,15]);
         if(v !== 'right' && d && d.until) coolDown(d.until);
@@ -2254,6 +2276,7 @@
         if(v === 'wrong'){
           if(btn){ btn.classList.remove('picked'); btn.classList.add('wrong'); }
           document.body.dataset.verdict = v;
+          stopwatchResume(); simVerdicts++;
           $('state').textContent = (d && d.note) || 'Not that one';
           if(navigator.vibrate) navigator.vibrate([15,60,15]);
           coolDown((d && d.until) || Date.now());

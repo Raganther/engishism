@@ -3405,11 +3405,16 @@
      because the strip re-reads it on a ticker; the phone counts its own down from
      the duration it was sent, exactly as every other clock here works. */
   let sendCooling = {};
+  /* **A wrong answer always reaches the phone.** The verdict is what makes the tile
+     shudder, the phone say "Not that one" and its clock run on — without it a wrong
+     flick sat on the handset looking sent and finished, its stopwatch frozen at the
+     send. Only the WAIT is the Send penalty's: a room of individuals with Send on
+     locks that phone for the cooldown; everywhere else the cost of being wrong is
+     the time it takes to pull the tile out and try again. Returns the seconds waited. */
   function roundSendPenalty(team, note){
-    if(!Roster.solo() || !buzzHost) return 0;
-    if(!S.get('roundSend', roundHost.game)) return 0;
-    const secs = Number(S.get('roundSendCool', roundHost.game)) || 0;
-    if(!secs) return 0;
+    if(!buzzHost) return 0;
+    const punish = Roster.solo() && !!S.get('roundSend', roundHost.game);
+    const secs = punish ? (Number(S.get('roundSendCool', roundHost.game)) || 0) : 0;
     const ramp = !!S.get('roundSendRamp', roundHost.game);
     let waited = 0;
     /* In a solo room a competitor is one phone, and `p.team` is the relay's own
@@ -3418,12 +3423,14 @@
     roundPhonesOf(team).forEach(p=>{
       const n = (sendMisses[p.id] || 0) + 1;
       sendMisses[p.id] = n;
-      const ms = Math.round(secs * 1000 * (ramp ? n : 1));
+      const ms = secs ? Math.round(secs * 1000 * (ramp ? n : 1)) : 0;
       buzzHost.judge(p.id, 'wrong', { note: note || 'Not that one', coolMs: ms });
-      sendCooling[p.id] = { name: p.name, team: Number(p.team), until: Date.now() + ms };
-      waited = Math.max(waited, Math.round(ms / 1000));
+      if(ms){
+        sendCooling[p.id] = { name: p.name, team: Number(p.team), until: Date.now() + ms };
+        waited = Math.max(waited, Math.round(ms / 1000));
+      }
     });
-    renderPhoneBar();
+    if(waited) renderPhoneBar();
     return waited;
   }
 
