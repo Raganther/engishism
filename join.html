@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260922g">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260922h">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -276,6 +276,40 @@
   #tbar.bands .tbar-fill{ background:rgba(0,0,0,0.5) !important; width:0; }
   #tbar.bands .tbar-label{ color:#fff; text-shadow:0 1px 0 rgba(0,0,0,0.5); }
   body.has-tbar #screen-play{ padding-bottom:52px; }
+  /* ---- the points badge: show, don't tell ----
+     The number on offer sits at the bar's right end in the band's colour. Crossing
+     into a cheaper band, the old number hops and falls off the bottom of the screen
+     in red — the points you just missed — and the new one pops in. A right answer
+     turns the badge green with "+N", swollen then settling, and it stays. */
+  body.has-pts #tbar{ right:92px; }
+  #tpts{ position:fixed; right:14px; bottom:14px; width:70px; height:30px; z-index:41;
+    display:flex; align-items:center; justify-content:center; border-radius:10px;
+    border:2px solid var(--hd-line); background:rgba(255,255,255,0.06);
+    font-family:'IBM Plex Mono',monospace; font-weight:800; font-size:1.15rem; font-variant-numeric:tabular-nums;
+    color:var(--hd-paper); }
+  #tpts.hide{ display:none; }
+  #tpts.b0{ color:var(--hd-green); }
+  #tpts.b1{ color:var(--hd-yellow); }
+  #tpts.b2{ color:var(--hd-red); }
+  #tpts.b3, #tpts.gone{ color:var(--hd-muted); }
+  #tpts .pv{ display:inline-block; }
+  #tpts .pv.pop{ animation:ptspop 380ms cubic-bezier(.2,1.5,.4,1); }
+  #tpts.won{ background:var(--hd-green); color:var(--hd-ink); border-color:rgba(0,0,0,0.3);
+    box-shadow:0 3px 0 rgba(0,0,0,0.3); }
+  #tpts.won .pv{ animation:ptswin 700ms cubic-bezier(.2,1.6,.4,1); }
+  .ptsdrop{ position:fixed; z-index:42; pointer-events:none; width:70px; height:30px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono',monospace; font-weight:800; font-size:1.15rem; color:var(--hd-red);
+    text-shadow:0 2px 0 rgba(0,0,0,0.4); animation:ptsfall 1000ms cubic-bezier(.5,0,.9,.6) forwards; }
+  @keyframes ptspop{ 0%{ transform:scale(0.4); opacity:0 } 100%{ transform:scale(1); opacity:1 } }
+  @keyframes ptswin{ 0%{ transform:scale(0.5) } 45%{ transform:scale(1.9) } 100%{ transform:scale(1) } }
+  @keyframes ptsfall{
+    0%{ transform:translate(0,0) rotate(0); opacity:1 }
+    18%{ transform:translate(-4px,-22px) rotate(-6deg); opacity:1 }
+    100%{ transform:translate(-26px,150px) rotate(-40deg); opacity:0 } }
+  @media (prefers-reduced-motion: reduce){
+    #tpts .pv.pop, #tpts.won .pv{ animation:none; }
+    .ptsdrop{ animation:none; display:none; } }
   #status{ font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--hd-muted); }
   #status.ok{ display:none; }
   /* Between questions only: the room number is what a student checks while
@@ -666,6 +700,10 @@
        send both freeze at the time taken. Fixed to the screen's bottom edge so the
        full-bleed table faces keep it too. -->
   <div id="tbar" class="hide"><div class="tbar-bands"></div><div class="tbar-fill"></div><span class="tbar-label"></span></div>
+  <!-- What this answer is worth right now, in points, beside the bar. Each time the
+       clock crosses into a cheaper band the old number falls off the screen in red;
+       a right answer pops the number it earned up in green and it stays. -->
+  <div id="tpts" class="hide"></div>
   <p id="status"></p>
   <!-- The way out of a remembered seat. Rejoining silently is right for a reload
        mid-round, and wrong the day the phone changes hands or the student picked
@@ -674,16 +712,16 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260922g"></script>
-<script src="game-hub/hub-sound.js?v=20260922g"></script>
-<script src="game-hub/hub-buzzer.js?v=20260922g"></script>
+<script src="game-hub/hub-brand.js?v=20260922h"></script>
+<script src="game-hub/hub-sound.js?v=20260922h"></script>
+<script src="game-hub/hub-buzzer.js?v=20260922h"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260922g"></script>
+<script src="game-hub/matter.min.js?v=20260922h"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260922g"></script>
+<script src="game-hub/hub-table.js?v=20260922h"></script>
 <script>
 (function(){
   'use strict';
@@ -930,6 +968,7 @@
      offers, because a countdown you can tap through is not a penalty. */
   let needSend = false, sentValue = null, cooling = false, preview = false;
   let activeRoundId = null;
+  let flashedFor = null;   // the question whose right answer has already flashed — once each
   /* Which of this phone's options are finished with — its own placed words, sent by
      the host on the arm and on the join. Held here rather than read off the DOM so a
      reconnect repaints them: the marks are the player's record of their own ladder,
@@ -993,6 +1032,55 @@
     [...box.children].forEach((e, i) => e.classList.toggle('now', i === b));
     return b;
   }
+  /* ---- the points badge ----
+     `roundPts` is this phone's four band values off the arm (the board's own pay
+     rule, per team). `ptsBand` is the band last shown, so a crossing is seen once;
+     `ptsWon` is the finish, after which nothing drops. */
+  let roundPts = null, ptsBand = -1, ptsWon = null;
+  function ptsReset(pts){
+    roundPts = Array.isArray(pts) && pts.length === 4 ? pts.map(Number) : null;
+    ptsBand = -1; ptsWon = null;
+    const el = $('tpts'); el.className = 'hide'; el.innerHTML = '';
+    document.body.classList.toggle('has-pts', !!roundPts);
+  }
+  function ptsShow(v, cls, pop){
+    const el = $('tpts'); el.className = cls; el.innerHTML = '';
+    const n = document.createElement('span'); n.className = 'pv' + (pop ? ' pop' : ''); n.textContent = v;
+    el.appendChild(n);
+  }
+  /* the points just missed: a copy of the number hops and falls off the screen */
+  function ptsDrop(v){
+    if(!(v > 0)) return;
+    const r = $('tpts').getBoundingClientRect();
+    const d = document.createElement('span');
+    d.className = 'ptsdrop'; d.textContent = v;
+    d.style.left = r.left + 'px'; d.style.top = r.top + 'px';
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 1100);
+  }
+  /* the band moved (or the clock ran out): drop what was on offer, show what is */
+  function ptsTick(band, over){
+    if(!roundPts || ptsWon != null) return;
+    if(over){
+      if(ptsBand === 99) return;
+      if(ptsBand >= 0) ptsDrop(roundPts[ptsBand]);
+      ptsBand = 99; ptsShow(0, 'gone', true); return;
+    }
+    if(band == null || band === ptsBand) return;
+    if(ptsBand >= 0 && ptsBand !== 99) ptsDrop(roundPts[ptsBand]);
+    ptsBand = band; ptsShow(roundPts[band], 'b' + band, true);
+  }
+  /* a right finish: the number it earned, green, and it stays. `v` is the board's
+     own figure when the verdict carries one, else the band the send landed in. */
+  function ptsWin(v){
+    if(!roundPts && v == null) return;
+    if(v == null) v = roundPts[Math.max(0, Math.min(3, ptsBand === 99 ? 3 : ptsBand))] || 0;
+    if(ptsWon === v) return;
+    const first = ptsWon == null;
+    ptsWon = v;
+    document.body.classList.add('has-pts');
+    ptsShow('+' + v, 'won', first);
+  }
   const fmtSw = ms => (Math.max(0, ms) / 1000).toFixed(3) + 's' + (heldMs > 0 ? ' +' + (heldMs / 1000).toFixed(1) : '');
   function barPaint(){
     const bar = $('tbar'), fill = bar.querySelector('.tbar-fill'), label = bar.querySelector('.tbar-label');
@@ -1011,10 +1099,10 @@
        (or out of time) the bar becomes one plain line: the time taken and the share
        it earned. Only an untimed question keeps a running count, since then the
        count is all there is. */
-    const pct = band != null ? ' · ' + Math.round(roundBands[band] * 100) + '%' : '';
+    const pct = band != null && !roundPts ? ' · ' + Math.round(roundBands[band] * 100) + '%' : '';
     if(barSent != null){ bar.classList.add('sent'); label.textContent = fmtSw(barSent) + pct; }
-    else if(barTotal && left <= 0){ bar.classList.add('over'); label.textContent = 'Time'; }
-    else label.textContent = barTotal ? '' : fmtSw(run);
+    else if(barTotal && left <= 0){ bar.classList.add('over'); label.textContent = 'Time'; ptsTick(null, true); }
+    else { label.textContent = barTotal ? '' : fmtSw(run); ptsTick(band, false); }
     return left;
   }
   function stopwatchStart(){
@@ -1036,7 +1124,7 @@
     const bar = $('tbar'); bar.classList.remove('hide', 'over'); document.body.classList.add('has-tbar');
     barPaint();
   }
-  function stopwatchHide(){ swFrozen = true; barSent = null; barTotal = 0; $('tbar').className = 'hide'; document.body.classList.remove('has-tbar'); }
+  function stopwatchHide(){ swFrozen = true; barSent = null; barTotal = 0; $('tbar').className = 'hide'; document.body.classList.remove('has-tbar'); ptsReset(null); }
   /* **A wrong answer does not stop the clock.** The stopwatch froze at the send so
      the number in the hand is the one on the card — right for a right answer, and
      a lie after a wrong one: the question is still open, the student can send
@@ -2302,6 +2390,8 @@
         return;
       }
       roundBands = (d && d.secs && Array.isArray(d.bands) && d.bands.length === 4) ? d.bands.map(Number) : null;
+      // a reopen is the same question re-asked: what was dropped or won stands
+      if(!(d && d.reopen)) ptsReset(roundBands ? d.pts : null);
       if(d && d.secs) roundClockRun(d.secs); else roundClockStop();
       /* Back after a reload, or joining mid-vote: show what this phone already
          chose rather than a blank set of options. */
@@ -2407,6 +2497,9 @@
        card they were still reading. */
     function standDown(msg){
       floorClockStop(); roundClockStop();
+      /* the question is gone, and so is its clock — a bar left running over the
+         waiting screen read as a timer for nothing */
+      stopwatchHide();
       setBuzzer('off','Wait');
       $('qtext').textContent = '';
       // the rule went with the question — it described that one, not the next
@@ -2460,7 +2553,11 @@
         [...$('opts').children].forEach(b => { b.disabled = true; });
         if(tbl && mode === 'table') tbl.setResult('right');
         document.body.dataset.verdict = 'right';
-        flashVerdict('right');
+        ptsWin(d.pts != null ? Number(d.pts) : null);
+        /* **Once per answer.** The board re-tells a finisher every time its place
+           moves and once more when the question closes; each is a fact for the
+           pill, not a second tick. */
+        if(flashedFor !== activeRoundId){ flashedFor = activeRoundId; flashVerdict('right'); }
         $('state').textContent = d.note || 'Complete — let the others finish';
         return;
       }
@@ -2473,7 +2570,9 @@
         tbl.setResult(v === 'right' ? 'right' : 'wrong');
         verdictUntil = Date.now() + 1500;
         document.body.dataset.verdict = v;
-        flashVerdict(v === 'right' ? 'right' : 'wrong');
+        /* a right PART is not the answer (the finish flashes), and a wrong verdict
+           flashes only on a full table — a stray tile gets its shudder, not a cross */
+        if(v !== 'right' && (!tbl.filled || tbl.filled())) flashVerdict('wrong');
         if(v !== 'right'){ stopwatchResume(); simVerdicts++; }
         $('state').textContent = (d && d.note) || (v === 'right' ? 'Yes!' : 'Not that one');
         if(navigator.vibrate) navigator.vibrate(v === 'right' ? [30,40,30] : [15,60,15]);
@@ -2506,8 +2605,7 @@
         /* Ready for the next one without an arm — which is the whole point: an arm
            would clear every other handset in the room to tell this one it was right. */
         myPicks = []; sentValue = null; answered = false; cooling = false;
-        document.body.dataset.verdict = v;
-        flashVerdict('right');
+        document.body.dataset.verdict = v;   // one part of several: the finish is what flashes
         $('commit').disabled = true; $('commit').textContent = 'Send';
         $('state').textContent = (d && d.note) || 'Yes — now the next one';
         if(navigator.vibrate) navigator.vibrate([30,40,30]);
@@ -2520,7 +2618,8 @@
          anything asking what this phone was last told. */
       verdictUntil = Date.now() + 1500;
       document.body.dataset.verdict = v;
-      flashVerdict(v === 'wrong' ? 'wrong' : v === 'close' ? 'close' : 'right');
+      if(v === 'wrong') flashVerdict('wrong');
+      else if(flashedFor !== activeRoundId){ flashedFor = activeRoundId; flashVerdict(v === 'close' ? 'close' : 'right'); }
       if(v === 'wrong'){
         setBuzzer('off','…');
         $('state').textContent = (d && d.note) || 'Not quite';

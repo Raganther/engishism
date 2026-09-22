@@ -744,8 +744,7 @@ every stopwatch and before the teacher's click. `results.note` takes `ms` so the
 beside a place are the student's own. No clock has to agree with anybody's. **The
 stopwatch is visible at both ends**: the phone's two clocks are one bar along its bottom
 edge (`#tbar` — the fill drains with the time left and carries **no text while it
-runs**; at the send it becomes one plain line, the time to the millisecond and the share
-earned, "7.205s · 50%"; **the bar stops when the board says this phone is FINISHED, or at its own zero, never at a send** — a complete send carries the stopwatch and is remembered, the finished verdict freezes the bar at that send, and a docked letter with boxes still empty travels for the count but carries no stopwatch), and the card's place pill
+runs**; at the send it becomes one plain line, the time to the millisecond; **the bar stops when the board says this phone is FINISHED, or at its own zero, never at a send** — a complete send carries the stopwatch and is remembered, the finished verdict freezes the bar at that send, and a docked letter with boxes still empty travels for the count but carries no stopwatch), and the card's place pill
 carries that time to the millisecond (`.rl-ms`). A question runs for 20s by default
 (`roundSecs`). A phone that waited a head start shows and is shown the same two
 numbers, its own clock and the wait — "1.239s +2.0" — because the ranking adds the wait
@@ -961,7 +960,15 @@ answer paying the band it landed in (the four shares are `roundBand1..4`, defaul
 any head start added back. The four shares ride the arm as `bands` beside `secs` (the relay
 carries them on `armed` and `joined`), so every phone draws its clock bar as four coloured
 bands with the elapsed time veiling them from the left and the card's clock pill says the
-share on offer now in the band's colour. A game with a baked `roundPay` default (Jeopardy,
+share on offer now in the band's colour. **The phone shows points, not shares**: the arm
+carries `pts` — each team's four band values, `roundBandPoints` running the bands rule
+itself once per band, so catch-up worth and a Double are in the number — and the relay
+hands each phone its own four. A badge beside the bar (`#tpts`) shows the value on offer;
+crossing into a cheaper band, the missed number falls off the screen in red; a right
+finish pops "+N" in green and it stays, N being the board's own payout carried on the
+finished verdict (`pts`). **The tick flashes once per answer** — a place re-told, a right
+part of several and a stray wrong tile on an unfilled table never flash. A disarm hides
+the bar: a clock left running over the waiting screen read as a timer for nothing. A game with a baked `roundPay` default (Jeopardy,
 Quickfire) cannot be moved onto it — the panel says so.
 `roundSecs` is the round's own clock — the third of the three, and the one that did not
 exist — painted as the `#clue-clock` pill on card hosts only (`onCard`, because the

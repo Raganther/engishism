@@ -198,8 +198,13 @@
   function roundPayout(host){
     const h = host || roundHost;
     const rule = PAY_RULES[S.get('roundPay', h.game)] || PAY_RULES.winner;
-    const baseFor = who => (h.worth ? Number(h.worth(who)) || 0 : 0);
-    return rule.pay(Kit.round.results.finished(), baseFor, {
+    return rule.pay(Kit.round.results.finished(), roundBaseFor(h), roundPayOpts(h));
+  }
+  const roundBaseFor = h => who => (h.worth ? Number(h.worth(who)) || 0 : 0);
+  /* The pay rule's options, one home: the payout above and the band points the
+     phones are shown (roundBandPoints) read the same numbers. */
+  function roundPayOpts(h){
+    return {
       /* **"Was this question run against a clock", not "is it ticking right now".**
          Each row's `fraction` was already read at the moment that competitor
          answered; this only says whether that number means anything. Asked of the
@@ -216,7 +221,25 @@
       /* the bands rule: the four shares and the clock they divide */
       bands:  PAY_RULES.bands.shares(k => S.get(k, h.game)),
       clockSecs: roundClockSecs(h)
-    });
+    };
+  }
+  /* **What each band is worth to each competitor, in points** — {who: [4]}, the
+     bands rule itself run once per band with everybody landing in it, so the
+     number a phone shows is the rule's own arithmetic (catch-up worth, a Double,
+     the board's grid), never a second copy of it. Null when the rule is not bands
+     or there is no clock to divide. */
+  function roundBandPoints(host){
+    const h = host || roundHost;
+    if(!h || !roundBandsFor(h)) return null;
+    const o = roundPayOpts(h);
+    if(!(o.clockSecs > 0)) return null;
+    o.clockRunning = true;
+    const who = teams.map((_, i) => i), base = roundBaseFor(h), out = {};
+    for(let b = 0; b < 4; b++){
+      const paid = PAY_RULES.bands.pay(who.map(i => ({ who:i, seconds:(b + 0.5) * o.clockSecs / 4 })), base, o);
+      who.forEach(i => { (out[i] = out[i] || [])[b] = Number(paid[i]) || 0; });
+    }
+    return out;
   }
   /* Is this host paying by time bands — the one rule the phones draw on their clock. */
   function roundBandsFor(host){
@@ -3536,12 +3559,16 @@
   let roundToldPlace = {};
   function roundTellPlaces(final){
     if(!buzzHost || !roundState) return;
+    /* the points each finisher has earned so far, by the running rule — the phone
+       pops this number up in green; it moves with the place, as the pay does */
+    let paid = {}; try{ paid = roundPayout() || {}; }catch(e){ paid = {}; }
     Kit.round.results.finished().forEach(r => {
-      const key = r.place + (final ? '!' : '');
+      const key = r.place + (final ? '!' : '') + ':' + (paid[r.who] || 0);
       if(roundToldPlace[r.who] === key) return;
       roundToldPlace[r.who] = key;
       roundPhonesOf(r.who).forEach(p => {
         buzzHost.judge(p.id, 'right', { finished:true, place:r.place, ms:Math.round(r.seconds * 1000), hold:Math.round((r.hold || 0) * 1000), final:!!final,
+                                        pts: paid[r.who] != null ? paid[r.who] : null,
                                         note: 'Complete — ' + (final ? 'final' : 'let the others finish') });
       });
     });
@@ -5309,6 +5336,9 @@
       if(round.secs && round.bands == null){
         const bands = roundBandsFor(hostNow);
         if(bands) round.bands = bands;
+        /* and what each band is worth to each team, so a phone shows points, not a share */
+        const pts = bands && roundBandPoints(hostNow);
+        if(pts) round.pts = pts;
       }
       /* The whole payload, not a key list — same reasoning as `phoneRoundNow`'s
          spread, and it is the same bug paid for at the same moment. The relay
