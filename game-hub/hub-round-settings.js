@@ -248,7 +248,7 @@
     /* 20s by default — a minute read as no clock at all once the phones showed it, and
        ten was too tight for a long word; a device seeded on an older default is migrated
        once in hub-engine.js (`migrateRoundSecs`, `migrateRoundSecs20`). */
-    S.register({ id:'roundSecs', group:'Questions', type:'range', default:20, quick:true,
+    S.register({ id:'roundSecs', group:'Questions', type:'range', default:30, quick:true,
       min:0, max:120, step:5, unit:'s',
       games: roundGames.filter(g => isOnCard(g) && !ownClock(g)),
       label:'Each question runs for',

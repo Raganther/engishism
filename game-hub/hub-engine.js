@@ -534,6 +534,17 @@
     if(Number(S.raw('roundSecs')) === 10) S.set('roundSecs', 20);
     try{ localStorage.setItem(MARK, '1'); }catch(e){}
   })();
+  /* **And 20 became 30** — the teacher's call, a more forgiving clock beside the
+     forgiving bands. Runs after the 10→20 move, so a device on either old default
+     lands on 30; a value the teacher chose is theirs. */
+  (function migrateRoundSecs30(){
+    const MARK = 'engishism.roundSecs30';
+    let done = false;
+    try{ done = localStorage.getItem(MARK) === '1'; }catch(e){}
+    if(done) return;
+    if(Number(S.raw('roundSecs')) === 20) S.set('roundSecs', 30);
+    try{ localStorage.setItem(MARK, '1'); }catch(e){}
+  })();
 
   /* **Send is off by default now, and the flip is a migration for the same reason as
      above.** The commit beat (`roundSend`) shipped on: in a room of individuals a tap
