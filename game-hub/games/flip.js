@@ -1033,8 +1033,13 @@
     },
     /* Force the beat after the question for the card on the clue card, as if `team`
        just won it — the seam the question normally reaches through flipWin. */
-    winNow: team => { paidNow = cardWorthFor(team); pending = pendingFor(team); awaitingStandings = false; runPending(); },
+    winNow: team => { paidNow = cardWorthFor(team); E().markRun(team, true); useCard();
+                      pending = pendingFor(team); awaitingStandings = false;
+                      E().closeModal(E().flipHoldMs(), runPending); },
     pick: who => applyTwist(who),
+    /* Land the Box chip in bin `i` without a flick — the drop's `onRest` seam, for a
+       headless test of the Box's prize/forfeit and the beat it chains into. */
+    dropBin: i => { if(drop && drop._table && drop._table.land) drop._table.land(i); dropLanded(i); },
     picking: () => picking()
   };
 })();
