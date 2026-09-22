@@ -20,9 +20,11 @@
     background:var(--bg); color:var(--text);
     font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     display:flex; flex-direction:column;
-    /* Stop the page itself from panning/zooming under a throw — the canvas owns
-       the gesture. Without this, a fast drag scrolls the page on a phone. */
-    touch-action:none; -webkit-user-select:none; user-select:none;
+    /* The page itself never scrolls (overflow hidden above); the play area locks
+       the gesture on its own (.stage, canvas). touch-action:none lived here once,
+       and because an ancestor's none wins over every child, it also froze the
+       Tune panel — on a phone its lower sliders could not be scrolled to. */
+    -webkit-user-select:none; user-select:none;
     overscroll-behavior:none;
   }
   header{
@@ -36,6 +38,9 @@
   .controls{
     flex:0 0 auto; display:flex; gap:14px; flex-wrap:wrap; align-items:center;
     padding:4px 14px 10px; border-bottom:1px solid var(--border);
+    /* the panel scrolls itself, so every dial is reachable on a short phone
+       and the table keeps the rest of the screen */
+    max-height:55vh; max-height:55dvh; overflow-y:auto; touch-action:pan-y; overscroll-behavior:contain;
   }
   /* On a phone the eight sliders eat the play area — the Tune button folds them away. */
   body.controls-hidden .controls{ display:none; }
@@ -78,7 +83,7 @@
   .pageqr svg{ width:84px; height:84px; display:block; }
   @media (min-width:720px){ body.qr-on .pageqr{ display:block; } }
 
-  .stage{ flex:1 1 auto; position:relative; min-height:0; }
+  .stage{ flex:1 1 auto; position:relative; min-height:0; touch-action:none; }
   canvas{ display:block; width:100%; height:100%; touch-action:none; cursor:grab; }
   .looks-row{ display:flex; gap:6px; flex-wrap:wrap; }
   .ctl-group{ flex-basis:100%; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; opacity:0.6; margin:6px 0 -4px; }
