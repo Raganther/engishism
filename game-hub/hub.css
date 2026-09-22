@@ -1904,7 +1904,7 @@ body.theme-gameshow #clue-actions #hint-btn{ border-color:rgba(255,200,61,0.5); 
   transition:transform 1400ms cubic-bezier(0.3, 0.7, 0.25, 1);
 }
 #standings-rows.shuffling .st-row{ transition:none; }
-@media (prefers-reduced-motion:reduce){ .st-row{ transition:none; } .st-gain, .st-row.took{ animation:none; } }
+@media (prefers-reduced-motion:reduce){ .st-row{ transition:none; } .st-gain, .st-row.took, .st-row.scored, .st-row.lost{ animation:none; } }
 /* A class-sized board pays for the extra rows in type and padding rather than in
    rows it cannot show. */
 #standings-rows.crowd .st-row{ padding:4px 9px; gap:7px; font-size:0.86rem;
@@ -1918,6 +1918,16 @@ body.theme-gameshow #clue-actions #hint-btn{ border-color:rgba(255,200,61,0.5); 
   35% { box-shadow:0 0 0 5px rgba(255,255,255,0.55); filter:brightness(1.18); }
   100%{ box-shadow:0 0 0 0 rgba(255,255,255,0.0); filter:brightness(1); }
 }
+/* A row that LOST points on a move — a steal, a swap down, a deduction. The loss is
+   as much a picture as the gain, so the row pulses red the way a scored one swells
+   white, and its −N chip pops like a +N does. Only the twist's move beat sets it. */
+.st-row.lost{ animation: st-drop 700ms ease-out 1; }
+@keyframes st-drop{
+  0%  { box-shadow:0 0 0 0 rgba(226,96,59,0.0); filter:brightness(1); }
+  35% { box-shadow:0 0 0 5px rgba(226,96,59,0.7); filter:brightness(0.88); }
+  100%{ box-shadow:0 0 0 0 rgba(226,96,59,0.0); filter:brightness(1); }
+}
+.st-row.lost .st-gain{ animation: st-pop 600ms cubic-bezier(0.2, 1.4, 0.4, 1) 1; color:#7A1F10; }
 /* Who took the question: the breathing gold halo a right tile wears on the table
    — a second, louder mark than merely having scored, because on a slot board
    those are different facts. */
@@ -2151,6 +2161,14 @@ body.theme-gameshow #close-btn, body.theme-gameshow #skip-btn, body.theme-gamesh
   border:2px dashed rgba(18,38,63,0.24);
   box-shadow:0 12px 30px rgba(0,0,0,0.28);
 }
+/* The chooser wears the twist's colour as a cap across its top, so the beat the
+   room is watching is unmistakably the STEAL/SWAP/GIFT/BOX it saw on the card. */
+#flip-pick[data-tw]{ border-top-width:7px; border-top-style:solid; }
+#flip-pick[data-tw="steal"]{  border-top-color:var(--hd-red); }
+#flip-pick[data-tw="swap"]{   border-top-color:var(--hd-hue-5); }
+#flip-pick[data-tw="gift"]{   border-top-color:var(--hd-green); }
+#flip-pick[data-tw="bounty"]{ border-top-color:var(--hd-blue, #00A0DF); }
+#flip-pick[data-tw="box"]{    border-top-color:var(--hd-hue-7, #E86FA0); }
 #flip-pick-say{ font-family:'Space Grotesk',sans-serif; font-weight:700;
                 font-size:clamp(1rem, 2vw, 1.4rem); color:var(--navy); text-align:center; }
 /* The chooser is the standings: a column of competitor tiles (`.st-row`, the standings'
@@ -2174,6 +2192,11 @@ body.theme-gameshow #close-btn, body.theme-gameshow #skip-btn, body.theme-gamesh
   border-radius:5px; text-align:center; padding:1px 0; min-height:1em;
 }
 #flip-pick-row .flip-pick-tail{ font-family:'IBM Plex Mono',monospace; font-size:0.78rem; font-weight:700; text-align:right; white-space:nowrap; }
+/* The previewed amount on a live chooser row: a steal/bounty loss reads red, a gift's
+   gain green, so the direction of the move is legible before anyone chooses. */
+#flip-pick[data-tw="steal"] .flip-pick-line.live .flip-pick-tail,
+#flip-pick[data-tw="bounty"] .flip-pick-line.live .flip-pick-tail{ color:#8E2C14; }
+#flip-pick[data-tw="gift"] .flip-pick-line.live .flip-pick-tail{ color:#2C6E31; }
 #flip-pick-row .flip-pick-line.inert .flip-pick-tail{ font-weight:400; }
 #flip-pick-row .flip-pick-line.leading{ transform:scale(1.03); box-shadow:0 0 0 3px var(--gold, #F2C14E), 0 0 18px rgba(247,201,72,0.5); }
 #flip-pick-tally{ font-family:'IBM Plex Mono',monospace; font-size:0.8rem; color:var(--muted); min-height:1em; }

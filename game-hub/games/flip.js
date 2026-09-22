@@ -79,6 +79,7 @@
   /* The three boxes being shown right now, their contents already drawn, and the
      amount this card paid the winner — what an Empty box takes back. */
   let boxes = null, paidNow = 0, revealing = false;
+  let advanceAfterStandings = false;   // a twist standings is up; its Continue passes the turn
   /* The Box's Plinko drop on the board: the round-shaped state `Kit.round.cardTable`
      keeps its table on (`_table`, `_canvas`, `_loopId`), plus who is dropping and the
      kind each bin holds. Null between drops. */
@@ -133,6 +134,12 @@
        The engine carries it on the arm and charges the wait to their stopwatch. */
     headStart: who => spread() ? Math.round(headStartMs() * (1 - behind(who))) : 0,
     win:   team => flipWin(team),
+    /* The eyebrow on the question's own standings: the twist by name, so a DOUBLE —
+       which has no beat of its own after the question — still announces itself, and a
+       Steal/Swap/Gift names the card the room is about to see resolve. */
+    payEyebrow: () => cur && cur.twist && cur.twist !== 'plain'
+                 ? (TW[cur.twist].label + ' · Card ' + cur.n + (cur.twist === 'double' ? ' — pays double' : ''))
+                 : null,
     /* The four on a Connections card are a team's answer, so a hosted round waits for
        the whole team rather than paying the fastest thumb. Degrades correctly in a
        room of individuals, where a team of one agrees with itself. */
@@ -278,7 +285,10 @@
        that screen and the room would never see it. After it is dismissed the board is
        back in front of the class with every score on it, which is the right moment for
        "and now you take 400 off the leader". */
-    onStandingsDone(){ if(awaitingStandings){ awaitingStandings = false; runPending(); } }
+    onStandingsDone(){
+      if(awaitingStandings){ awaitingStandings = false; runPending(); return; }
+      if(advanceAfterStandings){ advanceAfterStandings = false; advance(); }
+    }
   });
 
   /* ---------- content: flattened, never authored ----------
@@ -403,6 +413,25 @@
   }
 
   /* ---------- playing a card ---------- */
+  /* The card's second line: the twist's rule in concrete numbers, so a class reads
+     what is at stake before the question rather than a bare label. */
+  function ruleLine(kind){
+    const pct = Math.round(share() * 100);
+    switch(kind){
+      case 'steal':  return 'Win it and take ' + pct + '% of the gap off someone ahead of you.';
+      case 'swap':   return 'Win it and swap scores with ' + (swapScope() === 'next' ? 'the player just above you' : 'anyone ahead of you') + '.';
+      case 'gift':   return 'Win it and the room votes who else gets the same points.';
+      case 'bounty': return 'Finish ahead of the leader and take ' + pct + '% of their lead.';
+      case 'double': return 'This card is worth double for everyone who gets it.';
+      case 'box':    return 'Win it and drop a chip — a prize or a forfeit, more prizes the further behind you are.';
+      default: return '';
+    }
+  }
+  /* A NON-consuming shield check for previews and flights — the real `shielded`
+     deletes the shield, so calling the shelf's arithmetic to preview a steal would
+     spend it before the teacher even chose. */
+  const peekShield = t => shields.has(t);
+
   function openCard(card, el){
     if(over || card.used || picking() || revealing) return;
     if(E().clueIsOpen()) return;
@@ -435,7 +464,7 @@
       topline,
       /* The twist's own line under the topline, and the column's name when there is no
          twist to announce. Never the raw section code. */
-      section: tw.note || card.item.catName || '',
+      section: (card.twist !== 'plain' ? ruleLine(card.twist) : '') || tw.note || card.item.catName || '',
       buttons:{ reveal:true, close:true }
     });
   }
@@ -496,7 +525,7 @@
     const p = pending;
     pending = null;
     if(!p || over){ advance(); return; }
-    if(p.twist === 'bounty'){ applyBounty(p); advance(); return; }
+    if(p.twist === 'bounty'){ applyBounty(p); return; }
     if(p.twist === 'box'){ holding = p; showBoxes(p); return; }
     const targets = targetsFor(p.team, TW[p.twist].target, p.twist);
     if(!targets.length){
@@ -533,6 +562,7 @@
        back. */
     box.classList.remove('said');
     box.classList.add('on');
+    box.dataset.tw = p.twist;                 // the chooser wears the twist's colour band
     renderPickRows(p, targets);
     document.getElementById('flip-pick-tally').textContent = '';
     /* The phones get a say — advisory, like every vote here: the pick lands on the
@@ -547,7 +577,7 @@
        next question opens onto phones still showing a vote. */
     if(twistVote){ twistVote = null; E().standDownPhones(); }
     const box = document.getElementById('flip-pick');
-    if(box) box.classList.remove('on', 'said');
+    if(box){ box.classList.remove('on', 'said'); delete box.dataset.tw; }
     const row = document.getElementById('flip-pick-row');
     if(row) row.innerHTML = '';
     if(row) row.classList.remove('boxes', 'opened', 'drop');
@@ -577,6 +607,7 @@
     say.textContent = E().teamName(p.team) + ' drops a chip — the bins are loaded for ' + ordinal(ranking().filter(r => r.who === p.team)[0].place) + ' place';
     box.classList.remove('said');
     box.classList.add('on');
+    box.dataset.tw = 'box';
     const mount = document.getElementById('flip-pick-row');
     mount.innerHTML = '';
     mount.classList.remove('crowd', 'opened', 'boxes');
@@ -654,8 +685,7 @@
     if(res.hold === 'extra')  nextPicker = team;
     E().standingsMark();
     apply(res.moves);
-    told(res.eyebrow, res.said, res.who);
-    advance();
+    if(!told(res.eyebrow, res.said, res.who, res.moves)) advance();
   }
   /* Every move the shelf hands back lands through the one home for a signed score move. */
   function apply(moves){
@@ -693,6 +723,21 @@
     if(dir === 'above') return p.twist === 'swap' && swapScope() === 'next' ? 'not the next one up' : 'below ' + E().teamName(p.team);
     return 'ahead of ' + E().teamName(p.team);
   }
+  /* What this target would gain or lose, previewed on its row before anybody
+     chooses — the shelf's own arithmetic, run with a non-consuming shield. Overwritten
+     by the vote count once phones reply, so it is the "before" picture. */
+  function previewTail(p, who){
+    const o = { share: share(), worth: cardWorth(), step: 10, names: names(), shielded: peekShield };
+    const res = p.twist === 'swap' ? T.swap(scores(), p.team, who, o)
+              : p.twist === 'gift' ? T.gift(scores(), p.team, who, o)
+              :                      T.steal(scores(), p.team, who, o);
+    if(res.blocked) return '\u{1F6E1} blocked';
+    const mv = (res.moves || []).find(m => m.who === who);
+    const d = mv ? mv.delta : 0;
+    if(p.twist === 'gift') return '+' + d;
+    if(p.twist === 'swap') return (d >= 0 ? '+' : '\u2212') + Math.abs(d);
+    return '\u2212' + Math.abs(d);
+  }
   function renderPickRows(p, targets){
     const mount = document.getElementById('flip-pick-row');
     mount.innerHTML = '';
@@ -711,7 +756,7 @@
       cell('flip-pick-key', r.live ? String(++key) : '');
       cell('st-name', r.name + (shields.has(r.who) ? ' \u{1F6E1}' : ''));
       cell('st-pts', String(r.pts));
-      cell('flip-pick-tail', r.live ? '' : reasonOff(p, r));
+      cell('flip-pick-tail', r.live ? previewTail(p, r.who) : reasonOff(p, r));
       row.disabled = !r.live;
       if(r.live) row.addEventListener('click', () => applyTwist(r.who));
       mount.appendChild(row);
@@ -794,11 +839,11 @@
     const rows = (K.round && K.round.results) ? K.round.results.finished() : [];
     const res = T.bounty(scores(), p.leader, rows.map(r => ({ who: r.who, place: r.place })),
                          { share: share(), step: 10, names: names(), shielded });
-    if(!res.moves.length && !res.blocked){ flash(res.said); return; }
+    if(!res.moves.length && !res.blocked){ flash(res.said); advance(); return; }
     E().standingsMark();
     apply(res.moves);
     E().Sound.play(res.blocked ? 'wrong' : 'sting');
-    told(res.eyebrow, res.said, res.who);
+    if(!told(res.eyebrow, res.said, res.who, res.moves)) advance();
   }
 
   /* The teacher confirmed a target: the shelf does the arithmetic (a steal moves half
@@ -819,8 +864,7 @@
     E().standingsMark();
     apply(res.moves);
     E().Sound.play(res.blocked ? 'wrong' : 'sting');
-    told(res.eyebrow, res.said, res.who);
-    advance();
+    if(!told(res.eyebrow, res.said, res.who, res.moves)) advance();
   }
 
   /* **A reversal is watched on the leaderboard, not read off a line.** A class could
@@ -829,10 +873,28 @@
      screen on, the twist gets its own — the eyebrow is the card, the title the move,
      the rows shuffling from where the question left them to where the twist put them.
      With the standings off, the line is all there is, as before. */
-  function told(label, text, who){
+  /* The shelf's moves become the standings' flights: each gain sourced from a loss
+     (the leader, for a bounty's many takers) or from the pot (a gift has no losing
+     row). The number that flies is the gain. */
+  function flightsFromMoves(moves){
+    const gains = (moves || []).filter(m => m.delta > 0);
+    const loss  = (moves || []).filter(m => m.delta < 0);
+    return gains.map(g => ({ from: loss.length ? loss[0].who : null, to: g.who, amount: g.delta }));
+  }
+  /* **A reversal is watched on the leaderboard, and the points are seen to travel.**
+     The standings open on the pre-move numbers and the twist's points fly from the
+     losing row to the gaining one (`moves`), so the class sees the score leave one
+     name and arrive at another rather than reading it. Returns whether a standings
+     opened — the caller advances the turn itself when it did not (standings off), and
+     otherwise the turn waits for the standings' Continue (`onStandingsDone`). */
+  function told(label, text, who, moves){
     if(E().standingsWanted('flip')){
-      E().showStandings({ eyebrow: label, title: text, winner: who });
-    } else flash(text);
+      E().showStandings({ eyebrow: label, title: text, winner: who, moves: flightsFromMoves(moves) });
+      advanceAfterStandings = true;
+      return true;
+    }
+    flash(text);
+    return false;
   }
 
   /* ---------- whose pick, and the ending ---------- */
@@ -933,4 +995,25 @@
       return { t: Math.min(1, played / n), live: !over };
     });
   }
+
+  /* A driven test's window — the same kind of handle as Battle Scrabble's `__bs` and
+     the drop's `__flipDrop`. Read-only facts about the board plus the two entry points
+     a headless test needs: open a card of a named twist, and run its post-question
+     beat (the chooser or the settlement) without a phone. Never used by the game. */
+  window.__flip = {
+    cards: () => cards.map(c => ({ n:c.n, twist:c.twist, used:c.used })),
+    state: () => ({ cur: cur && cur.n, holding: holding && holding.twist, over, advanceAfterStandings }),
+    /* Open the first unused card carrying this twist (or any card by number), as the
+       active team, exactly as a click would. */
+    open: want => {
+      const c = cards.find(x => !x.used && (typeof want === 'number' ? x.n === want : x.twist === want));
+      if(c && c.el){ openCard(c, c.el); return c.n; }
+      return null;
+    },
+    /* Force the beat after the question for the card on the clue card, as if `team`
+       just won it — the seam the question normally reaches through flipWin. */
+    winNow: team => { paidNow = cardWorthFor(team); pending = pendingFor(team); awaitingStandings = false; runPending(); },
+    pick: who => applyTwist(who),
+    picking: () => picking()
+  };
 })();

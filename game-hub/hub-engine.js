@@ -1781,6 +1781,57 @@
     return rows;
   }
 
+  /* **The standings move beat**: fly points from row to row, count the numbers, then
+     land the gains. `moves` is [{from, to, amount}] — `from` null flies from the title
+     (a Gift, which comes from the pot, not a row). Reused by the twist beat; every
+     other standings screen passes no moves and this never runs. */
+  function runStandingsMoves(rows, moves, drawn, before, done){
+    const DUR = 1100;
+    const byTeam = {};
+    rows.forEach((r, n) => { if(drawn[n]) byTeam[r.i] = drawn[n]; });
+    const ptsEl = i => byTeam[i] && byTeam[i].querySelector('.st-pts');
+    const hue = i => (window.HubBuzzer && window.HubBuzzer.teamColour) ? window.HubBuzzer.teamColour(i) : '#F7C948';
+    moves.forEach(mv => {
+      const toEl = ptsEl(mv.to); if(!toEl) return;
+      const fromEl = mv.from == null ? document.getElementById('standings-title') : ptsEl(mv.from);
+      if(!fromEl) return;
+      const amount = Math.abs(Number(mv.amount) || 0);
+      const count = Math.max(3, Math.min(40, Math.round(amount / 10)));   // a disc per ~10 points, bounded
+      window.HubMotes.fly({ from: fromEl, to: toEl, count, hue: hue(mv.to), radius: 5, speed: 1.25 });
+    });
+    const movers = rows.filter(r => r.gain !== 0);
+    const t0 = performance.now();
+    (function tick(){
+      const u = Math.min(1, (performance.now() - t0) / DUR);
+      const e = u * u * (3 - 2 * u);
+      movers.forEach(r => {
+        const el = ptsEl(r.i); if(!el) return;
+        const from = before[r.i] == null ? r.pts : before[r.i];
+        el.textContent = String(Math.round(from + (r.pts - from) * e));
+      });
+      if(u < 1){ requestAnimationFrame(tick); return; }
+      movers.forEach(r => {
+        const el = ptsEl(r.i); if(el) el.textContent = String(r.pts);
+        const row = byTeam[r.i]; if(!row) return;
+        const g = row.querySelector('.st-gain');
+        if(g) g.textContent = r.gain > 0 ? '+' + r.gain : '\u2212' + (-r.gain);
+        row.classList.add(r.gain > 0 ? 'scored' : 'lost');
+      });
+      try{ Sound.play('claim'); }catch(e){}
+      if(done) done();
+    })();
+  }
+  /* The same landing with no flight — reduced motion, or the shelf absent. */
+  function landStandingsGains(rows, drawn){
+    drawn.forEach((el, n) => {
+      const r = rows[n]; if(!r) return;
+      const pts = el.querySelector('.st-pts'); if(pts) pts.textContent = String(r.pts);
+      const g = el.querySelector('.st-gain');
+      if(g && r.gain !== 0) g.textContent = r.gain > 0 ? '+' + r.gain : '\u2212' + (-r.gain);
+      if(r.gain > 0) el.classList.add('scored'); else if(r.gain < 0) el.classList.add('lost');
+    });
+  }
+
   function showStandings(cfg){
     const o = cfg || {};
     const rows = standingsRows();
@@ -1858,15 +1909,36 @@
        shuffle sets `window.HUB_SHUFFLE_ANYWAY` first — the same opt-in shape as the
        room bench's `?rack=auto`. */
     const drawn = [...host.querySelectorAll('.st-row')];
+    const moves = (Array.isArray(o.moves) && o.moves.length) ? o.moves : null;
+    const before = standingsBefore || [];
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    /* **A move beat opens on the PRE-move numbers**: the gains are held back, a
+       losing row is marked, and the points travel in (`runStandingsMoves`) before
+       the rows reorder — the class sees the score leave one name and arrive at
+       another rather than reading that it did. No `moves`: unchanged, gains drawn in
+       place as before. */
+    if(moves){
+      drawn.forEach((el, n) => {
+        const r = rows[n]; if(!r) return;
+        const pts = el.querySelector('.st-pts');
+        if(pts) pts.textContent = String(before[r.i] == null ? r.pts : before[r.i]);
+        const g = el.querySelector('.st-gain'); if(g) g.textContent = '';
+        el.classList.remove('scored');
+        if(r.gain < 0) el.classList.add('lost');
+      });
+    }
+
     const moving = rows.slice(0, shown).some(r => r.moved !== 0);
     const wantShuffle = S.get('standingsShuffle', activeGame) && moving &&
-      !window.matchMedia('(prefers-reduced-motion: reduce)').matches &&
-      (!navigator.webdriver || window.HUB_SHUFFLE_ANYWAY);
+      !reducedMotion && (!navigator.webdriver || window.HUB_SHUFFLE_ANYWAY);
 
     standingsRank = {};
     rows.forEach(r => { standingsRank[r.i] = r.place; });
     document.getElementById('standings-modal').classList.add('on');
 
+    const seq = ++showStandings.seq;
+    let releaseShuffle = () => {};
     if(wantShuffle){
       const seen = rows.slice(0, shown);
       /* Every shown row's old slot, unique by construction: sort by previous place
@@ -1887,15 +1959,24 @@
       });
       /* The release is guarded by a sequence, the `resultSeq` lesson: a stale timer
          from a previous open must not let a later shuffle go early. */
-      const seq = ++showStandings.seq;
-      setTimeout(()=>{
+      releaseShuffle = () => {
         if(seq !== showStandings.seq) return;
         host.classList.remove('shuffling');       // transitions back on — release
         seen.forEach((r, n) => {
           drawn[n].style.transform = '';
           drawn[n].querySelector('.st-place').textContent = String(r.place);
         });
-      }, 1000);
+      };
+    }
+
+    /* Sequence: with points to move, fly them and land the gains, THEN glide the rows
+       (a short beat after, so the numbers are read before the shuffle). With nothing
+       to move, the shuffle releases on its own timer exactly as it always did. */
+    if(moves && !reducedMotion && window.HubMotes){
+      runStandingsMoves(rows, moves, drawn, before, () => setTimeout(releaseShuffle, 250));
+    } else {
+      if(moves) landStandingsGains(rows, drawn);
+      if(wantShuffle) setTimeout(() => { if(seq === showStandings.seq) releaseShuffle(); }, 1000);
     }
   }
   showStandings.seq = 0;
@@ -3635,7 +3716,7 @@
        makes finishing second worth doing. It waits for the teacher rather than
        leaving by itself, because a table takes longer to read than a name. */
     if(standingsWanted(roundHost.game)){
-      showStandings({ eyebrow: p.label,
+      showStandings({ eyebrow: (roundHost.payEyebrow && roundHost.payEyebrow()) || p.label,
                       title: teamName(p.team) + ' takes it — +' + (paid || value),
                       winner: p.team });
     }
