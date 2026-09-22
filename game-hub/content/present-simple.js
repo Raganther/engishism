@@ -2,9 +2,9 @@
    ===================
 
    A standalone grammar unit for an A2 class, the partner of `present-continuous`.
-   Four Jeopardy columns, one per language point — spelling the he/she/it form,
+   Six Jeopardy columns, one per language point — spelling the he/she/it form,
    routines and how often (frequency words and where they go), questions and
-   negatives with do/does, and facts & timetables.
+   negatives with do/does, facts & timetables, and two on hobbies.
 
    **Same round set as the General Knowledge and Present Continuous units.** Only
    the three physics (Matter.js / `Kit.table`) rounds a room plays fastest —
@@ -21,12 +21,18 @@
    action verbs. A2 vocabulary throughout, every clue states its own context, and
    no prompt repeats one in `grammar-1` or `present-continuous`.
 
+   **The two Hobbies columns carry a class worksheet's vocabulary** (Teach-This,
+   "Hobbies Board Game") — its twelve free-time verbs (read, swim, run, watch TV,
+   play football, listen to music, draw, cook, sing, dance, travel, shop) in
+   original sentences, not the sheet's own, because the repo is public. They add
+   the collocations the sheet leans on: play / go / do, and listen to / watch.
+
    Jeopardy only, deliberately — a unit shows only the games it has a bank for. */
 window.UNITS.push({
   id: 'present-simple',
   label: 'Grammar · Present Simple (A2)',
   card: { num:'A2', title:'Present Simple',
-          blurb:'Present simple for A2 in the three fastest rounds — Multiple Choice, Connections and Drag the Letters. He/she/it spelling, routines and how often, questions & negatives with do/does, and facts & timetables.',
+          blurb:'Present simple for A2 in the three fastest rounds — Multiple Choice, Connections and Drag the Letters. He/she/it spelling, routines and how often, questions & negatives with do/does, facts & timetables, and hobbies & free time.',
           sections:'PS' },
   intro: "Choose a template. You'll pick the content next.",
 
@@ -93,6 +99,36 @@ window.UNITS.push({
       {v:500, q:"Four of these verbs describe STATES, not actions — we don't usually use them with -ing. Find the four.", physics:true,
         group:{ pick:["like","know","want","need"],
                 with:["run","eat","write","play"] }},
+    ]},
+
+    { id:'ps-hobbies', section:'PS', name:'Hobbies & Free Time', clues:[
+      {v:100, q:"'My friends and I ___ football after school on Fridays.' Which is correct?", physics:true,
+        choice:{ options:["play","go","do","make"], answer:"play" }},
+      {v:200, q:"Four of these go with PLAY; four go with GO. Find the four that go with play.", physics:true,
+        group:{ pick:["football","tennis","the guitar","computer games"],
+                with:["swimming","shopping","running","dancing"] }},
+      {v:300, q:"'I ___ pictures of animals in my free time — I love art.' The verb for making a picture with a pencil. (4 letters)",
+        anagram:{ word:"draw" }},
+      {v:400, q:"'After dinner we ___ TV for an hour.' Which verb goes with TV?", physics:true,
+        choice:{ options:["watch","look","see","watching"], answer:"watch" }},
+      {v:500, q:"Four of these go with LISTEN TO; four go with WATCH. Find the four that go with listen to.", physics:true,
+        group:{ pick:["music","the radio","a podcast","songs"],
+                with:["TV","a film","a football match","videos"] }},
+    ]},
+
+    { id:'ps-hobbies-he', section:'PS', name:'Hobbies: He / She', clues:[
+      {v:100, q:"'My sister ___ in the sea every summer.' Which is correct?", physics:true,
+        choice:{ options:["swims","swim","swimming","is swim"], answer:"swims" }},
+      {v:200, q:"Four of these he/she sentences are correct; four are missing the -s. Find the four correct ones.", physics:true,
+        group:{ pick:["She dances","He cooks","She travels","He shops"],
+                with:["She dance","He cook","She travel","He shop"] }},
+      {v:300, q:"'Mum loves music — she ___ in a choir every Tuesday.' The he/she/it form of 'sing'. (5 letters)",
+        anagram:{ word:"sings" }},
+      {v:400, q:"'My dad ___ to other countries for his job.' The he/she/it form of 'travel'. Which is correct?", physics:true,
+        choice:{ options:["travels","travel","travelles","travelling"], answer:"travels" }},
+      {v:500, q:"Four of these go with DO ('She does ___ on Mondays'); four go with PLAY. Find the four that go with do.", physics:true,
+        group:{ pick:["yoga","karate","gymnastics","judo"],
+                with:["chess","tennis","the piano","cards"] }},
     ]},
   ]
 });
