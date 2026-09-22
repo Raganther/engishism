@@ -545,6 +545,11 @@ body.clue-dragging #clue-card{ touch-action:none; user-select:none; }
   font-size:1.25rem; vertical-align:middle;
 }
 #clue-clock.urgent{ background:#C0392B; color:#fff; }
+/* the bands rule: the pill wears the band the clock is in — full, half, a little, nothing */
+#clue-clock.band-1{ background:#6FB04A; color:#fff; }
+#clue-clock.band-2{ background:#FFC83D; color:#101318; }
+#clue-clock.band-3{ background:#E2603B; color:#fff; }
+#clue-clock.band-4{ background:rgba(18,38,63,0.35); color:#fff; }
 /* Time up: a pulse the room can see, ~1.1Hz and never full-screen — this is
    projected at students. Two beats and it stands still. */
 #clue-card.overtime{ animation: clueOvertime 0.9s ease-in-out 2; }

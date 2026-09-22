@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260922a">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260922b">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -238,6 +238,26 @@
     font-size:1.05rem; font-weight:700; color:var(--hd-ink); letter-spacing:0.04em;
   }
   #tbar.sent .tbar-label::before{ content:'sent · '; font-weight:400; }
+  /* **The bands rule, drawn.** The bar is four coloured quarters — full points, half,
+     a little, nothing — and the time passing is a dark veil sliding over them from
+     the left, so the student watches the band they are in drain away. The veil is
+     the fill element, repurposed: under bands it is the ELAPSED time, not the time
+     left, because the bands read left to right. */
+  #tbar .tbar-bands{ position:absolute; inset:0; display:none; }
+  #tbar.bands .tbar-bands{ display:flex; }
+  #tbar .tbar-bands span{
+    flex:1 1 0; display:flex; align-items:center; justify-content:center;
+    font-size:0.72rem; font-weight:700; color:rgba(0,0,0,0.55); border-right:2px solid rgba(0,0,0,0.25);
+  }
+  #tbar .tbar-bands span:last-child{ border-right:0; }
+  #tbar .tbar-bands span:nth-child(1){ background:var(--hd-green); }
+  #tbar .tbar-bands span:nth-child(2){ background:var(--hd-yellow); }
+  #tbar .tbar-bands span:nth-child(3){ background:var(--hd-red); }
+  #tbar .tbar-bands span:nth-child(4){ background:rgba(255,255,255,0.14); color:var(--hd-muted); }
+  #tbar .tbar-bands span.now{ box-shadow:inset 0 0 0 3px #fff; }
+  #tbar.bands .tbar-fill{ background:rgba(0,0,0,0.5) !important; width:0; }
+  #tbar.bands .tbar-label{ color:#fff; text-shadow:0 1px 0 rgba(0,0,0,0.5); }
+  #tbar.bands.sent .tbar-label::before{ content:'sent · '; }
   #tbar.over .tbar-label{ color:var(--hd-paper); }
   #tbar.over .tbar-label::before{ content:''; }
   body.has-tbar #screen-play{ padding-bottom:52px; }
@@ -619,7 +639,7 @@
        as the time goes, the label counts what is left in milliseconds, and at the
        send both freeze at the time taken. Fixed to the screen's bottom edge so the
        full-bleed table faces keep it too. -->
-  <div id="tbar" class="hide"><div class="tbar-fill"></div><span class="tbar-label"></span></div>
+  <div id="tbar" class="hide"><div class="tbar-bands"></div><div class="tbar-fill"></div><span class="tbar-label"></span></div>
   <p id="status"></p>
   <!-- The way out of a remembered seat. Rejoining silently is right for a reload
        mid-round, and wrong the day the phone changes hands or the student picked
@@ -628,16 +648,16 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260922a"></script>
-<script src="game-hub/hub-sound.js?v=20260922a"></script>
-<script src="game-hub/hub-buzzer.js?v=20260922a"></script>
+<script src="game-hub/hub-brand.js?v=20260922b"></script>
+<script src="game-hub/hub-sound.js?v=20260922b"></script>
+<script src="game-hub/hub-buzzer.js?v=20260922b"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260922a"></script>
+<script src="game-hub/matter.min.js?v=20260922b"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260922a"></script>
+<script src="game-hub/hub-table.js?v=20260922b"></script>
 <script>
 (function(){
   'use strict';
@@ -915,6 +935,27 @@
      time left, the label is what is left in milliseconds — or, once sent, the time
      taken, which is the number the board shows; untimed, the label simply counts up. */
   let swFrozen = false, swRunId = 0, heldMs = 0, barTotal = 0, barSent = null;
+  /* The pay bands, when the board pays by them: four shares of the card, quarters of
+     the clock, off the arm beside `secs`. Null under any other rule — the bar is the
+     plain draining clock then. */
+  let roundBands = null;
+  const bandOf = elapsed => barTotal > 0 ? Math.max(0, Math.min(3, Math.floor(elapsed / (barTotal / 4)))) : 0;
+  function bandsPaint(elapsed){
+    const bar = $('tbar'), box = bar.querySelector('.tbar-bands');
+    const on = !!(roundBands && barTotal > 0);
+    bar.classList.toggle('bands', on);
+    if(!on) return null;
+    if(box.children.length !== 4 || box.dataset.key !== roundBands.join(',')){
+      box.innerHTML = '';
+      roundBands.forEach(s => { const e = document.createElement('span'); e.textContent = Math.round(s * 100) + '%'; box.appendChild(e); });
+      box.dataset.key = roundBands.join(',');
+    }
+    /* the band is judged on the same clock the board ranks by: this phone's own
+       stopwatch plus any head start it waited */
+    const b = bandOf(elapsed + heldMs);
+    [...box.children].forEach((e, i) => e.classList.toggle('now', i === b));
+    return b;
+  }
   const fmtSw = ms => (Math.max(0, ms) / 1000).toFixed(3) + 's' + (heldMs > 0 ? ' +' + (heldMs / 1000).toFixed(1) : '');
   function barPaint(){
     const bar = $('tbar'), fill = bar.querySelector('.tbar-fill'), label = bar.querySelector('.tbar-label');
@@ -922,12 +963,16 @@
        at the moment the answer went, whatever the clock does afterwards */
     const run = barSent != null ? barSent : (shownAt == null ? 0 : performance.now() - shownAt);
     const left = barTotal ? Math.max(0, barTotal - run) : null;
-    fill.style.width = barTotal ? (100 * left / barTotal) + '%' : '100%';
+    const band = bandsPaint(run);
+    /* under bands the fill is the veil of time PASSED, growing from the left; under
+       every other rule it is the time left, shrinking from the right */
+    fill.style.width = band != null ? Math.min(100, 100 * run / barTotal) + '%' : barTotal ? (100 * left / barTotal) + '%' : '100%';
     bar.classList.toggle('warn', barTotal > 0 && left <= 5000 && left > 2000);
     bar.classList.toggle('urgent', barTotal > 0 && left <= 2000);
-    if(barSent != null){ bar.classList.add('sent'); label.textContent = fmtSw(barSent); }
-    else if(barTotal && left <= 0){ bar.classList.add('over'); label.textContent = 'time'; }
-    else label.textContent = barTotal ? fmtSw(left).replace(/ \+.*$/, '') : fmtSw(run);
+    const pct = band != null ? ' · ' + Math.round(roundBands[band] * 100) + '%' : '';
+    if(barSent != null){ bar.classList.add('sent'); label.textContent = fmtSw(barSent) + pct; }
+    else if(barTotal && left <= 0){ bar.classList.add('over'); label.textContent = 'time' + pct; }
+    else label.textContent = (barTotal ? fmtSw(left).replace(/ \+.*$/, '') : fmtSw(run)) + pct;
     return left;
   }
   function stopwatchStart(){
@@ -2203,6 +2248,7 @@
         $('state').textContent = 'You have already answered this one';
         return;
       }
+      roundBands = (d && d.secs && Array.isArray(d.bands) && d.bands.length === 4) ? d.bands.map(Number) : null;
       if(d && d.secs) roundClockRun(d.secs); else roundClockStop();
       /* Back after a reload, or joining mid-vote: show what this phone already
          chose rather than a blank set of options. */

@@ -951,6 +951,14 @@ never finer) when that unit can no longer tell the places apart, and `paySpread`
 guarantees no two places the shares separate reach the board equal. `everyone` is the
 fifth rule and Jeopardy's opening one: each place worth `roundPayDecay` of the one
 above, **the tail flat** at a tenth of the value rather than decaying to nothing.
+**`bands` is the sixth rule, a teacher's own**: the clock cut into four quarters, a right
+answer paying the band it landed in (the four shares are `roundBand1..4`, defaults 1 · ½ ·
+0.05 · 0; a tie inside a band is the rule speaking), judged on the record's `seconds` with
+any head start added back. The four shares ride the arm as `bands` beside `secs` (the relay
+carries them on `armed` and `joined`), so every phone draws its clock bar as four coloured
+bands with the elapsed time veiling them from the left and the card's clock pill says the
+share on offer now in the band's colour. A game with a baked `roundPay` default (Jeopardy,
+Quickfire) cannot be moved onto it — the panel says so.
 `roundSecs` is the round's own clock — the third of the three, and the one that did not
 exist — painted as the `#clue-clock` pill on card hosts only (`onCard`, because the
 card's skeleton is in the document whether or not it is open). **Time up is the

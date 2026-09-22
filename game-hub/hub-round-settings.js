@@ -83,6 +83,46 @@
         return out;
       }
     },
+    bands: {
+      /* **The clock cut into four, and a right answer pays the band it landed in.**
+         A teacher's own idea: everyone who is right scores, what they score is
+         decided by how fast they were, and two students in the same band score the
+         same — a tie is the rule speaking. The bands are quarters of the question's
+         clock (so they follow `roundSecs` without a second set of numbers), each
+         worth a share the teacher sets; 0 means that band pays nothing. The time is
+         the competitor's own stopwatch WITH any head start added back, the same
+         `seconds` the record ranks by, so a held phone is judged from when the first
+         phone saw the question. With no clock there is nothing to band against, so
+         every right answer is in the first band. */
+      label:'By time bands — the clock is cut into four, each band worth less',
+      BANDS: 4,
+      /* the four shares as the settings hold them; `get(key)` is the caller's
+         settings getter, so the board and the arm read one list */
+      shares(get){ return [1, 2, 3, 4].map(i => Math.max(0, Math.min(1, Number(get('roundBand' + i)) || 0))); },
+      /* which band a time falls in, 0..3; the last band is open-ended */
+      bandOf(seconds, clockSecs){
+        const c = Number(clockSecs) || 0;
+        if(!(c > 0)) return 0;
+        return Math.max(0, Math.min(3, Math.floor((Number(seconds) || 0) / (c / 4))));
+      },
+      pay(rows, baseFor, o){
+        const shares = Array.isArray(o.bands) && o.bands.length === 4 ? o.bands : [1, 0.5, 0.05, 0];
+        const clock = o.clockRunning ? o.clockSecs : 0;
+        const top = rows.reduce((m, r) => Math.max(m, Number(baseFor(r.who)) || 0), 0);
+        /* the grid must be able to say the SMALLEST paying share — a 5% band on a
+           100 card is 5, and rounding it up to the board's 10 would pay the third
+           band double what the teacher set */
+        const least = Math.min.apply(null, shares.filter(s => s > 0).map(s => s * top).concat([Infinity]));
+        const grid = payGridFor(least, o.step);
+        const out = {};
+        rows.forEach(r => {
+          const share = shares[this.bandOf(r.seconds, clock)];
+          if(!(share > 0)) return;
+          out[r.who] = payRound((Number(baseFor(r.who)) || 0) * share, grid);
+        });
+        return out;
+      }
+    },
     equal: {
       /* No speed advantage at all. For a class where the race is the thing putting
          students off answering — which is the case this whole change exists for, and
@@ -125,6 +165,17 @@
                     .map(g => Math.max(1, g))
                     .filter((g, i, a) => a.indexOf(g) === i);
     return tries.filter(g => base / g >= places)[0] || tries[tries.length - 1];
+  }
+
+  /* The plainest division of the board's unit that is no coarser than `least` — the
+     smallest amount a rule needs to be able to pay. Same ladder as `payGrid`, chosen
+     by the amount rather than by a count of places. */
+  function payGridFor(least, step){
+    const s = Math.max(1, Number(step) || 1);
+    const tries = [s, Math.round(s / 2), Math.round(s / 5), Math.round(s / 10)]
+                    .map(g => Math.max(1, g))
+                    .filter((g, i, a) => a.indexOf(g) === i);
+    return tries.filter(g => g <= least)[0] || tries[tries.length - 1];
   }
 
   /* One place per row, in order, each a share of that competitor's own base — and
@@ -229,6 +280,18 @@
       min:0.3, max:0.9, step:0.05, unit:'\u00d7', games:roundGames,
       label:'Each place is worth this much of the one above',
       help:"Second scores this share of first, third this share of second, and so on down. It stops falling at a tenth of the question's value, so finishing always counts for something." });
+    /* The four bands of the `bands` rule, quarters of the clock. Four rows rather
+       than a list, because a range is what the panel knows how to draw and a
+       teacher tunes them one at a time. */
+    [['roundBand1', 1,    'The first quarter of the clock pays'],
+     ['roundBand2', 0.5,  'The second quarter pays'],
+     ['roundBand3', 0.05, 'The third quarter pays'],
+     ['roundBand4', 0,    'The last quarter pays']].forEach(([id, def, label]) => {
+      S.register({ id, group:'Questions', under:'roundPay', when:'bands', type:'range', default:def,
+        min:0, max:1, step:0.05, unit:'×', games:roundGames,
+        label,
+        help:"A right answer in this band scores this share of the question's value. 0 pays nothing. The bands are drawn on every phone's clock bar and on the card's clock." });
+    });
     S.register({ id:'roundPayFloor', group:'Questions', under:'roundPay', when:'clock', type:'range', default:0.5,
       min:0.1, max:0.9, step:0.1, unit:'×', games:roundGames,
       label:'A last-second right answer is worth',

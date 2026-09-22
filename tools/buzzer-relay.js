@@ -90,7 +90,7 @@ function getRoom(code, create){
           roundId:null, sequence:0, verdicts:new Map(), host:null, players:new Map(), teams:[], solo:false, armed:false, locked:null,
           mode:'buzz', prompt:'', options:[], team:null, responses:new Map(),
           spent:new Set(), cooling:new Map(), cards:new Map(), emptiedAt:0,
-          answerSecs:0, rethink:false, secs:0, armedAt:0, multi:1, send:false,
+          answerSecs:0, rethink:false, secs:0, bands:null, armedAt:0, multi:1, send:false,
           /* How many options one phone may hold, per team index — because teams
              are not the same size, and "one player's share of a four-word answer"
              is four words split between however many phones that team has. Null
@@ -296,7 +296,7 @@ function openStream(req, res, q){
     ends:room.ends, line:room.line, plinko:room.plinko, stack:room.stack,
     hold: holdFor(room, team),
     spent:[...room.spent],
-    rethink: room.rethink, secs: secsLeft(room), multi: capFor(room, team),
+    rethink: room.rethink, secs: secsLeft(room), bands: room.bands, multi: capFor(room, team),
     send: !!room.send, preview: !!room.preview, roundId:room.roundId,
     /* what this phone already chose, so a reload comes back with its own vote
        showing rather than looking like it never answered */
@@ -437,6 +437,10 @@ function handleSend(req, res){
            everything else on the arm: what committing means is the host's. */
         room.send    = !!msg.send;
         room.secs    = Math.max(0, Math.min(900, Number(msg.secs) || 0));
+        /* the pay bands, four shares of the card (0..1) the phone draws on its clock
+           bar — carried unread beside the clock they divide */
+        room.bands   = (Array.isArray(msg.bands) && msg.bands.length === 4)
+          ? msg.bands.map(v => Math.max(0, Math.min(1, Number(v) || 0))) : null;
         room.line    = (Number(msg.line) > 0 && Number(msg.line) < 1) ? Number(msg.line) : null;
         /* the other two skill shapes, bounded and carried unread: a Plinko field
            (peg rows, bin labels) and a stack (how many tiles) */
@@ -583,7 +587,7 @@ function handleSend(req, res){
                                       the phone runs both through the same handler. */
                                    turnTeam: room.team,
                                    spent: [...room.spent], reopen: !!msg.reopen,
-                                   rethink: room.rethink, secs: room.secs,
+                                   rethink: room.rethink, secs: room.secs, bands: room.bands,
                                    send: !!room.send, preview: !!room.preview, roundId:room.roundId,
                                    verdict:null,
                                    multi: capFor(room, p.team),

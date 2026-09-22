@@ -212,8 +212,17 @@
       floor:  Number(S.get('roundPayFloor',  h.game)),
       second: Number(S.get('roundPaySecond', h.game)),
       third:  Number(S.get('roundPayThird',  h.game)),
-      decay:  Number(S.get('roundPayDecay',  h.game))
+      decay:  Number(S.get('roundPayDecay',  h.game)),
+      /* the bands rule: the four shares and the clock they divide */
+      bands:  PAY_RULES.bands.shares(k => S.get(k, h.game)),
+      clockSecs: roundClockSecs(h)
     });
+  }
+  /* Is this host paying by time bands — the one rule the phones draw on their clock. */
+  function roundBandsFor(host){
+    const h = host || roundHost;
+    if(!h || S.get('roundPay', h.game) !== 'bands') return null;
+    return PAY_RULES.bands.shares(k => S.get(k, h.game));
   }
 
   /* One definition of "this board runs its questions against a clock", asked of the
@@ -255,7 +264,15 @@
       onTick(left){
         if(!el) return;
         const n = Math.ceil(left);
-        el.textContent = String(n);
+        /* Under the bands rule the pill also says what a right answer is worth
+           RIGHT NOW — the share of the card, as the phones' bars say it — and wears
+           the band's colour, so the room watches the value step down with the clock. */
+        const bands = roundBandsFor();
+        if(bands){
+          const b = PAY_RULES.bands.bandOf(secs - left, secs);
+          el.textContent = n + ' · ' + Math.round(bands[b] * 100) + '%';
+          el.className = 'band-' + (b + 1);
+        } else el.textContent = String(n);
         el.classList.toggle('urgent', n <= 5);
       },
       onEnd: roundTimeUp
@@ -5203,6 +5220,14 @@
       if(round.secs == null && roundHost && roundHost.onCard && !roundHost.clock){
         const secs = roundClockSecs();
         if(secs) round.secs = secs;
+      }
+      /* **The bands ride the arm beside the clock**, as the four shares, so each
+         phone draws its own clock bar in four coloured bands and the student watches
+         the full-points band drain into the half-points one. Only with a clock to
+         divide; the relay carries them unread. */
+      if(round.secs && round.bands == null){
+        const bands = roundBandsFor(hostNow);
+        if(bands) round.bands = bands;
       }
       /* The whole payload, not a key list — same reasoning as `phoneRoundNow`'s
          spread, and it is the same bug paid for at the same moment. The relay
