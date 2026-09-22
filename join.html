@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260922c">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260922d">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -174,6 +174,19 @@
   @keyframes vflash{ 0%{opacity:1} 45%{opacity:1} 100%{opacity:0} }
   @keyframes vpop{ 0%{transform:scale(0.4)} 30%{transform:scale(1.12)} 55%{transform:scale(1)} 100%{transform:scale(1)} }
   @media (prefers-reduced-motion: reduce){ #vflash span{ animation:none; } }
+  /* Flip's twist band: the card's colour and its name, above the question, so a
+     student knows a STEAL/SWAP/GIFT is on this one before they answer. */
+  #twistband{ width:100%; text-align:center; padding:9px 12px; border-radius:12px;
+    font-weight:800; font-size:0.95rem; letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--hd-ink); border:2px solid rgba(0,0,0,0.26); box-shadow:0 3px 0 rgba(0,0,0,0.3);
+    background:var(--tw, var(--hd-yellow)); }
+  #twistband.hide{ display:none; }
+  #twistband[data-tw="steal"]{  --tw:var(--hd-red, #E2603B); color:#fff; }
+  #twistband[data-tw="swap"]{   --tw:var(--hd-hue-5, #A66CFF); color:#fff; }
+  #twistband[data-tw="double"]{ --tw:var(--hd-yellow, #FFC83D); }
+  #twistband[data-tw="gift"]{   --tw:var(--hd-green, #6FB04A); color:#fff; }
+  #twistband[data-tw="bounty"]{ --tw:var(--hd-blue, #00A0DF); color:#fff; }
+  #twistband[data-tw="box"]{    --tw:var(--hd-hue-7, #E86FA0); }
   /* The phone's own mute. Fixed in the top corner, above every screen, because a
      student's sound is theirs to switch off and the layout under it changes by mode. */
   #snd{
@@ -591,6 +604,9 @@
        remember which board is running which, and the phone is the one screen
        actually in the room's hands. It sits above the question because it is a rule
        you read once and then stop looking at, not part of what is being asked. -->
+  <!-- Flip's twist, named above the question in its colour: the stakes before the
+       answer. Hidden unless the arm carries a twist. -->
+  <div id="twistband" class="hide"></div>
   <p class="qnote" id="qnote"></p>
   <p class="qtext" id="qtext"></p>
   <!-- how long is left on this round, when the host set a clock -->
@@ -648,16 +664,16 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260922c"></script>
-<script src="game-hub/hub-sound.js?v=20260922c"></script>
-<script src="game-hub/hub-buzzer.js?v=20260922c"></script>
+<script src="game-hub/hub-brand.js?v=20260922d"></script>
+<script src="game-hub/hub-sound.js?v=20260922d"></script>
+<script src="game-hub/hub-buzzer.js?v=20260922d"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260922c"></script>
+<script src="game-hub/matter.min.js?v=20260922d"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260922c"></script>
+<script src="game-hub/hub-table.js?v=20260922d"></script>
 <script>
 (function(){
   'use strict';
@@ -720,6 +736,15 @@
     if(snd) snd.play(v === 'wrong' ? 'buzz' : 'correct');
   }
   window.__snd = snd;   // a probe's window: the harness cannot hear, so it counts
+  /* The twist band above the question. A word ('steal'…) shows it; anything falsy
+     hides it. The label is the word in the app's own voice. */
+  const TWIST_LABEL = { steal:'Steal', swap:'Swap', double:'Double', gift:'Gift', bounty:'Bounty', box:'Box' };
+  function paintTwist(twist){
+    const el = $('twistband'); if(!el) return;
+    const k = twist && TWIST_LABEL[twist] ? twist : null;
+    if(!k){ el.className = 'hide'; el.textContent = ''; delete el.dataset.tw; return; }
+    el.dataset.tw = k; el.className = ''; el.textContent = TWIST_LABEL[k];
+  }
 
   let team = 0, teamNames = ['Team 1','Team 2'], client = null;
 
@@ -2195,6 +2220,7 @@
          there is no choice to report there, and a line saying nothing is a line of
          screen a handset cannot spare. */
       $('qnote').textContent = (d && d.note) || '';
+      paintTwist(d && d.twist);
       const spent = (d && d.spent) || [];
       /* A reopen is the same question coming back because somebody guessed wrong.
          Re-running setMode would wipe the box — and throwing away half a word
@@ -2236,7 +2262,8 @@
                 : null);
       if(!myRound(d)){
         const who = teamNames[Number(d.turnTeam)] || ('Team ' + (Number(d.turnTeam)+1));
-        say(who + ' is choosing');
+        paintTwist(d && d.twist);
+        say((d && d.twist && TWIST_LABEL[d.twist] ? TWIST_LABEL[d.twist].toUpperCase() + ' · ' : '') + who + ' is choosing');
         return;
       }
       if(spent.indexOf(client.id) !== -1){
@@ -2358,6 +2385,7 @@
       $('qtext').textContent = '';
       // the rule went with the question — it described that one, not the next
       $('qnote').textContent = '';
+      paintTwist(null);
       setMode(card ? 'card-idle' : 'buzz');
       if(card) renderCard();
       /* Nothing to press and no card to read = the standby screen (the school's
@@ -2480,6 +2508,27 @@
       if(navigator.vibrate) navigator.vibrate([30,40,30]);
     }
     client.on('judged', applyVerdict);
+    /* **A twist moved points, and this phone hears its own line.** The loser sees its
+       loss wash the screen red with the buzz, the winner its gain in green, and a
+       bystander the sentence in amber — the same reversal the board is showing, in
+       the hand. Reuses the verdict flash element; the big glyph is the amount. */
+    client.on('told', d => {
+      window.__lastTold = d;                 // a probe's window onto the reversal beat
+      if(!d || !d.kind) return;
+      const gain = d.kind === 'gain', loss = d.kind === 'loss';
+      const f = $('vflash');
+      if(f){
+        f.className = ''; void f.offsetWidth;
+        f.firstElementChild.textContent = d.delta ? ((d.delta > 0 ? '+' : '\u2212') + Math.abs(d.delta)) : '';
+        f.className = loss ? 'wrong' : gain ? 'right' : 'close';
+        clearTimeout(paintTold.t); paintTold.t = setTimeout(() => { f.className = ''; }, 1300);
+      }
+      if(snd) snd.play(loss ? 'buzz' : gain ? 'correct' : 'blip');
+      if(navigator.vibrate) navigator.vibrate(loss ? [15,60,15] : gain ? [30,40,30] : 12);
+      verdictUntil = Date.now() + 1800;
+      $('state').textContent = d.text || '';
+    });
+    function paintTold(){}   // just a home for the timer handle
     client.on('delivery', d=>{
       if(!d || (!d.error && !d.ignored)) return;
       if(d.ignored === 'finished') return;

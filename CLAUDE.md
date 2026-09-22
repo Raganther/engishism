@@ -1070,6 +1070,22 @@ is confirmed, or the Bounty settles, the standings screen shows again for the mo
 (`E().standingsMark()` re-baselines the gains; the shuffle runs from the places last
 shown), the card as its eyebrow and the move as its title, so the class sees the row drop
 and the row climb rather than reading a line. Standings off, the line stays.
+**The points are SEEN to travel, not just tallied**: `showStandings` takes `moves`
+[{from, to, amount}] (from null = from the pot, a Gift), opens on the pre-move
+numbers, flies `HubMotes` from the losing row's score box to the gaining one while a
+tween counts both numbers, marks the losing row (`.st-row.lost`, a red pulse — a loss
+animated nothing before), then releases the shuffle; only Flip passes `moves`. The
+chooser wears the twist's colour and every live row previews the exact amount it would
+move (the shelf's arithmetic run with a non-consuming shield probe). The turn now
+passes on the standings' Continue (`advanceAfterStandings`, via `onStandingsDone`), not
+behind the screen, so the last card's beat is never clobbered by the end screen.
+**The phones share the beat**: the arm carries a `twist` name (relay stores and
+forwards it on `armed`/`joined`; the phone paints a coloured band above the question
+and a watcher reads "STEAL · Ana is choosing"), and a new per-team `tell` message
+(`host.tell(byTeam)` → relay → the `told` event) washes each handset with its own line
+of the reversal — the loser red with its loss and the buzz, the winner green with its
+gain, everyone else the sentence. `told` is never stored (a reconnect after the beat
+has nothing to replay).
 
 **Moving a score, and the beat after a question.** `E().adjust(team, delta, why)` is the
 one home for a signed score move with its receipt — `award` is the *earning* path

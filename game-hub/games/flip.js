@@ -258,7 +258,9 @@
        chip's position as it moves (`c:`), and the landing (`bin:`), which is the
        one that counts. Consumed here so the shared tally never sees them. */
     onPhoneReply(r){ return dropReply(r); },
-    phoneRound(){ return E().roundForPhones(); },
+    /* The round the phones play, plus the twist's name so each handset paints the
+       STEAL/SWAP/GIFT band above the question — the stakes, before they answer. */
+    phoneRound(){ const r = E().roundForPhones(); if(r && cur && cur.twist && cur.twist !== 'plain') r.twist = cur.twist; return r; },
     onTypedWin: () => null,
 
     /* ---- the clue card's buttons ----
@@ -616,7 +618,7 @@
     document.getElementById('flip-pick-tally').textContent = '';
     /* The winner's own phone gets the table; the board draws what it sends. */
     const asked = E().askClass('Pull the chip off the ledge and let go', 'table', ['●'], p.team,
-                               { plinko: { rows: 6, bins: labels, mirror: true }, bare: true, rethink: true, multi: 1, holds: true });
+                               { plinko: { rows: 6, bins: labels, mirror: true }, bare: true, rethink: true, multi: 1, holds: true, twist: 'box' });
     twistVote = asked ? { kind: 'drop', vote: K.vote.open({ options: labels, team: p.team }), team: p.team } : null;
     drop = { team: p.team, kinds, labels, mirrored: asked, done: false, need: 1, chosen: [], picks: {}, cardCells: [] };
     const height = Math.max(240, Math.min(420, (window.innerHeight || 720) - 350));   // under the room chip on a 720 board
@@ -792,7 +794,7 @@
     const hues = {};
     if(window.HubBuzzer && window.HubBuzzer.teamColour) rows.forEach(r => { hues[r.line] = window.HubBuzzer.teamColour(r.who); });
     const vote = K.vote.open({ options: lines, team });
-    twistVote = E().askClass(ask, 'vote', lines, team, { optionsByTeam: byTeam, optionHues: hues })
+    twistVote = E().askClass(ask, 'vote', lines, team, { optionsByTeam: byTeam, optionHues: hues, twist: p.twist })
               ? { kind: gift ? 'gift' : 'pick', vote, team: p.team } : null;
   }
   /* The count lands on the chip the teacher is about to click, in the chooser's own
@@ -887,7 +889,26 @@
      name and arrive at another rather than reading it. Returns whether a standings
      opened — the caller advances the turn itself when it did not (standings off), and
      otherwise the turn waits for the standings' Continue (`onStandingsDone`). */
+  /* **The phones share the beat.** Each handset hears its own line of the reversal:
+     the loser sees its loss in red with the buzz, the winner its gain in green, and
+     everyone else the sentence in the twist's colour — so the move is legible in the
+     hand as well as on the wall. No relay: `room()` is null and this simply does
+     nothing, like every other phone touch here. */
+  function sendTell(text, moves){
+    const room = E().room && E().room();
+    if(!room || !room.tell) return;
+    const hue = i => (window.HubBuzzer && window.HubBuzzer.teamColour) ? window.HubBuzzer.teamColour(i) : '';
+    const by = {};
+    E().teams().forEach((t, i) => {
+      const mv = (moves || []).find(m => m.who === i && m.delta !== 0);
+      by[i] = mv
+        ? { kind: mv.delta > 0 ? 'gain' : 'loss', delta: mv.delta, text, hue: hue(i) }
+        : { kind: 'note', delta: 0, text, hue: '' };
+    });
+    room.tell(by);
+  }
   function told(label, text, who, moves){
+    sendTell(text, moves);
     if(E().standingsWanted('flip')){
       E().showStandings({ eyebrow: label, title: text, winner: who, moves: flightsFromMoves(moves) });
       advanceAfterStandings = true;

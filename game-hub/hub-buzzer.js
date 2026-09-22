@@ -229,6 +229,10 @@ window.HubBuzzer = (function(){
          was revealed; the thing itself exists only on the wall, which is the whole
          point of sending this at all. */
       nudge:    kind   => send({ room:code, type:'nudge', kind }),
+      /* A twist's reversal, told to each phone: `byTeam` maps a competitor index to
+         its own line ({kind, delta, text, hue}). Per-team like `shares`, pushed
+         between questions, never stored. */
+      tell:     byTeam => send({ room:code, type:'tell', tellByTeam:byTeam }),
       disarm:   ()     => send({ room:code, type:'disarm' }),
       reset:    ()     => send({ room:code, type:'reset' }),
       setTeams: (names, solo) => send({ room:code, type:'teams', teams:names,
@@ -265,7 +269,7 @@ window.HubBuzzer = (function(){
     const src   = stream(relay, { room:code, role:'player', id, name:opts.name||'Player', team:opts.team||0 }, ev);
 
     ['joined','armed','disarmed','locked','reset','teams','judged','card','marked','nope',
-     'shares','kicked','team','prompt','nudge','done'].forEach(name=>{
+     'shares','kicked','team','prompt','nudge','done','told'].forEach(name=>{
       src.addEventListener(name, e=>{
         let d = {}; try{ d = JSON.parse(e.data); }catch(_){}
         if((name === 'joined' || name === 'armed') && d.roundId != null) roundId = d.roundId;
