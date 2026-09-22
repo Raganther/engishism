@@ -16,7 +16,7 @@
    hub-kit.js (needs window.HubKit).
 
    Kit.table({ canvas, gravity, restitution, frictionAir, size, power, swing,
-               snap, dock, onArrange, onExit }) -> {
+               snap, dock, ceiling, onArrange, onExit }) -> {
      reset(), setPieces(labels[]), slots(n | {cols,rows,top,pile,bar}), place(i,label),
      addPiece(label, {x,y,vx,vy,spin,hue,shot}), openSides({l,r}),
      read()->string, cells()->string[], filled()->bool, loose(),
@@ -458,7 +458,7 @@
         if(b.isStatic) continue;
         const s2 = tile / 2, h2 = (tileH || tile) / 2;
         const nx = clamp(b.position.x, open.l ? -Infinity : s2, open.r ? Infinity : cssW - s2);
-        const ny = clamp(b.position.y, h2, cssH - h2);
+        const ny = clamp(b.position.y, ceilY() + h2, cssH - h2);
         if(nx !== b.position.x || ny !== b.position.y){
           Body.setPosition(b, { x: nx, y: ny });
           Body.setVelocity(b, { x: 0, y: 0 });
@@ -691,7 +691,7 @@
       const o = { isStatic:true, restitution:0.4, friction:0.2 };
       walls = [
         Bodies.rectangle(cssW/2, cssH + t/2, cssW + t*2, t, o),   // floor
-        Bodies.rectangle(cssW/2, -t/2,        cssW + t*2, t, o)    // ceiling
+        Bodies.rectangle(cssW/2, ceilY() - t/2, cssW + t*2, t, o)  // ceiling
       ];
       if(!open.l) walls.push(Bodies.rectangle(-t/2,   cssH/2, t, cssH + t*2, o));   // left
       if(!open.r) walls.push(Bodies.rectangle(cssW + t/2, cssH/2, t, cssH + t*2, o)); // right
@@ -707,6 +707,13 @@
       }
       Composite.add(engine.world, walls);
     }
+    /* **The ceiling can sit below the canvas top.** A caller that lays its own
+       words over the top of the table (the phone's question) passes `ceiling` in
+       pixels, and the wall, the deal and the resize clamp all start there — a
+       tile flung upward bounces off the underside of the question instead of
+       settling behind it where nobody can read either. Capped at half the table
+       so a long question can never close the world. 0 is the canvas edge. */
+    function ceilY(){ return Math.max(0, Math.min(Number(opts.ceiling) || 0, cssH * 0.5)); }
     // the tray lip is exactly the pile band — one fact, one home (the grid spec)
     function lipHeight(){ return grid ? (grid.pile != null ? grid.pile : 130) : 0; }
     /* A free piece fully past an open edge has left: take it out of the world
@@ -801,7 +808,7 @@
         let x = Math.max(12, (cssW - totW) / 2);
         row.forEach((i, c) => {
           const w = widthOf(i);
-          posD[i] = { x: x + w/2, y: bh/2 + 20 + r * (bh + 30) + (c % 2) * 6, w, h: bh };
+          posD[i] = { x: x + w/2, y: ceilY() + bh/2 + 20 + r * (bh + 30) + (c % 2) * 6, w, h: bh };
           x += w + dgap;
         });
       });
@@ -851,9 +858,9 @@
       /* `round`: a chip, not a tile — a circle body that rolls off pegs the way a
          Plinko chip does; a square catches on them and stalls. */
       const body = o.round
-        ? Bodies.circle(o.x != null ? o.x : cssW/2, o.y != null ? o.y : s, chipD() / 2, {
+        ? Bodies.circle(o.x != null ? o.x : cssW/2, o.y != null ? o.y : ceilY() + s, chipD() / 2, {
             restitution: 0.45, frictionAir: feel.frictionAir, friction: 0.05, density: 0.0016 })
-        : Bodies.rectangle(o.x != null ? o.x : cssW/2, o.y != null ? o.y : s, s, s, {
+        : Bodies.rectangle(o.x != null ? o.x : cssW/2, o.y != null ? o.y : ceilY() + s, s, s, {
         chamfer:{ radius: Math.round(s*0.16) },
         restitution: upright() ? Math.min(feel.restitution, 0.08) : feel.restitution,
         frictionAir: feel.frictionAir,
@@ -1358,6 +1365,15 @@
       // so an off-tile forgiving grab keeps its small constant gap and never snaps.
       g.constraint.pointA.x = g.anchor.x + (x - g.fingerStart.x);
       g.constraint.pointA.y = g.anchor.y + (y - g.fingerStart.y);
+      /* A finger may wander up over whatever the ceiling keeps clear; the tile
+         may not. A rigid grab chasing an anchor above the roof drags the body
+         through the wall, and it ends up stranded behind the caller's overlay.
+         The anchor stops where the tile's top meets the ceiling. */
+      const roof = ceilY();
+      if(roof > 0){
+        const lo = roof + (tileH || tile) / 2 + g.constraint.pointB.y;
+        if(g.constraint.pointA.y < lo) g.constraint.pointA.y = lo;
+      }
       g.hist.push({ x, y, t: now() });
       if(g.hist.length > 8) g.hist.shift();
     }

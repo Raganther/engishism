@@ -2374,7 +2374,21 @@ async function testPhoneTeams(browser){
        picked the wrong team. Without the escape, a phone holding a seat in the
        current room can never reach the name-and-team screen again: the resume
        rejoins it on every load, QR scan included. */
-    await p.locator('#rejoin').click(); await p.waitForTimeout(300);
+    /* Mid-question the way out is hidden (a mis-tap there costs the answer); it
+       comes back the moment the phones are stood down. Stood down through the
+       board's own HubEnv.standDownPhones — closing a plain buzz clue leaves the
+       phone on "You buzzed first" until the next clue arms, which is not this
+       check's business. */
+    check('mid-question the phone hides the way out of its seat',
+          !(await p.locator('#rejoin').isVisible()));
+    await host.evaluate(() => window.HubEnv.standDownPhones());
+    for(let i = 0; i < 20 && await p.locator('#screen-play.live').count(); i++) await p.waitForTimeout(200);
+    const backOut = await p.locator('#rejoin').isVisible();
+    check('between questions the way out of the seat is back', backOut,
+          await p.evaluate(() => document.getElementById('screen-play').className + ' | ' + document.getElementById('state').textContent));
+    // clicked through the DOM if hidden, so one red does not take the checks below with it
+    if(backOut) await p.locator('#rejoin').click(); else await p.evaluate(() => document.getElementById('rejoin').click());
+    await p.waitForTimeout(300);
     const back = await p.evaluate(() => ({
       join: document.getElementById('screen-join').classList.contains('active'),
       code: document.getElementById('code').value,

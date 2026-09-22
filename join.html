@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260922f">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260922g">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -176,9 +176,9 @@
   @media (prefers-reduced-motion: reduce){ #vflash span{ animation:none; } }
   /* Flip's twist band: the card's colour and its name, above the question, so a
      student knows a STEAL/SWAP/GIFT is on this one before they answer. */
-  #twistband{ width:100%; text-align:center; padding:9px 12px; border-radius:12px;
-    font-weight:800; font-size:0.95rem; letter-spacing:0.12em; text-transform:uppercase;
-    color:var(--hd-ink); border:2px solid rgba(0,0,0,0.26); box-shadow:0 3px 0 rgba(0,0,0,0.3);
+  #twistband{ flex:none; text-align:center; padding:3px 10px; border-radius:8px;
+    font-weight:800; font-size:0.8rem; letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--hd-ink); border:2px solid rgba(0,0,0,0.26); box-shadow:0 2px 0 rgba(0,0,0,0.3);
     background:var(--tw, var(--hd-yellow)); }
   #twistband.hide{ display:none; }
   #twistband[data-tw="steal"]{  --tw:var(--hd-red, #E2603B); color:#fff; }
@@ -188,20 +188,22 @@
   #twistband[data-tw="bounty"]{ --tw:var(--hd-blue, #00A0DF); color:#fff; }
   #twistband[data-tw="box"]{    --tw:var(--hd-hue-7, #E86FA0); }
   /* The phone's own mute. Fixed in the top corner, above every screen, because a
-     student's sound is theirs to switch off and the layout under it changes by mode. */
+     student's sound is theirs to switch off and the layout under it changes by mode.
+     Quiet on purpose — a setting, not a button to press mid-question — and the top
+     line keeps its corner clear (#phone-id's right padding) so it covers nothing. */
   #snd{
-    position:fixed; top:8px; right:8px; z-index:45; width:38px; height:38px; border-radius:50%;
-    border:2px solid rgba(0,0,0,0.26); background:var(--hd-yellow); color:var(--hd-ink);
-    font-size:1.05rem; line-height:1; cursor:pointer; box-shadow:0 3px 0 rgba(0,0,0,0.3); padding:0;
+    position:fixed; top:7px; right:8px; z-index:45; width:32px; height:32px; border-radius:50%;
+    border:1.5px solid var(--hd-line); background:rgba(255,255,255,0.06); color:var(--hd-paper);
+    font-size:0.9rem; line-height:1; cursor:pointer; padding:0; opacity:0.8;
   }
-  #snd.off{ background:rgba(255,255,255,0.045); color:var(--hd-muted); border-style:dashed; box-shadow:none; }
+  #snd.off{ color:var(--hd-muted); border-style:dashed; opacity:0.6; }
   #snd.hide{ display:none; }
   .who{ font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--hd-muted); }
   /* The place, told by the board: dashed while the question is open (the order can
      still move — everyone is ranked by their own clock), solid once it is final,
      first place in green. The same pill the card wears on its lanes. */
   #place-pill{
-    display:inline-block; margin:0 0 4px; padding:2px 10px; border-radius:7px; font-size:1rem;
+    display:inline-block; flex:none; margin:0; padding:2px 10px; border-radius:7px; font-size:0.95rem;
     font-family:'IBM Plex Mono',monospace; font-weight:700; letter-spacing:0.06em;
     border:1.5px dashed var(--hd-line); color:var(--hd-paper); opacity:0.85;
   }
@@ -250,7 +252,10 @@
     position:absolute; left:0; right:0; top:0; bottom:0; display:flex; align-items:center; justify-content:center;
     font-size:1.05rem; font-weight:700; color:var(--hd-ink); letter-spacing:0.04em;
   }
-  #tbar.sent .tbar-label::before{ content:'sent · '; font-weight:400; }
+  /* sent or out of time: a plain line, not a bar — the fill and bands step aside */
+  #tbar.sent, #tbar.over{ background:rgba(255,255,255,0.06); }
+  #tbar.sent .tbar-fill, #tbar.sent .tbar-bands, #tbar.over .tbar-fill, #tbar.over .tbar-bands{ display:none !important; }
+  #tbar.sent .tbar-label, #tbar.over .tbar-label{ color:var(--hd-paper); text-shadow:none; }
   /* **The bands rule, drawn.** The bar is four coloured quarters — full points, half,
      a little, nothing — and the time passing is a dark veil sliding over them from
      the left, so the student watches the band they are in drain away. The veil is
@@ -270,11 +275,13 @@
   #tbar .tbar-bands span.now{ box-shadow:inset 0 0 0 3px #fff; }
   #tbar.bands .tbar-fill{ background:rgba(0,0,0,0.5) !important; width:0; }
   #tbar.bands .tbar-label{ color:#fff; text-shadow:0 1px 0 rgba(0,0,0,0.5); }
-  #tbar.bands.sent .tbar-label::before{ content:'sent · '; }
-  #tbar.over .tbar-label{ color:var(--hd-paper); }
-  #tbar.over .tbar-label::before{ content:''; }
   body.has-tbar #screen-play{ padding-bottom:52px; }
   #status{ font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--hd-muted); }
+  #status.ok{ display:none; }
+  /* Between questions only: the room number is what a student checks while
+     waiting ("am I in the right game?"), and the way out of the seat is a mis-tap
+     waiting to happen mid-answer. A question on screen hides both. */
+  #screen-play.live .room, #screen-play.live .rejoin{ display:none; }
   .rejoin{
     background:none; border:none; padding:8px; cursor:pointer; font-family:inherit;
     font-size:0.78rem; color:var(--hd-muted); text-decoration:underline;
@@ -302,9 +309,14 @@
   }
   .qnote:empty{ display:none; }
 
-  /* Name + room: transparent to layout normally (they sit as before); the minimal
-     table view turns this wrapper into a small top strip holding them side by side. */
-  #phone-id{ display:contents; }
+  /* **The top line: everything about this phone, in one row.** Who (left), then the
+     room number between questions, then the twist and the place on the right. The
+     right padding is the mute's corner, so the fixed icon never sits on the place. */
+  #phone-id{ display:flex; align-items:center; gap:8px; width:100%; min-width:0; padding-right:34px; }
+  #phone-id .who{ margin:0 auto 0 0; white-space:nowrap; }
+  #phone-id .room{ margin:0; order:1; }
+  #phone-id #twistband{ order:2; }
+  #phone-id #place-pill{ order:3; }
 
   /* ===== Minimal physics phone (the table / drag-grid modes) =====
      The play surface is the WHOLE screen: the canvas fills it edge to edge (Kit.table
@@ -320,10 +332,7 @@
   /* A skill round's one line of feedback ("Sent — landed in 3", "Time") stays: it
      is the only thing the phone says back, and the head overlay is the question. */
   body.table-min.skill #state{ display:block; padding:6px 12px 0; }
-  body.table-min #phone-id{
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
-    width:100%; padding:9px 15px;
-  }
+  body.table-min #phone-id{ padding:8px 48px 8px 15px; }
   body.table-min .room, body.table-min .who{ margin:0; }
   body.table-min #table{ flex:1 1 auto; width:100%; min-height:0; }
   body.table-min #table canvas{ height:100%; min-height:0; border-radius:0; background:transparent; }
@@ -548,7 +557,7 @@
      button: the flow reads top to bottom and the thumb ends on the thing that
      fires. Ordered explicitly rather than with one negative order, which hoisted
      the box above the question itself. */
-  #screen-play.mode-type #who{ order:0; }
+  #screen-play.mode-type #phone-id{ order:0; }
   #screen-play.mode-type #qtext{ order:1; }
   #screen-play.mode-type #write{ order:2; }
   #screen-play.mode-type #buzzer{ order:3; }
@@ -598,15 +607,16 @@
     <!-- beside the name, never inside it: the name paragraph is rewritten as text on
          every join, which erased a child pill and, with it, the arm that reached for it -->
     <p id="place-pill" class="hide"></p>
+    <!-- Flip's twist, named in its colour: the stakes before the answer. Inside the
+         top line, not a row of its own — the table is where the height goes. Hidden
+         unless the arm carries a twist. -->
+    <div id="twistband" class="hide"></div>
   </div>
   <!-- How this question is being played, in the round's own words — "A team answers
        only when all of them agree". A teacher sets that per game and cannot then
        remember which board is running which, and the phone is the one screen
        actually in the room's hands. It sits above the question because it is a rule
        you read once and then stop looking at, not part of what is being asked. -->
-  <!-- Flip's twist, named above the question in its colour: the stakes before the
-       answer. Hidden unless the arm carries a twist. -->
-  <div id="twistband" class="hide"></div>
   <p class="qnote" id="qnote"></p>
   <p class="qtext" id="qtext"></p>
   <!-- how long is left on this round, when the host set a clock -->
@@ -664,16 +674,16 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260922f"></script>
-<script src="game-hub/hub-sound.js?v=20260922f"></script>
-<script src="game-hub/hub-buzzer.js?v=20260922f"></script>
+<script src="game-hub/hub-brand.js?v=20260922g"></script>
+<script src="game-hub/hub-sound.js?v=20260922g"></script>
+<script src="game-hub/hub-buzzer.js?v=20260922g"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260922f"></script>
+<script src="game-hub/matter.min.js?v=20260922g"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260922f"></script>
+<script src="game-hub/hub-table.js?v=20260922g"></script>
 <script>
 (function(){
   'use strict';
@@ -972,7 +982,9 @@
     if(!on) return null;
     if(box.children.length !== 4 || box.dataset.key !== roundBands.join(',')){
       box.innerHTML = '';
-      roundBands.forEach(s => { const e = document.createElement('span'); e.textContent = Math.round(s * 100) + '%'; box.appendChild(e); });
+      /* no numbers on the bands: the colour IS the share, and text under the
+         veil read as noise. The share arrives as words with the send. */
+      roundBands.forEach(() => box.appendChild(document.createElement('span')));
       box.dataset.key = roundBands.join(',');
     }
     /* the band is judged on the same clock the board ranks by: this phone's own
@@ -994,10 +1006,15 @@
     fill.style.width = band != null ? Math.min(100, 100 * run / barTotal) + '%' : barTotal ? (100 * left / barTotal) + '%' : '100%';
     bar.classList.toggle('warn', barTotal > 0 && left <= 5000 && left > 2000);
     bar.classList.toggle('urgent', barTotal > 0 && left <= 2000);
+    /* **While it runs the bar says nothing** — the drain and the band's colour are
+       the clock. Text laid over coloured bands could be read as neither. Once sent
+       (or out of time) the bar becomes one plain line: the time taken and the share
+       it earned. Only an untimed question keeps a running count, since then the
+       count is all there is. */
     const pct = band != null ? ' · ' + Math.round(roundBands[band] * 100) + '%' : '';
     if(barSent != null){ bar.classList.add('sent'); label.textContent = fmtSw(barSent) + pct; }
-    else if(barTotal && left <= 0){ bar.classList.add('over'); label.textContent = 'time' + pct; }
-    else label.textContent = (barTotal ? fmtSw(left).replace(/ \+.*$/, '') : fmtSw(run)) + pct;
+    else if(barTotal && left <= 0){ bar.classList.add('over'); label.textContent = 'Time'; }
+    else label.textContent = barTotal ? '' : fmtSw(run);
     return left;
   }
   function stopwatchStart(){
@@ -1591,7 +1608,11 @@
     const onRest = lineAt ? (r => { if(answered || timeUp || !client) return; answered = true; reply('ny:' + r.ny.toFixed(4)); $('state').textContent = 'Sent — ' + (r.ny < lineAt ? 'past the line' : Math.round((r.ny - lineAt) * 100) + ' short'); })
                  : plinko ? (r => { if(answered || timeUp || !client) return; const i = tbl.binOf(r.x); answered = true; reply('bin:' + i); $('state').textContent = 'Sent — landed in ' + ((plinko.bins || [])[i] || ('bin ' + (i + 1))); })
                  : undefined;
+    /* ceiling: the question overlays the top of the table, so the table's roof is
+       the bottom of the question — a flung tile bounces off it rather than
+       settling behind the words where neither can be read. */
     tbl = window.HubKit.table({ canvas, upright: !!(shape && shape.upright), sweepGrid: false,
+                                ceiling: headTop,
                                 line: lineAt || undefined,
                                 onRest,
                                 /* the shelf's stamps, heard: what the sparks show, the speaker says */
@@ -2078,6 +2099,8 @@
       $('status').textContent =
         s.state==='connected'    ? 'connected' :
         s.state==='reconnecting' ? 'reconnecting…' : 'can’t reach the game';
+      // nobody needs telling things are fine: the line appears only when they are not
+      $('status').classList.toggle('ok', s.state==='connected');
       if(s.state==='unreachable' && $('screen-join').classList.contains('active')){
         $('join-err').textContent = 'No game with that code — check the screen.';
         // a remembered seat in a room that has gone must not keep retrying: last
@@ -2104,7 +2127,7 @@
                     if(d.locked.secs) floorClockRun(d.locked.secs, d.locked.name + ' got in first');
                     else $('state').textContent = d.locked.name + ' got in first'; }
       else        { setBuzzer('off','Wait');    $('state').textContent = 'Waiting for the teacher…';
-                    $('screen-play').classList.toggle('waiting', !card); }
+                    $('screen-play').classList.toggle('waiting', !card); $('screen-play').classList.remove('live'); }
     });
 
     client.on('card', d=>{
@@ -2182,6 +2205,9 @@
         return;
       }
       activeRoundId = d.roundId || null;
+      /* A question is on this screen: the between-questions furniture (the room
+         number, the way out of the seat) steps aside until it is gone. */
+      $('screen-play').classList.add('live');
       /* The head start this phone has just waited out, if any — shown beside its
          stopwatch, because the board adds it back and the two numbers must match. */
       heldMs = d.held ? wait : 0;
@@ -2390,7 +2416,7 @@
       if(card) renderCard();
       /* Nothing to press and no card to read = the standby screen (the school's
          identity). A card between calls stays on screen instead. */
-      $('screen-play').classList.toggle('waiting', !card);
+      $('screen-play').classList.toggle('waiting', !card); $('screen-play').classList.remove('live');
       say(msg);
     }
     client.on('disarmed', ()=> standDown('Waiting for the teacher…'));
