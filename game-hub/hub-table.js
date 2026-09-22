@@ -119,6 +119,14 @@
     { k:'power',       label:'Throw power', min:0.4, max:3,    step:0.1,   def:1.3,  fmt:v => '×' + v.toFixed(1) },
     { k:'snap',        label:'Snap',        min:150, max:800,  step:10,    def:200,  fmt:v => (v/1000).toFixed(2) + 's' },   // dock glide ms
     { k:'dock',        label:'Place below', min:2,   max:30,   step:1,     def:14,   fmt:v => String(v) },                   // dock-on-release only below this speed (px/step)
+    /* **Look-ahead: the held tile is aimed where the finger is GOING.** The tile
+       itself tracks the finger to under a pixel at the step (measured at 100px a
+       frame); what a thumb feels as lag is the screen's own delay from touch to
+       glass, two or three frames. Aiming the grip this many ms ahead along the
+       finger's recent velocity hides it. The lead fades out within 60ms of the
+       last move, so a finger that stops does not leave the tile overshooting.
+       0 is off, today's behaviour; tuned on a real phone in Throw Lab. */
+    { k:'lead',        label:'Look-ahead',  min:0,   max:60,   step:5,     def:0,    fmt:v => v + 'ms' },
     /* Grid LOOK — the visual framework every grid caller inherits, tuned here and
        nowhere else. MULTIPLIERS on the shelf's own defaults, so ×1 is exactly
        today's look and nothing moves until tuned. `gridLine` scales the slot
@@ -230,7 +238,12 @@
   function makeTable(opts){
     opts = opts || {};
     const canvas = opts.canvas;
-    const ctx = canvas.getContext('2d');
+    /* `lowLatency`: a desynchronized canvas draws straight to the screen and skips
+       a compositor frame on Chrome (Android especially) — the other half of the
+       touch-to-glass delay the Look-ahead dial hides. A context flag, fixed when
+       the context is made, so it is a constructor option rather than a dial;
+       browsers that do not know it ignore it. */
+    const ctx = canvas.getContext('2d', opts.lowLatency ? { desynchronized: true } : undefined);
     const engine = Engine.create();
     /* Every feel number seeds from the DIALS table above, under this
        device's saved overlay if one was explicitly Saved on a Tune panel.
@@ -1363,8 +1376,31 @@
       if(!g) return;
       // Move the anchor by the finger's delta from grab (not to the raw finger),
       // so an off-tile forgiving grab keeps its small constant gap and never snaps.
-      g.constraint.pointA.x = g.anchor.x + (x - g.fingerStart.x);
-      g.constraint.pointA.y = g.anchor.y + (y - g.fingerStart.y);
+      g.hist.push({ x, y, t: now() });
+      if(g.hist.length > 8) g.hist.shift();
+      aimGrip(g);
+    }
+    /* Where the grip's anchor goes: the finger's offset from the grab point, plus
+       the Look-ahead lead along its recent velocity (fading out once the finger
+       stops sending moves), held under the ceiling. Called on every move and on
+       every physics update, so the lead can decay between moves. */
+    function aimGrip(g){
+      const last = g.hist[g.hist.length - 1];
+      if(!last) return;
+      let lx = 0, ly = 0;
+      if(feel.lead > 0){
+        const t = now(), age = t - last.t;
+        const cut = last.t - 80, h = g.hist.filter(e => e.t >= cut);
+        if(age < 60 && h.length >= 2){
+          const a = h[0], dt = Math.max(8, last.t - a.t), fade = 1 - age / 60;
+          const k = Math.min(feel.lead, 60) / dt * fade;
+          lx = (last.x - a.x) * k; ly = (last.y - a.y) * k;
+          const m = Math.hypot(lx, ly), cap = feel.size * 1.2;   // never more than about a tile ahead
+          if(m > cap){ lx *= cap / m; ly *= cap / m; }
+        }
+      }
+      g.constraint.pointA.x = g.anchor.x + (last.x - g.fingerStart.x) + lx;
+      g.constraint.pointA.y = g.anchor.y + (last.y - g.fingerStart.y) + ly;
       /* A finger may wander up over whatever the ceiling keeps clear; the tile
          may not. A rigid grab chasing an anchor above the roof drags the body
          through the wall, and it ends up stranded behind the caller's overlay.
@@ -1374,8 +1410,6 @@
         const lo = roof + (tileH || tile) / 2 + g.constraint.pointB.y;
         if(g.constraint.pointA.y < lo) g.constraint.pointA.y = lo;
       }
-      g.hist.push({ x, y, t: now() });
-      if(g.hist.length > 8) g.hist.shift();
     }
     /* How the FINGER was moving at release, as a velocity vector in px per
        physics step. Matter's constraint solver moves a dragged body
@@ -1461,6 +1495,7 @@
           const b = ghost.piece.body;
           Body.setVelocity(b, { x: (ghost.nx - b.position.x) * 0.6, y: (ghost.ny - b.position.y) * 0.6 });
         } else if(ghost) ghost = null;
+        if(feel.lead > 0) for(const g of grips.values()) aimGrip(g);   // the lead decays between moves
         Engine.update(engine, STEP_MS);
         stepAcc -= STEP_MS;
         /* A held tile may swing under gravity but never windmill: the spring's
