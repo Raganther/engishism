@@ -438,6 +438,18 @@
     if(Number(S.raw('flipTwists')) === 40) S.set('flipTwists', 60);
     try{ localStorage.setItem(MARK, '1'); }catch(e){}
   })();
+  /* **Everyone earns the same, and every band pays.** Behind-earns-more shipped at
+     1.5× and is off now (1); the time bands shipped as 1 · ½ · 0.05 · 0 and are
+     1 · ¾ · ½ · ¼. A device still on the old seeded values moves once; a value the
+     teacher chose is theirs. The bands move below, once their rows have registered. */
+  (function migrateFlatPoints(){
+    const MARK = 'engishism.flatPoints';
+    let done = false;
+    try{ done = localStorage.getItem(MARK) === '1'; }catch(e){}
+    if(done) return;
+    if(Number(S.raw('flipCatchUp')) === 1.5) S.set('flipCatchUp', 1);
+    try{ localStorage.setItem(MARK, '1'); }catch(e){}
+  })();
   /* The head start shipped on at 2s and is off now: a device still on that seeded
      value moves to 0 once; a value the teacher set to anything else is theirs. */
   (function migrateFlipHeadStart(){
@@ -502,6 +514,18 @@
      ran out before anyone finished. A device still holding the old default of 10
      is moved once; any other value is a teacher's and stays. Runs after the
      10-second migration so a device from the 15-step days lands on 20 too. */
+  /* The bands move only as a set — one changed band means somebody tuned them.
+     After registerRoundSettings, or the rows have no stored value to read yet. */
+  (function migrateForgivingBands(){
+    const MARK = 'engishism.forgivingBands';
+    let done = false;
+    try{ done = localStorage.getItem(MARK) === '1'; }catch(e){}
+    if(done) return;
+    const old = [1, 0.5, 0.05, 0], now = [1, 0.75, 0.5, 0.25];
+    const ids = ['roundBand1', 'roundBand2', 'roundBand3', 'roundBand4'];
+    if(ids.every((id, i) => Number(S.raw(id)) === old[i])) ids.forEach((id, i) => S.set(id, now[i]));
+    try{ localStorage.setItem(MARK, '1'); }catch(e){}
+  })();
   (function migrateRoundSecs20(){
     const MARK = 'engishism.roundSecs20';
     let done = false;

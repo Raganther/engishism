@@ -106,7 +106,7 @@
         return Math.max(0, Math.min(3, Math.floor((Number(seconds) || 0) / (c / 4))));
       },
       pay(rows, baseFor, o){
-        const shares = Array.isArray(o.bands) && o.bands.length === 4 ? o.bands : [1, 0.5, 0.05, 0];
+        const shares = Array.isArray(o.bands) && o.bands.length === 4 ? o.bands : [1, 0.75, 0.5, 0.25];
         const clock = o.clockRunning ? o.clockSecs : 0;
         const top = rows.reduce((m, r) => Math.max(m, Number(baseFor(r.who)) || 0), 0);
         /* the grid must be able to say the SMALLEST paying share — a 5% band on a
@@ -283,10 +283,13 @@
     /* The four bands of the `bands` rule, quarters of the clock. Four rows rather
        than a list, because a range is what the panel knows how to draw and a
        teacher tunes them one at a time. */
+    /* Forgiving by default: every band pays something, so the only answer worth
+       nothing is one that never came. The old last band (0) read as "you were right
+       and got nothing". */
     [['roundBand1', 1,    'The first quarter of the clock pays'],
-     ['roundBand2', 0.5,  'The second quarter pays'],
-     ['roundBand3', 0.05, 'The third quarter pays'],
-     ['roundBand4', 0,    'The last quarter pays']].forEach(([id, def, label]) => {
+     ['roundBand2', 0.75, 'The second quarter pays'],
+     ['roundBand3', 0.5,  'The third quarter pays'],
+     ['roundBand4', 0.25, 'The last quarter pays']].forEach(([id, def, label]) => {
       S.register({ id, group:'Questions', under:'roundPay', when:'bands', type:'range', default:def,
         min:0, max:1, step:0.05, unit:'×', games:roundGames,
         label,

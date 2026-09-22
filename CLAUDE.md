@@ -955,8 +955,8 @@ guarantees no two places the shares separate reach the board equal. `everyone` i
 fifth rule and Jeopardy's opening one: each place worth `roundPayDecay` of the one
 above, **the tail flat** at a tenth of the value rather than decaying to nothing.
 **`bands` is the sixth rule, a teacher's own**: the clock cut into four quarters, a right
-answer paying the band it landed in (the four shares are `roundBand1..4`, defaults 1 · ½ ·
-0.05 · 0; a tie inside a band is the rule speaking), judged on the record's `seconds` with
+answer paying the band it landed in (the four shares are `roundBand1..4`, defaults 1 · ¾ ·
+½ · ¼ — every band pays, so only an answer that never came scores nothing; a tie inside a band is the rule speaking), judged on the record's `seconds` with
 any head start added back. The four shares ride the arm as `bands` beside `secs` (the relay
 carries them on `armed` and `joined`), so every phone draws its clock bar as four coloured
 bands with the elapsed time veiling them from the left and the card's clock pill says the
@@ -1037,7 +1037,8 @@ behind, not from winning a card** — a class showed every comeback card only he
 just won it, which is rarely the bottom of the room — so two devices scale with the gap
 and name nobody: **catch-up worth** (`flipCatchUp`: the leader earns face value, last
 place earns it times the multiple, the rest on the slope; `HOST.worth(who)`, so the shared
-pay rule and the winner's award both read it) and a **head start** (`flipHeadStart`: a
+pay rule and the winner's award both read it; **off by default** (1 — the teacher wants
+every player paid the same for the same card), Runaway turns it up) and a **head start** (`flipHeadStart`: a
 host declaring `headStart(team)` puts a `hold` per team on the arm; the relay hands each
 phone its own wait, the phone shows the question that much later, and `roundStamp` adds
 the wait back to that team's stopwatch — so the ranking still means quickest from when the
@@ -1074,7 +1075,8 @@ every twist is `HubTwist`'s** (see the map), shared with Flip Party; `flip.js` k
 board, the chooser, the phones and the beats. **Flip's Rules row**
 (`flipRules`: Mixed class · Runaway class) is the app's bundle for the three comeback dials
 — catch-up, steal share, twists — measured on the balance bench (`tools/party-sim.js`):
-the standard rules lose every game to a 90% player against two 40%s; the Runaway set gives
+Mixed is now flat (catch-up 1) at the teacher's call, so its measured result is unmeasured
+again; the old 1.5× Mixed lost every game to a 90% player against two 40%s; the Runaway set gives
 that player six in ten with the lead changing hands nine times a game. **A reversal is watched on the leaderboard**: after the chooser
 is confirmed, or the Bounty settles, the standings screen shows again for the move alone
 (`E().standingsMark()` re-baselines the gains; the shuffle runs from the places last

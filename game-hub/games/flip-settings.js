@@ -87,7 +87,9 @@ window.registerFlipSettings = function(S){
   /* **Help comes from being behind, not from winning a card.** A class showed that
      every comeback card only helps whoever just won it — which is rarely the student
      at the bottom. These two are automatic, scale with the gap, and name nobody. */
-  S.register({ id:'flipCatchUp', group:'Flip', type:'range', default:1.5, quick:true,
+  /* Off by default (1): every player earns the same for the same card — the
+     teacher's call; the Runaway ruleset still turns it up. */
+  S.register({ id:'flipCatchUp', group:'Flip', type:'range', default:1, quick:true,
     min:1, max:5, step:0.1, unit:'×', games:['flip'],
     label:'Behind earns more',
     help:'What last place earns for a right answer, as a multiple of what the leader earns for the same card. Everyone in between is on a slope by the gap. 1 turns it off.' });
