@@ -6,6 +6,7 @@ covers:
   - "game-hub/hub.css"
   - "game-hub/hub-twist.js"
   - "game-hub/hub-sound.js"
+  - "game-hub/hub-motes.js"
 ---
 
 # Changing something every game inherits
