@@ -150,14 +150,14 @@
     ];
   </script>
 
-  <script src="../game-hub/hub-qr.js?v=20260922m"></script>
-  <script src="../game-hub/hub-buzzer.js?v=20260922m"></script>
-  <script src="../game-hub/matter.min.js?v=20260922m"></script>
-  <script src="../game-hub/hub-kit.js?v=20260922m"></script>
-  <script src="../game-hub/hub-brand.js?v=20260922m"></script>
-  <script src="../game-hub/hub-table.js?v=20260922m"></script>
-  <script src="phone-profiles.js?v=20260922m"></script>
-  <script src="bench-kit.js?v=20260922m"></script>
+  <script src="../game-hub/hub-qr.js?v=20260922n"></script>
+  <script src="../game-hub/hub-buzzer.js?v=20260922n"></script>
+  <script src="../game-hub/matter.min.js?v=20260922n"></script>
+  <script src="../game-hub/hub-kit.js?v=20260922n"></script>
+  <script src="../game-hub/hub-brand.js?v=20260922n"></script>
+  <script src="../game-hub/hub-table.js?v=20260922n"></script>
+  <script src="phone-profiles.js?v=20260922n"></script>
+  <script src="bench-kit.js?v=20260922n"></script>
   <script>
   (function(){
     const K = window.HubKit;
@@ -201,6 +201,7 @@
     }
     const world = K.table({
       canvas,
+      lowLatency: true,   // a phone in the hand: draw straight to the screen, a frame sooner under the thumb
       onArrange(read, done){ evaluate(read, done); },
       /* A tile flicked off an open side edge travels to a neighbour (Stage 2). Fires
          only once a room has opened the sides; solo keeps both sides closed. */

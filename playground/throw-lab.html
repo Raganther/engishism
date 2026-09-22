@@ -210,11 +210,11 @@
        physics rounds (anagram flick, ordering stack) call. Throw Lab is its first caller — the workshop where the
        feel gets tuned. matter.min.js and hub-table.js live in game-hub/ beside the
        other shelves; hub-kit.js is the object Kit.table hangs off. -->
-  <script src="../game-hub/hub-qr.js?v=20260922m"></script>
-  <script src="../game-hub/matter.min.js?v=20260922m"></script>
-  <script src="../game-hub/hub-kit.js?v=20260922m"></script>
-  <script src="../game-hub/hub-brand.js?v=20260922m"></script>
-  <script src="../game-hub/hub-table.js?v=20260922m"></script>
+  <script src="../game-hub/hub-qr.js?v=20260922n"></script>
+  <script src="../game-hub/matter.min.js?v=20260922n"></script>
+  <script src="../game-hub/hub-kit.js?v=20260922n"></script>
+  <script src="../game-hub/hub-brand.js?v=20260922n"></script>
+  <script src="../game-hub/hub-table.js?v=20260922n"></script>
   <script>
   (function(){
     'use strict';
@@ -269,9 +269,9 @@
     let parked = false;
     const world = K.table({
       canvas,
-      /* ?fast=1 tries the desynchronized (low-latency) canvas, to compare against
-         the ordinary one on a real phone — a context flag, so it is set per load */
-      lowLatency: new URLSearchParams(location.search).get('fast') === '1',
+      /* Fast drawing (a desynchronized canvas) is on, as on every phone page;
+         ?fast=0 turns it off to compare — a context flag, so it is set per load */
+      lowLatency: new URLSearchParams(location.search).get('fast') !== '0',
       /* a chip coming to rest in a bin — the Plinko layout's only "answer" */
       onRest(r){ if(plinkoMode){ const i = world.binOf(r.x); setStatus({ bin: i, label: PLINKO_BINS[i] }); } },
       onArrange(read, done){               // the table reports the arrangement; the caller judges
