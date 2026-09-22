@@ -136,13 +136,8 @@
        block, against the phone's painted surface AND a card round's transparent
        one, because a halo composites differently on each. */
     { k:'pop',         label:'Landing pop', min:0,   max:0.5,  step:0.02,  def:0.18, fmt:v => '×' + v.toFixed(2), group:'Looks' },   // scale overshoot after a dock
-    { k:'glow',        label:'Correct glow',min:0,   max:1,    step:0.05,  def:0.7,  fmt:v => v.toFixed(2),        group:'Looks' },   // halo strength behind a right tile
+    { k:'glow',        label:'Verdict glow',min:0,   max:1,    step:0.05,  def:1,    fmt:v => v.toFixed(2),        group:'Looks' },   // halo strength AROUND a judged tile: green right, red wrong — the tile keeps its own colour
     { k:'shake',       label:'Wrong shake', min:0,   max:14,   step:1,     def:6,    fmt:v => v + 'px',            group:'Looks' },   // paint offset on a wrong tile
-    /* The verdict wash: a judged tile is painted over in the verdict's colour —
-       red for wrong, green for right — under its letter, so a student sees WHICH
-       it was without reading an outline. A shudder and a thin red stroke were
-       not clear enough in a hand. Fades to a lighter wash and stays while judged. */
-    { k:'wash',        label:'Verdict wash',min:0,   max:1,    step:0.05,  def:1,    fmt:v => v.toFixed(2),        group:'Looks' },   // alpha of the right/wrong wash over a judged tile
     { k:'party',       label:'Word burst',  min:0,   max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2), group:'Looks' },   // particle count when a word completes
     /* The held tile drawn lifted: a little larger, a soft shadow under it, so a
        drag reads as picking the tile up off the table. */
@@ -388,9 +383,12 @@
       sp = document.createElement('canvas'); sp.width = W; sp.height = H;
       const g = sp.getContext('2d');
       g.translate(W/2, H/2); g.scale(W/2, H/2);
+      /* Bright at the tile's edge, gone by the sprite's: the verdict is a colour
+         AROUND the tile, never on it, so the tile's own hue stays readable and a
+         student can still tell which tiles they have moved. */
       const grad = g.createRadialGradient(0, 0, 0.30, 0, 0, 1);
-      grad.addColorStop(0,    withAlpha(col, 0.55));
-      grad.addColorStop(0.55, withAlpha(col, 0.18));
+      grad.addColorStop(0,    withAlpha(col, 0.95));
+      grad.addColorStop(0.5,  withAlpha(col, 0.55));
       grad.addColorStop(1,    withAlpha(col, 0));
       g.fillStyle = grad; g.fillRect(-1, -1, 2, 2);
       halos.set(key, sp);
@@ -1738,17 +1736,21 @@
         ctx.stroke();
         ctx.restore();
       });
-      /* The correct glow: a pre-rendered halo behind every right tile, breathing
-         slowly (about one breath a second) so a finished word reads as alive
-         rather than merely outlined. Drawn behind the pieces so the letters stay
-         crisp on top of it. */
+      /* The verdict glow: a pre-rendered halo behind every judged tile — green
+         around a right one, red around a wrong one — breathing slowly (about one
+         breath a second) so a judged word reads as alive rather than merely
+         outlined. Behind the pieces, so the letters and the tiles' own colours
+         stay crisp on top of it: the colour says the verdict, the tile says which
+         tile. */
       if(feel.glow > 0){
-        const pulse = 0.6 + 0.4 * Math.sin(t / 160);
+        const pulse = 0.75 + 0.25 * Math.sin(t / 160);
         ctx.save();
         ctx.globalAlpha = Math.min(1, feel.glow * pulse);
         slots.forEach((s, i) => {
-          if(!s.piece || resOf(i) !== 'right') return;
-          const sp = haloFor(palette.good, s.w, s.h);
+          if(!s.piece) return;
+          const res = resOf(i);
+          if(res !== 'right' && res !== 'wrong') return;
+          const sp = haloFor(res === 'right' ? palette.good : palette.bad, s.w, s.h);
           ctx.drawImage(sp, s.x - sp.width/2, s.y - sp.height/2);
         });
         ctx.restore();
@@ -1859,21 +1861,6 @@
         ctx.fillStyle = b.hue;
         if(b.round){ ctx.beginPath(); ctx.arc(0, 0, b.body.circleRadius || w/2, 0, Math.PI * 2); ctx.fill(); }
         else { roundRect(ctx, -w/2, -h/2, w, h, r); ctx.fill(); }
-        /* The verdict wash: the tile painted over in red or green under its letter.
-           Strongest as the verdict lands, settling to half over 600ms and staying
-           while the slot is judged; a wrong tile is unmistakably red, a right one
-           unmistakably green, from a hand's length or the back of the room. */
-        if(inSlot && feel.wash > 0){
-          const res = resOf(b.slot);
-          if(res === 'right' || res === 'wrong'){
-            const age = t - judgedAt(b.slot);
-            const k = age < 600 ? 1 - 0.1 * (age / 600) : 0.9;
-            ctx.globalAlpha = feel.wash * k * (res === 'wrong' ? 1 : 0.85);
-            ctx.fillStyle = res === 'wrong' ? palette.bad : palette.good;
-            roundRect(ctx, -w/2, -h/2, w, h, r); ctx.fill();
-            ctx.globalAlpha = 1;
-          }
-        }
         if(b.pinned){   // the given mark: a thin inner ring, the tile's own colour showing through
           ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;
           roundRect(ctx, -w/2 + 3, -h/2 + 3, w - 6, h - 6, Math.max(1, r - 2));
