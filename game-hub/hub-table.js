@@ -196,6 +196,48 @@
     { k:'ringSize',    label:'Ring size',   min:0.5, max:3,    step:0.1,   def:1.6,  fmt:v => '×' + v.toFixed(1), group:'Hits' },
     { k:'ringLife',    label:'Ring life',   min:100, max:800,  step:20,    def:260,  fmt:v => v + 'ms',            group:'Hits' },
   ];
+  /* **What each dial does, in a teacher's words** — the line a Tune panel shows
+     when the dial's name is tapped. Kept beside DIALS and joined onto it by id,
+     so a panel reads `d.help` and a dial with no line here simply shows none. */
+  const DIAL_HELP = {
+    gravity:     'How hard tiles fall. Higher: heavy, drop fast. 0: they float.',
+    restitution: 'How bouncy tiles are when they land or hit each other. 0: a dead thud. High: a rubber ball.',
+    frictionAir: 'How quickly a thrown tile slows down in the air. Higher feels like throwing through water.',
+    size:        'How big the tiles and boxes are.',
+    swing:       'How loosely a tile hangs from your finger. 0: stuck tight under it. Higher: it dangles and swings like on a string.',
+    damping:     'Calms the swinging. Only matters when Swing is above 0.',
+    grabArm:     'Where on the tile you hold it. 0: the centre always jumps under your finger. Higher: you can hold it by a corner, so it hangs to one side.',
+    reach:       'How close you must touch to pick a tile up. Higher forgives a fat finger: tap near a tile and you still get it.',
+    power:       'How far a tile flies for the same flick. Higher: a small flick sends it a long way.',
+    snap:        'How long a placed tile takes to glide into its box. Lower is snappy; higher is a slow glide.',
+    dock:        'The speed that separates a place from a throw. Let go slower than this over a box and the tile drops in; faster and it flies. Higher: a tile still goes in even if your hand was moving a little.',
+    lead:        'Draws the held tile a little ahead of your finger, in the direction you are moving, to hide the screen\'s own delay. 0 is off. Too much and the tile runs ahead of your thumb.',
+    gridLine:    'How thick the box outlines are.',
+    gridGap:     'How much space there is between boxes. Shows on the next New deal.',
+    pop:         'How much a tile swells for a moment when it lands in a box. 0 is off.',
+    glow:        'How strong the green (right) or red (wrong) glow around a checked tile is. 0 is off.',
+    shake:       'How far a wrong tile shakes. 0 is off.',
+    party:       'How big the burst is when a word is finished right. 0 is off.',
+    lift:        'How much bigger a tile looks while you hold it, as if picked up off the table. 0 is off.',
+    sparks:      'How many sparks fly when two tiles hit each other. 0 is off.',
+    squash:      'How much a tile squashes flat for a moment when another tile hits it. 0 is off.',
+    spread:      'How wide the fan of sparks is. Small: two narrow jets. Wide: sparks spray all round.',
+    hitRef:      'How fast a hit must be to get the full effect (sparks, ring, squash). Lower: gentle bumps look big. Higher: only a real throw does.',
+    sparkSpeed:  'How fast the sparks fly out.',
+    sparkSize:   'How big each spark is.',
+    sparkLife:   'How long sparks last before they fade.',
+    ring:        'How bright the circle is that spreads out from where two tiles hit. 0 is off.',
+    ringSize:    'How big that circle grows.',
+    ringLife:    'How long that circle takes to spread and fade.',
+    chipGlow:    'Plinko: the soft glow around the chip, flaring when it hits a peg. 0 is off.',
+    trail:       'Plinko: the comet tail behind the falling chip. 0 is off.',
+    pegFlash:    'Plinko: how brightly a peg flashes white when the chip hits it. 0 is off.',
+    pegField:    'Plinko: pegs near the chip glow in its colour. 0 is off.',
+    bolt:        'Plinko: little lightning bolts from a hit peg to its neighbours. 0 is off.',
+    binGlow:     'Plinko: how strongly the bins are coloured, with the one under the chip lit up. 0 is off.',
+    binBurst:    'Plinko: how big the celebration is when the chip lands in a bin. 0 is off.'
+  };
+  DIALS.forEach(d => { d.help = DIAL_HELP[d.k] || ''; });
 
   /* A colour with its alpha replaced — hex (#rgb, #rrggbb) or rgb()/rgba(); anything
      else is handed back as is. The halo sprite's gradient needs the theme colour
@@ -2234,6 +2276,20 @@
       show(f[d.k]);
       row.appendChild(lab); row.appendChild(inp); row.appendChild(out);
       mount.appendChild(row);
+      /* Tap the name to show what the dial does — a line under the row, tap
+         again to hide it. Inline styles, because a panel is built on pages that
+         share no stylesheet. */
+      if(d.help){
+        const help = document.createElement('div');
+        help.className = 'dial-help'; help.id = 'h-' + d.k; help.textContent = d.help;
+        help.style.cssText = 'display:none;flex-basis:100%;font-size:0.78rem;line-height:1.35;opacity:0.85;margin:-2px 0 6px;padding:6px 9px;border-radius:8px;background:rgba(255,255,255,0.06);';
+        lab.style.cursor = 'pointer';
+        lab.style.textDecoration = 'underline dotted';
+        lab.style.textUnderlineOffset = '3px';
+        lab.title = 'What does this do?';
+        lab.addEventListener('click', e => { e.preventDefault(); help.style.display = help.style.display === 'none' ? 'block' : 'none'; });
+        mount.appendChild(help);
+      }
     });
 
     /* Save / Reset, plus a line that always says which feel this device is
