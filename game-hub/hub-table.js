@@ -99,7 +99,7 @@
     { k:'frictionAir', label:'Air drag',    min:0,   max:0.08, step:0.005, def:0, fmt:v => v.toFixed(3) },
     /* steps must land on the defaults — a range input SNAPS an off-grid value
        to the nearest step, and the suite compares slider to feel exactly */
-    { k:'size',        label:'Box size',    min:40,  max:140,  step:2,     def:132,   fmt:v => v + 'px' },
+    { k:'size',        label:'Box size',    min:40,  max:140,  step:2,     def:56,   fmt:v => v + 'px' },
     /* 0 = rigid (the tile tracks the finger), 1 = loose (dangles from the
        touch point). Started at 0.4 as the designed charm of the dynamic;
        0.4 and then 0.25 both read as lag on a real handset, where the finger
@@ -108,7 +108,7 @@
     /* damping 0, grabArm 0, reach 1.5, snap 200: the first real phone-tuned
        feel — a fully rigid grab centred dead under the finger, maximum
        fat-finger reach, quick docks. Re-tuned on a phone in Throw Lab (pasted
-       from Copy settings): gravity 1.7, bounce 0.5, no air drag, box 132,
+       from Copy settings): gravity 1.7, bounce 0.5, no air drag, box size kept at 56,
        place below 18; looks: landing pop 0.32, verdict glow 0.5, word burst
        2.25, held lift off. */
     { k:'damping',     label:'Wobble damp', min:0,   max:0.5,  step:0.05,  def:0,    fmt:v => v.toFixed(2) },
