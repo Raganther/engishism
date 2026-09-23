@@ -94,21 +94,23 @@
     }catch(e){ return null; }   // storage blocked (some file:// browsers) = no overlay
   }
   const DIALS = [
-    { k:'gravity',     label:'Gravity',     min:0,   max:2,    step:0.05,  def:0.9,  fmt:v => v.toFixed(2) },
-    { k:'restitution', label:'Bounce',      min:0,   max:0.95, step:0.05,  def:0.45, fmt:v => v.toFixed(2) },
-    { k:'frictionAir', label:'Air drag',    min:0,   max:0.08, step:0.005, def:0.01, fmt:v => v.toFixed(3) },
+    { k:'gravity',     label:'Gravity',     min:0,   max:2,    step:0.05,  def:1.7,  fmt:v => v.toFixed(2) },
+    { k:'restitution', label:'Bounce',      min:0,   max:0.95, step:0.05,  def:0.5, fmt:v => v.toFixed(2) },
+    { k:'frictionAir', label:'Air drag',    min:0,   max:0.08, step:0.005, def:0, fmt:v => v.toFixed(3) },
     /* steps must land on the defaults — a range input SNAPS an off-grid value
        to the nearest step, and the suite compares slider to feel exactly */
-    { k:'size',        label:'Box size',    min:40,  max:140,  step:2,     def:56,   fmt:v => v + 'px' },
+    { k:'size',        label:'Box size',    min:40,  max:140,  step:2,     def:132,   fmt:v => v + 'px' },
     /* 0 = rigid (the tile tracks the finger), 1 = loose (dangles from the
        touch point). Started at 0.4 as the designed charm of the dynamic;
        0.4 and then 0.25 both read as lag on a real handset, where the finger
        hides the tile — so the default is OFF and the dial is its trial. */
     { k:'swing',       label:'Swing',       min:0,   max:1,    step:0.05,  def:0,    fmt:v => v.toFixed(2) },
-    /* damping 0, grabArm 0, reach 1.5, snap 200, dock 14: the first real
-       phone-tuned feel, saved on the bench 2026-08-25 — a fully rigid grab
-       centred dead under the finger, maximum fat-finger reach, quick docks,
-       forgiving placement. */
+    /* damping 0, grabArm 0, reach 1.5, snap 200: the first real phone-tuned
+       feel — a fully rigid grab centred dead under the finger, maximum
+       fat-finger reach, quick docks. Re-tuned on a phone in Throw Lab (pasted
+       from Copy settings): gravity 1.7, bounce 0.5, no air drag, box 132,
+       place below 18; looks: landing pop 0.32, verdict glow 0.5, word burst
+       2.25, held lift off. */
     { k:'damping',     label:'Wobble damp', min:0,   max:0.5,  step:0.05,  def:0,    fmt:v => v.toFixed(2) },
     /* how far off-centre the grab may pin, as a fraction of the box — the
        pendulum's arm. 0 recentres every grab under the finger. */
@@ -118,7 +120,7 @@
     { k:'reach',       label:'Grab reach',  min:0.3, max:1.5,  step:0.1,   def:1.5,  fmt:v => '×' + v.toFixed(1) },
     { k:'power',       label:'Throw power', min:0.4, max:3,    step:0.1,   def:1.3,  fmt:v => '×' + v.toFixed(1) },
     { k:'snap',        label:'Snap',        min:150, max:800,  step:10,    def:200,  fmt:v => (v/1000).toFixed(2) + 's' },   // dock glide ms
-    { k:'dock',        label:'Place below', min:2,   max:30,   step:1,     def:14,   fmt:v => String(v) },                   // dock-on-release only below this speed (px/step)
+    { k:'dock',        label:'Place below', min:2,   max:30,   step:1,     def:18,   fmt:v => String(v) },                   // dock-on-release only below this speed (px/step)
     /* **Look-ahead: the held tile is aimed where the finger is GOING.** The tile
        itself tracks the finger to under a pixel at the step (measured at 100px a
        frame); what a thumb feels as lag is the screen's own delay from touch to
@@ -143,13 +145,13 @@
        draws the same picture as the board at 60. Tuned on Throw Lab's Looks
        block, against the phone's painted surface AND a card round's transparent
        one, because a halo composites differently on each. */
-    { k:'pop',         label:'Landing pop', min:0,   max:0.5,  step:0.02,  def:0.18, fmt:v => '×' + v.toFixed(2), group:'Looks' },   // scale overshoot after a dock
-    { k:'glow',        label:'Verdict glow',min:0,   max:1,    step:0.05,  def:1,    fmt:v => v.toFixed(2),        group:'Looks' },   // halo strength AROUND a judged tile: green right, red wrong — the tile keeps its own colour
+    { k:'pop',         label:'Landing pop', min:0,   max:0.5,  step:0.02,  def:0.32, fmt:v => '×' + v.toFixed(2), group:'Looks' },   // scale overshoot after a dock
+    { k:'glow',        label:'Verdict glow',min:0,   max:1,    step:0.05,  def:0.5,    fmt:v => v.toFixed(2),        group:'Looks' },   // halo strength AROUND a judged tile: green right, red wrong — the tile keeps its own colour
     { k:'shake',       label:'Wrong shake', min:0,   max:14,   step:1,     def:6,    fmt:v => v + 'px',            group:'Looks' },   // paint offset on a wrong tile
-    { k:'party',       label:'Word burst',  min:0,   max:3,    step:0.25,  def:1,    fmt:v => '×' + v.toFixed(2), group:'Looks' },   // particle count when a word completes
+    { k:'party',       label:'Word burst',  min:0,   max:3,    step:0.25,  def:2.25,    fmt:v => '×' + v.toFixed(2), group:'Looks' },   // particle count when a word completes
     /* The held tile drawn lifted: a little larger, a soft shadow under it, so a
        drag reads as picking the tile up off the table. */
-    { k:'lift',        label:'Held lift',   min:0,   max:0.15, step:0.01,  def:0.06, fmt:v => '×' + v.toFixed(2), group:'Looks' },   // scale of the tile under the finger
+    { k:'lift',        label:'Held lift',   min:0,   max:0.15, step:0.01,  def:0, fmt:v => '×' + v.toFixed(2), group:'Looks' },   // scale of the tile under the finger
     /* Hits. The engine reports every pair of tiles that start touching (the knock
        rule already listens); above a speed the shelf stamps the contact — where,
        how hard, which way — and paints from it: sparks at the point of contact,
@@ -351,6 +353,14 @@
     engine.constraintIterations = 6;   // pulls a held piece to the finger harder each frame, so a fast drag lags less
 
     let cssW = 0, cssH = 0, dpr = 1;
+    /* **Box size is a CAP on how big a tile may grow, not a ruler for everything
+       else.** The gaps between boxes and the Plinko chip used to scale with it, so
+       a teacher raising it to make short words bigger also widened every gap —
+       which shrank long words and pushed a nine-letter word off the phone — and
+       grew the chip. They measure from this fixed base instead (the old default),
+       and the grab reach from the tile's real fitted size. */
+    const BASE = 56;
+    const baseSize = () => Math.min(feel.size, BASE);
     let tile;                    // effective tile WIDTH = the fitted slot size (see fitTiles)
     let tileH;                   // effective tile HEIGHT — equals tile except in a bar grid
     let walls = [];
@@ -623,7 +633,7 @@
        rows 33px apart; a request for more rows than the band can hold now gets as
        many as fit, top-anchored, never a field the chip cannot fall through. */
     const CHIP = 0.54;
-    const chipD = () => feel.size * CHIP;
+    const chipD = () => baseSize() * CHIP;
     function buildPegs(){
       if(pegBodies.length){ Composite.remove(engine.world, pegBodies); pegBodies = []; }
       pegSet.clear(); pegHits = [];
@@ -1034,8 +1044,14 @@
        centred row; slots({cols, rows}) is a grid — words read across each row
        and down each column, and cells()/read()/place(i) index it unchanged. */
     function slotDims(n){
-      const margin = 16, gap = Math.max(6, Math.round(feel.size * 0.12 * feel.gridGap));
-      const sw = Math.max(36, Math.min(feel.size, Math.floor((cssW - margin*2 - gap*(n-1)) / n)));
+      const margin = 16;
+      let gap = Math.max(6, Math.round(baseSize() * 0.12 * feel.gridGap));
+      let fit = Math.floor((cssW - margin*2 - gap*(n-1)) / n);
+      /* A long word on a phone: the gaps close to 4px and a tile may go down to 24px
+         before anything leaves the screen. At a 36px floor an eleven-letter word
+         (GRANDMOTHER) ran off a 390px phone. */
+      if(fit < 36){ gap = 4; fit = Math.floor((cssW - margin*2 - gap*(n-1)) / n); }
+      const sw = Math.max(fit < 36 ? 24 : 36, Math.min(feel.size, fit));
       const rowW = n*sw + (n-1)*gap, x0 = (cssW - rowW) / 2, y = Math.round(cssH * 0.46);
       return { gap, sw, x0, y };
     }
@@ -1061,7 +1077,7 @@
     function gridDims(g){
       const { top, pile, bar } = g;
       let cols = g.cols, rows = g.rows;
-      const margin = 12, gap = Math.max(4, Math.round(feel.size * 0.10 * feel.gridGap));
+      const margin = 12, gap = Math.max(4, Math.round(baseSize() * 0.10 * feel.gridGap));
       const yTop = top != null ? top : margin;    // room for a caller's own chrome above row 0
       /* bar: slots sized to the WORD, not the row — height fits the column
          exactly as a square grid does; width is measured from the longest
@@ -1134,13 +1150,15 @@
             }
             return { boxes, rows: r + 1 };
           };
-          let sh2 = feel.size, f = flow(sh2);
+          /* word tiles keep the base height: Box size enlarges LETTER tiles, and a
+             word bar at 132px tall filled a phone with four answers */
+          let sh2 = baseSize(), f = flow(sh2);
           for(let k = 0; k < 6; k++){
             f = flow(sh2);
             const next = pile != null
               ? Math.floor((cssH - yTop - pile - gap*(f.rows-1)) / f.rows)
               : Math.floor((cssH - yTop - margin) / (f.rows * 2)) - gap;   // slot rows + a heap of about the same
-            const nsh = Math.max(24, Math.min(feel.size, next));
+            const nsh = Math.max(24, Math.min(baseSize(), next));
             if(Math.abs(nsh - sh2) < 0.5){ sh2 = nsh; break; }
             sh2 = nsh;
           }
@@ -1150,7 +1168,7 @@
                    cols: f.rows ? Math.ceil(labels.length / f.rows) : labels.length,
                    rows: f.rows, count: labels.length };
         }
-        let sh = feel.size, perRow = 1, wAt = Math.max(measure(sh), third);
+        let sh = baseSize(), perRow = 1, wAt = Math.max(measure(sh), third);   // word tiles: the base height, as above
         for(let k = 0; k < 6; k++){
           perRow = Math.max(1, Math.min(n, Math.floor((usable + gap) / (wAt + gap))));
           if(auto){ cols = perRow; rows = Math.ceil(n / cols); }
@@ -1158,7 +1176,7 @@
           const next = pile != null
             ? Math.floor((cssH - yTop - pile - gap*(rows-1)) / rows)
             : Math.floor((cssH - yTop - margin) / (rows + pileRows)) - gap;
-          sh = Math.max(24, Math.min(feel.size, next));
+          sh = Math.max(24, Math.min(baseSize(), next));
           const w2 = Math.max(measure(sh), third);
           if(w2 === wAt) break;
           wAt = w2;
@@ -1410,7 +1428,7 @@
         const dx = p.body.position.x - x, dy = p.body.position.y - y, d = dx*dx + dy*dy;
         if(d < bestD){ bestD = d; best = p.body; }
       }
-      const tol = feel.size * feel.reach;   // the fat-finger dial
+      const tol = Math.max(baseSize(), tile || 0) * feel.reach;   // the fat-finger dial, on the tile's real size
       return (best && bestD <= tol*tol) ? best : null;
     }
     function move(id, x, y){

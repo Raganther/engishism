@@ -938,7 +938,7 @@ wins is undecided until a class plays them. The `new-playground-game` skill is t
 door is deliberately undecided until a class plays it**: seventh hub game
 (`registerGame`) if it is a main event, or distilled into a `Kit.table` round mode
 (the anagram flick round's territory) if it is a spice. The drag-and-dock feel is **measured, not guessed** — tuned on a
-real phone and promoted into `Kit.table.dials` (dock 14, rigid grab). Still guesses
+real phone and promoted into `Kit.table.dials` (rigid grab; re-tuned on a phone in Throw Lab as gravity 1.7, bounce 0.5, no air drag, place-below 18, box size 132 — **box size is a cap for LETTER tiles only**: gaps, the Plinko chip and word-tile height measure from a fixed 56 base, and grab reach from the tile's real size, so raising it enlarges short words and nothing else). Still guesses
 wearing sliders: the knock speed (6) and the arrival holds.
 
 **What real phones taught, now standing rules:** the harness's Chromium is 60Hz and
