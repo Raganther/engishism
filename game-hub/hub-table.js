@@ -2278,8 +2278,39 @@
       if(opts && opts.onChange) Object.keys(patch).forEach(k => opts.onChange(k, patch[k]));
       sayState();
     });
+    /* **Copy settings** — the dials as one line of text, so a feel tuned on a
+       real phone can be pasted into a chat and promoted into the DIALS
+       defaults without anybody reading numbers off a screenshot. Every dial is
+       included, the ones moved off the default marked with *, so nothing has
+       to be guessed. The clipboard API needs https (the live site has it); the
+       textarea copy is the fallback, and if both fail the text is shown to
+       select by hand. */
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button'; copyBtn.id = 'dial-copy'; copyBtn.textContent = 'Copy settings';
+    const feelText = () => {
+      const cur = world.feel();
+      return 'Table feel: ' + DIALS.map(d => d.k + '=' + (+cur[d.k]).toString() + (cur[d.k] !== d.def ? '*' : '')).join(', ');
+    };
+    copyBtn.addEventListener('click', () => {
+      const text = feelText();
+      const done = ok => {
+        copyBtn.textContent = ok ? 'Copied ✓' : 'Copy failed — select below';
+        if(!ok){ note.textContent = text; note.style.userSelect = 'text'; note.style.webkitUserSelect = 'text'; }
+        setTimeout(() => { copyBtn.textContent = 'Copy settings'; }, 1800);
+      };
+      const fallback = () => {
+        try{
+          const ta = document.createElement('textarea');
+          ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;left:-9999px;top:0;';
+          document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, text.length);
+          const ok = document.execCommand('copy'); ta.remove(); done(ok);
+        }catch(e){ done(false); }
+      };
+      if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => done(true), fallback);
+      else fallback();
+    });
     sayState();
-    act.appendChild(saveBtn); act.appendChild(resetBtn); act.appendChild(note);
+    act.appendChild(saveBtn); act.appendChild(copyBtn); act.appendChild(resetBtn); act.appendChild(note);
     mount.appendChild(act);
   };
   makeTable.dials = DIALS;
