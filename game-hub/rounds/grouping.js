@@ -31,6 +31,7 @@
   K.round.register('grouping', {
     label: 'Connections',
     blurb: 'Eight words, four that belong together. The room assembles them from their phones.',
+    howTo: s => (s && s.mode === 'flick') ? 'Drag the four that go together into the boxes.' : 'Tap the four that go together.',
 
     /* Two ways to play, on the `mode` axis. `tap` is the original — a multi-pick
        vote, the team answer the union of its players' taps. `flick` is a physics

@@ -49,6 +49,9 @@
   K.round.register('choice', {
     label: 'Multiple Choice',
     blurb: 'One question, four answers. The room picks one.',
+    /* The line the round's intro says, before the question shows — one sentence
+       on what the hands will do, by the face this question is played on. */
+    howTo: s => (s && s.input === 'flick') ? 'Drag the right answer into the box.' : 'Tap the right answer.',
 
     // the shared pair — one wording for the two ideas across every slot round
     modes: [ K.round.mode.first, K.round.mode.agree ],

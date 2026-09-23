@@ -558,6 +558,30 @@ body.clue-dragging #clue-card{ touch-action:none; user-select:none; }
 @media (prefers-reduced-motion: reduce){ #clue-card.overtime{ animation:none; } }
 #clue-section{ font-family:'IBM Plex Mono', monospace; color: var(--blue); font-size:0.75rem; letter-spacing:0.1em; text-transform:uppercase; margin-top:2px; }
 #clue-text{ font-family:'Space Grotesk', sans-serif; font-size: clamp(1.15rem, 2.4vw, 1.7rem); font-weight:500; line-height:1.4; margin: 24px 0; color: var(--ink); }
+/* The round intro: a panel over the whole face for the beat before a question —
+   the round's name big, one line on what to do, the 3-2-1. Absolute over the
+   face (which is position:relative), so the question and its buttons are under
+   it and cannot be clicked until it lifts; a click on it starts the question. */
+#clue-intro{
+  position:absolute; inset:0; z-index:20; border-radius:14px; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  padding:32px; text-align:center;
+  background: var(--white); color: var(--navy);
+}
+#clue-intro .ci-label{ font-family:'Space Grotesk', sans-serif; font-weight:800; letter-spacing:0.02em;
+  font-size: clamp(2.2rem, 5.2vw, 4.2rem); line-height:1.05; color: var(--blue);
+  animation: ci-in 420ms cubic-bezier(.2,1.4,.4,1) both; }
+#clue-intro .ci-how{ font-family:'IBM Plex Sans', sans-serif; font-size: clamp(1.2rem, 2.4vw, 1.9rem); max-width:30ch; line-height:1.3;
+  animation: ci-in 420ms 120ms cubic-bezier(.2,1.4,.4,1) both; }
+#clue-intro .ci-count{ font-family:'Space Grotesk', sans-serif; font-weight:800; font-size: clamp(3rem, 8vw, 6rem); line-height:1;
+  font-variant-numeric: tabular-nums; min-height:1em; color: var(--gold, #F2B705); }
+#clue-intro .ci-hint{ font-size:0.9rem; opacity:0.55; }
+#clue-intro .ci-top{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:1.3rem; letter-spacing:0.04em; opacity:0.8; }
+#clue-intro .ci-top:empty{ display:none; }
+@keyframes ci-in{ from{ opacity:0; transform:scale(0.85); } to{ opacity:1; transform:scale(1); } }
+@media (prefers-reduced-motion: reduce){ #clue-intro .ci-label, #clue-intro .ci-how{ animation:none; } }
+body.theme-gameshow #clue-intro{ background: linear-gradient(180deg, #131A4E 0%, #070B22 100%); color: var(--paper); }
+body.theme-gameshow #clue-intro .ci-label{ color: var(--gold); text-shadow: 0 0 22px rgba(255,200,61,0.45); }
 #clue-answer{ display:none; font-family:'IBM Plex Sans', sans-serif; font-size:1.1rem; color: var(--navy); background: var(--cream); border: 1px dashed var(--blue); border-radius:10px; padding: 14px; margin-bottom: 22px; }
 #clue-answer[style*="block"]{ animation: answerIn .34s cubic-bezier(.2,.9,.3,1.2); }
 @keyframes answerIn{ from{ opacity:0; transform: scale(.9) translateY(-6px); } to{ opacity:1; transform:none; } }

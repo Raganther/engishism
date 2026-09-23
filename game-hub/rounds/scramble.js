@@ -51,6 +51,7 @@
 
   K.round.register('scramble', {
     label: 'Drag the Words',
+    howTo: s => 'Put the words in order to make the sentence.',
     blurb: 'A shuffled sentence, and a slot for each word.',
 
     // the shared pair — the TEAM RULE (how a team's answer is decided)

@@ -63,6 +63,7 @@
 
   K.round.register('anagram', {
     label: 'Drag the Letters',
+    howTo: s => (s && s.input === 'flick') ? 'Drag the letters into the boxes to spell the word.' : 'Drag the letters into order to spell the word.',
     blurb: 'Scrambled letters, and boxes to drag them into.',
 
     // the shared pair — the TEAM RULE (how a team's answer is decided)

@@ -90,7 +90,7 @@ function getRoom(code, create){
           roundId:null, sequence:0, verdicts:new Map(), host:null, players:new Map(), teams:[], solo:false, armed:false, locked:null,
           mode:'buzz', prompt:'', options:[], team:null, responses:new Map(),
           spent:new Set(), cooling:new Map(), cards:new Map(), emptiedAt:0,
-          answerSecs:0, rethink:false, secs:0, bands:null, pts:null, twist:null, armedAt:0, multi:1, send:false,
+          answerSecs:0, rethink:false, secs:0, bands:null, pts:null, intro:null, twist:null, armedAt:0, multi:1, send:false,
           /* How many options one phone may hold, per team index — because teams
              are not the same size, and "one player's share of a four-word answer"
              is four words split between however many phones that team has. Null
@@ -294,7 +294,7 @@ function openStream(req, res, q){
     options:optionsFor(room, team), optionHues:room.optionHues, done:doneFor(room, team), turnTeam:room.team,
     cols:room.cols, rows:room.rows, bar:room.bar, upright:room.upright, tap:room.tap, bare:room.bare, count:room.count,
     ends:room.ends, line:room.line, plinko:room.plinko, stack:room.stack,
-    hold: holdFor(room, team), pts: ptsFor(room, team),
+    hold: holdFor(room, team), pts: ptsFor(room, team), intro: room.intro,
     spent:[...room.spent],
     rethink: room.rethink, secs: secsLeft(room), bands: room.bands, twist: room.twist, multi: capFor(room, team),
     send: !!room.send, preview: !!room.preview, roundId:room.roundId,
@@ -448,6 +448,13 @@ function handleSend(req, res){
            coloured band above the prompt so a student knows a STEAL/SWAP/GIFT is at
            stake before they answer. */
         room.twist   = msg.twist ? String(msg.twist).slice(0, 12) : null;
+        /* The round's intro beat, carried unread: how long, the round's name and one
+           line on what to do. The phone shows it before the question. */
+        room.intro = (msg.intro && typeof msg.intro === 'object' && Number(msg.intro.secs) > 0)
+          ? { secs: Math.min(10, Number(msg.intro.secs)),
+              label: String(msg.intro.label || '').slice(0, 40),
+              how:   String(msg.intro.how || '').slice(0, 140) }
+          : null;
         /* What each band of the clock is worth to each team, in points: {team: [4]}.
            Per team because a catch-up rule pays the teams differently; each phone is
            handed its own four, carried unread, so the bar can say "100" and drop it
@@ -598,7 +605,7 @@ function handleSend(req, res){
                                    mode: room.mode, options: optionsFor(room, p.team), optionHues: room.optionHues,
                                    cols: room.cols, rows: room.rows, bar: room.bar, upright: room.upright, tap: room.tap, bare: room.bare, count: room.count,
                                    ends: room.ends, line: room.line, plinko: room.plinko, stack: room.stack,
-                                   hold: holdFor(room, p.team), pts: ptsFor(room, p.team),
+                                   hold: holdFor(room, p.team), pts: ptsFor(room, p.team), intro: room.intro,
                                    done: doneFor(room, p.team),
                                    /* `turnTeam`, not `team`: the join payload already
                                       carries the player's own team under that name, and
@@ -703,7 +710,7 @@ function handleSend(req, res){
         return sendJSON(res, 200, { ok:true });
       }
       case 'disarm':
-        room.armed = false; room.prompt = ''; room.team = null; room.hold = null; room.pts = null; room.promptByPlayer = null; room.ends = null;
+        room.armed = false; room.prompt = ''; room.team = null; room.hold = null; room.pts = null; room.intro = null; room.promptByPlayer = null; room.ends = null;
         // the rule described that question; it must not survive into the next one
         room.note = '';
         toPlayers(room, 'disarmed', {});

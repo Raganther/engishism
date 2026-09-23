@@ -54,6 +54,7 @@
 
   K.round.register('ordering', {
     label: 'Word Thermometer',
+    howTo: s => 'Put the words in order, from one end of the scale to the other.',
     blurb: 'Words on a scale, weakest to strongest. The room puts them in order.',
 
     /* Both modes are offered to whatever is hosting, so a host builds its picker

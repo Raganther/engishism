@@ -270,8 +270,72 @@
      so drawing there anyway would put a live countdown on a hidden element and cut a
      question off with nothing on screen having said so. A clock the room cannot see
      is worse than no clock. */
+  /* ================= the round intro =================
+     **A beat before the question: the round's name, one line on what to do, 3-2-1.**
+     A class dropped straight into the tiles found it disorienting. The round opens
+     exactly as before — state, record, arm — and the intro only COVERS it: a panel
+     over the card's face, and on the phones an `intro` on the arm that the handset
+     shows before the question (its stopwatch starts after it). The card's clock
+     waits for the end, so the intro costs nobody points. Enter or a click ends it
+     early, and a per-team `tell` of kind 'go' ends it on every phone at once.
+     `roundIntro` seconds; 0 is off. The line is the round's own `howTo(state)`. */
+  let introUntil = 0, introTimer = null, introTick = null, introClockPending = false, introInfo = null;
+  const introLive = () => introUntil > Date.now();
+  function introBegin(rnd){
+    introStop(false);
+    const secs = Math.max(0, Math.min(8, Number(S.get('roundIntro', roundHost ? roundHost.game : null)) || 0));
+    if(!secs || !rnd) return;
+    const def = Kit.round.get(rnd.id) || {};
+    let how = '';
+    try{ how = typeof def.howTo === 'function' ? String(def.howTo(rnd.state) || '') : String(def.howTo || ''); }catch(e){ how = ''; }
+    introInfo = { secs, label: def.label || '', how };
+    introUntil = Date.now() + secs * 1000;
+    const el = document.getElementById('clue-intro');
+    if(el){
+      el.innerHTML = '';
+      /* the card's own heading first — Jeopardy's category and value, Flip's card
+         and twist — so the board says WHICH question as well as what kind */
+      const top = document.createElement('div'); top.className = 'ci-top';
+      top.textContent = (document.getElementById('clue-topline') || {}).textContent || '';
+      const lab = document.createElement('div'); lab.className = 'ci-label'; lab.textContent = introInfo.label;
+      const line = document.createElement('div'); line.className = 'ci-how'; line.textContent = how;
+      const num = document.createElement('div'); num.className = 'ci-count';
+      const hint = document.createElement('div'); hint.className = 'ci-hint'; hint.textContent = 'Enter or click to start now';
+      el.append(top, lab, line, num, hint);
+      el.style.display = 'flex';
+      const paint = () => { const left = Math.ceil((introUntil - Date.now()) / 1000); num.textContent = left > 0 ? String(left) : ''; };
+      paint(); introTick = setInterval(paint, 200);
+    }
+    introTimer = setTimeout(() => introStop(false, true), secs * 1000);
+  }
+  /* End the intro. `skip` tells the phones to go now; `natural` is the timer
+     running out (the phones' own timers end theirs). Either way the card's clock,
+     if it was waiting, starts now. A card closing mid-intro ends it silently. */
+  function introStop(skip, natural){
+    const was = introUntil > 0;
+    clearTimeout(introTimer); clearInterval(introTick); introTimer = introTick = null;
+    introUntil = 0;
+    const el = document.getElementById('clue-intro');
+    if(el){ el.style.display = 'none'; el.innerHTML = ''; }
+    if(!was) return;
+    if(skip && buzzHost){
+      const by = {};
+      for(let i = 0; i < Math.max(1, teams.length); i++) by[i] = { kind:'go' };
+      buzzHost.tell(by);
+    }
+    if((skip || natural) && introClockPending){ introClockPending = false; roundClockStart(); }
+    introClockPending = false;
+  }
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Enter' && introLive()){ e.preventDefault(); e.stopPropagation(); introStop(true); }
+  }, true);
+  document.addEventListener('click', e => {
+    if(introLive() && e.target && e.target.closest && e.target.closest('#clue-intro')){ e.stopPropagation(); introStop(true); }
+  }, true);
+
   function roundClockStart(){
     if(!roundHost || roundHost.clock || !roundHost.onCard) return;
+    if(introLive()){ introClockPending = true; return; }   // the clock starts when the intro ends
     const secs = roundClockSecs();
     if(!secs) return;
     const line = document.getElementById('clue-topline');
@@ -1088,6 +1152,10 @@
              renders mirrored. Everything readable lives on a face. -->
         <div id="clue-topline"></div>
         <div id="clue-section"></div>
+        <!-- The round's intro beat: covers the face for a few seconds before the
+             question, naming the round and saying what to do. On the face, not the
+             card, for the same mirroring reason as everything else here. -->
+        <div id="clue-intro" style="display:none;"></div>
         <div id="clue-text"></div>
         <!-- Daily Double / Final: the bet is placed before the clue is shown, so
              this stands where the clue will be rather than beside it. -->
@@ -3790,6 +3858,7 @@
      Daily Double, and it reads as broken rather than deliberate. */
   function roundEnd(){
     roundWin = null;         // whatever closed the card, nothing is waiting on it now
+    introStop(false);        // a card closing mid-intro takes the intro with it
     roundClockStop();
     if(!roundState) return;
     roundStandDown();
@@ -4229,6 +4298,7 @@
     roundEnd();                                 // stand the previous handsets down
     /* A round arms the room as it opens; the ordinary-question fallback covers the rest.
        Neither fires for a replayed tile (open:false, ask:false). */
+    if(rnd && o.open !== false) introBegin(rnd);   // before roundOpen, so the arm carries it
     const opened = (rnd && o.open !== false) ? roundOpen(rnd) : null;
     if(!opened && o.ask !== false) askPhones(o.item.text, o.game);
     const ans = document.getElementById('clue-answer');
@@ -5375,6 +5445,10 @@
         const pts = bands && roundBandPoints(hostNow);
         if(pts) round.pts = pts;
       }
+      /* the intro, while it is on: what is left of it, so a re-ask mid-intro
+         shows a phone only the remaining beat */
+      if(introLive() && introInfo && round.intro == null)
+        round.intro = { secs: Math.max(0.5, (introUntil - Date.now()) / 1000), label: introInfo.label, how: introInfo.how };
       /* The whole payload, not a key list — same reasoning as `phoneRoundNow`'s
          spread, and it is the same bug paid for at the same moment. The relay
          ignores what it does not know. */

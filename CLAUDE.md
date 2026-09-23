@@ -970,6 +970,15 @@ finished verdict (`pts`). **The tick flashes once per answer** — a place re-to
 part of several and a stray wrong tile on an unfilled table never flash. A disarm hides
 the bar: a clock left running over the waiting screen read as a timer for nothing. A game with a baked `roundPay` default (Jeopardy,
 Quickfire) cannot be moved onto it — the panel says so.
+**Every round question opens with an intro beat** (`roundIntro`, seconds, default 3, 0
+off): the round opens exactly as before and a panel only COVERS it — `#clue-intro` over the
+card's face (the card's own heading, the round's label, its one-line `howTo(state)`, 3-2-1)
+and, on each phone, an `intro` on the arm that `join.html` shows full-screen before the
+question (twist, "Up to N points"). The card's clock and the phone's stopwatch both start
+when it ends, so it costs nobody points. Enter or a click on the card ends it early, and a
+per-team `tell` of kind `go` ends it on every phone at once. A round declares its line as
+`howTo` beside its `label`; one without a line shows the label alone. It is in
+`openRoundOnCard`, so every card host (Jeopardy, Blockbusters, Flip, Connections) has it.
 `roundSecs` is the round's own clock — the third of the three, and the one that did not
 exist — painted as the `#clue-clock` pill on card hosts only (`onCard`, because the
 card's skeleton is in the document whether or not it is open). **Time up is the
@@ -1032,7 +1041,8 @@ a unit already carries into one pool, which gave every unit in the project the g
 free and every round type in it plays unchanged. A class settled the steal's share: a
 third "felt like you should take more", so the default is a half of the gap and the slider
 runs past it. The chooser floats over the bottom row of the grid rather than sitting in
-the column, because a full board cannot shrink under its rows. **Help comes from being
+the column, because a full board cannot shrink under its rows. **Close puts an unrevealed card back** on its tile, unspent, the turn unmoved — as
+Jeopardy's Close always has; once its answer has been revealed, Close spends it. **Help comes from being
 behind, not from winning a card** — a class showed every comeback card only helps whoever
 just won it, which is rarely the bottom of the room — so two devices scale with the gap
 and name nobody: **catch-up worth** (`flipCatchUp`: the leader earns face value, last

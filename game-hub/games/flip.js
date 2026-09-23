@@ -59,6 +59,7 @@
   let POOL = [], TOPIC_NAMES = {}, SECTION_NAMES = {};
   let cards = [];              // the dealt board: {n, item, twist, used}
   let cur = null;              // the card on the clue card right now
+  let revealedNow = false;     // the open card's answer has been shown — Close then spends it rather than putting it back
   let pending = null;          // {team, twist} — a twist waiting for the beat after the question
   let holding = null;          // the twist whose target is being chosen right now
   let awaitingStandings = false;
@@ -267,6 +268,7 @@
        A round judges and pays itself through `win`. A plain clue is scored by hand,
        which is the Jeopardy pattern: Correct and Wrong appear on Reveal. */
     onClueReveal(){
+      revealedNow = true;                     // the answer is out: closing now spends the card
       if(E().roundLive()) return;             // the round's own reveal already ran
       document.getElementById('correct-btn').style.display = 'inline-block';
       document.getElementById('wrong-btn').style.display   = 'inline-block';
@@ -274,14 +276,22 @@
     /* A revealed round still needs awarding by hand when nobody got there — the same
        seam Blockbusters uses. */
     onRoundReveal(){
+      revealedNow = true;
       document.getElementById('correct-btn').style.display = 'inline-block';
       document.getElementById('wrong-btn').style.display   = 'inline-block';
     },
     onClueCorrect(){ handScore(E().activeTeam(), false); },
     onClueWrong(){   handScore(null, true); },
-    /* Closing an unanswered card is not a wrong answer — nobody's run breaks for a
-       question the room never got to. */
-    onClueClose(){   handScore(null, false); },
+    /* **Close puts the card back** while its answer is still hidden: it flies home to
+       its tile face-down, unspent, and the turn does not move — the teacher closed a
+       question, nobody lost it. Once the answer has been revealed the card is spent
+       (its answer is on the wall), and closing it is the old no-score close.
+       Closing an unanswered card is never a wrong answer either way. */
+    onClueClose(){
+      if(revealedNow){ handScore(null, false); return; }
+      cur = null; pending = null;
+      E().closeModal(0);
+    },
     /* **The twist runs here, not on the card.** The engine shows the standings from
        inside its own pay path, so a reversal applied during `win` would happen behind
        that screen and the room would never see it. After it is dismissed the board is
@@ -438,6 +448,7 @@
     if(over || card.used || picking() || revealing) return;
     if(E().clueIsOpen()) return;
     cur = card;
+    revealedNow = false;
     /* Who is in front as this card opens — the Bounty's target, fixed now so that the
        question's own payout cannot move it. Null when nobody is clearly in front. */
     const ts = E().teams();

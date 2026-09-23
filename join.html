@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#12263F">
 <title>Huddle · Relay</title>
-<link rel="stylesheet" href="game-hub/huddle.css?v=20260923b">
+<link rel="stylesheet" href="game-hub/huddle.css?v=20260923c">
 <style>
   :root{ --navy:#12263F; --navy2:#1B3556; --blue:#00A0DF; --yellow:#FFC20E; --cream:#FBF3D5; --white:#fff; }
   *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -161,6 +161,23 @@
      shudder and red edge were the only wrong-answer picture, and a student mid-flick
      did not read them as "wrong". Fixed and pointer-less: a thumb mid-drag goes
      straight through it. */
+  /* The round intro: over everything but the verdict flash, the Huddle ground, the
+     round's name as a big tile-coloured word, the line on what to do, and a 3-2-1. */
+  #introbox{ position:fixed; inset:0; z-index:55; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:16px; padding:28px; text-align:center;
+    background:radial-gradient(120% 70% at 50% -10%, #17305F 0%, var(--hd-ground, #0B1428) 60%); }
+  #introbox.hide{ display:none; }
+  #introbox .ib-twist:empty, #introbox .ib-pts:empty{ display:none; }
+  #introbox .ib-twist{ padding:4px 14px; border-radius:8px; font-weight:800; font-size:0.95rem; letter-spacing:0.12em;
+    text-transform:uppercase; border:2px solid rgba(0,0,0,0.26); background:var(--tw, var(--hd-yellow)); color:var(--hd-ink); }
+  #introbox .ib-label{ font-weight:900; font-size:clamp(2rem, 11vw, 3rem); line-height:1.05; color:var(--hd-yellow);
+    animation:ib-in 420ms cubic-bezier(.2,1.4,.4,1) both; }
+  #introbox .ib-how{ font-size:1.2rem; line-height:1.35; color:var(--hd-paper); max-width:22ch;
+    animation:ib-in 420ms 120ms cubic-bezier(.2,1.4,.4,1) both; }
+  #introbox .ib-pts{ font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:1rem; color:var(--hd-green); }
+  #introbox .ib-count{ font-weight:900; font-size:4.5rem; line-height:1; color:var(--hd-paper); min-height:1em; font-variant-numeric:tabular-nums; }
+  @keyframes ib-in{ from{ opacity:0; transform:scale(0.8); } to{ opacity:1; transform:scale(1); } }
+  @media (prefers-reduced-motion: reduce){ #introbox .ib-label, #introbox .ib-how{ animation:none; } }
   #vflash{ position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; pointer-events:none; }
   #vflash.right, #vflash.wrong, #vflash.close{ display:flex; animation:vflash 450ms ease-out forwards; }
   #vflash.right{ background:rgba(111,176,74,0.45); }
@@ -181,12 +198,12 @@
     color:var(--hd-ink); border:2px solid rgba(0,0,0,0.26); box-shadow:0 2px 0 rgba(0,0,0,0.3);
     background:var(--tw, var(--hd-yellow)); }
   #twistband.hide{ display:none; }
-  #twistband[data-tw="steal"]{  --tw:var(--hd-red, #E2603B); color:#fff; }
-  #twistband[data-tw="swap"]{   --tw:var(--hd-hue-5, #A66CFF); color:#fff; }
-  #twistband[data-tw="double"]{ --tw:var(--hd-yellow, #FFC83D); }
-  #twistband[data-tw="gift"]{   --tw:var(--hd-green, #6FB04A); color:#fff; }
-  #twistband[data-tw="bounty"]{ --tw:var(--hd-blue, #00A0DF); color:#fff; }
-  #twistband[data-tw="box"]{    --tw:var(--hd-hue-7, #E86FA0); }
+  #twistband[data-tw="steal"], #introbox .ib-twist[data-tw="steal"]{  --tw:var(--hd-red, #E2603B); color:#fff; }
+  #twistband[data-tw="swap"], #introbox .ib-twist[data-tw="swap"]{   --tw:var(--hd-hue-5, #A66CFF); color:#fff; }
+  #twistband[data-tw="double"], #introbox .ib-twist[data-tw="double"]{ --tw:var(--hd-yellow, #FFC83D); }
+  #twistband[data-tw="gift"], #introbox .ib-twist[data-tw="gift"]{   --tw:var(--hd-green, #6FB04A); color:#fff; }
+  #twistband[data-tw="bounty"], #introbox .ib-twist[data-tw="bounty"]{ --tw:var(--hd-blue, #00A0DF); color:#fff; }
+  #twistband[data-tw="box"], #introbox .ib-twist[data-tw="box"]{    --tw:var(--hd-hue-7, #E86FA0); }
   /* The phone's own mute. Fixed in the top corner, above every screen, because a
      student's sound is theirs to switch off and the layout under it changes by mode.
      Quiet on purpose — a setting, not a button to press mid-question — and the top
@@ -626,6 +643,15 @@
      because it is fixed and belongs to none of them. -->
 <div class="lookup" id="lookup" aria-live="polite">↑ Look up — something appeared</div>
 <div id="vflash" aria-hidden="true"><span></span></div>
+<!-- The round's intro: the whole screen for the beat before a question — what kind
+     of round, one line on what to do, the twist and what it is worth, 3-2-1. -->
+<div id="introbox" class="hide" aria-live="polite">
+  <div class="ib-twist"></div>
+  <div class="ib-label"></div>
+  <div class="ib-how"></div>
+  <div class="ib-pts"></div>
+  <div class="ib-count"></div>
+</div>
 <button id="snd" class="hide" title="Sound on / off" aria-label="Sound on or off">🔊</button>
 
 <div class="screen" id="screen-play">
@@ -712,16 +738,16 @@
   <button class="rejoin" id="rejoin">Not you? Change name or team</button>
 </div>
 
-<script src="game-hub/hub-brand.js?v=20260923b"></script>
-<script src="game-hub/hub-sound.js?v=20260923b"></script>
-<script src="game-hub/hub-buzzer.js?v=20260923b"></script>
+<script src="game-hub/hub-brand.js?v=20260923c"></script>
+<script src="game-hub/hub-sound.js?v=20260923c"></script>
+<script src="game-hub/hub-buzzer.js?v=20260923c"></script>
 <!-- The physics table, so a `table` handset runs its OWN Kit.table (a flick or stack physics round).
      matter.min.js first (hub-table destructures window.Matter at load); the stub gives
      hub-table the window.HubKit it attaches to, without pulling the whole kit onto a
      phone — hub-table only reads window.HubKit to hang its .table on it. -->
-<script src="game-hub/matter.min.js?v=20260923b"></script>
+<script src="game-hub/matter.min.js?v=20260923c"></script>
 <script>window.HubKit = window.HubKit || {};</script>
-<script src="game-hub/hub-table.js?v=20260923b"></script>
+<script src="game-hub/hub-table.js?v=20260923c"></script>
 <script>
 (function(){
   'use strict';
@@ -969,6 +995,15 @@
   let needSend = false, sentValue = null, cooling = false, preview = false;
   let activeRoundId = null;
   let flashedFor = null;   // the question whose right answer has already flashed — once each
+  /* The round intro, while it shows: the timer that ends it, the ticker that
+     counts it down, and `introGo` — end it now and apply the question (the board's
+     'go' calls it when the teacher starts early). Page-wide, because Autopilot's
+     sim contract reads it too: no answer while the intro is up. */
+  let introTimer = null, introTick = null, introGo = null;
+  function introHide(){
+    clearTimeout(introTimer); clearInterval(introTick); introTimer = introTick = null; introGo = null;
+    const box = document.getElementById('introbox'); if(box) box.className = 'hide';
+  }
   /* Which of this phone's options are finished with — its own placed words, sent by
      the host on the arm and on the join. Held here rather than read off the DOM so a
      reconnect repaints them: the marks are the player's record of their own ladder,
@@ -1263,10 +1298,10 @@
            `open` is false once the phone is finished, timed out or told to wait. */
         return { roundId: activeRoundId, mode, answered, team, multi: maxPicks, options,
                  attempts: simAttempts, wrong: simVerdicts, rethink: canRethink,
-                 open: !!client && !timeUp && !cooling && document.body.dataset.verdict !== 'right' };
+                 open: !!client && !timeUp && !cooling && !introGo && document.body.dataset.verdict !== 'right' };   // not during the intro: the question is not on screen yet
       },
       answer(v){
-        if(!client || timeUp || cooling) return false;
+        if(!client || timeUp || cooling || introGo) return false;
         if(answered && !canRethink) return false;
         simAttempts++;
         if(document.body.dataset.verdict !== 'right') delete document.body.dataset.verdict;
@@ -2287,6 +2322,32 @@
          arm during the wait cancels it: the held question is no longer the question.
          A reconnect (`resume`) never waits twice. */
       clearTimeout(holdTimer); holdTimer = null;
+      introHide();
+      /* **The intro comes first**, then any head start, then the question — and the
+         stopwatch starts only when the question paints, so the intro costs nobody
+         time. A reconnect or a reopen never replays it. */
+      const intro = d && d.intro;
+      if(intro && Number(intro.secs) > 0 && !d.introDone && !d.held && !d.resume && !d.reopen){
+        activeRoundId = d.roundId || null;
+        const box = $('introbox'), secs = Math.min(10, Number(intro.secs));
+        const until = Date.now() + secs * 1000;
+        const tw = d.twist && TWIST_LABEL[d.twist] ? d.twist : null;
+        const twEl = box.querySelector('.ib-twist');
+        twEl.textContent = tw ? TWIST_LABEL[tw] : '';
+        if(tw) twEl.dataset.tw = tw; else delete twEl.dataset.tw;
+        box.querySelector('.ib-label').textContent = intro.label || 'Get ready';
+        box.querySelector('.ib-how').textContent = intro.how || '';
+        const top = Array.isArray(d.pts) && d.pts.length ? Number(d.pts[0]) : 0;
+        box.querySelector('.ib-pts').textContent = top > 0 ? 'Up to ' + top + ' points' : '';
+        const count = box.querySelector('.ib-count');
+        const paint = () => { const left = Math.ceil((until - Date.now()) / 1000); count.textContent = left > 0 ? String(left) : ''; };
+        paint(); introTick = setInterval(paint, 200);
+        box.className = '';
+        setBuzzer('off', 'Wait');
+        introGo = () => { introHide(); applyArmed(Object.assign({}, d, { introDone:true })); };
+        introTimer = setTimeout(() => { if(introGo) introGo(); }, secs * 1000);
+        return;
+      }
       const wait = Math.min(10000, Number(d.hold) || 0);
       if(wait > 0 && !d.held && !d.resume && !d.reopen){
         activeRoundId = d.roundId || null;
@@ -2500,6 +2561,7 @@
        card they were still reading. */
     function standDown(msg){
       floorClockStop(); roundClockStop();
+      introHide();     // a question closed mid-intro takes its intro with it
       /* the question is gone, and so is its clock — a bar left running over the
          waiting screen read as a timer for nothing */
       stopwatchHide();
@@ -2643,6 +2705,8 @@
     client.on('told', d => {
       window.__lastTold = d;                 // a probe's window onto the reversal beat
       if(!d || !d.kind) return;
+      // the teacher started the question early: end the intro now, everywhere at once
+      if(d.kind === 'go'){ if(introGo) introGo(); return; }
       const gain = d.kind === 'gain', loss = d.kind === 'loss';
       const f = $('vflash');
       if(f){
