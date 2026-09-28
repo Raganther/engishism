@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Fuse</title>
+<!--
+  ================= Fuse — a word bomb you throw, phones only =================
+  Every phone runs THIS page. A plain URL is the host: it opens a room and plays too
+  (its own phone talks to its own game directly, no relay round trip). `?code=` or the
+  QR is a player. No relay at all is still a whole game: the host plays alone, the
+  bomb coming back round a ring of one — practice, not a demo.
+
+  The game: one bomb, a hidden fuse. The bomb sits on your table among your letter
+  tiles and it WILL NOT LEAVE until you spell a word — drop letters into the boxes,
+  press ARM. Armed, it can be grabbed: flick it off the left or right edge and it
+  flies onto your neighbour's screen, keeping its speed, and a hard throw smashes the
+  word they had ready. Every two passes the bomb wants a longer word. When the fuse
+  runs out, whoever is holding it loses a heart; last one standing wins.
+
+  Built on the shelves: the physics is Kit.table (game-hub/hub-table.js — the bomb is
+  a round piece the page paints itself, kept out of the slots, that only an armed
+  holder may grab and only an armed bomb may leave through an open side), the sound is
+  HubSound, the room is BenchKit.room + HubBuzzer. The page owns the rules, the wire
+  and the look of the bomb.
+
+  Wire (phone → host on `respond`, ≤120 chars, tagged `t`, deduped per type by `q`):
+    word {w}              the holder asks to arm with a word
+    throw {s,vx,vy,ny}    the bomb left through side s at that speed and height
+    rd {n}                how long a ready word this phone holds (0 = none) — the strip
+  Host → phone on `nope`: view (the whole picture) · bomb (it arrives, or spawns) ·
+    ok {w,pts} / no {w,why} (the word's verdict) · boom {who}.
+-->
+<style>
+  :root{
+    --bg:#0e1118; --bg2:#161b26; --ink:#f1f3fa; --muted:#8e99b3; --line:rgba(255,255,255,0.14);
+    --gold:#F5C542; --good:#6FB04A; --bad:#E2603B; --fire:#FF7A1A; --blue:#00A0DF;
+    /* the table's palette — Kit.table reads these off the canvas */
+    --gw-good:#6FB04A; --gw-bad:#E2603B; --gw-line:rgba(255,255,255,0.22);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; overflow:hidden; }
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    height:100dvh; display:flex; flex-direction:column;
+    touch-action:none; -webkit-user-select:none; user-select:none; overscroll-behavior:none;
+  }
+  .hide{ display:none !important; }
+
+  header{ flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:8px 12px; background:var(--bg2); border-bottom:1px solid var(--line); }
+  .brand{ font-weight:900; letter-spacing:0.14em; color:var(--fire); font-size:0.95rem; }
+  #room-slot{ font-family:"IBM Plex Mono",monospace; font-size:0.72rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+  #room-chip b{ color:var(--gold); }
+  .whoami{ margin-left:auto; display:flex; align-items:center; gap:8px; white-space:nowrap; }
+  #me-name{ font-weight:700; max-width:7em; overflow:hidden; text-overflow:ellipsis; }
+  #me-hearts{ color:var(--bad); letter-spacing:1px; }
+  #me-score{ background:var(--gold); color:#101318; border-radius:8px; padding:1px 8px; font-weight:800; font-variant-numeric:tabular-nums; }
+  #mute{ background:none; border:none; color:var(--ink); font-size:1.05rem; padding:0 2px; cursor:pointer; }
+
+  /* who is in: one line, sideways scroll on a big room — a handset may scroll, a board never */
+  #strip{ flex:0 0 auto; display:flex; gap:6px; padding:6px 12px; overflow-x:auto; border-bottom:1px solid var(--line); min-height:38px; scrollbar-width:none; }
+  #strip::-webkit-scrollbar{ display:none; }
+  .pc{ flex:0 0 auto; display:flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; background:rgba(255,255,255,0.07); border:1.5px solid transparent; font-size:0.82rem; font-weight:700; white-space:nowrap; }
+  .pc .h{ color:var(--bad); font-size:0.72rem; letter-spacing:0.5px; }
+  .pc.me{ border-color:rgba(255,255,255,0.5); }
+  .pc.hold{ background:var(--fire); color:#101318; }
+  .pc.hold .h{ color:#101318; }
+  .pc.out{ opacity:0.38; text-decoration:line-through; }
+  .pc.gone{ opacity:0.3; }
+  .pc .rd{ color:var(--good); }
+  .pc.hold .rd{ color:#101318; }
+
+  #say{ flex:0 0 auto; padding:7px 12px 6px; font-weight:800; font-size:1rem; line-height:1.25; min-height:2.4em; }
+  #say small{ display:block; font-weight:600; color:var(--muted); font-size:0.8rem; margin-top:1px; }
+  #say.hot{ color:var(--fire); }
+
+  #stagewrap{ position:relative; flex:1 1 auto; min-height:0; }
+  #stage{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+  #stagewrap.shake{ animation:shake .5s cubic-bezier(.36,.07,.19,.97) both; }
+  @keyframes shake{
+    10%,90%{ transform:translate(-2px,1px); } 20%,80%{ transform:translate(5px,-3px); }
+    30%,50%,70%{ transform:translate(-9px,4px); } 40%,60%{ transform:translate(9px,-4px); }
+  }
+  .edge{ position:absolute; top:34%; font-size:0.72rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted); pointer-events:none; max-width:40%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; transition:color .2s; }
+  #edgeL{ left:6px; } #edgeR{ right:6px; text-align:right; }
+  .edge.go{ color:var(--fire); animation:nudge 0.9s ease-in-out infinite; }
+  #edgeL.go{ --dx:-4px; } #edgeR.go{ --dx:4px; }
+  @keyframes nudge{ 50%{ transform:translateX(var(--dx)); } }
+  #flash{ position:absolute; left:50%; top:42%; transform:translate(-50%,-50%) scale(.8); padding:10px 18px; border-radius:14px; background:rgba(0,0,0,0.72); font-weight:900; font-size:1.3rem; text-align:center; pointer-events:none; opacity:0; transition:opacity .18s, transform .18s; max-width:90%; }
+  #flash.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+  #flash.bad{ background:var(--bad); color:#fff; }
+  #flash.good{ background:var(--good); color:#101318; }
+  #flash.fire{ background:var(--fire); color:#101318; font-size:1.8rem; }
+  #redwash{ position:absolute; inset:0; background:radial-gradient(circle, rgba(255,160,60,0.85), rgba(226,60,30,0.5) 45%, rgba(0,0,0,0) 80%); opacity:0; pointer-events:none; }
+  #redwash.on{ animation:wash .9s ease-out; }
+  @keyframes wash{ 0%{ opacity:1; } 100%{ opacity:0; } }
+
+  #bar{ flex:0 0 auto; display:flex; gap:8px; padding:8px 12px calc(10px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:var(--bg2); }
+  button{ font:inherit; cursor:pointer; }
+  .btn{ border-radius:14px; border:2px solid rgba(0,0,0,0.3); box-shadow:0 3px 0 rgba(0,0,0,0.4); font-weight:900; padding:12px 12px; font-size:1rem; }
+  .btn:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,0.4); }
+  #redeal{ flex:0 0 auto; background:#2a3142; color:var(--ink); border-color:var(--line); min-width:6.5em; }
+  #redeal:disabled{ opacity:0.45; }
+  #arm{ flex:1 1 auto; background:#2a3142; color:var(--muted); border-color:var(--line); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #arm.live{ background:var(--gold); color:#101318; border-color:rgba(0,0,0,0.3); animation:pulse 1s ease-in-out infinite; }
+  #arm.ready{ color:var(--good); }
+  #arm.thrown{ background:var(--fire); color:#101318; }
+  @keyframes pulse{ 50%{ filter:brightness(1.15); transform:scale(1.02); } }
+
+  /* the overlays: join, lobby, end — over the stage, never over the header */
+  .over{ position:absolute; inset:0; overflow:auto; touch-action:pan-y; background:rgba(14,17,24,0.94); padding:16px; z-index:5; }
+  .over h2{ margin:4px 0 10px; font-size:1.25rem; }
+  .over p{ margin:6px 0; color:var(--muted); line-height:1.4; font-size:0.92rem; }
+  .over input{ font:inherit; font-size:1.1rem; padding:11px 12px; border-radius:12px; border:2px dashed var(--line); background:transparent; color:var(--ink); width:100%; margin:6px 0 10px; -webkit-user-select:text; user-select:text; }
+  .big{ display:block; width:100%; margin:10px 0 4px; padding:14px; background:var(--gold); color:#101318; border-radius:14px; border:2px solid rgba(0,0,0,0.3); box-shadow:0 3px 0 rgba(0,0,0,0.4); font-weight:900; font-size:1.1rem; }
+  .big:disabled{ opacity:0.4; }
+  .big.ghost{ background:#2a3142; color:var(--ink); border-color:var(--line); }
+  .code{ font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:2.2rem; letter-spacing:0.2em; color:var(--gold); text-align:center; margin:4px 0; }
+  .qr{ background:#fff; border-radius:12px; padding:10px; width:min(58vw,210px); margin:6px auto; line-height:0; }
+  .qr svg{ width:100%; height:auto; display:block; }
+  .names{ display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+  .names span{ padding:4px 10px; border-radius:999px; background:rgba(255,255,255,0.08); font-weight:700; font-size:0.9rem; }
+  .rules{ margin:10px 0 0; padding:0; list-style:none; counter-reset:r; }
+  .rules li{ counter-increment:r; position:relative; padding:4px 0 4px 30px; color:var(--ink); font-size:0.92rem; line-height:1.35; }
+  .rules li::before{ content:counter(r); position:absolute; left:0; top:4px; width:21px; height:21px; border-radius:6px; background:var(--fire); color:#101318; font-weight:900; font-size:0.8rem; display:flex; align-items:center; justify-content:center; }
+  .rank{ display:flex; flex-direction:column; gap:6px; margin:10px 0; }
+  .rank div{ display:grid; grid-template-columns:2.2em 1fr auto auto; gap:8px; align-items:center; padding:9px 12px; border-radius:12px; background:rgba(255,255,255,0.07); font-weight:800; }
+  .rank div.first{ background:var(--gold); color:#101318; }
+  .rank div.me{ outline:3px solid #fff; }
+  .rank .h{ color:var(--bad); font-size:0.8rem; }
+  .rank div.first .h{ color:#101318; }
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">FUSE</span>
+  <span id="room-slot"></span>
+  <span class="whoami"><span id="me-name"></span><span id="me-hearts"></span><b id="me-score">0</b><button id="mute" title="Sound">🔊</button></span>
+</header>
+<div id="strip"></div>
+<div id="say"></div>
+<div id="stagewrap">
+  <canvas id="stage"></canvas>
+  <div class="edge" id="edgeL"></div>
+  <div class="edge" id="edgeR"></div>
+  <div id="redwash"></div>
+  <div id="flash"></div>
+  <div class="over hide" id="joinbar">
+    <h2>Join a game of Fuse</h2>
+    <p id="join-room"></p>
+    <input type="text" id="join-name" placeholder="Your name" maxlength="14" autocomplete="off">
+    <button class="big" id="join-go">Join</button>
+  </div>
+  <div class="over hide" id="lobby"></div>
+  <div class="over hide" id="end"></div>
+</div>
+<div id="bar">
+  <button class="btn" id="redeal">↻ Letters</button>
+  <button class="btn" id="arm" disabled>Get a word ready</button>
+</div>
+
+<!-- load order: the relay client and the room shelf, then the physics (matter →
+     the kit it hangs off → the table), the brand's hues, the sound, the dictionary. -->
+<script src="../game-hub/hub-qr.js?v=20260928a"></script>
+<script src="../game-hub/hub-buzzer.js?v=20260928a"></script>
+<script src="phone-profiles.js?v=20260928a"></script>
+<script src="bench-kit.js?v=20260928a"></script>
+<script src="../game-hub/matter.min.js?v=20260928a"></script>
+<script src="../game-hub/hub-kit.js?v=20260928a"></script>
+<script src="../game-hub/hub-brand.js?v=20260928a"></script>
+<script src="../game-hub/hub-table.js?v=20260928a"></script>
+<script src="../game-hub/hub-sound.js?v=20260928a"></script>
+<script src="word-list.js?v=20260928a"></script>
+<script>
+(function(){
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const K = window.HubKit;
+  if(!K || !K.table || !window.WORDS){ $('say').textContent = 'Fuse failed to load its shelves.'; return; }
+  const params = new URLSearchParams(location.search);
+  /* This page is a phone — the Room bench racks its board at a phone's size. */
+  window.HubBoardSize = (window.PHONE_PROFILES && PHONE_PROFILES.standard) || { w:390, h:664 };
+
+  /* ==================== CONTENT — the rules, in one place (a teacher edits these) ==================== */
+  const RULES = {
+    hearts: 3,            // lives each
+    hand: 8,              // letter tiles on your table
+    slots: 7,             // boxes to spell into
+    minVowels: 3,         // a hand is topped up to at least this many vowels
+    needStart: 3,         // letters the bomb wants when it is lit…
+    needMax: 6,           // …growing to this…
+    needEvery: 2,         // …by one every this many passes
+    fuseMin: 20,          // the hidden fuse, seconds: somewhere between these
+    fuseMax: 40,
+    grace: 3,             // a bomb never explodes within this many seconds of landing on you
+    redealCooldown: 5,    // seconds between new hands
+    hintAfter: 10,        // seconds holding the bomb before a word is suggested
+    boomBeat: 3500        // ms the explosion owns the screen before the next fuse
+  };
+  /* The Scrabble bag, no blanks: letter → how many. Drawn without replacement per phone. */
+  const BAG = { A:9, B:2, C:2, D:4, E:12, F:2, G:3, H:2, I:9, J:1, K:1, L:4, M:2, N:6, O:8, P:2, Q:1, R:6, S:4, T:6, U:4, V:2, W:2, X:1, Y:2, Z:1 };
+  /* ================================================================================================ */
+
+  const WORD_LIST = window.WORDS.split(' ');
+  const DICT = new Set(WORD_LIST);
+  const VOWELS = 'AEIOU';
+  const BOMB = 'BOMB';
+  const now = () => Date.now();
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const r1 = v => Math.round(v * 10) / 10;
+
+  /* ================= who am I ================= */
+  const RELAY = params.get('relay') || '';
+  /* A page served from GitHub Pages has no relay behind it; its room reaches across to
+     the hosted one, and the QR sends phones to that copy (which is its own relay). */
+  const ROOM_RELAY = RELAY || (/(^|\.)github\.io$/i.test(location.hostname) ? 'https://engishism-buzzer.onrender.com' : '');
+  const SIM = (window.HubBuzzer && HubBuzzer.sim) ? HubBuzzer.sim() : null;
+  const codeParam = (params.get('code') || (SIM && SIM.code) || '').trim();
+  const isHost = !codeParam;
+  const SEAT_KEY = 'engishism.fuse.seat', NAME_KEY = 'engishism.fuse.name', SOUND_KEY = 'engishism.fuse.sound';
+  const store = {
+    get(k){ if(SIM) return null; try{ return localStorage.getItem(k); }catch(e){ return null; } },
+    set(k, v){ if(SIM) return; try{ localStorage.setItem(k, v); }catch(e){} }
+  };
+  let myId = null, myName = '', client = null, view = null;
+  const seq = {};
+
+  /* ================= sound ================= */
+  let soundOn = store.get(SOUND_KEY) !== '0' && !(SIM && params.get('sound') !== '1');
+  const synth = window.HubSound ? HubSound.make({ level: () => 0.12, on: () => soundOn }) : null;
+  const sfx = (name, s) => { if(!synth) return; if(synth[name]) synth[name](s); else synth.play(name); };
+  function paintMute(){ $('mute').textContent = soundOn ? '🔊' : '🔇'; }
+  $('mute').addEventListener('click', () => { soundOn = !soundOn; store.set(SOUND_KEY, soundOn ? '1' : '0'); paintMute(); if(soundOn && synth) synth.unlock(); });
+  paintMute();
+  document.addEventListener('pointerdown', () => { if(synth && soundOn) synth.unlock(); }, { once:true, capture:true });
+  /* a phone buzzes only once it has been touched — a browser refuses before that */
+  const buzz = p => { try{ if(navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) navigator.vibrate(p); }catch(e){} };
+
+  /* ======================================================================
+     THE HOST — the game itself. Runs on one phone; every phone (its own too)
+     draws only what it is sent.
+     ====================================================================== */
+  let room = null, relayState = isHost ? 'connecting' : '';
+  const players = [];     // append-only seats: {id, name, hearts, score, alive, present, ready, lastQ}
+  const byId = id => players.find(p => p.id === id);
+  const G = { phase:'lobby', holder:null, armed:false, need:RULES.needStart, passes:0, fuseStart:0, fuseEnds:0,
+              holderSince:0, fuseNo:0, heat:0, used:new Set(), last:null, boomWho:null, boomUntil:0, nextHolder:null,
+              startCount:0, outOrder:[], rank:null };
+
+  const ring = () => players.filter(p => p.alive && p.present).map(p => p.id);
+  function neighbour(id, side){
+    const r = ring(), i = r.indexOf(id), n = r.length;
+    if(i < 0 || !n) return null;
+    return side === 'l' ? r[(i - 1 + n) % n] : r[(i + 1) % n];
+  }
+  /* Host → one phone. Its own phone is told directly, in order, a tick later — the
+     same shape as the wire, so nothing on the player side knows which it is. */
+  function deliver(id, o){
+    if(id === myId){ Promise.resolve().then(() => onMsg(o)); return; }
+    if(room && room.host()) room.host().nope(id, JSON.stringify(o));
+  }
+  function viewFor(){
+    return { phase: G.phase, holder: G.holder, armed: G.armed, need: G.need, heat: G.heat, fuse: G.fuseNo,
+             passes: G.passes, last: G.last, boom: G.phase === 'boom' ? G.boomWho : null, rank: G.rank, ring: ring(),
+             relay: relayState, code: room && room.host() ? room.host().code : '',
+             players: players.map(p => ({ id:p.id, name:p.name, h:p.hearts, s:p.score, a:p.alive, p:p.present, r:p.ready })) };
+  }
+  function push(){
+    const s = { t:'view', v: viewFor() };
+    players.forEach(p => { if(p.present) deliver(p.id, s); });
+  }
+  function startGame(){
+    players.forEach(p => {
+      p.alive = p.present; p.hearts = p.present ? RULES.hearts : 0; p.score = 0; p.ready = 0;
+    });
+    G.used.clear(); G.outOrder = []; G.rank = null; G.last = null; G.fuseNo = 0;
+    G.startCount = ring().length;
+    const r = ring();
+    newFuse(r[Math.floor(Math.random() * r.length)]);
+  }
+  function newFuse(holder){
+    G.phase = 'play'; G.holder = holder; G.armed = false; G.passes = 0; G.need = RULES.needStart;
+    G.fuseNo++; G.fuseStart = now(); G.fuseEnds = G.fuseStart + rand(RULES.fuseMin, RULES.fuseMax) * 1000;
+    G.holderSince = now(); G.heat = 0; G.boomWho = null;
+    G.last = { kind:'lit', to: nameOf(holder) };
+    deliver(holder, { t:'bomb', spawn:1 });
+    push();
+  }
+  const nameOf = id => (byId(id) || {}).name || '?';
+  function hostHandle(id, m){
+    const p = byId(id); if(!p || !m) return;
+    if(m.t === 'rd'){ const n = Math.max(0, Math.min(9, Number(m.n) || 0)); if(n !== p.ready){ p.ready = n; push(); } return; }
+    if(G.phase !== 'play' || id !== G.holder) return;
+    if(m.t === 'word'){
+      if(G.armed) return;
+      const w = String(m.w || '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 12);
+      const why = !DICT.has(w) ? 'not in the word list' : w.length < G.need ? 'too short — ' + G.need + '+ letters' : G.used.has(w) ? 'already used this game' : '';
+      if(why){ deliver(id, { t:'no', w, why }); return; }
+      const pts = w.length + Math.max(0, w.length - G.need);   // every letter, and double for each past what was asked
+      G.armed = true; G.used.add(w); p.score += pts; p.ready = 0;
+      G.last = { kind:'word', who: p.name, w, pts };
+      deliver(id, { t:'ok', w, pts });
+      push();
+    } else if(m.t === 'throw'){
+      if(!G.armed) return;
+      const side = m.s === 'l' ? 'l' : 'r';
+      const to = neighbour(id, side) || id;
+      G.holder = to; G.armed = false; G.passes++; G.holderSince = now();
+      G.need = Math.min(RULES.needMax, RULES.needStart + Math.floor(G.passes / RULES.needEvery));
+      G.last = { kind:'throw', from: p.name, to: nameOf(to) };
+      deliver(to, { t:'bomb', from: p.name, side: side === 'l' ? 'r' : 'l',
+                    vx: Number(m.vx) || 0, vy: Number(m.vy) || 0, ny: Number(m.ny) || 0.4 });
+      push();
+    }
+  }
+  function boom(){
+    const p = byId(G.holder); if(!p) return;
+    const next = neighbour(p.id, 'r');
+    p.hearts = Math.max(0, p.hearts - 1);
+    if(!p.hearts){ p.alive = false; G.outOrder.push(p.id); }
+    G.nextHolder = p.alive ? p.id : (next !== p.id ? next : null);
+    G.phase = 'boom'; G.boomWho = p.id; G.boomUntil = now() + RULES.boomBeat; G.armed = false;
+    G.last = { kind:'boom', who: p.name, out: !p.alive };
+    players.forEach(q => { if(q.present) deliver(q.id, { t:'boom', who: p.id, name: p.name, out: !p.alive }); });
+    push();
+  }
+  function endGame(){
+    const alive = players.filter(p => p.alive).sort((a, b) => b.hearts - a.hearts || b.score - a.score);
+    const out = G.outOrder.slice().reverse().map(byId).filter(Boolean);
+    G.rank = alive.concat(out).filter(p => p.hearts > 0 || G.outOrder.includes(p.id)).map(p => p.id);
+    G.phase = 'end'; G.holder = null; G.armed = false;
+    push();
+  }
+  function hostTick(){
+    if(G.phase === 'play'){
+      const multi = G.startCount >= 2, r = ring();
+      if((multi && r.length <= 1) || !r.length) return endGame();
+      /* the holder dropped off the wifi: the bomb moves on rather than waiting */
+      const h = byId(G.holder);
+      if(!h || !h.present || !h.alive){
+        const to = r[0];
+        G.holder = to; G.armed = false; G.holderSince = now();
+        deliver(to, { t:'bomb', spawn:1 }); push();
+        return;
+      }
+      const f = (now() - G.fuseStart) / Math.max(1, G.fuseEnds - G.fuseStart);
+      const heat = f < 0.45 ? 0 : f < 0.7 ? 1 : f < 0.88 ? 2 : 3;
+      if(heat !== G.heat){ G.heat = heat; push(); }
+      if(now() >= G.fuseEnds && now() - G.holderSince >= RULES.grace * 1000) boom();
+    } else if(G.phase === 'boom' && now() >= G.boomUntil){
+      const alive = players.filter(p => p.alive && p.present);
+      if((G.startCount >= 2 && alive.length <= 1) || !alive.length) return endGame();
+      const nh = G.nextHolder && byId(G.nextHolder) && byId(G.nextHolder).alive ? G.nextHolder : alive[0].id;
+      newFuse(nh);
+    }
+  }
+
+  function hostSetup(){
+    myId = 'h' + Date.now().toString(36);
+    myName = (store.get(NAME_KEY) || '').slice(0, 14) || 'Host';
+    players.push({ id: myId, name: myName, hearts: 0, score: 0, alive: false, present: true, ready: 0, lastQ: {} });
+    setInterval(hostTick, 200);
+    room = window.BenchKit ? BenchKit.room({
+      mount: $('room-slot'), board: 'fuse.html', joinPath: '/playground/fuse.html',
+      relay: ROOM_RELAY || undefined,
+      on: {
+        ready(h){ h.arm('', { mode:'answer', rethink:true, secs:0 }); relayState = 'ready'; push(); },
+        status(st){ if(st === 'off' || st === 'connecting'){ relayState = st; push(); } },
+        players(list){
+          (list || []).forEach(p => {
+            let me = byId(p.id);
+            /* a latecomer sits out the game in progress and plays the next one */
+            if(!me){ me = { id:p.id, name:p.name, hearts:0, score:0, alive:false, present:true, ready:0, lastQ:{} }; players.push(me); }
+            me.name = String(p.name || 'Player').slice(0, 14);
+          });
+          const here = new Set((list || []).map(p => p.id));
+          players.forEach(p => { if(p.id !== myId) p.present = here.has(p.id); });
+          push();
+        },
+        response(d){
+          const v = d && d.latest; if(!v) return;
+          let m = null; try{ m = JSON.parse(v.value || ''); }catch(e){ return; }
+          const p = byId(v.id); if(!p || !m || !m.t) return;
+          if(m.q != null){ if(m.q <= (p.lastQ[m.t] || 0)) return; p.lastQ[m.t] = m.q; }
+          hostHandle(v.id, m);
+        }
+      }
+    }) : null;
+    push();
+  }
+
+  /* ======================================================================
+     THE PHONE — every phone, the host's own included
+     ====================================================================== */
+  function send(o){
+    if(isHost){ Promise.resolve().then(() => hostHandle(myId, o)); return; }
+    if(!client) return;
+    o.q = (seq[o.t] = (seq[o.t] || 0) + 1);
+    client.respond(JSON.stringify(o));
+  }
+  function onMsg(m){
+    if(!m || !m.t) return;
+    if(m.t === 'view'){ view = m.v; render(); }
+    else if(m.t === 'bomb') arrive(m);
+    else if(m.t === 'ok') armedOk(m);
+    else if(m.t === 'no') refused(m);
+    else if(m.t === 'boom') exploded(m);
+  }
+  function joinAs(code, name){
+    let seat = {}; try{ seat = JSON.parse(store.get(SEAT_KEY) || '{}') || {}; }catch(e){}
+    myId = (SIM && SIM.id) || ((seat.code === code && seat.id) ? seat.id : ('f' + Date.now().toString(36) + Math.floor(Math.random() * 1e4)));
+    myName = String(name || 'Player').slice(0, 14);
+    store.set(SEAT_KEY, JSON.stringify({ id: myId, name: myName, code }));
+    store.set(NAME_KEY, myName);
+    client = HubBuzzer.player({ relay: RELAY, code, name: myName, id: myId });
+    client.on('nope', d => { let m = null; try{ m = JSON.parse((d && d.word) || ''); }catch(e){ return; } onMsg(m); });
+    client.on('kicked', () => { client = null; $('say').textContent = 'You were removed from the room.'; });
+    $('joinbar').classList.add('hide');
+    $('room-slot').textContent = 'room ' + code;
+    $('say').innerHTML = 'Joining…<small>Waiting for the host’s phone.</small>';
+    paintMe();
+  }
+
+  /* ---- the table ---- */
+  const canvas = $('stage');
+  const mayThrow = () => !!(view && view.phase === 'play' && view.holder === myId && view.armed);
+  const world = K.table({
+    canvas,
+    lowLatency: true,   // a phone in the hand: a frame sooner under the thumb
+    onArrange(){ readWord(); },
+    onExit(t){ if(t.ch === BOMB) thrown(t); },
+    /* the bomb: only an armed holder may pick it up, and only an armed bomb leaves.
+       A letter never leaves — the open edges are the bomb's doors alone. */
+    canExit: i => i.tag === 'bomb' && mayThrow(),
+    canGrab: i => i.tag !== 'bomb' || mayThrow(),
+    onFx(f){
+      if(f.kind === 'hit') sfx('hit', f.s * 0.6);
+      else if(f.kind === 'knock') sfx('knock', f.s);
+      else if(f.kind === 'throw') sfx('swoosh', f.s);
+      else if(f.kind === 'dock') sfx('dock');
+    }
+  });
+  world.openSides({ l:true, r:true });
+  world.slots({ cols: RULES.slots, rows: 1, top: 10 });
+
+  /* the bag, per phone */
+  let bag = [];
+  function drawLetter(vowel){
+    if(!bag.length){
+      Object.keys(BAG).forEach(ch => { for(let i = 0; i < BAG[ch]; i++) bag.push(ch); });
+      for(let i = bag.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
+    }
+    if(vowel){ const at = bag.findIndex(ch => VOWELS.includes(ch)); if(at !== -1) return bag.splice(at, 1)[0]; }
+    return bag.pop();
+  }
+  const handLetters = () => world.loose().filter(p => p.tag === 'L').map(p => p.ch).concat(world.cells().filter(Boolean));
+  function dims(){ return { w: canvas.offsetWidth || 360, h: canvas.offsetHeight || 400 }; }
+  function belowSlots(){ const b = world.slotBox(0); return b ? b.y + b.h / 2 + 8 : 80; }
+  /* New tiles rain in one by one across the width, so they fall into the heap
+     rather than being born inside each other. */
+  let rainT = [];
+  function rain(n){
+    const { w } = dims(), ts = world.tileSize() || 48;
+    for(let i = 0; i < n; i++){
+      rainT.push(setTimeout(() => {
+        const have = handLetters();
+        const vowels = have.filter(ch => VOWELS.includes(ch)).length;
+        const ch = drawLetter(vowels < RULES.minVowels && have.length + 1 >= RULES.hand - (RULES.minVowels - vowels));
+        const x = ts / 2 + 6 + ((i + 0.5) / n) * (w - ts - 12) + rand(-6, 6);
+        world.addPiece(ch, { x, y: belowSlots() + ts * 0.6, vx: rand(-1.5, 1.5), vy: 3, tag: 'L', spin: rand(-0.1, 0.1) });
+        readWord(); refreshHint();
+      }, i * 90));
+    }
+  }
+  function newHand(){
+    rainT.forEach(clearTimeout); rainT = [];
+    world.remove('L');
+    rain(RULES.hand);
+  }
+
+  /* ---- the bomb: a round piece the page paints itself ---- */
+  let sentAt = 0, arrivedAt = 0;
+  const bombPiece = () => world.loose().find(p => p.tag === 'bomb') || null;
+  function addBomb(o){
+    world.remove('bomb');
+    world.addPiece(BOMB, Object.assign({ tag:'bomb', round:true, scale:2.2, nodock:true, paint:false, hue:'#FF7A1A' }, o));
+    arrivedAt = now(); holdSince = now();
+  }
+  function arrive(m){
+    const { w, h } = dims();
+    if(m.spawn){
+      addBomb({ x: w / 2 + rand(-30, 30), y: belowSlots() + 30, vx: rand(-2, 2), vy: 2 });
+      flash('💣 The bomb is yours!', 'fire', 1300);
+    } else {
+      const fromL = m.side === 'l';
+      const sp = Math.min(32, Math.abs(Number(m.vx) || 12));
+      const y = Math.max(belowSlots() + 30, Math.min(h * 0.55, (Number(m.ny) || 0.4) * h));
+      addBomb({ x: fromL ? 26 : w - 26, y, vx: (fromL ? 1 : -1) * Math.max(8, sp), vy: Math.max(-25, Math.min(25, Number(m.vy) || 0)), shot: true, spin: rand(-0.3, 0.3) });
+      flash('INCOMING from ' + (m.from || 'someone') + '!', 'fire', 1200);
+      sfx('swoosh', 1);
+    }
+    sentAt = 0;
+    buzz(80);
+    render();
+  }
+  function thrown(t){
+    sentAt = now();
+    send({ t:'throw', s: t.side, vx: r1(t.vx), vy: r1(t.vy), ny: Math.round(t.ny * 100) / 100 });
+    const to = neighbourName(t.side);
+    flash(to ? 'Thrown to ' + to + '!' : 'Thrown!', 'good', 900);
+  }
+  let holdSince = 0;
+
+  /* ---- the word in the boxes ---- */
+  let cur = { word:'', ok:false, gap:false }, sentReady = -1;
+  function readWord(){
+    const cells = world.cells();
+    let a = 0, b = cells.length - 1;
+    while(a <= b && !cells[a]) a++;
+    while(b >= a && !cells[b]) b--;
+    const run = cells.slice(a, b + 1);
+    const gap = run.some(c => !c);
+    const word = gap ? '' : run.join('').toLowerCase();
+    cur = { word, ok: word.length >= 3 && DICT.has(word), gap };
+    const n = cur.ok ? word.length : 0;
+    if(n !== sentReady && view && view.phase !== 'lobby'){ sentReady = n; send({ t:'rd', n }); }
+    paintBar();
+  }
+  const need = () => (view && view.need) || RULES.needStart;
+  $('arm').addEventListener('click', () => {
+    if(!(view && view.phase === 'play' && view.holder === myId && !view.armed)) return;
+    if(!cur.ok || cur.word.length < need()) return;
+    send({ t:'word', w: cur.word });
+    $('arm').textContent = 'Checking…';
+  });
+  function armedOk(m){
+    const spent = world.take();
+    rain(spent.length);
+    sfx('armed');
+    burstAt = now();
+    flash('ARMED · ' + m.w.toUpperCase() + ' +' + m.pts, 'good', 1100);
+    buzz(40);
+  }
+  function refused(m){
+    world.setResult('wrong');
+    setTimeout(() => world.setResult(null), 900);
+    flash(m.w.toUpperCase() + ': ' + m.why, 'bad', 1500);
+    sfx('buzz');
+    paintBar();
+  }
+  /* ---- new letters ---- */
+  let redealAt = 0;
+  $('redeal').addEventListener('click', () => {
+    if(now() - redealAt < RULES.redealCooldown * 1000) return;
+    redealAt = now(); newHand(); paintBar();
+  });
+
+  /* ---- a hint for a stuck holder: a word these letters make ---- */
+  let hint = '', hintFor = '';
+  function canSpell(word, pool){
+    const c = {}; pool.forEach(ch => { c[ch] = (c[ch] || 0) + 1; });
+    for(const ch of word.toUpperCase()){ if(!c[ch]) return false; c[ch]--; }
+    return true;
+  }
+  function refreshHint(){
+    const letters = handLetters(), key = letters.slice().sort().join('') + '|' + need();
+    if(key === hintFor) return;
+    hintFor = key;
+    const n = need(), max = Math.min(RULES.slots, letters.length);
+    const fits = WORD_LIST.filter(w => w.length >= n && w.length <= max && !(view && view.usedHint === w) && canSpell(w, letters));
+    fits.sort((a, b) => a.length - b.length);
+    hint = fits.length ? fits[Math.floor(Math.random() * Math.min(4, fits.length))] : '';
+  }
+
+  /* ---- the explosion ---- */
+  let burstAt = 0, boomFx = null;
+  function exploded(m){
+    if(m.who === myId){
+      const b = bombPiece() || (() => { const { w, h } = dims(); return { x: w / 2, y: h * 0.6 }; })();
+      world.remove('bomb');
+      world.blast(b.x, b.y, 24);
+      boomFx = { x: b.x, y: b.y, t: now(), parts: Array.from({ length: 70 }, () => {
+        const a = Math.random() * Math.PI * 2, s = rand(3, 13);
+        return { vx: Math.cos(a) * s, vy: Math.sin(a) * s - 2, r: rand(2, 6), c: ['#FF7A1A','#F5C542','#E2603B','#ffffff','#555'][Math.floor(Math.random() * 5)] };
+      }) };
+      const sw = $('stagewrap'); sw.classList.remove('shake'); void sw.offsetWidth; sw.classList.add('shake');
+      const rw = $('redwash'); rw.classList.remove('on'); void rw.offsetWidth; rw.classList.add('on');
+      flash(m.out ? 'BOOM! You’re out' : 'BOOM! −1 ❤', 'bad', 2200);
+      buzz([220, 80, 320]);
+      sfx('boom'); if(synth) synth.noise(1.1, { name:'blast', bp: 180, to: 60, q: 0.6, peak: 2.2, attack: 0.004, decay: 1.0 });
+    } else {
+      flash('💥 ' + m.name + (m.out ? ' is out!' : ' blew up!'), 'fire', 1600);
+      sfx('knock', 1);
+      buzz(60);
+    }
+  }
+
+  /* ---- drawing what the shelf does not: the bomb and the blast ---- */
+  const ctx = canvas.getContext('2d');
+  function drawBomb(t){
+    const b = bombPiece(); if(!b) return;
+    const r = b.r || 30, heat = (view && view.heat) || 0, armed = mayThrow();
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    if(armed){   // ready to throw: a green ring breathing
+      const k = 0.5 + 0.5 * Math.sin(t / 150);
+      ctx.strokeStyle = 'rgba(111,176,74,' + (0.45 + 0.45 * k) + ')'; ctx.lineWidth = 4 + 3 * k;
+      ctx.beginPath(); ctx.arc(0, 0, r + 7 + 3 * k, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.rotate(b.ang || 0);
+    // the body: dark iron, a red flush as it heats, a highlight
+    const flush = [0, 0.15, 0.35, 0.6][heat] * (0.6 + 0.4 * Math.sin(t / [400, 260, 150, 80][heat]));
+    const g = ctx.createRadialGradient(-r * 0.35, -r * 0.35, r * 0.1, 0, 0, r);
+    g.addColorStop(0, '#5a6070'); g.addColorStop(1, '#16181f');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    if(flush > 0){ ctx.fillStyle = 'rgba(255,70,30,' + flush + ')'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); }
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 2; ctx.stroke();
+    // the cap and the fuse
+    ctx.fillStyle = '#3a3f4b'; ctx.fillRect(-r * 0.25, -r - 6, r * 0.5, 9);
+    ctx.strokeStyle = '#c9b48a'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0, -r - 5); ctx.quadraticCurveTo(r * 0.35, -r - 18, r * 0.55, -r - 14); ctx.stroke();
+    // the spark: faster and bigger as it heats
+    const rate = [260, 170, 100, 55][heat], sp = 5 + heat * 2 + 3 * Math.abs(Math.sin(t / rate * Math.PI));
+    ctx.fillStyle = '#FFD166'; ctx.beginPath(); ctx.arc(r * 0.55, -r - 14, sp, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(r * 0.55, -r - 14, sp * 0.45, 0, Math.PI * 2); ctx.fill();
+    // what it wants, written on it
+    ctx.rotate(-(b.ang || 0));
+    ctx.fillStyle = armed ? '#6FB04A' : '#ffffff';
+    ctx.font = '900 ' + Math.round(r * 0.62) + 'px -apple-system, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(armed ? 'GO' : need() + '+', 0, 2);
+    ctx.restore();
+  }
+  function drawBlast(t){
+    if(burstAt && t - burstAt < 600){   // a word armed: a flash across the boxes
+      const b0 = world.slotBox(0), bN = world.slotBox(RULES.slots - 1);
+      if(b0 && bN){
+        const f = (t - burstAt) / 600;
+        ctx.save(); ctx.globalAlpha = (1 - f) * 0.5; ctx.fillStyle = '#6FB04A';
+        ctx.fillRect(b0.x - b0.w / 2 - 6 - 20 * f, b0.y - b0.h / 2 - 6, (bN.x - b0.x) + b0.w + 12 + 40 * f, b0.h + 12);
+        ctx.restore();
+      }
+    }
+    if(!boomFx) return;
+    const age = t - boomFx.t;
+    if(age > 1400){ boomFx = null; return; }
+    ctx.save();
+    const f = age / 1400;
+    ctx.globalAlpha = Math.max(0, 1 - f * 1.6);
+    ctx.strokeStyle = '#FFD166'; ctx.lineWidth = 10 * (1 - f) + 1;
+    ctx.beginPath(); ctx.arc(boomFx.x, boomFx.y, 20 + 380 * Math.sqrt(f), 0, Math.PI * 2); ctx.stroke();
+    const fr = age / 16;
+    boomFx.parts.forEach(p => {
+      ctx.globalAlpha = Math.max(0, 1 - f);
+      ctx.fillStyle = p.c;
+      ctx.beginPath(); ctx.arc(boomFx.x + p.vx * fr, boomFx.y + p.vy * fr + 0.05 * fr * fr, p.r * (1 - f * 0.6), 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.restore();
+  }
+
+  /* ---- the loop ---- */
+  let lastTick = 0, lastCare = 0;
+  (function loop(){
+    world.step(); world.draw();
+    const t = now();
+    drawBomb(t); drawBlast(t);
+    // keep the table honest against the host's picture, a few times a second
+    if(t - lastCare > 250){
+      lastCare = t;
+      const has = !!bombPiece(), mine = view && view.phase === 'play' && view.holder === myId;
+      if(mine && !has && (!sentAt || t - sentAt > 2500)) addBomb({ x: dims().w / 2, y: belowSlots() + 30, vx: 0, vy: 2 });
+      if(!mine && has) world.remove('bomb');
+      if(mine && !view.armed && t - holdSince > RULES.hintAfter * 1000) paintSay();
+    }
+    // the tick, for the one holding it — faster as it heats
+    if(view && view.phase === 'play' && view.holder === myId && bombPiece()){
+      const every = [900, 600, 340, 170][view.heat || 0];
+      if(t - lastTick > every){ lastTick = t; sfx('tick'); }
+    }
+    requestAnimationFrame(loop);
+  })();
+
+  /* ---- pointer → grab / move / drop (the shelf maps the touch) ---- */
+  canvas.addEventListener('pointerdown', e => {
+    const p = world.pt(e);
+    if(world.grab(e.pointerId, p.x, p.y)) canvas.setPointerCapture(e.pointerId);
+    else {
+      const b = bombPiece();   // a tap on an unarmed bomb says why it will not move
+      if(b && Math.hypot(p.x - b.x, p.y - b.y) < (b.r || 30) * 1.3 && view && view.holder === myId && !view.armed)
+        flash('Spell a word first!', 'bad', 900);
+    }
+  });
+  canvas.addEventListener('pointermove', e => { if(world.heldBy(e.pointerId)){ const p = world.pt(e); world.move(e.pointerId, p.x, p.y); } });
+  function endDrag(e){
+    if(!world.heldBy(e.pointerId)) return;
+    world.drop(e.pointerId);
+    try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
+  }
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+  let rz;
+  const refit = () => { clearTimeout(rz); rz = setTimeout(() => world.resize(), 150); };
+  window.addEventListener('resize', refit);
+  if(window.visualViewport) window.visualViewport.addEventListener('resize', refit);
+
+  /* ================= painting the phone from the view ================= */
+  let flashT = 0;
+  function flash(text, kind, ms){
+    const f = $('flash');
+    f.textContent = text; f.className = 'show ' + (kind || '');
+    clearTimeout(flashT); flashT = setTimeout(() => { f.className = ''; }, ms || 1000);
+  }
+  const hearts = n => '❤'.repeat(Math.max(0, n)) + '♡'.repeat(Math.max(0, RULES.hearts - n));
+  const me = () => (view && view.players.find(p => p.id === myId)) || null;
+  function neighbourName(side){
+    if(!view) return '';
+    const r = view.ring, i = r.indexOf(myId), n = r.length;
+    if(i < 0 || !n) return '';
+    const id = side === 'l' ? r[(i - 1 + n) % n] : r[(i + 1) % n];
+    if(id === myId) return 'you';
+    return ((view.players.find(p => p.id === id) || {}).name) || '';
+  }
+  function paintMe(){
+    const m = me();
+    $('me-name').textContent = myName;
+    $('me-hearts').textContent = m && (view.phase !== 'lobby') ? hearts(m.h) : '';
+    $('me-score').textContent = String(m ? m.s : 0);
+  }
+  function paintStrip(){
+    const s = $('strip'); s.innerHTML = '';
+    if(!view) return;
+    view.players.filter(p => p.p || p.a).forEach(p => {
+      const c = document.createElement('span');
+      c.className = 'pc' + (p.id === myId ? ' me' : '') + (p.id === view.holder && view.phase === 'play' ? ' hold' : '') +
+                    (view.phase !== 'lobby' && !p.a ? ' out' : '') + (!p.p ? ' gone' : '');
+      const nm = document.createElement('span'); nm.textContent = (p.id === view.holder && view.phase === 'play' ? '💣 ' : '') + p.name; c.appendChild(nm);
+      if(view.phase !== 'lobby' && p.a){ const h = document.createElement('span'); h.className = 'h'; h.textContent = '❤'.repeat(p.h); c.appendChild(h); }
+      if(view.phase === 'play' && p.a && p.r >= view.need && p.id !== view.holder){ const r = document.createElement('span'); r.className = 'rd'; r.textContent = '✓'; r.title = 'has a word ready'; c.appendChild(r); }
+      s.appendChild(c);
+    });
+  }
+  function paintSay(){
+    const el = $('say'); el.classList.remove('hot');
+    if(!view){ return; }
+    const holder = (view.players.find(p => p.id === view.holder) || {}).name || '';
+    const m = me(), n = view.need;
+    let html = '';
+    if(view.phase === 'lobby') html = isHost ? 'Your room' + '<small>Type your name, share the code, light the fuse.</small>' : 'You’re in!<small>Waiting for the host to start. Try some words meanwhile.</small>';
+    else if(view.phase === 'end') html = 'Game over';
+    else if(view.phase === 'boom') html = '💥 ' + esc((view.players.find(p => p.id === view.boom) || {}).name || '') + ' blew up!<small>Next fuse in a moment…</small>';
+    else if(m && !m.a) html = 'You’re out — watch the bomb<small>' + esc(holder) + ' has it.</small>';
+    else if(view.holder === myId && view.armed){ html = 'Armed! Flick it off the side ◀ ▶<small>Throw hard to smash their word.</small>'; el.classList.add('hot'); }
+    else if(view.holder === myId){
+      const late = now() - holdSince > RULES.hintAfter * 1000;
+      if(!hint) refreshHint();
+      html = '💣 Your bomb — spell ' + n + '+ letters, then ARM' + '<small>' + (late && hint ? 'Try: ' + esc(hint.toUpperCase()) : 'It won’t leave your screen until you do.') + '</small>';
+      el.classList.add('hot');
+    }
+    else html = '💣 ' + esc(holder) + ' has the bomb' + '<small>Get a ' + n + '+ letter word ready — it could be yours next.</small>';
+    el.innerHTML = html;
+  }
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+  function paintBar(){
+    const arm = $('arm'); arm.className = 'btn';
+    const cd = Math.ceil((RULES.redealCooldown * 1000 - (now() - redealAt)) / 1000);
+    $('redeal').disabled = cd > 0; $('redeal').textContent = cd > 0 ? '↻ ' + cd + 's' : '↻ Letters';
+    if(cd > 0) setTimeout(paintBar, 400);
+    const n = need(), long = cur.ok && cur.word.length >= n, W = cur.word.toUpperCase();
+    if(view && view.phase === 'play' && view.holder === myId){
+      if(view.armed){ arm.disabled = true; arm.classList.add('thrown'); arm.textContent = 'Throw it! ◀ ▶'; return; }
+      arm.disabled = !long;
+      if(long){ arm.classList.add('live'); arm.textContent = 'ARM · ' + W; }
+      else arm.textContent = cur.gap ? 'No gaps in your word' : cur.word && !cur.ok && cur.word.length >= 3 ? W + '? not a word' : 'Spell ' + n + '+ letters';
+      return;
+    }
+    arm.disabled = true;
+    if(long){ arm.classList.add('ready'); arm.textContent = 'Ready: ' + W + ' ✓'; }
+    else arm.textContent = cur.word && cur.word.length >= 3 && !cur.ok ? W + '? not a word' : 'Get a ' + n + '+ letter word ready';
+  }
+  function paintEdges(){
+    const l = $('edgeL'), r = $('edgeR');
+    const live = view && (view.phase === 'play') && view.ring.includes(myId);
+    const go = mayThrow();
+    l.textContent = live ? '◀ ' + neighbourName('l') : ''; r.textContent = live ? neighbourName('r') + ' ▶' : '';
+    l.classList.toggle('go', go); r.classList.toggle('go', go);
+  }
+  function render(){
+    paintMe(); paintStrip(); paintSay(); paintBar(); paintEdges();
+    $('lobby').classList.toggle('hide', !(view && view.phase === 'lobby' && (isHost || lobbyOpen)));
+    $('end').classList.toggle('hide', !(view && view.phase === 'end'));
+    if(view && view.phase === 'lobby') paintLobby();
+    if(view && view.phase === 'end') paintEnd();
+    if(view && view.phase !== 'lobby') lobbyOpen = true;
+  }
+  let lobbyOpen = true;
+  function paintLobby(){
+    const box = $('lobby');
+    const keep = document.activeElement && document.activeElement.id === 'host-name';
+    if(keep){   // don't rebuild under a thumb that's typing its name — just refresh the list
+      const nm = box.querySelector('.names'); if(nm) nm.innerHTML = namesHTML();
+      const go = $('start'); if(go) go.textContent = startLabel();
+      return;
+    }
+    box.innerHTML = '';
+    const add = (tag, cls, html) => { const e = document.createElement(tag); if(cls) e.className = cls; if(html != null) e.innerHTML = html; box.appendChild(e); return e; };
+    if(isHost){
+      const inp = add('input'); inp.id = 'host-name'; inp.placeholder = 'Your name'; inp.maxLength = 14; inp.value = myName;
+      inp.addEventListener('input', () => { myName = inp.value.trim().slice(0, 14) || 'Host'; store.set(NAME_KEY, myName); const p = byId(myId); if(p){ p.name = myName; } paintMe(); });
+      inp.addEventListener('change', push);
+      add('div', 'names', namesHTML());
+      const go = add('button', 'big'); go.id = 'start'; go.textContent = startLabel();
+      go.addEventListener('click', () => { const p = byId(myId); if(p) p.name = myName; startGame(); });
+      if(view.code){
+        add('div', 'code', esc(view.code));
+        const qr = add('div', 'qr');
+        const base = ROOM_RELAY || location.origin;
+        try{ const q = window.qrcode(0, 'M'); q.addData(base + '/playground/fuse.html?code=' + view.code); q.make(); qr.innerHTML = q.createSvgTag({ cellSize:5, margin:0, scalable:true }); }catch(e){ qr.remove(); }
+        add('p', '', 'Friends scan it, or open <b>fuse.html</b> and type the code.');
+      } else if(view.relay === 'off'){
+        add('p', '', 'No relay here, so nobody can join — but you can practise alone: the bomb comes back round to you. Open the hosted copy to play with friends.');
+      } else add('p', '', 'Opening a room… (a sleeping relay can take a minute to wake)');
+    } else {
+      add('h2', '', 'You’re in');
+      add('p', '', 'Waiting for the host to start.');
+      add('div', 'names', namesHTML());
+      const b = add('button', 'big ghost'); b.textContent = 'Practise with the letters';
+      b.addEventListener('click', () => { lobbyOpen = false; render(); });
+    }
+    add('ol', 'rules',
+      '<li>The bomb won’t leave your screen until you <b>spell a word</b>: drop letters in the boxes, press <b>ARM</b>.</li>' +
+      '<li>Then <b>flick it off the left or right edge</b> — it flies to that neighbour. Throw hard to smash the word they had ready.</li>' +
+      '<li>Every two throws it wants a <b>longer word</b>. When it explodes in your hands you lose a ❤. Last one standing wins.</li>');
+  }
+  const startLabel = () => { const n = view.players.filter(p => p.p).length; return n > 1 ? 'Light the fuse · ' + n + ' players' : 'Practise alone'; };
+  const namesHTML = () => view.players.filter(p => p.p).map(p => '<span>' + esc(p.name) + '</span>').join('');
+  function paintEnd(){
+    const box = $('end'); box.innerHTML = '';
+    const rank = (view.rank || []).map(id => view.players.find(p => p.id === id)).filter(Boolean);
+    const solo = rank.length === 1 && view.ring.length === 0 && view.players.filter(p => p.a).length === 0;
+    const h = document.createElement('h2');
+    h.textContent = solo ? 'Practice over — ' + rank[0].s + ' points' : rank[0] ? (rank[0].id === myId ? 'You win! 🏆' : rank[0].name + ' wins! 🏆') : 'Game over';
+    box.appendChild(h);
+    const list = document.createElement('div'); list.className = 'rank';
+    rank.forEach((p, i) => {
+      const d = document.createElement('div');
+      d.className = (i === 0 ? 'first' : '') + (p.id === myId ? ' me' : '');
+      d.innerHTML = '<span>' + (i + 1) + '</span><span></span><span class="h"></span><span></span>';
+      d.children[1].textContent = p.name; d.children[2].textContent = p.h > 0 ? '❤'.repeat(p.h) : 'out'; d.children[3].textContent = p.s + ' pts';
+      list.appendChild(d);
+    });
+    box.appendChild(list);
+    const p = document.createElement('p'); p.textContent = 'Points: one per letter, double for each letter past what the bomb asked for.'; box.appendChild(p);
+    if(isHost){
+      const again = document.createElement('button'); again.className = 'big'; again.textContent = 'Play again';
+      again.addEventListener('click', startGame); box.appendChild(again);
+      const lobby = document.createElement('button'); lobby.className = 'big ghost'; lobby.textContent = 'Back to the room';
+      lobby.addEventListener('click', () => { G.phase = 'lobby'; G.rank = null; players.forEach(q => { q.alive = false; }); push(); }); box.appendChild(lobby);
+    } else { const w = document.createElement('p'); w.textContent = 'Waiting for the host to play again…'; box.appendChild(w); }
+  }
+
+  /* ================= boot ================= */
+  world.resize();
+  newHand();
+  if(isHost){ hostSetup(); }
+  else if(SIM){ joinAs(codeParam, SIM.name); }
+  else {
+    const seat = (() => { try{ return JSON.parse(store.get(SEAT_KEY) || '{}') || {}; }catch(e){ return {}; } })();
+    $('joinbar').classList.remove('hide');
+    $('join-room').textContent = 'Room ' + codeParam;
+    $('join-name').value = seat.name || store.get(NAME_KEY) || '';
+    const go = () => { const n = $('join-name').value.trim(); if(!n){ $('join-name').focus(); return; } joinAs(codeParam, n); };
+    $('join-go').addEventListener('click', go);
+    $('join-name').addEventListener('keydown', e => { if(e.key === 'Enter') go(); });
+    $('say').innerHTML = 'Fuse<small>Type your name to join room ' + esc(codeParam) + '.</small>';
+  }
+
+  /* A handle for driving the page from a test. `spell(w)` docks a word's tiles
+     straight into the boxes (adding any letter the hand lacks) and re-reads. */
+  window.__fuse = {
+    world, view: () => view, me: () => myId, host: () => (isHost ? G : null), players: () => (isHost ? players : null),
+    tick: hostTick, start: () => isHost && startGame(), rules: o => Object.assign(RULES, o || {}),
+    bomb: bombPiece, cur: () => cur,
+    spell(w){
+      world.take();
+      String(w).toUpperCase().split('').forEach((ch, i) => {
+        if(!world.loose().some(p => p.tag === 'L' && p.ch === ch)) world.addPiece(ch, { tag:'L', x: 40 + i * 10, y: belowSlots() + 40 });
+        world.place(i, ch);
+      });
+      readWord();
+    },
+    arm(){ $('arm').click(); },
+    fling(side){   // an armed bomb, thrown as a flick would throw it
+      const b = bombPiece(); if(!b || !mayThrow()) return false;
+      const { w } = dims(), x = side === 'l' ? -40 : w + 40;
+      thrown({ side: side === 'l' ? 'l' : 'r', vx: side === 'l' ? -20 : 20, vy: -6, ny: b.y / dims().h, x });
+      world.remove('bomb');
+      return true;
+    }
+  };
+})();
+</script>
+</body>
+</html>

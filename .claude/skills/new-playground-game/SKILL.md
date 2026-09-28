@@ -6,6 +6,7 @@ covers:
   - "playground/battle-scrabble-board.html"
   - "playground/anagram-battle.html"
   - "playground/flip-party.html"
+  - "playground/fuse.html"
   - "playground/throw-lab.html"
   - "playground/phone-bench.html"
   - "playground/bench-kit.js"

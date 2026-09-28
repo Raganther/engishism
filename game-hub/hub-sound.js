@@ -46,7 +46,12 @@
     // the phone's: a tap that did something, and a wrong answer said in the hand —
     // a two-note drop with a buzz under it, lower and blunter than the board's
     blip:   [{f:880,d:0.14,type:'square'}],
-    buzz:   [{f:220,to:110,d:0.28,type:'sawtooth'},{f:110,d:0.16,type:'square'}]
+    buzz:   [{f:220,to:110,d:0.28,type:'sawtooth'},{f:110,d:0.16,type:'square'}],
+    // Fuse's: the bomb's tick (faster as it heats — the caller's pacing), the drop
+    // the blast sits on (the caller adds the noise), and a word arming the bomb
+    tick:   [{f:1500,d:0.03,type:'square'}],
+    boom:   [{f:120,to:26,d:0.9,type:'sine'}],
+    armed:  [{f:392,d:0.06,type:'square'},{f:587,d:0.06,type:'square'},{f:784,d:0.16,type:'square'}]
   };
 
   function make(deps){

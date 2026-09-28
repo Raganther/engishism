@@ -16,9 +16,10 @@
    hub-kit.js (needs window.HubKit).
 
    Kit.table({ canvas, gravity, restitution, frictionAir, size, power, swing,
-               snap, dock, ceiling, onArrange, onExit }) -> {
+               snap, dock, ceiling, onArrange, onExit, canExit, canGrab }) -> {
      reset(), setPieces(labels[]), slots(n | {cols,rows,top,pile,bar}), place(i,label),
-     addPiece(label, {x,y,vx,vy,spin,hue,shot}), openSides({l,r}),
+     addPiece(label, {x,y,vx,vy,spin,hue,shot,tag,round,scale,nodock,paint}), openSides({l,r}),
+     remove(tag)->n, take()->labels[], blast(x,y,power),
      read()->string, cells()->string[], filled()->bool, loose(),
      setResult(res[, slotIdx]), slotBox(i), tileSize(),
      setFeel(partial), feel(), resize(), pt(event),
@@ -30,6 +31,9 @@
    panel from it — see the DIALS table below.
    onExit({ch,hue,side,vx,vy,ny}) fires when a free piece leaves through an
    open side — the throw dynamic's exit door; see openSides.
+   canExit({ch,tag,round}) / canGrab({ch,tag,round}) are the caller's say, asked
+   fresh each time: a piece refused an exit meets the open edge as a wall, a
+   piece refused a grab cannot be picked up (Fuse's bomb, until a word arms it).
    onArrange(read, filled) fires whenever a piece docks or is pulled out.
    pegs({rows, shelf, top, lattice}) plants a Plinko field: static pegs in offset rows
    between the top band and the bins, and (shelf) a ledge at the top centre for
@@ -794,6 +798,15 @@
         const x = p.body.position.x, m = tile * 0.6;
         const crossL = open.l && x < -m, crossR = open.r && x > cssW + m;
         if(!crossL && !crossR) continue;
+        /* `canExit`: the caller's say on WHICH pieces may leave. A refused piece
+           meets the open edge as a wall — turned back inward, never stranded
+           outside with no velocity to bring it home (Fuse: only an armed bomb
+           travels; a letter flung at the edge comes back). */
+        if(opts.canExit && !opts.canExit(infoOf(p))){
+          const v = p.body.velocity;
+          Body.setVelocity(p.body, { x: crossL ? Math.max(3, -v.x * 0.35) : Math.min(-3, -v.x * 0.35), y: v.y });
+          continue;
+        }
         if(p.hold && now() < p.hold){
           /* too fresh to leave: the edge is a soft wall for the arrival beat.
              The bounce is HEAVY (35%, was 80%) — at 80% a hard arrival
@@ -922,8 +935,11 @@
       const s = feel.size;
       /* `round`: a chip, not a tile — a circle body that rolls off pegs the way a
          Plinko chip does; a square catches on them and stalls. */
+      /* `scale` sizes a round piece in chips (Fuse's bomb is two); `nodock` keeps a
+         piece out of the slots however slowly it is released; `paint:false` leaves
+         the body's drawing to the caller (its glow and trail stay the shelf's). */
       const body = o.round
-        ? Bodies.circle(o.x != null ? o.x : cssW/2, o.y != null ? o.y : ceilY() + s, chipD() / 2, {
+        ? Bodies.circle(o.x != null ? o.x : cssW/2, o.y != null ? o.y : ceilY() + s, chipD() / 2 * (Number(o.scale) > 0 ? Number(o.scale) : 1), {
             restitution: 0.45, frictionAir: feel.frictionAir, friction: 0.05, density: 0.0016 })
         : Bodies.rectangle(o.x != null ? o.x : cssW/2, o.y != null ? o.y : ceilY() + s, s, s, {
         chamfer:{ radius: Math.round(s*0.16) },
@@ -943,8 +959,57 @@
          the thrower's name here so the victim's flash can say who hit them. */
       pieces.push({ body, ch: String(label), hue: o.hue || HUES[pieces.length % HUES.length],
                     slot: null, dock: null, shot: o.shot ? now() : 0, tag: o.tag, round: !!o.round,
-                    hold: o.shot ? now() + 900 : 0 });
+                    hold: o.shot ? now() + 900 : 0, nodock: !!o.nodock, paint: o.paint !== false });
       Composite.add(engine.world, body);
+    }
+    /* What a caller's predicate (canExit, canGrab) is shown of a piece: its label,
+       its tag and its shape — never the body. */
+    function infoOf(p){ return { ch: p.ch, tag: p.tag, round: !!p.round }; }
+    const grabbable = p => !p.pinned && (!opts.canGrab || opts.canGrab(infoOf(p)));
+    /* Take pieces out of the world without a re-deal. `remove(tag)` drops every
+       piece wearing that tag (a caller's own projectile, a caller's own hand);
+       `take()` drops every SLOTTED piece and hands back their labels in slot order
+       — a word spent, its tiles gone, the rest of the table untouched. */
+    function dropPieces(list){
+      if(!list.length) return;
+      for(const [id, g] of grips){ if(list.some(p => p.body === g.body)){ Composite.remove(engine.world, g.constraint); grips.delete(id); } }
+      list.forEach(p => { freeSlotOf(p); p.dock = null; });
+      Composite.remove(engine.world, list.map(p => p.body));
+      pieces = pieces.filter(p => !list.includes(p));
+    }
+    function remove(tag){
+      const list = pieces.filter(p => p.tag === tag);
+      const hadSlot = list.some(p => p.slot != null);
+      dropPieces(list);
+      if(hadSlot){ result = null; report(); }
+      return list.length;
+    }
+    function take(){
+      const list = slots.map(s => s.piece).filter(Boolean);
+      const labels = list.map(p => p.ch);
+      dropPieces(list);
+      if(list.length){ result = null; report(); }
+      return labels;
+    }
+    /* A blast: every piece not pinned is thrown away from (x, y), slotted tiles
+       knocked out of their slots first, harder the nearer they were. A game
+       mechanic (Fuse's explosion), not a look — the look stays the caller's paint. */
+    function blast(x, y, power){
+      const pw = Number(power) > 0 ? Number(power) : 18, reach = Math.max(cssW, cssH);
+      let knocked = false;
+      for(const p of pieces){
+        if(p.pinned || p.ghost) continue;
+        if(p.slot != null){ freeSlotOf(p); knocked = true; }
+        p.dock = null;
+        if(p.body.isStatic) Body.setStatic(p.body, false);
+        p.body.isSensor = false;
+        const dx = p.body.position.x - x, dy = p.body.position.y - y, d = Math.max(1, Math.hypot(dx, dy));
+        const k = pw * (0.35 + 0.65 * Math.max(0, 1 - d / reach));
+        Body.setVelocity(p.body, { x: dx / d * k, y: dy / d * k - pw * 0.25 });
+        Body.setAngularVelocity(p.body, (Math.random() - 0.5) * 0.6);
+      }
+      if(knocked){ result = null; report(); }
+      fx('knock', 1);
     }
 
     /* The knock: a shot piece (addPiece with shot:true) that lands its first
@@ -1382,7 +1447,7 @@
       const taken = heldBodies();
       // a pinned (given) tile is a fact on the board, not a move to undo — neither a
       // hit nor the forgiving nearest-centre fallback may pick it up
-      const free = pieces.filter(p => !taken.has(p.body) && !p.pinned).map(p => p.body);
+      const free = pieces.filter(p => !taken.has(p.body) && grabbable(p)).map(p => p.body);
       const hit = Query.point(free, { x, y });
       const body = hit.length ? hit[hit.length - 1] : nearest(x, y, taken);
       if(!body) return false;
@@ -1424,7 +1489,7 @@
       let best = null, bestD = Infinity;
       for(const p of pieces){
         if(exclude && exclude.has(p.body)) continue;
-        if(p.pinned) continue;
+        if(!grabbable(p)) continue;
         const dx = p.body.position.x - x, dy = p.body.position.y - y, d = dx*dx + dy*dy;
         if(d < bestD){ bestD = d; best = p.body; }
       }
@@ -1500,7 +1565,7 @@
       const fSpeed = Math.hypot(fv.x, fv.y), bSpeed = Math.hypot(b.velocity.x, b.velocity.y);
       const speed = Math.max(bSpeed, fSpeed);
       const near = speed < feel.dock ? slotNear(b.position.x, b.position.y) : -1;
-      if(near >= 0 && piece){ startDock(piece, near); return; }   // dropped over a slot: suck it home
+      if(near >= 0 && piece && !piece.nodock){ startDock(piece, near); return; }   // dropped over a slot: suck it home
       /* The THROW rides the stronger signal too. It used to ride the body's
          velocity alone, and the day the drag damper went up every flick died
          at the release point: the damper had bled the body's speed while the
@@ -1919,6 +1984,7 @@
       const breath = (wordAt && t - wordAt < 500) ? 1 + 0.04 * Math.sin(Math.PI * (t - wordAt) / 500) : 1;
       const heldNow = (feel.lift > 0 && grips.size) ? heldBodies() : null;
       for(const b of pieces){
+        if(b.paint === false) continue;   // the caller paints this one itself
         const p = b.body.position, docking = !!b.dock, inSlot = b.slot != null;
         const th = tileH || tile;
         let w, h, ang;
@@ -2195,14 +2261,15 @@
 
     return {
       reset(){ clearGrips(); if(pieces.length) Composite.remove(engine.world, pieces.map(p => p.body)); pieces = []; slots = []; grid = null; pegs(null); bins(null); pendingDeal = null; given.clear(); clearResult(); wordAt = 0; particles = null; hits.length = 0; sparks = null; rings = null; pegHits = []; landed = null; landBurst = null; ghost = null; pegLayout = null; },
-      setPieces, addPiece, slots: makeSlots, place, give, openSides, pegs, bins, binOf, ledge, field, drive, land,
+      setPieces, addPiece, remove, take, blast, slots: makeSlots, place, give, openSides, pegs, bins, binOf, ledge, field, drive, land,
       read, cells, filled, setResult,
       /* the loose pieces (not slotted), letter + colour + height + velocity +
          angle — a driven test's only window onto what is lying on the table,
          since read() sees slots alone. vx/vy are what a release just imparted;
          `ang` (radians) is how the bench proves a bar tile stayed flat. */
       loose: () => pieces.filter(p => p.slot == null)
-                         .map(p => ({ ch: p.ch, hue: p.hue, x: Math.round(p.body.position.x), y: Math.round(p.body.position.y),
+                         .map(p => ({ ch: p.ch, hue: p.hue, tag: p.tag, r: p.round ? p.body.circleRadius : 0,
+                                      x: Math.round(p.body.position.x), y: Math.round(p.body.position.y),
                                       vx: Math.round(p.body.velocity.x), vy: Math.round(p.body.velocity.y),
                                       ang: +p.body.angle.toFixed(3) })),
       /* slot geometry + the fitted tile size, for callers that aim or assert
