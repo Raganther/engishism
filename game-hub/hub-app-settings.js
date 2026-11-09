@@ -147,7 +147,10 @@ window.registerAppSettings = function(S){
     variants:[{ value:'teams', label:'Teams — a name is a group of students' },
               { value:'solo',  label:'Individuals — everyone against everyone' }] });
 
-  S.register({ id:'buzzers', group:'Phones', type:'toggle', default:false,
+  /* On by default wherever the relay served the page (hub-relay.js says so), off
+     everywhere else — so a first visit to the relay shows the join code with nothing
+     to switch, and the GitHub Pages copy never shows a phone room that cannot work. */
+  S.register({ id:'buzzers', group:'Phones', type:'toggle', default:!!window.HubRelayHere,
     label:'Phone buzzers', help:'Students join on their phones and buzz to win the right to answer. Needs a relay — this will not work from the GitHub Pages copy. See docs/buzzers.md.' });
   S.register({ id:'buzzerRelay', group:'Phones', adv:true, type:'text', default:'',
     label:'Relay address', placeholder:'same site as this page',
