@@ -863,6 +863,13 @@ function handleSend(req, res){
 function serveStatic(req, res, pathname){
   let rel = decodeURIComponent(pathname);
   if(rel === '/' ) rel = '/index.html';
+  /* A page served from here can reach this relay, so it is told so: the file on
+     disk says false (GitHub Pages, file://), and this answer says true. The Phone
+     buzzers default reads it — a visitor's first load starts with phones on. */
+  if(rel === '/game-hub/hub-relay.js'){
+    res.writeHead(200, { 'Content-Type':'application/javascript; charset=utf-8', 'Cache-Control':'no-cache' });
+    return res.end('window.HubRelayHere = true;\n');
+  }
   const file = path.join(ROOT, rel);
   if(!file.startsWith(ROOT)) return send(res, 403, 'forbidden');
   fs.stat(file, (err, st)=>{
