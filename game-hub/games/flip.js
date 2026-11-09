@@ -513,8 +513,21 @@
       pending = null;
     }
     useCard();
-    awaitingStandings = false;
-    E().closeModal(E().flipHoldMs(), runPending);
+    /* **A card the teacher awards shows the standings too**, exactly as one the phones
+       win does. Only the engine's round-won path showed them, so every Correct click —
+       every ordinary question, and every round nobody finished before Reveal — moved
+       the scores with nobody seeing it. The heading matches the round path's
+       (`payEyebrow`), read here while the card is still `cur`. The twist still waits for
+       Continue (`onStandingsDone` → `runPending`), the same as a round win. */
+    const scored = team != null && !!E().teams()[team];
+    const eyebrow = (cur && cur.twist && cur.twist !== 'plain')
+      ? TW[cur.twist].label + ' · Card ' + cur.n + (cur.twist === 'double' ? ' — pays double' : '')
+      : (cur ? 'Card ' + cur.n : 'Flip');
+    awaitingStandings = scored && E().standingsWanted('flip');
+    E().closeModal(E().flipHoldMs(), ()=>{
+      if(!awaitingStandings){ runPending(); return; }
+      E().showStandings({ eyebrow, title: E().teamName(team) + ' takes it — +' + paidNow, winner: team });
+    });
   }
 
   /* The beat this card owes after the question, if any: a twist with a target wants
