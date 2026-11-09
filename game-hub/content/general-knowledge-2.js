@@ -33,7 +33,7 @@ window.UNITS.push({
         choice:{ options:["1979","1985","1989","1991"], answer:"1989" } },
       { v:200, q:"Four of these were Roman emperors; four were Greek philosophers. Find the four emperors.", physics:true,
         group:{ pick:["Augustus","Nero","Hadrian","Trajan"], with:["Socrates","Plato","Aristotle","Pythagoras"] } },
-      { v:300, q:"'The ___ was the movement in art and learning that began in Florence in the 1400s.' (11 letters)",
+      { v:300, q:"'The ___ was the movement in art and learning that began in Italy in the 1300s.' (11 letters)",
         anagram:{ word:"renaissance" } },
       { v:400, q:"Who was the first person to walk on the Moon?", physics:true,
         choice:{ options:["Yuri Gagarin","Neil Armstrong","Buzz Aldrin","John Glenn"], answer:"Neil Armstrong" } },
@@ -47,9 +47,9 @@ window.UNITS.push({
         group:{ pick:["2","13","29","31"], with:["9","15","21","27"] } },
       { v:300, q:"'___ is the force that keeps the planets in orbit around the Sun.' (7 letters)",
         anagram:{ word:"gravity" } },
-      { v:400, q:"How many chromosomes does a typical human cell have?", physics:true,
+      { v:400, q:"How many chromosomes are in most human cells?", physics:true,
         choice:{ options:["23","42","46","64"], answer:"46" } },
-      { v:500, q:"Four of these units measure energy or power; four measure length. Find the four for energy or power.", physics:true,
+      { v:500, q:"Four of these units measure energy or power; four measure length. Find the four units of energy or power.", physics:true,
         group:{ pick:["joule","watt","calorie","kilowatt-hour"], with:["metre","mile","inch","light-year"] } }
     ]},
     { id:'gk2-words', section:'GK2', name:'Words & Languages', clues:[
@@ -74,7 +74,7 @@ window.UNITS.push({
       { v:400, q:"Which country has the largest population in the world today?", physics:true,
         choice:{ options:["China","India","the USA","Indonesia"], answer:"India" } },
       { v:500, q:"Four of these cities are on the Mediterranean Sea; four are capitals that are not. Find the four on the Mediterranean.", physics:true,
-        group:{ pick:["Barcelona","Marseille","Naples","Athens"], with:["Lisbon","Paris","Madrid","Berlin"] } }
+        group:{ pick:["Barcelona","Marseille","Naples","Nice"], with:["Lisbon","Paris","Madrid","Berlin"] } }
     ]},
     { id:'gk2-italy', section:'GK2', name:'Italy in English, Harder', clues:[
       { v:100, q:"In which century did Dante write the Divine Comedy?", physics:true,

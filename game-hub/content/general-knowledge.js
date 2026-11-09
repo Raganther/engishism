@@ -48,11 +48,11 @@ window.UNITS.push({
         group:{ pick:["Peru","Chile","Colombia","Uruguay"], with:["Kenya","Ghana","Morocco","Senegal"] } }
     ]},
     { id:'gk-science', section:'GK', name:'Science & the Body', clues:[
-      { v:100, q:"How many bones does an adult human have, roughly?", physics:true,
+      { v:100, q:"How many bones are in the adult human body?", physics:true,
         choice:{ options:["106","206","306","406"], answer:"206" } },
       { v:200, q:"Four of these are gases; four are metals. Find the four gases.", physics:true,
         group:{ pick:["oxygen","hydrogen","helium","nitrogen"], with:["iron","gold","copper","silver"] } },
-      { v:300, q:"'Plants take in carbon ___ and give out oxygen.' The gas we breathe out. (7 letters)",
+      { v:300, q:"'Plants take in carbon ___ and give out oxygen.' Hint: we breathe it out. (7 letters)",
         anagram:{ word:"dioxide" } },
       { v:400, q:"What is the chemical symbol for gold?", physics:true,
         choice:{ options:["Au","Ag","Go","Gd"], answer:"Au" } },
@@ -60,9 +60,9 @@ window.UNITS.push({
         group:{ pick:["dolphin","bat","whale","elephant"], with:["crocodile","lizard","snake","turtle"] } }
     ]},
     { id:'gk-screens', section:'GK', name:'Screens & Songs', clues:[
-      { v:100, q:"Which country makes the anime 'One Piece' and 'Naruto'?", physics:true,
-        choice:{ options:["China","Japan","Korea","Thailand"], answer:"Japan" } },
-      { v:200, q:"Four of these are Marvel heroes; four are DC heroes. Find the Marvel four.", physics:true,
+      { v:100, q:"Which country do the anime 'One Piece' and 'Naruto' come from?", physics:true,
+        choice:{ options:["China","Japan","South Korea","Thailand"], answer:"Japan" } },
+      { v:200, q:"Four of these are Marvel heroes; four are DC heroes. Find the four Marvel heroes.", physics:true,
         group:{ pick:["Iron Man","Thor","Spider-Man","Hulk"], with:["Batman","Superman","The Flash","Aquaman"] } },
       { v:300, q:"'The film won an ___ for Best Picture.' The golden statue given in Hollywood every year. (5 letters)",
         anagram:{ word:"oscar" } },
@@ -84,7 +84,7 @@ window.UNITS.push({
         group:{ pick:["ace","deuce","love","set"], with:["corner","offside","penalty","goalkeeper"] } }
     ]},
     { id:'gk-italy', section:'GK', name:'Italy in English', clues:[
-      { v:100, q:"Which Italian scientist was the first to point a telescope at the night sky?", physics:true,
+      { v:100, q:"Which Italian scientist used a telescope to discover Jupiter's moons?", physics:true,
         choice:{ options:["Galileo","Da Vinci","Volta","Marconi"], answer:"Galileo" } },
       { v:200, q:"Four of these were invented by Italians; four were not. Find the Italian four.", physics:true,
         group:{ pick:["piano","battery","radio","espresso machine"], with:["computer","light bulb","television","aeroplane"] } },
@@ -93,7 +93,7 @@ window.UNITS.push({
       { v:400, q:"What is the English name of the sea between Italy and Croatia?", physics:true,
         choice:{ options:["the Adriatic","the Tyrrhenian","the Ionian","the Ligurian"], answer:"the Adriatic" } },
       { v:500, q:"Four of these English words come from Italian; four come from French. Find the four from Italian.", physics:true,
-        group:{ pick:["pizza","umbrella","balcony","volcano"], with:["café","ballet","chef","restaurant"] } }
+        group:{ pick:["pizza","umbrella","balcony","volcano"], with:["café","croissant","chef","restaurant"] } }
     ]}
   ]
 });
