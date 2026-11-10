@@ -145,12 +145,35 @@
       const s = $('#start-btn');
       return shown(s) ? [[s, 'Topics chosen for you: press here']] : [];
     }
-    const card = $$('#flip-grid .flip-card').find(c => !c.classList.contains('used') && !c.disabled);
-    const out = [];
-    if(card) out.push([card, 'Pick any card']);
+    /* The board. The QR comes first: the phone is the point of the thing, so until a
+       phone is in, the visitor has opened the QR, or twenty seconds have passed (no
+       phone to hand), only the QR glows. Then whose turn it is glows and carries the
+       words, and the glow hops from card to card at random — any of them will do. */
     const scan = $('#buzzer-chip .buzz-scan');
-    if(scan && shown(scan) && !phones()) out.push([scan, 'Play on your phone: tap here for the QR']);
+    const onBoard = shown($('#flip-grid'));
+    if(onBoard && !boardSince) boardSince = Date.now();
+    if(shown($('#join-modal.on'))) qrSeen = true;
+    if(scan && shown(scan) && !phones() && !qrSeen && Date.now() - boardSince < 20000)
+      return [[scan, 'Step 1: tap here, then scan the QR with your phone', 'below']];
+    const out = [];
+    const turn = $('#flip-turn');
+    const card = hopCard();
+    if(turn && shown(turn) && card) out.push([turn, '← their turn: click any card', 'right']);
+    else if(card) out.push([card, 'Pick any card']);
+    if(card && out[0][0] !== card) out.push([card, '']);
+    if(scan && shown(scan) && !phones()) out.push([scan, 'Join on your phone: tap here', 'below']);
     return out;
+  }
+  let boardSince = 0, qrSeen = false, hop = null, hopAt = 0;
+  function hopCard(){
+    const free = $$('#flip-grid .flip-card').filter(c => !c.classList.contains('used') && !c.disabled);
+    if(!free.length) return null;
+    if(!hop || !free.includes(hop) || Date.now() - hopAt > 1200){
+      const others = free.filter(c => c !== hop);
+      hop = (others.length ? others : free)[Math.floor(Math.random() * (others.length || free.length))];
+      hopAt = Date.now();
+    }
+    return hop;
   }
 
   function allIn(){
@@ -185,6 +208,14 @@
     t.textContent = text; t.style.opacity = 1;
     const r = el.getBoundingClientRect();
     const w = t.offsetWidth, h = t.offsetHeight;
+    // beside it, in the strip — for a label whose space above and below is the board
+    t.classList.toggle('side', prefer === 'right');
+    if(prefer === 'right'){
+      t.classList.remove('below', 'above');
+      t.style.top  = Math.max(4, r.top + r.height / 2 - h / 2) + 'px';
+      t.style.left = Math.min(innerWidth - w - 6, r.right + 14) + 'px';
+      return;
+    }
     const below = prefer === 'below' ? (r.bottom + h + 14 < innerHeight) : (r.top - h - 14 < 4);
     t.classList.toggle('below', below); t.classList.toggle('above', !below);
     const top = below ? r.bottom + 12 : r.top - h - 12;

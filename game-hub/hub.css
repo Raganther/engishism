@@ -2118,6 +2118,12 @@ body.theme-gameshow #close-btn, body.theme-gameshow #skip-btn, body.theme-gamesh
 #flip-turn{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1.15rem; color:var(--navy); }
 #flip-left{ font-family:'IBM Plex Mono',monospace; font-size:0.82rem; letter-spacing:0.05em;
             text-transform:uppercase; color:var(--muted); }
+#flip-end{ display:flex; align-items:center; gap:14px; }
+/* Ending early is a quiet control beside the count, not a call to action. */
+#flip-finish{ font-family:'IBM Plex Mono',monospace; font-size:0.72rem; letter-spacing:0.05em;
+              text-transform:uppercase; padding:5px 10px; border-radius:6px; cursor:pointer;
+              background:transparent; color:var(--muted); border:1px solid currentColor; }
+#flip-finish.armed{ color:var(--red, #c0392b); font-weight:700; }
 
 /* `--fcols` is written by the board rather than an inline `repeat(n,1fr)`, so a media
    query can still override the layout — the rule the other boards already follow. */
@@ -2291,6 +2297,8 @@ body.theme-gameshow #clue-card.flip-tw #clue-section{ color:rgba(255,255,255,0.7
 /* The game-show skin: the board keeps the same tiles, the frame around it goes dark. */
 body.theme-gameshow #play-flip.lit #flip-turn{ color:var(--gold); }
 body.theme-gameshow #play-flip.lit #flip-left{ color:rgba(255,255,255,0.6); }
+body.theme-gameshow #play-flip.lit #flip-finish{ color:rgba(255,255,255,0.6); }
+body.theme-gameshow #play-flip.lit #flip-finish.armed{ color:#ff8a7a; }
 body.theme-gameshow #play-flip.lit .flip-card.used{
   border-color:rgba(255,255,255,0.22); color:rgba(255,255,255,0.45);
 }
