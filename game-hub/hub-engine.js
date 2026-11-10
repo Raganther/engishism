@@ -329,8 +329,22 @@
   document.addEventListener('keydown', e => {
     if(e.key === 'Enter' && introLive()){ e.preventDefault(); e.stopPropagation(); introStop(true); }
   }, true);
+  /* **"Click to start now" is judged from the press, not the click's target.** The
+     card is draggable and captures the pointer on press (`makeCardDraggable`), which
+     retargets the click to the card — so asking the click whether it landed in the
+     intro never matched, and only Enter could end it. A press that began in the
+     intro and lifted without moving is the tap; a press that moved is the teacher
+     dragging the card aside, which leaves the intro running. */
+  let introDown = null;
+  document.addEventListener('pointerdown', e => {
+    introDown = (introLive() && e.target && e.target.closest && e.target.closest('#clue-intro'))
+      ? { x:e.clientX, y:e.clientY } : null;
+  }, true);
   document.addEventListener('click', e => {
-    if(introLive() && e.target && e.target.closest && e.target.closest('#clue-intro')){ e.stopPropagation(); introStop(true); }
+    const down = introDown; introDown = null;
+    if(!introLive() || !down) return;
+    if(Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) return;
+    e.stopPropagation(); introStop(true);
   }, true);
 
   function roundClockStart(){
