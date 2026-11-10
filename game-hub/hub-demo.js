@@ -105,8 +105,15 @@
     if(modal && modal.style.display === 'flex'){
       if(shown($('#clue-intro'))) return [[$('#clue-intro'), 'Click here to start the question']];
       const close = $('#close-btn');
-      if(shown(close) && /takes it/.test(close.textContent)) return [[close, 'Give them the points']];
+      /* Somebody got it: the round has judged it and is only holding the card so
+         the room sees the answer. Pay it after the same beat — nothing to decide. */
+      if(shown(close) && /takes it/.test(close.textContent)){ settle(close); return [[close, 'Right! Points coming…']]; }
       const ok = $('#correct-btn'), no = $('#wrong-btn');
+      /* Correct/Wrong only ever show when NOBODY got it: a right answer on the
+         board's Check or on a phone is judged and paid by the round itself. In
+         class that is the teacher's call (an answer said aloud); a visitor has
+         nothing to decide, so the demo closes the card for them — no points. */
+      if(shown(ok) && close && shown(close)){ settle(close); return [[close, 'Nobody got it, so no points. Moving on…']]; }
       if(shown(ok)) return [[ok, 'Was it right? You decide'], [no, '']];
       const rev = $('#reveal-btn');
       /* No phones: the visitor plays the card's own table — drag tiles in, then
@@ -115,6 +122,12 @@
       if(shown(check) && !check.disabled) return [[check, 'Check your answer']];
       const table = $('canvas', modal);
       if(!phones() && shown(table)) return [[table, 'Drag your answer into the boxes, then Check', 'below']];   // above would cover the question
+      /* With phones, the board waits for Reveal in case someone is still answering.
+         Once as many have finished as there are phones (capped at the number of
+         competitors — a team of two phones finishes once), there is nobody left:
+         reveal for the visitor, and the round pays whoever got it. Unusual rooms
+         fall through to the hint. */
+      if(shown(rev) && phones() && allIn()){ settle(rev); return [[rev, 'Everyone has answered: revealing…']]; }
       if(shown(rev)) return [[rev, phones() ? 'Answer on your phone, then Reveal' : 'Think of the answer, then Reveal']];
       if(shown(close)) return [[close, 'Close the card']];
       return [];
@@ -138,6 +151,26 @@
     const scan = $('#buzzer-chip .buzz-scan');
     if(scan && shown(scan) && !phones()) out.push([scan, 'Play on your phone: tap here for the QR']);
     return out;
+  }
+
+  function allIn(){
+    const R = window.HubKit && window.HubKit.round && window.HubKit.round.results;
+    if(!R || !R.finished) return false;
+    const teams = $$('.team').length || 1;
+    return R.finished().length >= Math.min(phones(), teams);
+  }
+
+  /* The card's last press, made for the visitor: one Close per card, after a beat
+     long enough to read the answer. Re-checked when it fires, so a visitor who
+     clicked it first is not clicked twice. */
+  let settling = null;
+  function settle(close){
+    if(settling) return;
+    const label = close.textContent;
+    settling = setTimeout(() => {
+      settling = null;
+      if(shown(close) && close.textContent === label) close.click();
+    }, 2500);
   }
 
   /* ---------- drawing it ---------- */
