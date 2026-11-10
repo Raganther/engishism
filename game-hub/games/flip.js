@@ -181,6 +181,23 @@
          invent one. */
       pending = null; hidePicker(); advance();
     });
+    /* Twenty-five cards is a long game for a short lesson. Finish ends it now, on the
+       scores as they stand — the same end screen a played-out board gets. Two presses,
+       because one stray click would end a class's game. */
+    const fin = document.getElementById('flip-finish');
+    let armed = null;
+    fin.addEventListener('click', ()=>{
+      if(over || E().clueIsOpen()) return;
+      if(!armed){
+        fin.textContent = 'Sure? Press again';
+        fin.classList.add('armed');
+        armed = setTimeout(()=>{ armed = null; fin.textContent = 'Finish game'; fin.classList.remove('armed'); }, 3000);
+        return;
+      }
+      clearTimeout(armed); armed = null;
+      fin.textContent = 'Finish game'; fin.classList.remove('armed');
+      finish();
+    });
   }
 
   window.HubGames.register({
@@ -211,7 +228,10 @@
       <div id="play-flip"><div id="flip-wrap">
         <div id="flip-bar">
           <div id="flip-turn"></div>
-          <div id="flip-left"></div>
+          <div id="flip-end">
+            <div id="flip-left"></div>
+            <button id="flip-finish" type="button">Finish game</button>
+          </div>
         </div>
         <div id="flip-grid"></div>
         <div id="flip-pick">
@@ -297,6 +317,8 @@
        that screen and the room would never see it. After it is dismissed the board is
        back in front of the class with every score on it, which is the right moment for
        "and now you take 400 off the leader". */
+    // a phone joining or leaving changes who the turn label names
+    onPlayers(){ paintBar(); },
     onStandingsDone(){
       if(awaitingStandings){ awaitingStandings = false; runPending(); return; }
       if(advanceAfterStandings){ advanceAfterStandings = false; advance(); }
@@ -364,7 +386,12 @@
     const cardEl = document.getElementById('clue-card');
     if(cardEl) cardEl.className = cardEl.className.replace(/\bflip-tw\S*/g, '').trim();
     hidePicker();
-    passToLast();
+    /* The first pick is the first competitor's. Passing the turn here skipped
+       Team 1 before anyone had played, so a fresh board opened on "Team 2 picks".
+       Last-place-picks still decides by score (all level here, so the roster's
+       first, which is the same answer). */
+    if(lastPicks()) passToLast();
+    else { E().setActiveTeam(0); E().renderScorebar(); }
     renderGrid(cols);
     paintBar();
     fitFlip();
@@ -977,15 +1004,28 @@
     E().renderScorebar();
   }
 
+  /* Who is on the team whose pick it is, from the room — so "Team 1 picks" says
+     which people that means. The room's record of each phone's team is kept right
+     by `seat` (hub-buzzer.js). Nothing without phones; nothing when the competitor
+     IS one person, whose name is already the team's. */
+  function membersOf(t){
+    const room = E().room && E().room();
+    if(!room || !room.players) return '';
+    const team = E().teamName(t);
+    const names = room.players().filter(p => Number(p.team) === Number(t) && p.name && p.name !== team).map(p => p.name);
+    return names.length ? ' · ' + names.join(', ') : '';
+  }
+
   function paintBar(){
     const turn = document.getElementById('flip-turn');
     const left = document.getElementById('flip-left');
     if(!turn || !left) return;
     const ts = E().teams();
     const n  = cards.filter(c => !c.used).length;
+    const who = E().activeTeam();
     turn.textContent = ts.length
-      ? (lastPicks() ? E().teamName(E().activeTeam()) + ' is last — their pick'
-                     : E().teamName(E().activeTeam()) + ' picks')
+      ? (lastPicks() ? E().teamName(who) + ' is last — their pick'
+                     : E().teamName(who) + ' picks') + membersOf(who)
       : '';
     left.textContent = n + (n === 1 ? ' card left' : ' cards left');
   }
