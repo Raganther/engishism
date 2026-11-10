@@ -1,27 +1,28 @@
 /* ================= Demo mode — the glowing "press here next" =================
    For a visitor who has never seen the board: a recruiter opening a link, nobody
    beside them to say which button the teacher would press. Off unless the URL asks
-   for it (`?demo=1`, or `?demo=general-knowledge-2` to pick the unit), so a class
-   never sees it.
+   for it (`?demo=1` deals the World Quiz, `?demo=<unit id>` another unit), so a
+   class never sees it.
 
    What it does, and nothing more:
-   - walks the setup screens itself (the General Knowledge unit, Flip, every
-     category, Start, the title sequence), so the visitor lands on the board;
-   - every quarter second, finds the ONE thing to press next and makes it pulse,
-     with a short label beside it.
+   - the visitor walks the real setup screens, so they SEE the range — every unit,
+     every game, the topics — but everything off the one demo path is greyed out
+     and cannot be clicked, and the path itself glows: the unit, Flip, Start;
+   - on the topic screen it ticks every topic of the demo unit and locks the list,
+     the round filter and the teams/individuals choice, so Start is always live;
+   - from then on, every quarter second, it finds the ONE thing to press next and
+     makes it pulse, with a short label beside it.
 
-   It only READS the board: it looks at which screen, card or panel is showing and
-   clicks nothing after setup. Nothing in the engine or in Flip knows it exists —
-   the same shape as Kit.vote: it takes what is on the page and hands back a hint.
-   No settings are written, so a teacher who opens the demo link on their own
-   browser finds their own settings untouched. */
+   It READS the board and locks what is off the path; the only thing it ever writes
+   is the topic ticks a teacher would have made. No setting is written, so a teacher
+   who opens the demo link in their own browser keeps their settings. Nothing in the
+   engine or in Flip knows it exists. */
 (function(){
   'use strict';
   const params = new URLSearchParams(location.search);
   const demo = params.get('demo');
   if(!demo) return;
-  const UNIT = (demo === '1' || demo === 'true') ? 'General Knowledge' : null;
-  const UNIT_ID = UNIT ? null : demo;
+  const UNIT_ID = (demo === '1' || demo === 'true') ? 'world-quiz' : demo;
 
   const css = `
     @keyframes hd-demo-pulse {
@@ -31,6 +32,9 @@
     /* Paint only: a glow must never move what it lights (position/z-index here
        knocked the absolutely placed intro panel out from under the click). */
     .hd-demo-next { animation: hd-demo-pulse 1.1s ease-in-out infinite !important; }
+    .hd-demo-off { opacity: .38 !important; filter: grayscale(1) !important;
+                   pointer-events: none !important; cursor: default !important; }
+    .hd-demo-fixed { pointer-events: none !important; opacity: .9; }
     .hd-demo-tip { position: fixed; z-index: 9999; pointer-events: none;
       background: #ffd84d; color: #111; font: 700 15px/1.2 Arial, Helvetica, sans-serif;
       padding: 7px 12px; border-radius: 8px; box-shadow: 0 3px 0 #111; white-space: nowrap;
@@ -58,32 +62,25 @@
     const cs = getComputedStyle(el);
     return cs.visibility !== 'hidden' && cs.display !== 'none' && Number(cs.opacity) > 0.05;
   };
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
-  async function waitFor(fn, ms){
-    for(let t = 0; t < ms; t += 150){ const v = fn(); if(v) return v; await sleep(150); }
-    return null;
+  /* ---------- the path, and everything off it ---------- */
+  function demoUnitCard(){
+    const i = (window.UNITS || []).findIndex(u => u.id === UNIT_ID);
+    return i < 0 ? null : $$('#unit-grid .unit-card')[i] || null;
   }
-
-  /* ---------- setup: straight to the board ---------- */
-  async function setup(){
-    const card = await waitFor(() => $$('#unit-grid .unit-card').find(c => {
-      const h = $('h2', c); if(!h) return false;
-      if(UNIT_ID) return (window.UNITS || []).some((u, i) => u.id === UNIT_ID && $$('#unit-grid .unit-card')[i] === c);
-      return h.textContent.trim() === UNIT;
-    }), 8000);
-    if(!card) return;
-    card.click();
-    const flip = await waitFor(() => { const g = $('.game-card[data-game="flip"]'); return shown(g) && g; }, 4000);
-    if(!flip) return;
-    flip.click();
-    const boxes = await waitFor(() => { const b = $$('#content-list input'); return b.length && b; }, 4000);
-    if(!boxes) return;
-    boxes.forEach(b => { if(!b.checked) b.click(); });
-    const start = await waitFor(() => { const s = $('#start-btn'); return s && !s.disabled && s; }, 3000);
-    if(start) start.click();
-    // the title sequence: any key skips it
-    const ov = await waitFor(() => $('#intro-overlay.on'), 2500);
-    if(ov) document.dispatchEvent(new KeyboardEvent('keydown', { key:' ', code:'Space', bubbles:true }));
+  const off = (el, yes) => el && el.classList.toggle('hd-demo-off', !!yes);
+  /* Run every tick: the engine rebuilds a screen whenever it is shown, so a lock
+     applied once would be gone on the next visit. */
+  function lockPath(){
+    const mine = demoUnitCard();
+    $$('#unit-grid .unit-card').forEach(c => off(c, mine && c !== mine));
+    $$('.game-card').forEach(g => off(g, g.dataset.game !== 'flip'));
+    if(shown($('#screen-content-select'))){
+      $$('#content-list input').forEach(b => { if(!b.checked) b.click(); });
+      ['#round-filter', '#roster-pick'].forEach(s => off($(s), true));
+      /* The demo unit's own topics are what is being shown off: readable, ticked,
+         just not clickable — not greyed like everything off the path. */
+      const list = $('#content-list'); if(list) list.classList.add('hd-demo-fixed');
+    }
   }
 
   /* ---------- the one thing to press next ---------- */
@@ -123,13 +120,17 @@
       return [];
     }
     if(shown($('#screen-unit-select'))){
-      const c = $$('#unit-grid .unit-card').find(x => /General Knowledge/.test(x.textContent));
-      return c ? [[c, 'Start here']] : [];
+      const c = demoUnitCard();
+      const u = (window.UNITS || []).find(x => x.id === UNIT_ID);
+      return c ? [[c, 'Start here: ' + ((u && u.card && u.card.title) || 'this one'), 'below']] : [];
     }
     if(shown($('#screen-game-select'))){
       const g = $('.game-card[data-game="flip"]');
-      if(shown(g)) return [[g, 'Play Flip']];
-      const s = $('#start-btn'); return shown(s) ? [[s, 'Start the game']] : [];
+      return shown(g) ? [[g, 'Play Flip', 'below']] : [];
+    }
+    if(shown($('#screen-content-select'))){
+      const s = $('#start-btn');
+      return shown(s) ? [[s, 'Topics chosen for you: press here']] : [];
     }
     const card = $$('#flip-grid .flip-card').find(c => !c.classList.contains('used') && !c.disabled);
     const out = [];
@@ -158,10 +159,22 @@
     t.style.top = Math.max(4, Math.min(innerHeight - h - 4, top)) + 'px';
     t.style.left = left + 'px';
   }
+  /* The setup screens scroll (only the board may not), and the one thing to press
+     can sit below the fold — the World Quiz card, the Start button. Bring it into
+     view once, when it becomes the target, and never fight the visitor after. */
+  let brought = null;
+  function bringIntoView(el){
+    if(!el || el === brought) return;
+    brought = el;
+    const r = el.getBoundingClientRect();
+    if(r.top < 60 || r.bottom > innerHeight - 70) el.scrollIntoView({ block:'center', behavior:'smooth' });
+  }
   function tick(){
+    lockPath();
     const want = next().filter(p => p[0] && shown(p[0]));
     lit.forEach(el => { if(!want.some(p => p[0] === el)) el.classList.remove('hd-demo-next'); });
     lit = want.map(p => p[0]);
+    if(lit[0]) bringIntoView(lit[0]);
     lit.forEach(el => el.classList.add('hd-demo-next'));
     want.forEach((p, i) => place(tip(i), p[0], p[1], p[2]));
     for(let i = want.length; i < tips.length; i++) tips[i].style.opacity = 0;
@@ -170,10 +183,9 @@
   function boot(){
     const style = document.createElement('style'); style.textContent = css; document.head.appendChild(style);
     const banner = document.createElement('div'); banner.id = 'hd-demo-banner';
-    banner.innerHTML = 'Demo: press whatever is glowing<small>Built for B1 Italian teenage learners</small>';
+    banner.innerHTML = 'Demo: press whatever is glowing<small>Greyed out: other units and games, locked for the demo</small>';
     document.body.appendChild(banner);
     setInterval(tick, 250);
-    setup();
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 
