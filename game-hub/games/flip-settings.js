@@ -20,7 +20,7 @@ window.registerFlipSettings = function(S){
      question bench. */
   const RS = (window.HubTwist || {}).rulesets;
   if(!RS) throw new Error('flip-settings: hub-twist.js must load before this file');
-  S.register({ id:'flipRules', group:'Flip', type:'variant', default:'mixed', games:['flip'],
+  S.register({ id:'flipRules', group:'Flip', type:'variant', default:'plain', games:['flip'],
     label:'Rules',
     help:'A whole balance at once. Picking one writes the three comeback settings below — so they always say what will actually happen, and you can still change any of them afterwards.',
     variants: Object.keys(RS).map(k => ({ value:k, label:RS[k].label })) });
@@ -51,10 +51,12 @@ window.registerFlipSettings = function(S){
     help:'You take half of it from them and keep half — so the gap closes by this share and you can never overtake on a steal alone. Only ever upward: the leader cannot steal.' });
 
   /* Density, not a list of which cards carry what. The game weights the twists toward
-     the back rows itself; this only says how many there are to weight. 60% by default —
-     at 40% a leader could coast through the end of the board; a device seeded with 40
-     is migrated once in hub-engine.js (`migrateFlipTwists`). */
-  S.register({ id:'flipTwists', group:'Flip', type:'range', default:60, quick:true,
+     the back rows itself; this only says how many there are to weight. **0 by default:
+     the teacher simplified Flip to questions, points and the leaderboard** (the Plain
+     ruleset). When twists are wanted, 60% is the tuned value (the Mixed ruleset) — at
+     40% a leader could coast through the end of the board. A device seeded with the old
+     Mixed defaults moves once in hub-engine.js (`migrateFlipPlain`). */
+  S.register({ id:'flipTwists', group:'Flip', type:'range', default:0, quick:true,
     min:0, max:90, step:10, unit:'%', games:['flip'],
     label:'How many cards carry a twist',
     help:'The rest are plain points. Twists are dealt toward the end of the board, so the game gets more volatile as it goes rather than less. 0 turns the whole mechanic off and leaves a plain quiz board.' });

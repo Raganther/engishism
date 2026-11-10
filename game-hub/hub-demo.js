@@ -162,6 +162,14 @@
     else if(card) out.push([card, 'Pick any card']);
     if(card && out[0][0] !== card) out.push([card, '']);
     if(scan && shown(scan) && !phones()) out.push([scan, 'Join on your phone: tap here', 'below']);
+    /* Finish glows too — twenty-five cards is long for a visitor, and the button is
+       quiet on purpose for a class. Its words only once a few cards are played, so the
+       first look at the board is not a wall of labels. */
+    const fin = $('#flip-finish');
+    if(fin && shown(fin) && card){
+      const played = $$('#flip-grid .flip-card.used').length;
+      out.push([fin, played >= 3 ? 'Seen enough? Finish here' : '', 'below']);
+    }
     return out;
   }
   let boardSince = 0, qrSeen = false, hop = null, hopAt = 0;
