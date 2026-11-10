@@ -264,8 +264,12 @@
      finished close. The catch-up multiple is the lever that decided it. `twists` is a
      percentage, as the hub's settings row stores it. The hub's Rules row and the
      party lobby's switch both read this table, so the numbers have one home. */
+  /* `plain` is the default: no twist cards at all, so a board is questions, points
+     and the leaderboard — the teacher simplified the game to that. The other two
+     keep the comeback machinery for a class that wants it back. */
   const RULESETS = {
-    mixed:   { label:'Mixed class — the standard rules',                  catchUp:1,   steal:0.5, twists:60 },
+    plain:   { label:'Plain — no twist cards, just the leaderboard',      catchUp:1,   steal:0.5, twists:0 },
+    mixed:  { label:'Mixed class — the standard rules',                  catchUp:1,   steal:0.5, twists:60 },
     runaway: { label:'Runaway class — one student far out in front',      catchUp:4,   steal:0.8, twists:80 }
   };
 

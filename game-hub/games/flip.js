@@ -1027,7 +1027,8 @@
       ? (lastPicks() ? E().teamName(who) + ' is last — their pick'
                      : E().teamName(who) + ' picks') + membersOf(who)
       : '';
-    left.textContent = n + (n === 1 ? ' card left' : ' cards left');
+    // counted up, not down: how far the room has come reads better than what is left
+    left.textContent = (cards.length - n) + ' of ' + cards.length + ' cards played';
   }
 
   /* A line across the board for the beat after a reversal — the room has to be told

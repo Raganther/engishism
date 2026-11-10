@@ -516,6 +516,22 @@
     if(Number(S.raw('flipTwists')) === 40) S.set('flipTwists', 60);
     try{ localStorage.setItem(MARK, '1'); }catch(e){}
   })();
+  /* **Flip is plain by default now: no twist cards.** A device that ran Flip before has
+     the old seeded Mixed values stored, and a changed default never reaches it. Moved
+     once, and only if it is still on exactly what Mixed seeded (Mixed, 60%) — a teacher
+     who chose Runaway or tuned the density keeps their choice. */
+  (function migrateFlipPlain(){
+    const MARK = 'engishism.flipPlain';
+    let done = false;
+    try{ done = localStorage.getItem(MARK) === '1'; }catch(e){}
+    if(done) return;
+    const rules = S.raw('flipRules');
+    if((rules == null || rules === 'mixed') && (S.raw('flipTwists') == null || Number(S.raw('flipTwists')) === 60)){
+      S.set('flipRules', 'plain');      // the ruleset's applier writes the three dials
+      S.set('flipTwists', 0);
+    }
+    try{ localStorage.setItem(MARK, '1'); }catch(e){}
+  })();
   /* **Everyone earns the same, and every band pays.** Behind-earns-more shipped at
      1.5× and is off now (1); the time bands shipped as 1 · ½ · 0.05 · 0 and are
      1 · ¾ · ½ · ¼. A device still on the old seeded values moves once; a value the
