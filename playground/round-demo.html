@@ -29,6 +29,9 @@
   #stage { position:relative; flex:1; overflow:hidden; }
   #head { position:absolute; left:0; right:0; top:0; padding:18px 16px 6px; text-align:center;
     font-size:clamp(2rem, 10vw, 3rem); font-weight:800; letter-spacing:0.02em; pointer-events:none; z-index:2; }
+  /* the yellow bar that sweeps under the question as it lands — the eye's first stop */
+  #hl { position:absolute; left:50%; height:6px; border-radius:3px; background:var(--hd-yellow);
+    transform:translateX(-50%) scaleX(0); transform-origin:left center; pointer-events:none; z-index:2; }
   #table { position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; }
 
   /* The finger: big, coming up out of the bottom of the screen. Its tip is the
@@ -48,6 +51,7 @@
 <div id="stage">
   <canvas id="table"></canvas>
   <div id="head">2 + 2 = ?</div>
+  <div id="hl"></div>
   <div id="press"></div>
   <svg id="finger" viewBox="0 0 120 640" aria-hidden="true">
     <defs>
@@ -87,19 +91,22 @@
 (function(){
   /* ---- TIMING (ms) — the whole beat ---- */
   const T = {
-    settle: 1500,    // the deal falls and piles before the finger comes
-    rise: 650,       // the finger comes up out of the bottom edge to the tile
-    press: 250,      // it presses down
-    drag: 900,       // it pushes the tile up into the slot, at a hand's pace
-    rest: 180,       // a still moment over the slot so the release places, not flings
-    sink: 550,       // the finger drops back out of the screen
-    hold: 1400       // look at the answer, then go again
+    qPop: 220,       // the question bursts in, big, in the middle of the screen
+    qHold: 380,      // …and stays there long enough to be read first
+    qFly: 300,       // then it swooshes up to its place at the top
+    settle: 750,     // the answers fall and pile before the finger comes
+    rise: 420,       // the finger comes up out of the bottom edge to the tile
+    press: 150,      // it presses down
+    drag: 560,       // it pushes the tile up into the slot, at a quick hand's pace
+    rest: 110,       // a still moment over the slot so the release places, not flings
+    sink: 350,       // the finger drops back out of the screen
+    hold: 1000       // look at the answer, then go again
   };
   const OPTIONS = ['3', '5', '4', '6'];
   const ANSWER = '4';
 
   const $ = s => document.querySelector(s);
-  const stage = $('#stage'), canvas = $('#table'), head = $('#head'), finger = $('#finger'), press = $('#press');
+  const stage = $('#stage'), canvas = $('#table'), head = $('#head'), hl = $('#hl'), finger = $('#finger'), press = $('#press');
   const TIP = { x:60, y:14 };   // the fingertip inside the SVG
   const ID = 'demo';            // the pointer id the script grabs with
   let tbl = null, speed = 1, run = 0;
@@ -132,21 +139,52 @@
     tbl.setPieces(OPTIONS);
   }
 
-  function deal(){
+  // Clear the table to an empty slot; the answers are dealt once the question has landed.
+  function clear(){
     const headTop = Math.ceil(head.getBoundingClientRect().height) + 8;
     tbl.reset();
     tbl.slots({ cols:1, rows:1, bar:true, labels:OPTIONS, count:1, top:headTop });
-    tbl.setPieces(OPTIONS);
     tbl.setResult(null);
+  }
+  const deal = () => tbl.setPieces(OPTIONS);
+
+  /* The question first, on its own: it bursts in big in the middle of the screen,
+     holds a moment, then swooshes up to its place and a yellow bar sweeps under it.
+     The answers only fall after that, so the eye meets the question before anything
+     moves. */
+  async function question(id){
+    const h = head.getBoundingClientRect(), st = stage.getBoundingClientRect();
+    const dy = (st.height * 0.42) - (h.top - st.top + h.height / 2);
+    const big = `translateY(${dy}px) scale(1.7)`;
+    hl.style.top = (h.bottom - st.top - 2) + 'px';
+    hl.style.width = Math.min(h.width - 40, 260) + 'px';
+    hl.getAnimations().forEach(a => a.cancel());
+    head.getAnimations().forEach(a => a.cancel());
+    head.animate([{ opacity:0, transform:`translateY(${dy}px) scale(0.6)` },
+                  { opacity:1, transform:`translateY(${dy}px) scale(1.85)`, offset:0.7 },
+                  { opacity:1, transform:big }],
+                 { duration:T.qPop / speed, easing:'cubic-bezier(.2,1.3,.4,1)', fill:'forwards' });
+    await wait(T.qPop + T.qHold, id);
+    head.animate([{ transform:big, filter:'blur(0)' },
+                  { transform:`translateY(${dy * 0.4}px) scale(1.25)`, filter:'blur(1.5px)', offset:0.45 },
+                  { transform:'none', filter:'blur(0)' }],
+                 { duration:T.qFly / speed, easing:'cubic-bezier(.6,0,.3,1)', fill:'forwards' });
+    await wait(T.qFly, id);
+    hl.animate([{ transform:'translateX(-50%) scaleX(0)', opacity:1 },
+                { transform:'translateX(-50%) scaleX(1)', opacity:1, offset:0.5 },
+                { transform:'translateX(-50%) scaleX(1)', opacity:0 }],
+               { duration:900 / speed, easing:'ease-out', fill:'forwards' });
   }
 
   async function play(){
     const id = ++run;
     if(tbl.heldBy(ID)) tbl.drop(ID);
-    deal();
+    clear();
     const park = offscreen(stage.clientWidth / 2);
     fingerAt(park.x, park.y);
     try {
+      await question(id);
+      deal();
       await wait(T.settle, id);
 
       // 1 · the finger rises out of the bottom edge to the right answer, wherever it landed
@@ -164,7 +202,7 @@
       // 2 · press: the finger dips, a ring spreads from the tip, and it takes hold
       press.style.left = t.x + 'px'; press.style.top = t.y + 'px';
       press.animate([{ opacity:0.9, transform:'scale(0.3)' }, { opacity:0, transform:'scale(1.5)' }],
-                    { duration: 520 / speed, easing:'ease-out' });
+                    { duration: 420 / speed, easing:'ease-out' });
       await tween(T.press, id, e => fingerAt(t.x, t.y + 3 * e, 1 - 0.07 * e, -6));
       if(!tbl.grab(ID, t.x, t.y)) return;
 
