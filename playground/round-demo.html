@@ -7,45 +7,38 @@
 <link rel="stylesheet" href="../game-hub/huddle.css?v=20261120b">
 <!--
   Round demos — show, don't tell. A prototype of the animation a round plays in its
-  intro beat, before the question appears: a stylised finger playing one tiny
-  example of the round, so a student knows what to do without reading a word.
-  Multiple Choice first: four answer tiles in a loose heap, an empty slot above, the
-  finger presses the right one and pushes it up into the slot, it lands and goes
-  green. The example question is arithmetic on purpose — it needs no English.
+  intro beat, before the question appears: a finger playing one tiny example of the
+  round, so a student knows what to do without reading a word.
+
+  Multiple Choice first, on the REAL table: the same Kit.table a phone runs for the
+  round's flick face (one slot, four word tiles, `count:1`, upright), dealt the same
+  way, so the tiles fall and pile exactly as a student will see them. The finger is
+  scripted through the shelf's own grab / move / drop — the path a student's thumb
+  takes — so the tile travels, docks and lands with the real physics, and the slot
+  goes green from the shelf's own setResult. The example is 2 + 2 so it needs no
+  English.
 
   Standalone, no relay, no hub. Nothing here is wired into a game yet; when the look
-  is agreed the demo moves onto the round's own declaration and the intro beat
-  plays it. Tune the timeline in the TIMING block below.
+  is agreed the demo moves onto the round's own declaration and the intro beat plays
+  it. Tune the timeline in the TIMING block below.
 -->
 <style>
   html, body { margin:0; height:100%; background:var(--hd-ground); color:var(--hd-paper);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  body { display:flex; flex-direction:column; align-items:center; min-height:100dvh; overflow:hidden; }
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow:hidden; }
+  body { display:flex; flex-direction:column; height:100dvh; }
+  #stage { position:relative; flex:1; overflow:hidden; }
+  #head { position:absolute; left:0; right:0; top:0; padding:18px 16px 6px; text-align:center;
+    font-size:clamp(2rem, 10vw, 3rem); font-weight:800; letter-spacing:0.02em; pointer-events:none; z-index:2; }
+  #table { position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; }
 
-  #stage { position:relative; width:min(100vw, 440px); flex:1; max-height:820px;
-    display:flex; flex-direction:column; align-items:center; padding:20px 16px 0; box-sizing:border-box; }
+  /* The finger: big, coming up out of the bottom of the screen. Its tip is the
+     hotspot; the rest runs off the bottom edge. */
+  #finger { position:absolute; left:0; top:0; width:120px; height:640px; pointer-events:none; z-index:4;
+    transform-origin:60px 14px; filter:drop-shadow(0 10px 18px rgba(0,0,0,0.5)); will-change:transform; }
+  #press { position:absolute; width:70px; height:70px; margin:-35px 0 0 -35px; border-radius:50%;
+    border:4px solid rgba(255,255,255,0.9); opacity:0; pointer-events:none; z-index:3; }
 
-  #q { margin-top:4vh; font-size:clamp(2.4rem, 12vw, 3.4rem); font-weight:800; letter-spacing:0.02em;
-    opacity:0; }
-  #slot { margin-top:3vh; width:62%; height:76px; display:flex; align-items:center; justify-content:center;
-    position:relative; }
-  #slot.pulse { animation:slotPulse 1.1s ease-in-out infinite; }
-  @keyframes slotPulse { 0%,100%{ border-color:var(--hd-line); } 50%{ border-color:var(--hd-yellow); } }
-  #slot.good { border:2px solid var(--hd-green); box-shadow:0 0 0 4px rgba(111,176,74,0.25), 0 0 26px rgba(111,176,74,0.55); }
-  #tick { position:absolute; right:-14px; top:-14px; width:34px; height:34px; border-radius:50%;
-    background:var(--hd-green); color:var(--hd-ink); display:flex; align-items:center; justify-content:center;
-    font-weight:900; font-size:20px; transform:scale(0); border:2px solid rgba(0,0,0,0.25); }
-
-  #heap { position:relative; width:100%; flex:1; margin-top:4vh; }
-  .opt { position:absolute; width:42%; height:72px; display:flex; align-items:center; justify-content:center;
-    font-size:2.1rem; box-sizing:border-box; opacity:0; will-change:transform; }
-
-  #hand { position:absolute; left:0; top:0; width:64px; height:78px; pointer-events:none; opacity:0;
-    filter:drop-shadow(0 6px 10px rgba(0,0,0,0.45)); z-index:5; will-change:transform; }
-  #ring { position:absolute; left:0; top:0; width:54px; height:54px; margin:-27px 0 0 -27px; border-radius:50%;
-    border:3px solid rgba(255,255,255,0.9); opacity:0; pointer-events:none; z-index:4; }
-
-  #bar { display:flex; gap:10px; padding:12px 16px calc(14px + env(safe-area-inset-bottom)); }
+  #bar { display:flex; gap:10px; justify-content:center; padding:10px 16px calc(12px + env(safe-area-inset-bottom)); }
   #bar button { font:inherit; font-size:0.95rem; padding:10px 16px; cursor:pointer; }
   #bar button.slot-btn { color:var(--hd-paper); }
   #bar button.on { border-style:solid; border-color:var(--hd-yellow); }
@@ -53,24 +46,23 @@
 </head>
 <body>
 <div id="stage">
-  <div id="q">2 + 2 = ?</div>
-  <div id="slot" class="hd-slot"><div id="tick">✓</div></div>
-  <div id="heap">
-    <div class="opt hd-tile" data-v="3" style="--fill:var(--hd-hue-1)">3</div>
-    <div class="opt hd-tile" data-v="5" style="--fill:var(--hd-hue-3)">5</div>
-    <div class="opt hd-tile" data-v="4" style="--fill:var(--hd-hue-2)">4</div>
-    <div class="opt hd-tile" data-v="6" style="--fill:var(--hd-hue-5)">6</div>
-  </div>
-  <div id="ring"></div>
-  <svg id="hand" viewBox="0 0 64 78" aria-hidden="true">
-    <!-- a pointing hand: the fingertip (the hotspot) is at (22, 4) -->
-    <g fill="#fff" stroke="#101318" stroke-width="2.5" stroke-linejoin="round">
-      <rect x="14" y="2" width="16" height="44" rx="8"/>
-      <rect x="29" y="22" width="13" height="26" rx="6.5"/>
-      <rect x="41" y="26" width="12" height="24" rx="6"/>
-      <path d="M8 40 Q4 44 8 52 L14 66 Q18 76 30 76 L44 76 Q56 76 56 62 L56 40 Q56 36 52 36 L14 36 Z"/>
-      <rect x="2" y="34" width="14" height="22" rx="7" transform="rotate(-28 9 45)"/>
-    </g>
+  <canvas id="table"></canvas>
+  <div id="head">2 + 2 = ?</div>
+  <div id="press"></div>
+  <svg id="finger" viewBox="0 0 120 640" aria-hidden="true">
+    <defs>
+      <linearGradient id="skin" x1="0" x2="1">
+        <stop offset="0" stop-color="#f3c9a8"/><stop offset="0.55" stop-color="#ffdcc0"/><stop offset="1" stop-color="#e5b08c"/>
+      </linearGradient>
+    </defs>
+    <!-- one long finger, the tip at (60, 14), the base running off the bottom -->
+    <path d="M20 640 L20 70 Q20 8 60 8 Q100 8 100 70 L100 640 Z" fill="url(#skin)" stroke="#101318" stroke-width="4"/>
+    <!-- the nail -->
+    <path d="M38 64 Q38 24 60 24 Q82 24 82 64 L82 92 Q60 100 38 92 Z" fill="#fff3ea" stroke="#101318" stroke-width="3" opacity="0.95"/>
+    <!-- knuckle creases -->
+    <path d="M36 200 Q60 212 84 200" fill="none" stroke="#b9805e" stroke-width="3" stroke-linecap="round"/>
+    <path d="M40 214 Q60 222 80 214" fill="none" stroke="#b9805e" stroke-width="3" stroke-linecap="round"/>
+    <path d="M36 380 Q60 392 84 380" fill="none" stroke="#b9805e" stroke-width="3" stroke-linecap="round"/>
   </svg>
 </div>
 <div id="bar">
@@ -78,131 +70,123 @@
   <button id="slow" class="hd-slot slot-btn">Slow</button>
 </div>
 
+<script src="../game-hub/hub-brand.js?v=20261120b"></script>
+<script src="../game-hub/matter.min.js?v=20261120b"></script>
+<script>window.HubKit = window.HubKit || {};</script>
+<script src="../game-hub/hub-table.js?v=20261120b"></script>
 <script>
 (function(){
-  /* ---- TIMING (ms) — the whole beat is about four seconds ---- */
+  /* ---- TIMING (ms) — the whole beat ---- */
   const T = {
-    question: 0,     // the question appears
-    deal: 250,       // the four tiles tumble in, staggered
-    handIn: 1100,    // the finger arrives at the right answer
-    press: 1900,     // it presses down
-    push: 2150,      // it pushes the tile up into the slot
-    land: 2900,      // the tile lands, the slot goes green
-    handOut: 3200,   // the finger leaves
-    hold: 4600       // end; loop after this
+    settle: 1500,    // the deal falls and piles before the finger comes
+    rise: 650,       // the finger comes up out of the bottom edge to the tile
+    press: 250,      // it presses down
+    drag: 900,       // it pushes the tile up into the slot, at a hand's pace
+    rest: 180,       // a still moment over the slot so the release places, not flings
+    sink: 550,       // the finger drops back out of the screen
+    hold: 1400       // look at the answer, then go again
   };
+  const OPTIONS = ['3', '5', '4', '6'];
   const ANSWER = '4';
-  // Where each tile rests in the heap: share of the heap's width/height, and a lean.
-  const HEAP = { '3':[0.04,0.10,-7], '5':[0.52,0.04,6], '4':[0.10,0.46,4], '6':[0.54,0.50,-5] };
 
   const $ = s => document.querySelector(s);
-  const stage = $('#stage'), q = $('#q'), slot = $('#slot'), tick = $('#tick'),
-        heap = $('#heap'), hand = $('#hand'), ring = $('#ring');
-  const opts = [...document.querySelectorAll('.opt')];
-  const correct = opts.find(o => o.dataset.v === ANSWER);
-  let speed = 1, timers = [], anims = [];
+  const stage = $('#stage'), canvas = $('#table'), head = $('#head'), finger = $('#finger'), press = $('#press');
+  const TIP = { x:60, y:14 };   // the fingertip inside the SVG
+  const ID = 'demo';            // the pointer id the script grabs with
+  let tbl = null, speed = 1, run = 0;
 
-  const at = (ms, fn) => timers.push(setTimeout(fn, ms / speed));
-  const play = (el, frames, o) => { const a = el.animate(frames, Object.assign({ fill:'forwards' }, o, {
-    duration:(o.duration || 300) / speed, delay:(o.delay || 0) / speed })); anims.push(a); return a; };
-  const box = el => { const r = el.getBoundingClientRect(), s = stage.getBoundingClientRect();
-    return { x:r.left - s.left, y:r.top - s.top, w:r.width, h:r.height }; };
+  const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  const fingerAt = (x, y, s, tilt) =>
+    finger.style.transform = `translate(${x - TIP.x}px, ${y - TIP.y}px) rotate(${tilt == null ? -14 : tilt}deg) scale(${s || 1})`;
+  const offscreen = x => ({ x: x + 60, y: stage.clientHeight + 40 });   // below the bottom edge, a little right
 
-  function layout(){
-    const hb = box(heap);
-    opts.forEach(o => { const p = HEAP[o.dataset.v];
-      o.style.left = (p[0] * hb.w) + 'px'; o.style.top = (p[1] * hb.h) + 'px'; o.dataset.lean = p[2]; });
+  // A promise that resolves after ms of demo time; a newer run cancels the older one.
+  const wait = (ms, id) => new Promise((ok, no) => setTimeout(() => id === run ? ok() : no('stale'), ms / speed));
+  // Animate t 0→1 over ms, calling fn(eased t) every frame.
+  const tween = (ms, id, fn) => new Promise((ok, no) => {
+    const t0 = performance.now();
+    (function f(){
+      if(id !== run) return no('stale');
+      const t = Math.min(1, (performance.now() - t0) / (ms / speed));
+      fn(ease(t), t);
+      if(t < 1) requestAnimationFrame(f); else ok();
+    })();
+  });
+
+  function build(){
+    /* The phone's own table for a Multiple Choice flick: the shape the round's arm
+       sends (cols 1, rows 1, count 1, bar, upright), slots before pieces. */
+    const headTop = Math.ceil(head.getBoundingClientRect().height) + 8;
+    tbl = window.HubKit.table({ canvas, upright: true, sweepGrid: false, lowLatency: true, ceiling: headTop });
+    tbl.resize();
+    tbl.slots({ cols:1, rows:1, bar:true, labels:OPTIONS, count:1, top:headTop });
+    tbl.setPieces(OPTIONS);
   }
 
-  function reset(){
-    timers.forEach(clearTimeout); timers = [];
-    anims.forEach(a => a.cancel()); anims = [];
-    slot.classList.remove('good', 'filled', 'pulse'); correct.classList.remove('lifted', 'pressed', 'hd-land');
-    layout();
+  function deal(){
+    const headTop = Math.ceil(head.getBoundingClientRect().height) + 8;
+    tbl.reset();
+    tbl.slots({ cols:1, rows:1, bar:true, labels:OPTIONS, count:1, top:headTop });
+    tbl.setPieces(OPTIONS);
+    tbl.setResult(null);
   }
 
-  // The hand's hotspot is its fingertip; place it so the tip sits on (x, y) in stage space.
-  const TIP = { x:22, y:4 };
-  const handAt = (x, y, s) => `translate(${x - TIP.x}px, ${y - TIP.y}px) scale(${s || 1})`;
+  async function play(){
+    const id = ++run;
+    if(tbl.heldBy(ID)) tbl.drop(ID);
+    deal();
+    const park = offscreen(stage.clientWidth / 2);
+    fingerAt(park.x, park.y);
+    try {
+      await wait(T.settle, id);
 
-  function run(){
-    reset();
-    const sb = box(slot), hb = box(heap);
+      // 1 · the finger rises out of the bottom edge to the right answer, wherever it landed
+      const tile = () => tbl.loose().find(p => p.ch === ANSWER);
+      // grip the tile low and to the right, so the finger never covers the answer
+      const G = { x: 24, y: 12 };
+      const grip = p => ({ x: p.x + G.x, y: p.y + G.y });
+      let t0 = tile(); if(!t0) return;
+      let t = grip(t0);
+      const from = offscreen(t.x);
+      await tween(T.rise, id, e => { const p = tile() ? grip(tile()) : t;
+        fingerAt(from.x + (p.x - from.x) * e, from.y + (p.y - from.y) * e, 1, -14 + 8 * e); });
+      t = tile() ? grip(tile()) : t;
 
-    // 1 · the question
-    at(T.question, () => play(q, [{ opacity:0, transform:'translateY(-8px)' }, { opacity:1, transform:'none' }], { duration:350, easing:'ease-out' }));
+      // 2 · press: the finger dips, a ring spreads from the tip, and it takes hold
+      press.style.left = t.x + 'px'; press.style.top = t.y + 'px';
+      press.animate([{ opacity:0.9, transform:'scale(0.3)' }, { opacity:0, transform:'scale(1.5)' }],
+                    { duration: 520 / speed, easing:'ease-out' });
+      await tween(T.press, id, e => fingerAt(t.x, t.y + 3 * e, 1 - 0.07 * e, -6));
+      if(!tbl.grab(ID, t.x, t.y)) return;
 
-    // 2 · the deal: each tile drops in from above with a little bounce, then rests leaning
-    opts.forEach((o, i) => at(T.deal + i * 110, () => {
-      const lean = +o.dataset.lean;
-      play(o, [
-        { opacity:0, transform:`translateY(-60px) rotate(${lean * 3}deg)` },
-        { opacity:1, transform:`translateY(8px) rotate(${lean * 0.6}deg)`, offset:0.7 },
-        { opacity:1, transform:`translateY(0) rotate(${lean}deg)` }
-      ], { duration:520, easing:'cubic-bezier(.3,.7,.4,1)' });
-    }));
-    at(T.deal + 500, () => slot.classList.add('pulse'));
+      // 3 · push it up into the slot at a hand's pace, a slight curve like a real thumb
+      const slot = tbl.slotBox(0);
+      const a = { x: t.x, y: t.y }, b = { x: slot.x + G.x, y: slot.y + G.y };
+      await tween(T.drag, id, e => {
+        const x = a.x + (b.x - a.x) * e + Math.sin(e * Math.PI) * 18, y = a.y + (b.y - a.y) * e;
+        tbl.move(ID, x, y); fingerAt(x, y + 3, 0.93, -6);
+      });
+      tbl.move(ID, b.x, b.y);
+      await wait(T.rest, id);
 
-    // 3 · the finger comes in from the bottom right and rests on the right answer
-    const cb = box(correct), lean = +correct.dataset.lean;
-    const tip0 = { x: stage.clientWidth + 40, y: stage.clientHeight + 40 };
-    const tip1 = { x: cb.x + cb.w * 0.5, y: cb.y + cb.h * 0.55 };
-    at(T.handIn, () => play(hand, [
-      { opacity:0, transform:handAt(tip0.x, tip0.y) },
-      { opacity:1, transform:handAt(tip1.x, tip1.y), offset:0.85 },
-      { opacity:1, transform:handAt(tip1.x, tip1.y) }
-    ], { duration:T.press - T.handIn, easing:'cubic-bezier(.25,.8,.3,1)' }));
+      // 4 · let go: a still release places it, the slot goes green
+      tbl.drop(ID);
+      tbl.setResult('right');
+      const out = offscreen(b.x);
+      await tween(T.sink, id, e => fingerAt(b.x + (out.x - b.x) * e, b.y + 3 + (out.y - b.y) * e, 0.93 + 0.07 * e, -6 - 8 * e));
 
-    // 4 · press: the hand dips, the tile sinks, a ring spreads from the fingertip
-    at(T.press, () => {
-      play(hand, [{ transform:handAt(tip1.x, tip1.y) }, { transform:handAt(tip1.x, tip1.y + 4, 0.92) }], { duration:160, easing:'ease-out' });
-      correct.classList.add('pressed');
-      ring.style.left = tip1.x + 'px'; ring.style.top = tip1.y + 'px';
-      play(ring, [{ opacity:0.9, transform:'scale(0.3)' }, { opacity:0, transform:'scale(1.4)' }], { duration:520, easing:'ease-out' });
-    });
-
-    // 5 · push up: tile and finger travel together into the slot, the tile straightens and lifts
-    const dx = (sb.x + sb.w / 2) - (cb.x + cb.w / 2), dy = (sb.y + sb.h / 2) - (cb.y + cb.h / 2);
-    const tip2 = { x: tip1.x + dx, y: tip1.y + dy };
-    const dur = T.land - T.push;
-    at(T.push, () => {
-      correct.classList.remove('pressed'); correct.classList.add('lifted'); slot.classList.remove('pulse');
-      play(correct, [
-        { transform:`translate(0,0) rotate(${lean}deg) scale(1)` },
-        { transform:`translate(${dx * 0.5}px, ${dy * 0.55}px) rotate(${lean * 0.3}deg) scale(1.06)`, offset:0.5 },
-        { transform:`translate(${dx}px, ${dy}px) rotate(0deg) scale(1)` }
-      ], { duration:dur, easing:'cubic-bezier(.45,0,.25,1)' });
-      play(hand, [{ transform:handAt(tip1.x, tip1.y + 4, 0.92) }, { transform:handAt(tip2.x, tip2.y + 4, 0.92) }],
-        { duration:dur, easing:'cubic-bezier(.45,0,.25,1)' });
-      // the other three fade back so the eye follows the one that moves
-      opts.filter(o => o !== correct).forEach(o => play(o, [{ opacity:1 }, { opacity:0.35 }], { duration:400 }));
-    });
-
-    // 6 · land: the swell, the slot goes solid green, the tick pops
-    at(T.land, () => {
-      correct.classList.remove('lifted');
-      play(correct, [
-        { transform:`translate(${dx}px, ${dy}px) scale(0.92)` },
-        { transform:`translate(${dx}px, ${dy}px) scale(1.07)`, offset:0.55 },
-        { transform:`translate(${dx}px, ${dy}px) scale(1)` }
-      ], { duration:340, easing:'cubic-bezier(.2,1.2,.4,1)' });
-      slot.classList.add('filled', 'good');
-      play(tick, [{ transform:'scale(0)' }, { transform:'scale(1.25)', offset:0.6 }, { transform:'scale(1)' }], { duration:360, delay:120 });
-    });
-
-    // 7 · the finger lifts away
-    at(T.handOut, () => play(hand, [
-      { opacity:1, transform:handAt(tip2.x, tip2.y + 4, 0.92) },
-      { opacity:0, transform:handAt(tip2.x + 50, tip2.y + 120, 1) }
-    ], { duration:500, easing:'ease-in' }));
-
-    at(T.hold, run); // loop
+      await wait(T.hold, id);
+      play();
+    } catch(_){ /* a newer run took over */ }
   }
 
-  $('#replay').onclick = run;
-  $('#slow').onclick = e => { speed = speed === 1 ? 0.5 : 1; e.currentTarget.classList.toggle('on', speed !== 1); run(); };
-  addEventListener('resize', () => run());
-  run();
+  (function loop(){ if(tbl){ tbl.step(); tbl.draw(); } requestAnimationFrame(loop); })();
+
+  $('#replay').onclick = () => play();
+  $('#slow').onclick = e => { speed = speed === 1 ? 0.5 : 1; e.currentTarget.classList.toggle('on', speed !== 1); play(); };
+  let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { tbl.resize(); play(); }, 200); });
+
+  requestAnimationFrame(() => { build(); play(); });
 })();
 </script>
 </body>
