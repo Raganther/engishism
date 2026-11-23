@@ -51,18 +51,27 @@
   <div id="press"></div>
   <svg id="finger" viewBox="0 0 120 640" aria-hidden="true">
     <defs>
+      <!-- the finger fades out toward its base, so only the tip and first joint read:
+           a fingertip coming up out of the screen, not a long pole -->
+      <linearGradient id="fadeBack" x1="0" y1="0" x2="0" y2="260" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#fff"/><stop offset="0.45" stop-color="#fff"/><stop offset="1" stop-color="#000"/>
+      </linearGradient>
+      <mask id="fade" maskUnits="userSpaceOnUse" x="0" y="0" width="120" height="640">
+        <rect x="0" y="0" width="120" height="640" fill="url(#fadeBack)"/>
+      </mask>
       <linearGradient id="skin" x1="0" x2="1">
         <stop offset="0" stop-color="#f3c9a8"/><stop offset="0.55" stop-color="#ffdcc0"/><stop offset="1" stop-color="#e5b08c"/>
       </linearGradient>
     </defs>
     <!-- one long finger, the tip at (60, 14), the base running off the bottom -->
+    <g mask="url(#fade)">
     <path d="M20 640 L20 70 Q20 8 60 8 Q100 8 100 70 L100 640 Z" fill="url(#skin)" stroke="#101318" stroke-width="4"/>
     <!-- the nail -->
     <path d="M38 64 Q38 24 60 24 Q82 24 82 64 L82 92 Q60 100 38 92 Z" fill="#fff3ea" stroke="#101318" stroke-width="3" opacity="0.95"/>
     <!-- knuckle creases -->
     <path d="M36 200 Q60 212 84 200" fill="none" stroke="#b9805e" stroke-width="3" stroke-linecap="round"/>
     <path d="M40 214 Q60 222 80 214" fill="none" stroke="#b9805e" stroke-width="3" stroke-linecap="round"/>
-    <path d="M36 380 Q60 392 84 380" fill="none" stroke="#b9805e" stroke-width="3" stroke-linecap="round"/>
+  </g>
   </svg>
 </div>
 <div id="bar">
