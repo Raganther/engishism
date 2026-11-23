@@ -45,8 +45,12 @@
     border:4px solid rgba(255,255,255,0.9); opacity:0; pointer-events:none; z-index:3; }
 
   #head .end { font-size:0.42em; font-weight:700; color:var(--hd-muted); letter-spacing:0.08em; margin-top:4px; }
-  #foot { position:absolute; left:0; right:0; text-align:center; font-weight:700; color:var(--hd-muted);
-    letter-spacing:0.08em; font-size:1.05rem; pointer-events:none; z-index:2; display:none; }
+  /* A scale's two ends ARE its question: they arrive together as one line, then
+     split — the top end to the top of the ladder, the bottom end under its last rung. */
+  #head.ends { font-size:clamp(1.5rem, 7.5vw, 2.1rem); }
+  #foot { position:absolute; left:0; right:0; margin:0 auto; width:max-content; text-align:center; font-weight:800;
+    color:var(--hd-paper); letter-spacing:0.02em; font-size:clamp(1.5rem, 7.5vw, 2.1rem);
+    pointer-events:none; z-index:2; display:none; }
   #rounds { display:flex; gap:6px; padding:8px 10px 0; overflow-x:auto; scrollbar-width:none; }
   #rounds::-webkit-scrollbar { display:none; }
   #rounds button { flex:none; font:inherit; font-size:0.78rem; padding:7px 10px; cursor:pointer; color:var(--hd-paper); }
@@ -112,7 +116,7 @@
     drag: 560,       // the first tile is pushed into its slot at a quick hand's pace
     next: 300,       // the finger glides to the next tile…
     dragNext: 400,   // …and every later tile goes in quicker: the idea is already shown
-    rest: 110,       // a still moment over the slot so the release places, not flings
+    rest: 180,       // a still moment over the slot: the table reads the last 120ms of the finger to tell a place from a throw
     sink: 350,       // the finger drops back out of the screen
     hold: 1100       // look at the answer, then go again
   };
@@ -128,8 +132,8 @@
     { id:'grouping', label:'Connections', q:'Find the 4 numbers',
       tiles:['A','3','C','1','B','4','D','2'], shape:{ cols:4, rows:1, count:4, bar:true, upright:true },
       moves:[['1',0],['2',1],['3',2],['4',3]] },
-    { id:'ordering', label:'Word Thermometer', q:'🐭 🐶 🐘', ends:{ top:'BIG ↑', bottom:'small ↓' },
-      tiles:['dog','mouse','elephant'], shape:{ cols:1, rows:3, bar:true },
+    { id:'ordering', label:'Word Thermometer', q:null, ends:{ top:'↑ biggest', bottom:'smallest ↓' },
+      tiles:['dog','mouse','elephant'], shape:{ cols:1, rows:3, bar:true, upright:true },
       moves:[['elephant',0],['dog',1],['mouse',2]] },
     { id:'scramble', label:'Drag the Words', q:'Make the sentence',
       tiles:['cats','I','like'], shape:{ cols:'auto', bar:true, upright:true },
@@ -148,7 +152,7 @@
 
   const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   const fingerAt = (x, y, s, tilt) =>
-    finger.style.transform = `translate(${x - TIP.x}px, ${y - TIP.y}px) rotate(${tilt == null ? -14 : tilt}deg) scale(${s || 1})`;
+    finger.style.transform = `translate(${x + F.x - TIP.x}px, ${y + F.y - TIP.y}px) rotate(${tilt == null ? -14 : tilt}deg) scale(${s || 1})`;
   const offscreen = x => ({ x: x + 60, y: stage.clientHeight + 40 });   // below the bottom edge, a little right
 
   // A promise that resolves after ms of demo time; a newer run cancels the older one.
@@ -169,12 +173,15 @@
      exactly join.html's order: slots before pieces, labels defaulting to the tiles. */
   function build(){
     head.innerHTML = '';
-    const q = document.createElement('div'); q.className = 'q'; q.textContent = demo.q; head.appendChild(q);
-    if(demo.ends){ const e = document.createElement('div'); e.className = 'end'; e.textContent = demo.ends.top; head.appendChild(e); }
+    const q = document.createElement('div'); q.className = 'q'; q.textContent = demo.ends ? demo.ends.top : demo.q;
+    head.appendChild(q); head.classList.toggle('ends', !!demo.ends);
+    head.style.left = demo.ends ? '50%' : ''; head.style.right = demo.ends ? 'auto' : '';
+    head.style.marginLeft = ''; head.style.width = demo.ends ? 'max-content' : '';
     headTop = Math.ceil(head.getBoundingClientRect().height) + 8;
     tbl = window.HubKit.table({ canvas, upright: !!(demo.shape && demo.shape.upright), sweepGrid: false,
                                 lowLatency: true, ceiling: headTop });
     tbl.resize();
+    window.__demo = { tbl, demo };   // the probe's window onto the table
   }
   function clear(){
     if(tbl.heldBy(ID)) tbl.drop(ID);
@@ -187,16 +194,18 @@
     foot.style.display = 'none';
     if(demo.ends){
       const last = tbl.slotBox((sh.rows || 1) - 1);
-      if(last){ foot.textContent = demo.ends.bottom; foot.style.top = Math.round(last.y + last.h / 2 + 8) + 'px'; }
+      if(last){ foot.textContent = demo.ends.bottom; foot.style.top = Math.round(last.y + last.h / 2 + 8) + 'px'; foot.style.display = 'block'; }
     }
+    if(demo.ends) head.style.marginLeft = (-head.getBoundingClientRect().width / 2) + 'px';   // centred over the ladder
   }
-  const deal = () => { tbl.setPieces(demo.tiles); if(demo.ends) foot.style.display = 'block'; };
+  const deal = () => tbl.setPieces(demo.tiles);
 
   /* The question first, on its own: it bursts in big in the middle of the screen,
      holds a moment, then swooshes up to its place and a yellow bar sweeps under it.
      The tiles only fall after that, so the eye meets the question before anything
      moves. */
   async function question(id){
+    if(demo.ends) return split(id);
     const h = head.getBoundingClientRect(), st = stage.getBoundingClientRect();
     const dy = (st.height * 0.42) - (h.top - st.top + h.height / 2);
     const big = `translateY(${dy}px) scale(1.7)`;
@@ -220,8 +229,36 @@
                { duration:900 / speed, easing:'ease-out', fill:'forwards' });
   }
 
-  // grip a tile low and to the right of its centre, so the finger never covers its label
-  const G = { x: 18, y: 10 };
+  /* A scale's question is its two ends. They burst in side by side in the middle of
+     the screen — "↑ biggest  smallest ↓" — hold a moment, then split: the top end
+     flies up to the top of the ladder, the bottom end down under its last rung, so
+     the class sees which way the ladder runs before a tile falls. */
+  async function split(id){
+    const st = stage.getBoundingClientRect(), h = head.getBoundingClientRect(), f = foot.getBoundingClientRect();
+    const gap = 18, W = h.width + f.width + gap, cy = st.top + st.height * 0.42, cx = st.left + st.width / 2;
+    const hx = (cx - W / 2 + h.width / 2) - (h.left + h.width / 2), hy = cy - (h.top + h.height / 2);
+    const fx = (cx + W / 2 - f.width / 2) - (f.left + f.width / 2), fy = cy - (f.top + f.height / 2);
+    [head, foot, hl].forEach(el => el.getAnimations().forEach(a => a.cancel()));
+    const pop = (dx, dy) => [{ opacity:0, transform:`translate(${dx}px, ${dy}px) scale(0.6)` },
+                             { opacity:1, transform:`translate(${dx}px, ${dy}px) scale(1.2)`, offset:0.7 },
+                             { opacity:1, transform:`translate(${dx}px, ${dy}px) scale(1.1)` }];
+    const o = { duration:T.qPop / speed, easing:'cubic-bezier(.2,1.3,.4,1)', fill:'forwards' };
+    head.animate(pop(hx, hy), o); foot.animate(pop(fx, fy), o);
+    await wait(T.qPop + T.qHold, id);
+    const fly = (dx, dy) => [{ transform:`translate(${dx}px, ${dy}px) scale(1.1)`, filter:'blur(0)' },
+                             { transform:`translate(${dx * 0.4}px, ${dy * 0.4}px) scale(1.05)`, filter:'blur(1.5px)', offset:0.45 },
+                             { transform:'none', filter:'blur(0)' }];
+    const o2 = { duration:(T.qFly + 120) / speed, easing:'cubic-bezier(.6,0,.3,1)', fill:'forwards' };
+    head.animate(fly(hx, hy), o2); foot.animate(fly(fx, fy), o2);
+    await wait(T.qFly + 120, id);
+  }
+
+  /* Grip a tile at its CENTRE. Gripped off-centre a word tile hangs like a pendulum
+     and swings under gravity, so it is still moving when the finger lets go and the
+     table reads a throw, not a place — the tile bounced back out. The finger is only
+     DRAWN low and right of the grip (F), so its tip never covers the word. */
+  const G = { x: 0, y: 0 };
+  const F = { x: 16, y: 14 };
   const grip = p => ({ x: p.x + G.x, y: p.y + G.y });
   const tileOf = ch => tbl.loose().find(p => p.ch === ch);
 
@@ -246,11 +283,22 @@
         const t = grip(tileOf(ch));
 
         // 2 · press: the finger dips, a ring spreads from the tip, and it takes hold
-        press.style.left = t.x + 'px'; press.style.top = t.y + 'px';
+        press.style.left = (t.x + F.x) + 'px'; press.style.top = (t.y + F.y) + 'px';
         press.animate([{ opacity:0.9, transform:'scale(0.3)' }, { opacity:0, transform:'scale(1.5)' }],
                       { duration: 420 / speed, easing:'ease-out' });
         await tween(T.press, id, e => fingerAt(t.x, t.y + 3 * e, 1 - 0.07 * e, -6));
-        if(!tbl.grab(ID, t.x, t.y)) continue;
+        /* Take hold of THIS tile. A grab takes the nearest tile to the point, and in a
+           heap two can overlap — the wrong one came up and was dragged off the table.
+           If it is not the one meant, let go and try again on its fresh centre. */
+        let held = false;
+        for(let k = 0; k < 4 && !held; k++){
+          const c = tileOf(ch); if(!c) break;
+          if(tbl.grab(ID, c.x, c.y)){
+            if(tbl.heldCh(ID) === ch) held = true;
+            else { tbl.drop(ID); await new Promise(r => requestAnimationFrame(r)); }
+          }
+        }
+        if(!held) continue;
 
         // 3 · push it into its slot at a hand's pace, a slight curve like a real thumb
         const slot = tbl.slotBox(slotIdx);
@@ -260,9 +308,22 @@
           const x = a.x + (b.x - a.x) * e + Math.sin(e * Math.PI) * bend, y = a.y + (b.y - a.y) * e;
           tbl.move(ID, x, y); fingerAt(x, y + 3, 0.93, -6);
         });
-        tbl.move(ID, b.x, b.y);
+        /* Home it: the grip is off-centre, and a tile that landed tilted or upside
+           down carries that offset rotated — so the tile's own centre is checked
+           against the slot's and the grip nudged until they meet, then let go. A
+           release that misses the slot is a demo teaching the wrong thing. */
+        let gx = b.x, gy = b.y;
+        for(let k = 0; k < 12; k++){
+          const h = tileOf(ch); if(!h) break;
+          const ex = slot.x - h.x, ey = slot.y - h.y;
+          if(Math.abs(ex) < 2 && Math.abs(ey) < 2) break;
+          gx += ex; gy += ey; tbl.move(ID, gx, gy); fingerAt(gx, gy + 3, 0.93, -6);
+          await new Promise(r => requestAnimationFrame(r));
+        }
         await wait(T.rest, id);
         tbl.drop(ID);
+        window.__demoLog && window.__demoLog(ch, tbl);
+        b.x = gx; b.y = gy;
         at = { x: b.x, y: b.y + 3 };
       }
 
