@@ -10,13 +10,16 @@
   intro beat, before the question appears: a finger playing one tiny example of the
   round, so a student knows what to do without reading a word.
 
-  Multiple Choice first, on the REAL table: the same Kit.table a phone runs for the
-  round's flick face (one slot, four word tiles, `count:1`, upright), dealt the same
-  way, so the tiles fall and pile exactly as a student will see them. The finger is
-  scripted through the shelf's own grab / move / drop — the path a student's thumb
-  takes — so the tile travels, docks and lands with the real physics, and the slot
-  goes green from the shelf's own setResult. The example is 2 + 2 so it needs no
-  English.
+  One demo per physics round, each on the REAL table: the same Kit.table a phone
+  runs for that round's flick face, with the slot shape the round's own arm sends
+  (Multiple Choice: one slot; Connections: a row of four; Word Thermometer: a
+  one-column ladder with its two ends; Drag the Words: a flowed word row; Drag the
+  Letters: square letter slots), dealt the same way, so the tiles fall and pile
+  exactly as a student will see them. The finger is scripted through the shelf's own
+  grab / move / drop — the path a student's thumb takes — so every tile travels,
+  docks and lands with the real physics, and the slots go green from the shelf's own
+  setResult. The question always arrives first and alone, then the tiles fall. The
+  examples need as little English as possible (2 + 2, a cat, numbers vs letters).
 
   Standalone, no relay, no hub. Nothing here is wired into a game yet; when the look
   is agreed the demo moves onto the round's own declaration and the intro beat plays
@@ -41,7 +44,14 @@
   #press { position:absolute; width:70px; height:70px; margin:-35px 0 0 -35px; border-radius:50%;
     border:4px solid rgba(255,255,255,0.9); opacity:0; pointer-events:none; z-index:3; }
 
-  #bar { display:flex; gap:10px; justify-content:center; padding:10px 16px calc(12px + env(safe-area-inset-bottom)); }
+  #head .end { font-size:0.42em; font-weight:700; color:var(--hd-muted); letter-spacing:0.08em; margin-top:4px; }
+  #foot { position:absolute; left:0; right:0; text-align:center; font-weight:700; color:var(--hd-muted);
+    letter-spacing:0.08em; font-size:1.05rem; pointer-events:none; z-index:2; display:none; }
+  #rounds { display:flex; gap:6px; padding:8px 10px 0; overflow-x:auto; scrollbar-width:none; }
+  #rounds::-webkit-scrollbar { display:none; }
+  #rounds button { flex:none; font:inherit; font-size:0.78rem; padding:7px 10px; cursor:pointer; color:var(--hd-paper); }
+  #rounds button.on { color:var(--hd-ink); }
+  #bar { display:flex; gap:10px; justify-content:center; padding:8px 16px calc(12px + env(safe-area-inset-bottom)); }
   #bar button { font:inherit; font-size:0.95rem; padding:10px 16px; cursor:pointer; }
   #bar button.slot-btn { color:var(--hd-paper); }
   #bar button.on { border-style:solid; border-color:var(--hd-yellow); }
@@ -52,6 +62,7 @@
   <canvas id="table"></canvas>
   <div id="head">2 + 2 = ?</div>
   <div id="hl"></div>
+  <div id="foot"></div>
   <div id="press"></div>
   <svg id="finger" viewBox="0 0 120 640" aria-hidden="true">
     <defs>
@@ -78,6 +89,7 @@
   </g>
   </svg>
 </div>
+<div id="rounds"></div>
 <div id="bar">
   <button id="replay" class="hd-tile yellow">↻ Replay</button>
   <button id="slow" class="hd-slot slot-btn">Slow</button>
@@ -89,27 +101,50 @@
 <script src="../game-hub/hub-table.js?v=20261120b"></script>
 <script>
 (function(){
-  /* ---- TIMING (ms) — the whole beat ---- */
+  /* ---- TIMING (ms) ---- */
   const T = {
     qPop: 220,       // the question bursts in, big, in the middle of the screen
     qHold: 380,      // …and stays there long enough to be read first
     qFly: 300,       // then it swooshes up to its place at the top
-    settle: 750,     // the answers fall and pile before the finger comes
-    rise: 420,       // the finger comes up out of the bottom edge to the tile
+    settle: 750,     // the tiles fall and pile before the finger comes
+    rise: 420,       // the finger comes up out of the bottom edge to the first tile
     press: 150,      // it presses down
-    drag: 560,       // it pushes the tile up into the slot, at a quick hand's pace
+    drag: 560,       // the first tile is pushed into its slot at a quick hand's pace
+    next: 300,       // the finger glides to the next tile…
+    dragNext: 400,   // …and every later tile goes in quicker: the idea is already shown
     rest: 110,       // a still moment over the slot so the release places, not flings
     sink: 350,       // the finger drops back out of the screen
-    hold: 1000       // look at the answer, then go again
+    hold: 1100       // look at the answer, then go again
   };
-  const OPTIONS = ['3', '5', '4', '6'];
-  const ANSWER = '4';
+
+  /* ---- THE DEMOS — one per physics round. `shape` is what that round's arm sends a
+     phone (the same fields join.html threads into Kit.table); `tiles` are dealt in
+     that order; `moves` are [tile label, slot index] in the order the finger plays
+     them. Labels match each round's own registered label. ---- */
+  const DEMOS = [
+    { id:'choice', label:'Multiple Choice', q:'2 + 2 = ?',
+      tiles:['3','5','4','6'], shape:{ cols:1, rows:1, count:1, bar:true, upright:true },
+      moves:[['4',0]] },
+    { id:'grouping', label:'Connections', q:'Find the 4 numbers',
+      tiles:['A','3','C','1','B','4','D','2'], shape:{ cols:4, rows:1, count:4, bar:true, upright:true },
+      moves:[['1',0],['2',1],['3',2],['4',3]] },
+    { id:'ordering', label:'Word Thermometer', q:'🐭 🐶 🐘', ends:{ top:'BIG ↑', bottom:'small ↓' },
+      tiles:['dog','mouse','elephant'], shape:{ cols:1, rows:3, bar:true },
+      moves:[['elephant',0],['dog',1],['mouse',2]] },
+    { id:'scramble', label:'Drag the Words', q:'Make the sentence',
+      tiles:['cats','I','like'], shape:{ cols:'auto', bar:true, upright:true },
+      moves:[['I',0],['like',1],['cats',2]] },
+    { id:'anagram', label:'Drag the Letters', q:'🐱',
+      tiles:['T','C','A'], shape:null,
+      moves:[['C',0],['A',1],['T',2]] }
+  ];
 
   const $ = s => document.querySelector(s);
-  const stage = $('#stage'), canvas = $('#table'), head = $('#head'), hl = $('#hl'), finger = $('#finger'), press = $('#press');
+  const stage = $('#stage'), canvas = $('#table'), head = $('#head'), hl = $('#hl'), foot = $('#foot'),
+        finger = $('#finger'), press = $('#press');
   const TIP = { x:60, y:14 };   // the fingertip inside the SVG
   const ID = 'demo';            // the pointer id the script grabs with
-  let tbl = null, speed = 1, run = 0;
+  let tbl = null, speed = 1, run = 0, demo = DEMOS[0], headTop = 0;
 
   const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   const fingerAt = (x, y, s, tilt) =>
@@ -129,28 +164,37 @@
     })();
   });
 
+  /* Build the table for the chosen round: the question (and a ladder's top end) in
+     the overlay, the table's roof under it, and the slots the round's arm declares —
+     exactly join.html's order: slots before pieces, labels defaulting to the tiles. */
   function build(){
-    /* The phone's own table for a Multiple Choice flick: the shape the round's arm
-       sends (cols 1, rows 1, count 1, bar, upright), slots before pieces. */
-    const headTop = Math.ceil(head.getBoundingClientRect().height) + 8;
-    tbl = window.HubKit.table({ canvas, upright: true, sweepGrid: false, lowLatency: true, ceiling: headTop });
+    head.innerHTML = '';
+    const q = document.createElement('div'); q.className = 'q'; q.textContent = demo.q; head.appendChild(q);
+    if(demo.ends){ const e = document.createElement('div'); e.className = 'end'; e.textContent = demo.ends.top; head.appendChild(e); }
+    headTop = Math.ceil(head.getBoundingClientRect().height) + 8;
+    tbl = window.HubKit.table({ canvas, upright: !!(demo.shape && demo.shape.upright), sweepGrid: false,
+                                lowLatency: true, ceiling: headTop });
     tbl.resize();
-    tbl.slots({ cols:1, rows:1, bar:true, labels:OPTIONS, count:1, top:headTop });
-    tbl.setPieces(OPTIONS);
   }
-
-  // Clear the table to an empty slot; the answers are dealt once the question has landed.
   function clear(){
-    const headTop = Math.ceil(head.getBoundingClientRect().height) + 8;
+    if(tbl.heldBy(ID)) tbl.drop(ID);
     tbl.reset();
-    tbl.slots({ cols:1, rows:1, bar:true, labels:OPTIONS, count:1, top:headTop });
+    const sh = demo.shape;
+    tbl.slots(sh ? { cols: sh.cols, rows: sh.rows, count: sh.count, bar: sh.bar, labels: demo.tiles, top: headTop }
+                 : demo.tiles.length);
     tbl.setResult(null);
+    // the ladder's bottom end goes under its last rung, as join.html places it
+    foot.style.display = 'none';
+    if(demo.ends){
+      const last = tbl.slotBox((sh.rows || 1) - 1);
+      if(last){ foot.textContent = demo.ends.bottom; foot.style.top = Math.round(last.y + last.h / 2 + 8) + 'px'; }
+    }
   }
-  const deal = () => tbl.setPieces(OPTIONS);
+  const deal = () => { tbl.setPieces(demo.tiles); if(demo.ends) foot.style.display = 'block'; };
 
   /* The question first, on its own: it bursts in big in the middle of the screen,
      holds a moment, then swooshes up to its place and a yellow bar sweeps under it.
-     The answers only fall after that, so the eye meets the question before anything
+     The tiles only fall after that, so the eye meets the question before anything
      moves. */
   async function question(id){
     const h = head.getBoundingClientRect(), st = stage.getBoundingClientRect();
@@ -176,64 +220,84 @@
                { duration:900 / speed, easing:'ease-out', fill:'forwards' });
   }
 
+  // grip a tile low and to the right of its centre, so the finger never covers its label
+  const G = { x: 18, y: 10 };
+  const grip = p => ({ x: p.x + G.x, y: p.y + G.y });
+  const tileOf = ch => tbl.loose().find(p => p.ch === ch);
+
   async function play(){
     const id = ++run;
-    if(tbl.heldBy(ID)) tbl.drop(ID);
     clear();
-    const park = offscreen(stage.clientWidth / 2);
-    fingerAt(park.x, park.y);
+    let at = offscreen(stage.clientWidth / 2);
+    fingerAt(at.x, at.y);
     try {
       await question(id);
       deal();
       await wait(T.settle, id);
 
-      // 1 · the finger rises out of the bottom edge to the right answer, wherever it landed
-      const tile = () => tbl.loose().find(p => p.ch === ANSWER);
-      // grip the tile low and to the right, so the finger never covers the answer
-      const G = { x: 24, y: 12 };
-      const grip = p => ({ x: p.x + G.x, y: p.y + G.y });
-      let t0 = tile(); if(!t0) return;
-      let t = grip(t0);
-      const from = offscreen(t.x);
-      await tween(T.rise, id, e => { const p = tile() ? grip(tile()) : t;
-        fingerAt(from.x + (p.x - from.x) * e, from.y + (p.y - from.y) * e, 1, -14 + 8 * e); });
-      t = tile() ? grip(tile()) : t;
+      for(let m = 0; m < demo.moves.length; m++){
+        const [ch, slotIdx] = demo.moves[m], first = m === 0;
+        if(!tileOf(ch)) continue;
+        // 1 · reach the tile: rise out of the bottom edge the first time, glide after that
+        const from = first ? offscreen(grip(tileOf(ch)).x) : at;
+        await tween(first ? T.rise : T.next, id, e => { const p = tileOf(ch) ? grip(tileOf(ch)) : from;
+          fingerAt(from.x + (p.x - from.x) * e, from.y + (p.y - from.y) * e, first ? 1 : 0.93, first ? -14 + 8 * e : -6); });
+        if(!tileOf(ch)) continue;
+        const t = grip(tileOf(ch));
 
-      // 2 · press: the finger dips, a ring spreads from the tip, and it takes hold
-      press.style.left = t.x + 'px'; press.style.top = t.y + 'px';
-      press.animate([{ opacity:0.9, transform:'scale(0.3)' }, { opacity:0, transform:'scale(1.5)' }],
-                    { duration: 420 / speed, easing:'ease-out' });
-      await tween(T.press, id, e => fingerAt(t.x, t.y + 3 * e, 1 - 0.07 * e, -6));
-      if(!tbl.grab(ID, t.x, t.y)) return;
+        // 2 · press: the finger dips, a ring spreads from the tip, and it takes hold
+        press.style.left = t.x + 'px'; press.style.top = t.y + 'px';
+        press.animate([{ opacity:0.9, transform:'scale(0.3)' }, { opacity:0, transform:'scale(1.5)' }],
+                      { duration: 420 / speed, easing:'ease-out' });
+        await tween(T.press, id, e => fingerAt(t.x, t.y + 3 * e, 1 - 0.07 * e, -6));
+        if(!tbl.grab(ID, t.x, t.y)) continue;
 
-      // 3 · push it up into the slot at a hand's pace, a slight curve like a real thumb
-      const slot = tbl.slotBox(0);
-      const a = { x: t.x, y: t.y }, b = { x: slot.x + G.x, y: slot.y + G.y };
-      await tween(T.drag, id, e => {
-        const x = a.x + (b.x - a.x) * e + Math.sin(e * Math.PI) * 18, y = a.y + (b.y - a.y) * e;
-        tbl.move(ID, x, y); fingerAt(x, y + 3, 0.93, -6);
-      });
-      tbl.move(ID, b.x, b.y);
-      await wait(T.rest, id);
+        // 3 · push it into its slot at a hand's pace, a slight curve like a real thumb
+        const slot = tbl.slotBox(slotIdx);
+        const a = { x: t.x, y: t.y }, b = { x: slot.x + G.x, y: slot.y + G.y };
+        const bend = Math.sign(b.x - a.x || 1) * -16;
+        await tween(first ? T.drag : T.dragNext, id, e => {
+          const x = a.x + (b.x - a.x) * e + Math.sin(e * Math.PI) * bend, y = a.y + (b.y - a.y) * e;
+          tbl.move(ID, x, y); fingerAt(x, y + 3, 0.93, -6);
+        });
+        tbl.move(ID, b.x, b.y);
+        await wait(T.rest, id);
+        tbl.drop(ID);
+        at = { x: b.x, y: b.y + 3 };
+      }
 
-      // 4 · let go: a still release places it, the slot goes green
-      tbl.drop(ID);
+      // 4 · every slot right: the shelf paints it green; the finger leaves
       tbl.setResult('right');
-      const out = offscreen(b.x);
-      await tween(T.sink, id, e => fingerAt(b.x + (out.x - b.x) * e, b.y + 3 + (out.y - b.y) * e, 0.93 + 0.07 * e, -6 - 8 * e));
+      const out = offscreen(at.x);
+      await tween(T.sink, id, e => fingerAt(at.x + (out.x - at.x) * e, at.y + (out.y - at.y) * e, 0.93 + 0.07 * e, -6 - 8 * e));
 
       await wait(T.hold, id);
       play();
     } catch(_){ /* a newer run took over */ }
   }
 
+  function choose(d){
+    demo = d; run++;
+    [...document.querySelectorAll('#rounds button')].forEach(b => {
+      const on = b.dataset.id === d.id; b.classList.toggle('on', on);
+      b.className = (on ? 'hd-tile yellow on' : 'hd-slot');
+    });
+    build(); play();
+  }
+  DEMOS.forEach(d => {
+    const b = document.createElement('button'); b.dataset.id = d.id; b.textContent = d.label; b.className = 'hd-slot';
+    b.onclick = () => choose(d); $('#rounds').appendChild(b);
+  });
+
   (function loop(){ if(tbl){ tbl.step(); tbl.draw(); } requestAnimationFrame(loop); })();
 
   $('#replay').onclick = () => play();
   $('#slow').onclick = e => { speed = speed === 1 ? 0.5 : 1; e.currentTarget.classList.toggle('on', speed !== 1); play(); };
-  let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { tbl.resize(); play(); }, 200); });
+  let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { build(); play(); }, 200); });
 
-  requestAnimationFrame(() => { build(); play(); });
+  // ?round=<id> opens straight on one demo
+  const want = new URLSearchParams(location.search).get('round');
+  requestAnimationFrame(() => choose(DEMOS.find(d => d.id === want) || DEMOS[0]));
 })();
 </script>
 </body>
